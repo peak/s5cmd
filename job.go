@@ -8,7 +8,6 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	"strings"
 )
 
 type JobArgument struct {
@@ -63,11 +62,15 @@ func (j *Job) Run(svc *s3.S3) error {
 		return err
 
 	case OP_SHELL_EXEC:
-		if len(j.args) > 1 {
-			parts := strings.Split(j.args[1].arg, " ")
-			return exec.Command(j.args[0].arg, parts...).Run()
+		strArgs := make([]string, 0)
+
+		for i, a := range j.args {
+			if i == 0 {
+				continue
+			}
+			strArgs = append(strArgs, a.arg)
 		}
-		return exec.Command(j.args[0].arg).Run()
+		return exec.Command(j.args[0].arg, strArgs...).Run()
 
 	// S3 operations
 	case OP_COPY:

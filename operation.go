@@ -21,6 +21,7 @@ type ParamType int
 
 const (
 	PARAM_UNCHECKED ParamType = iota
+	PARAM_UNCHECKED_ONE_OR_MORE
 	PARAM_S3OBJ
 	PARAM_S3OBJORDIR
 	PARAM_FILEOBJ
@@ -43,8 +44,7 @@ var commands = []commandMap{
 	{"local-cp", OP_LOCAL_COPY, []ParamType{PARAM_FILEOBJ, PARAM_FILEORDIR}},
 	{"local-mv", OP_LOCAL_MOVE, []ParamType{PARAM_FILEOBJ, PARAM_FILEORDIR}},
 	{"local-rm", OP_LOCAL_DELETE, []ParamType{PARAM_FILEOBJ}},
-	{"exec", OP_SHELL_EXEC, []ParamType{PARAM_UNCHECKED}},
-	{"exec", OP_SHELL_EXEC, []ParamType{PARAM_UNCHECKED, PARAM_UNCHECKED}},
+	{"exec", OP_SHELL_EXEC, []ParamType{PARAM_UNCHECKED_ONE_OR_MORE}},
 }
 
 func (o Operation) String() string {

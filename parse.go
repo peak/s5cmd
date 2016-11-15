@@ -33,7 +33,7 @@ func parseS3Url(object string) (*s3url, error) {
 
 func parseArgumentByType(s string, t ParamType) (*JobArgument, error) {
 	switch t {
-	case PARAM_UNCHECKED:
+	case PARAM_UNCHECKED, PARAM_UNCHECKED_ONE_OR_MORE:
 		return &JobArgument{s, nil}, nil
 
 	case PARAM_S3OBJ, PARAM_S3OBJORDIR:
@@ -67,6 +67,12 @@ func parseArgumentByType(s string, t ParamType) (*JobArgument, error) {
 }
 
 func ParseJob(jobdesc string) (*Job, error) {
+
+	// Get rid of double or more spaces
+	jobdesc = strings.Replace(jobdesc, "  ", " ", -1)
+	jobdesc = strings.Replace(jobdesc, "  ", " ", -1)
+	jobdesc = strings.Replace(jobdesc, "  ", " ", -1)
+
 	parts := strings.Split(jobdesc, " ")
 	if len(parts) == 0 {
 		return nil, errors.New("Empty job description")
@@ -78,6 +84,20 @@ func ParseJob(jobdesc string) (*Job, error) {
 	for _, c := range commands {
 		if parts[0] == c.keyword {
 			found = true
+
+			if len(c.params) == 1 && c.params[0] == PARAM_UNCHECKED_ONE_OR_MORE { // special case for exec
+				ourJob.operation = c.operation
+				ourJob.args = []*JobArgument{}
+
+				for i, s := range parts {
+					if i == 0 {
+						continue
+					}
+					ourJob.args = append(ourJob.args, &JobArgument{s, nil})
+				}
+
+				return ourJob, nil
+			}
 
 			if len(parts)-1 != len(c.params) { // check if param counts match
 				continue

@@ -55,14 +55,15 @@ func (p *WorkerPool) runWorker() {
 			if !ok { // channel closed
 				break
 			}
-			if job == nil {
-				continue
-			}
-			err := job.Run(s3svc)
-			if err != nil {
-				log.Printf(`-ERR "%s": %v`, job, err)
-			} else {
-				log.Printf(`+OK "%s"`, job)
+			for job != nil {
+				err := job.Run(s3svc)
+				if err != nil {
+					log.Printf(`-ERR "%s": %v`, job, err)
+					job = job.failCommand
+				} else {
+					log.Printf(`+OK "%s"`, job)
+					job = job.successCommand
+				}
 			}
 		case <-p.ctx.Done():
 			break

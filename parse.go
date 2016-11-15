@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/url"
+	"regexp"
 	"strings"
 )
 
@@ -66,12 +67,96 @@ func parseArgumentByType(s string, t ParamType) (*JobArgument, error) {
 	return nil, errors.New("Unhandled parseArgumentByType")
 }
 
+var (
+	// cmd && success-cmd || fail-cmd
+	regexCmdAndOr = regexp.MustCompile(`^\s*(.+?)\s*&&\s*(.+?)\s*\|\|\s*(.+?)\s*$`)
+	// cmd && success-cmd
+	regexCmdAnd = regexp.MustCompile(`^\s*(.+?)\s*&&\s*(.+?)\s*$`)
+	// cmd || fail-cmd
+	regexCmdOr = regexp.MustCompile(`^\s*(.+?)\s*\|\|\s*(.+?)\s*$`)
+)
+
 func ParseJob(jobdesc string) (*Job, error) {
 
 	// Get rid of double or more spaces
 	jobdesc = strings.Replace(jobdesc, "  ", " ", -1)
 	jobdesc = strings.Replace(jobdesc, "  ", " ", -1)
 	jobdesc = strings.Replace(jobdesc, "  ", " ", -1)
+
+	var (
+		j, s, f *Job
+		err     error
+	)
+
+	for {
+		res := regexCmdAndOr.FindStringSubmatch(jobdesc)
+		if res != nil {
+			j, err = parseSingleJob(res[1])
+			if err != nil {
+				return nil, err
+			}
+
+			s, err = parseSingleJob(res[2])
+			if err != nil {
+				return nil, err
+			}
+
+			f, err = parseSingleJob(res[3])
+			if err != nil {
+				return nil, err
+			}
+			break
+		}
+
+		res = regexCmdAnd.FindStringSubmatch(jobdesc)
+		if res != nil {
+
+			j, err = parseSingleJob(res[1])
+			if err != nil {
+				return nil, err
+			}
+
+			s, err = parseSingleJob(res[2])
+			if err != nil {
+				return nil, err
+			}
+			break
+		}
+
+		res = regexCmdOr.FindStringSubmatch(jobdesc)
+		if res != nil {
+
+			j, err = parseSingleJob(res[1])
+			if err != nil {
+				return nil, err
+			}
+
+			f, err = parseSingleJob(res[2])
+			if err != nil {
+				return nil, err
+			}
+			break
+		}
+
+		err = errors.New("Unhandled syntax")
+		break
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	j.successCommand = s
+	j.failCommand = f
+	return j, nil
+}
+
+func parseSingleJob(jobdesc string) (*Job, error) {
+	if strings.Contains(jobdesc, "&&") {
+		return nil, errors.New("Nested commands are not supported")
+	}
+	if strings.Contains(jobdesc, "||") {
+		return nil, errors.New("Nested commands are not supported")
+	}
 
 	parts := strings.Split(jobdesc, " ")
 	if len(parts) == 0 {

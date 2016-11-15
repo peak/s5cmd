@@ -78,6 +78,7 @@ var (
 
 func ParseJob(jobdesc string) (*Job, error) {
 
+	jobdesc = strings.TrimSpace(jobdesc)
 	// Get rid of double or more spaces
 	jobdesc = strings.Replace(jobdesc, "  ", " ", -1)
 	jobdesc = strings.Replace(jobdesc, "  ", " ", -1)
@@ -138,19 +139,27 @@ func ParseJob(jobdesc string) (*Job, error) {
 			break
 		}
 
-		err = errors.New("Unhandled syntax")
+		j, err = parseSingleJob(jobdesc)
+		s = nil
+		f = nil
 		break
 	}
 	if err != nil {
 		return nil, err
 	}
 
-	j.successCommand = s
-	j.failCommand = f
+	if j != nil {
+		j.successCommand = s
+		j.failCommand = f
+	}
 	return j, nil
 }
 
 func parseSingleJob(jobdesc string) (*Job, error) {
+	if jobdesc == "" || strings.HasPrefix(jobdesc, "#") {
+		return nil, nil // errors.New("Empty job description")
+	}
+
 	if strings.Contains(jobdesc, "&&") {
 		return nil, errors.New("Nested commands are not supported")
 	}
@@ -159,9 +168,6 @@ func parseSingleJob(jobdesc string) (*Job, error) {
 	}
 
 	parts := strings.Split(jobdesc, " ")
-	if len(parts) == 0 {
-		return nil, errors.New("Empty job description")
-	}
 
 	ourJob := &Job{sourceDesc: jobdesc}
 
@@ -211,7 +217,7 @@ func parseSingleJob(jobdesc string) (*Job, error) {
 	}
 
 	if found {
-		return nil, errors.New("Invalid parameters for command!")
+		return nil, fmt.Errorf(`Invalid parameters for command "%s"`, parts[0])
 	}
-	return nil, errors.New("Unknown command")
+	return nil, fmt.Errorf(`Unknown command "%s"`, parts[0])
 }

@@ -5,7 +5,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/termie/go-shutil"
-	"log"
 	"os"
 	"os/exec"
 )
@@ -45,7 +44,7 @@ func s3delete(svc *s3.S3, obj *s3url) error {
 }
 
 func (j *Job) Run(svc *s3.S3) error {
-	log.Printf("Running %v", j)
+	//log.Printf("Running %v", j)
 
 	switch j.operation {
 

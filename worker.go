@@ -20,6 +20,7 @@ type WorkerPool struct {
 	jobQueue   chan *Job
 	wg         *sync.WaitGroup
 	awsSession *session.Session
+	cancelFunc context.CancelFunc
 }
 
 func NewWorkerPool(ctx context.Context, params *WorkerPoolParams) *WorkerPool {
@@ -28,16 +29,19 @@ func NewWorkerPool(ctx context.Context, params *WorkerPoolParams) *WorkerPool {
 		log.Fatal(err)
 	}
 
+	ctx, cancelFunc := context.WithCancel(ctx)
+
 	p := &WorkerPool{
 		ctx:        ctx,
 		params:     params,
 		jobQueue:   make(chan *Job),
 		wg:         &sync.WaitGroup{},
 		awsSession: ses,
+		cancelFunc: cancelFunc,
 	}
 
-	p.wg.Add(1)
 	for i := 0; i < params.NumWorkers; i++ {
+		p.wg.Add(1)
 		go p.runWorker()
 	}
 
@@ -49,10 +53,12 @@ func (p *WorkerPool) runWorker() {
 
 	s3svc := s3.New(p.awsSession)
 
-	for {
+	run := true
+	for run {
 		select {
 		case job, ok := <-p.jobQueue:
 			if !ok { // channel closed
+				run = false
 				break
 			}
 			for job != nil {
@@ -66,11 +72,12 @@ func (p *WorkerPool) runWorker() {
 				}
 			}
 		case <-p.ctx.Done():
+			run = false
 			break
 		}
 	}
 
-	log.Println("Exiting goroutine")
+	//log.Println("Exiting goroutine")
 }
 
 func (p *WorkerPool) Run(filename string) {
@@ -91,13 +98,19 @@ func (p *WorkerPool) Run(filename string) {
 
 	s := NewCancelableScanner(p.ctx, r).Start()
 
-	for {
+	run := true
+	for run {
 		line, err := s.ReadOne()
 		if err != nil {
 			if err == context.Canceled || err == io.EOF {
+				if err == io.EOF {
+					p.cancelFunc()
+				}
+				run = false
 				break
 			}
 			log.Printf("Error reading: %v", err)
+			run = false
 			break
 		}
 
@@ -108,4 +121,7 @@ func (p *WorkerPool) Run(filename string) {
 		}
 		p.jobQueue <- job
 	}
+
+	//log.Print("Waiting...")
+	p.wg.Wait()
 }

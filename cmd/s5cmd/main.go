@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"github.com/peakgames/s5cmd"
 	"log"
 	"os"
@@ -11,11 +12,21 @@ import (
 	"syscall"
 )
 
+var (
+	GitSummary, GitBranch string
+)
+
 func main() {
 	cmdFile := flag.String("f", "-", "Commands-file or - for stdin")
 	numWorkers := flag.Int("numworkers", runtime.NumCPU(), "Number of worker goroutines.")
+	version := flag.Bool("version", false, "Prints current version")
 
 	flag.Parse()
+
+	if *version {
+		fmt.Printf("s5cmd version %s (from branch %s)\n", GitSummary, GitBranch)
+		os.Exit(0)
+	}
 
 	if *cmdFile == "" {
 		log.Fatal("Please specify all arguments.")

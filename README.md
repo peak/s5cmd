@@ -18,9 +18,11 @@ $ ./s5cmd --help
 
 Usage of ./s5cmd:
   -f string
-        Commands-file or - for stdin (default "-")
+        Commands-file or - for stdin (default stdin)
   -numworkers int
         Number of worker goroutines. (default runtime.NumCPU)
+  -version
+        Prints current version
 ```
 
 ### S3 Credentials

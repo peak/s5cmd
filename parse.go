@@ -27,7 +27,7 @@ func parseS3Url(object string) (*s3url, error) {
 	}
 	return &s3url{
 		u.Host,
-		u.Path,
+		strings.TrimLeft(u.Path, "/"),
 	}, nil
 }
 

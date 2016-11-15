@@ -60,7 +60,9 @@ func (p *WorkerPool) runWorker() {
 			}
 			err := job.Run(s3svc)
 			if err != nil {
-				log.Printf(`Error running job "%s": %v`, job, err)
+				log.Printf(`-ERR "%s": %v`, job, err)
+			} else {
+				log.Printf(`+OK "%s"`, job)
 			}
 		case <-p.ctx.Done():
 			break

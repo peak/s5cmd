@@ -47,7 +47,6 @@ func s3delete(svc *s3.S3, obj *s3url) error {
 func (j *Job) Run(svc *s3.S3) error {
 	log.Printf("Running %v", j)
 
-	// TODO Run successCommand or failCommand if any, if not, return
 	switch j.operation {
 
 	// Local operations

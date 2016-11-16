@@ -28,6 +28,7 @@ type WorkerParams struct {
 	s3svc *s3.S3
 	s3dl  *s3manager.Downloader
 	s3ul  *s3manager.Uploader
+	ctx   context.Context
 }
 
 func NewWorkerPool(ctx context.Context, params *WorkerPoolParams) *WorkerPool {
@@ -36,7 +37,7 @@ func NewWorkerPool(ctx context.Context, params *WorkerPoolParams) *WorkerPool {
 		log.Fatal(err)
 	}
 
-	ctx, cancelFunc := context.WithCancel(ctx)
+	cancelFunc := ctx.Value("cancelFunc").(context.CancelFunc)
 
 	p := &WorkerPool{
 		ctx:        ctx,
@@ -63,6 +64,7 @@ func (p *WorkerPool) runWorker() {
 		// Give each worker its own s3manager
 		s3manager.NewDownloader(p.awsSession),
 		s3manager.NewUploader(p.awsSession),
+		p.ctx,
 	}
 
 	run := true
@@ -89,7 +91,7 @@ func (p *WorkerPool) runWorker() {
 		}
 	}
 
-	//log.Println("Exiting goroutine")
+	//log.Print("Exiting goroutine")
 }
 
 func (p *WorkerPool) Run(filename string) {
@@ -131,7 +133,12 @@ func (p *WorkerPool) Run(filename string) {
 			log.Print(`Could not parse line "`, line, `": `, err)
 			continue
 		}
-		p.jobQueue <- job
+		select {
+		case <-p.ctx.Done():
+			run = false
+			break
+		case p.jobQueue <- job:
+		}
 	}
 
 	//log.Print("Waiting...")

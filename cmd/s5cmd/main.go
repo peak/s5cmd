@@ -32,7 +32,16 @@ func main() {
 		log.Fatal("Please specify all arguments.")
 	}
 
-	ctx, cancelFunc := context.WithCancel(context.Background())
+	parentCtx, cancelFunc := context.WithCancel(context.Background())
+
+	var exitCode int
+	exitFunc := func(code int) {
+		//log.Printf("Called exitFunc with code %d", code)
+		exitCode = code
+		cancelFunc()
+	}
+
+	ctx := context.WithValue(context.WithValue(parentCtx, "exitFunc", exitFunc), "cancelFunc", cancelFunc)
 
 	go func() {
 		ch := make(chan os.Signal, 1)
@@ -47,5 +56,6 @@ func main() {
 			NumWorkers: *numWorkers,
 		}).Run(*cmdFile)
 
-	log.Println("Exiting")
+	log.Printf("Exiting with code %d", exitCode)
+	os.Exit(exitCode)
 }

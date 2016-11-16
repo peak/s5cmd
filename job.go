@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 )
 
 type JobArgument struct {
@@ -130,6 +131,24 @@ func (j *Job) Run(wp *WorkerParams) error {
 			Body:   f,
 		})
 		return err
+
+	case OP_ABORT:
+		var (
+			exitCode int64 = 0
+			err      error
+		)
+
+		if len(j.args) > 0 {
+			exitCode, err = strconv.ParseInt(j.args[0].arg, 10, 8)
+			if err != nil {
+				exitCode = 255
+			}
+		}
+
+		ef := wp.ctx.Value("exitFunc").(func(int))
+		ef(int(exitCode))
+
+		return nil
 
 	// Unhandled
 	default:

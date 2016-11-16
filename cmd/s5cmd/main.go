@@ -17,8 +17,13 @@ var (
 )
 
 func main() {
-	cmdFile := flag.String("f", "-", "Commands-file or - for stdin")
-	numWorkers := flag.Int("numworkers", runtime.NumCPU(), "Number of worker goroutines.")
+	var (
+		numWorkers int
+		cmdFile    string
+	)
+
+	flag.StringVar(&cmdFile, "f", "-", "Commands-file or - for stdin")
+	flag.IntVar(&numWorkers, "numworkers", 256, fmt.Sprintf("Number of worker goroutines. Negative numbers mean multiples of runtime.NumCPU (currently %d)", runtime.NumCPU()))
 	version := flag.Bool("version", false, "Prints current version")
 
 	flag.Parse()
@@ -28,9 +33,15 @@ func main() {
 		os.Exit(0)
 	}
 
-	if *cmdFile == "" {
+	if cmdFile == "" || numWorkers == 0 {
 		log.Fatal("Please specify all arguments.")
+		os.Exit(1)
 	}
+
+	if numWorkers < 0 {
+		numWorkers = runtime.NumCPU() * -numWorkers
+	}
+	log.Printf("Using %d workers", numWorkers)
 
 	parentCtx, cancelFunc := context.WithCancel(context.Background())
 
@@ -47,14 +58,14 @@ func main() {
 		ch := make(chan os.Signal, 1)
 		signal.Notify(ch, os.Interrupt, syscall.SIGTERM)
 		<-ch
-		log.Println("Got signal, cleaning up...")
+		log.Print("Got signal, cleaning up...")
 		cancelFunc()
 	}()
 
 	s5cmd.NewWorkerPool(ctx,
 		&s5cmd.WorkerPoolParams{
-			NumWorkers: *numWorkers,
-		}).Run(*cmdFile)
+			NumWorkers: numWorkers,
+		}).Run(cmdFile)
 
 	log.Printf("Exiting with code %d", exitCode)
 	os.Exit(exitCode)

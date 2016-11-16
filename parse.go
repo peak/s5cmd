@@ -172,7 +172,7 @@ func ParseJob(jobdesc string) (*Job, error) {
 }
 
 func parseSingleJob(jobdesc string) (*Job, error) {
-	if jobdesc == "" {
+	if jobdesc == "" || strings.HasPrefix(jobdesc, "#") {
 		return nil, nil // errors.New("Empty job description")
 	}
 

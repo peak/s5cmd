@@ -12,7 +12,8 @@ import (
 )
 
 type WorkerPoolParams struct {
-	NumWorkers int
+	NumWorkers     int
+	ChunkSizeBytes int64
 }
 
 type WorkerPool struct {
@@ -25,10 +26,11 @@ type WorkerPool struct {
 }
 
 type WorkerParams struct {
-	s3svc *s3.S3
-	s3dl  *s3manager.Downloader
-	s3ul  *s3manager.Uploader
-	ctx   context.Context
+	s3svc      *s3.S3
+	s3dl       *s3manager.Downloader
+	s3ul       *s3manager.Uploader
+	ctx        context.Context
+	poolParams *WorkerPoolParams
 }
 
 func NewWorkerPool(ctx context.Context, params *WorkerPoolParams) *WorkerPool {
@@ -63,8 +65,11 @@ func (p *WorkerPool) runWorker() {
 		s3.New(p.awsSession),
 		// Give each worker its own s3manager
 		s3manager.NewDownloader(p.awsSession),
-		s3manager.NewUploader(p.awsSession),
+		s3manager.NewUploader(p.awsSession, func(u *s3manager.Uploader) {
+			u.PartSize = p.params.ChunkSizeBytes
+		}),
 		p.ctx,
+		p.params,
 	}
 
 	run := true

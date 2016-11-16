@@ -17,6 +17,8 @@ in the root directory and you'll get a binary named `s5cmd`.
 $ ./s5cmd --help
 
 Usage of ./s5cmd:
+  -cs int
+    	Multipart chunk size in MB for uploads (default 5)
   -f string
         Commands-file or - for stdin (default stdin)
   -numworkers int

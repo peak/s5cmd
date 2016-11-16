@@ -34,16 +34,20 @@ S3 urls should be in the format `s3://bucket/key`
 
 - Copy object in S3 - `cp s3://from-bucket/from-key s3://to-bucket/[to-key]`
 - Move object in S3 - `mv s3://from-bucket/from-key s3://to-bucket/[to-key]`
-- Delete S3 object  - `del s3://del-bucket/del-key`
-- Copy local file - `local-cp /path/to/src/file /path/to/dest[/]`
-- Move local file - `local-mv /path/to/src/file /path/to/dest[/]`
-- Delete local file or (empty) directory - `local-rm /path/to/del`
-- Arbitrary shell-execute - `exec commands...`
+- Delete S3 object  - `rm s3://del-bucket/del-key`
+- Copy local file - `!cp /path/to/src/file /path/to/dest[/]`
+- Move local file - `!mv /path/to/src/file /path/to/dest[/]`
+- Delete local file or (empty) directory - `!rm /path/to/del`
+- Arbitrary shell-execute - `! commands...`
 - Download from S3 - `get s3://from-bucket/from-key [/path/to/dest[/]]`
 - Upload to S3 - `put /path/to/src s3://to-bucket/to-key[/]`
 - Exit - `exit [exitcode]`
 
-Comments start with a space followed by `#`. Empty lines are also ok.
+### Tips
+
+- `! cp` and `!cp` are two different commands, the latter does the copying in Go, the former probably executes `/bin/cp` 
+- Comments start with a space followed by `#`, as in " # This is a comment"
+- Empty lines are also ok
 
 ### Nested Commands (Basic)
 
@@ -52,17 +56,17 @@ Success and fail commands can be specified with `&&` and `||` operators. As the 
 If you want to move an object between s3 buckets and then delete a local file if successful, you can do this:
 
 ```
-mv s3://source-bkt/key s3://dest-bkt/key && local-rm /path/to/key
+mv s3://source-bkt/key s3://dest-bkt/key && !rm /path/to/key
 ```
 
 This is also valid:
 
 ```
-local-mv a b/ || exec touch could-not-move # This is a comment
+!mv a b/ || ! touch could-not-move # This is a comment
 ```
 
 This as well:
 ```
-exec touch a && exec touch a-touched || exec touch a-couldnotbetouched
+! touch a && ! touch a-touched || ! touch a-couldnotbetouched
 ```
 

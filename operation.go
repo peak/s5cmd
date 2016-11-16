@@ -42,11 +42,11 @@ var commands = []commandMap{
 	{"put", OP_UPLOAD, []ParamType{PARAM_FILEOBJ, PARAM_S3OBJORDIR}},
 	{"cp", OP_COPY, []ParamType{PARAM_S3OBJ, PARAM_S3OBJORDIR}},
 	{"mv", OP_MOVE, []ParamType{PARAM_S3OBJ, PARAM_S3OBJORDIR}},
-	{"del", OP_DELETE, []ParamType{PARAM_S3OBJ}},
-	{"local-cp", OP_LOCAL_COPY, []ParamType{PARAM_FILEOBJ, PARAM_FILEORDIR}},
-	{"local-mv", OP_LOCAL_MOVE, []ParamType{PARAM_FILEOBJ, PARAM_FILEORDIR}},
-	{"local-rm", OP_LOCAL_DELETE, []ParamType{PARAM_FILEOBJ}},
-	{"exec", OP_SHELL_EXEC, []ParamType{PARAM_UNCHECKED_ONE_OR_MORE}},
+	{"rm", OP_DELETE, []ParamType{PARAM_S3OBJ}},
+	{"!cp", OP_LOCAL_COPY, []ParamType{PARAM_FILEOBJ, PARAM_FILEORDIR}},
+	{"!mv", OP_LOCAL_MOVE, []ParamType{PARAM_FILEOBJ, PARAM_FILEORDIR}},
+	{"!rm", OP_LOCAL_DELETE, []ParamType{PARAM_FILEOBJ}},
+	{"!", OP_SHELL_EXEC, []ParamType{PARAM_UNCHECKED_ONE_OR_MORE}},
 }
 
 func (o Operation) String() string {

@@ -42,6 +42,8 @@ S3 urls should be in the format `s3://bucket/key`
 - TODO - Download from S3 - `get s3://from-bucket/from-key /path/to/dest[/]`
 - TODO - Upload to S3 - `put /path/to/src s3://to-bucket/to-key[/]`
 
+Comments start with a space followed by `#`. Empty lines are also ok.
+
 ### Nested Commands (Basic)
 
 Success and fail commands can be specified with `&&` and `||` operators. As the parser is pretty simple, multiple-level nested commands (doing something based on a result of a result) are not supported.
@@ -55,7 +57,7 @@ mv s3://source-bkt/key s3://dest-bkt/key && local-rm /path/to/key
 This is also valid:
 
 ```
-local-mv a b/ || exec touch could-not-move
+local-mv a b/ || exec touch could-not-move # This is a comment
 ```
 
 This as well:

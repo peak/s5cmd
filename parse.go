@@ -78,6 +78,7 @@ var (
 
 func ParseJob(jobdesc string) (*Job, error) {
 
+	jobdesc = strings.Split(jobdesc, " #")[0] // Get rid of comments
 	jobdesc = strings.TrimSpace(jobdesc)
 	// Get rid of double or more spaces
 	jobdesc = strings.Replace(jobdesc, "  ", " ", -1)
@@ -156,7 +157,7 @@ func ParseJob(jobdesc string) (*Job, error) {
 }
 
 func parseSingleJob(jobdesc string) (*Job, error) {
-	if jobdesc == "" || strings.HasPrefix(jobdesc, "#") {
+	if jobdesc == "" {
 		return nil, nil // errors.New("Empty job description")
 	}
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"io"
 	"log"
 	"os"
@@ -21,6 +22,12 @@ type WorkerPool struct {
 	wg         *sync.WaitGroup
 	awsSession *session.Session
 	cancelFunc context.CancelFunc
+}
+
+type WorkerParams struct {
+	s3svc *s3.S3
+	s3dl  *s3manager.Downloader
+	s3ul  *s3manager.Uploader
 }
 
 func NewWorkerPool(ctx context.Context, params *WorkerPoolParams) *WorkerPool {
@@ -51,7 +58,12 @@ func NewWorkerPool(ctx context.Context, params *WorkerPoolParams) *WorkerPool {
 func (p *WorkerPool) runWorker() {
 	defer p.wg.Done()
 
-	s3svc := s3.New(p.awsSession)
+	wp := WorkerParams{
+		s3.New(p.awsSession),
+		// Give each worker its own s3manager
+		s3manager.NewDownloader(p.awsSession),
+		s3manager.NewUploader(p.awsSession),
+	}
 
 	run := true
 	for run {
@@ -62,7 +74,7 @@ func (p *WorkerPool) runWorker() {
 				break
 			}
 			for job != nil {
-				err := job.Run(s3svc)
+				err := job.Run(&wp)
 				if err != nil {
 					log.Printf(`-ERR "%s": %v`, job, err)
 					job = job.failCommand

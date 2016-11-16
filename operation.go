@@ -37,6 +37,7 @@ type commandMap struct {
 var commands = []commandMap{
 	{"exit", OP_ABORT, []ParamType{}},
 	{"get", OP_DOWNLOAD, []ParamType{PARAM_S3OBJ}},
+	{"get", OP_DOWNLOAD, []ParamType{PARAM_S3OBJ, PARAM_FILEORDIR}},
 	{"put", OP_UPLOAD, []ParamType{PARAM_FILEOBJ, PARAM_S3OBJORDIR}},
 	{"cp", OP_COPY, []ParamType{PARAM_S3OBJ, PARAM_S3OBJORDIR}},
 	{"mv", OP_MOVE, []ParamType{PARAM_S3OBJ, PARAM_S3OBJORDIR}},

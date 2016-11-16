@@ -39,8 +39,8 @@ S3 urls should be in the format `s3://bucket/key`
 - Move local file - `local-mv /path/to/src/file /path/to/dest[/]`
 - Delete local file or (empty) directory - `local-rm /path/to/del`
 - Arbitrary shell-execute - `exec commands...`
-- TODO - Download from S3 - `get s3://from-bucket/from-key /path/to/dest[/]`
-- TODO - Upload to S3 - `put /path/to/src s3://to-bucket/to-key[/]`
+- Download from S3 - `get s3://from-bucket/from-key [/path/to/dest[/]]`
+- Upload to S3 - `put /path/to/src s3://to-bucket/to-key[/]`
 
 Comments start with a space followed by `#`. Empty lines are also ok.
 

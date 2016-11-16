@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/termie/go-shutil"
 	"os"
 	"os/exec"
+	"path/filepath"
 )
 
 type JobArgument struct {
@@ -49,7 +51,7 @@ func s3delete(svc *s3.S3, obj *s3url) error {
 	return err
 }
 
-func (j *Job) Run(svc *s3.S3) error {
+func (j *Job) Run(wp *WorkerParams) error {
 	//log.Printf("Running %v", j)
 
 	switch j.operation {
@@ -78,19 +80,56 @@ func (j *Job) Run(svc *s3.S3) error {
 
 	// S3 operations
 	case OP_COPY:
-		return s3copy(svc, j.args[0].s3, j.args[1].s3)
+		return s3copy(wp.s3svc, j.args[0].s3, j.args[1].s3)
 
 	case OP_MOVE:
-		err := s3copy(svc, j.args[0].s3, j.args[1].s3)
+		err := s3copy(wp.s3svc, j.args[0].s3, j.args[1].s3)
 		if err == nil {
-			err = s3delete(svc, j.args[0].s3)
-			// FIXME if err != nil try to rollback by deleting j.args[1].s3 ?
+			err = s3delete(wp.s3svc, j.args[0].s3)
+			// FIXME if err != nil try to rollback by deleting j.args[1].s3 ? What if we don't have permission to delete?
 		}
 
 		return err
 
 	case OP_DELETE:
-		return s3delete(svc, j.args[0].s3)
+		return s3delete(wp.s3svc, j.args[0].s3)
+
+	case OP_DOWNLOAD:
+		dest_fn := filepath.Base(j.args[0].arg)
+		if len(j.args) > 1 {
+			dest_fn = j.args[1].arg
+		}
+
+		f, err := os.Create(dest_fn)
+		if err != nil {
+			return err
+		}
+
+		_, err = wp.s3dl.Download(f, &s3.GetObjectInput{
+			Bucket: aws.String(j.args[0].s3.bucket),
+			Key:    aws.String(j.args[0].s3.key),
+		})
+
+		f.Close()
+		if err != nil {
+			os.Remove(dest_fn) // Remove partly downloaded file
+		}
+
+		return err
+
+	case OP_UPLOAD:
+		f, err := os.Open(j.args[0].arg)
+		if err != nil {
+			return err
+		}
+
+		defer f.Close()
+		_, err = wp.s3ul.Upload(&s3manager.UploadInput{
+			Bucket: aws.String(j.args[1].s3.bucket),
+			Key:    aws.String(j.args[1].s3.key),
+			Body:   f,
+		})
+		return err
 
 	// Unhandled
 	default:

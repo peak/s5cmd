@@ -31,9 +31,10 @@ type WorkerParams struct {
 	s3ul       *s3manager.Uploader
 	ctx        context.Context
 	poolParams *WorkerPoolParams
+	stats      *Stats
 }
 
-func NewWorkerPool(ctx context.Context, params *WorkerPoolParams) *WorkerPool {
+func NewWorkerPool(ctx context.Context, params *WorkerPoolParams, stats *Stats) *WorkerPool {
 	ses, err := session.NewSession()
 	if err != nil {
 		log.Fatal(err)
@@ -52,13 +53,13 @@ func NewWorkerPool(ctx context.Context, params *WorkerPoolParams) *WorkerPool {
 
 	for i := 0; i < params.NumWorkers; i++ {
 		p.wg.Add(1)
-		go p.runWorker()
+		go p.runWorker(stats)
 	}
 
 	return p
 }
 
-func (p *WorkerPool) runWorker() {
+func (p *WorkerPool) runWorker(stats *Stats) {
 	defer p.wg.Done()
 
 	wp := WorkerParams{
@@ -70,6 +71,7 @@ func (p *WorkerPool) runWorker() {
 		}),
 		p.ctx,
 		p.params,
+		stats,
 	}
 
 	run := true

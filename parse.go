@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/url"
+	"path/filepath"
 	"regexp"
 	"strings"
 )
@@ -32,7 +33,12 @@ func parseS3Url(object string) (*s3url, error) {
 	}, nil
 }
 
-func parseArgumentByType(s string, t ParamType) (*JobArgument, error) {
+func parseArgumentByType(s string, t ParamType, fnObj *JobArgument) (*JobArgument, error) {
+	fnBase := ""
+	if (t == PARAM_S3OBJORDIR || t == PARAM_FILEORDIR) && fnObj != nil {
+		fnBase = filepath.Base(fnObj.arg)
+	}
+
 	switch t {
 	case PARAM_UNCHECKED, PARAM_UNCHECKED_ONE_OR_MORE:
 		return &JobArgument{s, nil}, nil
@@ -42,10 +48,15 @@ func parseArgumentByType(s string, t ParamType) (*JobArgument, error) {
 		if err != nil {
 			return nil, err
 		}
+		endsInSlash := strings.HasSuffix(url.key, "/")
 		if t == PARAM_S3OBJ {
-			if strings.HasSuffix(url.key, "/") {
+			if endsInSlash {
 				return nil, errors.New("S3 key should not end with /")
 			}
+		}
+		if t == PARAM_S3OBJORDIR && endsInSlash && fnBase != "" {
+			url.key += fnBase
+			s += fnBase
 		}
 		return &JobArgument{s, url}, nil
 
@@ -55,10 +66,14 @@ func parseArgumentByType(s string, t ParamType) (*JobArgument, error) {
 		if err == nil {
 			return nil, errors.New("File param resembles s3 object")
 		}
+		endsInSlash := strings.HasSuffix(s, "/")
 		if t == PARAM_FILEOBJ {
-			if strings.HasSuffix(s, "/") {
+			if endsInSlash {
 				return nil, errors.New("File param should not end with /")
 			}
+		}
+		if t == PARAM_FILEORDIR && endsInSlash && fnBase != "" {
+			s += fnBase
 		}
 
 		return &JobArgument{s, nil}, nil
@@ -178,6 +193,7 @@ func parseSingleJob(jobdesc string) (*Job, error) {
 			found = true
 
 			if len(c.params) == 1 && c.params[0] == PARAM_UNCHECKED_ONE_OR_MORE { // special case for exec
+				ourJob.command = c.keyword
 				ourJob.operation = c.operation
 				ourJob.args = []*JobArgument{}
 
@@ -195,19 +211,25 @@ func parseSingleJob(jobdesc string) (*Job, error) {
 				continue
 			}
 
+			ourJob.command = c.keyword
 			ourJob.operation = c.operation
 			ourJob.args = []*JobArgument{}
+
+			var fnObj *JobArgument
 
 			var err error = nil
 			for i, t := range c.params { // check if param types match
 				var a *JobArgument
-				a, err = parseArgumentByType(parts[i+1], t)
+				a, err = parseArgumentByType(parts[i+1], t, fnObj)
 				if err != nil {
 					log.Print("Error parsing arg ", t, err)
 					break
 				}
 				ourJob.args = append(ourJob.args, a)
 
+				if (t == PARAM_S3OBJ || t == PARAM_FILEOBJ) && fnObj == nil {
+					fnObj = a
+				}
 			}
 			if err != nil {
 				continue // not our command, try another

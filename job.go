@@ -15,15 +15,21 @@ type JobArgument struct {
 }
 
 type Job struct {
-	sourceDesc     string
+	sourceDesc     string // Source job description which we parsed this from
+	command        string // Different from operation, as multiple commands can map to the same op
 	operation      Operation
 	args           []*JobArgument
 	successCommand *Job
 	failCommand    *Job
 }
 
-func (j Job) String() string {
-	return j.sourceDesc
+func (j Job) String() (s string) {
+	s = j.command
+	for _, a := range j.args {
+		s += " " + a.arg
+	}
+	//s += " # from " + j.sourceDesc
+	return
 }
 
 func s3copy(svc *s3.S3, src, dst *s3url) error {

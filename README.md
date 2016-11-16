@@ -32,8 +32,8 @@ Provide S3 credentials with the environment variables `AWS_ACCESS_KEY_ID`, `AWS_
 
 S3 urls should be in the format `s3://bucket/key`
 
-- Copy object in S3 - `cp s3://from-bucket/from-key s3://to-bucket/to-key`
-- Move object in S3 - `mv s3://from-bucket/from-key s3://to-bucket/to-key`
+- Copy object in S3 - `cp s3://from-bucket/from-key s3://to-bucket/[to-key]`
+- Move object in S3 - `mv s3://from-bucket/from-key s3://to-bucket/[to-key]`
 - Delete S3 object  - `del s3://del-bucket/del-key`
 - Copy local file - `local-cp /path/to/src/file /path/to/dest[/]`
 - Move local file - `local-mv /path/to/src/file /path/to/dest[/]`

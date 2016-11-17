@@ -2,18 +2,22 @@ package s5cmd
 
 import (
 	"context"
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"github.com/cenkalti/backoff"
 	"io"
 	"log"
 	"os"
 	"sync"
+	"time"
 )
 
 type WorkerPoolParams struct {
 	NumWorkers     int
 	ChunkSizeBytes int64
+	Retries        int
 }
 
 type WorkerPool struct {
@@ -35,7 +39,7 @@ type WorkerParams struct {
 }
 
 func NewWorkerPool(ctx context.Context, params *WorkerPoolParams, stats *Stats) *WorkerPool {
-	ses, err := session.NewSession()
+	ses, err := session.NewSession(aws.NewConfig().WithMaxRetries(params.Retries))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -74,6 +78,12 @@ func (p *WorkerPool) runWorker(stats *Stats) {
 		stats,
 	}
 
+	bkf := backoff.NewExponentialBackOff()
+	bkf.InitialInterval = time.Second
+	bkf.MaxInterval = time.Minute
+	bkf.Multiplier = 2
+	bkf.Reset()
+
 	run := true
 	for run {
 		select {
@@ -82,15 +92,30 @@ func (p *WorkerPool) runWorker(stats *Stats) {
 				run = false
 				break
 			}
+			tries := 0
 			for job != nil {
 				err := job.Run(&wp)
 				if err != nil {
+					if IsRatelimitError(err) && p.params.Retries > 0 && tries < p.params.Retries {
+						tries++
+						sleepTime := bkf.NextBackOff()
+						log.Printf(`?Ratelimit "%s", sleep for %v`, job, sleepTime)
+						select {
+						case <-time.After(sleepTime):
+							continue
+						case <-p.ctx.Done():
+							run = false // if Canceled during sleep, report ERR and immediately process failCommand
+						}
+					}
+
 					log.Printf(`-ERR "%s": %v`, job, err)
 					job = job.failCommand
 				} else {
 					log.Printf(`+OK "%s"`, job)
 					job = job.successCommand
 				}
+				tries = 0
+				bkf.Reset()
 			}
 		case <-p.ctx.Done():
 			run = false

@@ -40,6 +40,7 @@ func main() {
 		numWorkers         int
 		cmdFile            string
 		multipartChunkSize int
+		retries            int
 	)
 
 	defaultPartSize := int(math.Ceil(float64(s3manager.DefaultUploadPartSize) / bytesInMb)) // Convert to MB
@@ -47,6 +48,7 @@ func main() {
 	flag.StringVar(&cmdFile, "f", "-", "Commands-file or - for stdin")
 	flag.IntVar(&numWorkers, "numworkers", 256, fmt.Sprintf("Number of worker goroutines. Negative numbers mean multiples of runtime.NumCPU (currently %d)", runtime.NumCPU()))
 	flag.IntVar(&multipartChunkSize, "cs", defaultPartSize, "Multipart chunk size in MB for uploads")
+	flag.IntVar(&retries, "r", 10, "Retry S3 operations N times before failing")
 	version := flag.Bool("version", false, "Prints current version")
 
 	flag.Parse()
@@ -56,7 +58,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	if cmdFile == "" || numWorkers == 0 || multipartChunkSize < 1 {
+	if cmdFile == "" || numWorkers == 0 || multipartChunkSize < 1 || retries < 0 {
 		log.Fatal("Please specify all arguments.")
 		os.Exit(1)
 	}
@@ -99,6 +101,7 @@ func main() {
 		&s5cmd.WorkerPoolParams{
 			NumWorkers:     numWorkers,
 			ChunkSizeBytes: multipartChunkSizeBytes,
+			Retries:        retries,
 		}, &s).Run(cmdFile)
 
 	elapsed := time.Since(startTime)

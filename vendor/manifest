@@ -10,6 +10,14 @@
 			"notests": true
 		},
 		{
+			"importpath": "github.com/cenkalti/backoff",
+			"repository": "https://github.com/cenkalti/backoff",
+			"vcs": "git",
+			"revision": "b02f2bbce11d7ea6b97f282ef1771b0fe2f65ef3",
+			"branch": "master",
+			"notests": true
+		},
+		{
 			"importpath": "github.com/gopherjs/gopherjs/js",
 			"repository": "https://github.com/gopherjs/gopherjs",
 			"vcs": "git",

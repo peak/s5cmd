@@ -55,6 +55,19 @@ S3 urls should be in the format `s3://bucket/key`
 - `-numworkers -1` means use `runtime.NumCPU` goroutines. `-2` means `2*runtime.NumCPU` and so on.
 - The S3 throttling error `SlowDown` is exponentially retried. "Retryable operations" as specified by the AWS SDK (currently `RequestError` and `RequestError`) are retried by the SDK.
 
+### Output
+
+The general output is in the format:
+```
+DATE TIME Short-Msg Detailed-Msg
+```
+
+ - Trivial messages start with `#`, like number of workers or exit code and statistics
+ - `+OK` for successful operations: `+OK "! touch touch-this-file"`
+ - `-ERR` for failed operations: `-ERR "! touche": executable file not found in $PATH`
+ - `?Ratelimit` for rate-limited operations, which will be retried
+
+
 ### Nested Commands (Basic)
 
 Success and fail commands can be specified with `&&` and `||` operators. As the parser is pretty simple, multiple-level nested commands (doing something based on a result of a result) are not supported.

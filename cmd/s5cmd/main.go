@@ -30,7 +30,7 @@ func printOps(name string, counter uint64, elapsed time.Duration, extra string) 
 	}
 
 	ops := uint64(math.Floor((float64(counter) / secs) + 0.5))
-	log.Printf("Stats: %-6s %10d %4d ops/sec%s", name, counter, ops, extra)
+	log.Printf("# Stats: %-6s %10d %4d ops/sec%s", name, counter, ops, extra)
 }
 
 func main() {
@@ -59,13 +59,13 @@ func main() {
 	}
 
 	if cmdFile == "" || numWorkers == 0 || multipartChunkSize < 1 || retries < 0 {
-		log.Fatal("Please specify all arguments.")
+		log.Fatal("-ERR Please specify all arguments.")
 		os.Exit(1)
 	}
 
 	multipartChunkSizeBytes := int64(multipartChunkSize * int(bytesInMb))
 	if multipartChunkSizeBytes < s3manager.MinUploadPartSize {
-		log.Fatalf("Multipart chunk size should be bigger than %d", int(math.Ceil(float64(s3manager.MinUploadPartSize)/bytesInMb)))
+		log.Fatalf("-ERR Multipart chunk size should be bigger than %d", int(math.Ceil(float64(s3manager.MinUploadPartSize)/bytesInMb)))
 	}
 
 	if numWorkers < 0 {
@@ -74,7 +74,7 @@ func main() {
 
 	startTime := time.Now()
 
-	log.Printf("Using %d workers", numWorkers)
+	log.Printf("# Using %d workers", numWorkers)
 
 	parentCtx, cancelFunc := context.WithCancel(context.Background())
 
@@ -91,7 +91,7 @@ func main() {
 		ch := make(chan os.Signal, 1)
 		signal.Notify(ch, os.Interrupt, syscall.SIGTERM)
 		<-ch
-		log.Print("Got signal, cleaning up...")
+		log.Print("# Got signal, cleaning up...")
 		cancelFunc()
 	}()
 
@@ -106,7 +106,7 @@ func main() {
 
 	elapsed := time.Since(startTime)
 
-	log.Printf("Exiting with code %d", exitCode)
+	log.Printf("# Exiting with code %d", exitCode)
 
 	s3ops := s.Get(s5cmd.STATS_S3OP)
 	fileops := s.Get(s5cmd.STATS_FILEOP)

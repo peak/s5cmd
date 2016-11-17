@@ -108,7 +108,7 @@ func (p *WorkerPool) runWorker(stats *Stats) {
 						}
 					}
 
-					log.Printf(`-ERR "%s": %v`, job, err)
+					log.Printf(`-ERR "%s": %s`, job, CleanupError(err))
 					job = job.failCommand
 				} else {
 					log.Printf(`+OK "%s"`, job)
@@ -123,7 +123,7 @@ func (p *WorkerPool) runWorker(stats *Stats) {
 		}
 	}
 
-	//log.Print("Exiting goroutine")
+	//log.Print("# Exiting goroutine")
 }
 
 func (p *WorkerPool) Run(filename string) {
@@ -155,14 +155,14 @@ func (p *WorkerPool) Run(filename string) {
 				run = false
 				break
 			}
-			log.Printf("Error reading: %v", err)
+			log.Printf("-ERR Error reading: %v", err)
 			run = false
 			break
 		}
 
 		job, err := ParseJob(line)
 		if err != nil {
-			log.Print(`Could not parse line "`, line, `": `, err)
+			log.Print(`-ERR "`, line, `": `, err)
 			continue
 		}
 		select {
@@ -173,6 +173,6 @@ func (p *WorkerPool) Run(filename string) {
 		}
 	}
 
-	//log.Print("Waiting...")
+	//log.Print("# Waiting...")
 	p.wg.Wait()
 }

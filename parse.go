@@ -3,7 +3,6 @@ package s5cmd
 import (
 	"errors"
 	"fmt"
-	"log"
 	"net/url"
 	"path/filepath"
 	"regexp"
@@ -25,7 +24,7 @@ func parseS3Url(object string) (*s3url, error) {
 		return nil, err
 	}
 	if u.Scheme != "s3" && u.Scheme != "S3" {
-		return nil, fmt.Errorf("Invalid URL scheme, must be s3:// but found %s", u.Scheme)
+		return nil, fmt.Errorf("Invalid URL scheme, must be s3 but found %s", u.Scheme)
 	}
 	return &s3url{
 		u.Host,
@@ -172,8 +171,8 @@ func ParseJob(jobdesc string) (*Job, error) {
 }
 
 func parseSingleJob(jobdesc string) (*Job, error) {
-	if jobdesc == "" || strings.HasPrefix(jobdesc, "#") {
-		return nil, nil // errors.New("Empty job description")
+	if jobdesc == "" || jobdesc[0] == '#' {
+		return nil, nil
 	}
 
 	if strings.Contains(jobdesc, "&&") {
@@ -187,12 +186,13 @@ func parseSingleJob(jobdesc string) (*Job, error) {
 
 	ourJob := &Job{sourceDesc: jobdesc}
 
-	found := false
-	for _, c := range commands {
+	found := -1
+	var parseArgErr error = nil
+	for i, c := range commands {
 		if parts[0] == c.keyword {
-			found = true
+			found = i
 
-			if len(c.params) == 1 && c.params[0] == PARAM_UNCHECKED_ONE_OR_MORE { // special case for exec
+			if len(c.params) == 1 && c.params[0] == PARAM_UNCHECKED_ONE_OR_MORE && len(parts) > 1 { // special case for exec
 				ourJob.command = c.keyword
 				ourJob.operation = c.operation
 				ourJob.args = []*JobArgument{}
@@ -217,12 +217,11 @@ func parseSingleJob(jobdesc string) (*Job, error) {
 
 			var fnObj *JobArgument
 
-			var err error = nil
+			parseArgErr = nil
 			for i, t := range c.params { // check if param types match
 				var a *JobArgument
-				a, err = parseArgumentByType(parts[i+1], t, fnObj)
-				if err != nil {
-					log.Print("Error parsing arg ", t, err)
+				a, parseArgErr = parseArgumentByType(parts[i+1], t, fnObj)
+				if parseArgErr != nil {
 					break
 				}
 				ourJob.args = append(ourJob.args, a)
@@ -231,7 +230,7 @@ func parseSingleJob(jobdesc string) (*Job, error) {
 					fnObj = a
 				}
 			}
-			if err != nil {
+			if parseArgErr != nil {
 				continue // not our command, try another
 			}
 
@@ -239,8 +238,11 @@ func parseSingleJob(jobdesc string) (*Job, error) {
 		}
 	}
 
-	if found {
-		return nil, fmt.Errorf(`Invalid parameters for command "%s"`, parts[0])
+	if found >= 0 {
+		if parseArgErr != nil {
+			return nil, fmt.Errorf(`Invalid parameters to "%s": %s`, commands[found].keyword, parseArgErr.Error())
+		}
+		return nil, fmt.Errorf(`Invalid parameters to "%s"`, parts[0])
 	}
 	return nil, fmt.Errorf(`Unknown command "%s"`, parts[0])
 }

@@ -3,7 +3,6 @@ package s5cmd
 import (
 	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/termie/go-shutil"
@@ -34,25 +33,6 @@ func (j Job) String() (s string) {
 	}
 	//s += " # from " + j.sourceDesc
 	return
-}
-
-func IsRatelimitError(err error) bool {
-	if err != nil {
-		if awsErr, ok := err.(awserr.Error); ok {
-			//fmt.Println("awsErr", awsErr.Code(), awsErr.Message(), awsErr.OrigErr())
-
-			//if reqErr, ok := err.(awserr.RequestFailure); ok {
-			//	// A service error occurred
-			//	fmt.Println("reqErr", reqErr.StatusCode(), reqErr.RequestID())
-			//}
-
-			switch awsErr.Code() {
-			case "SlowDown":
-				return true
-			}
-		}
-	}
-	return false
 }
 
 func s3copy(svc *s3.S3, src, dst *s3url) error {

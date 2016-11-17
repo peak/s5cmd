@@ -30,7 +30,7 @@ func printOps(name string, counter uint64, elapsed time.Duration, extra string) 
 	}
 
 	ops := uint64(math.Floor((float64(counter) / secs) + 0.5))
-	log.Printf("# Stats: %-6s %10d %4d ops/sec%s", name, counter, ops, extra)
+	log.Printf("# Stats: %-7s %10d %4d ops/sec%s", name, counter, ops, extra)
 }
 
 func main() {
@@ -78,7 +78,7 @@ func main() {
 
 	parentCtx, cancelFunc := context.WithCancel(context.Background())
 
-	var exitCode int
+	var exitCode int = -1
 	exitFunc := func(code int) {
 		//log.Printf("Called exitFunc with code %d", code)
 		exitCode = code
@@ -106,16 +106,29 @@ func main() {
 
 	elapsed := time.Since(startTime)
 
+	failops := s.Get(s5cmd.STATS_FAIL)
+
+	// if exitCode is -1 (default) and if we have at least one absolute-fail, exit with code 127
+	if exitCode == -1 {
+		if failops > 0 {
+			exitCode = 127
+		} else {
+			exitCode = 0
+		}
+	}
+
 	log.Printf("# Exiting with code %d", exitCode)
 
 	s3ops := s.Get(s5cmd.STATS_S3OP)
 	fileops := s.Get(s5cmd.STATS_FILEOP)
 	shellops := s.Get(s5cmd.STATS_SHELLOP)
-	failops := s.Get(s5cmd.STATS_FAIL)
+	retryops := s.Get(s5cmd.STATS_RETRYOP)
 	printOps("S3", s3ops, elapsed, "")
 	printOps("File", fileops, elapsed, "")
 	printOps("Shell", shellops, elapsed, "")
+	printOps("Retried", retryops, elapsed, "")
 	printOps("Failed", failops, elapsed, "")
+
 	printOps("Total", s3ops+fileops+shellops+failops, elapsed, fmt.Sprintf(" %.2f seconds", elapsed.Seconds()))
 
 	os.Exit(exitCode)

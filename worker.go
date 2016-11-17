@@ -27,6 +27,7 @@ type WorkerPool struct {
 	wg         *sync.WaitGroup
 	awsSession *session.Session
 	cancelFunc context.CancelFunc
+	stats      *Stats
 }
 
 type WorkerParams struct {
@@ -53,6 +54,7 @@ func NewWorkerPool(ctx context.Context, params *WorkerPoolParams, stats *Stats) 
 		wg:         &sync.WaitGroup{},
 		awsSession: ses,
 		cancelFunc: cancelFunc,
+		stats:      stats,
 	}
 
 	for i := 0; i < params.NumWorkers; i++ {
@@ -102,6 +104,7 @@ func (p *WorkerPool) runWorker(stats *Stats) {
 						log.Printf(`?Ratelimit "%s", sleep for %v`, job, sleepTime)
 						select {
 						case <-time.After(sleepTime):
+							wp.stats.Increment(STATS_RETRYOP)
 							continue
 						case <-p.ctx.Done():
 							run = false // if Canceled during sleep, report ERR and immediately process failCommand
@@ -109,6 +112,7 @@ func (p *WorkerPool) runWorker(stats *Stats) {
 					}
 
 					log.Printf(`-ERR "%s": %s`, job, CleanupError(err))
+					wp.stats.Increment(STATS_FAIL)
 					job = job.failCommand
 				} else {
 					log.Printf(`+OK "%s"`, job)
@@ -163,6 +167,7 @@ func (p *WorkerPool) Run(filename string) {
 		job, err := ParseJob(line)
 		if err != nil {
 			log.Print(`-ERR "`, line, `": `, err)
+			p.stats.Increment(STATS_FAIL)
 			continue
 		}
 		select {

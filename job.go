@@ -59,14 +59,14 @@ func (j *Job) Run(wp *WorkerParams) error {
 
 	// Local operations
 	case OP_LOCAL_DELETE:
-		return wp.stats.CountOp(STATS_FILEOP, os.Remove(j.args[0].arg))
+		return wp.stats.IncrementIfSuccess(STATS_FILEOP, os.Remove(j.args[0].arg))
 
 	case OP_LOCAL_MOVE:
-		return wp.stats.CountOp(STATS_FILEOP, os.Rename(j.args[0].arg, j.args[1].arg))
+		return wp.stats.IncrementIfSuccess(STATS_FILEOP, os.Rename(j.args[0].arg, j.args[1].arg))
 
 	case OP_LOCAL_COPY:
 		_, err := shutil.Copy(j.args[0].arg, j.args[1].arg, true)
-		wp.stats.CountOp(STATS_FILEOP, err)
+		wp.stats.IncrementIfSuccess(STATS_FILEOP, err)
 		return err
 
 	case OP_SHELL_EXEC:
@@ -78,23 +78,23 @@ func (j *Job) Run(wp *WorkerParams) error {
 			}
 			strArgs = append(strArgs, a.arg)
 		}
-		return wp.stats.CountOp(STATS_SHELLOP, exec.Command(j.args[0].arg, strArgs...).Run())
+		return wp.stats.IncrementIfSuccess(STATS_SHELLOP, exec.Command(j.args[0].arg, strArgs...).Run())
 
 	// S3 operations
 	case OP_COPY:
-		return wp.stats.CountOp(STATS_S3OP, s3copy(wp.s3svc, j.args[0].s3, j.args[1].s3))
+		return wp.stats.IncrementIfSuccess(STATS_S3OP, s3copy(wp.s3svc, j.args[0].s3, j.args[1].s3))
 
 	case OP_MOVE:
-		err := wp.stats.CountOp(STATS_S3OP, s3copy(wp.s3svc, j.args[0].s3, j.args[1].s3))
+		err := wp.stats.IncrementIfSuccess(STATS_S3OP, s3copy(wp.s3svc, j.args[0].s3, j.args[1].s3))
 		if err == nil {
-			err = wp.stats.CountOp(STATS_S3OP, s3delete(wp.s3svc, j.args[0].s3))
+			err = s3delete(wp.s3svc, j.args[0].s3)
 			// FIXME if err != nil try to rollback by deleting j.args[1].s3 ? What if we don't have permission to delete?
 		}
 
 		return err
 
 	case OP_DELETE:
-		return wp.stats.CountOp(STATS_S3OP, s3delete(wp.s3svc, j.args[0].s3))
+		return wp.stats.IncrementIfSuccess(STATS_S3OP, s3delete(wp.s3svc, j.args[0].s3))
 
 	case OP_DOWNLOAD:
 		dest_fn := filepath.Base(j.args[0].arg)
@@ -113,7 +113,7 @@ func (j *Job) Run(wp *WorkerParams) error {
 		})
 
 		f.Close()
-		wp.stats.CountOp(STATS_S3OP, err)
+		wp.stats.IncrementIfSuccess(STATS_S3OP, err)
 		if err != nil {
 			os.Remove(dest_fn) // Remove partly downloaded file
 		}
@@ -132,12 +132,12 @@ func (j *Job) Run(wp *WorkerParams) error {
 			Key:    aws.String(j.args[1].s3.key),
 			Body:   f,
 		})
-		wp.stats.CountOp(STATS_S3OP, err)
+		wp.stats.IncrementIfSuccess(STATS_S3OP, err)
 		return err
 
 	case OP_ABORT:
 		var (
-			exitCode int64 = 0
+			exitCode int64 = -1
 			err      error
 		)
 

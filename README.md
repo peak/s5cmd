@@ -45,7 +45,7 @@ S3 urls should be in the format `s3://bucket/key`
 - Arbitrary shell-execute - `! commands...`
 - Download from S3 - `get s3://from-bucket/from-key [/path/to/dest[/]]`
 - Upload to S3 - `put /path/to/src s3://to-bucket/to-key[/]`
-- Exit - `exit [exitcode]`
+- Exit - `exit [exitcode]` (see [Exit Code](#Exit-Code))
 
 ### Tips
 
@@ -67,6 +67,9 @@ DATE TIME Short-Msg Detailed-Msg
  - `-ERR` for failed operations: `-ERR "! touche": executable file not found in $PATH`
  - `?Ratelimit` for rate-limited operations, which will be retried
 
+### Exit Code
+
+If failed jobs are present, process exits with code `127`. This can be overridden with the command `exit`, though in that case finishing the job list is not guaranteed.
 
 ### Nested Commands (Basic)
 

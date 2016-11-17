@@ -158,5 +158,4 @@ func (j *Job) Run(wp *WorkerParams) error {
 		return fmt.Errorf("Unhandled operation %v", j.operation)
 	}
 
-	return nil
 }

@@ -132,10 +132,9 @@ func TestJobRunLocalDelete(t *testing.T) {
 
 	old_args := localDeleteJob.args
 
-	args := []*JobArgument{
+	localDeleteJob.args = []*JobArgument{
 		{fn, nil},
 	}
-	localDeleteJob.args = args
 
 	// execute
 	err = localDeleteJob.Run(&wp)
@@ -187,11 +186,10 @@ func testLocalCopyOrMove(t *testing.T, is_move bool) {
 
 		t.Logf("Created temp files: src=%s dst=%s", src, dst)
 
-		args := []*JobArgument{
+		job.args = []*JobArgument{
 			{src, nil},
 			{dst, nil},
 		}
-		job.args = args
 
 		// execute
 		err = job.Run(&wp)

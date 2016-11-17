@@ -36,6 +36,7 @@
 SRCDIR ?= .
 PREFIX ?= /usr/local
 GOROOT ?= /usr/local/go
+BENCHFLAGS ?= .
 
 GITFLAGS ?= GIT_DIR=${SRCDIR}/.git GIT_WORK_TREE=${SRCDIR}
 ifeq ($(NOGIT),1)
@@ -78,6 +79,18 @@ build.default:
 fmt.default:
 	find ${SRCDIR} ! -path "*/vendor/*" -type f -name '*.go' -exec ${GOROOT}/bin/gofmt -l -s -w {} \;
 
+test.default:
+	go test ${TESTFLAGS}
+ifneq (${COMMANDS},)
+	go test ${TESTFLAGS} ${COMMANDS}
+endif
+
+bench.default:
+	go test ${TESTFLAGS} -bench ${BENCHFLAGS}
+ifneq (${COMMANDS},)
+	go test ${TESTFLAGS} -bench ${BENCHFLAGS} ${COMMANDS}
+endif
+
 clean.default:
 	@$(foreach bin,${BINS},rm -vf ${SRCDIR}/${bin};)
 
@@ -90,7 +103,7 @@ install.default: build installdirs
 uninstall.default:
 	@$(foreach bin,${BINS},rm -vf ${DESTDIR}${PREFIX}/bin/${bin};)
 
-.PHONY: all.default build.default fmt.default clean.default installdirs.default install.default uninstall.default
+.PHONY: all.default build.default fmt.default clean.default installdirs.default install.default uninstall.default test.default bench.default
 # Delete default suffixes and define .go
 .SUFFIXES:
 .SUFFIXES: .go

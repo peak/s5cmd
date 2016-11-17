@@ -45,7 +45,7 @@ S3 urls should be in the format `s3://bucket/key`
 - Arbitrary shell-execute - `! commands...`
 - Download from S3 - `get s3://from-bucket/from-key [/path/to/dest[/]]`
 - Upload to S3 - `put /path/to/src s3://to-bucket/to-key[/]`
-- Exit - `exit [exitcode]` (see [Exit Code](#Exit-Code))
+- Exit - `exit [exitcode]` (see [Exit Code](#exit-code))
 
 ### Tips
 

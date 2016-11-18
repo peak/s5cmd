@@ -1,6 +1,8 @@
 package s5cmd
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
@@ -9,7 +11,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
+	"strings"
+	"sync"
 )
 
 type JobArgument struct {
@@ -25,6 +30,8 @@ type Job struct {
 	successCommand *Job
 	failCommand    *Job
 }
+
+const DATE_FORMAT string = "2006/01/02 15:04:05"
 
 func (j Job) String() (s string) {
 	s = j.command
@@ -50,6 +57,79 @@ func s3delete(svc *s3.S3, obj *s3url) error {
 		Key:    aws.String(obj.key),
 	})
 	return err
+}
+
+func s3list(ctx context.Context, svc *s3.S3, bucket, prefix string, useDelimiter bool, filter string) error {
+	inp := s3.ListObjectsV2Input{
+		Bucket: aws.String(bucket),
+		Prefix: aws.String(prefix),
+	}
+	if useDelimiter {
+		inp.SetDelimiter("/")
+	}
+
+	var (
+		r   *regexp.Regexp
+		err error
+	)
+
+	if filter != "" {
+		filterRegex := regexp.QuoteMeta(filter)
+		filterRegex = strings.Replace(filterRegex, "\\?", ".", -1)
+		filterRegex = strings.Replace(filterRegex, "\\*", ".*?", -1)
+		r, err = regexp.Compile(filterRegex)
+		if err != nil {
+			return err
+		}
+	}
+
+	trimPrefix := filepath.Dir(prefix) + "/"
+	if trimPrefix == "./" {
+		trimPrefix = ""
+	}
+
+	var mu sync.Mutex
+	canceled := false
+
+	err = svc.ListObjectsV2Pages(&inp, func(p *s3.ListObjectsV2Output, lastPage bool) bool {
+		for _, c := range p.CommonPrefixes {
+			key := *c.Prefix
+			if strings.Index(key, trimPrefix) == 0 {
+				key = key[len(trimPrefix):]
+			}
+			out("+", "%19s  %8s  %s", "", "DIR", key)
+		}
+		for _, c := range p.Contents {
+			key := *c.Key
+			if strings.Index(key, trimPrefix) == 0 {
+				key = key[len(trimPrefix):]
+			}
+			if r != nil && !r.MatchString(key) {
+				continue
+			}
+			out("+", "%s  %8d  %s", c.LastModified.Format(DATE_FORMAT), *c.Size, key)
+		}
+
+		select {
+		case <-ctx.Done():
+			mu.Lock()
+			defer mu.Unlock()
+			canceled = true
+			return false
+		default:
+			return true
+		}
+	})
+
+	if err == nil && canceled {
+		return errors.New("Operation interrupted")
+	}
+	return err
+}
+
+func out(shortCode, format string, a ...interface{}) {
+	s := fmt.Sprintf(format, a...)
+	fmt.Println("                   ", shortCode, s)
 }
 
 func (j *Job) Run(wp *WorkerParams) error {
@@ -137,6 +217,36 @@ func (j *Job) Run(wp *WorkerParams) error {
 		})
 		wp.stats.IncrementIfSuccess(STATS_S3OP, err)
 		return err
+
+	case OP_LISTBUCKETS:
+		o, err := wp.s3svc.ListBuckets(&s3.ListBucketsInput{})
+		if err == nil {
+			for _, b := range o.Buckets {
+				out("+", "%s  s3://%s", b.CreationDate.Format(DATE_FORMAT), *b.Name)
+			}
+		}
+		return wp.stats.IncrementIfSuccess(STATS_S3OP, err)
+
+	case OP_LIST:
+		prefix := strings.TrimRight(j.args[0].s3.key, "/")
+		if prefix != "" {
+			prefix += "/"
+		}
+
+		err := s3list(wp.ctx, wp.s3svc, j.args[0].s3.bucket, prefix, true, "")
+		return wp.stats.IncrementIfSuccess(STATS_S3OP, err)
+
+	case OP_LISTWILD:
+		wildkey := j.args[0].s3.key
+		loc := strings.IndexAny(wildkey, "?*")
+		if loc == -1 {
+			return errors.New("Wildcard parse error")
+		}
+		prefix := wildkey[:loc]
+		filter := wildkey[loc+1:]
+
+		err := s3list(wp.ctx, wp.s3svc, j.args[0].s3.bucket, prefix, false, filter)
+		return wp.stats.IncrementIfSuccess(STATS_S3OP, err)
 
 	case OP_ABORT:
 		var (

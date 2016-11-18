@@ -3,7 +3,7 @@ package s5cmd
 import (
 	"errors"
 	"fmt"
-	"net/url"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -18,17 +18,29 @@ func (s s3url) format() string {
 	return s.bucket + "/" + s.key
 }
 
+func hasWild(s string) bool {
+	return strings.ContainsAny(s, "?*")
+}
+
 func parseS3Url(object string) (*s3url, error) {
-	u, err := url.Parse(object)
-	if err != nil {
-		return nil, err
+	if !strings.HasPrefix(object, "s3://") {
+		return nil, errors.New("S3 url should start with s3://")
 	}
-	if u.Scheme != "s3" && u.Scheme != "S3" {
-		return nil, fmt.Errorf("Invalid URL scheme, must be s3 but found %s", u.Scheme)
+	parts := strings.SplitN(object, "/", 4)
+	if parts[2] == "" {
+		return nil, errors.New("S3 url should have a bucket")
 	}
+	if hasWild(parts[2]) {
+		return nil, errors.New("Bucket name cannot contain wildcards")
+	}
+	key := ""
+	if len(parts) == 4 {
+		key = parts[3]
+	}
+
 	return &s3url{
-		u.Host,
-		strings.TrimLeft(u.Path, "/"),
+		parts[2],
+		key,
 	}, nil
 }
 
@@ -42,11 +54,16 @@ func parseArgumentByType(s string, t ParamType, fnObj *JobArgument) (*JobArgumen
 	case PARAM_UNCHECKED, PARAM_UNCHECKED_ONE_OR_MORE:
 		return &JobArgument{s, nil}, nil
 
-	case PARAM_S3OBJ, PARAM_S3OBJORDIR:
+	case PARAM_S3OBJ, PARAM_S3OBJORDIR, PARAM_S3WILDOBJ:
 		url, err := parseS3Url(s)
 		if err != nil {
 			return nil, err
 		}
+
+		if (t == PARAM_S3OBJ || t == PARAM_S3OBJORDIR) && hasWild(url.key) {
+			return nil, errors.New("S3 key cannot contain wildcards")
+		}
+
 		endsInSlash := strings.HasSuffix(url.key, "/")
 		if t == PARAM_S3OBJ {
 			if endsInSlash {
@@ -59,7 +76,7 @@ func parseArgumentByType(s string, t ParamType, fnObj *JobArgument) (*JobArgumen
 		}
 		return &JobArgument{s, url}, nil
 
-	case PARAM_FILEOBJ, PARAM_FILEORDIR:
+	case PARAM_FILEOBJ, PARAM_FILEORDIR, PARAM_DIR:
 		// check if we have s3 object
 		_, err := parseS3Url(s)
 		if err == nil {
@@ -73,6 +90,20 @@ func parseArgumentByType(s string, t ParamType, fnObj *JobArgument) (*JobArgumen
 		}
 		if t == PARAM_FILEORDIR && endsInSlash && fnBase != "" {
 			s += fnBase
+		}
+		if t == PARAM_DIR && !endsInSlash {
+			st, err := os.Stat(s)
+			if err != nil {
+				if !os.IsNotExist(err) {
+					return nil, errors.New("Could not stat")
+				}
+			} else {
+				if !st.IsDir() {
+					return nil, errors.New("Dir param can not be file")
+				}
+			}
+
+			s += "/"
 		}
 
 		return &JobArgument{s, nil}, nil

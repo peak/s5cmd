@@ -55,6 +55,9 @@ S3 urls should be in the format `s3://bucket/key`
 - Arbitrary shell-execute - `! commands...`
 - Download from S3 - `get s3://from-bucket/from-key [/path/to/dest[/]]`
 - Upload to S3 - `put /path/to/src s3://to-bucket/to-key[/]`
+- List buckets - `ls`
+- List objects in bucket - `ls s3://bucket[/prefix]`
+- List objects filtered by multiple-level wildcards - `ls s3://bucket/prefix/*/file*gz`
 - Exit - `exit [exitcode]` (see [Exit Code](#exit-code))
 
 ### Tips
@@ -100,6 +103,10 @@ DATE TIME Short-Msg Detailed-Msg
  - `+OK` for successful operations: `+OK "! touch touch-this-file"`
  - `-ERR` for failed operations: `-ERR "! touche": executable file not found in $PATH`
  - `?Ratelimit` for rate-limited operations, which will be retried
+
+Item output (used in `ls`) is slightly different: `DATE TIME` fields are omitted, and the short-msg is a single `+` character.
+
+Shell output (used in `!`) does not modify the executed command's output. Both `stdout` and `stderr` are mirrored.
 
 ### Exit Code
 

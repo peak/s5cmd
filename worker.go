@@ -130,6 +130,35 @@ func (p *WorkerPool) runWorker(stats *Stats) {
 	//log.Print("# Exiting goroutine")
 }
 
+func (p *WorkerPool) singleRun(line string) bool {
+	job, err := ParseJob(line)
+	if err != nil {
+		log.Print(`-ERR "`, line, `": `, err)
+		p.stats.Increment(STATS_FAIL)
+		return true
+	}
+
+	select {
+	case <-p.ctx.Done():
+		return false
+	case p.jobQueue <- job:
+	}
+
+	return true
+}
+
+func (p *WorkerPool) RunCmd(commandLine string) {
+	defer p.wg.Wait()
+
+	p.singleRun(commandLine)
+	select {
+	case <-p.ctx.Done():
+		return
+	case p.jobQueue <- nil: // Wait until our single worker is done, then cancel
+		p.cancelFunc()
+	}
+}
+
 func (p *WorkerPool) Run(filename string) {
 	var r io.ReadCloser
 	var err error
@@ -164,18 +193,7 @@ func (p *WorkerPool) Run(filename string) {
 			break
 		}
 
-		job, err := ParseJob(line)
-		if err != nil {
-			log.Print(`-ERR "`, line, `": `, err)
-			p.stats.Increment(STATS_FAIL)
-			continue
-		}
-		select {
-		case <-p.ctx.Done():
-			run = false
-			break
-		case p.jobQueue <- job:
-		}
+		run = p.singleRun(line)
 	}
 
 	//log.Print("# Waiting...")

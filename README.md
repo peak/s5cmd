@@ -16,7 +16,8 @@ in the root directory and you'll get a binary named `s5cmd`.
 ```bash
 $ ./s5cmd --help
 
-Usage of ./s5cmd:
+Usage: ./s5cmd [OPTION]... [COMMAND [PARAMS...]]
+ 
   -cs int
     	Multipart chunk size in MB for uploads (default 5)
   -f string
@@ -25,14 +26,23 @@ Usage of ./s5cmd:
         Number of worker goroutines. Negative numbers mean multiples of runtime.NumCPU (default 256)
   -r int
         Retry S3 operations N times before failing (default 10)
+  -stats
+        Always print stats
   -version
         Prints current version
 ```
 
-### S3 Credentials
-Provide S3 credentials with the environment variables `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION` and optionally `AWS_SESSION_TOKEN`.
+## Commands File
 
-### Supported commands
+The most powerful feature of s5cmd is the commands file. Thousands of S3 and filesystem commands are declared in a file (or simply piped in from another process) and they are executed using multiple parallel workers. Since only one program is launched, thousands of unnecessary fork-exec calls are avoided. This way S3 execution times can reach a few thousand operations per second.
+
+See also: [Nested Commands](#nested-commands-basic) 
+
+## Single command invocation
+
+Single commands are also supported with the `s5cmd [command [params]]` syntax. If this syntax is used, only one worker is launched.
+
+## Supported commands
 
 S3 urls should be in the format `s3://bucket/key`
 
@@ -55,22 +65,6 @@ S3 urls should be in the format `s3://bucket/key`
 - `-numworkers -1` means use `runtime.NumCPU` goroutines. `-2` means `2*runtime.NumCPU` and so on.
 - The S3 throttling error `SlowDown` is exponentially retried. "Retryable operations" as specified by the AWS SDK (currently `RequestError` and `RequestError`) are retried by the SDK.
 
-### Output
-
-The general output is in the format:
-```
-DATE TIME Short-Msg Detailed-Msg
-```
-
- - Trivial messages start with `#`, like number of workers or exit code and statistics
- - `+OK` for successful operations: `+OK "! touch touch-this-file"`
- - `-ERR` for failed operations: `-ERR "! touche": executable file not found in $PATH`
- - `?Ratelimit` for rate-limited operations, which will be retried
-
-### Exit Code
-
-If failed jobs are present, process exits with code `127`. This can be overridden with the command `exit`, though in that case finishing the job list is not guaranteed.
-
 ### Nested Commands (Basic)
 
 Success and fail commands can be specified with `&&` and `||` operators. As the parser is pretty simple, multiple-level nested commands (doing something based on a result of a result) are not supported.
@@ -92,3 +86,21 @@ This as well:
 ! touch a && ! touch a-touched || ! touch a-couldnotbetouched
 ```
 
+### S3 Credentials
+Provide S3 credentials with the environment variables `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION` and optionally `AWS_SESSION_TOKEN`.
+
+## Output
+
+The general output is in the format:
+```
+DATE TIME Short-Msg Detailed-Msg
+```
+
+ - Trivial messages start with `#`, like number of workers or exit code and statistics
+ - `+OK` for successful operations: `+OK "! touch touch-this-file"`
+ - `-ERR` for failed operations: `-ERR "! touche": executable file not found in $PATH`
+ - `?Ratelimit` for rate-limited operations, which will be retried
+
+### Exit Code
+
+If failed jobs are present, process exits with code `127`. This can be overridden with the command `exit`, though in that case finishing the job list is not guaranteed.

@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -44,13 +45,19 @@ func main() {
 	)
 
 	defaultPartSize := int(math.Ceil(float64(s3manager.DefaultUploadPartSize) / bytesInMb)) // Convert to MB
+	defaultNumWorkers := 256
 
-	flag.StringVar(&cmdFile, "f", "-", "Commands-file or - for stdin")
-	flag.IntVar(&numWorkers, "numworkers", 256, fmt.Sprintf("Number of worker goroutines. Negative numbers mean multiples of runtime.NumCPU (currently %d)", runtime.NumCPU()))
+	flag.StringVar(&cmdFile, "f", "", "Commands-file or - for stdin")
+	flag.IntVar(&numWorkers, "numworkers", defaultNumWorkers, fmt.Sprintf("Number of worker goroutines. Negative numbers mean multiples of runtime.NumCPU, currently %d", runtime.NumCPU()))
 	flag.IntVar(&multipartChunkSize, "cs", defaultPartSize, "Multipart chunk size in MB for uploads")
 	flag.IntVar(&retries, "r", 10, "Retry S3 operations N times before failing")
+	printStats := flag.Bool("stats", false, "Always print stats")
 	version := flag.Bool("version", false, "Prints current version")
 
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, "Usage: %s [OPTION]... [COMMAND [PARAMS...]]\n\n", os.Args[0])
+		flag.PrintDefaults()
+	}
 	flag.Parse()
 
 	if *version {
@@ -58,7 +65,12 @@ func main() {
 		os.Exit(0)
 	}
 
-	if cmdFile == "" || numWorkers == 0 || multipartChunkSize < 1 || retries < 0 {
+	cmd := strings.Join(flag.Args(), " ")
+	if cmd != "" && cmdFile != "" {
+		log.Fatal("-ERR Only specify -f or command, not both")
+		os.Exit(1)
+	}
+	if (cmd == "" && cmdFile == "") || numWorkers == 0 || multipartChunkSize < 1 || retries < 0 {
 		log.Fatal("-ERR Please specify all arguments.")
 		os.Exit(1)
 	}
@@ -68,13 +80,27 @@ func main() {
 		log.Fatalf("-ERR Multipart chunk size should be bigger than %d", int(math.Ceil(float64(s3manager.MinUploadPartSize)/bytesInMb)))
 	}
 
+	var cmdMode bool
+	if cmd != "" {
+		cmdMode = true
+	}
+	if cmdMode && numWorkers != defaultNumWorkers {
+		log.Fatal("-ERR numworkers without -f are not accepted")
+		os.Exit(1)
+	}
+	if cmdMode {
+		numWorkers = 1
+	}
+
 	if numWorkers < 0 {
 		numWorkers = runtime.NumCPU() * -numWorkers
 	}
 
 	startTime := time.Now()
 
-	log.Printf("# Using %d workers", numWorkers)
+	if !cmdMode {
+		log.Printf("# Using %d workers", numWorkers)
+	}
 
 	parentCtx, cancelFunc := context.WithCancel(context.Background())
 
@@ -97,12 +123,17 @@ func main() {
 
 	s := s5cmd.Stats{}
 
-	s5cmd.NewWorkerPool(ctx,
+	wp := s5cmd.NewWorkerPool(ctx,
 		&s5cmd.WorkerPoolParams{
 			NumWorkers:     numWorkers,
 			ChunkSizeBytes: multipartChunkSizeBytes,
 			Retries:        retries,
-		}, &s).Run(cmdFile)
+		}, &s)
+	if cmdMode {
+		wp.RunCmd(cmd)
+	} else {
+		wp.Run(cmdFile)
+	}
 
 	elapsed := time.Since(startTime)
 
@@ -117,19 +148,23 @@ func main() {
 		}
 	}
 
-	log.Printf("# Exiting with code %d", exitCode)
+	if !cmdMode {
+		log.Printf("# Exiting with code %d", exitCode)
+	}
 
-	s3ops := s.Get(s5cmd.STATS_S3OP)
-	fileops := s.Get(s5cmd.STATS_FILEOP)
-	shellops := s.Get(s5cmd.STATS_SHELLOP)
-	retryops := s.Get(s5cmd.STATS_RETRYOP)
-	printOps("S3", s3ops, elapsed, "")
-	printOps("File", fileops, elapsed, "")
-	printOps("Shell", shellops, elapsed, "")
-	printOps("Retried", retryops, elapsed, "")
-	printOps("Failed", failops, elapsed, "")
+	if !cmdMode || *printStats {
+		s3ops := s.Get(s5cmd.STATS_S3OP)
+		fileops := s.Get(s5cmd.STATS_FILEOP)
+		shellops := s.Get(s5cmd.STATS_SHELLOP)
+		retryops := s.Get(s5cmd.STATS_RETRYOP)
+		printOps("S3", s3ops, elapsed, "")
+		printOps("File", fileops, elapsed, "")
+		printOps("Shell", shellops, elapsed, "")
+		printOps("Retried", retryops, elapsed, "")
+		printOps("Failed", failops, elapsed, "")
 
-	printOps("Total", s3ops+fileops+shellops+failops, elapsed, fmt.Sprintf(" %.2f seconds", elapsed.Seconds()))
+		printOps("Total", s3ops+fileops+shellops+failops, elapsed, fmt.Sprintf(" %v", elapsed))
+	}
 
 	os.Exit(exitCode)
 }

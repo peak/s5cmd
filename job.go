@@ -78,7 +78,10 @@ func (j *Job) Run(wp *WorkerParams) error {
 			}
 			strArgs = append(strArgs, a.arg)
 		}
-		return wp.stats.IncrementIfSuccess(STATS_SHELLOP, exec.Command(j.args[0].arg, strArgs...).Run())
+		cmd := exec.CommandContext(wp.ctx, j.args[0].arg, strArgs...)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		return wp.stats.IncrementIfSuccess(STATS_SHELLOP,  cmd.Run())
 
 	// S3 operations
 	case OP_COPY:

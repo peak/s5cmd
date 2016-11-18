@@ -148,15 +148,9 @@ func (p *WorkerPool) singleRun(line string) bool {
 }
 
 func (p *WorkerPool) RunCmd(commandLine string) {
-	defer p.wg.Wait()
-
 	p.singleRun(commandLine)
-	select {
-	case <-p.ctx.Done():
-		return
-	case p.jobQueue <- nil: // Wait until our single worker is done, then cancel
-		p.cancelFunc()
-	}
+	close(p.jobQueue)
+	p.wg.Wait()
 }
 
 func (p *WorkerPool) Run(filename string) {
@@ -173,7 +167,7 @@ func (p *WorkerPool) Run(filename string) {
 		defer r.Close()
 	}
 
-	defer close(p.jobQueue)
+	closed := false
 
 	s := NewCancelableScanner(p.ctx, r).Start()
 
@@ -183,7 +177,8 @@ func (p *WorkerPool) Run(filename string) {
 		if err != nil {
 			if err == context.Canceled || err == io.EOF {
 				if err == io.EOF {
-					p.cancelFunc()
+					close(p.jobQueue)
+					closed = true
 				}
 				run = false
 				break
@@ -198,4 +193,8 @@ func (p *WorkerPool) Run(filename string) {
 
 	//log.Print("# Waiting...")
 	p.wg.Wait()
+
+	if !closed {
+		close(p.jobQueue)
+	}
 }

@@ -8,6 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/termie/go-shutil"
+	"gopkg.in/cheggaaa/pb.v1"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -32,6 +33,8 @@ type Job struct {
 }
 
 const DATE_FORMAT string = "2006/01/02 15:04:05"
+
+var ErrInterrupted = errors.New("Operation interrupted")
 
 func (j Job) String() (s string) {
 	s = j.command
@@ -122,7 +125,7 @@ func s3list(ctx context.Context, svc *s3.S3, bucket, prefix string, useDelimiter
 	})
 
 	if err == nil && canceled {
-		return errors.New("Operation interrupted")
+		return ErrInterrupted
 	}
 	return err
 }
@@ -180,22 +183,61 @@ func (j *Job) Run(wp *WorkerParams) error {
 		return wp.stats.IncrementIfSuccess(STATS_S3OP, s3delete(wp.s3svc, j.args[0].s3))
 
 	case OP_DOWNLOAD:
-		dest_fn := filepath.Base(j.args[0].arg)
+		src_fn := filepath.Base(j.args[0].arg)
+		dest_fn := src_fn
 		if len(j.args) > 1 {
 			dest_fn = j.args[1].arg
 		}
+
+		o, err := wp.s3svc.HeadObject(&s3.HeadObjectInput{
+			Bucket: aws.String(j.args[0].s3.bucket),
+			Key:    aws.String(j.args[0].s3.key),
+		})
+		if err != nil {
+			return err
+		}
+
+		bar := pb.New64(*o.ContentLength).SetUnits(pb.U_BYTES).Prefix(src_fn)
+		bar.Start()
 
 		f, err := os.Create(dest_fn)
 		if err != nil {
 			return err
 		}
 
-		_, err = wp.s3dl.Download(f, &s3.GetObjectInput{
-			Bucket: aws.String(j.args[0].s3.bucket),
-			Key:    aws.String(j.args[0].s3.key),
+		wap := NewWriterAtProgress(f, func(n int64) {
+			bar.Add64(n)
 		})
 
+		ch := make(chan error)
+
+		go func() {
+			_, err := wp.s3dl.Download(wap, &s3.GetObjectInput{
+				Bucket: aws.String(j.args[0].s3.bucket),
+				Key:    aws.String(j.args[0].s3.key),
+			})
+
+			select {
+			case ch <- err:
+			}
+		}()
+
+		select {
+		case <-wp.ctx.Done():
+			err = ErrInterrupted
+		case err = <-ch:
+			break
+		}
+		close(ch)
+		ch = nil
+
 		f.Close()
+
+		if err == ErrInterrupted {
+			bar.NotPrint = true
+		}
+		bar.Finish()
+
 		wp.stats.IncrementIfSuccess(STATS_S3OP, err)
 		if err != nil {
 			os.Remove(dest_fn) // Remove partly downloaded file
@@ -204,17 +246,54 @@ func (j *Job) Run(wp *WorkerParams) error {
 		return err
 
 	case OP_UPLOAD:
+		src_fn := filepath.Base(j.args[0].arg)
+		s, err := os.Stat(j.args[0].arg)
+		if err != nil {
+			return err
+		}
+
 		f, err := os.Open(j.args[0].arg)
 		if err != nil {
 			return err
 		}
 
 		defer f.Close()
-		_, err = wp.s3ul.Upload(&s3manager.UploadInput{
-			Bucket: aws.String(j.args[1].s3.bucket),
-			Key:    aws.String(j.args[1].s3.key),
-			Body:   f,
-		})
+
+		bar := pb.New64(s.Size()).SetUnits(pb.U_BYTES).Prefix(src_fn)
+		bar.Start()
+
+		r := bar.NewProxyReader(f)
+
+		ch := make(chan error)
+
+		go func() {
+			_, err := wp.s3ul.Upload(&s3manager.UploadInput{
+				Bucket: aws.String(j.args[1].s3.bucket),
+				Key:    aws.String(j.args[1].s3.key),
+				Body:   r,
+			})
+
+			select {
+			case ch <- err:
+			}
+		}()
+
+		select {
+		case <-wp.ctx.Done():
+			err = ErrInterrupted
+		case err = <-ch:
+			break
+		}
+		close(ch)
+		ch = nil
+
+		f.Close()
+
+		if err == ErrInterrupted {
+			bar.NotPrint = true
+		}
+		bar.Finish()
+
 		wp.stats.IncrementIfSuccess(STATS_S3OP, err)
 		return err
 

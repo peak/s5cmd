@@ -40,7 +40,7 @@ type WorkerParams struct {
 }
 
 func NewWorkerPool(ctx context.Context, params *WorkerPoolParams, stats *Stats) *WorkerPool {
-	ses, err := session.NewSession(aws.NewConfig().WithMaxRetries(params.Retries))
+	ses, err := session.NewSession(aws.NewConfig().WithMaxRetries(params.Retries)) //.WithLogLevel(aws.LogDebug))
 	if err != nil {
 		log.Fatal(err)
 	}

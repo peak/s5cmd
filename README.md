@@ -21,7 +21,7 @@ Usage: ./s5cmd [OPTION]... [COMMAND [PARAMS...]]
   -cs int
     	Multipart chunk size in MB for uploads (default 5)
   -f string
-        Commands-file or - for stdin (default stdin)
+        Commands-file or - for stdin
   -numworkers int
         Number of worker goroutines. Negative numbers mean multiples of runtime.NumCPU (default 256)
   -r int

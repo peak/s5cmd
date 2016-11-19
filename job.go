@@ -218,18 +218,27 @@ func (j *Job) Run(wp *WorkerParams) error {
 		ch := make(chan *s3listItem)
 		defer close(ch)
 		go func() {
+			var cls string
 			for {
 				select {
-				//case <-wp.ctx.Done():
-				//	return
 				case li, ok := <-ch:
 					if !ok {
 						return
 					}
 					if li.isCommonPrefix {
-						out("+", "%19s  %8s  %s", "", "DIR", li.parsedKey)
+						out("+", "%19s %1s  %12s  %s", "", "", "DIR", li.parsedKey)
 					} else {
-						out("+", "%s  %8d  %s", li.lastModified.Format(DATE_FORMAT), li.size, li.parsedKey)
+						switch *li.class {
+						case s3.ObjectStorageClassStandard:
+							cls = ""
+						case s3.ObjectStorageClassGlacier:
+							cls = "G"
+						case s3.ObjectStorageClassReducedRedundancy:
+							cls = "R"
+						default:
+							cls = "?"
+						}
+						out("+", "%s %1s  %12d   %s", li.lastModified.Format(DATE_FORMAT), cls, li.size, li.parsedKey)
 					}
 				}
 			}

@@ -41,6 +41,7 @@ type s3listItem struct {
 	key            *string
 	lastModified   *time.Time
 	size           int64
+	class          *string
 	isCommonPrefix bool
 }
 
@@ -144,6 +145,7 @@ func s3list(ctx context.Context, svc *s3.S3, s3url *s3url, emitChan chan<- *s3li
 				key:            c.Key,
 				size:           *c.Size,
 				lastModified:   c.LastModified,
+				class:          c.StorageClass,
 				isCommonPrefix: false,
 			}) {
 				return false

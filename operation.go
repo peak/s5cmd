@@ -13,7 +13,6 @@ const (
 	OP_DELETE
 	OP_LIST
 	OP_LISTBUCKETS
-	OP_LISTWILD
 	OP_LOCAL_COPY
 	OP_LOCAL_MOVE
 	OP_LOCAL_DELETE
@@ -50,7 +49,7 @@ var commands = []commandMap{
 	{"rm", OP_DELETE, []ParamType{PARAM_S3OBJ}},
 	{"ls", OP_LISTBUCKETS, []ParamType{}},
 	{"ls", OP_LIST, []ParamType{PARAM_S3OBJORDIR}},
-	{"ls", OP_LISTWILD, []ParamType{PARAM_S3WILDOBJ}},
+	{"ls", OP_LIST, []ParamType{PARAM_S3WILDOBJ}},
 	{"!cp", OP_LOCAL_COPY, []ParamType{PARAM_FILEOBJ, PARAM_FILEORDIR}},
 	{"!mv", OP_LOCAL_MOVE, []ParamType{PARAM_FILEOBJ, PARAM_FILEORDIR}},
 	{"!rm", OP_LOCAL_DELETE, []ParamType{PARAM_FILEOBJ}},
@@ -75,8 +74,6 @@ func (o Operation) String() string {
 		return "ls-buckets"
 	case OP_LIST:
 		return "ls"
-	case OP_LISTWILD:
-		return "ls-wild"
 	case OP_LOCAL_COPY:
 		return "local-copy"
 	case OP_LOCAL_MOVE:

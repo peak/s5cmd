@@ -1,8 +1,6 @@
 package s5cmd
 
 import (
-	"context"
-	"errors"
 	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
@@ -12,11 +10,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"strconv"
-	"strings"
-	"sync"
 )
+
+const DATE_FORMAT string = "2006/01/02 15:04:05"
 
 type JobArgument struct {
 	arg string
@@ -32,10 +29,6 @@ type Job struct {
 	failCommand    *Job
 }
 
-const DATE_FORMAT string = "2006/01/02 15:04:05"
-
-var ErrInterrupted = errors.New("Operation interrupted")
-
 func (j Job) String() (s string) {
 	s = j.command
 	for _, a := range j.args {
@@ -43,91 +36,6 @@ func (j Job) String() (s string) {
 	}
 	//s += " # from " + j.sourceDesc
 	return
-}
-
-func s3copy(svc *s3.S3, src, dst *s3url) error {
-	_, err := svc.CopyObject(&s3.CopyObjectInput{
-		Bucket:     aws.String(dst.bucket),
-		Key:        aws.String(dst.key),
-		CopySource: aws.String(src.format()),
-	})
-	return err
-}
-
-func s3delete(svc *s3.S3, obj *s3url) error {
-	_, err := svc.DeleteObject(&s3.DeleteObjectInput{
-		Bucket: aws.String(obj.bucket),
-		Key:    aws.String(obj.key),
-	})
-	return err
-}
-
-func s3list(ctx context.Context, svc *s3.S3, bucket, prefix string, useDelimiter bool, filter string) error {
-	inp := s3.ListObjectsV2Input{
-		Bucket: aws.String(bucket),
-		Prefix: aws.String(prefix),
-	}
-	if useDelimiter {
-		inp.SetDelimiter("/")
-	}
-
-	var (
-		r   *regexp.Regexp
-		err error
-	)
-
-	if filter != "" {
-		filterRegex := regexp.QuoteMeta(filter)
-		filterRegex = strings.Replace(filterRegex, "\\?", ".", -1)
-		filterRegex = strings.Replace(filterRegex, "\\*", ".*?", -1)
-		r, err = regexp.Compile(filterRegex)
-		if err != nil {
-			return err
-		}
-	}
-
-	trimPrefix := filepath.Dir(prefix) + "/"
-	if trimPrefix == "./" {
-		trimPrefix = ""
-	}
-
-	var mu sync.Mutex
-	canceled := false
-
-	err = svc.ListObjectsV2Pages(&inp, func(p *s3.ListObjectsV2Output, lastPage bool) bool {
-		for _, c := range p.CommonPrefixes {
-			key := *c.Prefix
-			if strings.Index(key, trimPrefix) == 0 {
-				key = key[len(trimPrefix):]
-			}
-			out("+", "%19s  %8s  %s", "", "DIR", key)
-		}
-		for _, c := range p.Contents {
-			key := *c.Key
-			if strings.Index(key, trimPrefix) == 0 {
-				key = key[len(trimPrefix):]
-			}
-			if r != nil && !r.MatchString(key) {
-				continue
-			}
-			out("+", "%s  %8d  %s", c.LastModified.Format(DATE_FORMAT), *c.Size, key)
-		}
-
-		select {
-		case <-ctx.Done():
-			mu.Lock()
-			defer mu.Unlock()
-			canceled = true
-			return false
-		default:
-			return true
-		}
-	})
-
-	if err == nil && canceled {
-		return ErrInterrupted
-	}
-	return err
 }
 
 func out(shortCode, format string, a ...interface{}) {
@@ -168,19 +76,22 @@ func (j *Job) Run(wp *WorkerParams) error {
 
 	// S3 operations
 	case OP_COPY:
-		return wp.stats.IncrementIfSuccess(STATS_S3OP, s3copy(wp.s3svc, j.args[0].s3, j.args[1].s3))
+		_, err := s3copy(wp.s3svc, j.args[0].s3, j.args[1].s3)
+		return wp.stats.IncrementIfSuccess(STATS_S3OP, err)
 
 	case OP_MOVE:
-		err := wp.stats.IncrementIfSuccess(STATS_S3OP, s3copy(wp.s3svc, j.args[0].s3, j.args[1].s3))
+		_, err := s3copy(wp.s3svc, j.args[0].s3, j.args[1].s3)
+		wp.stats.IncrementIfSuccess(STATS_S3OP, err)
 		if err == nil {
-			err = s3delete(wp.s3svc, j.args[0].s3)
+			_, err = s3delete(wp.s3svc, j.args[0].s3)
 			// FIXME if err != nil try to rollback by deleting j.args[1].s3 ? What if we don't have permission to delete?
 		}
 
 		return err
 
 	case OP_DELETE:
-		return wp.stats.IncrementIfSuccess(STATS_S3OP, s3delete(wp.s3svc, j.args[0].s3))
+		_, err := s3delete(wp.s3svc, j.args[0].s3)
+		return wp.stats.IncrementIfSuccess(STATS_S3OP, err)
 
 	case OP_DOWNLOAD:
 		src_fn := filepath.Base(j.args[0].arg)
@@ -189,10 +100,7 @@ func (j *Job) Run(wp *WorkerParams) error {
 			dest_fn = j.args[1].arg
 		}
 
-		o, err := wp.s3svc.HeadObject(&s3.HeadObjectInput{
-			Bucket: aws.String(j.args[0].s3.bucket),
-			Key:    aws.String(j.args[0].s3.key),
-		})
+		o, err := s3head(wp.s3svc, j.args[0].s3)
 		if err != nil {
 			return err
 		}
@@ -307,24 +215,26 @@ func (j *Job) Run(wp *WorkerParams) error {
 		return wp.stats.IncrementIfSuccess(STATS_S3OP, err)
 
 	case OP_LIST:
-		prefix := strings.TrimRight(j.args[0].s3.key, "/")
-		if prefix != "" {
-			prefix += "/"
-		}
-
-		err := s3list(wp.ctx, wp.s3svc, j.args[0].s3.bucket, prefix, true, "")
-		return wp.stats.IncrementIfSuccess(STATS_S3OP, err)
-
-	case OP_LISTWILD:
-		wildkey := j.args[0].s3.key
-		loc := strings.IndexAny(wildkey, "?*")
-		if loc == -1 {
-			return errors.New("Wildcard parse error")
-		}
-		prefix := wildkey[:loc]
-		filter := wildkey[loc+1:]
-
-		err := s3list(wp.ctx, wp.s3svc, j.args[0].s3.bucket, prefix, false, filter)
+		ch := make(chan *s3listItem)
+		defer close(ch)
+		go func() {
+			for {
+				select {
+				//case <-wp.ctx.Done():
+				//	return
+				case li, ok := <-ch:
+					if !ok {
+						return
+					}
+					if li.isCommonPrefix {
+						out("+", "%19s  %8s  %s", "", "DIR", li.parsedKey)
+					} else {
+						out("+", "%s  %8d  %s", li.lastModified.Format(DATE_FORMAT), li.size, li.parsedKey)
+					}
+				}
+			}
+		}()
+		err := s3list(wp.ctx, wp.s3svc, j.args[0].s3, ch)
 		return wp.stats.IncrementIfSuccess(STATS_S3OP, err)
 
 	case OP_ABORT:

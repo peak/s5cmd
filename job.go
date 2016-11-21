@@ -53,12 +53,7 @@ func (j *Job) Notify(ctx context.Context, err error) {
 	select {
 	case <-ctx.Done():
 		return
-	default:
-		select {
-		case <-ctx.Done():
-			return
-		case *j.notifyChan <- res:
-		}
+	case *j.notifyChan <- res:
 	}
 }
 
@@ -270,49 +265,30 @@ func (j *Job) Run(wp *WorkerParams) error {
 		return wp.stats.IncrementIfSuccess(STATS_S3OP, err)
 
 	case OP_LIST:
-		ch := make(chan *s3listItem)
-		closer := make(chan bool)
-		go func() {
-			defer close(closer) // Close closer when goroutine exits
-			var cls string
-			for {
-				select {
-				case li, ok := <-ch:
-					if !ok {
-						// Channel closed early: err returned from s3list?
-						return
-					}
-					if li == nil {
-						out("?EOF", "End of listing")
-						return
-					}
-					if li.isCommonPrefix {
-						out("+", "%19s %1s  %12s  %s", "", "", "DIR", li.parsedKey)
-					} else {
-						switch *li.class {
-						case s3.ObjectStorageClassStandard:
-							cls = ""
-						case s3.ObjectStorageClassGlacier:
-							cls = "G"
-						case s3.ObjectStorageClassReducedRedundancy:
-							cls = "R"
-						default:
-							cls = "?"
-						}
-						out("+", "%s %1s  %12d   %s", li.lastModified.Format(DATE_FORMAT), cls, li.size, li.parsedKey)
-					}
+		err := s3wildOperation(j.args[0].s3, wp, func(li *s3listItem) *Job {
+
+			if li.isCommonPrefix {
+				out("+", "%19s %1s  %12s  %s", "", "", "DIR", li.parsedKey)
+			} else {
+				var cls string
+
+				switch *li.class {
+				case s3.ObjectStorageClassStandard:
+					cls = ""
+				case s3.ObjectStorageClassGlacier:
+					cls = "G"
+				case s3.ObjectStorageClassReducedRedundancy:
+					cls = "R"
+				default:
+					cls = "?"
 				}
+				out("+", "%s %1s  %12d   %s", li.lastModified.Format(DATE_FORMAT), cls, li.size, li.parsedKey)
 			}
-		}()
-		err := s3list(wp.ctx, wp.s3svc, j.args[0].s3, ch)
-		wp.stats.IncrementIfSuccess(STATS_S3OP, err)
-		if err == nil {
-			select {
-			case <-closer: // Wait for EOF on goroutine
-			}
-		}
-		close(ch)
-		return err
+
+			return nil
+		})
+
+		return wp.stats.IncrementIfSuccess(STATS_S3OP, err)
 
 	case OP_ABORT:
 		var (

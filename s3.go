@@ -228,17 +228,14 @@ func s3wildOperation(url *s3url, wp *WorkerParams, callback s3wildCallback) erro
 		case <-closer: // Wait for EOF on goroutine
 		}
 
-		done := false
 		var p, s uint32
-		for !done { // wait for all jobs to finish
-			func() {
-				p = atomic.LoadUint32(&processedSubJobs)
-				if p < subJobCounter {
-					time.Sleep(time.Second)
-				} else {
-					done = true
-				}
-			}()
+		for { // wait for all jobs to finish
+			p = atomic.LoadUint32(&processedSubJobs)
+			if p < subJobCounter {
+				time.Sleep(time.Second)
+			} else {
+				break
+			}
 		}
 
 		s = atomic.LoadUint32(&successfulSubJobs)

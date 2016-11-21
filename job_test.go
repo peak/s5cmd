@@ -8,15 +8,19 @@ import (
 )
 
 var (
-	result error
-	stats  = Stats{}
-	wp     = WorkerParams{
+	result        error
+	stats         = Stats{}
+	idlingCounter int32
+	subJobQueue   chan *Job = make(chan *Job)
+	wp                      = WorkerParams{
 		nil,
 		nil,
 		nil,
 		context.TODO(),
 		nil,
 		&stats,
+		&subJobQueue,
+		&idlingCounter,
 	}
 
 	// These Jobs are used for benchmarks and also as skeletons for tests
@@ -30,6 +34,7 @@ var (
 		},
 		nil,
 		nil,
+		nil,
 	}
 	localMoveJob = Job{
 		"!mv-test",
@@ -41,6 +46,7 @@ var (
 		},
 		nil,
 		nil,
+		nil,
 	}
 	localDeleteJob = Job{
 		"!rm-test",
@@ -49,6 +55,7 @@ var (
 		[]*JobArgument{
 			{"test-src", nil},
 		},
+		nil,
 		nil,
 		nil,
 	}

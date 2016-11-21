@@ -125,6 +125,82 @@ func (j *Job) Run(wp *WorkerParams) error {
 		_, err := s3delete(wp.s3svc, j.args[0].s3)
 		return wp.stats.IncrementIfSuccess(STATS_S3OP, err)
 
+	case OP_BATCH_DELETE:
+		var jobArgs []*JobArgument
+		srcBucket := j.args[0].Clone()
+		srcBucket.arg = "s3://" + srcBucket.s3.bucket
+
+		maxArgs := 1000
+
+		initArgs := func() {
+			jobArgs = make([]*JobArgument, 0, maxArgs+1)
+			jobArgs = append(jobArgs, &srcBucket)
+		}
+
+		addArg := func(key *string) *Job {
+			var subJob *Job
+
+			if jobArgs == nil {
+				initArgs()
+			}
+
+			if (key == nil || len(jobArgs) == maxArgs) && len(jobArgs) > 1 {
+				ptr := jobArgs
+				subJob = &Job{
+					sourceDesc: j.sourceDesc,
+					command:    "batch-rm",
+					operation:  OP_BATCH_DELETE_ACTUAL,
+					args:       ptr,
+				}
+				initArgs()
+			}
+
+			if key != nil {
+				jobArgs = append(jobArgs, &JobArgument{arg: *key})
+			}
+
+			return subJob
+		}
+
+		err := s3wildOperation(j.args[0].s3, wp, func(li *s3listItem) *Job {
+			if li == nil {
+				return addArg(nil)
+			}
+
+			if li.isCommonPrefix {
+				return nil
+			}
+
+			return addArg(li.key)
+		})
+
+		return wp.stats.IncrementIfSuccess(STATS_S3OP, err)
+
+	case OP_BATCH_DELETE_ACTUAL:
+		obj := make([]*s3.ObjectIdentifier, len(j.args)-1)
+		for i, a := range j.args {
+			if i == 0 {
+				continue
+			}
+			obj[i-1] = &s3.ObjectIdentifier{Key: aws.String(a.arg)}
+		}
+		o, err := wp.s3svc.DeleteObjects(&s3.DeleteObjectsInput{
+			Bucket: aws.String(j.args[0].s3.bucket),
+			Delete: &s3.Delete{
+				Objects: obj,
+			},
+		})
+		for _, o := range o.Deleted {
+			out("+", `Batch-delete "s3://%s/%s"`, j.args[0].s3.bucket, *o.Key)
+		}
+		for _, e := range o.Errors {
+			out("-", `Batch-delete "s3://%s/%s": %s`, j.args[0].s3.bucket, *e.Key, *e.Message)
+			if err != nil {
+				err = errors.New(*e.Message)
+			}
+		}
+		return wp.stats.IncrementIfSuccess(STATS_S3OP, err)
+
 	case OP_BATCH_DOWNLOAD:
 		dst_dir := ""
 		if len(j.args) > 1 {
@@ -132,7 +208,7 @@ func (j *Job) Run(wp *WorkerParams) error {
 		}
 
 		err := s3wildOperation(j.args[0].s3, wp, func(li *s3listItem) *Job {
-			if li.isCommonPrefix {
+			if li == nil || li.isCommonPrefix {
 				return nil
 			}
 
@@ -197,6 +273,9 @@ func (j *Job) Run(wp *WorkerParams) error {
 				return nil
 			}
 		}, func(data interface{}) *Job {
+			if data == nil {
+				return nil
+			}
 			// callback
 			fn := data.(*string)
 
@@ -338,6 +417,10 @@ func (j *Job) Run(wp *WorkerParams) error {
 
 	case OP_LIST:
 		err := s3wildOperation(j.args[0].s3, wp, func(li *s3listItem) *Job {
+			if li == nil {
+				return nil
+			}
+
 			if li.isCommonPrefix {
 				out("+", "%19s %1s  %12s  %s", "", "", "DIR", li.parsedKey)
 			} else {
@@ -418,15 +501,15 @@ func wildOperation(wp *WorkerParams, lister wildLister, callback wildCallback) e
 					// Channel closed early: err returned from s3list?
 					return
 				}
-				if data == nil {
-					// End of listing
-					return
-				}
 				j := callback(data)
 				if j != nil {
 					j.notifyChan = &notifyChan
 					subJobCounter++
 					*wp.subJobQueue <- j
+				}
+				if data == nil {
+					// End of listing
+					return
 				}
 			}
 		}

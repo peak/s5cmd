@@ -178,7 +178,9 @@ func s3wildOperation(url *s3url, wp *WorkerParams, callback s3wildCallback) erro
 	return wildOperation(wp, func(ch chan<- interface{}) error {
 		return s3list(wp.ctx, wp.s3svc, url, ch)
 	}, func(data interface{}) *Job {
-		i := data.(*s3listItem)
-		return callback(i)
+		if data == nil {
+			return callback(nil)
+		}
+		return callback(data.(*s3listItem))
 	})
 }

@@ -13,6 +13,8 @@ const (
 	OP_COPY
 	OP_MOVE
 	OP_DELETE
+	OP_BATCH_DELETE        // "ls" and submit batched multi-delete operations
+	OP_BATCH_DELETE_ACTUAL // Amazon deleteObjects call
 	OP_LIST
 	OP_LISTBUCKETS
 	OP_LOCAL_COPY
@@ -55,6 +57,8 @@ var commands = []commandMap{
 	{"cp", OP_COPY, []ParamType{PARAM_S3OBJ, PARAM_S3OBJORDIR}},
 	{"mv", OP_MOVE, []ParamType{PARAM_S3OBJ, PARAM_S3OBJORDIR}},
 	{"rm", OP_DELETE, []ParamType{PARAM_S3OBJ}},
+	{"rm", OP_BATCH_DELETE, []ParamType{PARAM_S3WILDOBJ}},
+	{"batch-rm", OP_BATCH_DELETE_ACTUAL, []ParamType{PARAM_S3OBJ, PARAM_UNCHECKED_ONE_OR_MORE}},
 	{"ls", OP_LISTBUCKETS, []ParamType{}},
 	{"ls", OP_LIST, []ParamType{PARAM_S3OBJORDIR}},
 	{"ls", OP_LIST, []ParamType{PARAM_S3WILDOBJ}},
@@ -64,8 +68,14 @@ var commands = []commandMap{
 	{"!", OP_SHELL_EXEC, []ParamType{PARAM_UNCHECKED_ONE_OR_MORE}},
 }
 
+// Does this operation create sub-jobs?
 func (o Operation) IsBatch() bool {
-	return o == OP_BATCH_DOWNLOAD || o == OP_BATCH_UPLOAD
+	return o == OP_BATCH_DOWNLOAD || o == OP_BATCH_UPLOAD || o == OP_BATCH_DELETE
+}
+
+// Internal operations are not shown in +OK messages
+func (o Operation) IsInternal() bool {
+	return o == OP_BATCH_DELETE_ACTUAL
 }
 
 func (o Operation) String() string {
@@ -86,6 +96,10 @@ func (o Operation) String() string {
 		return "move"
 	case OP_DELETE:
 		return "delete"
+	case OP_BATCH_DELETE:
+		return "batch-delete"
+	case OP_BATCH_DELETE_ACTUAL:
+		return "batch-delete-actual"
 	case OP_LISTBUCKETS:
 		return "ls-buckets"
 	case OP_LIST:

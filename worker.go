@@ -146,7 +146,9 @@ func (p *WorkerPool) runWorker(stats *Stats, idlingCounter *int32, id int) {
 					job.Notify(p.ctx, err)
 					job = job.failCommand
 				} else {
-					log.Printf(`+OK "%s"`, job)
+					if !job.operation.IsInternal() {
+						log.Printf(`+OK "%s"`, job)
+					}
 					job.Notify(p.ctx, nil)
 					job = job.successCommand
 				}

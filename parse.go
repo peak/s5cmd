@@ -249,22 +249,13 @@ func parseSingleJob(jobdesc string) (*Job, error) {
 		if parts[0] == c.keyword {
 			found = i
 
-			if len(c.params) == 1 && c.params[0] == PARAM_UNCHECKED_ONE_OR_MORE && len(parts) > 1 { // special case for exec
-				ourJob.command = c.keyword
-				ourJob.operation = c.operation
-				ourJob.args = []*JobArgument{}
-
-				for i, s := range parts {
-					if i == 0 {
-						continue
-					}
-					ourJob.args = append(ourJob.args, &JobArgument{s, nil})
-				}
-
-				return ourJob, nil
+			suppliedParamCount := len(parts) - 1
+			minCount := len(c.params)
+			maxCount := minCount
+			if minCount > 0 && c.params[minCount-1] == PARAM_UNCHECKED_ONE_OR_MORE {
+				maxCount = -1
 			}
-
-			if len(parts)-1 != len(c.params) { // check if param counts match
+			if suppliedParamCount < minCount || (maxCount > -1 && suppliedParamCount > maxCount) { // check if param counts are acceptable
 				continue
 			}
 
@@ -272,11 +263,12 @@ func parseSingleJob(jobdesc string) (*Job, error) {
 			ourJob.operation = c.operation
 			ourJob.args = []*JobArgument{}
 
-			var fnObj *JobArgument
+			var a, fnObj *JobArgument
 
 			parseArgErr = nil
+			lastType := PARAM_UNCHECKED_ONE_OR_MORE
+			maxI := 0
 			for i, t := range c.params { // check if param types match
-				var a *JobArgument
 				a, parseArgErr = parseArgumentByType(parts[i+1], t, fnObj)
 				if parseArgErr != nil {
 					break
@@ -285,6 +277,20 @@ func parseSingleJob(jobdesc string) (*Job, error) {
 
 				if (t == PARAM_S3OBJ || t == PARAM_FILEOBJ) && fnObj == nil {
 					fnObj = a
+				}
+				maxI = i
+				lastType = t
+			}
+			if parseArgErr == nil && minCount != maxCount {
+				for i, p := range parts {
+					if i <= maxI+1 {
+						continue
+					}
+					a, parseArgErr = parseArgumentByType(p, lastType, fnObj)
+					if parseArgErr != nil {
+						break
+					}
+					ourJob.args = append(ourJob.args, a)
 				}
 			}
 			if parseArgErr != nil {

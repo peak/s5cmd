@@ -1,6 +1,7 @@
 package s5cmd
 
 import (
+	"context"
 	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
@@ -25,8 +26,9 @@ type Job struct {
 	command        string // Different from operation, as multiple commands can map to the same op
 	operation      Operation
 	args           []*JobArgument
-	successCommand *Job
-	failCommand    *Job
+	successCommand *Job       // Next job to run if this one is successful
+	failCommand    *Job       // .. if unsuccessful
+	notifyChan     *chan bool // Ptr to chan to notify the job's success or fail
 }
 
 func (j Job) String() (s string) {
@@ -41,6 +43,23 @@ func (j Job) String() (s string) {
 func out(shortCode, format string, a ...interface{}) {
 	s := fmt.Sprintf(format, a...)
 	fmt.Println("                   ", shortCode, s)
+}
+
+func (j *Job) Notify(ctx context.Context, err error) {
+	if j.notifyChan == nil {
+		return
+	}
+	res := err == nil
+	select {
+	case <-ctx.Done():
+		return
+	default:
+		select {
+		case <-ctx.Done():
+			return
+		case *j.notifyChan <- res:
+		}
+	}
 }
 
 func (j *Job) Run(wp *WorkerParams) error {
@@ -91,6 +110,42 @@ func (j *Job) Run(wp *WorkerParams) error {
 
 	case OP_DELETE:
 		_, err := s3delete(wp.s3svc, j.args[0].s3)
+		return wp.stats.IncrementIfSuccess(STATS_S3OP, err)
+
+	case OP_BATCH_DOWNLOAD:
+		dst_dir := ""
+		if len(j.args) > 1 {
+			dst_dir = j.args[1].arg
+		}
+
+		err := s3wildOperation(j.args[0].s3, wp, func(li *s3listItem) *Job {
+			if li.isCommonPrefix {
+				return nil
+			}
+
+			arg1 := JobArgument{
+				"s3://" + j.args[0].s3.bucket + "/" + *li.key,
+				&s3url{j.args[0].s3.bucket, *li.key},
+			}
+			arg2 := JobArgument{
+				dst_dir + li.parsedKey,
+				nil,
+			}
+			cmd := "get " + arg1.arg + " " + arg2.arg
+			if *li.class == s3.ObjectStorageClassGlacier {
+				out("-ERR", `"%s": Cannot download glacier object`, cmd)
+				return nil
+			}
+			dir := filepath.Dir(arg2.arg)
+			os.MkdirAll(dir, os.ModePerm)
+			return &Job{
+				sourceDesc: j.sourceDesc,
+				command:    cmd,
+				operation:  OP_DOWNLOAD,
+				args:       []*JobArgument{&arg1, &arg2},
+			}
+		})
+
 		return wp.stats.IncrementIfSuccess(STATS_S3OP, err)
 
 	case OP_DOWNLOAD:
@@ -216,13 +271,19 @@ func (j *Job) Run(wp *WorkerParams) error {
 
 	case OP_LIST:
 		ch := make(chan *s3listItem)
-		defer close(ch)
+		closer := make(chan bool)
 		go func() {
+			defer close(closer) // Close closer when goroutine exits
 			var cls string
 			for {
 				select {
 				case li, ok := <-ch:
 					if !ok {
+						// Channel closed early: err returned from s3list?
+						return
+					}
+					if li == nil {
+						out("?EOF", "End of listing")
 						return
 					}
 					if li.isCommonPrefix {
@@ -244,7 +305,14 @@ func (j *Job) Run(wp *WorkerParams) error {
 			}
 		}()
 		err := s3list(wp.ctx, wp.s3svc, j.args[0].s3, ch)
-		return wp.stats.IncrementIfSuccess(STATS_S3OP, err)
+		wp.stats.IncrementIfSuccess(STATS_S3OP, err)
+		if err == nil {
+			select {
+			case <-closer: // Wait for EOF on goroutine
+			}
+		}
+		close(ch)
+		return err
 
 	case OP_ABORT:
 		var (

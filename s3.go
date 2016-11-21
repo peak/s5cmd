@@ -3,12 +3,14 @@ package s5cmd
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -151,6 +153,9 @@ func s3list(ctx context.Context, svc *s3.S3, s3url *s3url, emitChan chan<- *s3li
 				return false
 			}
 		}
+		if !*p.IsTruncated {
+			emit(nil) // EOF
+		}
 
 		return !isCanceled()
 	})
@@ -160,5 +165,88 @@ func s3list(ctx context.Context, svc *s3.S3, s3url *s3url, emitChan chan<- *s3li
 	if err == nil && canceled {
 		return ErrInterrupted
 	}
+	return err
+}
+
+type s3wildCallback func(*s3listItem) *Job
+
+func s3wildOperation(url *s3url, wp *WorkerParams, callback s3wildCallback) error {
+	ch := make(chan *s3listItem)
+	closer := make(chan bool)
+	notifyChan := make(chan bool)
+	var subJobCounter uint32 // number of total subJobs issued
+
+	// This goroutine will read ls results from ch and issue new subJobs
+	go func() {
+		defer close(closer) // Close closer when goroutine exits
+		for {
+			select {
+			case li, ok := <-ch:
+				if !ok {
+					// Channel closed early: err returned from s3list?
+					return
+				}
+				if li == nil {
+					// End of listing
+					return
+				}
+				j := callback(li)
+				if j != nil {
+					j.notifyChan = &notifyChan
+					subJobCounter++
+					*wp.subJobQueue <- j
+				}
+			}
+		}
+	}()
+
+	var (
+		successfulSubJobs uint32
+		processedSubJobs  uint32
+	)
+	// This goroutine will tally successful and total processed sub-jobs
+	go func() {
+		for {
+			select {
+			case res, ok := <-notifyChan:
+				if !ok {
+					return
+				}
+				atomic.AddUint32(&processedSubJobs, 1)
+				if res == true {
+					atomic.AddUint32(&successfulSubJobs, 1)
+				}
+			}
+		}
+	}()
+
+	// Do the actual work
+	err := s3list(wp.ctx, wp.s3svc, url, ch)
+	if err == nil {
+		// This select ensures that we don't return to the main loop without completely getting the list results (and queueing up operations on subJobQueue)
+		select {
+		case <-closer: // Wait for EOF on goroutine
+		}
+
+		done := false
+		var p, s uint32
+		for !done { // wait for all jobs to finish
+			func() {
+				p = atomic.LoadUint32(&processedSubJobs)
+				if p < subJobCounter {
+					time.Sleep(time.Second)
+				} else {
+					done = true
+				}
+			}()
+		}
+
+		s = atomic.LoadUint32(&successfulSubJobs)
+		if s != subJobCounter {
+			err = fmt.Errorf("Not all jobs completed successfully: %d/%d", s, subJobCounter)
+		}
+	}
+	close(ch)
+	close(notifyChan)
 	return err
 }

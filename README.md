@@ -40,7 +40,7 @@ See also: [Nested Commands](#nested-commands-basic)
 
 ## Single command invocation
 
-Single commands are also supported with the `s5cmd [command [params]]` syntax. If this syntax is used, only one worker is launched.
+Single commands are also supported with the `s5cmd [command [params]]` syntax. If this syntax is used, only two workers are launched.
 
 ## Supported commands
 
@@ -53,11 +53,12 @@ S3 urls should be in the format `s3://bucket/key`
 - Move local file - `!mv /path/to/src/file /path/to/dest[/]`
 - Delete local file or (empty) directory - `!rm /path/to/del`
 - Arbitrary shell-execute - `! commands...`
-- Download from S3 - `get s3://from-bucket/from-key [/path/to/dest[/]]`
-- Upload to S3 - `put /path/to/src s3://to-bucket/to-key[/]`
 - List buckets - `ls`
 - List objects in bucket - `ls s3://bucket[/prefix]`
 - List objects filtered by multiple-level wildcards - `ls s3://bucket/prefix/*/file*gz`
+- Download from S3 - `get s3://from-bucket/from-key [/path/to/dest[/]]`
+- Download from S3 filtered by multiple-level wildcards - `get s3://from-bucket/prefix/*/file*gz [/path/to/dest/]`
+- Upload to S3 - `put /path/to/src s3://to-bucket/to-key[/]`
 - Exit - `exit [exitcode]` (see [Exit Code](#exit-code))
 
 ### Tips

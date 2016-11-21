@@ -36,19 +36,26 @@ func (s *CancelableScanner) Start() *CancelableScanner {
 	return s
 }
 
-func (s *CancelableScanner) ReadOne() (string, error) {
-	select {
-	case <-s.ctx.Done():
-		return "", context.Canceled
-	case str, ok := <-s.data:
-		if !ok {
-			return "", io.EOF
+func (s *CancelableScanner) ReadOne(from <-chan *Job, to chan<- *Job) (string, error) {
+	for {
+		select {
+		//case to <- <-from:
+		case j, ok := <-from:
+			if ok {
+				to <- j
+			}
+		case <-s.ctx.Done():
+			return "", context.Canceled
+		case str, ok := <-s.data:
+			if !ok {
+				return "", io.EOF
+			}
+			return str, nil
+		case err, ok := <-s.err:
+			if !ok {
+				return "", io.EOF
+			}
+			return "", err
 		}
-		return str, nil
-	case err, ok := <-s.err:
-		if !ok {
-			return "", io.EOF
-		}
-		return "", err
 	}
 }

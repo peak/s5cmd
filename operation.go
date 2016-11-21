@@ -7,6 +7,7 @@ type Operation int
 const (
 	OP_ABORT Operation = iota
 	OP_DOWNLOAD
+	OP_BATCH_DOWNLOAD
 	OP_UPLOAD
 	OP_COPY
 	OP_MOVE
@@ -43,6 +44,8 @@ var commands = []commandMap{
 	{"exit", OP_ABORT, []ParamType{PARAM_UNCHECKED}},
 	{"get", OP_DOWNLOAD, []ParamType{PARAM_S3OBJ}},
 	{"get", OP_DOWNLOAD, []ParamType{PARAM_S3OBJ, PARAM_FILEORDIR}},
+	{"get", OP_BATCH_DOWNLOAD, []ParamType{PARAM_S3WILDOBJ}},
+	{"get", OP_BATCH_DOWNLOAD, []ParamType{PARAM_S3WILDOBJ, PARAM_DIR}},
 	{"put", OP_UPLOAD, []ParamType{PARAM_FILEOBJ, PARAM_S3OBJORDIR}},
 	{"cp", OP_COPY, []ParamType{PARAM_S3OBJ, PARAM_S3OBJORDIR}},
 	{"mv", OP_MOVE, []ParamType{PARAM_S3OBJ, PARAM_S3OBJORDIR}},
@@ -56,12 +59,18 @@ var commands = []commandMap{
 	{"!", OP_SHELL_EXEC, []ParamType{PARAM_UNCHECKED_ONE_OR_MORE}},
 }
 
+func (o Operation) IsBatch() bool {
+	return o == OP_BATCH_DOWNLOAD
+}
+
 func (o Operation) String() string {
 	switch o {
 	case OP_ABORT:
 		return "abort"
 	case OP_DOWNLOAD:
 		return "download"
+	case OP_BATCH_DOWNLOAD:
+		return "batch-download"
 	case OP_UPLOAD:
 		return "upload"
 	case OP_COPY:

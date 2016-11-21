@@ -36,6 +36,7 @@ func printOps(name string, counter uint64, elapsed time.Duration, extra string) 
 
 func main() {
 	const bytesInMb = float64(1024 * 1024)
+	const minNumWorkers = 2
 
 	var (
 		numWorkers         int
@@ -88,12 +89,12 @@ func main() {
 		log.Fatal("-ERR numworkers without -f are not accepted")
 		os.Exit(1)
 	}
-	if cmdMode {
-		numWorkers = 1
-	}
 
 	if numWorkers < 0 {
 		numWorkers = runtime.NumCPU() * -numWorkers
+	}
+	if cmdMode || numWorkers < minNumWorkers {
+		numWorkers = minNumWorkers
 	}
 
 	startTime := time.Now()
@@ -125,7 +126,7 @@ func main() {
 
 	wp := s5cmd.NewWorkerPool(ctx,
 		&s5cmd.WorkerPoolParams{
-			NumWorkers:     numWorkers,
+			NumWorkers:     uint32(numWorkers),
 			ChunkSizeBytes: multipartChunkSizeBytes,
 			Retries:        retries,
 		}, &s)

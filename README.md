@@ -40,7 +40,7 @@ See also: [Nested Commands](#nested-commands-basic)
 
 ## Single command invocation
 
-Single commands are also supported with the `s5cmd [command [params]]` syntax. If this syntax is used, only two workers are launched.
+Single commands are also supported with the `s5cmd [command [params]]` syntax. If this syntax is used, two workers are launched by default.
 
 ## Supported commands
 
@@ -59,6 +59,8 @@ S3 urls should be in the format `s3://bucket/key`
 - Download from S3 - `get s3://from-bucket/from-key [/path/to/dest[/]]`
 - Download from S3 filtered by multiple-level wildcards - `get s3://from-bucket/prefix/*/file*gz [/path/to/dest/]`
 - Upload to S3 - `put /path/to/src s3://to-bucket/to-key[/]`
+- Upload directory to S3 - `put /path/to/src/dir/ s3://to-bucket/to-prefix/`
+- Upload glob to S3 - `put /path/to/src/*.go s3://to-bucket/to-prefix/`
 - Exit - `exit [exitcode]` (see [Exit Code](#exit-code))
 
 ### Tips

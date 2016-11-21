@@ -9,6 +9,7 @@ const (
 	OP_DOWNLOAD
 	OP_BATCH_DOWNLOAD
 	OP_UPLOAD
+	OP_BATCH_UPLOAD
 	OP_COPY
 	OP_MOVE
 	OP_DELETE
@@ -27,10 +28,12 @@ const (
 	PARAM_UNCHECKED_ONE_OR_MORE
 	PARAM_S3OBJ
 	PARAM_S3OBJORDIR
+	PARAM_S3DIR
 	PARAM_S3WILDOBJ
 	PARAM_FILEOBJ
 	PARAM_FILEORDIR
 	PARAM_DIR
+	PARAM_GLOB
 )
 
 type commandMap struct {
@@ -47,6 +50,8 @@ var commands = []commandMap{
 	{"get", OP_BATCH_DOWNLOAD, []ParamType{PARAM_S3WILDOBJ}},
 	{"get", OP_BATCH_DOWNLOAD, []ParamType{PARAM_S3WILDOBJ, PARAM_DIR}},
 	{"put", OP_UPLOAD, []ParamType{PARAM_FILEOBJ, PARAM_S3OBJORDIR}},
+	{"put", OP_BATCH_UPLOAD, []ParamType{PARAM_GLOB, PARAM_S3DIR}},
+	{"put", OP_BATCH_UPLOAD, []ParamType{PARAM_DIR, PARAM_S3DIR}},
 	{"cp", OP_COPY, []ParamType{PARAM_S3OBJ, PARAM_S3OBJORDIR}},
 	{"mv", OP_MOVE, []ParamType{PARAM_S3OBJ, PARAM_S3OBJORDIR}},
 	{"rm", OP_DELETE, []ParamType{PARAM_S3OBJ}},
@@ -60,7 +65,7 @@ var commands = []commandMap{
 }
 
 func (o Operation) IsBatch() bool {
-	return o == OP_BATCH_DOWNLOAD
+	return o == OP_BATCH_DOWNLOAD || o == OP_BATCH_UPLOAD
 }
 
 func (o Operation) String() string {
@@ -73,6 +78,8 @@ func (o Operation) String() string {
 		return "batch-download"
 	case OP_UPLOAD:
 		return "upload"
+	case OP_BATCH_UPLOAD:
+		return "batch-upload"
 	case OP_COPY:
 		return "copy"
 	case OP_MOVE:

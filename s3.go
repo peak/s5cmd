@@ -3,14 +3,12 @@ package s5cmd
 import (
 	"context"
 	"errors"
-	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 )
 
@@ -47,7 +45,7 @@ type s3listItem struct {
 	isCommonPrefix bool
 }
 
-func s3list(ctx context.Context, svc *s3.S3, s3url *s3url, emitChan chan<- *s3listItem) error {
+func s3list(ctx context.Context, svc *s3.S3, s3url *s3url, emitChan chan<- interface{}) error {
 	inp := s3.ListObjectsV2Input{
 		Bucket: aws.String(s3url.bucket),
 	}
@@ -104,6 +102,12 @@ func s3list(ctx context.Context, svc *s3.S3, s3url *s3url, emitChan chan<- *s3li
 		}
 	}
 	emit := func(item *s3listItem) bool {
+		var data interface{}
+		if item != nil {
+			// avoid nil inside interface
+			data = item
+		}
+
 		for {
 			select {
 			case <-ctx.Done():
@@ -111,7 +115,7 @@ func s3list(ctx context.Context, svc *s3.S3, s3url *s3url, emitChan chan<- *s3li
 				defer mu.Unlock()
 				canceled = true
 				return false
-			case emitChan <- item:
+			case emitChan <- data:
 				return true
 			}
 		}
@@ -171,79 +175,10 @@ func s3list(ctx context.Context, svc *s3.S3, s3url *s3url, emitChan chan<- *s3li
 type s3wildCallback func(*s3listItem) *Job
 
 func s3wildOperation(url *s3url, wp *WorkerParams, callback s3wildCallback) error {
-	ch := make(chan *s3listItem)
-	closer := make(chan bool)
-	notifyChan := make(chan bool)
-	var subJobCounter uint32 // number of total subJobs issued
-
-	// This goroutine will read ls results from ch and issue new subJobs
-	go func() {
-		defer close(closer) // Close closer when goroutine exits
-		for {
-			select {
-			case li, ok := <-ch:
-				if !ok {
-					// Channel closed early: err returned from s3list?
-					return
-				}
-				if li == nil {
-					// End of listing
-					return
-				}
-				j := callback(li)
-				if j != nil {
-					j.notifyChan = &notifyChan
-					subJobCounter++
-					*wp.subJobQueue <- j
-				}
-			}
-		}
-	}()
-
-	var (
-		successfulSubJobs uint32
-		processedSubJobs  uint32
-	)
-	// This goroutine will tally successful and total processed sub-jobs
-	go func() {
-		for {
-			select {
-			case res, ok := <-notifyChan:
-				if !ok {
-					return
-				}
-				atomic.AddUint32(&processedSubJobs, 1)
-				if res == true {
-					atomic.AddUint32(&successfulSubJobs, 1)
-				}
-			}
-		}
-	}()
-
-	// Do the actual work
-	err := s3list(wp.ctx, wp.s3svc, url, ch)
-	if err == nil {
-		// This select ensures that we don't return to the main loop without completely getting the list results (and queueing up operations on subJobQueue)
-		select {
-		case <-closer: // Wait for EOF on goroutine
-		}
-
-		var p, s uint32
-		for { // wait for all jobs to finish
-			p = atomic.LoadUint32(&processedSubJobs)
-			if p < subJobCounter {
-				time.Sleep(time.Second)
-			} else {
-				break
-			}
-		}
-
-		s = atomic.LoadUint32(&successfulSubJobs)
-		if s != subJobCounter {
-			err = fmt.Errorf("Not all jobs completed successfully: %d/%d", s, subJobCounter)
-		}
-	}
-	close(ch)
-	close(notifyChan)
-	return err
+	return wildOperation(wp, func(ch chan<- interface{}) error {
+		return s3list(wp.ctx, wp.s3svc, url, ch)
+	}, func(data interface{}) *Job {
+		i := data.(*s3listItem)
+		return callback(i)
+	})
 }

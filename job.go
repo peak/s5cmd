@@ -2,6 +2,7 @@ package s5cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
@@ -12,6 +13,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"sync/atomic"
+	"time"
 )
 
 const DATE_FORMAT string = "2006/01/02 15:04:05"
@@ -38,6 +41,21 @@ func (j Job) String() (s string) {
 	}
 	//s += " # from " + j.sourceDesc
 	return
+}
+
+func (a JobArgument) Clone() JobArgument {
+	var s s3url
+	if a.s3 != nil {
+		s = a.s3.Clone()
+	}
+	return JobArgument{a.arg, &s}
+}
+func (a JobArgument) Append(s string) JobArgument {
+	a.arg += s
+	if a.s3 != nil {
+		a.s3.key += s
+	}
+	return a
 }
 
 func out(shortCode, format string, a ...interface{}) {
@@ -126,22 +144,76 @@ func (j *Job) Run(wp *WorkerParams) error {
 				dst_dir + li.parsedKey,
 				nil,
 			}
-			cmd := "get " + arg1.arg + " " + arg2.arg
+			j := &Job{
+				sourceDesc: j.sourceDesc,
+				command:    "get",
+				operation:  OP_DOWNLOAD,
+				args:       []*JobArgument{&arg1, &arg2},
+			}
 			if *li.class == s3.ObjectStorageClassGlacier {
-				out("-ERR", `"%s": Cannot download glacier object`, cmd)
+				out("-ERR", `"%s": Cannot download glacier object`, j)
 				return nil
 			}
 			dir := filepath.Dir(arg2.arg)
 			os.MkdirAll(dir, os.ModePerm)
+			return j
+		})
+
+		return wp.stats.IncrementIfSuccess(STATS_S3OP, err)
+
+	case OP_BATCH_UPLOAD:
+		err := wildOperation(wp, func(ch chan<- interface{}) error {
+			// lister
+			st, err := os.Stat(j.args[0].arg)
+			if err == nil && st.IsDir() {
+				err = filepath.Walk(j.args[0].arg, func(path string, st os.FileInfo, err error) error {
+					if err != nil {
+						return err
+					}
+					if st.IsDir() {
+						return nil
+					}
+					ch <- &path
+					return nil
+				})
+				ch <- nil // send EOF
+				return err
+			} else {
+				ma, err := filepath.Glob(j.args[0].arg)
+				if err != nil {
+					return err
+				}
+				if len(ma) == 0 {
+					return errors.New("Could not find match for glob")
+				}
+
+				for _, f := range ma {
+					st, _ = os.Stat(f)
+					if !st.IsDir() {
+						ch <- &f
+					}
+				}
+				ch <- nil // send EOF
+				return nil
+			}
+		}, func(data interface{}) *Job {
+			// callback
+			fn := data.(*string)
+
+			arg1 := JobArgument{
+				*fn,
+				nil,
+			}
+			arg2 := j.args[1].Clone().Append(*fn)
 			return &Job{
 				sourceDesc: j.sourceDesc,
-				command:    cmd,
-				operation:  OP_DOWNLOAD,
+				command:    "put",
+				operation:  OP_UPLOAD,
 				args:       []*JobArgument{&arg1, &arg2},
 			}
 		})
 
-		return wp.stats.IncrementIfSuccess(STATS_S3OP, err)
+		return wp.stats.IncrementIfSuccess(STATS_FILEOP, err)
 
 	case OP_DOWNLOAD:
 		src_fn := filepath.Base(j.args[0].arg)
@@ -266,7 +338,6 @@ func (j *Job) Run(wp *WorkerParams) error {
 
 	case OP_LIST:
 		err := s3wildOperation(j.args[0].s3, wp, func(li *s3listItem) *Job {
-
 			if li.isCommonPrefix {
 				out("+", "%19s %1s  %12s  %s", "", "", "DIR", li.parsedKey)
 			} else {
@@ -282,7 +353,7 @@ func (j *Job) Run(wp *WorkerParams) error {
 				default:
 					cls = "?"
 				}
-				out("+", "%s %1s  %12d   %s", li.lastModified.Format(DATE_FORMAT), cls, li.size, li.parsedKey)
+				out("+", "%s %1s  %12d  %s", li.lastModified.Format(DATE_FORMAT), cls, li.size, li.parsedKey)
 			}
 
 			return nil
@@ -313,4 +384,98 @@ func (j *Job) Run(wp *WorkerParams) error {
 		return fmt.Errorf("Unhandled operation %v", j.operation)
 	}
 
+}
+
+type wildLister func(chan<- interface{}) error
+type wildCallback func(interface{}) *Job
+
+/*
+wildOperation is the cornerstone of sub-job launching.
+
+It will run lister() when ready and expect data from ch. On EOF, a single nil should be passed into ch.
+Data received from ch will be passed to callback() which in turn will create a *Job entry (or nil for no job)
+Then this entry is submitted to the subJobQueue chan.
+
+After lister() completes, the sub-jobs are tracked
+The fn will return when all jobs are processed, and it will return with error if even a single sub-job was not successful
+
+Midway-failing lister() fns are not thoroughly tested and may hang or panic
+*/
+
+func wildOperation(wp *WorkerParams, lister wildLister, callback wildCallback) error {
+	ch := make(chan interface{})
+	closer := make(chan bool)
+	notifyChan := make(chan bool)
+	var subJobCounter uint32 // number of total subJobs issued
+
+	// This goroutine will read ls results from ch and issue new subJobs
+	go func() {
+		defer close(closer) // Close closer when goroutine exits
+		for {
+			select {
+			case data, ok := <-ch:
+				if !ok {
+					// Channel closed early: err returned from s3list?
+					return
+				}
+				if data == nil {
+					// End of listing
+					return
+				}
+				j := callback(data)
+				if j != nil {
+					j.notifyChan = &notifyChan
+					subJobCounter++
+					*wp.subJobQueue <- j
+				}
+			}
+		}
+	}()
+
+	var (
+		successfulSubJobs uint32
+		processedSubJobs  uint32
+	)
+	// This goroutine will tally successful and total processed sub-jobs
+	go func() {
+		for {
+			select {
+			case res, ok := <-notifyChan:
+				if !ok {
+					return
+				}
+				atomic.AddUint32(&processedSubJobs, 1)
+				if res == true {
+					atomic.AddUint32(&successfulSubJobs, 1)
+				}
+			}
+		}
+	}()
+
+	// Do the actual work
+	err := lister(ch)
+	if err == nil {
+		// This select ensures that we don't return to the main loop without completely getting the list results (and queueing up operations on subJobQueue)
+		select {
+		case <-closer: // Wait for EOF on goroutine
+		}
+
+		var p, s uint32
+		for { // wait for all jobs to finish
+			p = atomic.LoadUint32(&processedSubJobs)
+			if p < subJobCounter {
+				time.Sleep(time.Second)
+			} else {
+				break
+			}
+		}
+
+		s = atomic.LoadUint32(&successfulSubJobs)
+		if s != subJobCounter {
+			err = fmt.Errorf("Not all jobs completed successfully: %d/%d", s, subJobCounter)
+		}
+	}
+	close(ch)
+	close(notifyChan)
+	return err
 }

@@ -85,15 +85,10 @@ func main() {
 	if cmd != "" {
 		cmdMode = true
 	}
-	if cmdMode && numWorkers != defaultNumWorkers {
-		log.Fatal("-ERR numworkers without -f are not accepted")
-		os.Exit(1)
-	}
-
 	if numWorkers < 0 {
 		numWorkers = runtime.NumCPU() * -numWorkers
 	}
-	if cmdMode || numWorkers < minNumWorkers {
+	if numWorkers < minNumWorkers {
 		numWorkers = minNumWorkers
 	}
 

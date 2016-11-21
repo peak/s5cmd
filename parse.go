@@ -18,6 +18,10 @@ func (s s3url) format() string {
 	return s.bucket + "/" + s.key
 }
 
+func (s s3url) Clone() s3url {
+	return s3url{s.bucket, s.key}
+}
+
 func hasWild(s string) bool {
 	return strings.ContainsAny(s, "?*")
 }
@@ -54,7 +58,7 @@ func parseArgumentByType(s string, t ParamType, fnObj *JobArgument) (*JobArgumen
 	case PARAM_UNCHECKED, PARAM_UNCHECKED_ONE_OR_MORE:
 		return &JobArgument{s, nil}, nil
 
-	case PARAM_S3OBJ, PARAM_S3OBJORDIR, PARAM_S3WILDOBJ:
+	case PARAM_S3OBJ, PARAM_S3OBJORDIR, PARAM_S3WILDOBJ, PARAM_S3DIR:
 		url, err := parseS3Url(s)
 		if err != nil {
 			return nil, err
@@ -65,9 +69,13 @@ func parseArgumentByType(s string, t ParamType, fnObj *JobArgument) (*JobArgumen
 		}
 
 		endsInSlash := strings.HasSuffix(url.key, "/")
-		if t == PARAM_S3OBJ {
-			if endsInSlash {
+		if endsInSlash {
+			if t == PARAM_S3OBJ {
 				return nil, errors.New("S3 key should not end with /")
+			}
+		} else {
+			if t == PARAM_S3DIR {
+				return nil, errors.New("S3 dir should end with /")
 			}
 		}
 		if t == PARAM_S3OBJORDIR && endsInSlash && fnBase != "" {
@@ -86,6 +94,13 @@ func parseArgumentByType(s string, t ParamType, fnObj *JobArgument) (*JobArgumen
 		if t == PARAM_FILEOBJ {
 			if endsInSlash {
 				return nil, errors.New("File param should not end with /")
+			}
+			if strings.ContainsAny(s, "*[]?") {
+				return nil, errors.New("File param should not contain glob characters")
+			}
+			st, err := os.Stat(s)
+			if err == nil && st.IsDir() {
+				return nil, errors.New("File param should not be a directory")
 			}
 		}
 		if t == PARAM_FILEORDIR && endsInSlash && fnBase != "" {
@@ -107,6 +122,17 @@ func parseArgumentByType(s string, t ParamType, fnObj *JobArgument) (*JobArgumen
 		}
 
 		return &JobArgument{s, nil}, nil
+
+	case PARAM_GLOB:
+		if !strings.ContainsAny(s, "*[]?") {
+			return nil, errors.New("Param does not look like a glob")
+		}
+		_, err := filepath.Match(s, "")
+		if err != nil {
+			return nil, err
+		}
+		return &JobArgument{s, nil}, nil
+
 	}
 
 	return nil, errors.New("Unhandled parseArgumentByType")

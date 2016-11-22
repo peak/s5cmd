@@ -7,6 +7,15 @@ import (
 	"testing"
 )
 
+func newJob(sourceDesc, command string, operation Operation, args []*JobArgument) Job {
+	return Job{
+		sourceDesc: sourceDesc,
+		command:    command,
+		operation:  operation,
+		args:       args,
+	}
+}
+
 var (
 	result        error
 	stats         = Stats{}
@@ -24,41 +33,20 @@ var (
 	}
 
 	// These Jobs are used for benchmarks and also as skeletons for tests
-	localCopyJob = Job{
-		"!cp-test",
-		"!cp",
-		OP_LOCAL_COPY,
+	localCopyJob = newJob("!cp-test", "!cp", OP_LOCAL_COPY,
 		[]*JobArgument{
 			{"test-src", nil},
 			{"test-dst", nil},
-		},
-		nil,
-		nil,
-		nil,
-	}
-	localMoveJob = Job{
-		"!mv-test",
-		"!mv",
-		OP_LOCAL_MOVE,
+		})
+	localMoveJob = newJob("!mv-test", "!mv", OP_LOCAL_MOVE,
 		[]*JobArgument{
 			{"test-src", nil},
 			{"test-dst", nil},
-		},
-		nil,
-		nil,
-		nil,
-	}
-	localDeleteJob = Job{
-		"!rm-test",
-		"!rm",
-		OP_LOCAL_DELETE,
+		})
+	localDeleteJob = newJob("!rm-test", "!rm", OP_LOCAL_DELETE,
 		[]*JobArgument{
 			{"test-src", nil},
-		},
-		nil,
-		nil,
-		nil,
-	}
+		})
 )
 
 func benchmarkJobRun(b *testing.B, j *Job) {

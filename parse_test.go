@@ -5,20 +5,20 @@ import "testing"
 func TestParseUnchecked(t *testing.T) {
 	t.Run("PARAM_UNCHECKED", func(t *testing.T) {
 		input := "testStr"
-		testParseGeneral(t, PARAM_UNCHECKED, input, input, false, true, "", "")
+		testParseGeneral(t, PARAM_UNCHECKED, input, input, false, true, "", "", nil)
 	})
 	t.Run("PARAM_UNCHECKED_ONE_OR_MORE", func(t *testing.T) {
 		input := "testStr1"
-		testParseGeneral(t, PARAM_UNCHECKED_ONE_OR_MORE, input, input, false, true, "", "")
+		testParseGeneral(t, PARAM_UNCHECKED_ONE_OR_MORE, input, input, false, true, "", "", nil)
 	})
 	t.Run("PARAM_UNCHECKED_ONE_OR_MORE", func(t *testing.T) {
 		input := "testStr1 testStr2"
-		testParseGeneral(t, PARAM_UNCHECKED_ONE_OR_MORE, input, input, false, true, "", "")
+		testParseGeneral(t, PARAM_UNCHECKED_ONE_OR_MORE, input, input, false, true, "", "", nil)
 	})
 }
 
-func testParseGeneral(t *testing.T, typ ParamType, input, expectedOutArg string, expectError, expectNilS3 bool, expectedS3bucket, expectedS3key string) {
-	a, err := parseArgumentByType(input, typ, nil)
+func testParseGeneral(t *testing.T, typ ParamType, input, expectedOutArg string, expectError, expectNilS3 bool, expectedS3bucket, expectedS3key string, fnObj *JobArgument) {
+	a, err := parseArgumentByType(input, typ, fnObj)
 
 	if expectError {
 		if err == nil {
@@ -65,25 +65,25 @@ func TestParseS3Obj(t *testing.T) {
 		inputKey := "path/to/obj"
 
 		input := "s3://" + inputBucket + "/" + inputKey
-		testParseGeneral(t, typ, input, input, false, false, inputBucket, inputKey)
+		testParseGeneral(t, typ, input, input, false, false, inputBucket, inputKey, nil)
 	})
 	t.Run("path/to/obj/", func(t *testing.T) {
 		inputBucket := "bucket"
 		inputKey := "path/to/obj/"
 
 		input := "s3://" + inputBucket + "/" + inputKey
-		testParseGeneral(t, typ, input, "", true, false, "", "")
+		testParseGeneral(t, typ, input, "", true, false, "", "", nil)
 	})
 	t.Run("path/to/obj*", func(t *testing.T) {
 		inputBucket := "bucket"
 		inputKey := "path/to/obj*"
 
 		input := "s3://" + inputBucket + "/" + inputKey
-		testParseGeneral(t, typ, input, "", true, false, "", "")
+		testParseGeneral(t, typ, input, "", true, false, "", "", nil)
 	})
 	t.Run("missing-bucket", func(t *testing.T) {
 		inputKey := "path/to/obj*"
-		testParseGeneral(t, typ, inputKey, "", true, false, "", "")
+		testParseGeneral(t, typ, inputKey, "", true, false, "", "", nil)
 	})
 }
 
@@ -94,29 +94,31 @@ func TestParseS3Dir(t *testing.T) {
 		inputKey := "path/to/obj/"
 
 		input := "s3://" + inputBucket + "/" + inputKey
-		testParseGeneral(t, typ, input, input, false, false, inputBucket, inputKey)
+		testParseGeneral(t, typ, input, input, false, false, inputBucket, inputKey, nil)
 	})
 	t.Run("path/to/obj/", func(t *testing.T) {
 		inputBucket := "bucket"
 		inputKey := "path/to/obj"
 
 		input := "s3://" + inputBucket + "/" + inputKey
-		testParseGeneral(t, typ, input, "", true, false, "", "")
+		testParseGeneral(t, typ, input, "", true, false, "", "", nil)
 	})
 	t.Run("path/to/obj*", func(t *testing.T) {
 		inputBucket := "bucket"
 		inputKey := "path/to/obj*"
 
 		input := "s3://" + inputBucket + "/" + inputKey
-		testParseGeneral(t, typ, input, "", true, false, "", "")
+		testParseGeneral(t, typ, input, "", true, false, "", "", nil)
 	})
 	t.Run("missing-bucket", func(t *testing.T) {
 		inputKey := "path/to/obj*"
-		testParseGeneral(t, typ, inputKey, "", true, false, "", "")
+		testParseGeneral(t, typ, inputKey, "", true, false, "", "", nil)
 	})
 	t.Run("missing-key", func(t *testing.T) {
-		inputBucket := "s3://bucket"
-		testParseGeneral(t, typ, inputBucket, "", true, false, "", "")
+		inputBucket := "bucket"
+
+		input := "s3://" + inputBucket
+		testParseGeneral(t, typ, input, input, false, false, inputBucket, "", nil)
 	})
 }
 
@@ -127,36 +129,36 @@ func TestParseS3WildObj(t *testing.T) {
 		inputKey := "path/to/wild/*obj"
 
 		input := "s3://" + inputBucket + "/" + inputKey
-		testParseGeneral(t, typ, input, input, false, false, inputBucket, inputKey)
+		testParseGeneral(t, typ, input, input, false, false, inputBucket, inputKey, nil)
 	})
 	t.Run("path/to/wild/*obj/", func(t *testing.T) {
 		inputBucket := "bucket"
 		inputKey := "path/to/wild/*obj/"
 
 		input := "s3://" + inputBucket + "/" + inputKey
-		testParseGeneral(t, typ, input, input, false, false, inputBucket, inputKey)
+		testParseGeneral(t, typ, input, input, false, false, inputBucket, inputKey, nil)
 	})
 	t.Run("path/to/obj", func(t *testing.T) {
 		inputBucket := "bucket"
 		inputKey := "path/to/obj"
 
 		input := "s3://" + inputBucket + "/" + inputKey
-		testParseGeneral(t, typ, input, "", true, false, "", "")
+		testParseGeneral(t, typ, input, "", true, false, "", "", nil)
 	})
 	t.Run("path/to/obj/", func(t *testing.T) {
 		inputBucket := "bucket"
 		inputKey := "path/to/obj/"
 
 		input := "s3://" + inputBucket + "/" + inputKey
-		testParseGeneral(t, typ, input, "", true, false, "", "")
+		testParseGeneral(t, typ, input, "", true, false, "", "", nil)
 	})
 	t.Run("missing-bucket", func(t *testing.T) {
 		inputKey := "path/to/obj*"
-		testParseGeneral(t, typ, inputKey, "", true, false, "", "")
+		testParseGeneral(t, typ, inputKey, "", true, false, "", "", nil)
 	})
 	t.Run("missing-key", func(t *testing.T) {
 		inputBucket := "s3://bucket"
-		testParseGeneral(t, typ, inputBucket, "", true, false, "", "")
+		testParseGeneral(t, typ, inputBucket, "", true, false, "", "", nil)
 	})
 }
 
@@ -167,25 +169,55 @@ func TestParseS3ObjOrDir(t *testing.T) {
 		inputKey := "path/to/obj/"
 
 		input := "s3://" + inputBucket + "/" + inputKey
-		testParseGeneral(t, typ, input, input, false, false, inputBucket, inputKey)
+		testParseGeneral(t, typ, input, input, false, false, inputBucket, inputKey, nil)
 	})
 	t.Run("path/to/obj/", func(t *testing.T) {
 		inputBucket := "bucket"
 		inputKey := "path/to/obj"
 
 		input := "s3://" + inputBucket + "/" + inputKey
-		testParseGeneral(t, typ, input, input, false, false, inputBucket, inputKey)
+		testParseGeneral(t, typ, input, input, false, false, inputBucket, inputKey, nil)
+	})
+	t.Run("path/to/obj+file", func(t *testing.T) {
+		inputBucket := "bucket"
+		inputKey := "path/to/obj"
+
+		input := "s3://" + inputBucket + "/" + inputKey
+		testParseGeneral(t, typ, input, input, false, false, inputBucket, inputKey, &JobArgument{arg: "file", s3: nil})
+	})
+	t.Run("path/to/obj/+file", func(t *testing.T) {
+		inputBucket := "bucket"
+		inputKey := "path/to/obj/"
+
+		input := "s3://" + inputBucket + "/" + inputKey
+		testParseGeneral(t, typ, input, input+"file", false, false, inputBucket, inputKey+"file", &JobArgument{arg: "file", s3: nil})
+	})
+	t.Run("missing-key", func(t *testing.T) {
+		inputBucket := "bucket"
+
+		input := "s3://" + inputBucket
+		testParseGeneral(t, typ, input, input, false, false, inputBucket, "", nil)
+	})
+	t.Run("missing-key+file", func(t *testing.T) {
+		inputBucket := "bucket"
+		input := "s3://" + inputBucket
+		testParseGeneral(t, typ, input, input+"/file", false, false, inputBucket, "file", &JobArgument{arg: "file", s3: nil})
+	})
+	t.Run("missing-key-with-slash+file", func(t *testing.T) {
+		inputBucket := "bucket"
+		input := "s3://" + inputBucket + "/"
+		testParseGeneral(t, typ, input, input+"file", false, false, inputBucket, "file", &JobArgument{arg: "file", s3: nil})
 	})
 	t.Run("path/to/obj*", func(t *testing.T) {
 		inputBucket := "bucket"
 		inputKey := "path/to/obj*"
 
 		input := "s3://" + inputBucket + "/" + inputKey
-		testParseGeneral(t, typ, input, "", true, false, "", "")
+		testParseGeneral(t, typ, input, "", true, false, "", "", nil)
 	})
 	t.Run("missing-bucket", func(t *testing.T) {
 		inputKey := "path/to/obj*"
-		testParseGeneral(t, typ, inputKey, "", true, false, "", "")
+		testParseGeneral(t, typ, inputKey, "", true, false, "", "", nil)
 	})
 }
 
@@ -193,19 +225,19 @@ func TestParseFileObj(t *testing.T) {
 	typ := PARAM_FILEOBJ
 	t.Run("path/to/obj", func(t *testing.T) {
 		input := "path/to/obj"
-		testParseGeneral(t, typ, input, input, false, true, "", "")
+		testParseGeneral(t, typ, input, input, false, true, "", "", nil)
 	})
 	t.Run("path/to/obj/", func(t *testing.T) {
 		input := "path/to/obj/"
-		testParseGeneral(t, typ, input, "", true, true, "", "")
+		testParseGeneral(t, typ, input, "", true, true, "", "", nil)
 	})
 	t.Run("path/to/obj*", func(t *testing.T) {
 		input := "path/to/obj*"
-		testParseGeneral(t, typ, input, "", true, true, "", "")
+		testParseGeneral(t, typ, input, "", true, true, "", "", nil)
 	})
 	t.Run("s3://bucket/path", func(t *testing.T) {
 		input := "s3://bucket/path"
-		testParseGeneral(t, typ, input, "", true, true, "", "")
+		testParseGeneral(t, typ, input, "", true, true, "", "", nil)
 	})
 }
 
@@ -213,22 +245,22 @@ func TestParseFileDir(t *testing.T) {
 	typ := PARAM_DIR
 	t.Run("path/to/obj/", func(t *testing.T) {
 		input := "path/to/obj/"
-		testParseGeneral(t, typ, input, input, false, true, "", "")
+		testParseGeneral(t, typ, input, input, false, true, "", "", nil)
 	})
 	t.Run("cmd", func(t *testing.T) {
-		testParseGeneral(t, typ, "cmd", "cmd/", false, true, "", "")
+		testParseGeneral(t, typ, "cmd", "cmd/", false, true, "", "", nil)
 	})
 	t.Run("path/to/obj", func(t *testing.T) {
 		input := "path/to/obj"
-		testParseGeneral(t, typ, input, input+"/", false, true, "", "")
+		testParseGeneral(t, typ, input, input+"/", false, true, "", "", nil)
 	})
 	t.Run("path/to/obj*", func(t *testing.T) {
 		input := "path/to/obj*"
-		testParseGeneral(t, typ, input, "", true, true, "", "")
+		testParseGeneral(t, typ, input, "", true, true, "", "", nil)
 	})
 	t.Run("s3://bucket/path", func(t *testing.T) {
 		input := "s3://bucket/path"
-		testParseGeneral(t, typ, input, "", true, true, "", "")
+		testParseGeneral(t, typ, input, "", true, true, "", "", nil)
 	})
 }
 
@@ -236,22 +268,22 @@ func TestParseFileOrDir(t *testing.T) {
 	typ := PARAM_FILEORDIR
 	t.Run("path/to/obj", func(t *testing.T) {
 		input := "path/to/obj"
-		testParseGeneral(t, typ, input, input, false, true, "", "")
+		testParseGeneral(t, typ, input, input, false, true, "", "", nil)
 	})
 	t.Run("path/to/obj/", func(t *testing.T) {
 		input := "path/to/obj/"
-		testParseGeneral(t, typ, input, input, false, true, "", "")
+		testParseGeneral(t, typ, input, input, false, true, "", "", nil)
 	})
 	t.Run("cmd", func(t *testing.T) {
-		testParseGeneral(t, typ, "cmd", "cmd/", false, true, "", "")
+		testParseGeneral(t, typ, "cmd", "cmd/", false, true, "", "", nil)
 	})
 	t.Run("path/to/obj*", func(t *testing.T) {
 		input := "path/to/obj*"
-		testParseGeneral(t, typ, input, "", true, true, "", "")
+		testParseGeneral(t, typ, input, "", true, true, "", "", nil)
 	})
 	t.Run("s3://bucket/path", func(t *testing.T) {
 		input := "s3://bucket/path"
-		testParseGeneral(t, typ, input, "", true, true, "", "")
+		testParseGeneral(t, typ, input, "", true, true, "", "", nil)
 	})
 }
 
@@ -259,14 +291,14 @@ func TestParseGlob(t *testing.T) {
 	typ := PARAM_GLOB
 	t.Run("path/to/obj*", func(t *testing.T) {
 		input := "path/to/obj*"
-		testParseGeneral(t, typ, input, input, false, true, "", "")
+		testParseGeneral(t, typ, input, input, false, true, "", "", nil)
 	})
 	t.Run("path/to/obj", func(t *testing.T) {
 		input := "path/to/obj"
-		testParseGeneral(t, typ, input, "", true, true, "", "")
+		testParseGeneral(t, typ, input, "", true, true, "", "", nil)
 	})
 	t.Run("s3://bucket/path", func(t *testing.T) {
 		input := "s3://bucket/path"
-		testParseGeneral(t, typ, input, "", true, true, "", "")
+		testParseGeneral(t, typ, input, "", true, true, "", "", nil)
 	})
 }

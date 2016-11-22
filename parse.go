@@ -15,6 +15,9 @@ type s3url struct {
 }
 
 func (s s3url) format() string {
+	if s.key == "" {
+		return s.bucket
+	}
 	return s.bucket + "/" + s.key
 }
 
@@ -42,7 +45,7 @@ func parseS3Url(object string) (*s3url, error) {
 	}
 	key := ""
 	if len(parts) == 4 {
-		key = parts[3]
+		key = strings.TrimLeft(parts[3], "/")
 	}
 
 	return &s3url{
@@ -66,6 +69,7 @@ func parseArgumentByType(s string, t ParamType, fnObj *JobArgument) (*JobArgumen
 		if err != nil {
 			return nil, err
 		}
+		s = "s3://" + url.format() // rebuild s with formatted url
 
 		if (t == PARAM_S3OBJ || t == PARAM_S3OBJORDIR) && hasWild(url.key) {
 			return nil, errors.New("S3 key cannot contain wildcards")
@@ -85,13 +89,17 @@ func parseArgumentByType(s string, t ParamType, fnObj *JobArgument) (*JobArgumen
 				return nil, errors.New("S3 key should not end with /")
 			}
 		} else {
-			if t == PARAM_S3DIR {
+			if t == PARAM_S3DIR && url.key != "" {
 				return nil, errors.New("S3 dir should end with /")
 			}
 		}
 		if t == PARAM_S3OBJORDIR && endsInSlash && fnBase != "" {
 			url.key += fnBase
 			s += fnBase
+		}
+		if t == PARAM_S3OBJORDIR && url.key == "" && fnBase != "" {
+			url.key += fnBase
+			s += "/" + fnBase
 		}
 		return &JobArgument{s, url}, nil
 

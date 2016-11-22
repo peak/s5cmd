@@ -267,7 +267,8 @@ func parseSingleJob(jobdesc string) (*Job, error) {
 
 	parts := strings.Split(jobdesc, " ")
 
-	ourJob := &Job{sourceDesc: jobdesc}
+	var numSuccess, numFails uint32
+	ourJob := &Job{sourceDesc: jobdesc, numSuccess: &numSuccess, numFails: &numFails}
 
 	found := -1
 	var parseArgErr error = nil

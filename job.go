@@ -9,6 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/termie/go-shutil"
 	"gopkg.in/cheggaaa/pb.v1"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -32,6 +33,26 @@ type Job struct {
 	successCommand *Job       // Next job to run if this one is successful
 	failCommand    *Job       // .. if unsuccessful
 	notifyChan     *chan bool // Ptr to chan to notify the job's success or fail
+	isSubJob       bool
+	numSuccess     *uint32 // Number of affected objects (only on batch operations)
+	numFails       *uint32
+}
+
+type ShortCode int
+
+const (
+	SHORT_ERR = iota
+	SHORT_OK
+)
+
+func (s ShortCode) String() string {
+	if s == SHORT_OK {
+		return "+"
+	}
+	if s == SHORT_ERR {
+		return "-"
+	}
+	return "?"
 }
 
 func (j Job) String() (s string) {
@@ -41,6 +62,19 @@ func (j Job) String() (s string) {
 	}
 	//s += " # from " + j.sourceDesc
 	return
+}
+
+func (j Job) MakeSubJob(command string, operation Operation, args []*JobArgument) *Job {
+	ptr := args
+	return &Job{
+		sourceDesc: j.sourceDesc,
+		command:    command,
+		operation:  operation,
+		args:       ptr,
+		isSubJob:   true,
+		numSuccess: j.numSuccess,
+		numFails:   j.numFails,
+	}
 }
 
 func (a JobArgument) Clone() JobArgument {
@@ -58,9 +92,37 @@ func (a JobArgument) Append(s string) JobArgument {
 	return a
 }
 
-func out(shortCode, format string, a ...interface{}) {
+func (j *Job) out(short ShortCode, format string, a ...interface{}) {
 	s := fmt.Sprintf(format, a...)
-	fmt.Println("                   ", shortCode, s)
+	fmt.Println("                   ", short, s)
+	if j.numSuccess != nil && short == SHORT_OK {
+		atomic.AddUint32(j.numSuccess, 1)
+	}
+	if j.numFails != nil && short == SHORT_ERR {
+		atomic.AddUint32(j.numFails, 1)
+	}
+}
+
+func (j *Job) PrintOK() {
+	if j.operation.IsInternal() {
+		return
+	}
+	if j.isSubJob {
+		j.out(SHORT_OK, `"%s"`, j)
+		return
+	}
+
+	if j.numSuccess != nil && *j.numSuccess > 0 {
+		if j.numFails != nil && *j.numFails > 0 {
+			log.Printf(`+OK "%s" (%d, %d failed)`, j, *j.numSuccess, *j.numFails)
+		} else {
+			log.Printf(`+OK "%s" (%d)`, j, *j.numSuccess)
+		}
+	} else if j.numFails != nil && *j.numFails > 0 {
+		log.Printf(`+OK "%s" (%d failed)`, j, *j.numFails)
+	} else {
+		log.Printf(`+OK "%s"`, j)
+	}
 }
 
 func (j *Job) Notify(ctx context.Context, err error) {
@@ -146,13 +208,7 @@ func (j *Job) Run(wp *WorkerParams) error {
 			}
 
 			if (key == nil || len(jobArgs) == maxArgs) && len(jobArgs) > 1 {
-				ptr := jobArgs
-				subJob = &Job{
-					sourceDesc: j.sourceDesc,
-					command:    "batch-rm",
-					operation:  OP_BATCH_DELETE_ACTUAL,
-					args:       ptr,
-				}
+				subJob = j.MakeSubJob("batch-rm", OP_BATCH_DELETE_ACTUAL, jobArgs)
 				initArgs()
 			}
 
@@ -192,10 +248,10 @@ func (j *Job) Run(wp *WorkerParams) error {
 			},
 		})
 		for _, o := range o.Deleted {
-			out("+", `Batch-delete "s3://%s/%s"`, j.args[0].s3.bucket, *o.Key)
+			j.out(SHORT_OK, `Batch-delete s3://%s/%s`, j.args[0].s3.bucket, *o.Key)
 		}
 		for _, e := range o.Errors {
-			out("-", `Batch-delete "s3://%s/%s": %s`, j.args[0].s3.bucket, *e.Key, *e.Message)
+			j.out(SHORT_ERR, `Batch-delete s3://%s/%s: %s`, j.args[0].s3.bucket, *e.Key, *e.Message)
 			if err != nil {
 				err = errors.New(*e.Message)
 			}
@@ -221,14 +277,10 @@ func (j *Job) Run(wp *WorkerParams) error {
 				dst_dir + li.parsedKey,
 				nil,
 			}
-			j := &Job{
-				sourceDesc: j.sourceDesc,
-				command:    "get",
-				operation:  OP_DOWNLOAD,
-				args:       []*JobArgument{&arg1, &arg2},
-			}
+
+			j = j.MakeSubJob("get", OP_DOWNLOAD, []*JobArgument{&arg1, &arg2})
 			if *li.class == s3.ObjectStorageClassGlacier {
-				out("-ERR", `"%s": Cannot download glacier object`, j)
+				j.out(SHORT_ERR, `"%s": Cannot download glacier object`, j)
 				return nil
 			}
 			dir := filepath.Dir(arg2.arg)
@@ -285,12 +337,7 @@ func (j *Job) Run(wp *WorkerParams) error {
 				nil,
 			}
 			arg2 := j.args[1].Clone().Append(*fn)
-			return &Job{
-				sourceDesc: j.sourceDesc,
-				command:    "put",
-				operation:  OP_UPLOAD,
-				args:       []*JobArgument{&arg1, &arg2},
-			}
+			return j.MakeSubJob("put", OP_UPLOAD, []*JobArgument{&arg1, &arg2})
 		})
 
 		return wp.stats.IncrementIfSuccess(STATS_FILEOP, err)
@@ -411,7 +458,7 @@ func (j *Job) Run(wp *WorkerParams) error {
 		o, err := wp.s3svc.ListBuckets(&s3.ListBucketsInput{})
 		if err == nil {
 			for _, b := range o.Buckets {
-				out("+", "%s  s3://%s", b.CreationDate.Format(DATE_FORMAT), *b.Name)
+				j.out(SHORT_OK, "%s  s3://%s", b.CreationDate.Format(DATE_FORMAT), *b.Name)
 			}
 		}
 		return wp.stats.IncrementIfSuccess(STATS_S3OP, err)
@@ -423,7 +470,7 @@ func (j *Job) Run(wp *WorkerParams) error {
 			}
 
 			if li.isCommonPrefix {
-				out("+", "%19s %1s  %12s  %s", "", "", "DIR", li.parsedKey)
+				j.out(SHORT_OK, "%19s %1s  %12s  %s", "", "", "DIR", li.parsedKey)
 			} else {
 				var cls string
 
@@ -437,7 +484,7 @@ func (j *Job) Run(wp *WorkerParams) error {
 				default:
 					cls = "?"
 				}
-				out("+", "%s %1s  %12d  %s", li.lastModified.Format(DATE_FORMAT), cls, li.size, li.parsedKey)
+				j.out(SHORT_OK, "%s %1s  %12d  %s", li.lastModified.Format(DATE_FORMAT), cls, li.size, li.parsedKey)
 			}
 
 			return nil

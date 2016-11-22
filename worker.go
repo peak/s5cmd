@@ -45,7 +45,8 @@ type WorkerParams struct {
 }
 
 func NewWorkerPool(ctx context.Context, params *WorkerPoolParams, stats *Stats) *WorkerPool {
-	ses, err := session.NewSession(aws.NewConfig().WithMaxRetries(params.Retries)) //.WithLogLevel(aws.LogDebug))
+	awsCfg := aws.NewConfig().WithMaxRetries(params.Retries) //.WithLogLevel(aws.LogDebug))
+	ses, err := session.NewSessionWithOptions(session.Options{Config: *awsCfg, SharedConfigState: session.SharedConfigEnable})
 	if err != nil {
 		log.Fatal(err)
 	}

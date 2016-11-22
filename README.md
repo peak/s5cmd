@@ -102,7 +102,30 @@ This as well:
 ```
 
 ### S3 Credentials
-Provide S3 credentials with the environment variables `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION` and optionally `AWS_SESSION_TOKEN`.
+S3 credentials can be provided in a variety of ways.
+
+#### Full environment variables
+
+Provide full S3 credentials with the environment variables:
+```
+AWS_ACCESS_KEY_ID=YOURKEY AWS_SECRET_ACCESS_KEY=ohnosecret AWS_REGION=us-east-1 ./s5cmd ls
+```
+
+#### Credentials file
+
+Use the `$HOME/.aws/credentials` file:
+```
+[default]
+aws_access_key_id = YOURKEY
+aws_secret_access_key = ohnosecret
+region = us-east-1
+```
+Then run s5cmd:
+```
+./s5cmd ls
+```
+
+To use a different profile, set the `AWS_PROFILE` env var. For more options, see the [AWS SDK Configuration](http://docs.aws.amazon.com/sdk-for-go/v1/developer-guide/configuring-sdk.html) page.
 
 ## Output
 

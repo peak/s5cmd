@@ -9,6 +9,10 @@ import (
 	"strings"
 )
 
+const (
+	S3_WILD_CHARACTERS string = "?*"
+)
+
 type s3url struct {
 	bucket string
 	key    string
@@ -26,7 +30,7 @@ func (s s3url) Clone() s3url {
 }
 
 func hasWild(s string) bool {
-	return strings.ContainsAny(s, "?*")
+	return strings.ContainsAny(s, S3_WILD_CHARACTERS)
 }
 func hasGlob(s string) bool {
 	return strings.ContainsAny(s, "*[]?")

@@ -52,8 +52,9 @@ func s3list(ctx context.Context, svc *s3.S3, s3url *s3url, emitChan chan<- inter
 
 	wildkey := s3url.key
 	var prefix, filter string
-	loc := strings.IndexAny(wildkey, "?*")
-	if loc == -1 {
+	loc := strings.IndexAny(wildkey, S3_WILD_CHARACTERS)
+	wildOperation := loc > -1
+	if !wildOperation {
 		// no wildcard operation
 		inp.SetDelimiter("/")
 
@@ -140,6 +141,7 @@ func s3list(ctx context.Context, svc *s3.S3, s3url *s3url, emitChan chan<- inter
 		}
 		for _, c := range p.Contents {
 			key := *c.Key
+			isCommonPrefix := wildOperation && key[len(key)-1] == '/' // Keys ending with prefix in wild output are "directories"
 			if strings.Index(key, trimPrefix) == 0 {
 				key = key[len(trimPrefix):]
 			}
@@ -152,7 +154,7 @@ func s3list(ctx context.Context, svc *s3.S3, s3url *s3url, emitChan chan<- inter
 				size:           *c.Size,
 				lastModified:   c.LastModified,
 				class:          c.StorageClass,
-				isCommonPrefix: false,
+				isCommonPrefix: isCommonPrefix,
 			}) {
 				return false
 			}

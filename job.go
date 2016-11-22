@@ -116,6 +116,7 @@ func (j *Job) Run(wp *WorkerParams) error {
 		wp.stats.IncrementIfSuccess(STATS_S3OP, err)
 		if err == nil {
 			_, err = s3delete(wp.s3svc, j.args[0].s3)
+			wp.stats.IncrementIfSuccess(STATS_S3OP, err)
 			// FIXME if err != nil try to rollback by deleting j.args[1].s3 ? What if we don't have permission to delete?
 		}
 

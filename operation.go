@@ -28,14 +28,14 @@ type ParamType int
 const (
 	PARAM_UNCHECKED ParamType = iota
 	PARAM_UNCHECKED_ONE_OR_MORE
-	PARAM_S3OBJ
-	PARAM_S3OBJORDIR
-	PARAM_S3DIR
-	PARAM_S3WILDOBJ
-	PARAM_FILEOBJ
-	PARAM_FILEORDIR
-	PARAM_DIR
-	PARAM_GLOB
+	PARAM_S3OBJ      // Bucket or bucket + key
+	PARAM_S3DIR      // Bucket or bucket + key + "/" (prefix)
+	PARAM_S3OBJORDIR // Bucket or bucket + key [+ "/"]
+	PARAM_S3WILDOBJ  // Bucket + key with wildcard
+	PARAM_FILEOBJ    // Filename
+	PARAM_DIR        // Dir name or non-existing name ("/" appended)
+	PARAM_FILEORDIR  // File or directory (if existing directory, "/" appended)
+	PARAM_GLOB       // String containing a valid glob pattern
 )
 
 type commandMap struct {

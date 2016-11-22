@@ -25,6 +25,9 @@ func (s s3url) Clone() s3url {
 func hasWild(s string) bool {
 	return strings.ContainsAny(s, "?*")
 }
+func hasGlob(s string) bool {
+	return strings.ContainsAny(s, "*[]?")
+}
 
 func parseS3Url(object string) (*s3url, error) {
 	if !strings.HasPrefix(object, "s3://") {
@@ -67,6 +70,14 @@ func parseArgumentByType(s string, t ParamType, fnObj *JobArgument) (*JobArgumen
 		if (t == PARAM_S3OBJ || t == PARAM_S3OBJORDIR) && hasWild(url.key) {
 			return nil, errors.New("S3 key cannot contain wildcards")
 		}
+		if t == PARAM_S3WILDOBJ {
+			if !hasWild(url.key) {
+				return nil, errors.New("S3 key should contain wildcards")
+			}
+			if url.key == "" {
+				return nil, errors.New("S3 key should not be empty")
+			}
+		}
 
 		endsInSlash := strings.HasSuffix(url.key, "/")
 		if endsInSlash {
@@ -91,12 +102,14 @@ func parseArgumentByType(s string, t ParamType, fnObj *JobArgument) (*JobArgumen
 			return nil, errors.New("File param resembles s3 object")
 		}
 		endsInSlash := strings.HasSuffix(s, "/")
+
+		if hasGlob(s) {
+			return nil, errors.New("Param should not contain glob characters")
+		}
+
 		if t == PARAM_FILEOBJ {
 			if endsInSlash {
 				return nil, errors.New("File param should not end with /")
-			}
-			if strings.ContainsAny(s, "*[]?") {
-				return nil, errors.New("File param should not contain glob characters")
 			}
 			st, err := os.Stat(s)
 			if err == nil && st.IsDir() {
@@ -106,6 +119,19 @@ func parseArgumentByType(s string, t ParamType, fnObj *JobArgument) (*JobArgumen
 		if t == PARAM_FILEORDIR && endsInSlash && fnBase != "" {
 			s += fnBase
 		}
+		if t == PARAM_FILEORDIR && !endsInSlash {
+			st, err := os.Stat(s)
+			if err != nil {
+				if !os.IsNotExist(err) {
+					return nil, errors.New("Could not stat")
+				}
+			} else {
+				if st.IsDir() {
+					s += "/"
+				}
+			}
+		}
+
 		if t == PARAM_DIR && !endsInSlash {
 			st, err := os.Stat(s)
 			if err != nil {
@@ -124,7 +150,7 @@ func parseArgumentByType(s string, t ParamType, fnObj *JobArgument) (*JobArgumen
 		return &JobArgument{s, nil}, nil
 
 	case PARAM_GLOB:
-		if !strings.ContainsAny(s, "*[]?") {
+		if !hasGlob(s) {
 			return nil, errors.New("Param does not look like a glob")
 		}
 		_, err := filepath.Match(s, "")

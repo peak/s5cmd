@@ -1,6 +1,9 @@
 package s5cmd
 
-import "testing"
+import (
+	"path/filepath"
+	"testing"
+)
 
 func TestParseUnchecked(t *testing.T) {
 	t.Run("PARAM_UNCHECKED", func(t *testing.T) {
@@ -224,11 +227,11 @@ func TestParseS3ObjOrDir(t *testing.T) {
 func TestParseFileObj(t *testing.T) {
 	typ := PARAM_FILEOBJ
 	t.Run("path/to/obj", func(t *testing.T) {
-		input := "path/to/obj"
+		input := filepath.Join("path", "to", "obj")
 		testParseGeneral(t, typ, input, input, false, true, "", "", nil)
 	})
 	t.Run("path/to/obj/", func(t *testing.T) {
-		input := "path/to/obj/"
+		input := filepath.Join("path", "to", "obj") + string(filepath.Separator)
 		testParseGeneral(t, typ, input, "", true, true, "", "", nil)
 	})
 	t.Run("path/to/obj*", func(t *testing.T) {
@@ -244,18 +247,18 @@ func TestParseFileObj(t *testing.T) {
 func TestParseFileDir(t *testing.T) {
 	typ := PARAM_DIR
 	t.Run("path/to/obj/", func(t *testing.T) {
-		input := "path/to/obj/"
+		input := filepath.Join("path", "to", "obj") + string(filepath.Separator)
 		testParseGeneral(t, typ, input, input, false, true, "", "", nil)
 	})
 	t.Run("cmd", func(t *testing.T) {
 		testParseGeneral(t, typ, "cmd", "cmd/", false, true, "", "", nil)
 	})
 	t.Run("path/to/obj", func(t *testing.T) {
-		input := "path/to/obj"
-		testParseGeneral(t, typ, input, input+"/", false, true, "", "", nil)
+		input := filepath.Join("path", "to", "obj")
+		testParseGeneral(t, typ, input, input+string(filepath.Separator), false, true, "", "", nil)
 	})
 	t.Run("path/to/obj*", func(t *testing.T) {
-		input := "path/to/obj*"
+		input := filepath.Join("path", "to", "obj*")
 		testParseGeneral(t, typ, input, "", true, true, "", "", nil)
 	})
 	t.Run("s3://bucket/path", func(t *testing.T) {
@@ -267,18 +270,18 @@ func TestParseFileDir(t *testing.T) {
 func TestParseFileOrDir(t *testing.T) {
 	typ := PARAM_FILEORDIR
 	t.Run("path/to/obj", func(t *testing.T) {
-		input := "path/to/obj"
+		input := filepath.Join("path", "to", "obj")
 		testParseGeneral(t, typ, input, input, false, true, "", "", nil)
 	})
 	t.Run("path/to/obj/", func(t *testing.T) {
-		input := "path/to/obj/"
+		input := filepath.Join("path", "to", "obj") + string(filepath.Separator)
 		testParseGeneral(t, typ, input, input, false, true, "", "", nil)
 	})
-	t.Run("cmd", func(t *testing.T) {
-		testParseGeneral(t, typ, "cmd", "cmd/", false, true, "", "", nil)
+	t.Run("Existing-dir-without-slash", func(t *testing.T) {
+		testParseGeneral(t, typ, "cmd", "cmd"+string(filepath.Separator), false, true, "", "", nil)
 	})
 	t.Run("path/to/obj*", func(t *testing.T) {
-		input := "path/to/obj*"
+		input := filepath.Join("path", "to", "obj*")
 		testParseGeneral(t, typ, input, "", true, true, "", "", nil)
 	})
 	t.Run("s3://bucket/path", func(t *testing.T) {
@@ -290,11 +293,11 @@ func TestParseFileOrDir(t *testing.T) {
 func TestParseGlob(t *testing.T) {
 	typ := PARAM_GLOB
 	t.Run("path/to/obj*", func(t *testing.T) {
-		input := "path/to/obj*"
+		input := filepath.Join("path", "to", "obj*")
 		testParseGeneral(t, typ, input, input, false, true, "", "", nil)
 	})
 	t.Run("path/to/obj", func(t *testing.T) {
-		input := "path/to/obj"
+		input := filepath.Join("path", "to", "obj")
 		testParseGeneral(t, typ, input, "", true, true, "", "", nil)
 	})
 	t.Run("s3://bucket/path", func(t *testing.T) {

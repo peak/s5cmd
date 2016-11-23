@@ -113,7 +113,7 @@ func parseArgumentByType(s string, t ParamType, fnObj *JobArgument) (*JobArgumen
 		if err == nil {
 			return nil, errors.New("File param resembles s3 object")
 		}
-		endsInSlash := strings.HasSuffix(s, "/")
+		endsInSlash := len(s) > 0 && s[len(s)-1] == filepath.Separator
 
 		if hasGlob(s) {
 			return nil, errors.New("Param should not contain glob characters")
@@ -139,7 +139,7 @@ func parseArgumentByType(s string, t ParamType, fnObj *JobArgument) (*JobArgumen
 				}
 			} else {
 				if st.IsDir() {
-					s += "/"
+					s += string(filepath.Separator)
 				}
 			}
 		}
@@ -156,7 +156,7 @@ func parseArgumentByType(s string, t ParamType, fnObj *JobArgument) (*JobArgumen
 				}
 			}
 
-			s += "/"
+			s += string(filepath.Separator)
 		}
 
 		return &JobArgument{s, nil}, nil

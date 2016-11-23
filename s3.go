@@ -5,7 +5,7 @@ import (
 	"errors"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
-	"path/filepath"
+	"path"
 	"regexp"
 	"strings"
 	"sync"
@@ -84,7 +84,7 @@ func s3list(ctx context.Context, svc *s3.S3, s3url *s3url, emitChan chan<- inter
 		}
 	}
 
-	trimPrefix := filepath.Dir(prefix) + "/"
+	trimPrefix := path.Dir(prefix) + "/"
 	if trimPrefix == "./" {
 		trimPrefix = ""
 	}

@@ -10,6 +10,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -45,10 +46,28 @@ type WorkerParams struct {
 }
 
 func NewWorkerPool(ctx context.Context, params *WorkerPoolParams, stats *Stats) *WorkerPool {
+	newSession := func(c *aws.Config) *session.Session {
+		useSharedConfig := session.SharedConfigEnable
+
+		// Reverse of what the SDK does: if AWS_SDK_LOAD_CONFIG is 0 (or a falsy value) disable shared configs
+		loadCfg := os.Getenv("AWS_SDK_LOAD_CONFIG")
+		if loadCfg != "" {
+			if enable, _ := strconv.ParseBool(loadCfg); !enable {
+				useSharedConfig = session.SharedConfigDisable
+			}
+		}
+		ses, err := session.NewSessionWithOptions(session.Options{Config: *c, SharedConfigState: useSharedConfig})
+		if err != nil {
+			log.Fatal(err)
+		}
+		return ses
+	}
 	awsCfg := aws.NewConfig().WithMaxRetries(params.Retries) //.WithLogLevel(aws.LogDebug))
-	ses, err := session.NewSessionWithOptions(session.Options{Config: *awsCfg, SharedConfigState: session.SharedConfigEnable})
-	if err != nil {
-		log.Fatal(err)
+	ses := newSession(awsCfg)
+
+	if (*ses).Config.Region == nil || *(*ses).Config.Region == "" { // No region specified in env or config, fallback to us-east-1
+		awsCfg = awsCfg.WithRegion("us-east-1")
+		ses = newSession(awsCfg)
 	}
 
 	cancelFunc := ctx.Value("cancelFunc").(context.CancelFunc)

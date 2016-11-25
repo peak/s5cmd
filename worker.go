@@ -148,10 +148,11 @@ func (p *WorkerPool) runWorker(stats *Stats, idlingCounter *int32, id int) {
 			for job != nil {
 				err := job.Run(&wp)
 				if err != nil {
-					if IsRatelimitError(err) && p.params.Retries > 0 && tries < p.params.Retries {
+					errCode, doRetry := IsRetryableError(err)
+					if doRetry && p.params.Retries > 0 && tries < p.params.Retries {
 						tries++
 						sleepTime := bkf.NextBackOff()
-						log.Printf(`?Ratelimit "%s", sleep for %v`, job, sleepTime)
+						log.Printf(`?%s "%s", sleep for %v`, errCode, job, sleepTime)
 						select {
 						case <-time.After(sleepTime):
 							wp.stats.Increment(STATS_RETRYOP)

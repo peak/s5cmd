@@ -154,7 +154,7 @@ DATE TIME Short-Msg Detailed-Msg
  - Trivial messages start with `#`, like number of workers or exit code and statistics
  - `+OK` for successful operations: `+OK "! touch touch-this-file"`
  - `-ERR` for failed operations: `-ERR "! touche": executable file not found in $PATH`
- - `?Ratelimit` for rate-limited operations, which will be retried
+ - `?ErrorCode` for AWS-related errors, which will be retried (`?SlowDown`, `?InternalError`, etc)
 
 Item output (used in `ls`) is slightly different: `DATE TIME` fields are omitted, and the short-msg is a single `+` character.
 

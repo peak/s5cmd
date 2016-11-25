@@ -5,23 +5,32 @@ import (
 	"strings"
 )
 
-func IsRatelimitError(err error) bool {
+func IsRetryableError(err error) (string, bool) {
 	if err != nil {
 		if awsErr, ok := err.(awserr.Error); ok {
 			//fmt.Println("awsErr", awsErr.Code(), awsErr.Message(), awsErr.OrigErr())
 
-			//if reqErr, ok := err.(awserr.RequestFailure); ok {
-			//	// A service error occurred
-			//	fmt.Println("reqErr", reqErr.StatusCode(), reqErr.RequestID())
-			//}
+			errCode := awsErr.Code()
+			switch errCode {
+			case "SlowDown", "SerializationError":
+				return errCode, true
+			}
 
-			switch awsErr.Code() {
-			case "SlowDown":
-				return true
+			if reqErr, ok := err.(awserr.RequestFailure); ok {
+				// A service error occurred
+				//fmt.Println("reqErr", reqErr.StatusCode(), reqErr.RequestID())
+				errCode = reqErr.Code()
+				if errCode == "InternalError" {
+					return errCode, true
+				}
+				status := reqErr.StatusCode()
+				if status == 500 {
+					return "500", true
+				}
 			}
 		}
 	}
-	return false
+	return "", false
 }
 
 func CleanupError(err error) (s string) {

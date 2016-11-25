@@ -217,7 +217,20 @@ func (j *Job) Run(wp *WorkerParams) error {
 			}
 		}
 
-		_, err = s3copy(wp.s3svc, j.args[0].s3, j.args[1].s3)
+		var cls string
+
+		if j.opts.Has(OPT_RR) {
+			cls = s3.ObjectStorageClassReducedRedundancy
+		} else {
+			cls = s3.ObjectStorageClassStandard
+		}
+
+		_, err = wp.s3svc.CopyObject(&s3.CopyObjectInput{
+			Bucket:       aws.String(j.args[1].s3.bucket),
+			Key:          aws.String(j.args[1].s3.key),
+			CopySource:   aws.String(j.args[0].s3.format()),
+			StorageClass: aws.String(cls),
+		})
 		wp.stats.IncrementIfSuccess(STATS_S3OP, err)
 
 		if j.opts.Has(OPT_DELETE_SOURCE) && err == nil {
@@ -517,10 +530,19 @@ func (j *Job) Run(wp *WorkerParams) error {
 		ch := make(chan error)
 
 		go func() {
+			var cls string
+
+			if j.opts.Has(OPT_RR) {
+				cls = s3.ObjectStorageClassReducedRedundancy
+			} else {
+				cls = s3.ObjectStorageClassStandard
+			}
+
 			_, err := wp.s3ul.Upload(&s3manager.UploadInput{
-				Bucket: aws.String(j.args[1].s3.bucket),
-				Key:    aws.String(j.args[1].s3.key),
-				Body:   r,
+				Bucket:       aws.String(j.args[1].s3.bucket),
+				Key:          aws.String(j.args[1].s3.key),
+				Body:         r,
+				StorageClass: aws.String(cls),
 			})
 
 			select {

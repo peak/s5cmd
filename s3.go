@@ -14,14 +14,6 @@ import (
 
 var ErrInterrupted = errors.New("Operation interrupted")
 
-func s3copy(svc *s3.S3, src, dst *s3url) (*s3.CopyObjectOutput, error) {
-	return svc.CopyObject(&s3.CopyObjectInput{
-		Bucket:     aws.String(dst.bucket),
-		Key:        aws.String(dst.key),
-		CopySource: aws.String(src.format()),
-	})
-}
-
 func s3delete(svc *s3.S3, obj *s3url) (*s3.DeleteObjectOutput, error) {
 	return svc.DeleteObject(&s3.DeleteObjectInput{
 		Bucket: aws.String(obj.bucket),

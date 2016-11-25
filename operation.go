@@ -43,6 +43,7 @@ const (
 	OPT_DELETE_SOURCE OptionType = iota + 1
 	OPT_IF_NOT_EXISTS
 	OPT_PARENTS // Just like cp --parents
+	OPT_RR
 )
 
 type commandMap struct {
@@ -164,6 +165,8 @@ func (o OptionType) GetParam() string {
 		return "-n"
 	case OPT_PARENTS:
 		return "--parents"
+	case OPT_RR:
+		return "-rr"
 	}
 	return ""
 }
@@ -179,6 +182,11 @@ func (j Job) GetAcceptedOpts() *OptionList {
 	switch j.operation {
 	case OP_BATCH_DOWNLOAD, OP_BATCH_UPLOAD:
 		l = append(l, OPT_PARENTS)
+	}
+
+	switch j.operation {
+	case OP_UPLOAD, OP_BATCH_UPLOAD, OP_COPY:
+		l = append(l, OPT_RR)
 	}
 
 	return &l

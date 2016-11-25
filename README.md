@@ -54,12 +54,6 @@ There are three main commands: `cp`, `mv` and `rm`. Arguments can be either S3 u
 
 S3 urls should be in the format `s3://bucket/key`
 
-### Wild operations ###
-
-Multiple-level wildcards are supported in S3 operations. This is achieved by listing all S3 objects with the prefix up to the first wildcard, then filtering the results in-memory. ie. For batch-downloads, first a `ls` call is made, the results are then converted to separate commands and executed in parallel. 
-
-Batch API is used deleting multiple S3 objects, so up to 1000 S3 objects can be deleted with a single call.
-
 ### Command examples ###
 
 ```
@@ -76,6 +70,12 @@ cp /path/to/src s3://to-bucket/to-key[/] # Upload to S3
 cp /path/to/src/dir/ s3://to-bucket/to-prefix/ # Upload directory to S3
 cp /path/to/src/*.go s3://to-bucket/to-prefix/ # Upload glob to S3
 ```
+
+## Wild operations ##
+
+Multiple-level wildcards are supported in S3 operations. This is achieved by listing all S3 objects with the prefix up to the first wildcard, then filtering the results in-memory. ie. For batch-downloads, first a `ls` call is made, the results are then converted to separate commands and executed in parallel. 
+
+Batch API is used deleting multiple S3 objects, so up to 1000 S3 objects can be deleted with a single call.
 
 ### Wild operation examples ###
 ```

@@ -30,6 +30,7 @@ type Job struct {
 	command        string // Different from operation, as multiple commands can map to the same op
 	operation      Operation
 	args           []*JobArgument
+	opts           OptionType
 	successCommand *Job       // Next job to run if this one is successful
 	failCommand    *Job       // .. if unsuccessful
 	notifyChan     *chan bool // Ptr to chan to notify the job's success or fail
@@ -64,13 +65,14 @@ func (j Job) String() (s string) {
 	return
 }
 
-func (j Job) MakeSubJob(command string, operation Operation, args []*JobArgument) *Job {
+func (j Job) MakeSubJob(command string, operation Operation, args []*JobArgument, opts OptionType) *Job {
 	ptr := args
 	return &Job{
 		sourceDesc: j.sourceDesc,
 		command:    command,
 		operation:  operation,
 		args:       ptr,
+		opts:       opts,
 		isSubJob:   true,
 		numSuccess: j.numSuccess,
 		numFails:   j.numFails,
@@ -146,11 +148,13 @@ func (j *Job) Run(wp *WorkerParams) error {
 	case OP_LOCAL_DELETE:
 		return wp.stats.IncrementIfSuccess(STATS_FILEOP, os.Remove(j.args[0].arg))
 
-	case OP_LOCAL_MOVE:
-		return wp.stats.IncrementIfSuccess(STATS_FILEOP, os.Rename(j.args[0].arg, j.args[1].arg))
-
 	case OP_LOCAL_COPY:
-		_, err := shutil.Copy(j.args[0].arg, j.args[1].arg, true)
+		var err error
+		if j.opts.Has(OPT_DELETE_SOURCE) {
+			err = os.Rename(j.args[0].arg, j.args[1].arg)
+		} else {
+			_, err = shutil.Copy(j.args[0].arg, j.args[1].arg, true)
+		}
 		wp.stats.IncrementIfSuccess(STATS_FILEOP, err)
 		return err
 
@@ -171,12 +175,9 @@ func (j *Job) Run(wp *WorkerParams) error {
 	// S3 operations
 	case OP_COPY:
 		_, err := s3copy(wp.s3svc, j.args[0].s3, j.args[1].s3)
-		return wp.stats.IncrementIfSuccess(STATS_S3OP, err)
-
-	case OP_MOVE:
-		_, err := s3copy(wp.s3svc, j.args[0].s3, j.args[1].s3)
 		wp.stats.IncrementIfSuccess(STATS_S3OP, err)
-		if err == nil {
+
+		if j.opts.Has(OPT_DELETE_SOURCE) && err == nil {
 			_, err = s3delete(wp.s3svc, j.args[0].s3)
 			wp.stats.IncrementIfSuccess(STATS_S3OP, err)
 			// FIXME if err != nil try to rollback by deleting j.args[1].s3 ? What if we don't have permission to delete?
@@ -208,7 +209,7 @@ func (j *Job) Run(wp *WorkerParams) error {
 			}
 
 			if (key == nil || len(jobArgs) == maxArgs) && len(jobArgs) > 1 {
-				subJob = j.MakeSubJob("batch-rm", OP_BATCH_DELETE_ACTUAL, jobArgs)
+				subJob = j.MakeSubJob("batch-rm", OP_BATCH_DELETE_ACTUAL, jobArgs, OPT_NONE)
 				initArgs()
 			}
 
@@ -259,9 +260,9 @@ func (j *Job) Run(wp *WorkerParams) error {
 		return wp.stats.IncrementIfSuccess(STATS_S3OP, err)
 
 	case OP_BATCH_DOWNLOAD:
-		dst_dir := ""
-		if len(j.args) > 1 {
-			dst_dir = j.args[1].arg
+		subCmd := "cp"
+		if j.opts.Has(OPT_DELETE_SOURCE) {
+			subCmd = "mv"
 		}
 
 		err := s3wildOperation(j.args[0].s3, wp, func(li *s3listItem) *Job {
@@ -274,11 +275,11 @@ func (j *Job) Run(wp *WorkerParams) error {
 				&s3url{j.args[0].s3.bucket, *li.key},
 			}
 			arg2 := JobArgument{
-				dst_dir + li.parsedKey,
+				j.args[1].arg + li.parsedKey,
 				nil,
 			}
 
-			j = j.MakeSubJob("get", OP_DOWNLOAD, []*JobArgument{&arg1, &arg2})
+			j = j.MakeSubJob(subCmd, OP_DOWNLOAD, []*JobArgument{&arg1, &arg2}, j.opts)
 			if *li.class == s3.ObjectStorageClassGlacier {
 				j.out(SHORT_ERR, `"%s": Cannot download glacier object`, j)
 				return nil
@@ -291,6 +292,11 @@ func (j *Job) Run(wp *WorkerParams) error {
 		return wp.stats.IncrementIfSuccess(STATS_S3OP, err)
 
 	case OP_BATCH_UPLOAD:
+		subCmd := "cp"
+		if j.opts.Has(OPT_DELETE_SOURCE) {
+			subCmd = "mv"
+		}
+
 		err := wildOperation(wp, func(ch chan<- interface{}) error {
 			// lister
 			st, err := os.Stat(j.args[0].arg)
@@ -337,7 +343,7 @@ func (j *Job) Run(wp *WorkerParams) error {
 				nil,
 			}
 			arg2 := j.args[1].Clone().Append(*fn)
-			return j.MakeSubJob("put", OP_UPLOAD, []*JobArgument{&arg1, &arg2})
+			return j.MakeSubJob(subCmd, OP_UPLOAD, []*JobArgument{&arg1, &arg2}, j.opts)
 		})
 
 		return wp.stats.IncrementIfSuccess(STATS_FILEOP, err)
@@ -398,6 +404,9 @@ func (j *Job) Run(wp *WorkerParams) error {
 		wp.stats.IncrementIfSuccess(STATS_S3OP, err)
 		if err != nil {
 			os.Remove(dest_fn) // Remove partly downloaded file
+		} else if j.opts.Has(OPT_DELETE_SOURCE) {
+			_, err = s3delete(wp.s3svc, j.args[0].s3)
+			wp.stats.IncrementIfSuccess(STATS_S3OP, err)
 		}
 
 		return err
@@ -452,6 +461,9 @@ func (j *Job) Run(wp *WorkerParams) error {
 		bar.Finish()
 
 		wp.stats.IncrementIfSuccess(STATS_S3OP, err)
+		if j.opts.Has(OPT_DELETE_SOURCE) && err == nil {
+			err = wp.stats.IncrementIfSuccess(STATS_FILEOP, os.Remove(j.args[0].arg))
+		}
 		return err
 
 	case OP_LISTBUCKETS:

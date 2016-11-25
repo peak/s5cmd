@@ -44,37 +44,49 @@ Single commands are also supported with the `s5cmd [command [params]]` syntax. I
 
 ## Supported commands
 
-S3 urls should be in the format `s3://bucket/key`
+There are three main commands: `cp`, `mv` and `rm`. Arguments can be either S3 urls, S3 wildcards, local file/directory references or local glob patterns.
 
-- Copy object in S3 - `cp s3://from-bucket/from-key s3://to-bucket/[to-key]`
-- Move object in S3 - `mv s3://from-bucket/from-key s3://to-bucket/[to-key]`
-- Delete S3 object  - `rm s3://del-bucket/del-key`
-- Delete S3 objects filtered by multiple-level wildcards - `rm s3://from-bucket/prefix/*/file*gz` <sup>[1](#footnote1) [2](#footnote2) [3](#footnote3)</sup>
-- Copy local file - `!cp /path/to/src/file /path/to/dest[/]`
-- Move local file - `!mv /path/to/src/file /path/to/dest[/]`
-- Delete local file or (empty) directory - `!rm /path/to/del`
+- Copy, Download or Upload: `cp [src] [dst]`
+- Move, Download or Upload and then delete: `mv [src] [dst]`
+- Delete: `rm [src]`
 - Arbitrary shell-execute - `! commands...`
-- List buckets - `ls`
-- List objects in bucket - `ls s3://bucket[/prefix]`
-- List objects filtered by multiple-level wildcards - `ls s3://bucket/prefix/*/file*gz` <sup>[1](#footnote1)</sup>
-- Download from S3 - `get s3://from-bucket/from-key [/path/to/dest[/]]`
-- Download from S3 filtered by multiple-level wildcards - `get s3://from-bucket/prefix/*/file*gz [/path/to/dest/]`  <sup>[1](#footnote1) [2](#footnote2)</sup>
-- Upload to S3 - `put /path/to/src s3://to-bucket/to-key[/]`
-- Upload directory to S3 - `put /path/to/src/dir/ s3://to-bucket/to-prefix/`
-- Upload glob to S3 - `put /path/to/src/*.go s3://to-bucket/to-prefix/`
 - Exit - `exit [exitcode]` (see [Exit Code](#exit-code))
 
-<sup id="footnote1">1</sup> Multiple-level wildcards are achieved by listing all S3 objects with the prefix up to the first wildcard, then filtering the results in-memory.
+S3 urls should be in the format `s3://bucket/key`
 
-<sup id="footnote2">2</sup> First a `ls` call is made, the results are then converted to separate commands and executed in parallel. 
+### Wild operations
 
-<sup id="footnote3">3</sup> Batch API is used, up to 1000 S3 objects can be deleted with a single API call.
+Multiple-level wildcards are supported in S3 operations. This is achieved by listing all S3 objects with the prefix up to the first wildcard, then filtering the results in-memory. ie. For batch-downloads, first a `ls` call is made, the results are then converted to separate commands and executed in parallel. 
 
+Batch API is used deleting multiple S3 objects, so up to 1000 S3 objects can be deleted with a single call.
 
+### Command examples
+
+```
+cp s3://from-bucket/from-key s3://to-bucket/[to-key] # Copy object in S3 
+mv s3://from-bucket/from-key s3://to-bucket/[to-key] # Move object in S3
+rm s3://del-bucket/del-key # Delete S3 object
+cp /path/to/src/file /path/to/dest[/] # Copy local file
+mv /path/to/src/file /path/to/dest[/] # Move local file
+cp s3://from-bucket/from-key /path/to/dest[/] # Download from S3
+rm /path/to/del # Delete local file or (empty) directory
+ls # List buckets
+ls s3://bucket[/prefix] # List objects in bucket
+cp /path/to/src s3://to-bucket/to-key[/] # Upload to S3
+cp /path/to/src/dir/ s3://to-bucket/to-prefix/ # Upload directory to S3
+cp /path/to/src/*.go s3://to-bucket/to-prefix/ # Upload glob to S3
+```
+
+Wild operation examples
+```
+ls s3://bucket/prefix/*/file*gz # Wild-list objects in bucket
+cp s3://from-bucket/prefix/*/file*gz /path/to/dest/ # Wild-download from S3
+mv s3://from-bucket/prefix/*/file*gz /path/to/dest/ # Wild-download from S3, followed by delete
+rm s3://from-bucket/prefix/*/file*gz # Wild-delete S3 objects (Batch-API)
+```
 
 ### Tips
 
-- `! cp` and `!cp` are two different commands, the latter does the copying in Go, the former probably executes `/bin/cp` 
 - Comments start with a space followed by `#`, as in " # This is a comment"
 - Empty lines are also ok
 - `-numworkers -1` means use `runtime.NumCPU` goroutines. `-2` means `2*runtime.NumCPU` and so on.
@@ -87,13 +99,13 @@ Success and fail commands can be specified with `&&` and `||` operators. As the 
 If you want to move an object between s3 buckets and then delete a local file if successful, you can do this:
 
 ```
-mv s3://source-bkt/key s3://dest-bkt/key && !rm /path/to/key
+mv s3://source-bkt/key s3://dest-bkt/key && rm /path/to/key
 ```
 
 This is also valid:
 
 ```
-!mv a b/ || ! touch could-not-move # This is a comment
+mv a b/ || ! touch could-not-move # This is a comment
 ```
 
 This as well:

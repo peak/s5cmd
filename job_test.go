@@ -7,12 +7,13 @@ import (
 	"testing"
 )
 
-func newJob(sourceDesc, command string, operation Operation, args []*JobArgument) Job {
+func newJob(sourceDesc, command string, operation Operation, args []*JobArgument, opts OptionType) Job {
 	return Job{
 		sourceDesc: sourceDesc,
 		command:    command,
 		operation:  operation,
 		args:       args,
+		opts:       opts,
 	}
 }
 
@@ -37,16 +38,16 @@ var (
 		[]*JobArgument{
 			{"test-src", nil},
 			{"test-dst", nil},
-		})
-	localMoveJob = newJob("!mv-test", "!mv", OP_LOCAL_MOVE,
+		}, OPT_NONE)
+	localMoveJob = newJob("!mv-test", "!mv", OP_LOCAL_COPY,
 		[]*JobArgument{
 			{"test-src", nil},
 			{"test-dst", nil},
-		})
+		}, OPT_DELETE_SOURCE)
 	localDeleteJob = newJob("!rm-test", "!rm", OP_LOCAL_DELETE,
 		[]*JobArgument{
 			{"test-src", nil},
-		})
+		}, OPT_NONE)
 )
 
 func benchmarkJobRun(b *testing.B, j *Job) {

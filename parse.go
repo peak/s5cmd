@@ -113,6 +113,9 @@ func parseArgumentByType(s string, t ParamType, fnObj *JobArgument) (*JobArgumen
 		if err == nil {
 			return nil, errors.New("File param resembles s3 object")
 		}
+		if s == "." {
+			s = "." + string(filepath.Separator)
+		}
 		endsInSlash := len(s) > 0 && s[len(s)-1] == filepath.Separator
 
 		if hasGlob(s) {
@@ -301,6 +304,7 @@ func parseSingleJob(jobdesc string) (*Job, error) {
 			ourJob.command = c.keyword
 			ourJob.operation = c.operation
 			ourJob.args = []*JobArgument{}
+			ourJob.opts = c.opts
 
 			var a, fnObj *JobArgument
 

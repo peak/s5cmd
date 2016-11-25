@@ -1,8 +1,8 @@
-# s5cmd
+# s5cmd #
 
 This is a parallel S3 and local filesystem execution tool.
 
-### Build
+### Build ###
 
 Execute:
 
@@ -11,7 +11,7 @@ $ make
 ```
 in the root directory and you'll get a binary named `s5cmd`.
 
-## Usage
+## Usage ##
 
 ```bash
 $ ./s5cmd --help
@@ -32,17 +32,17 @@ Usage: ./s5cmd [OPTION]... [COMMAND [PARAMS...]]
         Prints current version
 ```
 
-## Commands File
+## Commands File ##
 
 The most powerful feature of s5cmd is the commands file. Thousands of S3 and filesystem commands are declared in a file (or simply piped in from another process) and they are executed using multiple parallel workers. Since only one program is launched, thousands of unnecessary fork-exec calls are avoided. This way S3 execution times can reach a few thousand operations per second.
 
 See also: [Nested Commands](#nested-commands-basic) 
 
-## Single command invocation
+## Single command invocation ##
 
 Single commands are also supported with the `s5cmd [command [params]]` syntax. If this syntax is used, two workers are launched by default.
 
-## Supported commands
+## Supported commands ##
 
 There are three main commands: `cp`, `mv` and `rm`. Arguments can be either S3 urls, S3 wildcards, local file/directory references or local glob patterns.
 
@@ -54,13 +54,13 @@ There are three main commands: `cp`, `mv` and `rm`. Arguments can be either S3 u
 
 S3 urls should be in the format `s3://bucket/key`
 
-### Wild operations
+### Wild operations ###
 
 Multiple-level wildcards are supported in S3 operations. This is achieved by listing all S3 objects with the prefix up to the first wildcard, then filtering the results in-memory. ie. For batch-downloads, first a `ls` call is made, the results are then converted to separate commands and executed in parallel. 
 
 Batch API is used deleting multiple S3 objects, so up to 1000 S3 objects can be deleted with a single call.
 
-### Command examples
+### Command examples ###
 
 ```
 cp s3://from-bucket/from-key s3://to-bucket/[to-key] # Copy object in S3 
@@ -77,7 +77,7 @@ cp /path/to/src/dir/ s3://to-bucket/to-prefix/ # Upload directory to S3
 cp /path/to/src/*.go s3://to-bucket/to-prefix/ # Upload glob to S3
 ```
 
-Wild operation examples
+### Wild operation examples ###
 ```
 ls s3://bucket/prefix/*/file*gz # Wild-list objects in bucket
 cp s3://from-bucket/prefix/*/file*gz /path/to/dest/ # Wild-download from S3
@@ -85,14 +85,14 @@ mv s3://from-bucket/prefix/*/file*gz /path/to/dest/ # Wild-download from S3, fol
 rm s3://from-bucket/prefix/*/file*gz # Wild-delete S3 objects (Batch-API)
 ```
 
-### Tips
+### Tips ###
 
 - Comments start with a space followed by `#`, as in " # This is a comment"
 - Empty lines are also ok
 - `-numworkers -1` means use `runtime.NumCPU` goroutines. `-2` means `2*runtime.NumCPU` and so on.
 - The S3 throttling error `SlowDown` is exponentially retried. "Retryable operations" as specified by the AWS SDK (currently `RequestError` and `RequestError`) are retried by the SDK.
 
-### Nested Commands (Basic)
+### Nested Commands (Basic) ###
 
 Success and fail commands can be specified with `&&` and `||` operators. As the parser is pretty simple, multiple-level nested commands (doing something based on a result of a result) are not supported.
 
@@ -113,17 +113,17 @@ This as well:
 ! touch a && ! touch a-touched || ! touch a-couldnotbetouched
 ```
 
-### S3 Credentials
+### S3 Credentials ###
 S3 credentials can be provided in a variety of ways.
 
-#### Full environment variables
+#### Full environment variables ####
 
 Provide full S3 credentials with the environment variables:
 ```
 AWS_ACCESS_KEY_ID=YOURKEY AWS_SECRET_ACCESS_KEY=ohnosecret AWS_REGION=us-east-1 ./s5cmd ls
 ```
 
-#### Credentials file
+#### Credentials file ####
 
 Use the `$HOME/.aws/credentials` file:
 ```
@@ -139,7 +139,7 @@ Then run s5cmd:
 
 To use a different profile, set the `AWS_PROFILE` env var. For more options, see the [AWS SDK Configuration](http://docs.aws.amazon.com/sdk-for-go/v1/developer-guide/configuring-sdk.html) page.
 
-## Output
+## Output ##
 
 The general output is in the format:
 ```
@@ -155,6 +155,6 @@ Item output (used in `ls`) is slightly different: `DATE TIME` fields are omitted
 
 Shell output (used in `!`) does not modify the executed command's output. Both `stdout` and `stderr` are mirrored.
 
-### Exit Code
+### Exit Code ###
 
 If failed jobs are present, process exits with code `127`. This can be overridden with the command `exit`, though in that case finishing the job list is not guaranteed.

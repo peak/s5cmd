@@ -2,14 +2,6 @@
 	"version": 0,
 	"dependencies": [
 		{
-			"importpath": "github.com/aws/aws-sdk-go",
-			"repository": "https://github.com/aws/aws-sdk-go",
-			"vcs": "git",
-			"revision": "d7dc55d865e7877f2c44a9ee28843e80a87aee1e",
-			"branch": "master",
-			"notests": true
-		},
-		{
 			"importpath": "github.com/cenkalti/backoff",
 			"repository": "https://github.com/cenkalti/backoff",
 			"vcs": "git",

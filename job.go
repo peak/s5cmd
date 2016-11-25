@@ -15,6 +15,7 @@ import (
 	"path"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"time"
 )
@@ -80,14 +81,23 @@ func (j Job) MakeSubJob(command string, operation Operation, args []*JobArgument
 	}
 }
 
-func (a JobArgument) Clone() JobArgument {
+func (a JobArgument) Clone() *JobArgument {
 	var s s3url
 	if a.s3 != nil {
 		s = a.s3.Clone()
 	}
-	return JobArgument{a.arg, &s}
+	return &JobArgument{a.arg, &s}
 }
-func (a JobArgument) Append(s string) JobArgument {
+func (a *JobArgument) Append(s string, isS3path bool) *JobArgument {
+	if a.s3 != nil && !isS3path {
+		// a is an S3 object but s is not
+		s = strings.Replace(s, string(filepath.Separator), "/", -1)
+	}
+	if a.s3 == nil && isS3path {
+		// a is a not an S3 object but s is
+		s = strings.Replace(s, "/", string(filepath.Separator), -1)
+	}
+
 	a.arg += s
 	if a.s3 != nil {
 		a.s3.key += s
@@ -224,7 +234,7 @@ func (j *Job) Run(wp *WorkerParams) error {
 
 	case OP_BATCH_DELETE:
 		var jobArgs []*JobArgument
-		srcBucket := j.args[0].Clone()
+		srcBucket := *j.args[0].Clone()
 		srcBucket.arg = "s3://" + srcBucket.s3.bucket
 
 		maxArgs := 1000
@@ -307,19 +317,23 @@ func (j *Job) Run(wp *WorkerParams) error {
 				"s3://" + j.args[0].s3.bucket + "/" + *li.key,
 				&s3url{j.args[0].s3.bucket, *li.key},
 			}
-			arg2 := JobArgument{
-				j.args[1].arg + li.parsedKey,
-				nil,
+
+			var dstFn string
+			if j.opts.Has(OPT_PARENTS) {
+				dstFn = li.parsedKey
+			} else {
+				dstFn = path.Base(li.parsedKey)
 			}
 
-			j = j.MakeSubJob(subCmd, OP_DOWNLOAD, []*JobArgument{&arg1, &arg2}, j.opts)
+			arg2 := j.args[1].Clone().Append(dstFn, true)
+			subJob := j.MakeSubJob(subCmd, OP_DOWNLOAD, []*JobArgument{&arg1, arg2}, j.opts)
 			if *li.class == s3.ObjectStorageClassGlacier {
-				j.out(SHORT_ERR, `"%s": Cannot download glacier object`, j)
+				subJob.out(SHORT_ERR, `"%s": Cannot download glacier object`, arg1.arg)
 				return nil
 			}
 			dir := filepath.Dir(arg2.arg)
 			os.MkdirAll(dir, os.ModePerm)
-			return j
+			return subJob
 		})
 
 		return wp.stats.IncrementIfSuccess(STATS_S3OP, err)
@@ -330,10 +344,25 @@ func (j *Job) Run(wp *WorkerParams) error {
 			subCmd = "mv"
 		}
 
-		err := wildOperation(wp, func(ch chan<- interface{}) error {
+		st, err := os.Stat(j.args[0].arg)
+		walkMode := err == nil && st.IsDir() // walk or glob?
+
+		trimPrefix := j.args[0].arg
+		if !walkMode {
+			loc := strings.IndexAny(trimPrefix, GLOB_CHARACTERS)
+			trimPrefix = trimPrefix[:loc]
+		}
+		trimPrefix = path.Dir(trimPrefix)
+		if trimPrefix == "." {
+			trimPrefix = ""
+		} else {
+			trimPrefix += string(filepath.Separator)
+		}
+
+		err = wildOperation(wp, func(ch chan<- interface{}) error {
 			// lister
 			st, err := os.Stat(j.args[0].arg)
-			if err == nil && st.IsDir() {
+			if walkMode {
 				err = filepath.Walk(j.args[0].arg, func(path string, st os.FileInfo, err error) error {
 					if err != nil {
 						return err
@@ -365,18 +394,28 @@ func (j *Job) Run(wp *WorkerParams) error {
 				return nil
 			}
 		}, func(data interface{}) *Job {
+			// callback
 			if data == nil {
 				return nil
 			}
-			// callback
 			fn := data.(*string)
+
+			var dstFn string
+			if j.opts.Has(OPT_PARENTS) {
+				dstFn = *fn
+				if strings.Index(dstFn, trimPrefix) == 0 {
+					dstFn = dstFn[len(trimPrefix):]
+				}
+			} else {
+				dstFn = filepath.Base(*fn)
+			}
 
 			arg1 := JobArgument{
 				*fn,
 				nil,
 			}
-			arg2 := j.args[1].Clone().Append(*fn)
-			return j.MakeSubJob(subCmd, OP_UPLOAD, []*JobArgument{&arg1, &arg2}, j.opts)
+			arg2 := j.args[1].Clone().Append(dstFn, false)
+			return j.MakeSubJob(subCmd, OP_UPLOAD, []*JobArgument{&arg1, arg2}, j.opts)
 		})
 
 		return wp.stats.IncrementIfSuccess(STATS_FILEOP, err)

@@ -11,6 +11,7 @@ import (
 
 const (
 	S3_WILD_CHARACTERS string = "?*"
+	GLOB_CHARACTERS    string = "?*["
 )
 
 type s3url struct {

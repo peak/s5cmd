@@ -52,8 +52,11 @@ There are three main commands: `cp`, `mv` and `rm`. Arguments can be either S3 u
 - Arbitrary shell-execute - `! commands...`
 - Exit - `exit [exitcode]` (see [Exit Code](#exit-code))
 
-S3 urls should be in the format `s3://bucket/key`
-`cp` and `mv` commands accept the `-n` (no-clobber) option, which will prevent overwriting existing files or objects.
+### Command options ###
+- S3 urls should be in the format `s3://bucket/key`
+- `cp` and `mv` commands accept the `-n` (no-clobber) option to prevent overwriting existing files or objects.
+- Batch `cp` and `mv` commands also accept the `--parents` option to create the dir structure in destination. Dir structure is created from the first wildcard onwards.
+
 
 ### Command examples ###
 

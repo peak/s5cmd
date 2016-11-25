@@ -221,6 +221,8 @@ func (j *Job) Run(wp *WorkerParams) error {
 
 		if j.opts.Has(OPT_RR) {
 			cls = s3.ObjectStorageClassReducedRedundancy
+		} else if j.opts.Has(OPT_IA) {
+			cls = s3.TransitionStorageClassStandardIa
 		} else {
 			cls = s3.ObjectStorageClassStandard
 		}
@@ -534,6 +536,8 @@ func (j *Job) Run(wp *WorkerParams) error {
 
 			if j.opts.Has(OPT_RR) {
 				cls = s3.ObjectStorageClassReducedRedundancy
+			} else if j.opts.Has(OPT_IA) {
+				cls = s3.TransitionStorageClassStandardIa
 			} else {
 				cls = s3.ObjectStorageClassStandard
 			}
@@ -599,6 +603,8 @@ func (j *Job) Run(wp *WorkerParams) error {
 					cls = "G"
 				case s3.ObjectStorageClassReducedRedundancy:
 					cls = "R"
+				case s3.TransitionStorageClassStandardIa:
+					cls = "I"
 				default:
 					cls = "?"
 				}

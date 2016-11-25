@@ -322,6 +322,7 @@ func (j *Job) Run(wp *WorkerParams) error {
 		if j.opts.Has(OPT_DELETE_SOURCE) {
 			subCmd = "mv"
 		}
+		subCmd += j.opts.GetParams()
 
 		err := s3wildOperation(j.args[0].s3, wp, func(li *s3listItem) *Job {
 			if li == nil || li.isCommonPrefix {
@@ -358,6 +359,7 @@ func (j *Job) Run(wp *WorkerParams) error {
 		if j.opts.Has(OPT_DELETE_SOURCE) {
 			subCmd = "mv"
 		}
+		subCmd += j.opts.GetParams()
 
 		st, err := os.Stat(j.args[0].arg)
 		walkMode := err == nil && st.IsDir() // walk or glob?

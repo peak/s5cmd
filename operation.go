@@ -1,6 +1,9 @@
 package s5cmd
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 type Operation int
 
@@ -170,6 +173,21 @@ func (o OptionType) GetParam() string {
 		return "-rr"
 	case OPT_IA:
 		return "-ia"
+	}
+	return ""
+}
+func (l OptionList) GetParams() string {
+	r := make([]string, 0)
+	for _, o := range l {
+		p := o.GetParam()
+		if p != "" {
+			r = append(r, p)
+		}
+	}
+
+	j := strings.Join(r, " ")
+	if j != "" {
+		return " " + j
 	}
 	return ""
 }

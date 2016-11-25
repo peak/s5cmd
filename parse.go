@@ -291,7 +291,33 @@ func parseSingleJob(jobdesc string) (*Job, error) {
 		if parts[0] == c.keyword {
 			found = i
 
-			suppliedParamCount := len(parts) - 1
+			ourJob.command = c.keyword
+			ourJob.operation = c.operation
+			ourJob.args = []*JobArgument{}
+			ourJob.opts = c.opts
+
+			fileArgsStartPosition := 1
+			acceptedOpts := ourJob.GetAcceptedOpts()
+			for k := 1; k < len(parts); k++ {
+				if parts[k][0] != '-' {
+					fileArgsStartPosition = k
+					goto endOptParse
+				}
+				foundOpt := false
+				for _, p := range *acceptedOpts {
+					s := p.GetParam()
+					if parts[k] == s {
+						ourJob.opts = append(ourJob.opts, p)
+						foundOpt = true
+					}
+				}
+				if !foundOpt {
+					fileArgsStartPosition = k
+					goto endOptParse
+				}
+			}
+		endOptParse:
+			suppliedParamCount := len(parts) - fileArgsStartPosition
 			minCount := len(c.params)
 			maxCount := minCount
 			if minCount > 0 && c.params[minCount-1] == PARAM_UNCHECKED_ONE_OR_MORE {
@@ -301,18 +327,13 @@ func parseSingleJob(jobdesc string) (*Job, error) {
 				continue
 			}
 
-			ourJob.command = c.keyword
-			ourJob.operation = c.operation
-			ourJob.args = []*JobArgument{}
-			ourJob.opts = c.opts
-
 			var a, fnObj *JobArgument
 
 			parseArgErr = nil
 			lastType := PARAM_UNCHECKED_ONE_OR_MORE
-			maxI := 0
+			maxI := fileArgsStartPosition
 			for i, t := range c.params { // check if param types match
-				a, parseArgErr = parseArgumentByType(parts[i+1], t, fnObj)
+				a, parseArgErr = parseArgumentByType(parts[fileArgsStartPosition+i], t, fnObj)
 				if parseArgErr != nil {
 					break
 				}

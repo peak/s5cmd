@@ -12,6 +12,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"strconv"
 	"sync/atomic"
@@ -30,7 +31,7 @@ type Job struct {
 	command        string // Different from operation, as multiple commands can map to the same op
 	operation      Operation
 	args           []*JobArgument
-	opts           OptionType
+	opts           OptionList
 	successCommand *Job       // Next job to run if this one is successful
 	failCommand    *Job       // .. if unsuccessful
 	notifyChan     *chan bool // Ptr to chan to notify the job's success or fail
@@ -65,7 +66,7 @@ func (j Job) String() (s string) {
 	return
 }
 
-func (j Job) MakeSubJob(command string, operation Operation, args []*JobArgument, opts OptionType) *Job {
+func (j Job) MakeSubJob(command string, operation Operation, args []*JobArgument, opts OptionList) *Job {
 	ptr := args
 	return &Job{
 		sourceDesc: j.sourceDesc,
@@ -139,8 +140,24 @@ func (j *Job) Notify(ctx context.Context, err error) {
 	}
 }
 
+var (
+	ErrFileExists = errors.New("File already exists")
+	ErrS3Exists   = errors.New("Object already exists")
+)
+
 func (j *Job) Run(wp *WorkerParams) error {
 	//log.Printf("Running %v", j)
+
+	doesFileExist := func(filename string) error {
+		_, err := os.Stat(filename)
+		if err != nil {
+			if os.IsNotExist(err) {
+				return nil
+			}
+			return err
+		}
+		return ErrFileExists
+	}
 
 	switch j.operation {
 
@@ -150,6 +167,13 @@ func (j *Job) Run(wp *WorkerParams) error {
 
 	case OP_LOCAL_COPY:
 		var err error
+		if j.opts.Has(OPT_IF_NOT_EXISTS) {
+			err = doesFileExist(j.args[1].arg)
+			if err != nil {
+				return err
+			}
+		}
+
 		if j.opts.Has(OPT_DELETE_SOURCE) {
 			err = os.Rename(j.args[0].arg, j.args[1].arg)
 		} else {
@@ -174,7 +198,16 @@ func (j *Job) Run(wp *WorkerParams) error {
 
 	// S3 operations
 	case OP_COPY:
-		_, err := s3copy(wp.s3svc, j.args[0].s3, j.args[1].s3)
+		var err error
+		if j.opts.Has(OPT_IF_NOT_EXISTS) {
+			_, err := s3head(wp.s3svc, j.args[1].s3)
+			if err == nil {
+				wp.stats.IncrementIfSuccess(STATS_S3OP, err)
+				return ErrS3Exists
+			}
+		}
+
+		_, err = s3copy(wp.s3svc, j.args[0].s3, j.args[1].s3)
 		wp.stats.IncrementIfSuccess(STATS_S3OP, err)
 
 		if j.opts.Has(OPT_DELETE_SOURCE) && err == nil {
@@ -209,7 +242,7 @@ func (j *Job) Run(wp *WorkerParams) error {
 			}
 
 			if (key == nil || len(jobArgs) == maxArgs) && len(jobArgs) > 1 {
-				subJob = j.MakeSubJob("batch-rm", OP_BATCH_DELETE_ACTUAL, jobArgs, OPT_NONE)
+				subJob = j.MakeSubJob("batch-rm", OP_BATCH_DELETE_ACTUAL, jobArgs, OptionList{})
 				initArgs()
 			}
 
@@ -349,10 +382,14 @@ func (j *Job) Run(wp *WorkerParams) error {
 		return wp.stats.IncrementIfSuccess(STATS_FILEOP, err)
 
 	case OP_DOWNLOAD:
-		src_fn := filepath.Base(j.args[0].arg)
-		dest_fn := src_fn
-		if len(j.args) > 1 {
-			dest_fn = j.args[1].arg
+		src_fn := path.Base(j.args[0].arg)
+		dest_fn := j.args[1].arg
+
+		if j.opts.Has(OPT_IF_NOT_EXISTS) {
+			err := doesFileExist(dest_fn)
+			if err != nil {
+				return err
+			}
 		}
 
 		o, err := s3head(wp.s3svc, j.args[0].s3)
@@ -416,6 +453,14 @@ func (j *Job) Run(wp *WorkerParams) error {
 		s, err := os.Stat(j.args[0].arg)
 		if err != nil {
 			return err
+		}
+
+		if j.opts.Has(OPT_IF_NOT_EXISTS) {
+			_, err = s3head(wp.s3svc, j.args[1].s3)
+			if err == nil {
+				wp.stats.IncrementIfSuccess(STATS_S3OP, err)
+				return ErrS3Exists
+			}
 		}
 
 		f, err := os.Open(j.args[0].arg)

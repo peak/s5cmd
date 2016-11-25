@@ -46,13 +46,14 @@ Single commands are also supported with the `s5cmd [command [params]]` syntax. I
 
 There are three main commands: `cp`, `mv` and `rm`. Arguments can be either S3 urls, S3 wildcards, local file/directory references or local glob patterns.
 
-- Copy, Download or Upload: `cp [src] [dst]`
-- Move, Download or Upload and then delete: `mv [src] [dst]`
+- Copy, Download or Upload: `cp [options] [src] [dst]`
+- Move, Download or Upload and then delete: `mv [options] [src] [dst]`
 - Delete: `rm [src]`
 - Arbitrary shell-execute - `! commands...`
 - Exit - `exit [exitcode]` (see [Exit Code](#exit-code))
 
 S3 urls should be in the format `s3://bucket/key`
+`cp` and `mv` commands accept the `-n` (no-clobber) option, which will prevent overwriting existing files or objects.
 
 ### Command examples ###
 

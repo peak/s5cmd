@@ -57,7 +57,7 @@ func s3list(ctx context.Context, svc *s3.S3, s3url *s3url, emitChan chan<- inter
 	} else {
 		// wildcard operation
 		prefix = wildkey[:loc]
-		filter = wildkey[loc+1:]
+		filter = wildkey[loc:]
 	}
 	inp.SetPrefix(prefix)
 
@@ -70,7 +70,7 @@ func s3list(ctx context.Context, svc *s3.S3, s3url *s3url, emitChan chan<- inter
 		filterRegex := regexp.QuoteMeta(filter)
 		filterRegex = strings.Replace(filterRegex, "\\?", ".", -1)
 		filterRegex = strings.Replace(filterRegex, "\\*", ".*?", -1)
-		r, err = regexp.Compile(filterRegex + "$")
+		r, err = regexp.Compile("^" + filterRegex + "$")
 		if err != nil {
 			return err
 		}

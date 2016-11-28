@@ -269,14 +269,6 @@
 			"branch": "master",
 			"path": "width",
 			"notests": true
-		},
-		{
-			"importpath": "gopkg.in/cheggaaa/pb.v1",
-			"repository": "https://gopkg.in/cheggaaa/pb.v1",
-			"vcs": "git",
-			"revision": "dd61faab99a777c652bb680e37715fe0cb549856",
-			"branch": "master",
-			"notests": true
 		}
 	]
 }

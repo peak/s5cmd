@@ -8,7 +8,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/termie/go-shutil"
-	"gopkg.in/cheggaaa/pb.v1"
 	"log"
 	"os"
 	"os/exec"
@@ -46,6 +45,7 @@ type ShortCode int
 const (
 	SHORT_ERR = iota
 	SHORT_OK
+	SHORT_INFO
 )
 
 func (s ShortCode) String() string {
@@ -54,6 +54,9 @@ func (s ShortCode) String() string {
 	}
 	if s == SHORT_ERR {
 		return "-"
+	}
+	if s == SHORT_INFO {
+		return "?"
 	}
 	return "?"
 }
@@ -448,27 +451,17 @@ func (j *Job) Run(wp *WorkerParams) error {
 			}
 		}
 
-		o, err := s3head(wp.s3svc, j.args[0].s3)
-		if err != nil {
-			return err
-		}
-
-		bar := pb.New64(*o.ContentLength).SetUnits(pb.U_BYTES).Prefix(src_fn)
-		bar.Start()
-
 		f, err := os.Create(dest_fn)
 		if err != nil {
 			return err
 		}
 
-		wap := NewWriterAtProgress(f, func(n int64) {
-			bar.Add64(n)
-		})
+		j.out(SHORT_INFO, "Downloading %s...", src_fn)
 
 		ch := make(chan error)
 
 		go func() {
-			_, err := wp.s3dl.Download(wap, &s3.GetObjectInput{
+			_, err := wp.s3dl.Download(f, &s3.GetObjectInput{
 				Bucket: aws.String(j.args[0].s3.bucket),
 				Key:    aws.String(j.args[0].s3.key),
 			})
@@ -488,11 +481,6 @@ func (j *Job) Run(wp *WorkerParams) error {
 		ch = nil
 
 		f.Close()
-
-		if err == ErrInterrupted {
-			bar.NotPrint = true
-		}
-		bar.Finish()
 
 		wp.stats.IncrementIfSuccess(STATS_S3OP, err)
 		if err != nil {
@@ -526,10 +514,7 @@ func (j *Job) Run(wp *WorkerParams) error {
 
 		defer f.Close()
 
-		bar := pb.New64(s.Size()).SetUnits(pb.U_BYTES).Prefix(src_fn)
-		bar.Start()
-
-		r := bar.NewProxyReader(f)
+		j.out(SHORT_INFO, "Uploading %s... (%d bytes)", src_fn, s.Size())
 
 		ch := make(chan error)
 
@@ -547,7 +532,7 @@ func (j *Job) Run(wp *WorkerParams) error {
 			_, err := wp.s3ul.Upload(&s3manager.UploadInput{
 				Bucket:       aws.String(j.args[1].s3.bucket),
 				Key:          aws.String(j.args[1].s3.key),
-				Body:         r,
+				Body:         f,
 				StorageClass: aws.String(cls),
 			})
 
@@ -566,11 +551,6 @@ func (j *Job) Run(wp *WorkerParams) error {
 		ch = nil
 
 		f.Close()
-
-		if err == ErrInterrupted {
-			bar.NotPrint = true
-		}
-		bar.Finish()
 
 		wp.stats.IncrementIfSuccess(STATS_S3OP, err)
 		if j.opts.Has(OPT_DELETE_SOURCE) && err == nil {

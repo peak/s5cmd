@@ -49,11 +49,8 @@ func s3list(ctx context.Context, svc *s3.S3, s3url *s3url, emitChan chan<- inter
 	if !wildOperation {
 		// no wildcard operation
 		inp.SetDelimiter("/")
+		prefix = s3url.key
 
-		prefix = strings.TrimRight(s3url.key, "/")
-		if prefix != "" {
-			prefix += "/"
-		}
 	} else {
 		// wildcard operation
 		prefix = wildkey[:loc]
@@ -66,6 +63,16 @@ func s3list(ctx context.Context, svc *s3.S3, s3url *s3url, emitChan chan<- inter
 		err error
 	)
 
+	trimPrefix := path.Dir(prefix) + "/"
+	if trimPrefix == "./" {
+		trimPrefix = ""
+	}
+	if !wildOperation {
+		// prevent "ls s3://bucket/path/key" from matching s3://bucket/path/keyword
+		// it will still match s3://bucket/path/keydir/ because we don't match the regex on commonPrefixes
+		filter = prefix[len(trimPrefix):]
+	}
+
 	if filter != "" {
 		filterRegex := regexp.QuoteMeta(filter)
 		filterRegex = strings.Replace(filterRegex, "\\?", ".", -1)
@@ -74,11 +81,6 @@ func s3list(ctx context.Context, svc *s3.S3, s3url *s3url, emitChan chan<- inter
 		if err != nil {
 			return err
 		}
-	}
-
-	trimPrefix := path.Dir(prefix) + "/"
-	if trimPrefix == "./" {
-		trimPrefix = ""
 	}
 
 	var mu sync.Mutex

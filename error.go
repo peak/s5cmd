@@ -1,6 +1,7 @@
 package s5cmd
 
 import (
+	"fmt"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"strings"
 )
@@ -20,12 +21,14 @@ func IsRetryableError(err error) (string, bool) {
 				// A service error occurred
 				//fmt.Println("reqErr", reqErr.StatusCode(), reqErr.RequestID())
 				errCode = reqErr.Code()
-				if errCode == "InternalError" {
+				switch errCode {
+				case "InternalError", "SerializationError":
 					return errCode, true
 				}
 				status := reqErr.StatusCode()
-				if status == 500 {
-					return "500", true
+				switch status {
+				case 400, 500:
+					return fmt.Sprintf("HTTP%d", status), true
 				}
 			}
 		}

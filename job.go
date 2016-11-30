@@ -598,6 +598,21 @@ func (j *Job) Run(wp *WorkerParams) error {
 
 		return wp.stats.IncrementIfSuccess(STATS_S3OP, err)
 
+	case OP_SIZE:
+		var size, count int64
+		err := s3wildOperation(j.args[0].s3, wp, func(li *s3listItem) *Job {
+			if li == nil || li.isCommonPrefix {
+				return nil
+			}
+			size += li.size
+			count++
+			return nil
+		})
+		if err == nil {
+			j.out(SHORT_OK, "%d bytes in %d objects: %s", size, count, j.args[0].s3)
+		}
+		return wp.stats.IncrementIfSuccess(STATS_S3OP, err)
+
 	case OP_ABORT:
 		var (
 			exitCode int64 = -1

@@ -15,6 +15,7 @@ const (
 	OP_BATCH_UPLOAD
 	OP_COPY
 	OP_DELETE
+	OP_SIZE
 	OP_BATCH_DELETE        // "ls" and submit batched multi-delete operations
 	OP_BATCH_DELETE_ACTUAL // Amazon deleteObjects call
 	OP_LIST
@@ -106,6 +107,9 @@ var commands = []commandMap{
 	{"ls", OP_LIST, []ParamType{PARAM_S3OBJORDIR}, OptionList{}},
 	{"ls", OP_LIST, []ParamType{PARAM_S3WILDOBJ}, OptionList{}},
 
+	{"du", OP_SIZE, []ParamType{PARAM_S3OBJORDIR}, OptionList{}},
+	{"du", OP_SIZE, []ParamType{PARAM_S3WILDOBJ}, OptionList{}},
+
 	{"!", OP_SHELL_EXEC, []ParamType{PARAM_UNCHECKED_ONE_OR_MORE}, OptionList{}},
 }
 
@@ -143,6 +147,8 @@ func (o Operation) String() string {
 		return "ls-buckets"
 	case OP_LIST:
 		return "ls"
+	case OP_SIZE:
+		return "du"
 	case OP_LOCAL_COPY:
 		return "local-copy"
 	case OP_LOCAL_DELETE:

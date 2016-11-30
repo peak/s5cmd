@@ -19,6 +19,10 @@ type s3url struct {
 	key    string
 }
 
+func (s s3url) String() string {
+	return "s3://" + s.bucket + "/" + s.key
+}
+
 func (s s3url) format() string {
 	if s.key == "" {
 		return s.bucket

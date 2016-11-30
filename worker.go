@@ -101,9 +101,7 @@ func (p *WorkerPool) runWorker(stats *Stats, idlingCounter *int32, id int) {
 		s3.New(p.awsSession),
 		// Give each worker its own s3manager
 		s3manager.NewDownloader(p.awsSession),
-		s3manager.NewUploader(p.awsSession, func(u *s3manager.Uploader) {
-			u.PartSize = p.params.ChunkSizeBytes
-		}),
+		s3manager.NewUploader(p.awsSession),
 		p.ctx,
 		p.params,
 		stats,

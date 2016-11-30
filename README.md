@@ -19,7 +19,7 @@ $ ./s5cmd --help
 Usage: ./s5cmd [OPTION]... [COMMAND [PARAMS...]]
  
   -cs int
-    	Multipart chunk size in MB for uploads (default 5)
+        Multipart chunk size in MB for uploads (default 5, auto calculated)
   -f string
         Commands-file or - for stdin
   -numworkers int

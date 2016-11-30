@@ -9,6 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/termie/go-shutil"
 	"log"
+	"math"
 	"os"
 	"os/exec"
 	"path"
@@ -493,6 +494,8 @@ func (j *Job) Run(wp *WorkerParams) error {
 		return err
 
 	case OP_UPLOAD:
+		const bytesInMb = float64(1024 * 1024)
+
 		src_fn := filepath.Base(j.args[0].arg)
 		s, err := os.Stat(j.args[0].arg)
 		if err != nil {
@@ -514,11 +517,21 @@ func (j *Job) Run(wp *WorkerParams) error {
 
 		defer f.Close()
 
-		j.out(SHORT_INFO, "Uploading %s... (%d bytes)", src_fn, s.Size())
+		filesize := s.Size()
+
+		numPartsNeeded := filesize / wp.poolParams.ChunkSizeBytes
+		chunkSize := int64(wp.poolParams.ChunkSizeBytes / int64(bytesInMb))
+		if numPartsNeeded > s3manager.MaxUploadParts {
+			cSize := float64(filesize / s3manager.MaxUploadParts)
+			chunkSize = int64(math.Ceil(cSize / bytesInMb))
+			j.out(SHORT_INFO, "Uploading %s... (%d bytes) (chunk size %d MB)", src_fn, filesize, chunkSize)
+		} else {
+			j.out(SHORT_INFO, "Uploading %s... (%d bytes)", src_fn, filesize)
+		}
 
 		ch := make(chan error)
 
-		go func() {
+		go func(chunkSizeInBytes int64) {
 			var cls string
 
 			if j.opts.Has(OPT_RR) {
@@ -534,12 +547,14 @@ func (j *Job) Run(wp *WorkerParams) error {
 				Key:          aws.String(j.args[1].s3.key),
 				Body:         f,
 				StorageClass: aws.String(cls),
+			}, func(u *s3manager.Uploader) {
+				u.PartSize = chunkSizeInBytes
 			})
 
 			select {
 			case ch <- err:
 			}
-		}()
+		}(chunkSize * int64(bytesInMb))
 
 		select {
 		case <-wp.ctx.Done():

@@ -30,6 +30,8 @@ Usage: ./s5cmd [OPTION]... [COMMAND [PARAMS...]]
         Always print stats
   -version
         Prints current version
+
+To list available commands, run without arguments.
 ```
 
 ## Commands File ##

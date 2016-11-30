@@ -302,7 +302,7 @@ func parseSingleJob(jobdesc string) (*Job, error) {
 			ourJob.opts = c.opts
 
 			fileArgsStartPosition := 1
-			acceptedOpts := ourJob.GetAcceptedOpts()
+			acceptedOpts := c.operation.GetAcceptedOpts()
 			for k := 1; k < len(parts); k++ {
 				if parts[k][0] != '-' {
 					fileArgsStartPosition = k

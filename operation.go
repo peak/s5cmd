@@ -2,6 +2,7 @@ package s5cmd
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 )
 
@@ -160,6 +161,59 @@ func (o Operation) String() string {
 	return fmt.Sprintf("Unknown:%d", o)
 }
 
+func (o Operation) Describe(l OptionList) string {
+	switch o {
+	case OP_ABORT:
+		return "Exit program"
+	case OP_DOWNLOAD:
+		if l.Has(OPT_DELETE_SOURCE) {
+			return "Download from S3 and delete source objects"
+		}
+		return "Download from S3"
+	case OP_BATCH_DOWNLOAD:
+		if l.Has(OPT_DELETE_SOURCE) {
+			return "Batch download from S3 and delete source objects"
+		}
+		return "Batch download from S3"
+	case OP_UPLOAD:
+		if l.Has(OPT_DELETE_SOURCE) {
+			return "Upload to S3 and delete source files"
+		}
+		return "Upload to S3"
+	case OP_BATCH_UPLOAD:
+		if l.Has(OPT_DELETE_SOURCE) {
+			return "Batch upload to S3 and delete source files"
+		}
+		return "Batch upload to S3"
+	case OP_COPY:
+		if l.Has(OPT_DELETE_SOURCE) {
+			return "Move S3 object"
+		}
+		return "Copy S3 object"
+	case OP_DELETE:
+		return "Delete from S3"
+	case OP_BATCH_DELETE:
+		return "Batch delete from S3"
+	case OP_LISTBUCKETS:
+		return "List buckets"
+	case OP_LIST:
+		return "List objects"
+	case OP_SIZE:
+		return "Count objects and size"
+	case OP_LOCAL_COPY:
+		if l.Has(OPT_DELETE_SOURCE) {
+			return "Move local files"
+		}
+		return "Copy local files"
+	case OP_LOCAL_DELETE:
+		return "Delete local files"
+	case OP_SHELL_EXEC:
+		return "Arbitrary shell-execute"
+	}
+
+	return fmt.Sprintf("Unknown:%d", o)
+}
+
 func (o OptionList) Has(check OptionType) bool {
 	for _, i := range o {
 		if i == check {
@@ -198,23 +252,115 @@ func (l OptionList) GetParams() string {
 	return ""
 }
 
-func (j Job) GetAcceptedOpts() *OptionList {
+func (o Operation) GetAcceptedOpts() *OptionList {
 	l := OptionList{}
 
-	switch j.operation {
+	switch o {
 	case OP_DOWNLOAD, OP_UPLOAD, OP_COPY, OP_LOCAL_COPY, OP_BATCH_DOWNLOAD, OP_BATCH_UPLOAD:
 		l = append(l, OPT_IF_NOT_EXISTS)
 	}
 
-	switch j.operation {
+	switch o {
 	case OP_BATCH_DOWNLOAD, OP_BATCH_UPLOAD:
 		l = append(l, OPT_PARENTS)
 	}
 
-	switch j.operation {
+	switch o {
 	case OP_UPLOAD, OP_BATCH_UPLOAD, OP_COPY:
 		l = append(l, OPT_RR, OPT_IA)
 	}
 
 	return &l
+}
+
+func (p ParamType) String() string {
+	switch p {
+	case PARAM_UNCHECKED:
+		return "param"
+	case PARAM_UNCHECKED_ONE_OR_MORE:
+		return "param..."
+	case PARAM_S3OBJ:
+		return "s3://bucket[/object]"
+	case PARAM_S3DIR:
+		return "s3://bucket[/object]/"
+	case PARAM_S3OBJORDIR:
+		return "s3://bucket[/object[/]]"
+	case PARAM_S3WILDOBJ:
+		return "s3://bucket/wild/*/obj*"
+	case PARAM_FILEOBJ:
+		return "filename"
+	case PARAM_DIR:
+		return "directory"
+	case PARAM_FILEORDIR:
+		return "file-or-directory"
+	case PARAM_GLOB:
+		return "glob-pattern*"
+	default:
+		return "unknown"
+	}
+}
+
+func GetCommandList() string {
+
+	list := make(map[string][]string, 0)
+	overrides := map[Operation]string{
+		OP_ABORT:      "exit [exit code]",
+		OP_SHELL_EXEC: "! command [parameters...]",
+	}
+
+	var lastDesc string
+	var l []string
+	for _, c := range commands {
+		if c.operation.IsInternal() {
+			continue
+		}
+		desc := c.operation.Describe(c.opts)
+		if lastDesc != desc {
+			if len(l) > 0 {
+				list[lastDesc] = l
+			}
+			l = nil
+			lastDesc = desc
+		}
+
+		if override, ok := overrides[c.operation]; ok {
+			list[desc] = []string{override}
+			lastDesc = ""
+			l = nil
+			continue
+		}
+
+		s := c.keyword
+		ao := c.operation.GetAcceptedOpts()
+		for _, p := range *ao {
+			s += " [" + p.GetParam() + "]"
+		}
+		for _, pt := range c.params {
+			s += " " + pt.String()
+		}
+		s = strings.Replace(s, " [-rr] [-ia] ", " [-rr|-ia] ", -1)
+		l = append(l, s)
+	}
+	if len(l) > 0 {
+		list[lastDesc] = l
+	}
+
+	// sort and build final string
+	klist := make([]string, len(list))
+	i := 0
+	for k := range list {
+		klist[i] = k
+		i++
+	}
+	sort.Strings(klist)
+
+	ret := ""
+	for _, k := range klist {
+		ret += "  " + k + "\n"
+		for _, o := range list[k] {
+			ret += "        " + o + "\n"
+		}
+	}
+
+	return ret
 }

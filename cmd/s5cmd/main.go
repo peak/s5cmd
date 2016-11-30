@@ -34,6 +34,10 @@ func printOps(name string, counter uint64, elapsed time.Duration, extra string) 
 	log.Printf("# Stats: %-7s %10d %4d ops/sec%s", name, counter, ops, extra)
 }
 
+func printUsageLine() {
+	fmt.Fprintf(os.Stderr, "Usage: %s [OPTION]... [COMMAND [PARAMS...]]\n\n", os.Args[0])
+}
+
 func main() {
 	const bytesInMb = float64(1024 * 1024)
 	const minNumWorkers = 2
@@ -56,14 +60,23 @@ func main() {
 	version := flag.Bool("version", false, "Prints current version")
 
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage: %s [OPTION]... [COMMAND [PARAMS...]]\n\n", os.Args[0])
+		printUsageLine()
 		flag.PrintDefaults()
+		fmt.Fprint(os.Stderr, "\nTo list available commands, run without arguments.\n")
 	}
 	flag.Parse()
 
 	if *version {
 		fmt.Printf("s5cmd version %s (from branch %s)\n", GitSummary, GitBranch)
 		os.Exit(0)
+	}
+
+	if flag.Arg(0) == "" && cmdFile == "" {
+		printUsageLine()
+		fmt.Fprint(os.Stderr, "Commands:\n")
+		fmt.Fprintf(os.Stderr, s5cmd.GetCommandList())
+		fmt.Fprint(os.Stderr, "\nTo list available options, run with the -h option.\n")
+		os.Exit(2)
 	}
 
 	cmd := strings.Join(flag.Args(), " ")

@@ -1,4 +1,4 @@
-package s5cmd
+package main
 
 import (
 	"path/filepath"
@@ -250,8 +250,8 @@ func TestParseFileDir(t *testing.T) {
 		input := filepath.Join("path", "to", "obj") + string(filepath.Separator)
 		testParseGeneral(t, typ, input, input, false, true, "", "", nil)
 	})
-	t.Run("cmd", func(t *testing.T) {
-		testParseGeneral(t, typ, "cmd", "cmd/", false, true, "", "", nil)
+	t.Run("existing-dir", func(t *testing.T) {
+		testParseGeneral(t, typ, "vendor", "vendor/", false, true, "", "", nil)
 	})
 	t.Run("path/to/obj", func(t *testing.T) {
 		input := filepath.Join("path", "to", "obj")
@@ -278,7 +278,7 @@ func TestParseFileOrDir(t *testing.T) {
 		testParseGeneral(t, typ, input, input, false, true, "", "", nil)
 	})
 	t.Run("Existing-dir-without-slash", func(t *testing.T) {
-		testParseGeneral(t, typ, "cmd", "cmd"+string(filepath.Separator), false, true, "", "", nil)
+		testParseGeneral(t, typ, "vendor", "vendor"+string(filepath.Separator), false, true, "", "", nil)
 	})
 	t.Run("path/to/obj*", func(t *testing.T) {
 		input := filepath.Join("path", "to", "obj*")

@@ -1,4 +1,4 @@
-package s5cmd
+package main
 
 import (
 	"errors"

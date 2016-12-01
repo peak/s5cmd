@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
-	"github.com/peakgames/s5cmd"
 	"log"
 	"math"
 	"os"
@@ -74,7 +73,7 @@ func main() {
 	if flag.Arg(0) == "" && cmdFile == "" {
 		printUsageLine()
 		fmt.Fprint(os.Stderr, "Commands:\n")
-		fmt.Fprintf(os.Stderr, s5cmd.GetCommandList())
+		fmt.Fprintf(os.Stderr, GetCommandList())
 		fmt.Fprint(os.Stderr, "\nTo list available options, run with the -h option.\n")
 		os.Exit(2)
 	}
@@ -130,10 +129,10 @@ func main() {
 		cancelFunc()
 	}()
 
-	s := s5cmd.Stats{}
+	s := Stats{}
 
-	wp := s5cmd.NewWorkerPool(ctx,
-		&s5cmd.WorkerPoolParams{
+	wp := NewWorkerPool(ctx,
+		&WorkerPoolParams{
 			NumWorkers:     uint32(numWorkers),
 			ChunkSizeBytes: multipartChunkSizeBytes,
 			Retries:        retries,
@@ -146,7 +145,7 @@ func main() {
 
 	elapsed := time.Since(startTime)
 
-	failops := s.Get(s5cmd.STATS_FAIL)
+	failops := s.Get(STATS_FAIL)
 
 	// if exitCode is -1 (default) and if we have at least one absolute-fail, exit with code 127
 	if exitCode == -1 {
@@ -162,10 +161,10 @@ func main() {
 	}
 
 	if !cmdMode || *printStats {
-		s3ops := s.Get(s5cmd.STATS_S3OP)
-		fileops := s.Get(s5cmd.STATS_FILEOP)
-		shellops := s.Get(s5cmd.STATS_SHELLOP)
-		retryops := s.Get(s5cmd.STATS_RETRYOP)
+		s3ops := s.Get(STATS_S3OP)
+		fileops := s.Get(STATS_FILEOP)
+		shellops := s.Get(STATS_SHELLOP)
+		retryops := s.Get(STATS_RETRYOP)
 		printOps("S3", s3ops, elapsed, "")
 		printOps("File", fileops, elapsed, "")
 		printOps("Shell", shellops, elapsed, "")

@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"github.com/peakgames/s5cmd/version"
 	"log"
 	"math"
 	"os"
@@ -15,8 +16,10 @@ import (
 	"time"
 )
 
+//go:generate go run version/cmd/generate.go
 var (
-	GitSummary, GitBranch string
+	GitSummary = version.GitSummary
+	GitBranch  = version.GitBranch
 )
 
 func printOps(name string, counter uint64, elapsed time.Duration, extra string) {
@@ -66,7 +69,11 @@ func main() {
 	flag.Parse()
 
 	if *version {
-		fmt.Printf("s5cmd version %s (from branch %s)\n", GitSummary, GitBranch)
+		fmt.Printf("s5cmd version %s", GitSummary)
+		if GitBranch != "" {
+			fmt.Printf(" (from branch %s)", GitBranch)
+		}
+		fmt.Print("\n")
 		os.Exit(0)
 	}
 

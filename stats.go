@@ -2,29 +2,32 @@ package main
 
 import "sync/atomic"
 
+// StatType is an enum for our various types of stats.
 type StatType int
 
 const (
-	// Failed jobs
-	STATS_FAIL StatType = iota
+	// StatsFail is failed jobs
+	StatsFail StatType = iota
 
-	// Successful S3 operations
-	STATS_S3OP
+	// StatsS3Op is successful S3 operations
+	StatsS3Op
 
-	// Sucessful File operations
-	STATS_FILEOP
+	// StatsFileOp is sucessful File operations
+	StatsFileOp
 
-	// Successful shell invocations
-	STATS_SHELLOP
+	// StatsShellOp is successful shell invocations
+	StatsShellOp
 
-	// Retried operations
-	STATS_RETRYOP
+	// StatsRetryOp is retried operations
+	StatsRetryOp
 )
 
+// Stats contain the number of operations of each StatType
 type Stats struct {
 	ops [5]uint64
 }
 
+// IncrementIfSuccess atomically increments the StatType's counter in Stats if err is nil
 func (s *Stats) IncrementIfSuccess(t StatType, err error) error {
 	if err == nil {
 		atomic.AddUint64(&(s.ops[t]), 1)
@@ -32,10 +35,12 @@ func (s *Stats) IncrementIfSuccess(t StatType, err error) error {
 	return err
 }
 
+// Increment atomically increments the StatType's counter
 func (s *Stats) Increment(t StatType) {
 	atomic.AddUint64(&(s.ops[t]), 1)
 }
 
+// Get atomically reads the StatType's number of operations value
 func (s *Stats) Get(t StatType) (value uint64) {
 	value = atomic.LoadUint64(&(s.ops[t]))
 	return

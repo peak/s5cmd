@@ -6,6 +6,7 @@ import (
 	"io"
 )
 
+// CancelableScanner is a scanner which also listens for the context cancellations and optionally pumps data between channels
 type CancelableScanner struct {
 	*bufio.Scanner
 	data chan string
@@ -13,6 +14,7 @@ type CancelableScanner struct {
 	ctx  context.Context
 }
 
+// NewCancelableScanner creates a new CancelableScanner
 func NewCancelableScanner(ctx context.Context, r io.Reader) *CancelableScanner {
 	return &CancelableScanner{
 		bufio.NewScanner(r),
@@ -22,6 +24,7 @@ func NewCancelableScanner(ctx context.Context, r io.Reader) *CancelableScanner {
 	}
 }
 
+// Start stats the goroutine on the CancelableScanner and returns itself
 func (s *CancelableScanner) Start() *CancelableScanner {
 	go func() {
 		for s.Scan() {
@@ -36,6 +39,7 @@ func (s *CancelableScanner) Start() *CancelableScanner {
 	return s
 }
 
+// ReadOne reads one line from the started CancelableScanner, as well as listening to ctx.Done messages and optionally/continiously pumping *Jobs from the from<- chan to the to<- chan
 func (s *CancelableScanner) ReadOne(from <-chan *Job, to chan<- *Job) (string, error) {
 	for {
 		select {

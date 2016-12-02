@@ -10,8 +10,10 @@ import (
 )
 
 const (
-	S3_WILD_CHARACTERS string = "?*"
-	GLOB_CHARACTERS    string = "?*["
+	// S3WildCharacters is valid wildcard characters for a s3url
+	S3WildCharacters string = "?*"
+	// GlobCharacters is valid glob characters for local files
+	GlobCharacters string = "?*["
 )
 
 type s3url struct {
@@ -30,12 +32,13 @@ func (s s3url) format() string {
 	return s.bucket + "/" + s.key
 }
 
+// Clone creates a new s3url with the values from the receiver
 func (s s3url) Clone() s3url {
 	return s3url{s.bucket, s.key}
 }
 
 func hasWild(s string) bool {
-	return strings.ContainsAny(s, S3_WILD_CHARACTERS)
+	return strings.ContainsAny(s, S3WildCharacters)
 }
 func hasGlob(s string) bool {
 	return strings.ContainsAny(s, "*[]?")
@@ -193,6 +196,7 @@ var (
 	regexCmdOr = regexp.MustCompile(`^\s*(.+?)\s*\|\|\s*(.+?)\s*$`)
 )
 
+// ParseJob parses a job description and returns a *Job type, possibly with other *Job types in successCommand/failCommand
 func ParseJob(jobdesc string) (*Job, error) {
 
 	jobdesc = strings.Split(jobdesc, " #")[0] // Get rid of comments
@@ -291,7 +295,7 @@ func parseSingleJob(jobdesc string) (*Job, error) {
 	ourJob := &Job{sourceDesc: jobdesc, numSuccess: &numSuccess, numFails: &numFails}
 
 	found := -1
-	var parseArgErr error = nil
+	var parseArgErr error
 	for i, c := range commands {
 		if parts[0] == c.keyword {
 			found = i

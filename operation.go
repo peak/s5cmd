@@ -6,6 +6,7 @@ import (
 	"strings"
 )
 
+// Operation is our basic building block for Job
 type Operation int
 
 const (
@@ -26,30 +27,34 @@ const (
 	OP_SHELL_EXEC
 )
 
+// ParamType is the type of our parameter. Determines how we validate the arguments.
 type ParamType int
 
 const (
-	PARAM_UNCHECKED ParamType = iota
-	PARAM_UNCHECKED_ONE_OR_MORE
-	PARAM_S3OBJ      // Bucket or bucket + key
-	PARAM_S3DIR      // Bucket or bucket + key + "/" (prefix)
-	PARAM_S3OBJORDIR // Bucket or bucket + key [+ "/"]
-	PARAM_S3WILDOBJ  // Bucket + key with wildcard
-	PARAM_FILEOBJ    // Filename
-	PARAM_DIR        // Dir name or non-existing name ("/" appended)
-	PARAM_FILEORDIR  // File or directory (if existing directory, "/" appended)
-	PARAM_GLOB       // String containing a valid glob pattern
+	PARAM_UNCHECKED             ParamType = iota // Arbitrary single parameter
+	PARAM_UNCHECKED_ONE_OR_MORE                  // One or more arbitrary parameters (special case)
+	PARAM_S3OBJ                                  // Bucket or bucket + key
+	PARAM_S3DIR                                  // Bucket or bucket + key + "/" (prefix)
+	PARAM_S3OBJORDIR                             // Bucket or bucket + key [+ "/"]
+	PARAM_S3WILDOBJ                              // Bucket + key with wildcard
+	PARAM_FILEOBJ                                // Filename
+	PARAM_DIR                                    // Dir name or non-existing name ("/" appended)
+	PARAM_FILEORDIR                              // File or directory (if existing directory, "/" appended)
+	PARAM_GLOB                                   // String containing a valid glob pattern
 )
 
+// OptionType is the type of our Option. These can be provided with optional parameters or can be already set in commandMap
 type OptionType int
+
+// OptionList is a slice of OptionTypes
 type OptionList []OptionType
 
 const (
-	OPT_DELETE_SOURCE OptionType = iota + 1
-	OPT_IF_NOT_EXISTS
-	OPT_PARENTS // Just like cp --parents
-	OPT_RR      // Reduced-redundancy
-	OPT_IA      // Infrequent-access
+	OPT_DELETE_SOURCE OptionType = iota + 1 // Delete source file/object
+	OPT_IF_NOT_EXISTS                       // Run only if destination does not exist
+	OPT_PARENTS                             // Just like cp --parents
+	OPT_RR                                  // Reduced-redundancy
+	OPT_IA                                  // Infrequent-access
 )
 
 type commandMap struct {
@@ -114,12 +119,12 @@ var commands = []commandMap{
 	{"!", OP_SHELL_EXEC, []ParamType{PARAM_UNCHECKED_ONE_OR_MORE}, OptionList{}},
 }
 
-// Does this operation create sub-jobs?
+// IsBatch returns true if this operation creates sub-jobs
 func (o Operation) IsBatch() bool {
 	return o == OP_BATCH_DOWNLOAD || o == OP_BATCH_UPLOAD || o == OP_BATCH_DELETE
 }
 
-// Internal operations are not shown in +OK messages
+// IsInternal returns true if this operation is considered internal. Internal operations are not shown in +OK messages
 func (o Operation) IsInternal() bool {
 	return o == OP_BATCH_DELETE_ACTUAL
 }
@@ -161,6 +166,7 @@ func (o Operation) String() string {
 	return fmt.Sprintf("Unknown:%d", o)
 }
 
+// Describe returns string description of the Operation given a specific OptionList
 func (o Operation) Describe(l OptionList) string {
 	switch o {
 	case OP_ABORT:
@@ -214,8 +220,9 @@ func (o Operation) Describe(l OptionList) string {
 	return fmt.Sprintf("Unknown:%d", o)
 }
 
-func (o OptionList) Has(check OptionType) bool {
-	for _, i := range o {
+// Has determines if the optionList contains this OptionType
+func (l OptionList) Has(check OptionType) bool {
+	for _, i := range l {
 		if i == check {
 			return true
 		}
@@ -223,6 +230,7 @@ func (o OptionList) Has(check OptionType) bool {
 	return false
 }
 
+// GetParam returns the string/command parameter representation of a specific OptionType
 func (o OptionType) GetParam() string {
 	switch o {
 	case OPT_IF_NOT_EXISTS:
@@ -236,6 +244,8 @@ func (o OptionType) GetParam() string {
 	}
 	return ""
 }
+
+// GetParams runs GetParam() on an OptionList and returns a concatenated string
 func (l OptionList) GetParams() string {
 	r := make([]string, 0)
 	for _, o := range l {
@@ -252,6 +262,7 @@ func (l OptionList) GetParams() string {
 	return ""
 }
 
+// GetAcceptedOpts returns an OptionList of optional parameters for a specific Operation
 func (o Operation) GetAcceptedOpts() *OptionList {
 	l := OptionList{}
 
@@ -273,6 +284,7 @@ func (o Operation) GetAcceptedOpts() *OptionList {
 	return &l
 }
 
+// String returns the string represenatation of ParamType
 func (p ParamType) String() string {
 	switch p {
 	case PARAM_UNCHECKED:
@@ -300,6 +312,7 @@ func (p ParamType) String() string {
 	}
 }
 
+// GetCommandList returns a text of accepted commands with their options and arguments
 func GetCommandList() string {
 
 	list := make(map[string][]string, 0)

@@ -70,7 +70,7 @@ func NewWorkerPool(ctx context.Context, params *WorkerPoolParams, stats *Stats) 
 		ses = newSession(awsCfg)
 	}
 
-	cancelFunc := ctx.Value("cancelFunc").(context.CancelFunc)
+	cancelFunc := ctx.Value(CancelFuncKey).(context.CancelFunc)
 
 	p := &WorkerPool{
 		ctx:           ctx,
@@ -153,7 +153,7 @@ func (p *WorkerPool) runWorker(stats *Stats, idlingCounter *int32, id int) {
 						log.Printf(`?%s "%s", sleep for %v`, errCode, job, sleepTime)
 						select {
 						case <-time.After(sleepTime):
-							wp.stats.Increment(STATS_RETRYOP)
+							wp.stats.Increment(StatsRetryOp)
 							continue
 						case <-p.ctx.Done():
 							run = false // if Canceled during sleep, report ERR and immediately process failCommand
@@ -161,7 +161,7 @@ func (p *WorkerPool) runWorker(stats *Stats, idlingCounter *int32, id int) {
 					}
 
 					log.Printf(`-ERR "%s": %s`, job, CleanupError(err))
-					wp.stats.Increment(STATS_FAIL)
+					wp.stats.Increment(StatsFail)
 					job.Notify(p.ctx, err)
 					job = job.failCommand
 				} else {
@@ -185,7 +185,7 @@ func (p *WorkerPool) parseJob(line string) *Job {
 	job, err := ParseJob(line)
 	if err != nil {
 		log.Print(`-ERR "`, line, `": `, err)
-		p.stats.Increment(STATS_FAIL)
+		p.stats.Increment(StatsFail)
 		return nil
 	}
 	return job

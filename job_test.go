@@ -21,8 +21,8 @@ var (
 	result        error
 	stats         = Stats{}
 	idlingCounter int32
-	subJobQueue   chan *Job = make(chan *Job)
-	wp                      = WorkerParams{
+	subJobQueue   = make(chan *Job)
+	wp            = WorkerParams{
 		nil,
 		nil,
 		nil,
@@ -126,7 +126,7 @@ func TestJobRunLocalDelete(t *testing.T) {
 
 	t.Logf("Created temp file: %s", fn)
 
-	old_args := localDeleteJob.args
+	oldArgs := localDeleteJob.args
 
 	localDeleteJob.args = []*JobArgument{
 		{fn, nil},
@@ -146,29 +146,29 @@ func TestJobRunLocalDelete(t *testing.T) {
 	// teardown
 	deleteFile(fn)
 
-	localDeleteJob.args = old_args
+	localDeleteJob.args = oldArgs
 }
 
-func testLocalCopyOrMove(t *testing.T, is_move bool) {
+func testLocalCopyOrMove(t *testing.T, isMove bool) {
 	// setup
 	src, err := tempFile("src")
 	if err != nil {
 		t.Fatal(err)
 	}
-	file_contents := "contents"
-	err = createFile(src, file_contents)
+	fileContents := "contents"
+	err = createFile(src, fileContents)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	var job *Job
-	if is_move {
+	if isMove {
 		job = &localMoveJob
 	} else {
 		job = &localCopyJob
 	}
 
-	old_args := job.args
+	oldArgs := job.args
 
 	dst := ""
 
@@ -195,20 +195,20 @@ func testLocalCopyOrMove(t *testing.T, is_move bool) {
 		}
 
 		// verify
-		if is_move {
+		if isMove {
 			if fileExists(src) {
 				t.Error("src should not exist after move")
 				break
 			}
 		}
 
-		new_contents, err := readFile(dst)
+		newContents, err := readFile(dst)
 		if err != nil {
 			t.Error(err)
 			break
 		}
 
-		if new_contents != file_contents {
+		if newContents != fileContents {
 			t.Error("File contents do not match")
 		}
 
@@ -221,7 +221,7 @@ func testLocalCopyOrMove(t *testing.T, is_move bool) {
 		deleteFile(dst)
 	}
 
-	job.args = old_args
+	job.args = oldArgs
 }
 
 func TestJobRunLocalCopy(t *testing.T) {

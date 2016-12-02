@@ -12,6 +12,7 @@ import (
 	"time"
 )
 
+// ErrInterrupted is the error used when the main context is canceled
 var ErrInterrupted = errors.New("Operation interrupted")
 
 func s3delete(svc *s3.S3, obj *s3url) (*s3.DeleteObjectOutput, error) {
@@ -44,7 +45,7 @@ func s3list(ctx context.Context, svc *s3.S3, s3url *s3url, emitChan chan<- inter
 
 	wildkey := s3url.key
 	var prefix, filter string
-	loc := strings.IndexAny(wildkey, S3_WILD_CHARACTERS)
+	loc := strings.IndexAny(wildkey, S3WildCharacters)
 	wildOperation := loc > -1
 	if !wildOperation {
 		// no wildcard operation

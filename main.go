@@ -119,14 +119,14 @@ func main() {
 
 	parentCtx, cancelFunc := context.WithCancel(context.Background())
 
-	var exitCode int = -1
+	exitCode := -1
 	exitFunc := func(code int) {
 		//log.Printf("Called exitFunc with code %d", code)
 		exitCode = code
 		cancelFunc()
 	}
 
-	ctx := context.WithValue(context.WithValue(parentCtx, "exitFunc", exitFunc), "cancelFunc", cancelFunc)
+	ctx := context.WithValue(context.WithValue(parentCtx, ExitFuncKey, exitFunc), CancelFuncKey, cancelFunc)
 
 	go func() {
 		ch := make(chan os.Signal, 1)
@@ -152,7 +152,7 @@ func main() {
 
 	elapsed := time.Since(startTime)
 
-	failops := s.Get(STATS_FAIL)
+	failops := s.Get(StatsFail)
 
 	// if exitCode is -1 (default) and if we have at least one absolute-fail, exit with code 127
 	if exitCode == -1 {
@@ -168,10 +168,10 @@ func main() {
 	}
 
 	if !cmdMode || *printStats {
-		s3ops := s.Get(STATS_S3OP)
-		fileops := s.Get(STATS_FILEOP)
-		shellops := s.Get(STATS_SHELLOP)
-		retryops := s.Get(STATS_RETRYOP)
+		s3ops := s.Get(StatsS3Op)
+		fileops := s.Get(StatsFileOp)
+		shellops := s.Get(StatsShellOp)
+		retryops := s.Get(StatsRetryOp)
 		printOps("S3", s3ops, elapsed, "")
 		printOps("File", fileops, elapsed, "")
 		printOps("Shell", shellops, elapsed, "")

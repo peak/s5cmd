@@ -9,7 +9,7 @@ const (
 	S3WildCharacters string = "?*"
 )
 
-// type S3Url represents an S3 object (or bucket)
+// S3Url represents an S3 object (or bucket)
 type S3Url struct {
 	Bucket string
 	Key    string
@@ -37,6 +37,7 @@ func HasWild(s string) bool {
 	return strings.ContainsAny(s, S3WildCharacters)
 }
 
+// ParseS3Url parses a string into an S3Url
 func ParseS3Url(object string) (*S3Url, error) {
 	if !strings.HasPrefix(object, "s3://") {
 		return nil, errors.New("S3 url should start with s3://")

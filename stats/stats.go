@@ -1,4 +1,4 @@
-// This package provides atomic counters for operations.
+// Package stats provides atomic counters for operations.
 package stats
 
 import "sync/atomic"

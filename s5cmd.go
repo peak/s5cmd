@@ -5,6 +5,8 @@ import (
 	"flag"
 	"fmt"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"github.com/peakgames/s5cmd/core"
+	"github.com/peakgames/s5cmd/stats"
 	"github.com/peakgames/s5cmd/version"
 	"log"
 	"math"
@@ -80,7 +82,7 @@ func main() {
 	if flag.Arg(0) == "" && cmdFile == "" {
 		printUsageLine()
 		fmt.Fprint(os.Stderr, "Commands:\n")
-		fmt.Fprintf(os.Stderr, GetCommandList())
+		fmt.Fprintf(os.Stderr, core.GetCommandList())
 		fmt.Fprint(os.Stderr, "\nTo list available options, run with the -h option.\n")
 		os.Exit(2)
 	}
@@ -126,7 +128,7 @@ func main() {
 		cancelFunc()
 	}
 
-	ctx := context.WithValue(context.WithValue(parentCtx, ExitFuncKey, exitFunc), CancelFuncKey, cancelFunc)
+	ctx := context.WithValue(context.WithValue(parentCtx, core.ExitFuncKey, exitFunc), core.CancelFuncKey, cancelFunc)
 
 	go func() {
 		ch := make(chan os.Signal, 1)
@@ -136,10 +138,10 @@ func main() {
 		cancelFunc()
 	}()
 
-	s := Stats{}
+	s := stats.Stats{}
 
-	wp := NewWorkerPool(ctx,
-		&WorkerPoolParams{
+	wp := core.NewWorkerPool(ctx,
+		&core.WorkerPoolParams{
 			NumWorkers:     uint32(numWorkers),
 			ChunkSizeBytes: multipartChunkSizeBytes,
 			Retries:        retries,
@@ -152,7 +154,7 @@ func main() {
 
 	elapsed := time.Since(startTime)
 
-	failops := s.Get(StatsFail)
+	failops := s.Get(stats.Fail)
 
 	// if exitCode is -1 (default) and if we have at least one absolute-fail, exit with code 127
 	if exitCode == -1 {
@@ -168,10 +170,10 @@ func main() {
 	}
 
 	if !cmdMode || *printStats {
-		s3ops := s.Get(StatsS3Op)
-		fileops := s.Get(StatsFileOp)
-		shellops := s.Get(StatsShellOp)
-		retryops := s.Get(StatsRetryOp)
+		s3ops := s.Get(stats.S3Op)
+		fileops := s.Get(stats.FileOp)
+		shellops := s.Get(stats.ShellOp)
+		retryops := s.Get(stats.RetryOp)
 		printOps("S3", s3ops, elapsed, "")
 		printOps("File", fileops, elapsed, "")
 		printOps("Shell", shellops, elapsed, "")

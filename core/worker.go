@@ -1,4 +1,4 @@
-package main
+package core
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/cenkalti/backoff"
+	"github.com/peakgames/s5cmd/stats"
 	"io"
 	"log"
 	"os"
@@ -16,12 +17,14 @@ import (
 	"time"
 )
 
+// WorkerPoolParams is the common parameters of all worker pools.
 type WorkerPoolParams struct {
 	NumWorkers     uint32
 	ChunkSizeBytes int64
 	Retries        int
 }
 
+// WorkerPool is the state of our worker pool.
 type WorkerPool struct {
 	ctx           context.Context
 	params        *WorkerPoolParams
@@ -30,22 +33,24 @@ type WorkerPool struct {
 	wg            *sync.WaitGroup
 	awsSession    *session.Session
 	cancelFunc    context.CancelFunc
-	stats         *Stats
+	st            *stats.Stats
 	idlingCounter int32
 }
 
+// WorkerParams is the params/state of a single worker.
 type WorkerParams struct {
 	s3svc         *s3.S3
 	s3dl          *s3manager.Downloader
 	s3ul          *s3manager.Uploader
 	ctx           context.Context
 	poolParams    *WorkerPoolParams
-	stats         *Stats
+	st            *stats.Stats
 	subJobQueue   *chan *Job
 	idlingCounter *int32
 }
 
-func NewWorkerPool(ctx context.Context, params *WorkerPoolParams, stats *Stats) *WorkerPool {
+// NewWorkerPool creates a new worker pool and start the workers.
+func NewWorkerPool(ctx context.Context, params *WorkerPoolParams, st *stats.Stats) *WorkerPool {
 	newSession := func(c *aws.Config) *session.Session {
 		useSharedConfig := session.SharedConfigEnable
 
@@ -80,20 +85,21 @@ func NewWorkerPool(ctx context.Context, params *WorkerPoolParams, stats *Stats) 
 		wg:            &sync.WaitGroup{},
 		awsSession:    ses,
 		cancelFunc:    cancelFunc,
-		stats:         stats,
+		st:            st,
 		idlingCounter: int32(params.NumWorkers),
 	}
 
 	var i uint32
 	for i = 0; i < params.NumWorkers; i++ {
 		p.wg.Add(1)
-		go p.runWorker(stats, &p.idlingCounter, int(i))
+		go p.runWorker(st, &p.idlingCounter, int(i))
 	}
 
 	return p
 }
 
-func (p *WorkerPool) runWorker(stats *Stats, idlingCounter *int32, id int) {
+// runWorker is the main function of a single worker.
+func (p *WorkerPool) runWorker(st *stats.Stats, idlingCounter *int32, id int) {
 	defer p.wg.Done()
 	//defer log.Print("# Exiting goroutine", id)
 
@@ -104,7 +110,7 @@ func (p *WorkerPool) runWorker(stats *Stats, idlingCounter *int32, id int) {
 		s3manager.NewUploader(p.awsSession),
 		p.ctx,
 		p.params,
-		stats,
+		st,
 		&p.subJobQueue,
 		idlingCounter,
 	}
@@ -153,7 +159,7 @@ func (p *WorkerPool) runWorker(stats *Stats, idlingCounter *int32, id int) {
 						log.Printf(`?%s "%s", sleep for %v`, errCode, job, sleepTime)
 						select {
 						case <-time.After(sleepTime):
-							wp.stats.Increment(StatsRetryOp)
+							wp.st.Increment(stats.RetryOp)
 							continue
 						case <-p.ctx.Done():
 							run = false // if Canceled during sleep, report ERR and immediately process failCommand
@@ -161,7 +167,7 @@ func (p *WorkerPool) runWorker(stats *Stats, idlingCounter *int32, id int) {
 					}
 
 					log.Printf(`-ERR "%s": %s`, job, CleanupError(err))
-					wp.stats.Increment(StatsFail)
+					wp.st.Increment(stats.Fail)
 					job.Notify(p.ctx, err)
 					job = job.failCommand
 				} else {
@@ -185,7 +191,7 @@ func (p *WorkerPool) parseJob(line string) *Job {
 	job, err := ParseJob(line)
 	if err != nil {
 		log.Print(`-ERR "`, line, `": `, err)
-		p.stats.Increment(StatsFail)
+		p.st.Increment(stats.Fail)
 		return nil
 	}
 	return job
@@ -221,6 +227,7 @@ func (p *WorkerPool) pumpJobQueues() {
 	}
 }
 
+// RunCmd will run a single command (and subsequent sub-commands) in the worker pool, wait for it to finish, clean up and return.
 func (p *WorkerPool) RunCmd(commandLine string) {
 	j := p.parseJob(commandLine)
 	if j != nil {
@@ -234,6 +241,7 @@ func (p *WorkerPool) RunCmd(commandLine string) {
 	p.wg.Wait()
 }
 
+// Run runs the commands in filename in the worker pool, on EOF it will wait for all commands to finish, clean up and return.
 func (p *WorkerPool) Run(filename string) {
 	var r io.ReadCloser
 	var err error

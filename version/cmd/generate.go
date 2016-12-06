@@ -1,3 +1,4 @@
+// This package will generate version/version.go by running git commands to get current branch and commit hash
 package main
 
 import (

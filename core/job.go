@@ -1,4 +1,4 @@
-package main
+package core
 
 import (
 	"context"
@@ -7,6 +7,9 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"github.com/peakgames/s5cmd/op"
+	"github.com/peakgames/s5cmd/opt"
+	"github.com/peakgames/s5cmd/stats"
 	"github.com/termie/go-shutil"
 	"log"
 	"math"
@@ -32,9 +35,9 @@ type JobArgument struct {
 type Job struct {
 	sourceDesc     string // Source job description which we parsed this from
 	command        string // Different from operation, as multiple commands can map to the same op
-	operation      Operation
+	operation      op.Operation
 	args           []*JobArgument
-	opts           OptionList
+	opts           opt.OptionList
 	successCommand *Job       // Next job to run if this one is successful
 	failCommand    *Job       // .. if unsuccessful
 	notifyChan     *chan bool // Ptr to chan to notify the job's success or fail
@@ -54,7 +57,7 @@ func (j Job) String() (s string) {
 }
 
 // MakeSubJob creates a sub-job linked to the original. sourceDesc is copied, numSuccess/numFails are linked. Returns a pointer to the new job.
-func (j Job) MakeSubJob(command string, operation Operation, args []*JobArgument, opts OptionList) *Job {
+func (j Job) MakeSubJob(command string, operation op.Operation, args []*JobArgument, opts opt.OptionList) *Job {
 	ptr := args
 	return &Job{
 		sourceDesc: j.sourceDesc,
@@ -143,9 +146,9 @@ func (j *Job) Notify(ctx context.Context, err error) {
 }
 
 var (
-	// ErrFileExists is used when a destination file already exists and OPT_IF_NOT_EXISTS is set.
+	// ErrFileExists is used when a destination file already exists and opt.IfNotExists is set.
 	ErrFileExists = errors.New("File already exists")
-	// ErrS3Exists is used when a destination object already exists and OPT_IF_NOT_EXISTS is set.
+	// ErrS3Exists is used when a destination object already exists and opt.IfNotExists is set.
 	ErrS3Exists = errors.New("Object already exists")
 )
 
@@ -167,27 +170,27 @@ func (j *Job) Run(wp *WorkerParams) error {
 	switch j.operation {
 
 	// Local operations
-	case OP_LOCAL_DELETE:
-		return wp.stats.IncrementIfSuccess(StatsFileOp, os.Remove(j.args[0].arg))
+	case op.LocalDelete:
+		return wp.st.IncrementIfSuccess(stats.FileOp, os.Remove(j.args[0].arg))
 
-	case OP_LOCAL_COPY:
+	case op.LocalCopy:
 		var err error
-		if j.opts.Has(OPT_IF_NOT_EXISTS) {
+		if j.opts.Has(opt.IfNotExists) {
 			err = doesFileExist(j.args[1].arg)
 			if err != nil {
 				return err
 			}
 		}
 
-		if j.opts.Has(OPT_DELETE_SOURCE) {
+		if j.opts.Has(opt.DeleteSource) {
 			err = os.Rename(j.args[0].arg, j.args[1].arg)
 		} else {
 			_, err = shutil.Copy(j.args[0].arg, j.args[1].arg, true)
 		}
-		wp.stats.IncrementIfSuccess(StatsFileOp, err)
+		wp.st.IncrementIfSuccess(stats.FileOp, err)
 		return err
 
-	case OP_SHELL_EXEC:
+	case op.ShellExec:
 		strArgs := make([]string, 0)
 
 		for i, a := range j.args {
@@ -199,24 +202,24 @@ func (j *Job) Run(wp *WorkerParams) error {
 		cmd := exec.CommandContext(wp.ctx, j.args[0].arg, strArgs...)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
-		return wp.stats.IncrementIfSuccess(StatsShellOp, cmd.Run())
+		return wp.st.IncrementIfSuccess(stats.ShellOp, cmd.Run())
 
 	// S3 operations
-	case OP_COPY:
+	case op.Copy:
 		var err error
-		if j.opts.Has(OPT_IF_NOT_EXISTS) {
+		if j.opts.Has(opt.IfNotExists) {
 			_, err = s3head(wp.s3svc, j.args[1].s3)
 			if err == nil {
-				wp.stats.IncrementIfSuccess(StatsS3Op, err)
+				wp.st.IncrementIfSuccess(stats.S3Op, err)
 				return ErrS3Exists
 			}
 		}
 
 		var cls string
 
-		if j.opts.Has(OPT_RR) {
+		if j.opts.Has(opt.RR) {
 			cls = s3.ObjectStorageClassReducedRedundancy
-		} else if j.opts.Has(OPT_IA) {
+		} else if j.opts.Has(opt.IA) {
 			cls = s3.TransitionStorageClassStandardIa
 		} else {
 			cls = s3.ObjectStorageClassStandard
@@ -228,21 +231,21 @@ func (j *Job) Run(wp *WorkerParams) error {
 			CopySource:   aws.String(j.args[0].s3.format()),
 			StorageClass: aws.String(cls),
 		})
-		wp.stats.IncrementIfSuccess(StatsS3Op, err)
+		wp.st.IncrementIfSuccess(stats.S3Op, err)
 
-		if j.opts.Has(OPT_DELETE_SOURCE) && err == nil {
+		if j.opts.Has(opt.DeleteSource) && err == nil {
 			_, err = s3delete(wp.s3svc, j.args[0].s3)
-			wp.stats.IncrementIfSuccess(StatsS3Op, err)
+			wp.st.IncrementIfSuccess(stats.S3Op, err)
 			// FIXME if err != nil try to rollback by deleting j.args[1].s3 ? What if we don't have permission to delete?
 		}
 
 		return err
 
-	case OP_DELETE:
+	case op.Delete:
 		_, err := s3delete(wp.s3svc, j.args[0].s3)
-		return wp.stats.IncrementIfSuccess(StatsS3Op, err)
+		return wp.st.IncrementIfSuccess(stats.S3Op, err)
 
-	case OP_BATCH_DELETE:
+	case op.BatchDelete:
 		var jobArgs []*JobArgument
 		srcBucket := *j.args[0].Clone()
 		srcBucket.arg = "s3://" + srcBucket.s3.bucket
@@ -262,7 +265,7 @@ func (j *Job) Run(wp *WorkerParams) error {
 			}
 
 			if (key == nil || len(jobArgs) == maxArgs) && len(jobArgs) > 1 {
-				subJob = j.MakeSubJob("batch-rm", OP_BATCH_DELETE_ACTUAL, jobArgs, OptionList{})
+				subJob = j.MakeSubJob("batch-rm", op.BatchDeleteActual, jobArgs, opt.OptionList{})
 				initArgs()
 			}
 
@@ -285,9 +288,9 @@ func (j *Job) Run(wp *WorkerParams) error {
 			return addArg(li.key)
 		})
 
-		return wp.stats.IncrementIfSuccess(StatsS3Op, err)
+		return wp.st.IncrementIfSuccess(stats.S3Op, err)
 
-	case OP_BATCH_DELETE_ACTUAL:
+	case op.BatchDeleteActual:
 		obj := make([]*s3.ObjectIdentifier, len(j.args)-1)
 		for i, a := range j.args {
 			if i == 0 {
@@ -310,11 +313,11 @@ func (j *Job) Run(wp *WorkerParams) error {
 				err = errors.New(*e.Message)
 			}
 		}
-		return wp.stats.IncrementIfSuccess(StatsS3Op, err)
+		return wp.st.IncrementIfSuccess(stats.S3Op, err)
 
-	case OP_BATCH_DOWNLOAD:
+	case op.BatchDownload:
 		subCmd := "cp"
-		if j.opts.Has(OPT_DELETE_SOURCE) {
+		if j.opts.Has(opt.DeleteSource) {
 			subCmd = "mv"
 		}
 		subCmd += j.opts.GetParams()
@@ -330,14 +333,14 @@ func (j *Job) Run(wp *WorkerParams) error {
 			}
 
 			var dstFn string
-			if j.opts.Has(OPT_PARENTS) {
+			if j.opts.Has(opt.Parents) {
 				dstFn = li.parsedKey
 			} else {
 				dstFn = path.Base(li.parsedKey)
 			}
 
 			arg2 := j.args[1].Clone().Append(dstFn, true)
-			subJob := j.MakeSubJob(subCmd, OP_DOWNLOAD, []*JobArgument{&arg1, arg2}, j.opts)
+			subJob := j.MakeSubJob(subCmd, op.Download, []*JobArgument{&arg1, arg2}, j.opts)
 			if *li.class == s3.ObjectStorageClassGlacier {
 				subJob.out(shortErr, `"%s": Cannot download glacier object`, arg1.arg)
 				return nil
@@ -347,11 +350,11 @@ func (j *Job) Run(wp *WorkerParams) error {
 			return subJob
 		})
 
-		return wp.stats.IncrementIfSuccess(StatsS3Op, err)
+		return wp.st.IncrementIfSuccess(stats.S3Op, err)
 
-	case OP_BATCH_UPLOAD:
+	case op.BatchUpload:
 		subCmd := "cp"
-		if j.opts.Has(OPT_DELETE_SOURCE) {
+		if j.opts.Has(opt.DeleteSource) {
 			subCmd = "mv"
 		}
 		subCmd += j.opts.GetParams()
@@ -412,7 +415,7 @@ func (j *Job) Run(wp *WorkerParams) error {
 			fn := data.(*string)
 
 			var dstFn string
-			if j.opts.Has(OPT_PARENTS) {
+			if j.opts.Has(opt.Parents) {
 				dstFn = *fn
 				if strings.Index(dstFn, trimPrefix) == 0 {
 					dstFn = dstFn[len(trimPrefix):]
@@ -426,16 +429,16 @@ func (j *Job) Run(wp *WorkerParams) error {
 				nil,
 			}
 			arg2 := j.args[1].Clone().Append(dstFn, false)
-			return j.MakeSubJob(subCmd, OP_UPLOAD, []*JobArgument{&arg1, arg2}, j.opts)
+			return j.MakeSubJob(subCmd, op.Upload, []*JobArgument{&arg1, arg2}, j.opts)
 		})
 
-		return wp.stats.IncrementIfSuccess(StatsFileOp, err)
+		return wp.st.IncrementIfSuccess(stats.FileOp, err)
 
-	case OP_DOWNLOAD:
+	case op.Download:
 		srcFn := path.Base(j.args[0].arg)
 		destFn := j.args[1].arg
 
-		if j.opts.Has(OPT_IF_NOT_EXISTS) {
+		if j.opts.Has(opt.IfNotExists) {
 			err := doesFileExist(destFn)
 			if err != nil {
 				return err
@@ -471,17 +474,17 @@ func (j *Job) Run(wp *WorkerParams) error {
 
 		f.Close()
 
-		wp.stats.IncrementIfSuccess(StatsS3Op, err)
+		wp.st.IncrementIfSuccess(stats.S3Op, err)
 		if err != nil {
 			os.Remove(destFn) // Remove partly downloaded file
-		} else if j.opts.Has(OPT_DELETE_SOURCE) {
+		} else if j.opts.Has(opt.DeleteSource) {
 			_, err = s3delete(wp.s3svc, j.args[0].s3)
-			wp.stats.IncrementIfSuccess(StatsS3Op, err)
+			wp.st.IncrementIfSuccess(stats.S3Op, err)
 		}
 
 		return err
 
-	case OP_UPLOAD:
+	case op.Upload:
 		const bytesInMb = float64(1024 * 1024)
 
 		srcFn := filepath.Base(j.args[0].arg)
@@ -490,10 +493,10 @@ func (j *Job) Run(wp *WorkerParams) error {
 			return err
 		}
 
-		if j.opts.Has(OPT_IF_NOT_EXISTS) {
+		if j.opts.Has(opt.IfNotExists) {
 			_, err = s3head(wp.s3svc, j.args[1].s3)
 			if err == nil {
-				wp.stats.IncrementIfSuccess(StatsS3Op, err)
+				wp.st.IncrementIfSuccess(stats.S3Op, err)
 				return ErrS3Exists
 			}
 		}
@@ -522,9 +525,9 @@ func (j *Job) Run(wp *WorkerParams) error {
 		go func(chunkSizeInBytes int64) {
 			var cls string
 
-			if j.opts.Has(OPT_RR) {
+			if j.opts.Has(opt.RR) {
 				cls = s3.ObjectStorageClassReducedRedundancy
-			} else if j.opts.Has(OPT_IA) {
+			} else if j.opts.Has(opt.IA) {
 				cls = s3.TransitionStorageClassStandardIa
 			} else {
 				cls = s3.ObjectStorageClassStandard
@@ -553,22 +556,22 @@ func (j *Job) Run(wp *WorkerParams) error {
 
 		f.Close()
 
-		wp.stats.IncrementIfSuccess(StatsS3Op, err)
-		if j.opts.Has(OPT_DELETE_SOURCE) && err == nil {
-			err = wp.stats.IncrementIfSuccess(StatsFileOp, os.Remove(j.args[0].arg))
+		wp.st.IncrementIfSuccess(stats.S3Op, err)
+		if j.opts.Has(opt.DeleteSource) && err == nil {
+			err = wp.st.IncrementIfSuccess(stats.FileOp, os.Remove(j.args[0].arg))
 		}
 		return err
 
-	case OP_LISTBUCKETS:
+	case op.ListBuckets:
 		o, err := wp.s3svc.ListBuckets(&s3.ListBucketsInput{})
 		if err == nil {
 			for _, b := range o.Buckets {
 				j.out(shortOk, "%s  s3://%s", b.CreationDate.Format(dateFormat), *b.Name)
 			}
 		}
-		return wp.stats.IncrementIfSuccess(StatsS3Op, err)
+		return wp.st.IncrementIfSuccess(stats.S3Op, err)
 
-	case OP_LIST:
+	case op.List:
 		err := s3wildOperation(j.args[0].s3, wp, func(li *s3listItem) *Job {
 			if li == nil {
 				return nil
@@ -597,9 +600,9 @@ func (j *Job) Run(wp *WorkerParams) error {
 			return nil
 		})
 
-		return wp.stats.IncrementIfSuccess(StatsS3Op, err)
+		return wp.st.IncrementIfSuccess(stats.S3Op, err)
 
-	case OP_SIZE:
+	case op.Size:
 		var size, count int64
 		err := s3wildOperation(j.args[0].s3, wp, func(li *s3listItem) *Job {
 			if li == nil || li.isCommonPrefix {
@@ -612,9 +615,9 @@ func (j *Job) Run(wp *WorkerParams) error {
 		if err == nil {
 			j.out(shortOk, "%d bytes in %d objects: %s", size, count, j.args[0].s3)
 		}
-		return wp.stats.IncrementIfSuccess(StatsS3Op, err)
+		return wp.st.IncrementIfSuccess(stats.S3Op, err)
 
-	case OP_ABORT:
+	case op.Abort:
 		var (
 			exitCode int64 = -1
 			err      error

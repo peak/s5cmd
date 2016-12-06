@@ -1,8 +1,10 @@
-package main
+// This is the core package for s5cmd.
+package core
 
 import (
 	"errors"
 	"fmt"
+	"github.com/peakgames/s5cmd/opt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -66,27 +68,27 @@ func parseS3Url(object string) (*s3url, error) {
 	}, nil
 }
 
-func parseArgumentByType(s string, t ParamType, fnObj *JobArgument) (*JobArgument, error) {
+func parseArgumentByType(s string, t opt.ParamType, fnObj *JobArgument) (*JobArgument, error) {
 	fnBase := ""
-	if (t == PARAM_S3OBJORDIR || t == PARAM_FILEORDIR) && fnObj != nil {
+	if (t == opt.S3ObjOrDir || t == opt.FileOrDir) && fnObj != nil {
 		fnBase = filepath.Base(fnObj.arg)
 	}
 
 	switch t {
-	case PARAM_UNCHECKED, PARAM_UNCHECKED_ONE_OR_MORE:
+	case opt.Unchecked, opt.UncheckedOneOrMore:
 		return &JobArgument{s, nil}, nil
 
-	case PARAM_S3OBJ, PARAM_S3OBJORDIR, PARAM_S3WILDOBJ, PARAM_S3DIR:
+	case opt.S3Obj, opt.S3ObjOrDir, opt.S3WildObj, opt.S3Dir:
 		url, err := parseS3Url(s)
 		if err != nil {
 			return nil, err
 		}
 		s = "s3://" + url.format() // rebuild s with formatted url
 
-		if (t == PARAM_S3OBJ || t == PARAM_S3OBJORDIR) && hasWild(url.key) {
+		if (t == opt.S3Obj || t == opt.S3ObjOrDir) && hasWild(url.key) {
 			return nil, errors.New("S3 key cannot contain wildcards")
 		}
-		if t == PARAM_S3WILDOBJ {
+		if t == opt.S3WildObj {
 			if !hasWild(url.key) {
 				return nil, errors.New("S3 key should contain wildcards")
 			}
@@ -97,25 +99,25 @@ func parseArgumentByType(s string, t ParamType, fnObj *JobArgument) (*JobArgumen
 
 		endsInSlash := strings.HasSuffix(url.key, "/")
 		if endsInSlash {
-			if t == PARAM_S3OBJ {
+			if t == opt.S3Obj {
 				return nil, errors.New("S3 key should not end with /")
 			}
 		} else {
-			if t == PARAM_S3DIR && url.key != "" {
+			if t == opt.S3Dir && url.key != "" {
 				return nil, errors.New("S3 dir should end with /")
 			}
 		}
-		if t == PARAM_S3OBJORDIR && endsInSlash && fnBase != "" {
+		if t == opt.S3ObjOrDir && endsInSlash && fnBase != "" {
 			url.key += fnBase
 			s += fnBase
 		}
-		if t == PARAM_S3OBJORDIR && url.key == "" && fnBase != "" {
+		if t == opt.S3ObjOrDir && url.key == "" && fnBase != "" {
 			url.key += fnBase
 			s += "/" + fnBase
 		}
 		return &JobArgument{s, url}, nil
 
-	case PARAM_FILEOBJ, PARAM_FILEORDIR, PARAM_DIR:
+	case opt.FileObj, opt.FileOrDir, opt.Dir:
 		// check if we have s3 object
 		_, err := parseS3Url(s)
 		if err == nil {
@@ -130,7 +132,7 @@ func parseArgumentByType(s string, t ParamType, fnObj *JobArgument) (*JobArgumen
 			return nil, errors.New("Param should not contain glob characters")
 		}
 
-		if t == PARAM_FILEOBJ {
+		if t == opt.FileObj {
 			if endsInSlash {
 				return nil, errors.New("File param should not end with /")
 			}
@@ -139,10 +141,10 @@ func parseArgumentByType(s string, t ParamType, fnObj *JobArgument) (*JobArgumen
 				return nil, errors.New("File param should not be a directory")
 			}
 		}
-		if t == PARAM_FILEORDIR && endsInSlash && fnBase != "" {
+		if t == opt.FileOrDir && endsInSlash && fnBase != "" {
 			s += fnBase
 		}
-		if t == PARAM_FILEORDIR && !endsInSlash {
+		if t == opt.FileOrDir && !endsInSlash {
 			st, err := os.Stat(s)
 			if err != nil {
 				if !os.IsNotExist(err) {
@@ -155,7 +157,7 @@ func parseArgumentByType(s string, t ParamType, fnObj *JobArgument) (*JobArgumen
 			}
 		}
 
-		if t == PARAM_DIR && !endsInSlash {
+		if t == opt.Dir && !endsInSlash {
 			st, err := os.Stat(s)
 			if err != nil {
 				if !os.IsNotExist(err) {
@@ -172,7 +174,7 @@ func parseArgumentByType(s string, t ParamType, fnObj *JobArgument) (*JobArgumen
 
 		return &JobArgument{s, nil}, nil
 
-	case PARAM_GLOB:
+	case opt.Glob:
 		if !hasGlob(s) {
 			return nil, errors.New("Param does not look like a glob")
 		}
@@ -329,7 +331,7 @@ func parseSingleJob(jobdesc string) (*Job, error) {
 			suppliedParamCount := len(parts) - fileArgsStartPosition
 			minCount := len(c.params)
 			maxCount := minCount
-			if minCount > 0 && c.params[minCount-1] == PARAM_UNCHECKED_ONE_OR_MORE {
+			if minCount > 0 && c.params[minCount-1] == opt.UncheckedOneOrMore {
 				maxCount = -1
 			}
 			if suppliedParamCount < minCount || (maxCount > -1 && suppliedParamCount > maxCount) { // check if param counts are acceptable
@@ -339,7 +341,7 @@ func parseSingleJob(jobdesc string) (*Job, error) {
 			var a, fnObj *JobArgument
 
 			parseArgErr = nil
-			lastType := PARAM_UNCHECKED_ONE_OR_MORE
+			lastType := opt.UncheckedOneOrMore
 			maxI := fileArgsStartPosition
 			for i, t := range c.params { // check if param types match
 				a, parseArgErr = parseArgumentByType(parts[fileArgsStartPosition+i], t, fnObj)
@@ -348,7 +350,7 @@ func parseSingleJob(jobdesc string) (*Job, error) {
 				}
 				ourJob.args = append(ourJob.args, a)
 
-				if (t == PARAM_S3OBJ || t == PARAM_FILEOBJ) && fnObj == nil {
+				if (t == opt.S3Obj || t == opt.FileObj) && fnObj == nil {
 					fnObj = a
 				}
 				maxI = i

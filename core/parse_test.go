@@ -1,26 +1,27 @@
-package main
+package core
 
 import (
+	"github.com/peakgames/s5cmd/opt"
 	"path/filepath"
 	"testing"
 )
 
 func TestParseUnchecked(t *testing.T) {
-	t.Run("PARAM_UNCHECKED", func(t *testing.T) {
+	t.Run("opt.Unchecked", func(t *testing.T) {
 		input := "testStr"
-		testParseGeneral(t, PARAM_UNCHECKED, input, input, false, true, "", "", nil)
+		testParseGeneral(t, opt.Unchecked, input, input, false, true, "", "", nil)
 	})
-	t.Run("PARAM_UNCHECKED_ONE_OR_MORE", func(t *testing.T) {
+	t.Run("opt.UncheckedOneOrMore", func(t *testing.T) {
 		input := "testStr1"
-		testParseGeneral(t, PARAM_UNCHECKED_ONE_OR_MORE, input, input, false, true, "", "", nil)
+		testParseGeneral(t, opt.UncheckedOneOrMore, input, input, false, true, "", "", nil)
 	})
-	t.Run("PARAM_UNCHECKED_ONE_OR_MORE", func(t *testing.T) {
+	t.Run("opt.UncheckedOneOrMore", func(t *testing.T) {
 		input := "testStr1 testStr2"
-		testParseGeneral(t, PARAM_UNCHECKED_ONE_OR_MORE, input, input, false, true, "", "", nil)
+		testParseGeneral(t, opt.UncheckedOneOrMore, input, input, false, true, "", "", nil)
 	})
 }
 
-func testParseGeneral(t *testing.T, typ ParamType, input, expectedOutArg string, expectError, expectNilS3 bool, expectedS3bucket, expectedS3key string, fnObj *JobArgument) {
+func testParseGeneral(t *testing.T, typ opt.ParamType, input, expectedOutArg string, expectError, expectNilS3 bool, expectedS3bucket, expectedS3key string, fnObj *JobArgument) {
 	a, err := parseArgumentByType(input, typ, fnObj)
 
 	if expectError {
@@ -62,7 +63,7 @@ func testParseGeneral(t *testing.T, typ ParamType, input, expectedOutArg string,
 }
 
 func TestParseS3Obj(t *testing.T) {
-	typ := PARAM_S3OBJ
+	typ := opt.S3Obj
 	t.Run("path/to/obj", func(t *testing.T) {
 		inputBucket := "bucket"
 		inputKey := "path/to/obj"
@@ -91,7 +92,7 @@ func TestParseS3Obj(t *testing.T) {
 }
 
 func TestParseS3Dir(t *testing.T) {
-	typ := PARAM_S3DIR
+	typ := opt.S3Dir
 	t.Run("path/to/obj", func(t *testing.T) {
 		inputBucket := "bucket"
 		inputKey := "path/to/obj/"
@@ -126,7 +127,7 @@ func TestParseS3Dir(t *testing.T) {
 }
 
 func TestParseS3WildObj(t *testing.T) {
-	typ := PARAM_S3WILDOBJ
+	typ := opt.S3WildObj
 	t.Run("path/to/wild/*obj", func(t *testing.T) {
 		inputBucket := "bucket"
 		inputKey := "path/to/wild/*obj"
@@ -166,7 +167,7 @@ func TestParseS3WildObj(t *testing.T) {
 }
 
 func TestParseS3ObjOrDir(t *testing.T) {
-	typ := PARAM_S3OBJORDIR
+	typ := opt.S3ObjOrDir
 	t.Run("path/to/obj", func(t *testing.T) {
 		inputBucket := "bucket"
 		inputKey := "path/to/obj/"
@@ -225,7 +226,7 @@ func TestParseS3ObjOrDir(t *testing.T) {
 }
 
 func TestParseFileObj(t *testing.T) {
-	typ := PARAM_FILEOBJ
+	typ := opt.FileObj
 	t.Run("path/to/obj", func(t *testing.T) {
 		input := filepath.Join("path", "to", "obj")
 		testParseGeneral(t, typ, input, input, false, true, "", "", nil)
@@ -245,7 +246,7 @@ func TestParseFileObj(t *testing.T) {
 }
 
 func TestParseFileDir(t *testing.T) {
-	typ := PARAM_DIR
+	typ := opt.Dir
 	t.Run("path/to/obj/", func(t *testing.T) {
 		input := filepath.Join("path", "to", "obj") + string(filepath.Separator)
 		testParseGeneral(t, typ, input, input, false, true, "", "", nil)
@@ -268,7 +269,7 @@ func TestParseFileDir(t *testing.T) {
 }
 
 func TestParseFileOrDir(t *testing.T) {
-	typ := PARAM_FILEORDIR
+	typ := opt.FileOrDir
 	t.Run("path/to/obj", func(t *testing.T) {
 		input := filepath.Join("path", "to", "obj")
 		testParseGeneral(t, typ, input, input, false, true, "", "", nil)
@@ -291,7 +292,7 @@ func TestParseFileOrDir(t *testing.T) {
 }
 
 func TestParseGlob(t *testing.T) {
-	typ := PARAM_GLOB
+	typ := opt.Glob
 	t.Run("path/to/obj*", func(t *testing.T) {
 		input := filepath.Join("path", "to", "obj*")
 		testParseGeneral(t, typ, input, input, false, true, "", "", nil)

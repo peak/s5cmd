@@ -1,4 +1,5 @@
-package main
+// This package provides atomic counters for operations.
+package stats
 
 import "sync/atomic"
 
@@ -6,20 +7,20 @@ import "sync/atomic"
 type StatType int
 
 const (
-	// StatsFail is failed jobs
-	StatsFail StatType = iota
+	// Fail is failed jobs
+	Fail StatType = iota
 
-	// StatsS3Op is successful S3 operations
-	StatsS3Op
+	// S3Op is successful S3 operations
+	S3Op
 
-	// StatsFileOp is sucessful File operations
-	StatsFileOp
+	// FileOp is sucessful File operations
+	FileOp
 
-	// StatsShellOp is successful shell invocations
-	StatsShellOp
+	// ShellOp is successful shell invocations
+	ShellOp
 
-	// StatsRetryOp is retried operations
-	StatsRetryOp
+	// RetryOp is retried operations
+	RetryOp
 )
 
 // Stats contain the number of operations of each StatType

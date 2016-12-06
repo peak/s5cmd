@@ -1,4 +1,4 @@
-package main
+package core
 
 // ExitFuncKey is the key name of the exit function in context
 const ExitFuncKey = contextKey("exitFunc")

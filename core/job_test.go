@@ -1,13 +1,16 @@
-package main
+package core
 
 import (
 	"context"
+	"github.com/peakgames/s5cmd/op"
+	"github.com/peakgames/s5cmd/opt"
+	"github.com/peakgames/s5cmd/stats"
 	"io/ioutil"
 	"os"
 	"testing"
 )
 
-func newJob(sourceDesc, command string, operation Operation, args []*JobArgument, opts OptionList) Job {
+func newJob(sourceDesc, command string, operation op.Operation, args []*JobArgument, opts opt.OptionList) Job {
 	return Job{
 		sourceDesc: sourceDesc,
 		command:    command,
@@ -19,7 +22,7 @@ func newJob(sourceDesc, command string, operation Operation, args []*JobArgument
 
 var (
 	result        error
-	stats         = Stats{}
+	st            = stats.Stats{}
 	idlingCounter int32
 	subJobQueue   = make(chan *Job)
 	wp            = WorkerParams{
@@ -28,26 +31,26 @@ var (
 		nil,
 		context.TODO(),
 		nil,
-		&stats,
+		&st,
 		&subJobQueue,
 		&idlingCounter,
 	}
 
 	// These Jobs are used for benchmarks and also as skeletons for tests
-	localCopyJob = newJob("!cp-test", "!cp", OP_LOCAL_COPY,
+	localCopyJob = newJob("!cp-test", "!cp", op.LocalCopy,
 		[]*JobArgument{
 			{"test-src", nil},
 			{"test-dst", nil},
-		}, OptionList{})
-	localMoveJob = newJob("!mv-test", "!mv", OP_LOCAL_COPY,
+		}, opt.OptionList{})
+	localMoveJob = newJob("!mv-test", "!mv", op.LocalCopy,
 		[]*JobArgument{
 			{"test-src", nil},
 			{"test-dst", nil},
-		}, OptionList{OPT_DELETE_SOURCE})
-	localDeleteJob = newJob("!rm-test", "!rm", OP_LOCAL_DELETE,
+		}, opt.OptionList{opt.DeleteSource})
+	localDeleteJob = newJob("!rm-test", "!rm", op.LocalDelete,
 		[]*JobArgument{
 			{"test-src", nil},
-		}, OptionList{})
+		}, opt.OptionList{})
 )
 
 func benchmarkJobRun(b *testing.B, j *Job) {

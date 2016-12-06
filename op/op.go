@@ -1,4 +1,4 @@
-// This package is defines types of operations and their accepted options.
+// Op package defines types of operations and their accepted options.
 package op
 
 import (
@@ -6,24 +6,25 @@ import (
 	"github.com/peakgames/s5cmd/opt"
 )
 
+// Operation is a type of our operations.
 type Operation int
 
 const (
-	Abort Operation = iota
-	Download
-	BatchDownload
-	Upload
-	BatchUpload
-	Copy
-	Delete
-	Size
-	BatchDelete       // "ls" and submit batched multi-delete operations
-	BatchDeleteActual // Amazon deleteObjects call
-	List
-	ListBuckets
-	LocalCopy
-	LocalDelete
-	ShellExec
+	Abort             Operation = iota // Abort program
+	Download                           // Download from S3 to local
+	BatchDownload                      // Batch download from S3 to local
+	Upload                             // Upload from local to S3
+	BatchUpload                        // Batch upload from local to S3
+	Copy                               // Copy from S3 to S3
+	Delete                             // Delete from S3
+	Size                               // List S3 and get object sizes
+	BatchDelete                        // "ls" and submit batched multi-delete operations
+	BatchDeleteActual                  // AWS deleteObjects call
+	List                               // List S3 objects
+	ListBuckets                        // List S3 buckets
+	LocalCopy                          // Copy from local to local
+	LocalDelete                        // Delete local file
+	ShellExec                          // Execute shell command
 )
 
 // IsBatch returns true if this operation creates sub-jobs

@@ -330,7 +330,7 @@ func (j *Job) Run(wp *WorkerParams) error {
 
 			arg1 := JobArgument{
 				"s3://" + j.args[0].s3.Bucket + "/" + *li.key,
-				&url.S3Url{j.args[0].s3.Bucket, *li.key},
+				&url.S3Url{Bucket: j.args[0].s3.Bucket, Key: *li.key},
 			}
 
 			var dstFn string

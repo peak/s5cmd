@@ -1,4 +1,4 @@
-// This is the core package for s5cmd.
+// Package core is the core package for s5cmd.
 package core
 
 import (

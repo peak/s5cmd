@@ -1,9 +1,9 @@
-// This package defines option and parameter types.
+// Package opt defines option and parameter types.
 package opt
 
 import "strings"
 
-// OptionType is the type of our Option. These can be provided with optional parameters or can be already set in commandMap
+// OptionType is a type for our options. These can be provided with optional parameters or can be already set in commandMap
 type OptionType int
 
 // OptionList is a slice of OptionTypes

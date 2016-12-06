@@ -1,3 +1,4 @@
+// Package url defines URL types and has helper methods to parse a string into URLs.
 package url
 
 import "strings"
@@ -8,6 +9,7 @@ const (
 	S3WildCharacters string = "?*"
 )
 
+// type S3Url represents an S3 object (or bucket)
 type S3Url struct {
 	Bucket string
 	Key    string
@@ -17,6 +19,7 @@ func (s S3Url) String() string {
 	return "s3://" + s.Bucket + "/" + s.Key
 }
 
+// Format formats the S3Url to the format "<bucket>[/<key>]"
 func (s S3Url) Format() string {
 	if s.Key == "" {
 		return s.Bucket
@@ -29,6 +32,7 @@ func (s S3Url) Clone() S3Url {
 	return S3Url{s.Bucket, s.Key}
 }
 
+// HasWild checks if a string contains any S3 wildcard chars
 func HasWild(s string) bool {
 	return strings.ContainsAny(s, S3WildCharacters)
 }

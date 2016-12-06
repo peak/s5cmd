@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/peakgames/s5cmd/opt"
+	"github.com/peakgames/s5cmd/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -12,60 +13,12 @@ import (
 )
 
 const (
-	// S3WildCharacters is valid wildcard characters for a s3url
-	S3WildCharacters string = "?*"
 	// GlobCharacters is valid glob characters for local files
 	GlobCharacters string = "?*["
 )
 
-type s3url struct {
-	bucket string
-	key    string
-}
-
-func (s s3url) String() string {
-	return "s3://" + s.bucket + "/" + s.key
-}
-
-func (s s3url) format() string {
-	if s.key == "" {
-		return s.bucket
-	}
-	return s.bucket + "/" + s.key
-}
-
-// Clone creates a new s3url with the values from the receiver
-func (s s3url) Clone() s3url {
-	return s3url{s.bucket, s.key}
-}
-
-func hasWild(s string) bool {
-	return strings.ContainsAny(s, S3WildCharacters)
-}
 func hasGlob(s string) bool {
 	return strings.ContainsAny(s, "*[]?")
-}
-
-func parseS3Url(object string) (*s3url, error) {
-	if !strings.HasPrefix(object, "s3://") {
-		return nil, errors.New("S3 url should start with s3://")
-	}
-	parts := strings.SplitN(object, "/", 4)
-	if parts[2] == "" {
-		return nil, errors.New("S3 url should have a bucket")
-	}
-	if hasWild(parts[2]) {
-		return nil, errors.New("Bucket name cannot contain wildcards")
-	}
-	key := ""
-	if len(parts) == 4 {
-		key = strings.TrimLeft(parts[3], "/")
-	}
-
-	return &s3url{
-		parts[2],
-		key,
-	}, nil
 }
 
 func parseArgumentByType(s string, t opt.ParamType, fnObj *JobArgument) (*JobArgument, error) {
@@ -79,47 +32,47 @@ func parseArgumentByType(s string, t opt.ParamType, fnObj *JobArgument) (*JobArg
 		return &JobArgument{s, nil}, nil
 
 	case opt.S3Obj, opt.S3ObjOrDir, opt.S3WildObj, opt.S3Dir:
-		url, err := parseS3Url(s)
+		uri, err := url.ParseS3Url(s)
 		if err != nil {
 			return nil, err
 		}
-		s = "s3://" + url.format() // rebuild s with formatted url
+		s = "s3://" + uri.Format() // rebuild s with formatted url
 
-		if (t == opt.S3Obj || t == opt.S3ObjOrDir) && hasWild(url.key) {
+		if (t == opt.S3Obj || t == opt.S3ObjOrDir) && url.HasWild(uri.Key) {
 			return nil, errors.New("S3 key cannot contain wildcards")
 		}
 		if t == opt.S3WildObj {
-			if !hasWild(url.key) {
+			if !url.HasWild(uri.Key) {
 				return nil, errors.New("S3 key should contain wildcards")
 			}
-			if url.key == "" {
+			if uri.Key == "" {
 				return nil, errors.New("S3 key should not be empty")
 			}
 		}
 
-		endsInSlash := strings.HasSuffix(url.key, "/")
+		endsInSlash := strings.HasSuffix(uri.Key, "/")
 		if endsInSlash {
 			if t == opt.S3Obj {
 				return nil, errors.New("S3 key should not end with /")
 			}
 		} else {
-			if t == opt.S3Dir && url.key != "" {
+			if t == opt.S3Dir && uri.Key != "" {
 				return nil, errors.New("S3 dir should end with /")
 			}
 		}
 		if t == opt.S3ObjOrDir && endsInSlash && fnBase != "" {
-			url.key += fnBase
+			uri.Key += fnBase
 			s += fnBase
 		}
-		if t == opt.S3ObjOrDir && url.key == "" && fnBase != "" {
-			url.key += fnBase
+		if t == opt.S3ObjOrDir && uri.Key == "" && fnBase != "" {
+			uri.Key += fnBase
 			s += "/" + fnBase
 		}
-		return &JobArgument{s, url}, nil
+		return &JobArgument{s, uri}, nil
 
 	case opt.FileObj, opt.FileOrDir, opt.Dir:
 		// check if we have s3 object
-		_, err := parseS3Url(s)
+		_, err := url.ParseS3Url(s)
 		if err == nil {
 			return nil, errors.New("File param resembles s3 object")
 		}

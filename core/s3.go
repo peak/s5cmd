@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/peakgames/s5cmd/url"
 	"path"
 	"regexp"
 	"strings"
@@ -15,17 +16,17 @@ import (
 // ErrInterrupted is the error used when the main context is canceled
 var ErrInterrupted = errors.New("Operation interrupted")
 
-func s3delete(svc *s3.S3, obj *s3url) (*s3.DeleteObjectOutput, error) {
+func s3delete(svc *s3.S3, obj *url.S3Url) (*s3.DeleteObjectOutput, error) {
 	return svc.DeleteObject(&s3.DeleteObjectInput{
-		Bucket: aws.String(obj.bucket),
-		Key:    aws.String(obj.key),
+		Bucket: aws.String(obj.Bucket),
+		Key:    aws.String(obj.Key),
 	})
 }
 
-func s3head(svc *s3.S3, obj *s3url) (*s3.HeadObjectOutput, error) {
+func s3head(svc *s3.S3, obj *url.S3Url) (*s3.HeadObjectOutput, error) {
 	return svc.HeadObject(&s3.HeadObjectInput{
-		Bucket: aws.String(obj.bucket),
-		Key:    aws.String(obj.key),
+		Bucket: aws.String(obj.Bucket),
+		Key:    aws.String(obj.Key),
 	})
 }
 
@@ -38,19 +39,19 @@ type s3listItem struct {
 	isCommonPrefix bool
 }
 
-func s3list(ctx context.Context, svc *s3.S3, s3url *s3url, emitChan chan<- interface{}) error {
+func s3list(ctx context.Context, svc *s3.S3, s3url *url.S3Url, emitChan chan<- interface{}) error {
 	inp := s3.ListObjectsV2Input{
-		Bucket: aws.String(s3url.bucket),
+		Bucket: aws.String(s3url.Bucket),
 	}
 
-	wildkey := s3url.key
+	wildkey := s3url.Key
 	var prefix, filter string
-	loc := strings.IndexAny(wildkey, S3WildCharacters)
+	loc := strings.IndexAny(wildkey, url.S3WildCharacters)
 	wildOperation := loc > -1
 	if !wildOperation {
 		// no wildcard operation
 		inp.SetDelimiter("/")
-		prefix = s3url.key
+		prefix = s3url.Key
 
 	} else {
 		// wildcard operation
@@ -171,7 +172,7 @@ func s3list(ctx context.Context, svc *s3.S3, s3url *s3url, emitChan chan<- inter
 
 type s3wildCallback func(*s3listItem) *Job
 
-func s3wildOperation(url *s3url, wp *WorkerParams, callback s3wildCallback) error {
+func s3wildOperation(url *url.S3Url, wp *WorkerParams, callback s3wildCallback) error {
 	return wildOperation(wp, func(ch chan<- interface{}) error {
 		return s3list(wp.ctx, wp.s3svc, url, ch)
 	}, func(data interface{}) *Job {

@@ -54,11 +54,11 @@ func testParseGeneral(t *testing.T, typ opt.ParamType, input, expectedOutArg str
 		return // Success
 	}
 
-	if a.s3.bucket != expectedS3bucket {
-		t.Errorf(`"Expected a.s3.bucket was "%s" but got "%s"`, expectedS3bucket, a.s3.bucket)
+	if a.s3.Bucket != expectedS3bucket {
+		t.Errorf(`"Expected a.s3.bucket was "%s" but got "%s"`, expectedS3bucket, a.s3.Bucket)
 	}
-	if a.s3.key != expectedS3key {
-		t.Errorf(`"Expected a.s3.key was "%s" but got "%s"`, expectedS3key, a.s3.key)
+	if a.s3.Key != expectedS3key {
+		t.Errorf(`"Expected a.s3.key was "%s" but got "%s"`, expectedS3key, a.s3.Key)
 	}
 }
 
@@ -279,7 +279,7 @@ func TestParseFileOrDir(t *testing.T) {
 		testParseGeneral(t, typ, input, input, false, true, "", "", nil)
 	})
 	t.Run("Existing-dir-without-slash", func(t *testing.T) {
-		testParseGeneral(t, typ, "vendor", "vendor"+string(filepath.Separator), false, true, "", "", nil)
+		testParseGeneral(t, typ, "../vendor", "../vendor"+string(filepath.Separator), false, true, "", "", nil)
 	})
 	t.Run("path/to/obj*", func(t *testing.T) {
 		input := filepath.Join("path", "to", "obj*")

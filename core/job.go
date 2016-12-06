@@ -10,6 +10,7 @@ import (
 	"github.com/peakgames/s5cmd/op"
 	"github.com/peakgames/s5cmd/opt"
 	"github.com/peakgames/s5cmd/stats"
+	"github.com/peakgames/s5cmd/url"
 	"github.com/termie/go-shutil"
 	"log"
 	"math"
@@ -28,7 +29,7 @@ const dateFormat = "2006/01/02 15:04:05"
 // JobArgument is an argument of the job. Can be a file/directory, an s3 url ("s3" is set in this case) or an arbitrary string.
 type JobArgument struct {
 	arg string
-	s3  *s3url
+	s3  *url.S3Url
 }
 
 // Job is our basic job type.
@@ -73,7 +74,7 @@ func (j Job) MakeSubJob(command string, operation op.Operation, args []*JobArgum
 
 // Clone duplicates a JobArgument and returns a pointer to a new one
 func (a JobArgument) Clone() *JobArgument {
-	var s s3url
+	var s url.S3Url
 	if a.s3 != nil {
 		s = a.s3.Clone()
 	}
@@ -93,7 +94,7 @@ func (a *JobArgument) Append(s string, isS3path bool) *JobArgument {
 
 	a.arg += s
 	if a.s3 != nil {
-		a.s3.key += s
+		a.s3.Key += s
 	}
 	return a
 }
@@ -226,9 +227,9 @@ func (j *Job) Run(wp *WorkerParams) error {
 		}
 
 		_, err = wp.s3svc.CopyObject(&s3.CopyObjectInput{
-			Bucket:       aws.String(j.args[1].s3.bucket),
-			Key:          aws.String(j.args[1].s3.key),
-			CopySource:   aws.String(j.args[0].s3.format()),
+			Bucket:       aws.String(j.args[1].s3.Bucket),
+			Key:          aws.String(j.args[1].s3.Key),
+			CopySource:   aws.String(j.args[0].s3.Format()),
 			StorageClass: aws.String(cls),
 		})
 		wp.st.IncrementIfSuccess(stats.S3Op, err)
@@ -248,7 +249,7 @@ func (j *Job) Run(wp *WorkerParams) error {
 	case op.BatchDelete:
 		var jobArgs []*JobArgument
 		srcBucket := *j.args[0].Clone()
-		srcBucket.arg = "s3://" + srcBucket.s3.bucket
+		srcBucket.arg = "s3://" + srcBucket.s3.Bucket
 
 		maxArgs := 1000
 
@@ -299,16 +300,16 @@ func (j *Job) Run(wp *WorkerParams) error {
 			obj[i-1] = &s3.ObjectIdentifier{Key: aws.String(a.arg)}
 		}
 		o, err := wp.s3svc.DeleteObjects(&s3.DeleteObjectsInput{
-			Bucket: aws.String(j.args[0].s3.bucket),
+			Bucket: aws.String(j.args[0].s3.Bucket),
 			Delete: &s3.Delete{
 				Objects: obj,
 			},
 		})
 		for _, o := range o.Deleted {
-			j.out(shortOk, `Batch-delete s3://%s/%s`, j.args[0].s3.bucket, *o.Key)
+			j.out(shortOk, `Batch-delete s3://%s/%s`, j.args[0].s3.Bucket, *o.Key)
 		}
 		for _, e := range o.Errors {
-			j.out(shortErr, `Batch-delete s3://%s/%s: %s`, j.args[0].s3.bucket, *e.Key, *e.Message)
+			j.out(shortErr, `Batch-delete s3://%s/%s: %s`, j.args[0].s3.Bucket, *e.Key, *e.Message)
 			if err != nil {
 				err = errors.New(*e.Message)
 			}
@@ -328,8 +329,8 @@ func (j *Job) Run(wp *WorkerParams) error {
 			}
 
 			arg1 := JobArgument{
-				"s3://" + j.args[0].s3.bucket + "/" + *li.key,
-				&s3url{j.args[0].s3.bucket, *li.key},
+				"s3://" + j.args[0].s3.Bucket + "/" + *li.key,
+				&url.S3Url{j.args[0].s3.Bucket, *li.key},
 			}
 
 			var dstFn string
@@ -456,8 +457,8 @@ func (j *Job) Run(wp *WorkerParams) error {
 
 		go func() {
 			_, err := wp.s3dl.Download(f, &s3.GetObjectInput{
-				Bucket: aws.String(j.args[0].s3.bucket),
-				Key:    aws.String(j.args[0].s3.key),
+				Bucket: aws.String(j.args[0].s3.Bucket),
+				Key:    aws.String(j.args[0].s3.Key),
 			})
 
 			ch <- err
@@ -534,8 +535,8 @@ func (j *Job) Run(wp *WorkerParams) error {
 			}
 
 			_, err := wp.s3ul.Upload(&s3manager.UploadInput{
-				Bucket:       aws.String(j.args[1].s3.bucket),
-				Key:          aws.String(j.args[1].s3.key),
+				Bucket:       aws.String(j.args[1].s3.Bucket),
+				Key:          aws.String(j.args[1].s3.Key),
 				Body:         f,
 				StorageClass: aws.String(cls),
 			}, func(u *s3manager.Uploader) {

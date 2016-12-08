@@ -18,14 +18,6 @@
 			"notests": true
 		},
 		{
-			"importpath": "github.com/fatih/color",
-			"repository": "https://github.com/fatih/color",
-			"vcs": "git",
-			"revision": "bf82308e8c8546dc2b945157173eb8a959ae9505",
-			"branch": "master",
-			"notests": true
-		},
-		{
 			"importpath": "github.com/gopherjs/gopherjs/js",
 			"repository": "https://github.com/gopherjs/gopherjs",
 			"vcs": "git",
@@ -47,22 +39,6 @@
 			"repository": "https://github.com/jtolds/gls",
 			"vcs": "git",
 			"revision": "8ddce2a84170772b95dd5d576c48d517b22cac63",
-			"branch": "master",
-			"notests": true
-		},
-		{
-			"importpath": "github.com/mattn/go-colorable",
-			"repository": "https://github.com/mattn/go-colorable",
-			"vcs": "git",
-			"revision": "d228849504861217f796da67fae4f6e347643f15",
-			"branch": "master",
-			"notests": true
-		},
-		{
-			"importpath": "github.com/mattn/go-isatty",
-			"repository": "https://github.com/mattn/go-isatty",
-			"vcs": "git",
-			"revision": "66b8e73f3f5cda9f96b69efd03dd3d7fc4a5cdb8",
 			"branch": "master",
 			"notests": true
 		},
@@ -142,15 +118,6 @@
 			"revision": "5bc3a08dc8042ac11f2752c257a2367c02ba32e8",
 			"branch": "master",
 			"path": "/html",
-			"notests": true
-		},
-		{
-			"importpath": "golang.org/x/sys/unix",
-			"repository": "https://go.googlesource.com/sys",
-			"vcs": "git",
-			"revision": "b699b7032584f0953262cb2788a0ca19bb494703",
-			"branch": "master",
-			"path": "/unix",
 			"notests": true
 		},
 		{

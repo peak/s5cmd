@@ -17,10 +17,21 @@ const (
 	GlobCharacters string = "?*["
 )
 
+var (
+	// cmd && success-cmd || fail-cmd
+	regexCmdAndOr = regexp.MustCompile(`^\s*(.+?)\s*&&\s*(.+?)\s*\|\|\s*(.+?)\s*$`)
+	// cmd && success-cmd
+	regexCmdAnd = regexp.MustCompile(`^\s*(.+?)\s*&&\s*(.+?)\s*$`)
+	// cmd || fail-cmd
+	regexCmdOr = regexp.MustCompile(`^\s*(.+?)\s*\|\|\s*(.+?)\s*$`)
+)
+
 func hasGlob(s string) bool {
 	return strings.ContainsAny(s, "*[]?")
 }
 
+// parseArgumentByType attempts to parse an input string according to the given opt.ParamType and returns a JobArgument (or error)
+// fnObj is the last/previous successfully parsed argument, used mainly to append the basenames of the source files to destination directories
 func parseArgumentByType(s string, t opt.ParamType, fnObj *JobArgument) (*JobArgument, error) {
 	fnBase := ""
 	if (t == opt.S3ObjOrDir || t == opt.FileOrDir) && fnObj != nil {
@@ -142,15 +153,6 @@ func parseArgumentByType(s string, t opt.ParamType, fnObj *JobArgument) (*JobArg
 	return nil, errors.New("Unhandled parseArgumentByType")
 }
 
-var (
-	// cmd && success-cmd || fail-cmd
-	regexCmdAndOr = regexp.MustCompile(`^\s*(.+?)\s*&&\s*(.+?)\s*\|\|\s*(.+?)\s*$`)
-	// cmd && success-cmd
-	regexCmdAnd = regexp.MustCompile(`^\s*(.+?)\s*&&\s*(.+?)\s*$`)
-	// cmd || fail-cmd
-	regexCmdOr = regexp.MustCompile(`^\s*(.+?)\s*\|\|\s*(.+?)\s*$`)
-)
-
 // ParseJob parses a job description and returns a *Job type, possibly with other *Job types in successCommand/failCommand
 func ParseJob(jobdesc string) (*Job, error) {
 
@@ -232,6 +234,8 @@ func ParseJob(jobdesc string) (*Job, error) {
 	return j, nil
 }
 
+// parseSingleJob attempts to parse a single job description to a standalone Job struct.
+// It will loop through each accepted command-signature, trying to find the first one that fits.
 func parseSingleJob(jobdesc string) (*Job, error) {
 	if jobdesc == "" || jobdesc[0] == '#' {
 		return nil, nil
@@ -244,26 +248,30 @@ func parseSingleJob(jobdesc string) (*Job, error) {
 		return nil, errors.New("Nested commands are not supported")
 	}
 
+	// Tokenize arguments
 	parts := strings.Split(jobdesc, " ")
 
 	var numSuccess, numFails uint32
+	// Create a skeleton Job
 	ourJob := &Job{sourceDesc: jobdesc, numSuccess: &numSuccess, numFails: &numFails}
 
 	found := -1
 	var parseArgErr error
 	for i, c := range commands {
-		if parts[0] == c.keyword {
-			found = i
+		if parts[0] == c.keyword { // The first token is the name of our command, "cp", "mv" etc.
+			found = i // Save the id of the last matching command, we will use this in our error message if needed
 
+			// Enrich our skeleton Job with default values for this specific command
 			ourJob.command = c.keyword
 			ourJob.operation = c.operation
 			ourJob.args = []*JobArgument{}
 			ourJob.opts = c.opts
 
-			fileArgsStartPosition := 1
+			// Parse options below, until endOptParse
+			fileArgsStartPosition := 1 // Position where the real file/s3 arguments start. Before this comes the options/flags.
 			acceptedOpts := c.operation.GetAcceptedOpts()
 			for k := 1; k < len(parts); k++ {
-				if parts[k][0] != '-' {
+				if parts[k][0] != '-' { // If it doesn't look like an option, end option parsing
 					fileArgsStartPosition = k
 					goto endOptParse
 				}
@@ -275,22 +283,25 @@ func parseSingleJob(jobdesc string) (*Job, error) {
 						foundOpt = true
 					}
 				}
-				if !foundOpt {
+				if !foundOpt { // End option parsing if it looks like an option but isn't/doesn't match the list
 					fileArgsStartPosition = k
 					goto endOptParse
 				}
 			}
 		endOptParse:
-			suppliedParamCount := len(parts) - fileArgsStartPosition
-			minCount := len(c.params)
-			maxCount := minCount
+			// Check number of arguments
+			suppliedParamCount := len(parts) - fileArgsStartPosition // Number of arguments/params (sans options and the command name itself)
+			minCount := len(c.params) // Minimum number of parameters needed
+			maxCount := minCount      // Maximum
 			if minCount > 0 && c.params[minCount-1] == opt.UncheckedOneOrMore {
-				maxCount = -1
+				maxCount = -1 // Accept unlimited parameters if the last param is opt.UncheckedOneOrMore
 			}
-			if suppliedParamCount < minCount || (maxCount > -1 && suppliedParamCount > maxCount) { // check if param counts are acceptable
+			if suppliedParamCount < minCount || (maxCount > -1 && suppliedParamCount > maxCount) { // Check if param counts are acceptable
+				// If the number of parameters does not match, try another command
 				continue
 			}
 
+			// Parse arguments into JobArguments
 			var a, fnObj *JobArgument
 
 			parseArgErr = nil
@@ -309,7 +320,7 @@ func parseSingleJob(jobdesc string) (*Job, error) {
 				maxI = i
 				lastType = t
 			}
-			if parseArgErr == nil && minCount != maxCount {
+			if parseArgErr == nil && minCount != maxCount { // If no error yet, and we have unlimited/repeating parameters...
 				for i, p := range parts {
 					if i <= maxI+1 {
 						continue
@@ -322,7 +333,7 @@ func parseSingleJob(jobdesc string) (*Job, error) {
 				}
 			}
 			if parseArgErr != nil {
-				continue // not our command, try another
+				continue // Not our command, try another
 			}
 
 			return ourJob, nil

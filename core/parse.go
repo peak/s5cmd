@@ -4,12 +4,13 @@ package core
 import (
 	"errors"
 	"fmt"
-	"github.com/peakgames/s5cmd/opt"
-	"github.com/peakgames/s5cmd/url"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/peakgames/s5cmd/opt"
+	"github.com/peakgames/s5cmd/url"
 )
 
 const (

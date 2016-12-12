@@ -3,6 +3,7 @@ package op
 
 import (
 	"fmt"
+
 	"github.com/peakgames/s5cmd/opt"
 )
 

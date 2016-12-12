@@ -2,12 +2,13 @@ package core
 
 import (
 	"context"
-	"github.com/peakgames/s5cmd/op"
-	"github.com/peakgames/s5cmd/opt"
-	"github.com/peakgames/s5cmd/stats"
 	"io/ioutil"
 	"os"
 	"testing"
+
+	"github.com/peakgames/s5cmd/op"
+	"github.com/peakgames/s5cmd/opt"
+	"github.com/peakgames/s5cmd/stats"
 )
 
 func newJob(sourceDesc, command string, operation op.Operation, args []*JobArgument, opts opt.OptionList) Job {

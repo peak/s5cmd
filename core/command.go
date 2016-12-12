@@ -1,10 +1,11 @@
 package core
 
 import (
-	"github.com/peakgames/s5cmd/op"
-	"github.com/peakgames/s5cmd/opt"
 	"sort"
 	"strings"
+
+	"github.com/peakgames/s5cmd/op"
+	"github.com/peakgames/s5cmd/opt"
 )
 
 type commandMap struct {

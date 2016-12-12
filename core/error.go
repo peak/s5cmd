@@ -2,8 +2,9 @@ package core
 
 import (
 	"fmt"
-	"github.com/aws/aws-sdk-go/aws/awserr"
 	"strings"
+
+	"github.com/aws/aws-sdk-go/aws/awserr"
 )
 
 // IsRetryableError returns if an error (probably awserr) is retryable, along with an error code

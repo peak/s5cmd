@@ -3,14 +3,15 @@ package core
 import (
 	"context"
 	"errors"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/peakgames/s5cmd/url"
 	"path"
 	"regexp"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/peakgames/s5cmd/url"
 )
 
 // ErrInterrupted is the error used when the main context is canceled

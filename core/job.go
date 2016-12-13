@@ -367,6 +367,9 @@ func (j *Job) Run(wp *WorkerParams) error {
 		trimPrefix := j.args[0].arg
 		if !walkMode {
 			loc := strings.IndexAny(trimPrefix, GlobCharacters)
+			if loc < 0 {
+				return fmt.Errorf("Internal error, not a glob: %s", trimPrefix)
+			}
 			trimPrefix = trimPrefix[:loc]
 		}
 		trimPrefix = path.Dir(trimPrefix)

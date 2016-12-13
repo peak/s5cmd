@@ -27,8 +27,8 @@ var (
 	regexCmdOr = regexp.MustCompile(`^\s*(.+?)\s*\|\|\s*(.+?)\s*$`)
 )
 
-func hasGlob(s string) bool {
-	return strings.ContainsAny(s, "*[]?")
+func isGlob(s string) bool {
+	return strings.ContainsAny(s, GlobCharacters)
 }
 
 // parseArgumentByType attempts to parse an input string according to the given opt.ParamType and returns a JobArgument (or error)
@@ -93,7 +93,7 @@ func parseArgumentByType(s string, t opt.ParamType, fnObj *JobArgument) (*JobArg
 		}
 		endsInSlash := len(s) > 0 && s[len(s)-1] == filepath.Separator
 
-		if hasGlob(s) {
+		if isGlob(s) {
 			return nil, errors.New("Param should not contain glob characters")
 		}
 
@@ -140,7 +140,7 @@ func parseArgumentByType(s string, t opt.ParamType, fnObj *JobArgument) (*JobArg
 		return &JobArgument{s, nil}, nil
 
 	case opt.Glob:
-		if !hasGlob(s) {
+		if !isGlob(s) {
 			return nil, errors.New("Param does not look like a glob")
 		}
 		_, err := filepath.Match(s, "")

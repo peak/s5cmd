@@ -404,9 +404,10 @@ func (j *Job) Run(wp *WorkerParams) error {
 				}
 
 				for _, f := range ma {
-					st, _ = os.Stat(f)
+					s := f // copy
+					st, _ = os.Stat(s)
 					if !st.IsDir() {
-						ch <- &f
+						ch <- &s
 					}
 				}
 				ch <- nil // send EOF

@@ -140,10 +140,20 @@ func (j *Job) Notify(ctx context.Context, err error) {
 		return
 	}
 	res := err == nil
-	select {
-	case <-ctx.Done():
-		return
-	case *j.notifyChan <- res:
+
+	for {
+		select {
+		case *j.notifyChan <- res:
+			return
+		default:
+		}
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+		j.out(shortInfo, "Waiting to notify %s", j.String())
+		time.Sleep(time.Second)
 	}
 }
 
@@ -458,15 +468,15 @@ func (j *Job) Run(wp *WorkerParams) error {
 
 		j.out(shortInfo, "Downloading %s...", srcFn)
 
-		ch := make(chan error)
+		ch := make(chan error, 1)
 
 		go func() {
 			_, err := wp.s3dl.Download(f, &s3.GetObjectInput{
 				Bucket: aws.String(j.args[0].s3.Bucket),
 				Key:    aws.String(j.args[0].s3.Key),
 			})
-
 			ch <- err
+			close(ch)
 		}()
 
 		select {
@@ -475,10 +485,8 @@ func (j *Job) Run(wp *WorkerParams) error {
 		case err = <-ch:
 			break
 		}
-		close(ch)
-		ch = nil
 
-		f.Close()
+		f.Close() // Race: s3dl.Download or us?
 
 		wp.st.IncrementIfSuccess(stats.S3Op, err)
 		if err != nil {
@@ -526,7 +534,7 @@ func (j *Job) Run(wp *WorkerParams) error {
 			j.out(shortInfo, "Uploading %s... (%d bytes)", srcFn, filesize)
 		}
 
-		ch := make(chan error)
+		ch := make(chan error, 1)
 
 		go func(chunkSizeInBytes int64) {
 			var cls string
@@ -549,6 +557,7 @@ func (j *Job) Run(wp *WorkerParams) error {
 			})
 
 			ch <- err
+			close(ch)
 		}(chunkSize * int64(bytesInMb))
 
 		select {
@@ -557,8 +566,6 @@ func (j *Job) Run(wp *WorkerParams) error {
 		case err = <-ch:
 			break
 		}
-		close(ch)
-		ch = nil
 
 		f.Close()
 

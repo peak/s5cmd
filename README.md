@@ -23,6 +23,8 @@ Usage: ./s5cmd [OPTION]... [COMMAND [PARAMS...]]
         Multipart chunk size in MB for uploads (default 5, auto calculated)
   -f string
         Commands-file or - for stdin
+  -gops
+        Initialize gops agent
   -numworkers int
         Number of worker goroutines. Negative numbers mean multiples of runtime.NumCPU (default 256)
   -r int

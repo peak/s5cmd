@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"github.com/google/gops/agent"
 	"github.com/peakgames/s5cmd/core"
 	"github.com/peakgames/s5cmd/stats"
 	"github.com/peakgames/s5cmd/version"
@@ -63,6 +64,7 @@ func main() {
 	flag.IntVar(&retries, "r", 10, "Retry S3 operations N times before failing")
 	printStats := flag.Bool("stats", false, "Always print stats")
 	version := flag.Bool("version", false, "Prints current version")
+	gops := flag.Bool("gops", false, "Initialize gops agent")
 
 	flag.Usage = func() {
 		printUsageLine()
@@ -70,6 +72,12 @@ func main() {
 		fmt.Fprint(os.Stderr, "\nTo list available commands, run without arguments.\n")
 	}
 	flag.Parse()
+
+	if *gops {
+		if err := agent.Listen(&agent.Options{NoShutdownCleanup: true}); err != nil {
+			log.Fatal("-ERR", err)
+		}
+	}
 
 	if *version {
 		fmt.Printf("s5cmd version %s", GitSummary)
@@ -91,11 +99,9 @@ func main() {
 	cmd := strings.Join(flag.Args(), " ")
 	if cmd != "" && cmdFile != "" {
 		log.Fatal("-ERR Only specify -f or command, not both")
-		os.Exit(1)
 	}
 	if (cmd == "" && cmdFile == "") || numWorkers == 0 || multipartChunkSize < 1 || retries < 0 {
 		log.Fatal("-ERR Please specify all arguments.")
-		os.Exit(1)
 	}
 
 	multipartChunkSizeBytes := int64(multipartChunkSize * int(bytesInMb))

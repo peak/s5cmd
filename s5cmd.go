@@ -73,7 +73,7 @@ func main() {
 	}
 	flag.Parse()
 
-	if *gops {
+	if *gops || os.Getenv("S5CMD_GOPS") != "" {
 		if err := agent.Listen(&agent.Options{NoShutdownCleanup: true}); err != nil {
 			log.Fatal("-ERR", err)
 		}

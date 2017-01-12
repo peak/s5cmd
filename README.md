@@ -170,3 +170,7 @@ Shell output (used in `!`) does not modify the executed command's output. Both `
 ### Exit Code ###
 
 If failed jobs are present, process exits with code `127`. This can be overridden with the command `exit`, though in that case finishing the job list is not guaranteed.
+
+## Environment Variables ##
+
+Set `S5CMD_GOPS` to always enable the [gops](https://github.com/google/gops) agent.

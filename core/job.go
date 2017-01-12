@@ -134,6 +134,21 @@ func (j *Job) PrintOK() {
 	}
 }
 
+func (j *Job) PrintErr(err error) {
+	if j.operation.IsInternal() {
+		// TODO are we sure about ignoring errors from internal jobs?
+		return
+	}
+
+	errStr := CleanupError(err)
+
+	if j.isSubJob {
+		j.out(shortErr, `"%s": %s`, j, errStr)
+	} else {
+		log.Printf(`-ERR "%s": %s`, j, errStr)
+	}
+}
+
 // Notify informs the job's notify chan if the job failed or succeeded.
 func (j *Job) Notify(ctx context.Context, err error) {
 	if j.notifyChan == nil {

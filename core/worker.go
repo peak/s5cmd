@@ -167,7 +167,7 @@ func (p *WorkerPool) runWorker(st *stats.Stats, idlingCounter *int32, id int) {
 						}
 					}
 
-					log.Printf(`-ERR "%s": %s`, job, CleanupError(err))
+					job.PrintErr(err)
 					wp.st.Increment(stats.Fail)
 					job.Notify(p.ctx, err)
 					job = job.failCommand

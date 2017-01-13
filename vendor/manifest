@@ -24,6 +24,60 @@
 			"revision": "bcacb06fecaeec8dc42af03c87c6949f4a05c74c",
 			"branch": "master",
 			"notests": true
+		},
+		{
+			"importpath": "github.com/google/gops/agent",
+			"repository": "https://github.com/google/gops",
+			"vcs": "git",
+			"revision": "0e47ba961c6854dba59ae5cb22fc42cafd3d4cc6",
+			"branch": "master",
+			"path": "/agent",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/google/gops/internal",
+			"repository": "https://github.com/google/gops",
+			"vcs": "git",
+			"revision": "0e47ba961c6854dba59ae5cb22fc42cafd3d4cc6",
+			"branch": "master",
+			"path": "internal",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/google/gops/signal",
+			"repository": "https://github.com/google/gops",
+			"vcs": "git",
+			"revision": "0e47ba961c6854dba59ae5cb22fc42cafd3d4cc6",
+			"branch": "master",
+			"path": "signal",
+			"notests": true
+		},
+		{
+			"importpath": "golang.org/x/arch/arm/armasm",
+			"repository": "https://go.googlesource.com/arch",
+			"vcs": "git",
+			"revision": "c49399feb886d517c56e0647781d1c4aee30a77b",
+			"branch": "master",
+			"path": "arm/armasm",
+			"notests": true
+		},
+		{
+			"importpath": "golang.org/x/arch/ppc64/ppc64asm",
+			"repository": "https://go.googlesource.com/arch",
+			"vcs": "git",
+			"revision": "c49399feb886d517c56e0647781d1c4aee30a77b",
+			"branch": "master",
+			"path": "/ppc64/ppc64asm",
+			"notests": true
+		},
+		{
+			"importpath": "golang.org/x/arch/x86/x86asm",
+			"repository": "https://go.googlesource.com/arch",
+			"vcs": "git",
+			"revision": "c49399feb886d517c56e0647781d1c4aee30a77b",
+			"branch": "master",
+			"path": "x86/x86asm",
+			"notests": true
 		}
 	]
 }

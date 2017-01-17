@@ -509,6 +509,9 @@ func (j *Job) Run(wp *WorkerParams) error {
 		}
 
 		err = wildOperation(wp, func(ch chan<- interface{}) error {
+			defer func() {
+				ch <- nil // send EOF
+			}()
 			// lister
 			if walkMode {
 				err := filepath.Walk(j.args[0].arg, func(path string, st os.FileInfo, err error) error {
@@ -521,7 +524,6 @@ func (j *Job) Run(wp *WorkerParams) error {
 					ch <- &path
 					return nil
 				})
-				ch <- nil // send EOF
 				return err
 			} else {
 				ma, err := filepath.Glob(j.args[0].arg)
@@ -539,7 +541,6 @@ func (j *Job) Run(wp *WorkerParams) error {
 						ch <- &s
 					}
 				}
-				ch <- nil // send EOF
 				return nil
 			}
 		}, func(data interface{}) *Job {

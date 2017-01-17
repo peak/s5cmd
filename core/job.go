@@ -268,6 +268,110 @@ func (j *Job) Run(wp *WorkerParams) error {
 
 		return err
 
+	case op.BatchLocalCopy:
+		subCmd := "cp"
+		if j.opts.Has(opt.DeleteSource) {
+			subCmd = "mv"
+		}
+		subCmd += j.opts.GetParams()
+
+		st, err := os.Stat(j.args[0].arg)
+		walkMode := err == nil && st.IsDir() // walk or glob?
+
+		trimPrefix := j.args[0].arg
+		globStart := j.args[0].arg
+		if !walkMode {
+			loc := strings.IndexAny(trimPrefix, GlobCharacters)
+			if loc < 0 {
+				return fmt.Errorf("Internal error, not a glob: %s", trimPrefix)
+			}
+			trimPrefix = trimPrefix[:loc]
+		} else {
+			if !strings.HasSuffix(globStart, string(filepath.Separator)) {
+				globStart += string(filepath.Separator)
+			}
+			globStart = globStart + "*"
+		}
+		trimPrefix = path.Dir(trimPrefix)
+		if trimPrefix == "." {
+			trimPrefix = ""
+		} else {
+			trimPrefix += string(filepath.Separator)
+		}
+
+		recurse := j.opts.Has(opt.Recursive)
+
+		err = wildOperation(wp, func(ch chan<- interface{}) error {
+			defer func() {
+				ch <- nil // send EOF
+			}()
+
+			// lister
+			ma, err := filepath.Glob(globStart)
+			if err != nil {
+				return err
+			}
+			if len(ma) == 0 {
+				if walkMode {
+					return nil // Directory empty
+				} else {
+					return errors.New("Could not find match for glob")
+				}
+			}
+
+			for _, f := range ma {
+				s := f // copy
+				st, _ := os.Stat(s)
+				if !st.IsDir() {
+					ch <- &s
+				} else if recurse {
+					err = filepath.Walk(s, func(path string, st os.FileInfo, err error) error {
+						if err != nil {
+							return err
+						}
+						if st.IsDir() {
+							return nil
+						}
+						ch <- &path
+						return nil
+					})
+					if err != nil {
+						return err
+					}
+				}
+			}
+			return nil
+		}, func(data interface{}) *Job {
+			// callback
+			if data == nil {
+				return nil
+			}
+			fn := data.(*string)
+
+			var dstFn string
+			if j.opts.Has(opt.Parents) {
+				dstFn = *fn
+				if strings.Index(dstFn, trimPrefix) == 0 {
+					dstFn = dstFn[len(trimPrefix):]
+				}
+			} else {
+				dstFn = filepath.Base(*fn)
+			}
+
+			arg1 := JobArgument{
+				*fn,
+				nil,
+			}
+			arg2 := j.args[1].Clone().Append(dstFn, false)
+
+			dir := filepath.Dir(arg2.arg)
+			os.MkdirAll(dir, os.ModePerm)
+
+			return j.MakeSubJob(subCmd, op.LocalCopy, []*JobArgument{&arg1, arg2}, j.opts)
+		})
+
+		return wp.st.IncrementIfSuccess(stats.FileOp, err)
+
 	case op.Delete:
 		_, err := s3delete(wp.s3svc, j.args[0].s3)
 		return wp.st.IncrementIfSuccess(stats.S3Op, err)

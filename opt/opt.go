@@ -15,6 +15,7 @@ const (
 	Parents                            // Just like cp --parents
 	RR                                 // Reduced-redundancy
 	IA                                 // Infrequent-access
+	Recursive                          // Recursive copy/move (local)
 )
 
 // Has determines if the opt.OptionList contains this OptionType
@@ -38,6 +39,8 @@ func (o OptionType) GetParam() string {
 		return "-rr"
 	case IA:
 		return "-ia"
+	case Recursive:
+		return "-R"
 	}
 	return ""
 }

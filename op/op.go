@@ -24,13 +24,14 @@ const (
 	List                               // List S3 objects
 	ListBuckets                        // List S3 buckets
 	LocalCopy                          // Copy from local to local
+	BatchLocalCopy                     // Batch copy from local to local
 	LocalDelete                        // Delete local file
 	ShellExec                          // Execute shell command
 )
 
 // IsBatch returns true if this operation creates sub-jobs
 func (o Operation) IsBatch() bool {
-	return o == BatchDownload || o == BatchUpload || o == BatchDelete
+	return o == BatchDownload || o == BatchUpload || o == BatchDelete || o == BatchLocalCopy
 }
 
 // IsInternal returns true if this operation is considered internal. Internal operations are not shown in +OK messages
@@ -66,6 +67,8 @@ func (o Operation) String() string {
 		return "du"
 	case LocalCopy:
 		return "local-copy"
+	case BatchLocalCopy:
+		return "batch-local-copy"
 	case LocalDelete:
 		return "local-delete"
 	case ShellExec:
@@ -120,6 +123,11 @@ func (o Operation) Describe(l opt.OptionList) string {
 			return "Move local files"
 		}
 		return "Copy local files"
+	case BatchLocalCopy:
+		if l.Has(opt.DeleteSource) {
+			return "Batch move local files"
+		}
+		return "Batch copy local files"
 	case LocalDelete:
 		return "Delete local files"
 	case ShellExec:
@@ -134,18 +142,23 @@ func (o Operation) GetAcceptedOpts() *opt.OptionList {
 	l := opt.OptionList{}
 
 	switch o {
-	case Download, Upload, Copy, LocalCopy, BatchDownload, BatchUpload:
+	case Download, Upload, Copy, LocalCopy, BatchDownload, BatchUpload, BatchLocalCopy:
 		l = append(l, opt.IfNotExists)
 	}
 
 	switch o {
-	case BatchDownload, BatchUpload:
+	case BatchDownload, BatchUpload, BatchLocalCopy:
 		l = append(l, opt.Parents)
 	}
 
 	switch o {
 	case Upload, BatchUpload, Copy:
 		l = append(l, opt.RR, opt.IA)
+	}
+
+	switch o {
+	case BatchLocalCopy:
+		l = append(l, opt.Recursive)
 	}
 
 	return &l

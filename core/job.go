@@ -203,9 +203,9 @@ func (j *Job) Notify(ctx context.Context, err error) {
 
 var (
 	// ErrFileExistsButOk is used when a destination file already exists and opt.IfNotExists is set.
-	ErrFileExistsButOk = AcceptableError(errors.New("File already exists"))
+	ErrFileExistsButOk = NewAcceptableError("File already exists")
 	// ErrS3ExistsButOk is used when a destination object already exists and opt.IfNotExists is set.
-	ErrS3ExistsButOk = AcceptableError(errors.New("Object already exists"))
+	ErrS3ExistsButOk = NewAcceptableError("Object already exists")
 )
 
 // Run runs the Job and returns error

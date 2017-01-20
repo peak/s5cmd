@@ -252,9 +252,9 @@ func parseSingleJob(jobdesc string) (*Job, error) {
 	// Tokenize arguments
 	parts := strings.Split(jobdesc, " ")
 
-	var numSuccess, numFails uint32
+	var numSuccess, numFails, numAcceptableFails uint32
 	// Create a skeleton Job
-	ourJob := &Job{sourceDesc: jobdesc, numSuccess: &numSuccess, numFails: &numFails}
+	ourJob := &Job{sourceDesc: jobdesc, numSuccess: &numSuccess, numFails: &numFails, numAcceptableFails: &numAcceptableFails}
 
 	found := -1
 	var parseArgErr error

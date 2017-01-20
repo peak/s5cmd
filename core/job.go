@@ -35,17 +35,18 @@ type JobArgument struct {
 
 // Job is our basic job type.
 type Job struct {
-	sourceDesc     string // Source job description which we parsed this from
-	command        string // Different from operation, as multiple commands can map to the same op
-	operation      op.Operation
-	args           []*JobArgument
-	opts           opt.OptionList
-	successCommand *Job       // Next job to run if this one is successful
-	failCommand    *Job       // .. if unsuccessful
-	notifyChan     *chan bool // Ptr to chan to notify the job's success or fail
-	isSubJob       bool
-	numSuccess     *uint32 // Number of affected objects (only on batch operations)
-	numFails       *uint32
+	sourceDesc         string // Source job description which we parsed this from
+	command            string // Different from operation, as multiple commands can map to the same op
+	operation          op.Operation
+	args               []*JobArgument
+	opts               opt.OptionList
+	successCommand     *Job       // Next job to run if this one is successful
+	failCommand        *Job       // .. if unsuccessful
+	notifyChan         *chan bool // Ptr to chan to notify the job's success or fail
+	isSubJob           bool
+	numSuccess         *uint32 // Number of affected objects (only on batch operations)
+	numFails           *uint32
+	numAcceptableFails *uint32
 }
 
 // String formats the job using its command and arguments.
@@ -62,14 +63,15 @@ func (j Job) String() (s string) {
 func (j Job) MakeSubJob(command string, operation op.Operation, args []*JobArgument, opts opt.OptionList) *Job {
 	ptr := args
 	return &Job{
-		sourceDesc: j.sourceDesc,
-		command:    command,
-		operation:  operation,
-		args:       ptr,
-		opts:       opts,
-		isSubJob:   true,
-		numSuccess: j.numSuccess,
-		numFails:   j.numFails,
+		sourceDesc:         j.sourceDesc,
+		command:            command,
+		operation:          operation,
+		args:               ptr,
+		opts:               opts,
+		isSubJob:           true,
+		numSuccess:         j.numSuccess,
+		numFails:           j.numFails,
+		numAcceptableFails: j.numAcceptableFails,
 	}
 }
 
@@ -106,31 +108,58 @@ func (j *Job) out(short shortCode, format string, a ...interface{}) {
 	if j.numSuccess != nil && short == shortOk {
 		atomic.AddUint32(j.numSuccess, 1)
 	}
+	if j.numAcceptableFails != nil && short == shortOkWithError {
+		atomic.AddUint32(j.numAcceptableFails, 1)
+	}
 	if j.numFails != nil && short == shortErr {
 		atomic.AddUint32(j.numFails, 1)
 	}
 }
 
 // PrintOK notifies the user about the positive outcome of the job. Internal operations are not shown, sub-jobs use short syntax.
-func (j *Job) PrintOK() {
+func (j *Job) PrintOK(err AcceptableError) {
 	if j.operation.IsInternal() {
 		return
 	}
+
 	if j.isSubJob {
-		j.out(shortOk, `"%s"`, j)
+		if err != nil {
+			j.out(shortOkWithError, `"%s" (%s)`, j, err.Error())
+		} else {
+			j.out(shortOk, `"%s"`, j)
+		}
 		return
 	}
 
-	if j.numSuccess != nil && *j.numSuccess > 0 {
+	errStr := ""
+	okStr := "OK"
+	if err != nil {
+		errStr = " (" + err.Error() + ")"
+		okStr = "OK?"
+	}
+
+	// Add successful jobs and considered-successful (finished with AcceptableError) jobs together
+	var totalSuccess uint32 = 0
+	if j.numSuccess != nil {
+		totalSuccess += *j.numSuccess
+	}
+	if j.numAcceptableFails != nil {
+		totalSuccess += *j.numAcceptableFails
+		if *j.numAcceptableFails > 0 {
+			okStr = "OK?"
+		}
+	}
+
+	if totalSuccess > 0 {
 		if j.numFails != nil && *j.numFails > 0 {
-			log.Printf(`+OK "%s" (%d, %d failed)`, j, *j.numSuccess, *j.numFails)
+			log.Printf(`+%s "%s"%s (%d, %d failed)`, okStr, j, errStr, totalSuccess, *j.numFails)
 		} else {
-			log.Printf(`+OK "%s" (%d)`, j, *j.numSuccess)
+			log.Printf(`+%s "%s"%s (%d)`, okStr, j, errStr, totalSuccess)
 		}
 	} else if j.numFails != nil && *j.numFails > 0 {
-		log.Printf(`+OK "%s" (%d failed)`, j, *j.numFails)
+		log.Printf(`+%s "%s"%s (%d failed)`, okStr, j, errStr, *j.numFails)
 	} else {
-		log.Printf(`+OK "%s"`, j)
+		log.Printf(`+%s "%s"%s`, okStr, j, errStr)
 	}
 }
 
@@ -173,10 +202,10 @@ func (j *Job) Notify(ctx context.Context, err error) {
 }
 
 var (
-	// ErrFileExists is used when a destination file already exists and opt.IfNotExists is set.
-	ErrFileExists = errors.New("File already exists")
-	// ErrS3Exists is used when a destination object already exists and opt.IfNotExists is set.
-	ErrS3Exists = errors.New("Object already exists")
+	// ErrFileExistsButOk is used when a destination file already exists and opt.IfNotExists is set.
+	ErrFileExistsButOk = AcceptableError(errors.New("File already exists"))
+	// ErrS3ExistsButOk is used when a destination object already exists and opt.IfNotExists is set.
+	ErrS3ExistsButOk = AcceptableError(errors.New("Object already exists"))
 )
 
 // Run runs the Job and returns error
@@ -191,7 +220,7 @@ func (j *Job) Run(wp *WorkerParams) error {
 			}
 			return err
 		}
-		return ErrFileExists
+		return ErrFileExistsButOk
 	}
 
 	switch j.operation {
@@ -238,7 +267,7 @@ func (j *Job) Run(wp *WorkerParams) error {
 			_, err = s3head(wp.s3svc, j.args[1].s3)
 			if err == nil {
 				wp.st.IncrementIfSuccess(stats.S3Op, err)
-				return ErrS3Exists
+				return ErrS3ExistsButOk
 			}
 		}
 
@@ -631,7 +660,7 @@ func (j *Job) Run(wp *WorkerParams) error {
 			_, err = s3head(wp.s3svc, j.args[1].s3)
 			if err == nil {
 				wp.st.IncrementIfSuccess(stats.S3Op, err)
-				return ErrS3Exists
+				return ErrS3ExistsButOk
 			}
 		}
 

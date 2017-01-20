@@ -6,6 +6,7 @@ const (
 	shortErr = iota
 	shortOk
 	shortInfo
+	shortOkWithError
 )
 
 func (s shortCode) String() string {
@@ -17,6 +18,9 @@ func (s shortCode) String() string {
 	}
 	if s == shortInfo {
 		return "?"
+	}
+	if s == shortOkWithError {
+		return "+?"
 	}
 	return "?"
 }

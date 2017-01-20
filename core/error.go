@@ -7,6 +7,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 )
 
+type AcceptableError error
+
 // IsRetryableError returns if an error (probably awserr) is retryable, along with an error code
 func IsRetryableError(err error) (string, bool) {
 	if err != nil {
@@ -46,4 +48,9 @@ func CleanupError(err error) (s string) {
 	s = strings.Replace(s, "  ", " ", -1)
 	s = strings.TrimSpace(s)
 	return
+}
+
+func IsAcceptableError(err error) bool {
+	_, ok := err.(AcceptableError)
+	return ok
 }

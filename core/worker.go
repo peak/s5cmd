@@ -152,7 +152,7 @@ func (p *WorkerPool) runWorker(st *stats.Stats, idlingCounter *int32, id int) {
 			tries := 0
 			for job != nil {
 				err := job.Run(&wp)
-				if err != nil {
+				if err != nil && !IsAcceptableError(err) {
 					errCode, doRetry := IsRetryableError(err)
 					if doRetry && p.params.Retries > 0 && tries < p.params.Retries {
 						tries++
@@ -172,7 +172,7 @@ func (p *WorkerPool) runWorker(st *stats.Stats, idlingCounter *int32, id int) {
 					job.Notify(p.ctx, err)
 					job = job.failCommand
 				} else {
-					job.PrintOK()
+					job.PrintOK(err)
 					job.Notify(p.ctx, nil)
 					job = job.successCommand
 				}

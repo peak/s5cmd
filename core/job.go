@@ -724,6 +724,45 @@ func (j *Job) Run(wp *WorkerParams) error {
 		}
 		return err
 
+	case op.BatchCopy:
+		subCmd := "cp"
+		if j.opts.Has(opt.DeleteSource) {
+			subCmd = "mv"
+		}
+		subCmd += j.opts.GetParams()
+
+		err := s3wildOperation(j.args[0].s3, wp, func(li *s3listItem) *Job {
+			if li == nil || li.isCommonPrefix {
+				return nil
+			}
+
+			arg1 := JobArgument{
+				"s3://" + j.args[0].s3.Bucket + "/" + *li.key,
+				&url.S3Url{Bucket: j.args[0].s3.Bucket, Key: *li.key},
+			}
+
+			var dstFn string
+			if j.opts.Has(opt.Parents) {
+				dstFn = li.parsedKey
+			} else {
+				dstFn = path.Base(li.parsedKey)
+			}
+
+			arg2 := JobArgument{
+				"s3://" + j.args[1].s3.Bucket + "/" + j.args[1].s3.Key + dstFn,
+				&url.S3Url{Bucket: j.args[1].s3.Bucket, Key: j.args[1].s3.Key + dstFn},
+			}
+
+			subJob := j.MakeSubJob(subCmd, op.Copy, []*JobArgument{&arg1, &arg2}, j.opts)
+			if *li.class == s3.ObjectStorageClassGlacier {
+				subJob.out(shortErr, `"%s": Cannot download glacier object`, arg1.arg)
+				return nil
+			}
+			return subJob
+		})
+
+		return wp.st.IncrementIfSuccess(stats.S3Op, err)
+
 	case op.ListBuckets:
 		o, err := wp.s3svc.ListBuckets(&s3.ListBucketsInput{})
 		if err == nil {

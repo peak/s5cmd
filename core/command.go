@@ -29,6 +29,7 @@ var commands = []commandMap{
 
 	// S3 to S3
 	{"cp", op.Copy, []opt.ParamType{opt.S3Obj, opt.S3ObjOrDir}, opt.OptionList{}},
+	{"cp", op.BatchCopy, []opt.ParamType{opt.S3WildObj, opt.S3Dir}, opt.OptionList{}},
 
 	// File to S3
 	{"cp", op.Upload, []opt.ParamType{opt.FileObj, opt.S3ObjOrDir}, opt.OptionList{}},
@@ -46,6 +47,7 @@ var commands = []commandMap{
 
 	// S3 to S3
 	{"mv", op.Copy, []opt.ParamType{opt.S3Obj, opt.S3ObjOrDir}, opt.OptionList{opt.DeleteSource}},
+	{"mv", op.BatchCopy, []opt.ParamType{opt.S3WildObj, opt.S3Dir}, opt.OptionList{opt.DeleteSource}},
 
 	// File to S3
 	{"mv", op.Upload, []opt.ParamType{opt.FileObj, opt.S3ObjOrDir}, opt.OptionList{opt.DeleteSource}},

@@ -17,6 +17,7 @@ const (
 	Upload                             // Upload from local to S3
 	BatchUpload                        // Batch upload from local to S3
 	Copy                               // Copy from S3 to S3
+	BatchCopy                          // Batch copy from S3 to S3
 	Delete                             // Delete from S3
 	Size                               // List S3 and get object sizes
 	BatchDelete                        // "ls" and submit batched multi-delete operations
@@ -31,7 +32,7 @@ const (
 
 // IsBatch returns true if this operation creates sub-jobs
 func (o Operation) IsBatch() bool {
-	return o == BatchDownload || o == BatchUpload || o == BatchDelete || o == BatchLocalCopy
+	return o == BatchDownload || o == BatchUpload || o == BatchDelete || o == BatchLocalCopy || o == BatchCopy
 }
 
 // IsInternal returns true if this operation is considered internal. Internal operations are not shown in +OK messages
@@ -53,6 +54,8 @@ func (o Operation) String() string {
 		return "batch-upload"
 	case Copy:
 		return "copy"
+	case BatchCopy:
+		return "batch-copy"
 	case Delete:
 		return "delete"
 	case BatchDelete:
@@ -108,6 +111,11 @@ func (o Operation) Describe(l opt.OptionList) string {
 			return "Move S3 object"
 		}
 		return "Copy S3 object"
+	case BatchCopy:
+		if l.Has(opt.DeleteSource) {
+			return "Batch move S3 objects"
+		}
+		return "Batch copy S3 objects"
 	case Delete:
 		return "Delete from S3"
 	case BatchDelete:
@@ -142,17 +150,17 @@ func (o Operation) GetAcceptedOpts() *opt.OptionList {
 	l := opt.OptionList{}
 
 	switch o {
-	case Download, Upload, Copy, LocalCopy, BatchDownload, BatchUpload, BatchLocalCopy:
+	case Download, Upload, Copy, LocalCopy, BatchDownload, BatchUpload, BatchLocalCopy, BatchCopy:
 		l = append(l, opt.IfNotExists)
 	}
 
 	switch o {
-	case BatchDownload, BatchUpload, BatchLocalCopy:
+	case BatchDownload, BatchUpload, BatchLocalCopy, BatchCopy:
 		l = append(l, opt.Parents)
 	}
 
 	switch o {
-	case Upload, BatchUpload, Copy:
+	case Upload, BatchUpload, Copy, BatchCopy:
 		l = append(l, opt.RR, opt.IA)
 	}
 

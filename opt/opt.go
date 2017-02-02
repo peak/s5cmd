@@ -75,7 +75,7 @@ const (
 	FileObj                             // Filename
 	Dir                                 // Dir name or non-existing name ("/" appended)
 	FileOrDir                           // File or directory (if existing directory, "/" appended)
-	Glob                                // String containing a valid glob pattern
+	Glob                                // String containing a valid glob pattern (non-S3)
 )
 
 // String returns the string representation of ParamType

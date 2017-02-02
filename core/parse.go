@@ -140,10 +140,14 @@ func parseArgumentByType(s string, t opt.ParamType, fnObj *JobArgument) (*JobArg
 		return &JobArgument{s, nil}, nil
 
 	case opt.Glob:
+		_, err := url.ParseS3Url(s)
+		if err == nil {
+			return nil, errors.New("Glob param resembles s3 object")
+		}
 		if !isGlob(s) {
 			return nil, errors.New("Param does not look like a glob")
 		}
-		_, err := filepath.Match(s, "")
+		_, err = filepath.Match(s, "")
 		if err != nil {
 			return nil, err
 		}

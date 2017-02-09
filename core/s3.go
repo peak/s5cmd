@@ -7,7 +7,6 @@ import (
 	"regexp"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
@@ -32,12 +31,9 @@ func s3head(svc *s3.S3, obj *url.S3Url) (*s3.HeadObjectOutput, error) {
 }
 
 type s3listItem struct {
+	*s3.Object
+
 	parsedKey      string
-	key            *string
-	lastModified   *time.Time
-	size           int64
-	class          *string
-	ETag           *string
 	isCommonPrefix bool
 }
 
@@ -130,8 +126,8 @@ func s3list(ctx context.Context, svc *s3.S3, s3url *url.S3Url, emitChan chan<- i
 				key = key[len(trimPrefix):]
 			}
 			if !emit(&s3listItem{
+				Object:         &s3.Object{Key: c.Prefix},
 				parsedKey:      key,
-				key:            c.Prefix,
 				isCommonPrefix: true,
 			}) {
 				return false
@@ -147,12 +143,8 @@ func s3list(ctx context.Context, svc *s3.S3, s3url *url.S3Url, emitChan chan<- i
 				continue
 			}
 			if !emit(&s3listItem{
+				Object:         c,
 				parsedKey:      key,
-				key:            c.Key,
-				size:           *c.Size,
-				lastModified:   c.LastModified,
-				class:          c.StorageClass,
-				ETag:           c.ETag,
 				isCommonPrefix: isCommonPrefix,
 			}) {
 				return false

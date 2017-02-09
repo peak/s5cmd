@@ -445,7 +445,7 @@ func (j *Job) Run(wp *WorkerParams) error {
 				return nil
 			}
 
-			return addArg(li.key)
+			return addArg(li.Key)
 		})
 
 		return wp.st.IncrementIfSuccess(stats.S3Op, err)
@@ -488,8 +488,8 @@ func (j *Job) Run(wp *WorkerParams) error {
 			}
 
 			arg1 := JobArgument{
-				"s3://" + j.args[0].s3.Bucket + "/" + *li.key,
-				&url.S3Url{Bucket: j.args[0].s3.Bucket, Key: *li.key},
+				"s3://" + j.args[0].s3.Bucket + "/" + *li.Key,
+				&url.S3Url{Bucket: j.args[0].s3.Bucket, Key: *li.Key},
 			}
 
 			var dstFn string
@@ -501,7 +501,7 @@ func (j *Job) Run(wp *WorkerParams) error {
 
 			arg2 := j.args[1].Clone().Append(dstFn, true)
 			subJob := j.MakeSubJob(subCmd, op.Download, []*JobArgument{&arg1, arg2}, j.opts)
-			if *li.class == s3.ObjectStorageClassGlacier {
+			if *li.StorageClass == s3.ObjectStorageClassGlacier {
 				subJob.out(shortErr, `"%s": Cannot download glacier object`, arg1.arg)
 				return nil
 			}
@@ -737,8 +737,8 @@ func (j *Job) Run(wp *WorkerParams) error {
 			}
 
 			arg1 := JobArgument{
-				"s3://" + j.args[0].s3.Bucket + "/" + *li.key,
-				&url.S3Url{Bucket: j.args[0].s3.Bucket, Key: *li.key},
+				"s3://" + j.args[0].s3.Bucket + "/" + *li.Key,
+				&url.S3Url{Bucket: j.args[0].s3.Bucket, Key: *li.Key},
 			}
 
 			var dstFn string
@@ -754,7 +754,7 @@ func (j *Job) Run(wp *WorkerParams) error {
 			}
 
 			subJob := j.MakeSubJob(subCmd, op.Copy, []*JobArgument{&arg1, &arg2}, j.opts)
-			if *li.class == s3.ObjectStorageClassGlacier {
+			if *li.StorageClass == s3.ObjectStorageClassGlacier {
 				subJob.out(shortErr, `"%s": Cannot download glacier object`, arg1.arg)
 				return nil
 			}
@@ -784,7 +784,7 @@ func (j *Job) Run(wp *WorkerParams) error {
 			} else {
 				var cls, etag string
 
-				switch *li.class {
+				switch *li.StorageClass {
 				case s3.ObjectStorageClassStandard:
 					cls = ""
 				case s3.ObjectStorageClassGlacier:
@@ -800,7 +800,7 @@ func (j *Job) Run(wp *WorkerParams) error {
 				if showETags {
 					etag = strings.Trim(*li.ETag, `"`)
 				}
-				j.out(shortOk, "%s %1s %-38s %12d  %s", li.lastModified.Format(dateFormat), cls, etag, li.size, li.parsedKey)
+				j.out(shortOk, "%s %1s %-38s %12d  %s", li.LastModified.Format(dateFormat), cls, etag, *li.Size, li.parsedKey)
 			}
 
 			return nil
@@ -814,7 +814,7 @@ func (j *Job) Run(wp *WorkerParams) error {
 			if li == nil || li.isCommonPrefix {
 				return nil
 			}
-			size += li.size
+			size += *li.Size
 			count++
 			return nil
 		})

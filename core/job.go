@@ -774,6 +774,7 @@ func (j *Job) Run(wp *WorkerParams) error {
 
 	case op.List:
 		showETags := j.opts.Has(opt.ListETags)
+		humanize := j.opts.Has(opt.HumanReadable)
 		err := s3wildOperation(j.args[0].s3, wp, func(li *s3listItem) *Job {
 			if li == nil {
 				return nil
@@ -782,7 +783,7 @@ func (j *Job) Run(wp *WorkerParams) error {
 			if li.isCommonPrefix {
 				j.out(shortOk, "%19s %1s %-38s  %12s  %s", "", "", "", "DIR", li.parsedKey)
 			} else {
-				var cls, etag string
+				var cls, etag, size string
 
 				switch *li.StorageClass {
 				case s3.ObjectStorageClassStandard:
@@ -800,7 +801,13 @@ func (j *Job) Run(wp *WorkerParams) error {
 				if showETags {
 					etag = strings.Trim(*li.ETag, `"`)
 				}
-				j.out(shortOk, "%s %1s %-38s %12d  %s", li.LastModified.Format(dateFormat), cls, etag, *li.Size, li.parsedKey)
+				if humanize {
+					size = HumanizeBytes(*li.Size)
+				} else {
+					size = fmt.Sprintf("%d", *li.Size)
+				}
+
+				j.out(shortOk, "%s %1s %-38s %12s  %s", li.LastModified.Format(dateFormat), cls, etag, size, li.parsedKey)
 			}
 
 			return nil
@@ -819,7 +826,11 @@ func (j *Job) Run(wp *WorkerParams) error {
 			return nil
 		})
 		if err == nil {
-			j.out(shortOk, "%d bytes in %d objects: %s", size, count, j.args[0].s3)
+			if j.opts.Has(opt.HumanReadable) {
+				j.out(shortOk, "%s bytes in %d objects: %s", HumanizeBytes(size), count, j.args[0].s3)
+			} else {
+				j.out(shortOk, "%d bytes in %d objects: %s", size, count, j.args[0].s3)
+			}
 		}
 		return wp.st.IncrementIfSuccess(stats.S3Op, err)
 

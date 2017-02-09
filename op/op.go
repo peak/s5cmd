@@ -174,5 +174,10 @@ func (o Operation) GetAcceptedOpts() *opt.OptionList {
 		l = append(l, opt.ListETags)
 	}
 
+	switch o {
+	case List, Size:
+		l = append(l, opt.HumanReadable)
+	}
+
 	return &l
 }

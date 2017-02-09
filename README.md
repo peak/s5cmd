@@ -66,6 +66,7 @@ There are three main commands: `cp`, `mv` and `rm`. Arguments can be either S3 u
 - Batch local-to-local `cp` and `mv` commands also accept the `-R` option for recursive operation.
 - The `ls` command accepts the `-e` option to show ETags in listing.
 - The `du` command only takes S3 arguments (prefix or wildcard)
+- `ls` and `du` commands both accept the `-h` option to show human-readable object sizes.
 
 
 ### Command examples ###

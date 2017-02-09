@@ -10,13 +10,14 @@ type OptionType int
 type OptionList []OptionType
 
 const (
-	DeleteSource OptionType = iota + 1 // Delete source file/object
-	IfNotExists                        // Run only if destination does not exist
-	Parents                            // Just like cp --parents
-	RR                                 // Reduced-redundancy
-	IA                                 // Infrequent-access
-	Recursive                          // Recursive copy/move (local)
-	ListETags                          // Include ETags in listing
+	DeleteSource  OptionType = iota + 1 // Delete source file/object
+	IfNotExists                         // Run only if destination does not exist
+	Parents                             // Just like cp --parents
+	RR                                  // Reduced-redundancy
+	IA                                  // Infrequent-access
+	Recursive                           // Recursive copy/move (local)
+	ListETags                           // Include ETags in listing
+	HumanReadable                       // Human Readable file sizes (ls, du)
 )
 
 // Has determines if the opt.OptionList contains this OptionType
@@ -44,6 +45,8 @@ func (o OptionType) GetParam() string {
 		return "-R"
 	case ListETags:
 		return "-e"
+	case HumanReadable:
+		return "-h"
 	}
 	return ""
 }

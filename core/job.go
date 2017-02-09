@@ -773,15 +773,16 @@ func (j *Job) Run(wp *WorkerParams) error {
 		return wp.st.IncrementIfSuccess(stats.S3Op, err)
 
 	case op.List:
+		showETags := j.opts.Has(opt.ListETags)
 		err := s3wildOperation(j.args[0].s3, wp, func(li *s3listItem) *Job {
 			if li == nil {
 				return nil
 			}
 
 			if li.isCommonPrefix {
-				j.out(shortOk, "%19s %1s  %12s  %s", "", "", "DIR", li.parsedKey)
+				j.out(shortOk, "%19s %1s %-38s  %12s  %s", "", "", "", "DIR", li.parsedKey)
 			} else {
-				var cls string
+				var cls, etag string
 
 				switch *li.class {
 				case s3.ObjectStorageClassStandard:
@@ -795,7 +796,11 @@ func (j *Job) Run(wp *WorkerParams) error {
 				default:
 					cls = "?"
 				}
-				j.out(shortOk, "%s %1s  %12d  %s", li.lastModified.Format(dateFormat), cls, li.size, li.parsedKey)
+
+				if showETags {
+					etag = strings.Trim(*li.ETag, `"`)
+				}
+				j.out(shortOk, "%s %1s %-38s %12d  %s", li.lastModified.Format(dateFormat), cls, etag, li.size, li.parsedKey)
 			}
 
 			return nil

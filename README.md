@@ -64,6 +64,7 @@ There are three main commands: `cp`, `mv` and `rm`. Arguments can be either S3 u
 - Uploading `cp` and `mv` commands accept the `-rr` and `-ia` options to store objects in reduced-redundancy and infrequent-access modes respectively.
 - Batch `cp` and `mv` commands also accept the `--parents` option to create the dir structure in destination. Dir structure is created from the first wildcard onwards.
 - Batch local-to-local `cp` and `mv` commands also accept the `-R` option for recursive operation.
+- The `ls` command accepts the `-e` option to show ETags in listing.
 - The `du` command only takes S3 arguments (prefix or wildcard)
 
 

@@ -169,5 +169,10 @@ func (o Operation) GetAcceptedOpts() *opt.OptionList {
 		l = append(l, opt.Recursive)
 	}
 
+	switch o {
+	case List:
+		l = append(l, opt.ListETags)
+	}
+
 	return &l
 }

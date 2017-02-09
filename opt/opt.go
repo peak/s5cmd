@@ -16,6 +16,7 @@ const (
 	RR                                 // Reduced-redundancy
 	IA                                 // Infrequent-access
 	Recursive                          // Recursive copy/move (local)
+	ListETags                          // Include ETags in listing
 )
 
 // Has determines if the opt.OptionList contains this OptionType
@@ -41,6 +42,8 @@ func (o OptionType) GetParam() string {
 		return "-ia"
 	case Recursive:
 		return "-R"
+	case ListETags:
+		return "-e"
 	}
 	return ""
 }

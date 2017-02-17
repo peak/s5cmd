@@ -39,7 +39,7 @@ func (s *CancelableScanner) Start() *CancelableScanner {
 	return s
 }
 
-// ReadOne reads one line from the started CancelableScanner, as well as listening to ctx.Done messages and optionally/continiously pumping *Jobs from the from<- chan to the to<- chan
+// ReadOne reads one line from the started CancelableScanner, as well as listening to ctx.Done messages and optionally/continuously pumping *Jobs from the from<- chan to the to<- chan
 func (s *CancelableScanner) ReadOne(from <-chan *Job, to chan<- *Job) (string, error) {
 	for {
 		select {

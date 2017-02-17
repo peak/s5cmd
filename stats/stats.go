@@ -13,7 +13,7 @@ const (
 	// S3Op is successful S3 operations
 	S3Op
 
-	// FileOp is sucessful File operations
+	// FileOp is successful File operations
 	FileOp
 
 	// ShellOp is successful shell invocations

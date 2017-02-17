@@ -45,7 +45,7 @@ See also: [Nested Commands](#nested-commands-basic)
 
 ## Single command invocation ##
 
-Single commands are also supported with the `s5cmd [command [params]]` syntax. If this syntax is used, two workers are launched by default.
+Single commands are also supported with the `s5cmd [command [params]]` syntax.
 
 ## Supported commands ##
 

@@ -48,6 +48,7 @@ func printUsageLine() {
 func main() {
 	const bytesInMb = float64(1024 * 1024)
 	const minNumWorkers = 2
+	const defaultNumWorkers = 256
 
 	var (
 		numWorkers         int
@@ -57,10 +58,9 @@ func main() {
 	)
 
 	defaultPartSize := int(math.Ceil(float64(s3manager.DefaultUploadPartSize) / bytesInMb)) // Convert to MB
-	defaultNumWorkers := 256
 
 	flag.StringVar(&cmdFile, "f", "", "Commands-file or - for stdin")
-	flag.IntVar(&numWorkers, "numworkers", defaultNumWorkers, fmt.Sprintf("Number of worker goroutines. Negative numbers mean multiples of runtime.NumCPU, currently %d", runtime.NumCPU()))
+	flag.IntVar(&numWorkers, "numworkers", defaultNumWorkers, fmt.Sprintf("Number of worker goroutines. Negative numbers mean multiples of the CPU core count."))
 	flag.IntVar(&multipartChunkSize, "cs", defaultPartSize, "Multipart chunk size in MB for uploads")
 	flag.IntVar(&retries, "r", 10, "Retry S3 operations N times before failing")
 	printStats := flag.Bool("stats", false, "Always print stats")

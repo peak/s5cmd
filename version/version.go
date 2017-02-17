@@ -1,4 +1,4 @@
-// This package will be auto-generated using version/cmd/generate.go
+// Package version will be auto-generated using version/cmd/generate.go
 package version
 
 // GitSummary will be the output of "git describe --tags --dirty --always"

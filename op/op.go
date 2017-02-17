@@ -1,4 +1,4 @@
-// Op package defines types of operations and their accepted options.
+// Package op defines types of operations and their accepted options.
 package op
 
 import (
@@ -10,6 +10,7 @@ import (
 // Operation is a type of our operations.
 type Operation int
 
+// List of Operations
 const (
 	Abort             Operation = iota // Abort program
 	Download                           // Download from S3 to local

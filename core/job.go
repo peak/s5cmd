@@ -139,7 +139,7 @@ func (j *Job) PrintOK(err AcceptableError) {
 	}
 
 	// Add successful jobs and considered-successful (finished with AcceptableError) jobs together
-	var totalSuccess uint32 = 0
+	var totalSuccess uint32
 	if j.numSuccess != nil {
 		totalSuccess += *j.numSuccess
 	}
@@ -163,6 +163,7 @@ func (j *Job) PrintOK(err AcceptableError) {
 	}
 }
 
+// PrintErr prints the error response from a Job
 func (j *Job) PrintErr(err error) {
 	if j.operation.IsInternal() {
 		// TODO are we sure about ignoring errors from internal jobs?
@@ -343,9 +344,9 @@ func (j *Job) Run(wp *WorkerParams) error {
 			if len(ma) == 0 {
 				if walkMode {
 					return nil // Directory empty
-				} else {
-					return errors.New("Could not find match for glob")
 				}
+
+				return errors.New("Could not find match for glob")
 			}
 
 			for _, f := range ma {

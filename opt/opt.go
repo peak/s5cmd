@@ -12,6 +12,7 @@ type OptionType int
 // OptionList is a slice of OptionTypes
 type OptionList []OptionType
 
+// List of OptionTypes
 const (
 	DeleteSource  OptionType = iota + 1 // Delete source file/object
 	IfNotExists                         // Run only if destination does not exist
@@ -64,6 +65,7 @@ func (o OptionType) GetParam() string {
 	return ""
 }
 
+// HelpMessage returns the help message for a specific OptionType
 func (o OptionType) HelpMessage() string {
 	switch o {
 	case IfNotExists:
@@ -117,6 +119,7 @@ func (l OptionList) GetParams() string {
 // ParamType is the type of our parameter. Determines how we validate the arguments.
 type ParamType int
 
+// List of ParamTypes
 const (
 	Unchecked          ParamType = iota // Arbitrary single parameter
 	UncheckedOneOrMore                  // One or more arbitrary parameters (special case)

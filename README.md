@@ -177,3 +177,9 @@ If failed jobs are present, process exits with code `127`. This can be overridde
 ## Environment Variables ##
 
 Set `S5CMD_GOPS` to always enable the [gops](https://github.com/google/gops) agent.
+
+## Supported platforms ##
+
+- s5cmd is tested on Linux and macOS. Should work on Windows, however not tested as of release time.
+- Go 1.7 and up is supported.
+- Use in production environments is OK. (it works fine for us -- but as always with trying out new tools, proceed with caution)

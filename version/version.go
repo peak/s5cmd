@@ -2,7 +2,7 @@
 package version
 
 // GitSummary will be the output of "git describe --tags --dirty --always"
-const GitSummary = "v0.0"
+const GitSummary = "v0.5"
 
 // GitBranch will be the output of "git symbolic-ref -q --short HEAD"
 const GitBranch = ""

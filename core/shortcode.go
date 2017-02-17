@@ -17,7 +17,7 @@ func (s shortCode) String() string {
 		return "-"
 	}
 	if s == shortInfo {
-		return "?"
+		return "#"
 	}
 	if s == shortOkWithError {
 		return "+?"

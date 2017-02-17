@@ -14,7 +14,7 @@ This will install `s5cmd` in your `$GOPATH/bin` directory.
 
 ## Usage ##
 
-```bash
+```
 $ ./s5cmd --help
 
 Usage: ./s5cmd [OPTION]... [COMMAND [PARAMS...]]

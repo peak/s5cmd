@@ -63,7 +63,7 @@ func main() {
 	flag.IntVar(&multipartChunkSize, "cs", defaultPartSize, "Multipart chunk size in MB for uploads")
 	flag.IntVar(&retries, "r", 10, "Retry S3 operations N times before failing")
 	printStats := flag.Bool("stats", false, "Always print stats")
-	version := flag.Bool("version", false, "Prints current version")
+	showVersion := flag.Bool("version", false, "Prints current version")
 	gops := flag.Bool("gops", false, "Initialize gops agent")
 
 	flag.Usage = func() {
@@ -79,7 +79,7 @@ func main() {
 		}
 	}
 
-	if *version {
+	if *showVersion {
 		fmt.Printf("s5cmd version %s", GitSummary)
 		if GitBranch != "" {
 			fmt.Printf(" (from branch %s)", GitBranch)

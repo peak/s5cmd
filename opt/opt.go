@@ -1,7 +1,10 @@
 // Package opt defines option and parameter types.
 package opt
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 // OptionType is a type for our options. These can be provided with optional parameters or can be already set in commandMap
 type OptionType int
@@ -19,6 +22,16 @@ const (
 	ListETags                           // Include ETags in listing
 	HumanReadable                       // Human Readable file sizes (ls, du)
 )
+
+var optionsHelpOrder = [...]OptionType{
+	IfNotExists,
+	Parents,
+	Recursive,
+	RR,
+	IA,
+	ListETags,
+	HumanReadable,
+}
 
 // Has determines if the opt.OptionList contains this OptionType
 func (l OptionList) Has(check OptionType) bool {
@@ -49,6 +62,39 @@ func (o OptionType) GetParam() string {
 		return "-h"
 	}
 	return ""
+}
+
+func (o OptionType) HelpMessage() string {
+	switch o {
+	case IfNotExists:
+		return "Do not overwrite existing files/objects (no-clobber)"
+	case Parents:
+		return "Create directory structure in destination, starting from the first wildcard"
+	case Recursive:
+		return "Recursive operation"
+	case RR:
+		return "Store with Reduced-Redundancy mode"
+	case IA:
+		return "Store with Infrequent-Access mode"
+	case ListETags:
+		return "Show ETags in listing"
+	case HumanReadable:
+		return "Human-readable output for file sizes"
+	}
+	return ""
+}
+
+// GetOptionList returns a text of accepted command options with their help messages
+func GetOptionList() string {
+	var out []string
+
+	// use the order in optionsHelpOrder
+	for _, o := range optionsHelpOrder {
+		str := fmt.Sprintf("  %-10s %s", o.GetParam(), o.HelpMessage())
+		out = append(out, str)
+	}
+
+	return strings.Join(out, "\n") + "\n"
 }
 
 // GetParams runs GetParam() on an opt.OptionList and returns a concatenated string

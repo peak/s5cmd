@@ -16,6 +16,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/google/gops/agent"
 	"github.com/peakgames/s5cmd/core"
+	"github.com/peakgames/s5cmd/opt"
 	"github.com/peakgames/s5cmd/stats"
 	"github.com/peakgames/s5cmd/version"
 )
@@ -90,6 +91,11 @@ func main() {
 
 	if flag.Arg(0) == "" && cmdFile == "" {
 		printUsageLine()
+
+		fmt.Fprint(os.Stderr, "Command options:\n")
+		fmt.Fprintf(os.Stderr, opt.GetOptionList())
+		fmt.Fprint(os.Stderr, "\n")
+
 		fmt.Fprint(os.Stderr, "Commands:\n")
 		fmt.Fprintf(os.Stderr, core.GetCommandList())
 		fmt.Fprint(os.Stderr, "\nTo list available options, run with the -h option.\n")

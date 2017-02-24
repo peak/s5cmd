@@ -33,6 +33,12 @@ func commandToConst(name, command string, args []string) string {
 	data := mustRunGetResult(command, args...)
 
 	ret := "\n// " + name + " is the output of \"" + command + " " + strings.Join(args, " ") + "\"\n"
+	switch name {
+	case "GitSummary":
+		ret += "// For release builds, manually edit this to reflect the released version tag.\n"
+	case "GitBranch":
+		ret += "// For release builds this should be left empty.\n"
+	}
 	ret += "const " + name + ` = "` + data + `"` + "\n"
 
 	return ret
@@ -47,11 +53,11 @@ func main() {
 	timestamp := time.Now().Format(time.UnixDate)
 
 	b := bytes.NewBuffer(nil)
-	fmt.Fprint(b, `// This package is auto-generated using version/cmd/generate.go
+	fmt.Fprint(b, `// Package version is auto-generated using version/cmd/generate.go on non-release builds.
 package version
 
 // AUTO-GENERATED. DO NOT EDIT
-// `+timestamp+"\n"+summary+branch+"\n")
+// `+timestamp+"\n"+summary+branch)
 	log.Printf("Writing %s...\n", destinationFile)
 	if err := ioutil.WriteFile(destinationFile, b.Bytes(), 0644); err != nil {
 		log.Fatal(err)

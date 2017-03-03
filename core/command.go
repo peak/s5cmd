@@ -76,6 +76,31 @@ var commands = []commandMap{
 	{"!", op.ShellExec, []opt.ParamType{opt.UncheckedOneOrMore}, opt.OptionList{}},
 }
 
+// String formats the commandMap using its operation and ParamTypes
+func (c *commandMap) String(optsOverride ...opt.OptionType) (s string) {
+	s = c.operation.String() + " (" + c.keyword + ")"
+
+	if len(optsOverride) > 0 {
+		s += " {opts:"
+		for _, o := range optsOverride {
+			s += " " + o.GetParam()
+		}
+		s += "}"
+	} else if len(c.opts) > 0 {
+		s += " {default opts:"
+		for _, o := range c.opts {
+			s += " " + o.GetParam()
+		}
+		s += "}"
+	}
+
+	for _, p := range c.params {
+		s += " [" + p.String() + "]"
+	}
+
+	return
+}
+
 // GetCommandList returns a text of accepted commands with their options and arguments
 func GetCommandList() string {
 

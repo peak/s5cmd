@@ -66,6 +66,7 @@ func main() {
 	printStats := flag.Bool("stats", false, "Always print stats")
 	showVersion := flag.Bool("version", false, "Prints current version")
 	gops := flag.Bool("gops", false, "Initialize gops agent")
+	verbose := flag.Bool("vv", false, "Verbose output")
 
 	flag.Usage = func() {
 		printUsageLine()
@@ -152,6 +153,8 @@ func main() {
 	}()
 
 	s := stats.Stats{}
+
+	core.Verbose = *verbose
 
 	wp := core.NewWorkerPool(ctx,
 		&core.WorkerPoolParams{

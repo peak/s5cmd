@@ -120,6 +120,7 @@ func (p *WorkerPool) runWorker(st *stats.Stats, idlingCounter *int32, id int) {
 	bkf.InitialInterval = time.Second
 	bkf.MaxInterval = time.Minute
 	bkf.Multiplier = 2
+	bkf.MaxElapsedTime = 0
 	bkf.Reset()
 
 	run := true

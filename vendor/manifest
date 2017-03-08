@@ -2,11 +2,75 @@
 	"version": 0,
 	"dependencies": [
 		{
-			"importpath": "github.com/aws/aws-sdk-go",
+			"importpath": "github.com/aws/aws-sdk-go/aws",
 			"repository": "https://github.com/aws/aws-sdk-go",
 			"vcs": "git",
-			"revision": "92ed7a76d078fc5b792a3b5c834274c8dc89d10a",
+			"revision": "d9caf90c8e590bdd2eaa074b1ff8c201dd56e57c",
 			"branch": "master",
+			"path": "aws",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/aws/aws-sdk-go/private/protocol",
+			"repository": "https://github.com/aws/aws-sdk-go",
+			"vcs": "git",
+			"revision": "d9caf90c8e590bdd2eaa074b1ff8c201dd56e57c",
+			"branch": "master",
+			"path": "private/protocol",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/aws/aws-sdk-go/private/waiter",
+			"repository": "https://github.com/aws/aws-sdk-go",
+			"vcs": "git",
+			"revision": "d9caf90c8e590bdd2eaa074b1ff8c201dd56e57c",
+			"branch": "master",
+			"path": "private/waiter",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/aws/aws-sdk-go/service/kms",
+			"repository": "https://github.com/aws/aws-sdk-go",
+			"vcs": "git",
+			"revision": "d9caf90c8e590bdd2eaa074b1ff8c201dd56e57c",
+			"branch": "master",
+			"path": "service/kms",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/aws/aws-sdk-go/service/s3",
+			"repository": "https://github.com/aws/aws-sdk-go",
+			"vcs": "git",
+			"revision": "d9caf90c8e590bdd2eaa074b1ff8c201dd56e57c",
+			"branch": "master",
+			"path": "/service/s3",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/aws/aws-sdk-go/service/sts",
+			"repository": "https://github.com/aws/aws-sdk-go",
+			"vcs": "git",
+			"revision": "d9caf90c8e590bdd2eaa074b1ff8c201dd56e57c",
+			"branch": "master",
+			"path": "service/sts",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/aws/aws-sdk-go/vendor/github.com/go-ini/ini",
+			"repository": "https://github.com/aws/aws-sdk-go",
+			"vcs": "git",
+			"revision": "d9caf90c8e590bdd2eaa074b1ff8c201dd56e57c",
+			"branch": "master",
+			"path": "vendor/github.com/go-ini/ini",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/aws/aws-sdk-go/vendor/github.com/jmespath/go-jmespath",
+			"repository": "https://github.com/aws/aws-sdk-go",
+			"vcs": "git",
+			"revision": "d9caf90c8e590bdd2eaa074b1ff8c201dd56e57c",
+			"branch": "master",
+			"path": "vendor/github.com/jmespath/go-jmespath",
 			"notests": true
 		},
 		{
@@ -14,14 +78,6 @@
 			"repository": "https://github.com/cenkalti/backoff",
 			"vcs": "git",
 			"revision": "b02f2bbce11d7ea6b97f282ef1771b0fe2f65ef3",
-			"branch": "master",
-			"notests": true
-		},
-		{
-			"importpath": "github.com/termie/go-shutil",
-			"repository": "https://github.com/termie/go-shutil",
-			"vcs": "git",
-			"revision": "bcacb06fecaeec8dc42af03c87c6949f4a05c74c",
 			"branch": "master",
 			"notests": true
 		},
@@ -50,6 +106,14 @@
 			"revision": "0e47ba961c6854dba59ae5cb22fc42cafd3d4cc6",
 			"branch": "master",
 			"path": "signal",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/termie/go-shutil",
+			"repository": "https://github.com/termie/go-shutil",
+			"vcs": "git",
+			"revision": "bcacb06fecaeec8dc42af03c87c6949f4a05c74c",
+			"branch": "master",
 			"notests": true
 		},
 		{

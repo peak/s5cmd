@@ -37,7 +37,7 @@ func IsRetryableError(err error) (string, bool) {
 
 			errCode := awsErr.Code()
 			switch errCode {
-			case "SlowDown", "SerializationError":
+			case "SlowDown", "SerializationError", "RequestError":
 				return errCode, true
 			}
 
@@ -50,7 +50,7 @@ func IsRetryableError(err error) (string, bool) {
 				//fmt.Println("reqErr", reqErr.StatusCode(), reqErr.RequestID())
 				errCode = reqErr.Code()
 				switch errCode {
-				case "InternalError", "SerializationError":
+				case "InternalError", "SerializationError", "RequestError":
 					return errCode, true
 				}
 				status := reqErr.StatusCode()

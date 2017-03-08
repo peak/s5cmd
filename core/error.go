@@ -41,6 +41,10 @@ func IsRetryableError(err error) (string, bool) {
 				return errCode, true
 			}
 
+			if origCode, origRetryable := IsRetryableError(awsErr.OrigErr()); origRetryable {
+				return origCode, true
+			}
+
 			if reqErr, ok := err.(awserr.RequestFailure); ok {
 				// A service error occurred
 				//fmt.Println("reqErr", reqErr.StatusCode(), reqErr.RequestID())

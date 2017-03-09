@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 )
 
@@ -89,6 +88,7 @@ func IsAcceptableError(err error) AcceptableError {
 func recoverer(ch chan error, where string, failed *bool) {
 	if r := recover(); r != nil {
 		ch <- awserr.New(sdkPanicErrCode, fmt.Sprintf("Caught %s panic", where), fmt.Errorf("%s: %v", where, r))
-		failed = aws.Bool(true)
+		f := true
+		failed = &f
 	}
 }

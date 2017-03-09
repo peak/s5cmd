@@ -621,11 +621,21 @@ func (j *Job) Run(wp *WorkerParams) error {
 		ch := make(chan error, 1)
 
 		go func() {
-			_, err := wp.s3dl.Download(f, &s3.GetObjectInput{
-				Bucket: aws.String(j.args[0].s3.Bucket),
-				Key:    aws.String(j.args[0].s3.Key),
-			})
-			ch <- err
+			var (
+				err      error
+				panicked bool
+			)
+			(func() {
+				defer recoverer(ch, "s3manager.Download", &panicked)
+
+				_, err = wp.s3dl.Download(f, &s3.GetObjectInput{
+					Bucket: aws.String(j.args[0].s3.Bucket),
+					Key:    aws.String(j.args[0].s3.Key),
+				})
+			})()
+			if !panicked {
+				ch <- err
+			}
 			close(ch)
 		}()
 
@@ -697,16 +707,26 @@ func (j *Job) Run(wp *WorkerParams) error {
 				cls = s3.ObjectStorageClassStandard
 			}
 
-			_, err := wp.s3ul.Upload(&s3manager.UploadInput{
-				Bucket:       aws.String(j.args[1].s3.Bucket),
-				Key:          aws.String(j.args[1].s3.Key),
-				Body:         f,
-				StorageClass: aws.String(cls),
-			}, func(u *s3manager.Uploader) {
-				u.PartSize = chunkSizeInBytes
-			})
+			var (
+				err      error
+				panicked bool
+			)
 
-			ch <- err
+			(func() {
+				defer recoverer(ch, "s3manager.Upload", &panicked)
+
+				_, err = wp.s3ul.Upload(&s3manager.UploadInput{
+					Bucket:       aws.String(j.args[1].s3.Bucket),
+					Key:          aws.String(j.args[1].s3.Key),
+					Body:         f,
+					StorageClass: aws.String(cls),
+				}, func(u *s3manager.Uploader) {
+					u.PartSize = chunkSizeInBytes
+				})
+			})()
+			if !panicked {
+				ch <- err
+			}
 			close(ch)
 		}(chunkSize * int64(bytesInMb))
 

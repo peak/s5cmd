@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 )
+
+const sdkPanicErrCode = "SdkPanic"
 
 // AcceptableError interface defines an error which is OK-to-have, for things like "cp -n" etc. It should not be treated as an error (regarding the exit code etc)
 type AcceptableError interface {
@@ -37,7 +40,7 @@ func IsRetryableError(err error) (string, bool) {
 
 			errCode := awsErr.Code()
 			switch errCode {
-			case "SlowDown", "SerializationError", "RequestError":
+			case "SlowDown", "SerializationError", "RequestError", sdkPanicErrCode:
 				return errCode, true
 			}
 
@@ -81,4 +84,11 @@ func IsAcceptableError(err error) AcceptableError {
 		return nil
 	}
 	return e
+}
+
+func recoverer(ch chan error, where string, failed *bool) {
+	if r := recover(); r != nil {
+		ch <- awserr.New(sdkPanicErrCode, fmt.Sprintf("Caught %s panic", where), fmt.Errorf("%s: %v", where, r))
+		failed = aws.Bool(true)
+	}
 }

@@ -1,0 +1,81 @@
+{
+    "memo": "5a715bfa63c3fbf2162d7da5325c523299a96919f54dd71083de0b0e5172fcc5",
+    "projects": [
+        {
+            "name": "github.com/aws/aws-sdk-go",
+            "version": "v1.7.5",
+            "revision": "fa1a4bc634fffa6ac468d8fb217e05475e063440",
+            "packages": [
+                "aws",
+                "aws/awserr",
+                "aws/awsutil",
+                "aws/client",
+                "aws/client/metadata",
+                "aws/corehandlers",
+                "aws/credentials",
+                "aws/credentials/ec2rolecreds",
+                "aws/credentials/endpointcreds",
+                "aws/credentials/stscreds",
+                "aws/defaults",
+                "aws/ec2metadata",
+                "aws/endpoints",
+                "aws/request",
+                "aws/session",
+                "aws/signer/v4",
+                "private/protocol",
+                "private/protocol/query",
+                "private/protocol/query/queryutil",
+                "private/protocol/rest",
+                "private/protocol/restxml",
+                "private/protocol/xml/xmlutil",
+                "private/waiter",
+                "service/s3",
+                "service/s3/s3iface",
+                "service/s3/s3manager",
+                "service/sts"
+            ]
+        },
+        {
+            "name": "github.com/cenkalti/backoff",
+            "version": "v1.0.0",
+            "revision": "32cd0c5b3aef12c76ed64aaf678f6c79736be7dc",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "github.com/go-ini/ini",
+            "version": "v1.27.0",
+            "revision": "e7fea39b01aea8d5671f6858f0532f56e8bff3a5",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "github.com/google/gops",
+            "version": "v0.3.1",
+            "revision": "6364e368a3bea7731188ee232c553996007a6eab",
+            "packages": [
+                "agent",
+                "internal",
+                "signal"
+            ]
+        },
+        {
+            "name": "github.com/jmespath/go-jmespath",
+            "version": "0.2.2",
+            "revision": "3433f3ea46d9f8019119e7dd41274e112a2359a9",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "github.com/termie/go-shutil",
+            "branch": "master",
+            "revision": "bcacb06fecaeec8dc42af03c87c6949f4a05c74c",
+            "packages": [
+                "."
+            ]
+        }
+    ]
+}

@@ -1,0 +1,13 @@
+{
+    "dependencies": {
+        "github.com/aws/aws-sdk-go": {
+            "version": "v1.7.5"
+        },
+        "github.com/cenkalti/backoff": {
+            "version": "v1.0.0"
+        },
+        "github.com/google/gops": {
+            "version": "v0.3.1"
+        }
+    }
+}

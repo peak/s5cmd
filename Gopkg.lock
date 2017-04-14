@@ -1,0 +1,43 @@
+memo = "c6d006bed246651b8246a26a957d62a68e078c732268cf0a0072eaa4661839a9"
+
+[[projects]]
+  name = "github.com/aws/aws-sdk-go"
+  packages = ["aws","aws/awserr","aws/awsutil","aws/client","aws/client/metadata","aws/corehandlers","aws/credentials","aws/credentials/ec2rolecreds","aws/credentials/endpointcreds","aws/credentials/stscreds","aws/defaults","aws/ec2metadata","aws/endpoints","aws/request","aws/session","aws/signer/v4","private/protocol","private/protocol/json/jsonutil","private/protocol/jsonrpc","private/protocol/query","private/protocol/query/queryutil","private/protocol/rest","private/protocol/restxml","private/protocol/xml/xmlutil","private/waiter","service/kms","service/kms/kmsiface","service/s3","service/s3/s3iface","service/s3/s3manager","service/sts"]
+  revision = "fa1a4bc634fffa6ac468d8fb217e05475e063440"
+  version = "v1.7.5"
+
+[[projects]]
+  name = "github.com/cenkalti/backoff"
+  packages = ["."]
+  revision = "32cd0c5b3aef12c76ed64aaf678f6c79736be7dc"
+  version = "v1.0.0"
+
+[[projects]]
+  name = "github.com/go-ini/ini"
+  packages = ["."]
+  revision = "e7fea39b01aea8d5671f6858f0532f56e8bff3a5"
+  version = "v1.27.0"
+
+[[projects]]
+  name = "github.com/google/gops"
+  packages = ["agent","internal","internal/dwarf","internal/obj","internal/sys","signal"]
+  revision = "fa6968806ca68b7db113256f300d82b5206a2c3c"
+  version = "v0.3.1"
+
+[[projects]]
+  name = "github.com/jmespath/go-jmespath"
+  packages = ["."]
+  revision = "3433f3ea46d9f8019119e7dd41274e112a2359a9"
+  version = "0.2.2"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/termie/go-shutil"
+  packages = ["."]
+  revision = "bcacb06fecaeec8dc42af03c87c6949f4a05c74c"
+
+[[projects]]
+  branch = "master"
+  name = "golang.org/x/arch"
+  packages = ["arm/armasm","ppc64/ppc64asm","x86/x86asm"]
+  revision = "c49399feb886d517c56e0647781d1c4aee30a77b"

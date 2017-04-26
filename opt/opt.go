@@ -22,6 +22,7 @@ const (
 	Recursive                           // Recursive copy/move (local)
 	ListETags                           // Include ETags in listing
 	HumanReadable                       // Human Readable file sizes (ls, du)
+	GroupByClass                        // Group by storage class (du)
 )
 
 var optionsHelpOrder = [...]OptionType{
@@ -32,6 +33,7 @@ var optionsHelpOrder = [...]OptionType{
 	IA,
 	ListETags,
 	HumanReadable,
+	GroupByClass,
 }
 
 // Has determines if the opt.OptionList contains this OptionType
@@ -61,6 +63,8 @@ func (o OptionType) GetParam() string {
 		return "-e"
 	case HumanReadable:
 		return "-h"
+	case GroupByClass:
+		return "-g"
 	}
 	return ""
 }
@@ -82,6 +86,8 @@ func (o OptionType) HelpMessage() string {
 		return "Show ETags in listing"
 	case HumanReadable:
 		return "Human-readable output for file sizes"
+	case GroupByClass:
+		return "Group sizes by storage class"
 	}
 	return ""
 }

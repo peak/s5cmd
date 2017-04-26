@@ -837,20 +837,39 @@ func (j *Job) Run(wp *WorkerParams) error {
 		return wp.st.IncrementIfSuccess(stats.S3Op, err)
 
 	case op.Size:
-		var size, count int64
+		type sizeAndCount struct {
+			size  int64
+			count int64
+		}
+		totals := map[string]sizeAndCount{}
 		err := s3wildOperation(j.args[0].s3, wp, func(li *s3listItem) *Job {
 			if li == nil || li.isCommonPrefix {
 				return nil
 			}
-			size += *li.Size
-			count++
+			s := totals[*li.StorageClass]
+			s.size += *li.Size
+			s.count++
+			totals[*li.StorageClass] = s
+
 			return nil
 		})
 		if err == nil {
-			if j.opts.Has(opt.HumanReadable) {
-				j.out(shortOk, "%s bytes in %d objects: %s", HumanizeBytes(size), count, j.args[0].s3)
-			} else {
-				j.out(shortOk, "%d bytes in %d objects: %s", size, count, j.args[0].s3)
+			sz := sizeAndCount{}
+			if !j.opts.Has(opt.GroupByClass) {
+				for k, v := range totals {
+					sz.size += v.size
+					sz.count += v.count
+					delete(totals, k)
+				}
+				totals["Total"] = sz
+			}
+
+			for k, v := range totals {
+				if j.opts.Has(opt.HumanReadable) {
+					j.out(shortOk, "%s bytes in %d objects: %s [%s]", HumanizeBytes(v.size), v.count, j.args[0].s3, k)
+				} else {
+					j.out(shortOk, "%d bytes in %d objects: %s [%s]", v.size, v.count, j.args[0].s3, k)
+				}
 			}
 		}
 		return wp.st.IncrementIfSuccess(stats.S3Op, err)

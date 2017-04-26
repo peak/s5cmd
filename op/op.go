@@ -180,5 +180,10 @@ func (o Operation) GetAcceptedOpts() *opt.OptionList {
 		l = append(l, opt.HumanReadable)
 	}
 
+	switch o {
+	case Size:
+		l = append(l, opt.GroupByClass)
+	}
+
 	return &l
 }

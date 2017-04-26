@@ -72,6 +72,7 @@ There are three main commands: `cp`, `mv` and `rm`. Arguments can be either S3 u
 - The `ls` command accepts the `-e` option to show ETags in listing.
 - The `du` command only takes S3 arguments (prefix or wildcard)
 - `ls` and `du` commands both accept the `-h` option to show human-readable object sizes.
+- `du` command also accepts the `-g` option to group by storage class.
 
 
 ### Command examples ###

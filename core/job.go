@@ -931,7 +931,6 @@ func wildOperation(wp *WorkerParams, lister wildLister, callback wildCallback) e
 					select {
 					case *wp.subJobQueue <- j:
 					case <-wp.ctx.Done():
-						subjobStats.Done() // undo last Add()
 						return
 					}
 				}
@@ -951,7 +950,18 @@ func wildOperation(wp *WorkerParams, lister wildLister, callback wildCallback) e
 		<-closer // Wait for EOF on goroutine
 		verboseLog("wildOperation all subjobs sent")
 
-		subjobStats.Wait() // Wait for all jobs to finish
+		closer = make(chan bool)
+		go func() {
+			subjobStats.Wait() // Wait for all jobs to finish
+			close(closer)
+		}()
+
+		// Block until waitgroup is finished or we're cancelled (then it won't finish)
+		select {
+		case <-closer:
+		case <-wp.ctx.Done():
+		}
+
 		s := atomic.LoadUint32(&(subjobStats.numSuccess))
 		verboseLog("wildOperation all subjobs finished: %d/%d", s, subJobCounter)
 

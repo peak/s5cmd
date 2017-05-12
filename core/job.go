@@ -1,7 +1,6 @@
 package core
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -12,8 +11,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
@@ -40,13 +39,18 @@ type Job struct {
 	operation          op.Operation
 	args               []*JobArgument
 	opts               opt.OptionList
-	successCommand     *Job       // Next job to run if this one is successful
-	failCommand        *Job       // .. if unsuccessful
-	notifyChan         *chan bool // Ptr to chan to notify the job's success or fail
+	successCommand     *Job             // Next job to run if this one is successful
+	failCommand        *Job             // ... if unsuccessful
+	subJobData         *subjobStatsType // WaitGroup and success counter for sub-jobs launched from this job using wildOperation()
 	isSubJob           bool
 	numSuccess         *uint32 // Number of affected objects (only on batch operations)
 	numFails           *uint32
 	numAcceptableFails *uint32
+}
+
+type subjobStatsType struct {
+	sync.WaitGroup
+	numSuccess uint32 // FIXME is it possible to use job.numSuccess instead?
 }
 
 // String formats the job using its command and arguments.
@@ -179,27 +183,15 @@ func (j *Job) PrintErr(err error) {
 	}
 }
 
-// Notify informs the job's notify chan if the job failed or succeeded.
-func (j *Job) Notify(ctx context.Context, err error) {
-	if j.notifyChan == nil {
+// Notify informs the parent/issuer job if the job succeeded or failed.
+func (j *Job) Notify(success bool) {
+	if j.subJobData == nil {
 		return
 	}
-	res := err == nil
-
-	for {
-		select {
-		case *j.notifyChan <- res:
-			return
-		default:
-		}
-		select {
-		case <-ctx.Done():
-			return
-		default:
-		}
-		j.out(shortInfo, "Waiting to notify %s", j.String())
-		time.Sleep(time.Second)
+	if success {
+		atomic.AddUint32(&(j.subJobData.numSuccess), 1)
 	}
+	j.subJobData.Done()
 }
 
 var (
@@ -918,8 +910,8 @@ Midway-failing lister() fns are not thoroughly tested and may hang or panic
 func wildOperation(wp *WorkerParams, lister wildLister, callback wildCallback) error {
 	ch := make(chan interface{})
 	closer := make(chan bool)
-	notifyChan := make(chan bool)
-	var subJobCounter uint32 // number of total subJobs issued
+	subjobStats := subjobStatsType{} // Tally successful and total processed sub-jobs here
+	var subJobCounter uint32         // number of total subJobs issued
 
 	// This goroutine will read ls results from ch and issue new subJobs
 	go func() {
@@ -933,9 +925,15 @@ func wildOperation(wp *WorkerParams, lister wildLister, callback wildCallback) e
 				}
 				j := callback(data)
 				if j != nil {
-					j.notifyChan = &notifyChan
+					j.subJobData = &subjobStats
+					subjobStats.Add(1)
 					subJobCounter++
-					*wp.subJobQueue <- j
+					select {
+					case *wp.subJobQueue <- j:
+					case <-wp.ctx.Done():
+						subjobStats.Done() // undo last Add()
+						return
+					}
 				}
 				if data == nil {
 					// End of listing
@@ -945,48 +943,30 @@ func wildOperation(wp *WorkerParams, lister wildLister, callback wildCallback) e
 		}
 	}()
 
-	var (
-		successfulSubJobs uint32
-		processedSubJobs  uint32
-	)
-	// This goroutine will tally successful and total processed sub-jobs
-	go func() {
-		for {
-			select {
-			case res, ok := <-notifyChan:
-				if !ok {
-					return
-				}
-				atomic.AddUint32(&processedSubJobs, 1)
-				if res {
-					atomic.AddUint32(&successfulSubJobs, 1)
-				}
-			}
-		}
-	}()
-
 	// Do the actual work
 	err := lister(ch)
 	if err == nil {
+		if Verbose {
+			fmt.Println("VERBOSE: wildOperation lister is done without error")
+		}
 		// This select ensures that we don't return to the main loop without completely getting the list results (and queueing up operations on subJobQueue)
 		<-closer // Wait for EOF on goroutine
-
-		var p, s uint32
-		for { // wait for all jobs to finish
-			p = atomic.LoadUint32(&processedSubJobs)
-			if p < subJobCounter {
-				time.Sleep(time.Second)
-			} else {
-				break
-			}
+		if Verbose {
+			fmt.Println("VERBOSE: wildOperation all subjobs sent")
 		}
-
-		s = atomic.LoadUint32(&successfulSubJobs)
+		subjobStats.Wait() // Wait for all jobs to finish
+		s := atomic.LoadUint32(&(subjobStats.numSuccess))
+		if Verbose {
+			fmt.Printf("VERBOSE: wildOperation all subjobs finished: %d/%d\n", s, subJobCounter)
+		}
 		if s != subJobCounter {
 			err = fmt.Errorf("Not all jobs completed successfully: %d/%d", s, subJobCounter)
 		}
+	} else {
+		if Verbose {
+			fmt.Printf("VERBOSE: wildOperation lister is done with error: %v\n", err)
+		}
 	}
 	close(ch)
-	close(notifyChan)
 	return err
 }

@@ -184,11 +184,11 @@ func (p *WorkerPool) runWorker(st *stats.Stats, idlingCounter *int32, id int) {
 
 					job.PrintErr(err)
 					wp.st.Increment(stats.Fail)
-					job.Notify(p.ctx, err)
+					job.Notify(false)
 					job = job.failCommand
 				} else {
 					job.PrintOK(acceptableErr)
-					job.Notify(p.ctx, nil)
+					job.Notify(true)
 					job = job.successCommand
 				}
 				tries = 0

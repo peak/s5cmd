@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/endpoints"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
@@ -72,7 +73,7 @@ func NewWorkerPool(ctx context.Context, params *WorkerPoolParams, st *stats.Stat
 	ses := newSession(awsCfg)
 
 	if (*ses).Config.Region == nil || *(*ses).Config.Region == "" { // No region specified in env or config, fallback to us-east-1
-		awsCfg = awsCfg.WithRegion("us-east-1")
+		awsCfg = awsCfg.WithRegion(endpoints.UsEast1RegionID)
 		ses = newSession(awsCfg)
 	}
 

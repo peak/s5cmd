@@ -158,7 +158,7 @@ func main() {
 
 	wp := core.NewWorkerPool(ctx,
 		&core.WorkerPoolParams{
-			NumWorkers:     uint32(numWorkers),
+			NumWorkers:     numWorkers,
 			ChunkSizeBytes: multipartChunkSizeBytes,
 			Retries:        retries,
 		}, &s)

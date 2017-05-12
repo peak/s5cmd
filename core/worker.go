@@ -20,7 +20,7 @@ import (
 
 // WorkerPoolParams is the common parameters of all worker pools.
 type WorkerPoolParams struct {
-	NumWorkers     uint32
+	NumWorkers     int
 	ChunkSizeBytes int64
 	Retries        int
 }
@@ -79,21 +79,19 @@ func NewWorkerPool(ctx context.Context, params *WorkerPoolParams, st *stats.Stat
 	cancelFunc := ctx.Value(CancelFuncKey).(context.CancelFunc)
 
 	p := &WorkerPool{
-		ctx:           ctx,
-		params:        params,
-		jobQueue:      make(chan *Job),
-		subJobQueue:   make(chan *Job),
-		wg:            &sync.WaitGroup{},
-		awsSession:    ses,
-		cancelFunc:    cancelFunc,
-		st:            st,
-		idlingCounter: 0,
+		ctx:         ctx,
+		params:      params,
+		jobQueue:    make(chan *Job),
+		subJobQueue: make(chan *Job),
+		wg:          &sync.WaitGroup{},
+		awsSession:  ses,
+		cancelFunc:  cancelFunc,
+		st:          st,
 	}
 
-	var i uint32
-	for i = 0; i < params.NumWorkers; i++ {
+	for i := 0; i < params.NumWorkers; i++ {
 		p.wg.Add(1)
-		go p.runWorker(st, &p.idlingCounter, int(i))
+		go p.runWorker(st, &p.idlingCounter, i)
 	}
 
 	return p

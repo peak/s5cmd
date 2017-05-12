@@ -240,7 +240,11 @@ func (p *WorkerPool) pumpJobQueues() {
 			return
 		case j, ok := <-p.subJobQueue:
 			if ok {
-				p.jobQueue <- j
+				select {
+				case p.jobQueue <- j:
+				case <-p.ctx.Done():
+					return
+				}
 			}
 		}
 	}

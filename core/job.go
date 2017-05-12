@@ -946,26 +946,20 @@ func wildOperation(wp *WorkerParams, lister wildLister, callback wildCallback) e
 	// Do the actual work
 	err := lister(ch)
 	if err == nil {
-		if Verbose {
-			fmt.Println("VERBOSE: wildOperation lister is done without error")
-		}
+		verboseLog("wildOperation lister is done without error")
 		// This select ensures that we don't return to the main loop without completely getting the list results (and queueing up operations on subJobQueue)
 		<-closer // Wait for EOF on goroutine
-		if Verbose {
-			fmt.Println("VERBOSE: wildOperation all subjobs sent")
-		}
+		verboseLog("wildOperation all subjobs sent")
+
 		subjobStats.Wait() // Wait for all jobs to finish
 		s := atomic.LoadUint32(&(subjobStats.numSuccess))
-		if Verbose {
-			fmt.Printf("VERBOSE: wildOperation all subjobs finished: %d/%d\n", s, subJobCounter)
-		}
+		verboseLog("wildOperation all subjobs finished: %d/%d", s, subJobCounter)
+
 		if s != subJobCounter {
 			err = fmt.Errorf("Not all jobs completed successfully: %d/%d", s, subJobCounter)
 		}
 	} else {
-		if Verbose {
-			fmt.Printf("VERBOSE: wildOperation lister is done with error: %v\n", err)
-		}
+		verboseLog("wildOperation lister is done with error: %v", err)
 	}
 	close(ch)
 	return err

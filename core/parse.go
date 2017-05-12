@@ -27,8 +27,6 @@ var (
 	regexCmdOr = regexp.MustCompile(`^\s*(.+?)\s*\|\|\s*(.+?)\s*$`)
 )
 
-var Verbose bool
-
 func isGlob(s string) bool {
 	return strings.ContainsAny(s, GlobCharacters)
 }
@@ -317,14 +315,10 @@ func parseSingleJob(jobdesc string) (*Job, error) {
 			for i, t := range c.params { // check if param types match
 				a, parseArgErr = parseArgumentByType(parts[fileArgsStartPosition+i], t, fnObj)
 				if parseArgErr != nil {
-					if Verbose {
-						fmt.Printf("VERBOSE: Error parsing %s as %s: %s\n", parts[fileArgsStartPosition+i], t.String(), parseArgErr.Error())
-					}
+					verboseLog("Error parsing %s as %s: %s", parts[fileArgsStartPosition+i], t.String(), parseArgErr.Error())
 					break
 				}
-				if Verbose {
-					fmt.Printf("VERBOSE: Parsed %s as %s\n", parts[fileArgsStartPosition+i], t.String())
-				}
+				verboseLog("Parsed %s as %s", parts[fileArgsStartPosition+i], t.String())
 
 				ourJob.args = append(ourJob.args, a)
 
@@ -341,27 +335,19 @@ func parseSingleJob(jobdesc string) (*Job, error) {
 					}
 					a, parseArgErr = parseArgumentByType(p, lastType, fnObj)
 					if parseArgErr != nil {
-						if Verbose {
-							fmt.Printf("VERBOSE: Error parsing %s as %s: %s\n", p, lastType.String(), parseArgErr.Error())
-						}
+						verboseLog("Error parsing %s as %s: %s", p, lastType.String(), parseArgErr.Error())
 						break
 					}
-					if Verbose {
-						fmt.Printf("VERBOSE: Parsed %s as %s\n", p, lastType.String())
-					}
+					verboseLog("Parsed %s as %s", p, lastType.String())
 					ourJob.args = append(ourJob.args, a)
 				}
 			}
 			if parseArgErr != nil {
-				if Verbose {
-					fmt.Printf("VERBOSE: Our command doesn't look to be a %s\n", c.String())
-				}
+				verboseLog("Our command doesn't look to be a %s", c.String())
 				continue // Not our command, try another
 			}
 
-			if Verbose {
-				fmt.Printf("VERBOSE: Our command looks to be a %s\n", c.String(ourJob.opts...))
-			}
+			verboseLog("Our command looks to be a %s", c.String(ourJob.opts...))
 
 			return ourJob, nil
 		}

@@ -341,7 +341,9 @@ func parseSingleJob(jobdesc string) (*Job, error) {
 					}
 					a, parseArgErr = parseArgumentByType(p, lastType, fnObj)
 					if parseArgErr != nil {
-						fmt.Printf("VERBOSE: Error parsing %s as %s: %s\n", p, lastType.String(), parseArgErr.Error())
+						if Verbose {
+							fmt.Printf("VERBOSE: Error parsing %s as %s: %s\n", p, lastType.String(), parseArgErr.Error())
+						}
 						break
 					}
 					if Verbose {

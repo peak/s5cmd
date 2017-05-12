@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -102,7 +103,9 @@ func NewWorkerPool(ctx context.Context, params *WorkerPoolParams, st *stats.Stat
 // runWorker is the main function of a single worker.
 func (p *WorkerPool) runWorker(st *stats.Stats, idlingCounter *int32, id int) {
 	defer p.wg.Done()
-	//defer log.Print("# Exiting goroutine", id)
+	if Verbose {
+		defer fmt.Printf("VERBOSE: Exiting goroutine %d\n", id)
+	}
 
 	wp := WorkerParams{
 		s3.New(p.awsSession),
@@ -146,7 +149,9 @@ func (p *WorkerPool) runWorker(st *stats.Stats, idlingCounter *int32, id int) {
 
 		case job, ok := <-p.jobQueue:
 			if !ok {
-				//log.Print("Channel closed", id)
+				if Verbose {
+					fmt.Printf("VERBOSE: Channel closed %d\n", id)
+				}
 				goto endfor
 			}
 
@@ -217,12 +222,17 @@ func (p *WorkerPool) queueJob(job *Job) bool {
 }
 
 func (p *WorkerPool) pumpJobQueues() {
+	if Verbose {
+		fmt.Println("VERBOSE: Start pumping...")
+	}
 	var idc int32
-
 	for {
 		select {
 		case <-time.After(2 * time.Second):
 			idc = atomic.LoadInt32(&p.idlingCounter)
+			if Verbose {
+				fmt.Printf("VERBOSE: idlingCounter is %d, expected to be %d\n", idc, p.params.NumWorkers)
+			}
 			if idc == int32(p.params.NumWorkers) {
 				log.Print("# All workers idle, finishing up...")
 				return

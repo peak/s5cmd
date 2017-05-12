@@ -88,7 +88,7 @@ func NewWorkerPool(ctx context.Context, params *WorkerPoolParams, st *stats.Stat
 		awsSession:    ses,
 		cancelFunc:    cancelFunc,
 		st:            st,
-		idlingCounter: int32(params.NumWorkers),
+		idlingCounter: 0,
 	}
 
 	var i uint32
@@ -140,11 +140,11 @@ func (p *WorkerPool) runWorker(st *stats.Stats, idlingCounter *int32, id int) {
 			lastSetIdle = false
 		}
 	}
+	defer setIdle()
 
 	for run {
-		setWorking()
 		select {
-		case <-time.After(1 * time.Second):
+		case <-time.After(100 * time.Millisecond):
 			setIdle()
 
 		case job, ok := <-p.jobQueue:
@@ -152,8 +152,9 @@ func (p *WorkerPool) runWorker(st *stats.Stats, idlingCounter *int32, id int) {
 				if Verbose {
 					fmt.Printf("VERBOSE: Channel closed %d\n", id)
 				}
-				goto endfor
+				return
 			}
+			setWorking()
 
 			tries := 0
 			for job != nil {
@@ -195,11 +196,9 @@ func (p *WorkerPool) runWorker(st *stats.Stats, idlingCounter *int32, id int) {
 			}
 
 		case <-p.ctx.Done():
-			goto endfor
+			return
 		}
 	}
-endfor:
-	setIdle()
 }
 
 func (p *WorkerPool) parseJob(line string) *Job {
@@ -228,7 +227,7 @@ func (p *WorkerPool) pumpJobQueues() {
 	var idc int32
 	for {
 		select {
-		case <-time.After(2 * time.Second):
+		case <-time.After(500 * time.Millisecond):
 			idc = atomic.LoadInt32(&p.idlingCounter)
 			if Verbose {
 				fmt.Printf("VERBOSE: idlingCounter is %d, expected to be %d\n", idc, p.params.NumWorkers)

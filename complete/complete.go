@@ -46,6 +46,7 @@ func ParseFlagsAndRun() bool {
 				return ret
 			}),
 			"-cs":      cmp.PredictSet("5", "16", "64", "128", "256"),
+			"-h":       cmp.PredictNothing,
 			"-r":       cmp.PredictSet("0", "1", "2", "10", "100"),
 			"-stats":   cmp.PredictNothing,
 			"-version": cmp.PredictNothing,

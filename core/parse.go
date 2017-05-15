@@ -262,19 +262,19 @@ func parseSingleJob(jobdesc string) (*Job, error) {
 
 	found := -1
 	var parseArgErr error
-	for i, c := range commands {
-		if parts[0] == c.keyword { // The first token is the name of our command, "cp", "mv" etc.
+	for i, c := range Commands {
+		if parts[0] == c.Keyword { // The first token is the name of our command, "cp", "mv" etc.
 			found = i // Save the id of the last matching command, we will use this in our error message if needed
 
 			// Enrich our skeleton Job with default values for this specific command
-			ourJob.command = c.keyword
-			ourJob.operation = c.operation
+			ourJob.command = c.Keyword
+			ourJob.operation = c.Operation
 			ourJob.args = []*JobArgument{}
-			ourJob.opts = c.opts
+			ourJob.opts = c.Opts
 
 			// Parse options below, until endOptParse
 			fileArgsStartPosition := 1 // Position where the real file/s3 arguments start. Before this comes the options/flags.
-			acceptedOpts := c.operation.GetAcceptedOpts()
+			acceptedOpts := c.Operation.GetAcceptedOpts()
 			for k := 1; k < len(parts); k++ {
 				if parts[k][0] != '-' { // If it doesn't look like an option, end option parsing
 					fileArgsStartPosition = k
@@ -296,9 +296,9 @@ func parseSingleJob(jobdesc string) (*Job, error) {
 		endOptParse:
 			// Check number of arguments
 			suppliedParamCount := len(parts) - fileArgsStartPosition // Number of arguments/params (sans options and the command name itself)
-			minCount := len(c.params) // Minimum number of parameters needed
+			minCount := len(c.Params) // Minimum number of parameters needed
 			maxCount := minCount      // Maximum
-			if minCount > 0 && c.params[minCount-1] == opt.UncheckedOneOrMore {
+			if minCount > 0 && c.Params[minCount-1] == opt.UncheckedOneOrMore {
 				maxCount = -1 // Accept unlimited parameters if the last param is opt.UncheckedOneOrMore
 			}
 			if suppliedParamCount < minCount || (maxCount > -1 && suppliedParamCount > maxCount) { // Check if param counts are acceptable
@@ -312,7 +312,7 @@ func parseSingleJob(jobdesc string) (*Job, error) {
 			parseArgErr = nil
 			lastType := opt.UncheckedOneOrMore
 			maxI := fileArgsStartPosition
-			for i, t := range c.params { // check if param types match
+			for i, t := range c.Params { // check if param types match
 				a, parseArgErr = parseArgumentByType(parts[fileArgsStartPosition+i], t, fnObj)
 				if parseArgErr != nil {
 					verboseLog("Error parsing %s as %s: %s", parts[fileArgsStartPosition+i], t.String(), parseArgErr.Error())
@@ -355,7 +355,7 @@ func parseSingleJob(jobdesc string) (*Job, error) {
 
 	if found >= 0 {
 		if parseArgErr != nil {
-			return nil, fmt.Errorf(`Invalid parameters to "%s": %s`, commands[found].keyword, parseArgErr.Error())
+			return nil, fmt.Errorf(`Invalid parameters to "%s": %s`, Commands[found].Keyword, parseArgErr.Error())
 		}
 		return nil, fmt.Errorf(`Invalid parameters to "%s"`, parts[0])
 	}

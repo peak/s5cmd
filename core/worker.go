@@ -51,9 +51,9 @@ type WorkerParams struct {
 	idlingCounter *int32
 }
 
-// NewWorkerPool creates a new worker pool and start the workers.
-func NewWorkerPool(ctx context.Context, params *WorkerPoolParams, st *stats.Stats) *WorkerPool {
-	newSession := func(c *aws.Config) *session.Session {
+// NewAwsSession initializes a new AWS session with region fallback and custom options
+func NewAwsSession(maxRetries int) (*session.Session, error) {
+	newSession := func(c *aws.Config) (*session.Session, error) {
 		useSharedConfig := session.SharedConfigEnable
 
 		// Reverse of what the SDK does: if AWS_SDK_LOAD_CONFIG is 0 (or a falsy value) disable shared configs
@@ -63,18 +63,28 @@ func NewWorkerPool(ctx context.Context, params *WorkerPoolParams, st *stats.Stat
 				useSharedConfig = session.SharedConfigDisable
 			}
 		}
-		ses, err := session.NewSessionWithOptions(session.Options{Config: *c, SharedConfigState: useSharedConfig})
-		if err != nil {
-			log.Fatal(err)
-		}
-		return ses
+		return session.NewSessionWithOptions(session.Options{Config: *c, SharedConfigState: useSharedConfig})
 	}
-	awsCfg := aws.NewConfig().WithMaxRetries(params.Retries) //.WithLogLevel(aws.LogDebug))
-	ses := newSession(awsCfg)
+
+	awsCfg := aws.NewConfig().WithMaxRetries(maxRetries) //.WithLogLevel(aws.LogDebug))
+	ses, err := newSession(awsCfg)
+	if err != nil {
+		return nil, err
+	}
 
 	if (*ses).Config.Region == nil || *(*ses).Config.Region == "" { // No region specified in env or config, fallback to us-east-1
 		awsCfg = awsCfg.WithRegion(endpoints.UsEast1RegionID)
-		ses = newSession(awsCfg)
+		ses, err = newSession(awsCfg)
+	}
+
+	return ses, err
+}
+
+// NewWorkerPool creates a new worker pool and start the workers.
+func NewWorkerPool(ctx context.Context, params *WorkerPoolParams, st *stats.Stats) *WorkerPool {
+	ses, err := NewAwsSession(params.Retries)
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	cancelFunc := ctx.Value(CancelFuncKey).(context.CancelFunc)

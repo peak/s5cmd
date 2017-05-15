@@ -15,6 +15,8 @@ import (
 
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/google/gops/agent"
+
+	"github.com/peakgames/s5cmd/complete"
 	"github.com/peakgames/s5cmd/core"
 	"github.com/peakgames/s5cmd/opt"
 	"github.com/peakgames/s5cmd/stats"
@@ -73,7 +75,11 @@ func main() {
 		flag.PrintDefaults()
 		fmt.Fprint(os.Stderr, "\nTo list available commands, run without arguments.\n")
 	}
-	flag.Parse()
+
+	//flag.Parse()
+	if complete.ParseFlagsAndRun() {
+		os.Exit(0)
+	}
 
 	if *gops || os.Getenv("S5CMD_GOPS") != "" {
 		if err := agent.Listen(&agent.Options{NoShutdownCleanup: true}); err != nil {

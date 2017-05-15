@@ -8,14 +8,20 @@ import (
 	"github.com/peakgames/s5cmd/opt"
 )
 
-type commandMap struct {
-	keyword   string
-	operation op.Operation
-	params    []opt.ParamType
-	opts      opt.OptionList
+// CommandMap describes each command
+type CommandMap struct {
+	// Keyword is the command's invocation name
+	Keyword string
+	// Operation is the operation to invoke when this command runs
+	Operation op.Operation
+	// Params are the accepted parameter types
+	Params []opt.ParamType
+	// Opts are the options to invoke the operation with, when this command is run
+	Opts opt.OptionList
 }
 
-var commands = []commandMap{
+// Commands is a list of registered commands
+var Commands = []CommandMap{
 	{"exit", op.Abort, []opt.ParamType{}, opt.OptionList{}},
 	{"exit", op.Abort, []opt.ParamType{opt.Unchecked}, opt.OptionList{}},
 
@@ -76,34 +82,33 @@ var commands = []commandMap{
 	{"!", op.ShellExec, []opt.ParamType{opt.UncheckedOneOrMore}, opt.OptionList{}},
 }
 
-// String formats the commandMap using its operation and ParamTypes
-func (c *commandMap) String(optsOverride ...opt.OptionType) (s string) {
-	s = c.operation.String() + " (" + c.keyword + ")"
+// String formats the CommandMap using its Operation and ParamTypes
+func (c *CommandMap) String(optsOverride ...opt.OptionType) (s string) {
+	s = c.Operation.String() + " (" + c.Keyword + ")"
 
 	if len(optsOverride) > 0 {
-		s += " {opts:"
+		s += " {Opts:"
 		for _, o := range optsOverride {
 			s += " " + o.GetParam()
 		}
 		s += "}"
-	} else if len(c.opts) > 0 {
-		s += " {default opts:"
-		for _, o := range c.opts {
+	} else if len(c.Opts) > 0 {
+		s += " {default Opts:"
+		for _, o := range c.Opts {
 			s += " " + o.GetParam()
 		}
 		s += "}"
 	}
 
-	for _, p := range c.params {
+	for _, p := range c.Params {
 		s += " [" + p.String() + "]"
 	}
 
 	return
 }
 
-// GetCommandList returns a text of accepted commands with their options and arguments
+// GetCommandList returns a text of accepted Commands with their options and arguments
 func GetCommandList() string {
-
 	list := make(map[string][]string, 0)
 	overrides := map[op.Operation]string{
 		op.Abort:     "exit [exit code]",
@@ -112,11 +117,11 @@ func GetCommandList() string {
 
 	var lastDesc string
 	var l []string
-	for _, c := range commands {
-		if c.operation.IsInternal() {
+	for _, c := range Commands {
+		if c.Operation.IsInternal() {
 			continue
 		}
-		desc := c.operation.Describe(c.opts)
+		desc := c.Operation.Describe(c.Opts)
 		if lastDesc != desc {
 			if len(l) > 0 {
 				list[lastDesc] = l
@@ -125,19 +130,19 @@ func GetCommandList() string {
 			lastDesc = desc
 		}
 
-		if override, ok := overrides[c.operation]; ok {
+		if override, ok := overrides[c.Operation]; ok {
 			list[desc] = []string{override}
 			lastDesc = ""
 			l = nil
 			continue
 		}
 
-		s := c.keyword
-		ao := c.operation.GetAcceptedOpts()
+		s := c.Keyword
+		ao := c.Operation.GetAcceptedOpts()
 		for _, p := range *ao {
 			s += " [" + p.GetParam() + "]"
 		}
-		for _, pt := range c.params {
+		for _, pt := range c.Params {
 			s += " " + pt.String()
 		}
 		s = strings.Replace(s, " [-rr] [-ia] ", " [-rr|-ia] ", -1)

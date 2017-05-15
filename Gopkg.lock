@@ -1,4 +1,4 @@
-memo = "57c17fa69c2e5a1d7586aa2bafe02165614f13c39c92a26d2b9670ab6eb82235"
+memo = "0887bca6ac5c084c50be2a3ad14cf662655b5cd164bf78e91bf43f7bab9c21fc"
 
 [[projects]]
   name = "github.com/aws/aws-sdk-go"
@@ -25,10 +25,27 @@ memo = "57c17fa69c2e5a1d7586aa2bafe02165614f13c39c92a26d2b9670ab6eb82235"
   version = "v0.3.1"
 
 [[projects]]
+  branch = "master"
+  name = "github.com/hashicorp/errwrap"
+  packages = ["."]
+  revision = "7554cd9344cec97297fa6649b055a8c98c2a1e55"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/hashicorp/go-multierror"
+  packages = ["."]
+  revision = "ed905158d87462226a13fe39ddf685ea65f1c11f"
+
+[[projects]]
   name = "github.com/jmespath/go-jmespath"
   packages = ["."]
   revision = "3433f3ea46d9f8019119e7dd41274e112a2359a9"
   version = "0.2.2"
+
+[[projects]]
+  name = "github.com/posener/complete"
+  packages = [".","cmd","cmd/install","match"]
+  revision = "75e4e53b5f947d05387dce5519b0c4bf19ea5e98"
 
 [[projects]]
   branch = "master"

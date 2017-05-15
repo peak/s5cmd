@@ -1,16 +1,15 @@
-
 [[dependencies]]
   name = "github.com/aws/aws-sdk-go"
-  version = "1.7.5"
+  version = "1.8.22"
 
 [[dependencies]]
   name = "github.com/cenkalti/backoff"
-  version = "v1.0.0"
+  version = "1.0.0"
 
 [[dependencies]]
   name = "github.com/google/gops"
-  version = "v0.3.1"
+  version = "0.3.1"
 
 [[dependencies]]
   branch = "master"
-  name = "golang.org/x/arch"
+  name = "github.com/termie/go-shutil"

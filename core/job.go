@@ -451,7 +451,7 @@ func (j *Job) Run(wp *WorkerParams) error {
 			}
 			obj[i-1] = &s3.ObjectIdentifier{Key: aws.String(a.arg)}
 		}
-		o, err := wp.s3svc.DeleteObjects(&s3.DeleteObjectsInput{
+		o, err := wp.s3svc.DeleteObjectsWithContext(wp.ctx, &s3.DeleteObjectsInput{
 			Bucket: aws.String(j.args[0].s3.Bucket),
 			Delete: &s3.Delete{
 				Objects: obj,
@@ -620,7 +620,7 @@ func (j *Job) Run(wp *WorkerParams) error {
 			(func() {
 				defer recoverer(ch, "s3manager.Download", &panicked)
 
-				_, err = wp.s3dl.Download(f, &s3.GetObjectInput{
+				_, err = wp.s3dl.DownloadWithContext(wp.ctx, f, &s3.GetObjectInput{
 					Bucket: aws.String(j.args[0].s3.Bucket),
 					Key:    aws.String(j.args[0].s3.Key),
 				})
@@ -707,7 +707,7 @@ func (j *Job) Run(wp *WorkerParams) error {
 			(func() {
 				defer recoverer(ch, "s3manager.Upload", &panicked)
 
-				_, err = wp.s3ul.Upload(&s3manager.UploadInput{
+				_, err = wp.s3ul.UploadWithContext(wp.ctx, &s3manager.UploadInput{
 					Bucket:       aws.String(j.args[1].s3.Bucket),
 					Key:          aws.String(j.args[1].s3.Key),
 					Body:         f,
@@ -777,7 +777,7 @@ func (j *Job) Run(wp *WorkerParams) error {
 		return wp.st.IncrementIfSuccess(stats.S3Op, err)
 
 	case op.ListBuckets:
-		o, err := wp.s3svc.ListBuckets(&s3.ListBucketsInput{})
+		o, err := wp.s3svc.ListBucketsWithContext(wp.ctx, &s3.ListBucketsInput{})
 		if err == nil {
 			for _, b := range o.Buckets {
 				j.out(shortOk, "%s  s3://%s", b.CreationDate.Format(dateFormat), *b.Name)

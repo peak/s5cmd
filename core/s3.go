@@ -116,7 +116,7 @@ func s3list(ctx context.Context, svc *s3.S3, s3url *url.S3Url, emitChan chan<- i
 		}
 	}
 
-	err = svc.ListObjectsV2Pages(&inp, func(p *s3.ListObjectsV2Output, lastPage bool) bool {
+	err = svc.ListObjectsV2PagesWithContext(ctx, &inp, func(p *s3.ListObjectsV2Output, lastPage bool) bool {
 		if isCanceled() {
 			return false
 		}

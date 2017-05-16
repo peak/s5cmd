@@ -22,7 +22,7 @@ can also be used to implement any completions, see [Usage](#usage).
 
 1. Type in your shell:
 ```
-go install github.com/posener/complete/gocomplete
+go get github.com/posener/complete/gocomplete
 gocomplete -install
 ```
 
@@ -85,14 +85,19 @@ func main() {
 
 		// define flags of the 'run' main command
 		Flags: complete.Flags{
-
-			// a flag '-h' which does not expects anything after it
-			"-h": complete.PredictNothing,
-
 			// a flag -o, which expects a file ending with .out after
 			// it, the tab completion will auto complete for files matching
 			// the given pattern.
 			"-o": complete.PredictFiles("*.out"),
+		},
+
+		// define gloabl flags of the 'run' main command
+		// those will show up also when a sub command was entered in the
+		// command line
+		Flags: complete.Flags{
+
+			// a flag '-h' which does not expects anything after it
+			"-h": complete.PredictNothing,
 		},
 	}
 

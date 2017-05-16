@@ -15,6 +15,10 @@ type Command struct {
 	// The key is the flag name, and the value is it's predictions.
 	Flags Flags
 
+	// GlobalFlags is a map of flags that the command accepts.
+	// Global flags that can appear also after a sub command.
+	GlobalFlags Flags
+
 	// Args are extra arguments that the command accepts, those who are
 	// given without any flag before.
 	Args Predictor
@@ -58,14 +62,7 @@ func (f Flags) Predict(a Args) (prediction []string) {
 // and other flags or sub commands can't come after it.
 func (c *Command) predict(a Args) (options []string, only bool) {
 
-	// if wordCompleted has something that needs to follow it,
-	// it is the most relevant completion
-	if predictor, ok := c.Flags[a.LastCompleted]; ok && predictor != nil {
-		Log("Predicting according to flag %s", a.Last)
-		return predictor.Predict(a), true
-	}
-
-	// search sub commands for predictions
+	// search sub commands for predictions first
 	subCommandFound := false
 	for i, arg := range a.Completed {
 		if cmd, ok := c.Sub[arg]; ok {
@@ -79,15 +76,28 @@ func (c *Command) predict(a Args) (options []string, only bool) {
 		}
 	}
 
-	// if no sub command was found, return a list of the sub commands
-	if !subCommandFound {
-		options = append(options, c.Sub.Predict(a)...)
+	// if last completed word is a global flag that we need to complete
+	if predictor, ok := c.GlobalFlags[a.LastCompleted]; ok && predictor != nil {
+		Log("Predicting according to global flag %s", a.LastCompleted)
+		return predictor.Predict(a), true
 	}
 
-	// add global available complete options
-	options = append(options, c.Flags.Predict(a)...)
+	options = append(options, c.GlobalFlags.Predict(a)...)
 
-	// add additional expected argument of the command
+	// if a sub command was entered, we won't add the parent command
+	// completions and we return here.
+	if subCommandFound {
+		return
+	}
+
+	// if last completed word is a command flag that we need to complete
+	if predictor, ok := c.Flags[a.LastCompleted]; ok && predictor != nil {
+		Log("Predicting according to flag %s", a.LastCompleted)
+		return predictor.Predict(a), true
+	}
+
+	options = append(options, c.Sub.Predict(a)...)
+	options = append(options, c.Flags.Predict(a)...)
 	if c.Args != nil {
 		options = append(options, c.Args.Predict(a)...)
 	}

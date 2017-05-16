@@ -11,34 +11,28 @@ func TestCompleter_Complete(t *testing.T) {
 	initTests()
 
 	c := Command{
-		Sub: map[string]Command{
+		Sub: Commands{
 			"sub1": {
-				Flags: map[string]Predictor{
+				Flags: Flags{
 					"-flag1": PredictAnything,
 					"-flag2": PredictNothing,
 				},
 			},
 			"sub2": {
-				Flags: map[string]Predictor{
+				Flags: Flags{
 					"-flag2": PredictNothing,
 					"-flag3": PredictSet("opt1", "opt2", "opt12"),
 				},
 				Args: PredictFiles("*.md"),
 			},
 		},
-		Flags: map[string]Predictor{
+		Flags: Flags{
+			"-o": PredictFiles("*.txt"),
+		},
+		GlobalFlags: Flags{
 			"-h":       PredictNothing,
 			"-global1": PredictAnything,
-			"-o":       PredictFiles("*.txt"),
 		},
-	}
-
-	allGlobals := []string{}
-	for sub := range c.Sub {
-		allGlobals = append(allGlobals, sub)
-	}
-	for flag := range c.Flags {
-		allGlobals = append(allGlobals, flag)
 	}
 
 	testTXTFiles := []string{"./a.txt", "./b.txt", "./c.txt", "./.dot.txt"}
@@ -49,7 +43,7 @@ func TestCompleter_Complete(t *testing.T) {
 	}{
 		{
 			args: "",
-			want: allGlobals,
+			want: []string{"sub1", "sub2", "-h", "-global1", "-o"},
 		},
 		{
 			args: "-",
@@ -57,7 +51,7 @@ func TestCompleter_Complete(t *testing.T) {
 		},
 		{
 			args: "-h ",
-			want: allGlobals,
+			want: []string{"sub1", "sub2", "-h", "-global1", "-o"},
 		},
 		{
 			args: "-global1 ", // global1 is known follow flag
@@ -77,11 +71,11 @@ func TestCompleter_Complete(t *testing.T) {
 		},
 		{
 			args: "sub1 ",
-			want: []string{"-flag1", "-flag2", "-h", "-global1", "-o"},
+			want: []string{"-flag1", "-flag2", "-h", "-global1"},
 		},
 		{
 			args: "sub2 ",
-			want: []string{"./", "./dir/", "./outer/", "./readme.md", "-flag2", "-flag3", "-h", "-global1", "-o"},
+			want: []string{"./", "./dir/", "./outer/", "./readme.md", "-flag2", "-flag3", "-h", "-global1"},
 		},
 		{
 			args: "sub2 ./",
@@ -93,7 +87,7 @@ func TestCompleter_Complete(t *testing.T) {
 		},
 		{
 			args: "sub2 -flag2 ",
-			want: []string{"./", "./dir/", "./outer/", "./readme.md", "-flag2", "-flag3", "-h", "-global1", "-o"},
+			want: []string{"./", "./dir/", "./outer/", "./readme.md", "-flag2", "-flag3", "-h", "-global1"},
 		},
 		{
 			args: "sub1 -fl",
@@ -109,7 +103,7 @@ func TestCompleter_Complete(t *testing.T) {
 		},
 		{
 			args: "sub1 -flag2 ",
-			want: []string{"-flag1", "-flag2", "-h", "-global1", "-o"},
+			want: []string{"-flag1", "-flag2", "-h", "-global1"},
 		},
 		{
 			args: "-no-such-flag",
@@ -117,7 +111,7 @@ func TestCompleter_Complete(t *testing.T) {
 		},
 		{
 			args: "-no-such-flag ",
-			want: allGlobals,
+			want: []string{"sub1", "sub2", "-h", "-global1", "-o"},
 		},
 		{
 			args: "no-such-command",
@@ -125,7 +119,7 @@ func TestCompleter_Complete(t *testing.T) {
 		},
 		{
 			args: "no-such-command ",
-			want: allGlobals,
+			want: []string{"sub1", "sub2", "-h", "-global1", "-o"},
 		},
 		{
 			args: "-o ",
@@ -149,7 +143,7 @@ func TestCompleter_Complete(t *testing.T) {
 		},
 		{
 			args: "-o ./readme.md ",
-			want: allGlobals,
+			want: []string{"sub1", "sub2", "-h", "-global1", "-o"},
 		},
 		{
 			args: "-o sub2 -flag3 ",

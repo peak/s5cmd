@@ -13,3 +13,7 @@
 [[dependencies]]
   branch = "master"
   name = "github.com/termie/go-shutil"
+
+[[dependencies]]
+  name = "github.com/posener/complete"
+  revision = "659bd9e3d5a0113fb862bcbd06a983b0e74e8df7"

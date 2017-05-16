@@ -4,8 +4,6 @@ import (
 	"context"
 	"flag"
 	"math"
-	"os"
-	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -21,8 +19,6 @@ import (
 )
 
 const (
-	envComplete = "COMP_LINE"
-
 	s3CompletionTimeout = 5 * time.Second
 	s3MaxKeys           = 20
 	s3MaxPages          = 1
@@ -56,43 +52,12 @@ func ParseFlagsAndRun() bool {
 		Sub: getSubCommands(),
 	}
 
-	if subCommandsExist() {
-		completer.Flags = nil
-	}
-
 	cli := cmp.New("s5cmd", completer)
 	cli.AddFlags(nil, "cmp-install", "cmp-uninstall")
 
 	flag.Parse()
 
 	return cli.Run()
-}
-
-// subCommandsExist is checks if we have a subcommand in the autocomplete env or not
-func subCommandsExist() bool {
-	ln := os.Getenv(envComplete)
-	if ln == "" {
-		return false
-	}
-
-	execName := filepath.Base(os.Args[0])
-	lineParts := strings.Split(ln, " ")
-	for i, part := range lineParts {
-		part = strings.TrimSpace(part)
-		if part == "" {
-			continue
-		}
-		if i == 0 { // first arg may be the executable name, but maybe not?
-			basePart := filepath.Base(part)
-			if basePart == execName {
-				continue
-			}
-		}
-		if part[0] != '-' { // subcommand detection
-			return true
-		}
-	}
-	return false
 }
 
 // getSubCommands returns a command vs. flag list for shell completion. It merges each Keyword and its flags into a single list.

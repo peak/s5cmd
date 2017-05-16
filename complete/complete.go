@@ -172,8 +172,9 @@ func getSubCommands() cmp.Commands {
 }
 
 func s3predictor(a cmp.Args) []string {
-	if a.Last == "" {
-		return []string{"s3://"}
+	if a.Last == "" || a.Last == "s3" || a.Last == "s3:" || a.Last == "s3:/" {
+		// Return more than one match so that after "s5cmd ls s3<tab>" completes to s3://, double <tab> lists the buckets without the need for a backspace
+		return []string{"s3://a-bucket", "s3://my-bucket"}
 	}
 
 	if !strings.HasPrefix(a.Last, "s3://") {

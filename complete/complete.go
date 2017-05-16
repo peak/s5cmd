@@ -224,7 +224,12 @@ func s3predictor(a cmp.Args) []string {
 			}
 		}
 
-		return ret
+		// if only 1 match, fall through and list objects in the bucket
+		if len(ret) != 1 {
+			return ret
+		}
+
+		s3bucket = strings.TrimRight(ret[0][5:], "/") // "s3://bucket/" to "bucket"
 	}
 
 	if s3bucket != "" {

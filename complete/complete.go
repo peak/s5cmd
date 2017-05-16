@@ -2,6 +2,7 @@ package complete
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"math"
 	"runtime"
@@ -25,7 +26,10 @@ const (
 )
 
 // ParseFlagsAndRun will initialize shell-completion, and introduce the shell completion specific options. It also calls flag.Parse()
-func ParseFlagsAndRun() bool {
+func ParseFlagsAndRun() (bool, error) {
+	doInstall := flag.Bool("cmp-install", false, "Install shell completion")
+	doUninstall := flag.Bool("cmp-uninstall", false, "Uninstall shell completion")
+
 	completer := cmp.Command{
 		Flags: cmp.Flags{
 			"-f": cmp.PredictOr(cmp.PredictSet("-"), cmp.PredictFiles("*")),
@@ -41,23 +45,30 @@ func ParseFlagsAndRun() bool {
 				}
 				return ret
 			}),
-			"-cs":      cmp.PredictSet("5", "16", "64", "128", "256"),
-			"-h":       cmp.PredictNothing,
-			"-r":       cmp.PredictSet("0", "1", "2", "10", "100"),
-			"-stats":   cmp.PredictNothing,
-			"-version": cmp.PredictNothing,
-			"-gops":    cmp.PredictNothing,
-			"-vv":      cmp.PredictNothing,
+			"-cs":            cmp.PredictSet("5", "16", "64", "128", "256"),
+			"-cmp-install":   cmp.PredictSet("assume-yes"),
+			"-cmp-uninstall": cmp.PredictSet("assume-yes"),
+			"-h":             cmp.PredictNothing,
+			"-r":             cmp.PredictSet("0", "1", "2", "10", "100"),
+			"-stats":         cmp.PredictNothing,
+			"-version":       cmp.PredictNothing,
+			"-gops":          cmp.PredictNothing,
+			"-vv":            cmp.PredictNothing,
 		},
 		Sub: getSubCommands(),
 	}
 
-	cli := cmp.New("s5cmd", completer)
-	cli.AddFlags(nil, "cmp-install", "cmp-uninstall")
-
 	flag.Parse()
 
-	return cli.Run()
+	cc := cmp.New("s5cmd", completer)
+
+	if *doInstall && *doUninstall {
+		return false, errors.New("Install and uninstall are mutually exclusive")
+	} else if *doInstall || *doUninstall {
+		return true, setupCompletion(*doInstall)
+	}
+
+	return cc.Run(), nil
 }
 
 // getSubCommands returns a command vs. flag list for shell completion. It merges each Keyword and its flags into a single list.

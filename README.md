@@ -25,9 +25,9 @@ $ ./s5cmd --help
 Usage: ./s5cmd [OPTION]... [COMMAND [PARAMS...]]
 
   -cmp-install
-        Install completion for s5cmd command
+        Install shell completion
   -cmp-uninstall
-        Uninstall completion for s5cmd command
+        Uninstall shell completion
   -cs int
         Multipart chunk size in MB for uploads (default 5, auto calculated)
   -f string
@@ -188,22 +188,16 @@ If failed jobs are present, process exits with code `127`. This can be overridde
 
 Set `S5CMD_GOPS` to always enable the [gops](https://github.com/google/gops) agent.
 
-## Shell Autocompletion ##
+## Shell Auto-Completion ##
 
 Bash and zsh shell completion is supported, utilizing [posener/complete](https://github.com/posener/complete). Tool and subcommand parameters, local files/dirs, as well as remote (S3) buckets and objects are supported.
 
 ### Installation ###
-To enable, run:
+To enable auto-completion, run:
 ```
 s5cmd -cmp-install
 ```
-This will add a line to your `.bashrc` or `.zshrc` file. Additionally for bash, to be able to complete S3 URIs (recommended) you'll need to add this line to `.bashrc`:
-```
-COMP_WORDBREAKS=${COMP_WORDBREAKS//:}
-```
-This will remove the colon (`:`) character from the current shell's completion word-break character list. There are other workarounds, but this seems to be simpler and the recommended way.
-
-After completing these steps, run `source .bashrc` (or restart your shell) to activate the changes.
+This will add a few lines (depending on configuration) to your `.bashrc` or `.zshrc` file. After installation, run `source .bashrc` (or restart your shell) to activate the changes.
 
 ### Usage ###
 

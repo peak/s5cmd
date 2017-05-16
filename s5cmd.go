@@ -77,7 +77,9 @@ func main() {
 	}
 
 	//flag.Parse()
-	if complete.ParseFlagsAndRun() {
+	if done, err := complete.ParseFlagsAndRun(); err != nil {
+		log.Fatal("-ERR " + err.Error())
+	} else if done {
 		os.Exit(0)
 	}
 

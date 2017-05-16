@@ -256,6 +256,11 @@ func s3predictor(a cmp.Args) []string {
 			return page < s3MaxPages
 		})
 
+		// If no s3key given, add the bare bucket name to our results
+		if s3key == "" {
+			ret = append(ret, prefix)
+		}
+
 		return ret
 	}
 

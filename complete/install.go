@@ -36,8 +36,9 @@ var shellSetups = map[string]shellSetupType{
 	"zsh": {
 		configFile: ".zshrc",
 		requiredLines: []string{
-			"autoload -U +X bashcompinit && bashcompinit",
-			"complete -C %binary %command",
+			// From http://blogs.perl.org/users/perlancar/2014/11/comparing-programmable-tab-completion-in-bash-zsh-tcsh-and-fish.html
+			`_s5cmd_completer() { read -l; local cl="$REPLY"; read -ln; local cp="$REPLY"; reply=(` + "`" + `COMP_SHELL=zsh COMP_LINE="$cl" COMP_POINT="$cp" %binary` + "`" + `) }`,
+			`compctl -K _s5cmd_completer s5cmd`,
 		},
 	},
 }

@@ -16,6 +16,7 @@ import (
 //
 // + On install, will add COMP_WORDBREAKS if it's not already there
 // + On uninstall, remove only what's added and nothing else
+// - On uninstall, will not save/backup the unmodified file (FIXME)
 // - Less modular/magical, no interfaces etc.
 //
 
@@ -156,7 +157,6 @@ func setupCompletion(install bool) error {
 	}
 	if !takenAction {
 		fmt.Println("No action taken")
-		return nil
 	}
 	return nil
 }

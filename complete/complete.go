@@ -202,7 +202,8 @@ func s3predictor(a cmp.Args) []string {
 		return nil
 	}
 	client := s3.New(ses)
-	ctx, _ := context.WithTimeout(context.Background(), s3CompletionTimeout)
+	ctx, canceler := context.WithTimeout(context.Background(), s3CompletionTimeout)
+	defer canceler() // avoid a leak and make go vet happy
 
 	// No object key and (no bucket or not ending in slash char): get S3 buckets
 	if s3key == "" && (s3bucket == "" || !endsInSlash) {

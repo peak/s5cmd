@@ -249,6 +249,11 @@ func s3predictor(a cmp.Args) []string {
 			}
 
 			for _, q := range o.Contents {
+				// Ignore the 0-byte "*_$folder$" objects in shell completion, created by s3n
+				if *q.Size == 0 && strings.HasSuffix(*q.Key, "_$folder$") {
+					continue
+				}
+
 				ret = append(ret, prefix+*q.Key)
 			}
 

@@ -17,6 +17,12 @@ go get -u github.com/peakgames/s5cmd
 
 This will install `s5cmd` in your `$GOPATH/bin` directory.
 
+## Demo ##
+
+![demo1](./doc/recording1.gif)
+
+![demo2](./doc/recording2.gif)
+
 ## Usage ##
 
 ```

@@ -14,7 +14,7 @@ type JobArgument struct {
 }
 
 // Clone duplicates a JobArgument and returns a pointer to a new one
-func (a JobArgument) Clone() *JobArgument {
+func (a *JobArgument) Clone() *JobArgument {
 	var s url.S3Url
 	if a.s3 != nil {
 		s = a.s3.Clone()
@@ -23,7 +23,7 @@ func (a JobArgument) Clone() *JobArgument {
 }
 
 // StripS3 strips the S3 data from JobArgument and returns a new one
-func (a JobArgument) StripS3() *JobArgument {
+func (a *JobArgument) StripS3() *JobArgument {
 	return &JobArgument{a.arg, nil}
 }
 

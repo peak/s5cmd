@@ -25,9 +25,6 @@ var Commands = []CommandMap{
 	{"exit", op.Abort, []opt.ParamType{}, opt.OptionList{}},
 	{"exit", op.Abort, []opt.ParamType{opt.Unchecked}, opt.OptionList{}},
 
-	//{"get", op.Download, []opt.ParamType{opt.S3Obj}, opt.OptionList{}},
-	//{"get", op.BatchDownload, []opt.ParamType{opt.S3WildObj}, opt.OptionList{}},
-
 	// File to file
 	{"cp", op.LocalCopy, []opt.ParamType{opt.FileObj, opt.FileOrDir}, opt.OptionList{}},
 	{"cp", op.BatchLocalCopy, []opt.ParamType{opt.Glob, opt.Dir}, opt.OptionList{}},
@@ -44,7 +41,9 @@ var Commands = []CommandMap{
 
 	// S3 to file
 	{"cp", op.Download, []opt.ParamType{opt.S3Obj, opt.FileOrDir}, opt.OptionList{}},
+	{"get", op.AliasGet, []opt.ParamType{opt.S3Obj, opt.OptionalFileOrDir}, opt.OptionList{}},
 	{"cp", op.BatchDownload, []opt.ParamType{opt.S3WildObj, opt.Dir}, opt.OptionList{}},
+	{"get", op.AliasBatchGet, []opt.ParamType{opt.S3WildObj, opt.OptionalDir}, opt.OptionList{}},
 
 	// File to file
 	{"mv", op.LocalCopy, []opt.ParamType{opt.FileObj, opt.FileOrDir}, opt.OptionList{opt.DeleteSource}},

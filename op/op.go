@@ -29,11 +29,13 @@ const (
 	BatchLocalCopy                     // Batch copy from local to local
 	LocalDelete                        // Delete local file
 	ShellExec                          // Execute shell command
+	AliasGet                           // Alias for Download
+	AliasBatchGet                      // Alias for BatchDownload
 )
 
 // IsBatch returns true if this operation creates sub-jobs
 func (o Operation) IsBatch() bool {
-	return o == BatchDownload || o == BatchUpload || o == BatchDelete || o == BatchLocalCopy || o == BatchCopy
+	return o == BatchDownload || o == BatchUpload || o == BatchDelete || o == BatchLocalCopy || o == BatchCopy || o == AliasBatchGet
 }
 
 // IsInternal returns true if this operation is considered internal. Internal operations are not shown in +OK messages
@@ -77,6 +79,10 @@ func (o Operation) String() string {
 		return "local-delete"
 	case ShellExec:
 		return "shell-exec"
+	case AliasGet:
+		return "get"
+	case AliasBatchGet:
+		return "batch-get"
 	}
 
 	return fmt.Sprintf("Unknown:%d", o)
@@ -87,12 +93,12 @@ func (o Operation) Describe(l opt.OptionList) string {
 	switch o {
 	case Abort:
 		return "Exit program"
-	case Download:
+	case Download, AliasGet:
 		if l.Has(opt.DeleteSource) {
 			return "Download from S3 and delete source objects"
 		}
 		return "Download from S3"
-	case BatchDownload:
+	case BatchDownload, AliasBatchGet:
 		if l.Has(opt.DeleteSource) {
 			return "Batch download from S3 and delete source objects"
 		}
@@ -151,12 +157,12 @@ func (o Operation) GetAcceptedOpts() *opt.OptionList {
 	l := opt.OptionList{}
 
 	switch o {
-	case Download, Upload, Copy, LocalCopy, BatchDownload, BatchUpload, BatchLocalCopy, BatchCopy:
+	case Download, Upload, Copy, LocalCopy, BatchDownload, BatchUpload, BatchLocalCopy, BatchCopy, AliasGet, AliasBatchGet:
 		l = append(l, opt.IfNotExists)
 	}
 
 	switch o {
-	case BatchDownload, BatchUpload, BatchLocalCopy, BatchCopy:
+	case BatchDownload, BatchUpload, BatchLocalCopy, BatchCopy, AliasBatchGet:
 		l = append(l, opt.Parents)
 	}
 

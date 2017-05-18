@@ -435,8 +435,12 @@ func (j *Job) Run(wp *WorkerParams) error {
 		}
 		return wp.st.IncrementIfSuccess(stats.S3Op, err)
 
-	case op.BatchDownload:
+	case op.BatchDownload, op.AliasBatchGet:
 		subCmd := "cp"
+		if j.operation == op.AliasBatchGet {
+			subCmd = "get"
+		}
+
 		if j.opts.Has(opt.DeleteSource) {
 			subCmd = "mv"
 		}
@@ -559,7 +563,7 @@ func (j *Job) Run(wp *WorkerParams) error {
 
 		return wp.st.IncrementIfSuccess(stats.FileOp, err)
 
-	case op.Download:
+	case op.Download, op.AliasGet:
 		srcFn := path.Base(j.args[0].arg)
 		destFn := j.args[1].arg
 

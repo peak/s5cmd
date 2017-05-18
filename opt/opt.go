@@ -137,6 +137,9 @@ const (
 	Dir                                 // Dir name or non-existing name ("/" appended)
 	FileOrDir                           // File or directory (if existing directory, "/" appended)
 	Glob                                // String containing a valid glob pattern (non-S3)
+
+	OptionalDir       // Optional dir name or non-existing name ("/" appended)
+	OptionalFileOrDir // Optional file or directory (if existing directory, "/" appended)
 )
 
 // String returns the string representation of ParamType
@@ -160,6 +163,10 @@ func (p ParamType) String() string {
 		return "directory"
 	case FileOrDir:
 		return "file-or-directory"
+	case OptionalDir:
+		return "[directory]"
+	case OptionalFileOrDir:
+		return "[file-or-directory]"
 	case Glob:
 		return "glob-pattern*"
 	default:

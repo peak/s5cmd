@@ -35,7 +35,7 @@ func isGlob(s string) bool {
 // fnObj is the last/previous successfully parsed argument, used mainly to append the basenames of the source files to destination directories
 func parseArgumentByType(s string, t opt.ParamType, fnObj *JobArgument) (*JobArgument, error) {
 	fnBase := ""
-	if (t == opt.S3ObjOrDir || t == opt.FileOrDir) && fnObj != nil {
+	if (t == opt.S3ObjOrDir || t == opt.FileOrDir || t == opt.OptionalFileOrDir) && fnObj != nil {
 		fnBase = filepath.Base(fnObj.arg)
 	}
 
@@ -82,6 +82,11 @@ func parseArgumentByType(s string, t opt.ParamType, fnObj *JobArgument) (*JobArg
 		}
 		return &JobArgument{s, uri}, nil
 
+	case opt.OptionalFileOrDir, opt.OptionalDir:
+		if s == "" {
+			s = "."
+		}
+		fallthrough
 	case opt.FileObj, opt.FileOrDir, opt.Dir:
 		// check if we have s3 object
 		_, err := url.ParseS3Url(s)
@@ -106,10 +111,10 @@ func parseArgumentByType(s string, t opt.ParamType, fnObj *JobArgument) (*JobArg
 				return nil, errors.New("File param should not be a directory")
 			}
 		}
-		if t == opt.FileOrDir && endsInSlash && fnBase != "" {
+		if (t == opt.FileOrDir || t == opt.OptionalFileOrDir) && endsInSlash && fnBase != "" {
 			s += fnBase
 		}
-		if t == opt.FileOrDir && !endsInSlash {
+		if (t == opt.FileOrDir || t == opt.OptionalFileOrDir) && !endsInSlash {
 			st, err := os.Stat(s)
 			if err != nil {
 				if !os.IsNotExist(err) {
@@ -122,7 +127,7 @@ func parseArgumentByType(s string, t opt.ParamType, fnObj *JobArgument) (*JobArg
 			}
 		}
 
-		if t == opt.Dir && !endsInSlash {
+		if (t == opt.Dir || t == opt.OptionalDir) && !endsInSlash {
 			st, err := os.Stat(s)
 			if err != nil {
 				if !os.IsNotExist(err) {
@@ -301,6 +306,9 @@ func parseSingleJob(jobdesc string) (*Job, error) {
 			if minCount > 0 && c.Params[minCount-1] == opt.UncheckedOneOrMore {
 				maxCount = -1 // Accept unlimited parameters if the last param is opt.UncheckedOneOrMore
 			}
+			if c.Params[minCount-1] == opt.OptionalDir || c.Params[minCount-1] == opt.OptionalFileOrDir {
+				minCount-- // Optional params are optional
+			}
 			if suppliedParamCount < minCount || (maxCount > -1 && suppliedParamCount > maxCount) { // Check if param counts are acceptable
 				// If the number of parameters does not match, try another command
 				continue
@@ -313,12 +321,16 @@ func parseSingleJob(jobdesc string) (*Job, error) {
 			lastType := opt.UncheckedOneOrMore
 			maxI := fileArgsStartPosition
 			for i, t := range c.Params { // check if param types match
-				a, parseArgErr = parseArgumentByType(parts[fileArgsStartPosition+i], t, fnObj)
+				partVal := ""
+				if fileArgsStartPosition+i < len(parts) {
+					partVal = parts[fileArgsStartPosition+i]
+				}
+				a, parseArgErr = parseArgumentByType(partVal, t, fnObj)
 				if parseArgErr != nil {
-					verboseLog("Error parsing %s as %s: %s", parts[fileArgsStartPosition+i], t.String(), parseArgErr.Error())
+					verboseLog("Error parsing %s as %s: %s", partVal, t.String(), parseArgErr.Error())
 					break
 				}
-				verboseLog("Parsed %s as %s", parts[fileArgsStartPosition+i], t.String())
+				verboseLog("Parsed %s as %s", partVal, t.String())
 
 				ourJob.args = append(ourJob.args, a)
 
@@ -328,7 +340,7 @@ func parseSingleJob(jobdesc string) (*Job, error) {
 				maxI = i
 				lastType = t
 			}
-			if parseArgErr == nil && minCount != maxCount { // If no error yet, and we have unlimited/repeating parameters...
+			if parseArgErr == nil && minCount != maxCount && maxCount == -1 { // If no error yet, and we have unlimited/repeating parameters...
 				for i, p := range parts {
 					if i <= maxI+1 {
 						continue

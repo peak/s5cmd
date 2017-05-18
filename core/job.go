@@ -88,7 +88,12 @@ func (a JobArgument) Clone() *JobArgument {
 	return &JobArgument{a.arg, &s}
 }
 
-// Append appends a string to a JobArgument and returns itself.
+// StripS3 strips the S3 data from JobArgument and returns a new one
+func (a JobArgument) StripS3() *JobArgument {
+	return &JobArgument{a.arg, nil}
+}
+
+// Append appends a string to a JobArgument and returns itself
 func (a *JobArgument) Append(s string, isS3path bool) *JobArgument {
 	if a.s3 != nil && !isS3path {
 		// a is an S3 object but s is not
@@ -500,7 +505,7 @@ func (j *Job) Run(wp *WorkerParams) error {
 				dstFn = path.Base(li.parsedKey)
 			}
 
-			arg2 := j.args[1].Clone().Append(dstFn, true)
+			arg2 := j.args[1].StripS3().Append(dstFn, true)
 			subJob := j.MakeSubJob(subCmd, op.Download, []*JobArgument{&arg1, arg2}, j.opts)
 			if *li.StorageClass == s3.ObjectStorageClassGlacier {
 				subJob.out(shortErr, `"%s": Cannot download glacier object`, arg1.arg)

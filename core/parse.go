@@ -306,7 +306,7 @@ func parseSingleJob(jobdesc string) (*Job, error) {
 			if minCount > 0 && c.Params[minCount-1] == opt.UncheckedOneOrMore {
 				maxCount = -1 // Accept unlimited parameters if the last param is opt.UncheckedOneOrMore
 			}
-			if c.Params[minCount-1] == opt.OptionalDir || c.Params[minCount-1] == opt.OptionalFileOrDir {
+			if minCount > 0 && (c.Params[minCount-1] == opt.OptionalDir || c.Params[minCount-1] == opt.OptionalFileOrDir) {
 				minCount-- // Optional params are optional
 			}
 			if suppliedParamCount < minCount || (maxCount > -1 && suppliedParamCount > maxCount) { // Check if param counts are acceptable

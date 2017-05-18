@@ -132,6 +132,7 @@ const (
 	S3Obj                               // Bucket or bucket + key
 	S3Dir                               // Bucket or bucket + key + "/" (prefix)
 	S3ObjOrDir                          // Bucket or bucket + key [+ "/"]
+	S3SimpleObj                         // Bucket + key
 	S3WildObj                           // Bucket + key with wildcard
 	FileObj                             // Filename
 	Dir                                 // Dir name or non-existing name ("/" appended)
@@ -151,10 +152,12 @@ func (p ParamType) String() string {
 		return "param..."
 	case S3Obj:
 		return "s3://bucket[/object]"
+	case S3SimpleObj:
+		return "s3://bucket/object"
 	case S3Dir:
 		return "s3://bucket[/object]/"
 	case S3ObjOrDir:
-		return "s3://bucket[/object[/]]"
+		return "s3://bucket[/object][/]"
 	case S3WildObj:
 		return "s3://bucket/wild/*/obj*"
 	case FileObj:

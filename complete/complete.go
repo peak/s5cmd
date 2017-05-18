@@ -155,6 +155,8 @@ func getSubCommands() cmp.Commands {
 				fallthrough
 			case opt.S3ObjOrDir:
 				fallthrough
+			case opt.S3SimpleObj:
+				fallthrough
 			case opt.S3WildObj:
 				if !addedS3predictor {
 					predictorList = append(predictorList, cmp.PredictFunc(s3predictor))

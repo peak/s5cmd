@@ -43,14 +43,14 @@ func parseArgumentByType(s string, t opt.ParamType, fnObj *JobArgument) (*JobArg
 	case opt.Unchecked, opt.UncheckedOneOrMore:
 		return &JobArgument{s, nil}, nil
 
-	case opt.S3Obj, opt.S3ObjOrDir, opt.S3WildObj, opt.S3Dir:
+	case opt.S3Obj, opt.S3ObjOrDir, opt.S3WildObj, opt.S3Dir, opt.S3SimpleObj:
 		uri, err := url.ParseS3Url(s)
 		if err != nil {
 			return nil, err
 		}
 		s = "s3://" + uri.Format() // rebuild s with formatted url
 
-		if (t == opt.S3Obj || t == opt.S3ObjOrDir) && url.HasWild(uri.Key) {
+		if (t == opt.S3Obj || t == opt.S3ObjOrDir || t == opt.S3SimpleObj) && url.HasWild(uri.Key) {
 			return nil, errors.New("S3 key cannot contain wildcards")
 		}
 		if t == opt.S3WildObj {
@@ -62,9 +62,13 @@ func parseArgumentByType(s string, t opt.ParamType, fnObj *JobArgument) (*JobArg
 			}
 		}
 
+		if t == opt.S3SimpleObj && uri.Key == "" {
+			return nil, errors.New("S3 key should not be empty")
+		}
+
 		endsInSlash := strings.HasSuffix(uri.Key, "/")
 		if endsInSlash {
-			if t == opt.S3Obj {
+			if t == opt.S3Obj || t == opt.S3SimpleObj {
 				return nil, errors.New("S3 key should not end with /")
 			}
 		} else {

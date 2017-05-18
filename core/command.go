@@ -31,7 +31,7 @@ var Commands = []CommandMap{
 	{"cp", op.BatchLocalCopy, []opt.ParamType{opt.Dir, opt.Dir}, opt.OptionList{}},
 
 	// S3 to S3
-	{"cp", op.Copy, []opt.ParamType{opt.S3Obj, opt.S3ObjOrDir}, opt.OptionList{}},
+	{"cp", op.Copy, []opt.ParamType{opt.S3SimpleObj, opt.S3ObjOrDir}, opt.OptionList{}},
 	{"cp", op.BatchCopy, []opt.ParamType{opt.S3WildObj, opt.S3Dir}, opt.OptionList{}},
 
 	// File to S3
@@ -40,8 +40,8 @@ var Commands = []CommandMap{
 	{"cp", op.BatchUpload, []opt.ParamType{opt.Dir, opt.S3Dir}, opt.OptionList{}},
 
 	// S3 to file
-	{"cp", op.Download, []opt.ParamType{opt.S3Obj, opt.FileOrDir}, opt.OptionList{}},
-	{"get", op.AliasGet, []opt.ParamType{opt.S3Obj, opt.OptionalFileOrDir}, opt.OptionList{}},
+	{"cp", op.Download, []opt.ParamType{opt.S3SimpleObj, opt.FileOrDir}, opt.OptionList{}},
+	{"get", op.AliasGet, []opt.ParamType{opt.S3SimpleObj, opt.OptionalFileOrDir}, opt.OptionList{}},
 	{"cp", op.BatchDownload, []opt.ParamType{opt.S3WildObj, opt.Dir}, opt.OptionList{}},
 	{"get", op.AliasBatchGet, []opt.ParamType{opt.S3WildObj, opt.OptionalDir}, opt.OptionList{}},
 
@@ -51,7 +51,7 @@ var Commands = []CommandMap{
 	{"mv", op.BatchLocalCopy, []opt.ParamType{opt.Dir, opt.Dir}, opt.OptionList{opt.DeleteSource}},
 
 	// S3 to S3
-	{"mv", op.Copy, []opt.ParamType{opt.S3Obj, opt.S3ObjOrDir}, opt.OptionList{opt.DeleteSource}},
+	{"mv", op.Copy, []opt.ParamType{opt.S3SimpleObj, opt.S3ObjOrDir}, opt.OptionList{opt.DeleteSource}},
 	{"mv", op.BatchCopy, []opt.ParamType{opt.S3WildObj, opt.S3Dir}, opt.OptionList{opt.DeleteSource}},
 
 	// File to S3
@@ -60,14 +60,14 @@ var Commands = []CommandMap{
 	{"mv", op.BatchUpload, []opt.ParamType{opt.Dir, opt.S3Dir}, opt.OptionList{opt.DeleteSource}},
 
 	// S3 to file
-	{"mv", op.Download, []opt.ParamType{opt.S3Obj, opt.FileOrDir}, opt.OptionList{opt.DeleteSource}},
+	{"mv", op.Download, []opt.ParamType{opt.S3SimpleObj, opt.FileOrDir}, opt.OptionList{opt.DeleteSource}},
 	{"mv", op.BatchDownload, []opt.ParamType{opt.S3WildObj, opt.Dir}, opt.OptionList{opt.DeleteSource}},
 
 	// File
 	{"rm", op.LocalDelete, []opt.ParamType{opt.FileObj}, opt.OptionList{}},
 
 	// S3
-	{"rm", op.Delete, []opt.ParamType{opt.S3Obj}, opt.OptionList{}},
+	{"rm", op.Delete, []opt.ParamType{opt.S3SimpleObj}, opt.OptionList{}},
 	{"rm", op.BatchDelete, []opt.ParamType{opt.S3WildObj}, opt.OptionList{}},
 	{"batch-rm", op.BatchDeleteActual, []opt.ParamType{opt.S3Obj, opt.UncheckedOneOrMore}, opt.OptionList{}},
 

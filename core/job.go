@@ -99,10 +99,18 @@ func (a *JobArgument) Append(s string, isS3path bool) *JobArgument {
 		s = strings.Replace(s, "/", string(filepath.Separator), -1)
 	}
 
-	a.arg += s
 	if a.s3 != nil {
+		if a.s3.Key == "" {
+			a.arg += "/" + s
+		} else {
+			a.arg += s
+		}
+
 		a.s3.Key += s
+	} else {
+		a.arg += s
 	}
+
 	return a
 }
 

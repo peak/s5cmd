@@ -7,7 +7,11 @@
 
 This is a parallel S3 and local filesystem execution tool.
 
-### Installation ###
+![demo1](./doc/recording1.gif)
+
+![demo2](./doc/recording2.gif)
+
+## Installation ##
 
 With a [correctly configured](https://golang.org/doc/code.html#GOPATH) Go installation:
 
@@ -17,11 +21,33 @@ go get -u github.com/peakgames/s5cmd
 
 This will install `s5cmd` in your `$GOPATH/bin` directory.
 
-## Demo ##
+### Shell Auto-Completion ###
 
-![demo1](./doc/recording1.gif)
+Bash and zsh shell completion is supported, utilizing [posener/complete](https://github.com/posener/complete). Tool and subcommand parameters, local files/dirs, as well as remote (S3) buckets and objects are supported.
 
-![demo2](./doc/recording2.gif)
+To enable auto-completion, run:
+```
+s5cmd -cmp-install
+```
+This will add a few lines (depending on configuration) to your `.bashrc` or `.zshrc` file. After installation, run `source .bashrc` (or restart your shell) to activate the changes.
+
+#### Examples ####
+
+To utilize shell autocompletion, use the `<tab>` key on the shell CLI. If there is more than one match, nothing will happen until a second `<tab>` is hit, which then will show options. Examples:
+
+```
+s5cmd <tab> # This is going to list commands and general parameters
+s5cmd -n<tab> # This will autocomplete to "s5cmd -numworkers"
+s5cmd -numworkers <tab><tab> # This will recommend some values for numworkers
+s5cmd ls <tab><tab> # This will recommend options for the "ls" command or an "s3://" prefix
+s5cmd ls s3://<tab><tab> # This will get a bucket list from S3
+s5cmd ls s3://my-buck<tab> # This will complete this to "s3://my-bucket"
+
+# These commands below will recommend up to 20 S3 objects or complete if there's only one match:
+s5cmd ls s3://my-bucket/<tab><tab>
+s5cmd ls s3://my-bucket/my-prefix/<tab><tab>
+s5cmd ls s3://my-bucket/my-prefix/some-object<tab>
+```
 
 ## Usage ##
 
@@ -193,35 +219,6 @@ If failed jobs are present, process exits with code `127`. This can be overridde
 ## Environment Variables ##
 
 Set `S5CMD_GOPS` to always enable the [gops](https://github.com/google/gops) agent.
-
-## Shell Auto-Completion ##
-
-Bash and zsh shell completion is supported, utilizing [posener/complete](https://github.com/posener/complete). Tool and subcommand parameters, local files/dirs, as well as remote (S3) buckets and objects are supported.
-
-### Installation ###
-To enable auto-completion, run:
-```
-s5cmd -cmp-install
-```
-This will add a few lines (depending on configuration) to your `.bashrc` or `.zshrc` file. After installation, run `source .bashrc` (or restart your shell) to activate the changes.
-
-### Usage ###
-
-To utilize shell autocompletion, use the `<tab>` key on the shell CLI. If there is more than one match, nothing will happen until a second `<tab>` is hit, which then will show options. Examples:
-
-```
-s5cmd <tab> # This is going to list commands and general parameters
-s5cmd -n<tab> # This will autocomplete to "s5cmd -numworkers"
-s5cmd -numworkers <tab><tab> # This will recommend some values for numworkers
-s5cmd ls <tab><tab> # This will recommend options for the "ls" command or an "s3://" prefix
-s5cmd ls s3://<tab><tab> # This will get a bucket list from S3
-s5cmd ls s3://my-buck<tab> # This will complete this to "s3://my-bucket"
-
-# These commands below will recommend up to 20 S3 objects or complete if there's only one match:
-s5cmd ls s3://my-bucket/<tab><tab>
-s5cmd ls s3://my-bucket/my-prefix/<tab><tab>
-s5cmd ls s3://my-bucket/my-prefix/some-object<tab>
-```
 
 
 ## Supported platforms ##

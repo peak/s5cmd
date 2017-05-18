@@ -137,9 +137,9 @@ func getSubCommands() cmp.Commands {
 			switch ptype {
 			case opt.FileObj:
 				predictorList = append(predictorList, cmp.PredictFiles("*"))
-			case opt.Dir:
+			case opt.Dir, opt.OptionalDir:
 				predictorList = append(predictorList, cmp.PredictDirs("*"))
-			case opt.FileOrDir:
+			case opt.FileOrDir, opt.OptionalFileOrDir:
 				predictorList = append(predictorList, cmp.PredictFiles("*"), cmp.PredictDirs("*"))
 
 			case opt.Glob:

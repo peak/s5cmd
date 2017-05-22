@@ -1,4 +1,4 @@
-memo = "7d333465e48ee8341cd77d3633075d7b9c3f772e62905a1e9fde5453c02fe459"
+memo = "79b5a7c5bb210e47e79fe586b17ba4bc8d70fba8199791bc1c26ca65877a4ace"
 
 [[projects]]
   name = "github.com/aws/aws-sdk-go"
@@ -45,7 +45,7 @@ memo = "7d333465e48ee8341cd77d3633075d7b9c3f772e62905a1e9fde5453c02fe459"
 [[projects]]
   name = "github.com/posener/complete"
   packages = [".","cmd","cmd/install","match"]
-  revision = "659bd9e3d5a0113fb862bcbd06a983b0e74e8df7"
+  revision = "55ecf96557cf9eb690221d52354c4408ff59003a"
 
 [[projects]]
   branch = "master"

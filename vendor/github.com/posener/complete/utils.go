@@ -3,10 +3,11 @@ package complete
 import (
 	"os"
 	"path/filepath"
+	"strings"
 )
 
-// relativePath changes a file name to a relative name
-func relativePath(file string) string {
+// fixPathForm changes a file name to a relative name
+func fixPathForm(last string, file string) string {
 	// get wording directory for relative name
 	workDir, err := os.Getwd()
 	if err != nil {
@@ -17,15 +18,29 @@ func relativePath(file string) string {
 	if err != nil {
 		return file
 	}
+
+	// if last is absolute, return path as absolute
+	if filepath.IsAbs(last) {
+		return fixDirPath(abs)
+	}
+
 	rel, err := filepath.Rel(workDir, abs)
 	if err != nil {
 		return file
 	}
-	if rel != "." {
+
+	// fix ./ prefix of path
+	if rel != "." && strings.HasPrefix(last, ".") {
 		rel = "./" + rel
 	}
-	if info, err := os.Stat(rel); err == nil && info.IsDir() {
-		rel += "/"
+
+	return fixDirPath(rel)
+}
+
+func fixDirPath(path string) string {
+	info, err := os.Stat(path)
+	if err == nil && info.IsDir() && !strings.HasSuffix(path, "/") {
+		path += "/"
 	}
-	return rel
+	return path
 }

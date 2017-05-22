@@ -28,7 +28,9 @@ func main() {
 	// it is possible to set custom flags name
 	// so when one will type 'self -h', he will see '-complete' to install the
 	// completion and -uncomplete to uninstall it.
-	cmp.AddFlags(nil, "complete", "uncomplete")
+	cmp.CLI.InstallName = "complete"
+	cmp.CLI.UninstallName = "uncomplete"
+	cmp.AddFlags(nil)
 
 	// parse the flags - both the program's flags and the completion flags
 	flag.Parse()

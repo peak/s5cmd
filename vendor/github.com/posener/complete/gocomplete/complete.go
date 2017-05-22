@@ -44,7 +44,7 @@ func main() {
 		Flags: complete.Flags{
 			"-exec": complete.PredictAnything,
 		},
-		Args: complete.PredictFunc(predictRunnableFiles),
+		Args: goFiles,
 	}
 
 	test := complete.Command{

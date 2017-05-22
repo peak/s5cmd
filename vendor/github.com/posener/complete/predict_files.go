@@ -30,29 +30,21 @@ func files(pattern string, allowFiles bool) PredictFunc {
 	// if only one directory has matched the result, search recursively into
 	// this directory to give more results.
 	return func(a Args) (prediction []string) {
-		for {
+		prediction = predictFiles(a, pattern, allowFiles)
 
-			prediction = predictFiles(a, pattern, allowFiles)
-
-			// if the number of prediction is not 1, we either have many results or
-			// have no results, so we return it.
-			if len(prediction) != 1 {
-				return
-			}
-
-			// if the result is only one item, we might want to recursively check
-			// for more accurate results.
-			if prediction[0] == a.Last { // avoid loop forever
-				return
-			}
-
-			// only try deeper, if the one item is a directory
-			if stat, err := os.Stat(prediction[0]); err != nil || !stat.IsDir() {
-				return
-			}
-
-			a.Last = prediction[0]
+		// if the number of prediction is not 1, we either have many results or
+		// have no results, so we return it.
+		if len(prediction) != 1 {
+			return
 		}
+
+		// only try deeper, if the one item is a directory
+		if stat, err := os.Stat(prediction[0]); err != nil || !stat.IsDir() {
+			return
+		}
+
+		a.Last = prediction[0]
+		return predictFiles(a, pattern, allowFiles)
 	}
 }
 
@@ -73,13 +65,9 @@ func predictFiles(a Args, pattern string, allowFiles bool) []string {
 // PredictFilesSet predict according to file rules to a given set of file names
 func PredictFilesSet(files []string) PredictFunc {
 	return func(a Args) (prediction []string) {
-		rel := !filepath.IsAbs(a.Directory())
 		// add all matching files to prediction
 		for _, f := range files {
-			// change file name to relative if necessary
-			if rel {
-				f = relativePath(f)
-			}
+			f = fixPathForm(a.Last, f)
 
 			// test matching of file to the argument
 			if match.File(f, a.Last) {

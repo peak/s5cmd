@@ -162,7 +162,7 @@ func TestArgs_Directory(t *testing.T) {
 		},
 		{
 			line:      "a b c /tmp",
-			directory: "/tmp",
+			directory: "/tmp/",
 		},
 		{
 			line:      "a b c /tmp ",
@@ -178,7 +178,7 @@ func TestArgs_Directory(t *testing.T) {
 		},
 		{
 			line:      "a b c dir",
-			directory: "./dir/",
+			directory: "dir/",
 		},
 		{
 			line:      "a b c ./di",

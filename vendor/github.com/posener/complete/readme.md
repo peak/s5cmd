@@ -22,7 +22,7 @@ can also be used to implement any completions, see [Usage](#usage).
 
 1. Type in your shell:
 ```
-go get github.com/posener/complete/gocomplete
+go get -u github.com/posener/complete/gocomplete
 gocomplete -install
 ```
 

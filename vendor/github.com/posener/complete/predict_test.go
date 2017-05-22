@@ -60,7 +60,7 @@ func TestPredicate(t *testing.T) {
 		{
 			name: "files/txt",
 			p:    PredictFiles("*.txt"),
-			want: []string{"./", "./dir/", "./outer/", "./a.txt", "./b.txt", "./c.txt", "./.dot.txt"},
+			want: []string{"./", "dir/", "outer/", "a.txt", "b.txt", "c.txt", ".dot.txt"},
 		},
 		{
 			name:    "files/txt",
@@ -83,38 +83,68 @@ func TestPredicate(t *testing.T) {
 		{
 			name:    "files/md",
 			p:       PredictFiles("*.md"),
-			argList: []string{"", ".", "./"},
+			argList: []string{""},
+			want:    []string{"./", "dir/", "outer/", "readme.md"},
+		},
+		{
+			name:    "files/md with ./ prefix",
+			p:       PredictFiles("*.md"),
+			argList: []string{".", "./"},
 			want:    []string{"./", "./dir/", "./outer/", "./readme.md"},
 		},
 		{
 			name:    "dirs",
 			p:       PredictDirs("*"),
-			argList: []string{"./dir/", "./di", "di", "dir", "dir/"},
+			argList: []string{"di", "dir", "dir/"},
+			want:    []string{"dir/"},
+		},
+		{
+			name:    "dirs with ./ prefix",
+			p:       PredictDirs("*"),
+			argList: []string{"./di", "./dir", "./dir/"},
 			want:    []string{"./dir/"},
 		},
 		{
 			name:    "predict anything in dir",
 			p:       PredictFiles("*"),
-			argList: []string{"./dir", "dir", "./dir/", "./di"},
+			argList: []string{"dir", "dir/", "di"},
+			want:    []string{"dir/", "dir/foo", "dir/bar"},
+		},
+		{
+			name:    "predict anything in dir with ./ prefix",
+			p:       PredictFiles("*"),
+			argList: []string{"./dir", "./dir/", "./di"},
 			want:    []string{"./dir/", "./dir/foo", "./dir/bar"},
 		},
 		{
 			name:    "root directories",
 			p:       PredictDirs("*"),
-			argList: []string{"", ".", "./"},
+			argList: []string{""},
+			want:    []string{"./", "dir/", "outer/"},
+		},
+		{
+			name:    "root directories with ./ prefix",
+			p:       PredictDirs("*"),
+			argList: []string{".", "./"},
 			want:    []string{"./", "./dir/", "./outer/"},
 		},
 		{
 			name:    "nested directories",
 			p:       PredictDirs("*.md"),
-			argList: []string{"ou", "./ou", "./outer", "./outer/"},
+			argList: []string{"ou", "outer", "outer/"},
+			want:    []string{"outer/", "outer/inner/"},
+		},
+		{
+			name:    "nested directories with ./ prefix",
+			p:       PredictDirs("*.md"),
+			argList: []string{"./ou", "./outer", "./outer/"},
 			want:    []string{"./outer/", "./outer/inner/"},
 		},
 		{
 			name:    "nested inner directory",
 			p:       PredictFiles("*.md"),
 			argList: []string{"outer/i"},
-			want:    []string{"./outer/inner/", "./outer/inner/readme.md"},
+			want:    []string{"outer/inner/", "outer/inner/readme.md"},
 		},
 	}
 

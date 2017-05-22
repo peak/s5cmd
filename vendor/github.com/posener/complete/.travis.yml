@@ -6,8 +6,11 @@ go:
 
 before_install:
   - go get -u -t ./...
+  - go get -u gopkg.in/alecthomas/gometalinter.v1
+  - gometalinter.v1 --install
 
 script:
+  - gometalinter.v1 --config metalinter.json ./...
   - ./test.sh
 
 after_success:

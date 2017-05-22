@@ -28,19 +28,13 @@ type Args struct {
 // in case that it is not, we fall back to the current directory.
 func (a Args) Directory() string {
 	if info, err := os.Stat(a.Last); err == nil && info.IsDir() {
-		if !filepath.IsAbs(a.Last) {
-			return relativePath(a.Last)
-		}
-		return a.Last
+		return fixPathForm(a.Last, a.Last)
 	}
 	dir := filepath.Dir(a.Last)
 	if info, err := os.Stat(dir); err != nil || !info.IsDir() {
 		return "./"
 	}
-	if !filepath.IsAbs(dir) {
-		dir = relativePath(dir)
-	}
-	return dir
+	return fixPathForm(a.Last, dir)
 }
 
 func newArgs(line []string) Args {

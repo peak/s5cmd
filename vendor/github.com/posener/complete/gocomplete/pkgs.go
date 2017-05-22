@@ -1,76 +1,50 @@
 package main
 
 import (
-	"bytes"
-	"encoding/json"
-	"os/exec"
+	"go/build"
+	"io/ioutil"
 	"path/filepath"
-	"regexp"
-	"strings"
 
 	"github.com/posener/complete"
 )
 
-const goListFormat = `{"Name": "{{.Name}}", "Path": "{{.Dir}}", "FilesString": "{{.GoFiles}}"}`
-
-// regexp matches a main function
-var reMainFunc = regexp.MustCompile("^main$")
-
+// predictPackages completes packages in the directory pointed by a.Last
+// and packages that are one level below that package.
 func predictPackages(a complete.Args) (prediction []string) {
-	dir := a.Directory()
-	pkgs := listPackages(dir)
-
-	files := make([]string, 0, len(pkgs))
-	for _, p := range pkgs {
-		files = append(files, p.Path)
-	}
-	return complete.PredictFilesSet(files).Predict(a)
-}
-
-func predictRunnableFiles(a complete.Args) (prediction []string) {
-	dir := a.Directory()
-	pkgs := listPackages(dir)
-
-	files := []string{}
-	for _, p := range pkgs {
-		// filter non main pacakges
-		if p.Name != "main" {
-			continue
-		}
-		for _, f := range p.Files {
-			path := filepath.Join(p.Path, f)
-			if len(functionsInFile(path, reMainFunc)) > 0 {
-				files = append(files, path)
-			}
-		}
-	}
-	complete.Log("FILES: %s", files)
-	return complete.PredictFilesSet(files).Predict(a)
-}
-
-type pack struct {
-	Name        string
-	Path        string
-	FilesString string
-	Files       []string
-}
-
-func listPackages(dir string) (pkgs []pack) {
-	dir = strings.TrimRight(dir, "/") + "/..."
-	out, err := exec.Command("go", "list", "-f", goListFormat, dir).Output()
-	if err != nil {
+	prediction = complete.PredictFilesSet(listPackages(a.Directory())).Predict(a)
+	if len(prediction) != 1 {
 		return
 	}
-	lines := bytes.Split(out, []byte("\n"))
-	for _, line := range lines {
-		var p pack
-		err := json.Unmarshal(line, &p)
+	return complete.PredictFilesSet(listPackages(prediction[0])).Predict(a)
+}
+
+// listPackages looks in current pointed dir and in all it's direct sub-packages
+// and return a list of paths to go packages.
+func listPackages(dir string) (directories []string) {
+	// add subdirectories
+	files, err := ioutil.ReadDir(dir)
+	if err != nil {
+		complete.Log("failed reading directory %s: %s", dir, err)
+		return
+	}
+
+	// build paths array
+	paths := make([]string, 0, len(files)+1)
+	for _, f := range files {
+		if f.IsDir() {
+			paths = append(paths, filepath.Join(dir, f.Name()))
+		}
+	}
+	paths = append(paths, dir)
+
+	// import packages according to given paths
+	for _, p := range paths {
+		pkg, err := build.ImportDir(p, 0)
 		if err != nil {
+			complete.Log("failed importing directory %s: %s", p, err)
 			continue
 		}
-		// parse the FileString from a string "[file1 file2 file3]" to a list of files
-		p.Files = strings.Split(strings.Trim(p.FilesString, "[]"), " ")
-		pkgs = append(pkgs, p)
+		directories = append(directories, pkg.Dir)
 	}
 	return
 }

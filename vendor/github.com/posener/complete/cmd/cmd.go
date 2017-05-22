@@ -13,7 +13,9 @@ import (
 
 // CLI for command line
 type CLI struct {
-	Name string
+	Name          string
+	InstallName   string
+	UninstallName string
 
 	install   bool
 	uninstall bool
@@ -29,12 +31,6 @@ const (
 // this is used when the complete is not completing words, but to
 // install it or uninstall it.
 func (f *CLI) Run() bool {
-
-	// add flags and parse them in case they were not added and parsed
-	// by the main program
-	f.AddFlags(nil, "", "")
-	flag.Parse()
-
 	err := f.validate()
 	if err != nil {
 		os.Stderr.WriteString(err.Error() + "\n")
@@ -86,24 +82,24 @@ func (f *CLI) prompt() {
 // If flags is nil, the default command line flags will be taken.
 // Pass non-empty strings as installName and uninstallName to override the default
 // flag names.
-func (f *CLI) AddFlags(flags *flag.FlagSet, installName, uninstallName string) {
+func (f *CLI) AddFlags(flags *flag.FlagSet) {
 	if flags == nil {
 		flags = flag.CommandLine
 	}
 
-	if installName == "" {
-		installName = defaultInstallName
+	if f.InstallName == "" {
+		f.InstallName = defaultInstallName
 	}
-	if uninstallName == "" {
-		uninstallName = defaultUninstallName
+	if f.UninstallName == "" {
+		f.UninstallName = defaultUninstallName
 	}
 
-	if flags.Lookup(installName) == nil {
-		flags.BoolVar(&f.install, installName, false,
+	if flags.Lookup(f.InstallName) == nil {
+		flags.BoolVar(&f.install, f.InstallName, false,
 			fmt.Sprintf("Install completion for %s command", f.Name))
 	}
-	if flags.Lookup(uninstallName) == nil {
-		flags.BoolVar(&f.uninstall, uninstallName, false,
+	if flags.Lookup(f.UninstallName) == nil {
+		flags.BoolVar(&f.uninstall, f.UninstallName, false,
 			fmt.Sprintf("Uninstall completion for %s command", f.Name))
 	}
 	if flags.Lookup("y") == nil {

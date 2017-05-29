@@ -338,7 +338,7 @@ func parseSingleJob(jobdesc string) (*Job, error) {
 
 				ourJob.args = append(ourJob.args, a)
 
-				if (t == opt.S3Obj || t == opt.FileObj) && fnObj == nil {
+				if (t == opt.S3Obj || t == opt.S3SimpleObj || t == opt.FileObj) && fnObj == nil {
 					fnObj = a
 				}
 				maxI = i

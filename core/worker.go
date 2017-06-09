@@ -21,9 +21,12 @@ import (
 
 // WorkerPoolParams is the common parameters of all worker pools.
 type WorkerPoolParams struct {
-	NumWorkers     int
-	ChunkSizeBytes int64
-	Retries        int
+	NumWorkers             int
+	UploadChunkSizeBytes   int64
+	UploadConcurrency      int
+	DownloadChunkSizeBytes int64
+	DownloadConcurrency    int
+	Retries                int
 }
 
 // WorkerPool is the state of our worker pool.

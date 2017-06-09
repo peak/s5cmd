@@ -53,18 +53,25 @@ func main() {
 	const defaultNumWorkers = 256
 
 	var (
-		numWorkers         int
-		cmdFile            string
-		multipartChunkSize int
-		retries            int
+		numWorkers    int
+		cmdFile       string
+		ulPartSize    int
+		ulConcurrency int
+		dlPartSize    int
+		dlConcurrency int
+		retries       int
 	)
 
-	defaultPartSize := int(math.Ceil(float64(s3manager.DefaultUploadPartSize) / bytesInMb)) // Convert to MB
+	defaultUploadPartSize := int(math.Ceil(float64(s3manager.DefaultUploadPartSize) / bytesInMb))     // Convert to MB
+	defaultDownloadPartSize := int(math.Ceil(float64(s3manager.DefaultDownloadPartSize) / bytesInMb)) // Convert to MB
 
 	flag.StringVar(&cmdFile, "f", "", "Commands-file or - for stdin")
 	flag.IntVar(&numWorkers, "numworkers", defaultNumWorkers, fmt.Sprintf("Number of worker goroutines. Negative numbers mean multiples of the CPU core count."))
-	flag.IntVar(&multipartChunkSize, "cs", defaultPartSize, "Multipart chunk size in MB for uploads")
+	flag.IntVar(&ulPartSize, "cs", defaultUploadPartSize, "Multipart chunk size in MB for uploads")
+	flag.IntVar(&ulConcurrency, "ulw", s3manager.DefaultUploadConcurrency, "Upload concurrency (single file)")
 	flag.IntVar(&retries, "r", 10, "Retry S3 operations N times before failing")
+	flag.IntVar(&dlConcurrency, "dlw", s3manager.DefaultDownloadConcurrency, "Download concurrency (single file)")
+	flag.IntVar(&dlPartSize, "dlp", defaultDownloadPartSize, "Multipart chunk size in MB for downloads")
 	printStats := flag.Bool("stats", false, "Always print stats")
 	showVersion := flag.Bool("version", false, "Prints current version")
 	gops := flag.Bool("gops", false, "Initialize gops agent")
@@ -115,13 +122,20 @@ func main() {
 	if cmd != "" && cmdFile != "" {
 		log.Fatal("-ERR Only specify -f or command, not both")
 	}
-	if (cmd == "" && cmdFile == "") || numWorkers == 0 || multipartChunkSize < 1 || retries < 0 {
+	if (cmd == "" && cmdFile == "") || numWorkers == 0 || ulPartSize < 1 || retries < 0 {
 		log.Fatal("-ERR Please specify all arguments.")
 	}
 
-	multipartChunkSizeBytes := int64(multipartChunkSize * int(bytesInMb))
-	if multipartChunkSizeBytes < s3manager.MinUploadPartSize {
-		log.Fatalf("-ERR Multipart chunk size should be bigger than %d", int(math.Ceil(float64(s3manager.MinUploadPartSize)/bytesInMb)))
+	ulPartSizeBytes := int64(ulPartSize * int(bytesInMb))
+	if ulPartSizeBytes < s3manager.MinUploadPartSize {
+		log.Fatalf("-ERR Multipart chunk size should be greater than %d", int(math.Ceil(float64(s3manager.MinUploadPartSize)/bytesInMb)))
+	}
+	dlPartSizeBytes := int64(dlPartSize * int(bytesInMb))
+	if dlPartSizeBytes < int64(5*bytesInMb) {
+		log.Fatalf("-ERR Download part size should be greater than 5")
+	}
+	if dlConcurrency < 1 || ulConcurrency < 1 {
+		log.Fatalf("-ERR Download/Upload concurrency should be greater than 1")
 	}
 
 	var cmdMode bool
@@ -166,9 +180,12 @@ func main() {
 
 	wp := core.NewWorkerPool(ctx,
 		&core.WorkerPoolParams{
-			NumWorkers:     numWorkers,
-			ChunkSizeBytes: multipartChunkSizeBytes,
-			Retries:        retries,
+			NumWorkers:             numWorkers,
+			UploadChunkSizeBytes:   ulPartSizeBytes,
+			UploadConcurrency:      ulConcurrency,
+			DownloadChunkSizeBytes: dlPartSizeBytes,
+			DownloadConcurrency:    dlConcurrency,
+			Retries:                retries,
 		}, &s)
 	if cmdMode {
 		wp.RunCmd(cmd)

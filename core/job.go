@@ -594,7 +594,11 @@ func (j *Job) Run(wp *WorkerParams) error {
 				_, err = wp.s3dl.DownloadWithContext(wp.ctx, f, &s3.GetObjectInput{
 					Bucket: aws.String(j.args[0].s3.Bucket),
 					Key:    aws.String(j.args[0].s3.Key),
+				}, func(u *s3manager.Downloader) {
+					u.PartSize = wp.poolParams.DownloadChunkSizeBytes
+					u.Concurrency = wp.poolParams.DownloadConcurrency
 				})
+
 			})()
 			if !panicked {
 				ch <- err
@@ -647,8 +651,8 @@ func (j *Job) Run(wp *WorkerParams) error {
 
 		filesize := s.Size()
 
-		numPartsNeeded := filesize / wp.poolParams.ChunkSizeBytes
-		chunkSize := int64(wp.poolParams.ChunkSizeBytes / int64(bytesInMb))
+		numPartsNeeded := filesize / wp.poolParams.UploadChunkSizeBytes
+		chunkSize := int64(wp.poolParams.UploadChunkSizeBytes / int64(bytesInMb))
 		if numPartsNeeded > s3manager.MaxUploadParts {
 			cSize := float64(filesize / s3manager.MaxUploadParts)
 			chunkSize = int64(math.Ceil(cSize / bytesInMb))
@@ -685,6 +689,7 @@ func (j *Job) Run(wp *WorkerParams) error {
 					StorageClass: aws.String(cls),
 				}, func(u *s3manager.Uploader) {
 					u.PartSize = chunkSizeInBytes
+					u.Concurrency = wp.poolParams.UploadConcurrency
 				})
 			})()
 			if !panicked {

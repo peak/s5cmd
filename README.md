@@ -62,6 +62,10 @@ Usage: ./s5cmd [OPTION]... [COMMAND [PARAMS...]]
         Uninstall shell completion
   -cs int
         Multipart chunk size in MB for uploads (default 5, auto calculated)
+  -dlp int
+        Multipart chunk size in MB for downloads (default 5)
+  -dlw int
+        Download concurrency (single file) (default 5)
   -f string
         Commands-file or - for stdin
   -gops
@@ -70,6 +74,8 @@ Usage: ./s5cmd [OPTION]... [COMMAND [PARAMS...]]
         Number of worker goroutines. Negative numbers mean multiples of the CPU core count(default 256)
   -r int
         Retry S3 operations N times before failing (default 10)
+  -ulw int
+        Upload concurrency (single file) (default 5)
   -stats
         Always print stats
   -version

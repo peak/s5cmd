@@ -347,16 +347,13 @@ func (j *Job) Run(wp *WorkerParams) error {
 				dstFn = filepath.Base(*fn)
 			}
 
-			arg1 := JobArgument{
-				*fn,
-				nil,
-			}
+			arg1 := NewJobArgument(*fn, nil)
 			arg2 := j.args[1].Clone().Append(dstFn, false)
 
 			dir := filepath.Dir(arg2.arg)
 			os.MkdirAll(dir, os.ModePerm)
 
-			return j.MakeSubJob(subCmd, op.LocalCopy, []*JobArgument{&arg1, arg2}, j.opts)
+			return j.MakeSubJob(subCmd, op.LocalCopy, []*JobArgument{arg1, arg2}, j.opts)
 		})
 
 		return wp.st.IncrementIfSuccess(stats.FileOp, err)
@@ -451,10 +448,10 @@ func (j *Job) Run(wp *WorkerParams) error {
 				return nil
 			}
 
-			arg1 := JobArgument{
-				"s3://" + j.args[0].s3.Bucket + "/" + *li.Key,
+			arg1 := NewJobArgument(
+				"s3://"+j.args[0].s3.Bucket+"/"+*li.Key,
 				&url.S3Url{Bucket: j.args[0].s3.Bucket, Key: *li.Key},
-			}
+			)
 
 			var dstFn string
 			if j.opts.Has(opt.Parents) {
@@ -464,7 +461,7 @@ func (j *Job) Run(wp *WorkerParams) error {
 			}
 
 			arg2 := j.args[1].StripS3().Append(dstFn, true)
-			subJob := j.MakeSubJob(subCmd, op.Download, []*JobArgument{&arg1, arg2}, j.opts)
+			subJob := j.MakeSubJob(subCmd, op.Download, []*JobArgument{arg1, arg2}, j.opts)
 			if *li.StorageClass == s3.ObjectStorageClassGlacier {
 				subJob.out(shortErr, `"%s": Cannot download glacier object`, arg1.arg)
 				return nil
@@ -553,12 +550,9 @@ func (j *Job) Run(wp *WorkerParams) error {
 				dstFn = filepath.Base(*fn)
 			}
 
-			arg1 := JobArgument{
-				*fn,
-				nil,
-			}
+			arg1 := NewJobArgument(*fn, nil)
 			arg2 := j.args[1].Clone().Append(dstFn, false)
-			return j.MakeSubJob(subCmd, op.Upload, []*JobArgument{&arg1, arg2}, j.opts)
+			return j.MakeSubJob(subCmd, op.Upload, []*JobArgument{arg1, arg2}, j.opts)
 		})
 
 		return wp.st.IncrementIfSuccess(stats.FileOp, err)
@@ -725,10 +719,10 @@ func (j *Job) Run(wp *WorkerParams) error {
 				return nil
 			}
 
-			arg1 := JobArgument{
-				"s3://" + j.args[0].s3.Bucket + "/" + *li.Key,
+			arg1 := NewJobArgument(
+				"s3://"+j.args[0].s3.Bucket+"/"+*li.Key,
 				&url.S3Url{Bucket: j.args[0].s3.Bucket, Key: *li.Key},
-			}
+			)
 
 			var dstFn string
 			if j.opts.Has(opt.Parents) {
@@ -737,12 +731,12 @@ func (j *Job) Run(wp *WorkerParams) error {
 				dstFn = path.Base(li.parsedKey)
 			}
 
-			arg2 := JobArgument{
-				"s3://" + j.args[1].s3.Bucket + "/" + j.args[1].s3.Key + dstFn,
+			arg2 := NewJobArgument(
+				"s3://"+j.args[1].s3.Bucket+"/"+j.args[1].s3.Key+dstFn,
 				&url.S3Url{Bucket: j.args[1].s3.Bucket, Key: j.args[1].s3.Key + dstFn},
-			}
+			)
 
-			subJob := j.MakeSubJob(subCmd, op.Copy, []*JobArgument{&arg1, &arg2}, j.opts)
+			subJob := j.MakeSubJob(subCmd, op.Copy, []*JobArgument{arg1, arg2}, j.opts)
 			if *li.StorageClass == s3.ObjectStorageClassGlacier {
 				subJob.out(shortErr, `"%s": Cannot download glacier object`, arg1.arg)
 				return nil

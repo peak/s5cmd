@@ -13,18 +13,22 @@ type JobArgument struct {
 	s3  *url.S3Url
 }
 
+func NewJobArgument(arg string, s3 *url.S3Url) *JobArgument {
+	return &JobArgument{arg: arg, s3: s3}
+}
+
 // Clone duplicates a JobArgument and returns a pointer to a new one
 func (a *JobArgument) Clone() *JobArgument {
 	var s url.S3Url
 	if a.s3 != nil {
 		s = a.s3.Clone()
 	}
-	return &JobArgument{a.arg, &s}
+	return NewJobArgument(a.arg, &s)
 }
 
 // StripS3 strips the S3 data from JobArgument and returns a new one
 func (a *JobArgument) StripS3() *JobArgument {
-	return &JobArgument{a.arg, nil}
+	return NewJobArgument(a.arg, nil)
 }
 
 // Append appends a string to a JobArgument and returns itself

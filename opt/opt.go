@@ -23,10 +23,14 @@ const (
 	ListETags                           // Include ETags in listing
 	HumanReadable                       // Human Readable file sizes (ls, du)
 	GroupByClass                        // Group by storage class (du)
+	IfSizeDiffers                       // Run only if size differs (or file non-existent on destination)
+	IfSourceNewer                       // Run only if source file is newer
 )
 
 var optionsHelpOrder = [...]OptionType{
 	IfNotExists,
+	IfSizeDiffers,
+	IfSourceNewer,
 	Parents,
 	Recursive,
 	RR,
@@ -51,6 +55,10 @@ func (o OptionType) GetParam() string {
 	switch o {
 	case IfNotExists:
 		return "-n"
+	case IfSizeDiffers:
+		return "-s"
+	case IfSourceNewer:
+		return "-u"
 	case Parents:
 		return "--parents"
 	case RR:
@@ -74,6 +82,10 @@ func (o OptionType) HelpMessage() string {
 	switch o {
 	case IfNotExists:
 		return "Do not overwrite existing files/objects (no-clobber)"
+	case IfSizeDiffers:
+		return "Only overwrite if size differs"
+	case IfSourceNewer:
+		return "Only overwrite if source file/object is newer (update)"
 	case Parents:
 		return "Create directory structure in destination, starting from the first wildcard"
 	case Recursive:

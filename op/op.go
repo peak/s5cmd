@@ -158,7 +158,7 @@ func (o Operation) GetAcceptedOpts() *opt.OptionList {
 
 	switch o {
 	case Download, Upload, Copy, LocalCopy, BatchDownload, BatchUpload, BatchLocalCopy, BatchCopy, AliasGet, AliasBatchGet:
-		l = append(l, opt.IfNotExists)
+		l = append(l, opt.IfNotExists, opt.IfSizeDiffers, opt.IfSourceNewer)
 	}
 
 	switch o {

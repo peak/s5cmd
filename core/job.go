@@ -161,27 +161,9 @@ func (j *Job) Notify(success bool) {
 	j.subJobData.Done()
 }
 
-var (
-	// ErrFileExistsButOk is used when a destination file already exists and opt.IfNotExists is set.
-	ErrFileExistsButOk = NewAcceptableError("File already exists")
-	// ErrS3ExistsButOk is used when a destination object already exists and opt.IfNotExists is set.
-	ErrS3ExistsButOk = NewAcceptableError("Object already exists")
-)
-
 // Run runs the Job and returns error
 func (j *Job) Run(wp *WorkerParams) error {
 	//log.Printf("Running %v", j)
-
-	doesFileExist := func(filename string) error {
-		_, err := os.Stat(filename)
-		if err != nil {
-			if os.IsNotExist(err) {
-				return nil
-			}
-			return err
-		}
-		return ErrFileExistsButOk
-	}
 
 	switch j.operation {
 
@@ -191,11 +173,10 @@ func (j *Job) Run(wp *WorkerParams) error {
 
 	case op.LocalCopy:
 		var err error
-		if j.opts.Has(opt.IfNotExists) {
-			err = doesFileExist(j.args[1].arg)
-			if err != nil {
-				return err
-			}
+
+		err = j.args[1].CheckConditionals(wp, j.args[0], j.opts)
+		if err != nil {
+			return err
 		}
 
 		if j.opts.Has(opt.DeleteSource) {
@@ -223,12 +204,10 @@ func (j *Job) Run(wp *WorkerParams) error {
 	// S3 operations
 	case op.Copy:
 		var err error
-		if j.opts.Has(opt.IfNotExists) {
-			_, err = s3head(wp.s3svc, j.args[1].s3)
-			if err == nil {
-				wp.st.IncrementIfSuccess(stats.S3Op, err)
-				return ErrS3ExistsButOk
-			}
+
+		err = j.args[1].CheckConditionals(wp, j.args[0], j.opts)
+		if err != nil {
+			return err
 		}
 
 		var cls string
@@ -558,15 +537,15 @@ func (j *Job) Run(wp *WorkerParams) error {
 		return wp.st.IncrementIfSuccess(stats.FileOp, err)
 
 	case op.Download, op.AliasGet:
+		var err error
+
+		err = j.args[1].CheckConditionals(wp, j.args[0], j.opts)
+		if err != nil {
+			return err
+		}
+
 		srcFn := path.Base(j.args[0].arg)
 		destFn := j.args[1].arg
-
-		if j.opts.Has(opt.IfNotExists) {
-			err := doesFileExist(destFn)
-			if err != nil {
-				return err
-			}
-		}
 
 		f, err := os.Create(destFn)
 		if err != nil {
@@ -622,19 +601,20 @@ func (j *Job) Run(wp *WorkerParams) error {
 	case op.Upload:
 		const bytesInMb = float64(1024 * 1024)
 
-		srcFn := filepath.Base(j.args[0].arg)
-		s, err := os.Stat(j.args[0].arg)
+		var err error
+
+		if ex, err := j.args[0].Exists(wp); err != nil {
+			return err
+		} else if !ex {
+			return os.ErrNotExist
+		}
+
+		err = j.args[1].CheckConditionals(wp, j.args[0], j.opts)
 		if err != nil {
 			return err
 		}
 
-		if j.opts.Has(opt.IfNotExists) {
-			_, err = s3head(wp.s3svc, j.args[1].s3)
-			if err == nil {
-				wp.st.IncrementIfSuccess(stats.S3Op, err)
-				return ErrS3ExistsButOk
-			}
-		}
+		srcFn := filepath.Base(j.args[0].arg)
 
 		f, err := os.Open(j.args[0].arg)
 		if err != nil {
@@ -643,7 +623,7 @@ func (j *Job) Run(wp *WorkerParams) error {
 
 		defer f.Close()
 
-		filesize := s.Size()
+		filesize, _ := j.args[0].Size(wp)
 
 		numPartsNeeded := filesize / wp.poolParams.UploadChunkSizeBytes
 		chunkSize := int64(wp.poolParams.UploadChunkSizeBytes / int64(bytesInMb))

@@ -107,7 +107,7 @@ There are three main commands: `cp`, `mv` and `rm`. Arguments can be either S3 u
 
 ### Command options ###
 - S3 urls should be in the format `s3://bucket/key`
-- `cp` and `mv` commands accept the `-n` (no-clobber) option to prevent overwriting existing files or objects.
+- `cp` and `mv` commands accept the `-n` (no-clobber) option to prevent overwriting existing files or objects, `-s` option to match source-destination file sizes and skip upload if sizes are equal, and `-u` option to match source-destination last modification times and skip upload if destination is newer or same. If these options are combined, overwrite is skipped only if all of the specified conditions are met.
 - Uploading `cp` and `mv` commands accept the `-rr` and `-ia` options to store objects in reduced-redundancy and infrequent-access modes respectively.
 - Batch `cp` and `mv` commands also accept the `--parents` option to create the dir structure in destination. Dir structure is created from the first wildcard onwards.
 - Batch local-to-local `cp` and `mv` commands also accept the `-R` option for recursive operation.

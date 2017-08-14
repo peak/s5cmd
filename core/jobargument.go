@@ -1,16 +1,34 @@
 package core
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
+	"github.com/peakgames/s5cmd/opt"
+	"github.com/peakgames/s5cmd/stats"
 	"github.com/peakgames/s5cmd/url"
+)
+
+var (
+	// ErrObjectExistsButOk is used when a destination object already exists and opt.IfNotExists is set.
+	ErrObjectExistsButOk = NewAcceptableError("Object already exists")
+	// ErrObjectIsNewerButOk is used when a destination object is newer than the source and opt.IfSourceNewer is set.
+	ErrObjectIsNewerButOk = NewAcceptableError("Object is newer or same age")
+	// ErrObjectSizesMatchButOk is used when a destination object size matches the source and opt.IfSizeDiffers is set.
+	ErrObjectSizesMatchButOk = NewAcceptableError("Object size matches")
 )
 
 // JobArgument is an argument of the job. Can be a file/directory, an s3 url ("s3" is set in this case) or an arbitrary string.
 type JobArgument struct {
 	arg string
 	s3  *url.S3Url
+
+	filled  bool
+	exists  bool
+	size    int64
+	modTime time.Time
 }
 
 func NewJobArgument(arg string, s3 *url.S3Url) *JobArgument {
@@ -55,4 +73,116 @@ func (a *JobArgument) Append(s string, isS3path bool) *JobArgument {
 	}
 
 	return a
+}
+
+func (a *JobArgument) CheckConditionals(wp *WorkerParams, src *JobArgument, opts opt.OptionList) (ret error) {
+	if opts.Has(opt.IfNotExists) {
+		ex, err := a.Exists(wp)
+		if err != nil {
+			return err
+		}
+		if ex {
+			ret = ErrObjectExistsButOk
+		} else {
+			ret = nil
+		}
+	}
+
+	if opts.Has(opt.IfSizeDiffers) {
+		sDest, err := a.Size(wp)
+		if err != nil {
+			return err
+		}
+
+		sSrc, err := src.Size(wp)
+		if err != nil {
+			return err
+		}
+
+		if sDest == sSrc {
+			ret = ErrObjectSizesMatchButOk
+		} else {
+			ret = nil
+		}
+	}
+
+	if opts.Has(opt.IfSourceNewer) {
+		tDest, err := a.ModTime(wp)
+		if err != nil {
+			return err
+		}
+
+		tSrc, err := src.ModTime(wp)
+		if err != nil {
+			return err
+		}
+
+		if !tSrc.After(tDest) {
+			ret = ErrObjectIsNewerButOk
+		} else {
+			ret = nil
+		}
+	}
+
+	return ret
+}
+
+func (a *JobArgument) fillData(wp *WorkerParams) error {
+	if a.filled {
+		return nil
+	}
+
+	if a.s3 == nil {
+		st, err := os.Stat(a.arg)
+		if err != nil {
+			if os.IsNotExist(err) {
+				a.filled = true
+				a.exists = false
+				return nil
+			}
+			// error
+			return err
+		} else {
+			a.filled = true
+			a.exists = true
+			a.size = st.Size()
+			a.modTime = st.ModTime()
+			return nil
+		}
+
+	}
+
+	h, err := s3head(wp.s3svc, a.s3)
+	wp.st.IncrementIfSuccess(stats.S3Op, err)
+
+	if err != nil {
+		a.filled = true
+		a.exists = false
+		return nil
+	}
+
+	a.filled = true
+	a.exists = true
+	if h.LastModified != nil {
+		a.modTime = *(h.LastModified)
+	}
+
+	if h.ContentLength != nil {
+		a.size = *(h.ContentLength)
+	}
+
+	return nil
+}
+
+func (a *JobArgument) Size(wp *WorkerParams) (int64, error) {
+	err := a.fillData(wp)
+	return a.size, err
+}
+func (a *JobArgument) Exists(wp *WorkerParams) (bool, error) {
+	err := a.fillData(wp)
+	return a.exists, err
+}
+func (a *JobArgument) ModTime(wp *WorkerParams) (time.Time, error) {
+	err := a.fillData(wp)
+	return a.modTime, err
 }

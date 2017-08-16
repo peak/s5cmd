@@ -3,7 +3,7 @@ package version
 
 // GitSummary will be the output of "git describe --tags --dirty --always"
 // For release builds, manually edit this to reflect the released version tag.
-const GitSummary = "v0.5.6"
+const GitSummary = "v0.5.7"
 
 // GitBranch will be the output of "git symbolic-ref -q --short HEAD"
 // For release builds this should be left empty.

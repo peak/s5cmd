@@ -859,7 +859,7 @@ Midway-failing lister() fns are not thoroughly tested and may hang or panic
 
 func wildOperation(wp *WorkerParams, lister wildLister, callback wildCallback) error {
 	ch := make(chan interface{})
-	closer := make(chan bool)
+	closer := make(chan struct{})
 	subjobStats := subjobStatsType{} // Tally successful and total processed sub-jobs here
 	var subJobCounter uint32         // number of total subJobs issued
 
@@ -895,7 +895,7 @@ func wildOperation(wp *WorkerParams, lister wildLister, callback wildCallback) e
 		<-closer // Wait for EOF on goroutine
 		verboseLog("wildOperation all subjobs sent")
 
-		closer = make(chan bool)
+		closer = make(chan struct{})
 		go func() {
 			subjobStats.Wait() // Wait for all jobs to finish
 			close(closer)

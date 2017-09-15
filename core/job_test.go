@@ -40,17 +40,17 @@ var (
 	// These Jobs are used for benchmarks and also as skeletons for tests
 	localCopyJob = newJob("!cp-test", "!cp", op.LocalCopy,
 		[]*JobArgument{
-			{"test-src", nil},
-			{"test-dst", nil},
+			{arg:"test-src"},
+			{arg:"test-dst"},
 		}, opt.OptionList{})
 	localMoveJob = newJob("!mv-test", "!mv", op.LocalCopy,
 		[]*JobArgument{
-			{"test-src", nil},
-			{"test-dst", nil},
+			{arg:"test-src"},
+			{arg:"test-dst"},
 		}, opt.OptionList{opt.DeleteSource})
 	localDeleteJob = newJob("!rm-test", "!rm", op.LocalDelete,
 		[]*JobArgument{
-			{"test-src", nil},
+			{arg:"test-src"},
 		}, opt.OptionList{})
 )
 
@@ -133,7 +133,7 @@ func TestJobRunLocalDelete(t *testing.T) {
 	oldArgs := localDeleteJob.args
 
 	localDeleteJob.args = []*JobArgument{
-		{fn, nil},
+		{arg:fn},
 	}
 
 	// execute
@@ -187,8 +187,8 @@ func testLocalCopyOrMove(t *testing.T, isMove bool) {
 		t.Logf("Created temp files: src=%s dst=%s", src, dst)
 
 		job.args = []*JobArgument{
-			{src, nil},
-			{dst, nil},
+			{arg:src},
+			{arg:dst},
 		}
 
 		// execute

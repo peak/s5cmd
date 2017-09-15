@@ -40,17 +40,17 @@ var (
 	// These Jobs are used for benchmarks and also as skeletons for tests
 	localCopyJob = newJob("!cp-test", "!cp", op.LocalCopy,
 		[]*JobArgument{
-			{arg:"test-src"},
-			{arg:"test-dst"},
+			{arg: "test-src"},
+			{arg: "test-dst"},
 		}, opt.OptionList{})
 	localMoveJob = newJob("!mv-test", "!mv", op.LocalCopy,
 		[]*JobArgument{
-			{arg:"test-src"},
-			{arg:"test-dst"},
+			{arg: "test-src"},
+			{arg: "test-dst"},
 		}, opt.OptionList{opt.DeleteSource})
 	localDeleteJob = newJob("!rm-test", "!rm", op.LocalDelete,
 		[]*JobArgument{
-			{arg:"test-src"},
+			{arg: "test-src"},
 		}, opt.OptionList{})
 )
 
@@ -133,7 +133,7 @@ func TestJobRunLocalDelete(t *testing.T) {
 	oldArgs := localDeleteJob.args
 
 	localDeleteJob.args = []*JobArgument{
-		{arg:fn},
+		{arg: fn},
 	}
 
 	// execute
@@ -173,59 +173,56 @@ func testLocalCopyOrMove(t *testing.T, isMove bool) {
 	}
 
 	oldArgs := job.args
-
 	dst := ""
 
-	for { // teardown after this
-
-		dst, err = tempFile("dst")
-		if err != nil {
-			t.Error(err)
-			break
-		}
-
-		t.Logf("Created temp files: src=%s dst=%s", src, dst)
-
-		job.args = []*JobArgument{
-			{arg:src},
-			{arg:dst},
-		}
-
-		// execute
-		err = job.Run(&wp)
-		if err != nil {
-			t.Error(err)
-			break
-		}
-
-		// verify
-		if isMove {
-			if fileExists(src) {
-				t.Error("src should not exist after move")
-				break
-			}
-		}
-
-		newContents, err := readFile(dst)
-		if err != nil {
-			t.Error(err)
-			break
-		}
-
-		if newContents != fileContents {
-			t.Error("File contents do not match")
-		}
-
-		break // always break
-	}
-
 	// teardown
-	deleteFile(src)
-	if dst != "" {
-		deleteFile(dst)
+	defer func() {
+		deleteFile(src)
+		if dst != "" {
+			deleteFile(dst)
+		}
+
+		job.args = oldArgs
+	}()
+
+	dst, err = tempFile("dst")
+	if err != nil {
+		t.Error(err)
+		return
 	}
 
-	job.args = oldArgs
+	t.Logf("Created temp files: src=%s dst=%s", src, dst)
+
+	job.args = []*JobArgument{
+		{arg: src},
+		{arg: dst},
+	}
+
+	// execute
+	err = job.Run(&wp)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	// verify
+	if isMove {
+		if fileExists(src) {
+			t.Error("src should not exist after move")
+			return
+		}
+	}
+
+	newContents, err := readFile(dst)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	if newContents != fileContents {
+		t.Error("File contents do not match")
+	}
+
 }
 
 func TestJobRunLocalCopy(t *testing.T) {

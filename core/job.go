@@ -866,28 +866,23 @@ func wildOperation(wp *WorkerParams, lister wildLister, callback wildCallback) e
 	// This goroutine will read ls results from ch and issue new subJobs
 	go func() {
 		defer close(closer) // Close closer when goroutine exits
-		for {
-			select {
-			case data, ok := <-ch:
-				if !ok {
-					// Channel closed early: err returned from s3list?
+
+		// If channel closed early: err returned from s3list?
+		for data := range ch {
+			j := callback(data)
+			if j != nil {
+				j.subJobData = &subjobStats
+				subjobStats.Add(1)
+				subJobCounter++
+				select {
+				case *wp.subJobQueue <- j:
+				case <-wp.ctx.Done():
 					return
 				}
-				j := callback(data)
-				if j != nil {
-					j.subJobData = &subjobStats
-					subjobStats.Add(1)
-					subJobCounter++
-					select {
-					case *wp.subJobQueue <- j:
-					case <-wp.ctx.Done():
-						return
-					}
-				}
-				if data == nil {
-					// End of listing
-					return
-				}
+			}
+			if data == nil {
+				// End of listing
+				return
 			}
 		}
 	}()

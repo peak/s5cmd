@@ -13,13 +13,16 @@ This is a parallel S3 and local filesystem execution tool.
 
 ## Installation ##
 
-With a [correctly configured](https://golang.org/doc/code.html#GOPATH) Go installation:
+Using [go get](https://golang.org/dl/):
 
-```
-go get -u github.com/peakgames/s5cmd
-```
+    go get -u github.com/peakgames/s5cmd
 
 This will install `s5cmd` in your `$GOPATH/bin` directory.
+
+Using [Homebrew](https://brew.sh/):
+
+    brew tap peakgames/s5cmd https://github.com/peakgames/s5cmd
+    brew install s5cmd
 
 ### Shell Auto-Completion ###
 

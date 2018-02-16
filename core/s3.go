@@ -9,12 +9,18 @@ import (
 	"sync"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/peakgames/s5cmd/url"
 )
 
-// ErrInterrupted is the error used when the main context is canceled
-var ErrInterrupted = errors.New("Operation interrupted")
+var (
+	// ErrInterrupted is the error used when the main context is canceled
+	ErrInterrupted = errors.New("Operation interrupted")
+
+	// ErrNilResult is returned if a nil result in encountered
+	ErrNilResult = errors.New("nil result")
+)
 
 func s3delete(svc *s3.S3, obj *url.S3Url) (*s3.DeleteObjectOutput, error) {
 	return svc.DeleteObject(&s3.DeleteObjectInput{
@@ -176,4 +182,18 @@ func s3wildOperation(url *url.S3Url, wp *WorkerParams, callback s3wildCallback) 
 		}
 		return callback(data.(*s3listItem))
 	})
+}
+
+func GetSessionForBucket(svc *s3.S3, bucket string) (*session.Session, error) {
+	o, err := svc.GetBucketLocation(&s3.GetBucketLocationInput{
+		Bucket: &bucket,
+	})
+	if err == nil && o.LocationConstraint == nil {
+		err = ErrNilResult
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return NewAwsSession(-1, *o.LocationConstraint)
 }

@@ -55,7 +55,7 @@ type WorkerParams struct {
 }
 
 // NewAwsSession initializes a new AWS session with region fallback and custom options
-func NewAwsSession(maxRetries int) (*session.Session, error) {
+func NewAwsSession(maxRetries int, region string) (*session.Session, error) {
 	newSession := func(c *aws.Config) (*session.Session, error) {
 		useSharedConfig := session.SharedConfigEnable
 
@@ -70,11 +70,15 @@ func NewAwsSession(maxRetries int) (*session.Session, error) {
 	}
 
 	awsCfg := aws.NewConfig().WithMaxRetries(maxRetries) //.WithLogLevel(aws.LogDebug))
+	if region != "" {
+		awsCfg = awsCfg.WithRegion(region)
+		return newSession(awsCfg)
+	}
+
 	ses, err := newSession(awsCfg)
 	if err != nil {
 		return nil, err
 	}
-
 	if (*ses).Config.Region == nil || *(*ses).Config.Region == "" { // No region specified in env or config, fallback to us-east-1
 		awsCfg = awsCfg.WithRegion(endpoints.UsEast1RegionID)
 		ses, err = newSession(awsCfg)
@@ -85,7 +89,7 @@ func NewAwsSession(maxRetries int) (*session.Session, error) {
 
 // NewWorkerPool creates a new worker pool and start the workers.
 func NewWorkerPool(ctx context.Context, params *WorkerPoolParams, st *stats.Stats) *WorkerPool {
-	ses, err := NewAwsSession(params.Retries)
+	ses, err := NewAwsSession(params.Retries, "")
 	if err != nil {
 		log.Fatal(err)
 	}

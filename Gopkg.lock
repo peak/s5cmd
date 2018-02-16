@@ -3,27 +3,59 @@
 
 [[projects]]
   name = "github.com/aws/aws-sdk-go"
-  packages = ["aws","aws/awserr","aws/awsutil","aws/client","aws/client/metadata","aws/corehandlers","aws/credentials","aws/credentials/ec2rolecreds","aws/credentials/endpointcreds","aws/credentials/stscreds","aws/defaults","aws/ec2metadata","aws/endpoints","aws/request","aws/session","aws/signer/v4","internal/shareddefaults","private/protocol","private/protocol/query","private/protocol/query/queryutil","private/protocol/rest","private/protocol/restxml","private/protocol/xml/xmlutil","service/s3","service/s3/s3iface","service/s3/s3manager","service/sts"]
-  revision = "f44e6cf65ec77f9eab74e8f1ced546625bd3ad82"
-  version = "v1.8.42"
+  packages = [
+    "aws",
+    "aws/awserr",
+    "aws/awsutil",
+    "aws/client",
+    "aws/client/metadata",
+    "aws/corehandlers",
+    "aws/credentials",
+    "aws/credentials/ec2rolecreds",
+    "aws/credentials/endpointcreds",
+    "aws/credentials/stscreds",
+    "aws/defaults",
+    "aws/ec2metadata",
+    "aws/endpoints",
+    "aws/request",
+    "aws/session",
+    "aws/signer/v4",
+    "internal/shareddefaults",
+    "private/protocol",
+    "private/protocol/query",
+    "private/protocol/query/queryutil",
+    "private/protocol/rest",
+    "private/protocol/restxml",
+    "private/protocol/xml/xmlutil",
+    "service/s3",
+    "service/s3/s3iface",
+    "service/s3/s3manager",
+    "service/sts"
+  ]
+  revision = "788eb15477cf129a45d8e1d0af5f533348f4125d"
+  version = "v1.12.78"
 
 [[projects]]
   name = "github.com/cenkalti/backoff"
   packages = ["."]
-  revision = "32cd0c5b3aef12c76ed64aaf678f6c79736be7dc"
-  version = "v1.0.0"
+  revision = "61153c768f31ee5f130071d08fc82b85208528de"
+  version = "v1.1.0"
 
 [[projects]]
   name = "github.com/go-ini/ini"
   packages = ["."]
-  revision = "e7fea39b01aea8d5671f6858f0532f56e8bff3a5"
-  version = "v1.27.0"
+  revision = "32e4c1e6bc4e7d0d8451aa6b75200d19e37a536a"
+  version = "v1.32.0"
 
 [[projects]]
   name = "github.com/google/gops"
-  packages = ["agent","internal","signal"]
-  revision = "fa6968806ca68b7db113256f300d82b5206a2c3c"
-  version = "v0.3.1"
+  packages = [
+    "agent",
+    "internal",
+    "signal"
+  ]
+  revision = "57e77c5c37da1f4e1af49f9d1fe760f146c1579e"
+  version = "v0.3.2"
 
 [[projects]]
   branch = "master"
@@ -35,17 +67,27 @@
   branch = "master"
   name = "github.com/hashicorp/go-multierror"
   packages = ["."]
-  revision = "ed905158d87462226a13fe39ddf685ea65f1c11f"
+  revision = "b7773ae218740a7be65057fc60b366a49b538a44"
 
 [[projects]]
   name = "github.com/jmespath/go-jmespath"
   packages = ["."]
-  revision = "3433f3ea46d9f8019119e7dd41274e112a2359a9"
-  version = "0.2.2"
+  revision = "0b12d6b5"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/kardianos/osext"
+  packages = ["."]
+  revision = "ae77be60afb1dcacde03767a8c37337fad28ac14"
 
 [[projects]]
   name = "github.com/posener/complete"
-  packages = [".","cmd","cmd/install","match"]
+  packages = [
+    ".",
+    "cmd",
+    "cmd/install",
+    "match"
+  ]
   revision = "dc2bc5a81accba8782bebea28628224643a8286a"
   version = "v1.1"
 
@@ -55,9 +97,15 @@
   packages = ["."]
   revision = "bcacb06fecaeec8dc42af03c87c6949f4a05c74c"
 
+[[projects]]
+  branch = "master"
+  name = "golang.org/x/net"
+  packages = ["context"]
+  revision = "dc948dff8834a7fe1ca525f8d04e261c2b56e70d"
+
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "3586ff27dea2b72d71c2b203e85e618e63854f9545be5dd34ea0d160aeab2b92"
+  inputs-digest = "d1be307d7ffc6bb75537b37f83aa01c0bd58e8ed7aa0f205f04c4e4b55227a20"
   solver-name = "gps-cdcl"
   solver-version = 1

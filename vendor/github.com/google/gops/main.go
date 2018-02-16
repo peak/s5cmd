@@ -8,33 +8,30 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"log"
 	"os"
+	"regexp"
 	"strconv"
-	"sync"
+	"strings"
 
-	"github.com/google/gops/internal"
-	"github.com/google/gops/internal/objfile"
-	ps "github.com/keybase/go-ps"
+	"github.com/google/gops/goprocess"
 )
 
 const helpText = `Usage: gops is a tool to list and diagnose Go processes.
 
-    gops             Lists all Go processes currently running.
-    gops cmd <pid>   See the commands below.
 
 Commands:
-    gc          Runs the garbage collector and blocks until successful.
-
     stack       Prints the stack trace.
-    memstats    Prints the garbage collection stats.
+    gc          Runs the garbage collector and blocks until successful.
+    memstats    Prints the allocation and garbage collection stats.
     version     Prints the Go version used to build the program.
     stats       Prints the vital runtime stats.
+    help        Prints this help text.
 
+Profiling commands:
+    trace       Runs the runtime tracer for 5 secs and launches "go tool trace".
     pprof-heap  Reads the heap profile and launches "go tool pprof".
     pprof-cpu   Reads the CPU profile and launches "go tool pprof".
 
-    help        Prints this help text.
 
 All commands require the agent running on the Go process.
 Symbol "*" indicates the process runs the agent.`
@@ -52,89 +49,70 @@ func main() {
 		usage("")
 	}
 	if len(os.Args) < 3 {
-		usage("missing PID")
-	}
-	pid, err := strconv.Atoi(os.Args[2])
-	if err != nil {
-		usage("PID should be numeric")
+		usage("missing PID or address")
 	}
 	fn, ok := cmds[cmd]
 	if !ok {
 		usage("unknown subcommand")
 	}
-	if err := fn(pid); err != nil {
+	addr, err := targetToAddr(os.Args[2])
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Couldn't resolve addr or pid %v to TCPAddress: %v\n", os.Args[2], err)
+		os.Exit(1)
+	}
+	if err := fn(*addr); err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
 }
 
 func processes() {
-	pss, err := ps.Processes()
-	if err != nil {
-		log.Fatal(err)
+	ps := goprocess.FindAll()
+
+	var maxPID, maxPPID, maxExec, maxVersion int
+	for i, p := range ps {
+		ps[i].BuildVersion = shortenVersion(p.BuildVersion)
+		maxPID = max(maxPID, len(strconv.Itoa(p.PID)))
+		maxPPID = max(maxPPID, len(strconv.Itoa(p.PPID)))
+		maxExec = max(maxExec, len(p.Exec))
+		maxVersion = max(maxVersion, len(ps[i].BuildVersion))
+
 	}
 
-	var wg sync.WaitGroup
-	wg.Add(len(pss))
-
-	for _, pr := range pss {
-		pr := pr
-		go func() {
-			defer wg.Done()
-
-			printIfGo(pr)
-		}()
-	}
-	wg.Wait()
-}
-
-// printIfGo looks up the runtime.buildVersion symbol
-// in the process' binary and determines if the process
-// if a Go process or not. If the process is a Go process,
-// it reports PID, binary name and full path of the binary.
-func printIfGo(pr ps.Process) {
-	if pr.Pid() == 0 {
-		// ignore system process
-		return
-	}
-	path, err := pr.Path()
-	if err != nil {
-		return
-	}
-	obj, err := objfile.Open(path)
-	if err != nil {
-		return
-	}
-	defer obj.Close()
-
-	symbols, err := obj.Symbols()
-	if err != nil {
-		return
-	}
-
-	var ok bool
-	for _, s := range symbols {
-		if s.Name == "runtime.buildVersion" {
-			ok = true
-		}
-	}
-
-	var agent bool
-	pidfile, err := internal.PIDFile(pr.Pid())
-	if err == nil {
-		_, err := os.Stat(pidfile)
-		agent = err == nil
-	}
-
-	if ok {
+	for _, p := range ps {
 		buf := bytes.NewBuffer(nil)
-		fmt.Fprintf(buf, "%d", pr.Pid())
-		if agent {
+		pid := strconv.Itoa(p.PID)
+		fmt.Fprint(buf, pad(pid, maxPID))
+		fmt.Fprint(buf, " ")
+		ppid := strconv.Itoa(p.PPID)
+		fmt.Fprint(buf, pad(ppid, maxPPID))
+		fmt.Fprint(buf, " ")
+		fmt.Fprint(buf, pad(p.Exec, maxExec))
+		if p.Agent {
 			fmt.Fprint(buf, "*")
+		} else {
+			fmt.Fprint(buf, " ")
 		}
-		fmt.Fprintf(buf, "\t%v\t(%v)\n", pr.Executable(), path)
+		fmt.Fprint(buf, " ")
+		fmt.Fprint(buf, pad(p.BuildVersion, maxVersion))
+		fmt.Fprint(buf, " ")
+		fmt.Fprint(buf, p.Path)
+		fmt.Fprintln(buf)
 		buf.WriteTo(os.Stdout)
 	}
+}
+
+var develRe = regexp.MustCompile(`devel\s+\+\w+`)
+
+func shortenVersion(v string) string {
+	if !strings.HasPrefix(v, "devel") {
+		return v
+	}
+	results := develRe.FindAllString(v, 1)
+	if len(results) == 0 {
+		return v
+	}
+	return results[0]
 }
 
 func usage(msg string) {
@@ -143,4 +121,18 @@ func usage(msg string) {
 	}
 	fmt.Fprintf(os.Stderr, "%v\n", helpText)
 	os.Exit(1)
+}
+
+func pad(s string, total int) string {
+	if len(s) >= total {
+		return s
+	}
+	return s + strings.Repeat(" ", total-len(s))
+}
+
+func max(i, j int) int {
+	if i > j {
+		return i
+	}
+	return j
 }

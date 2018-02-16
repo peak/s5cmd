@@ -19,7 +19,7 @@ func main() {
 	// create the complete command
 	cmp := complete.New(
 		"self",
-		complete.Command{Flags: complete.Flags{"name": complete.PredictAnything}},
+		complete.Command{Flags: complete.Flags{"-name": complete.PredictAnything}},
 	)
 
 	// AddFlags adds the completion flags to the program flags,
@@ -39,7 +39,7 @@ func main() {
 	// and ran as a completion script or handled a flag that passed
 	// as argument, the Run method will return true,
 	// in that case, our program have nothing to do and should return.
-	if cmp.Run() {
+	if cmp.Complete() {
 		return
 	}
 

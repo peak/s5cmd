@@ -16,4 +16,4 @@
 
 [[dependencies]]
   name = "github.com/posener/complete"
-  revision = "55ecf96557cf9eb690221d52354c4408ff59003a"
+  version = "1.1"

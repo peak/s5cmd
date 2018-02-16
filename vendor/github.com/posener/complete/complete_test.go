@@ -1,8 +1,10 @@
 package complete
 
 import (
+	"bytes"
 	"os"
 	"sort"
+	"strings"
 	"testing"
 )
 
@@ -34,6 +36,7 @@ func TestCompleter_Complete(t *testing.T) {
 			"-global1": PredictAnything,
 		},
 	}
+	cmp := New("cmd", c)
 
 	tests := []struct {
 		args string
@@ -41,7 +44,7 @@ func TestCompleter_Complete(t *testing.T) {
 	}{
 		{
 			args: "",
-			want: []string{"sub1", "sub2", "-h", "-global1", "-o"},
+			want: []string{"sub1", "sub2"},
 		},
 		{
 			args: "-",
@@ -49,7 +52,7 @@ func TestCompleter_Complete(t *testing.T) {
 		},
 		{
 			args: "-h ",
-			want: []string{"sub1", "sub2", "-h", "-global1", "-o"},
+			want: []string{"sub1", "sub2"},
 		},
 		{
 			args: "-global1 ", // global1 is known follow flag
@@ -69,11 +72,15 @@ func TestCompleter_Complete(t *testing.T) {
 		},
 		{
 			args: "sub1 ",
+			want: []string{},
+		},
+		{
+			args: "sub1 -",
 			want: []string{"-flag1", "-flag2", "-h", "-global1"},
 		},
 		{
 			args: "sub2 ",
-			want: []string{"./", "dir/", "outer/", "readme.md", "-flag2", "-flag3", "-h", "-global1"},
+			want: []string{"./", "dir/", "outer/", "readme.md"},
 		},
 		{
 			args: "sub2 ./",
@@ -89,7 +96,7 @@ func TestCompleter_Complete(t *testing.T) {
 		},
 		{
 			args: "sub2 -flag2 ",
-			want: []string{"./", "dir/", "outer/", "readme.md", "-flag2", "-flag3", "-h", "-global1"},
+			want: []string{"./", "dir/", "outer/", "readme.md"},
 		},
 		{
 			args: "sub1 -fl",
@@ -104,7 +111,7 @@ func TestCompleter_Complete(t *testing.T) {
 			want: []string{}, // flag1 is unknown follow flag
 		},
 		{
-			args: "sub1 -flag2 ",
+			args: "sub1 -flag2 -",
 			want: []string{"-flag1", "-flag2", "-h", "-global1"},
 		},
 		{
@@ -113,7 +120,11 @@ func TestCompleter_Complete(t *testing.T) {
 		},
 		{
 			args: "-no-such-flag ",
-			want: []string{"sub1", "sub2", "-h", "-global1", "-o"},
+			want: []string{"sub1", "sub2"},
+		},
+		{
+			args: "-no-such-flag -",
+			want: []string{"-h", "-global1", "-o"},
 		},
 		{
 			args: "no-such-command",
@@ -121,7 +132,7 @@ func TestCompleter_Complete(t *testing.T) {
 		},
 		{
 			args: "no-such-command ",
-			want: []string{"sub1", "sub2", "-h", "-global1", "-o"},
+			want: []string{"sub1", "sub2"},
 		},
 		{
 			args: "-o ",
@@ -136,11 +147,27 @@ func TestCompleter_Complete(t *testing.T) {
 			want: []string{"./a.txt", "./b.txt", "./c.txt", "./.dot.txt", "./", "./dir/", "./outer/"},
 		},
 		{
+			args: "-o=./",
+			want: []string{"./a.txt", "./b.txt", "./c.txt", "./.dot.txt", "./", "./dir/", "./outer/"},
+		},
+		{
 			args: "-o .",
 			want: []string{"./a.txt", "./b.txt", "./c.txt", "./.dot.txt", "./", "./dir/", "./outer/"},
 		},
 		{
+			args: "-o ./b",
+			want: []string{"./b.txt"},
+		},
+		{
+			args: "-o=./b",
+			want: []string{"./b.txt"},
+		},
+		{
 			args: "-o ./read",
+			want: []string{},
+		},
+		{
+			args: "-o=./read",
 			want: []string{},
 		},
 		{
@@ -149,7 +176,11 @@ func TestCompleter_Complete(t *testing.T) {
 		},
 		{
 			args: "-o ./readme.md ",
-			want: []string{"sub1", "sub2", "-h", "-global1", "-o"},
+			want: []string{"sub1", "sub2"},
+		},
+		{
+			args: "-o=./readme.md ",
+			want: []string{"sub1", "sub2"},
 		},
 		{
 			args: "-o sub2 -flag3 ",
@@ -167,12 +198,87 @@ func TestCompleter_Complete(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.args, func(t *testing.T) {
+			got := runComplete(cmp, tt.args)
 
-			tt.args = "cmd " + tt.args
-			os.Setenv(envComplete, tt.args)
-			line, _ := getLine()
+			sort.Strings(tt.want)
+			sort.Strings(got)
 
-			got := c.Predict(newArgs(line))
+			if !equalSlices(got, tt.want) {
+				t.Errorf("failed '%s'\ngot: %s\nwant: %s", t.Name(), got, tt.want)
+			}
+		})
+	}
+}
+
+func TestCompleter_Complete_SharedPrefix(t *testing.T) {
+	t.Parallel()
+	initTests()
+
+	c := Command{
+		Sub: Commands{
+			"status": {
+				Flags: Flags{
+					"-f3": PredictNothing,
+				},
+			},
+			"job": {
+				Sub: Commands{
+					"status": {
+						Flags: Flags{
+							"-f4": PredictNothing,
+						},
+					},
+				},
+			},
+		},
+		Flags: Flags{
+			"-o": PredictFiles("*.txt"),
+		},
+		GlobalFlags: Flags{
+			"-h":       PredictNothing,
+			"-global1": PredictAnything,
+		},
+	}
+
+	cmp := New("cmd", c)
+
+	tests := []struct {
+		args string
+		want []string
+	}{
+		{
+			args: "",
+			want: []string{"status", "job"},
+		},
+		{
+			args: "-",
+			want: []string{"-h", "-global1", "-o"},
+		},
+		{
+			args: "j",
+			want: []string{"job"},
+		},
+		{
+			args: "job ",
+			want: []string{"status"},
+		},
+		{
+			args: "job -",
+			want: []string{"-h", "-global1"},
+		},
+		{
+			args: "job status ",
+			want: []string{},
+		},
+		{
+			args: "job status -",
+			want: []string{"-f4", "-h", "-global1"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.args, func(t *testing.T) {
+			got := runComplete(cmp, tt.args)
 
 			sort.Strings(tt.want)
 			sort.Strings(got)
@@ -182,6 +288,29 @@ func TestCompleter_Complete(t *testing.T) {
 			}
 		})
 	}
+}
+
+// runComplete runs the complete login for test purposes
+// it gets the complete struct and command line arguments and returns
+// the complete options
+func runComplete(c *Complete, args string) (completions []string) {
+	os.Setenv(envComplete, "cmd "+args)
+	b := bytes.NewBuffer(nil)
+	c.Out = b
+	c.Complete()
+	completions = parseOutput(b.String())
+	return
+}
+
+func parseOutput(output string) []string {
+	lines := strings.Split(output, "\n")
+	options := []string{}
+	for _, l := range lines {
+		if l != "" {
+			options = append(options, l)
+		}
+	}
+	return options
 }
 
 func equalSlices(a, b []string) bool {

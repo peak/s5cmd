@@ -22,12 +22,6 @@ func TestPredicate(t *testing.T) {
 			want: []string{"a", "b", "c"},
 		},
 		{
-			name:    "set with does",
-			p:       PredictSet("./..", "./x"),
-			argList: []string{"./.", "./.."},
-			want:    []string{"./.."},
-		},
-		{
 			name: "set/empty",
 			p:    PredictSet(),
 			want: []string{},
@@ -158,7 +152,7 @@ func TestPredicate(t *testing.T) {
 		for _, arg := range tt.argList {
 			t.Run(tt.name+"/arg="+arg, func(t *testing.T) {
 
-				matches := tt.p.Predict(newArgs(strings.Split(arg, " ")))
+				matches := tt.p.Predict(newArgs(arg))
 
 				sort.Strings(matches)
 				sort.Strings(tt.want)

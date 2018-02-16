@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/posener/complete"
-	"github.com/posener/complete/match"
 )
 
 var (
@@ -21,14 +20,8 @@ var (
 // for test names use prefix of 'Test' or 'Example', and for benchmark
 // test names use 'Benchmark'
 func funcPredict(funcRegexp *regexp.Regexp) complete.Predictor {
-	return complete.PredictFunc(func(a complete.Args) (prediction []string) {
-		tests := funcNames(funcRegexp)
-		for _, t := range tests {
-			if match.Prefix(t, a.Last) {
-				prediction = append(prediction, t)
-			}
-		}
-		return
+	return complete.PredictFunc(func(a complete.Args) []string {
+		return funcNames(funcRegexp)
 	})
 }
 

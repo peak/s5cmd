@@ -12,40 +12,20 @@ func TestPredictions(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name       string
-		predictor  complete.Predictor
-		last       string
-		completion []string
+		name      string
+		predictor complete.Predictor
+		last      string
+		want      []string
 	}{
 		{
-			name:       "predict tests ok",
-			predictor:  predictTest,
-			completion: []string{"TestPredictions", "Example"},
-		},
-		{
-			name:      "predict tests not found",
+			name:      "predict tests ok",
 			predictor: predictTest,
-			last:      "X",
+			want:      []string{"TestPredictions", "Example"},
 		},
 		{
-			name:       "predict benchmark ok",
-			predictor:  predictBenchmark,
-			completion: []string{"BenchmarkFake"},
-		},
-		{
-			name:      "predict benchmarks not found",
+			name:      "predict benchmark ok",
 			predictor: predictBenchmark,
-			last:      "X",
-		},
-		{
-			name:       "predict packages ok",
-			predictor:  complete.PredictFunc(predictPackages),
-			completion: []string{"./"},
-		},
-		{
-			name:      "predict packages not found",
-			predictor: complete.PredictFunc(predictPackages),
-			last:      "X",
+			want:      []string{"BenchmarkFake"},
 		},
 	}
 
@@ -53,8 +33,8 @@ func TestPredictions(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			a := complete.Args{Last: tt.last}
 			got := tt.predictor.Predict(a)
-			if want := tt.completion; !equal(got, want) {
-				t.Errorf("Failed %s: completion = %q, want %q", t.Name(), got, want)
+			if !equal(got, tt.want) {
+				t.Errorf("Failed %s: got: %q, want: %q", t.Name(), got, tt.want)
 			}
 		})
 	}

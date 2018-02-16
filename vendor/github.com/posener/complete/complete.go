@@ -6,11 +6,13 @@
 package complete
 
 import (
+	"flag"
 	"fmt"
+	"io"
 	"os"
-	"strings"
 
 	"github.com/posener/complete/cmd"
+	"github.com/posener/complete/match"
 )
 
 const (
@@ -22,6 +24,7 @@ const (
 type Complete struct {
 	Command Command
 	cmd.CLI
+	Out io.Writer
 }
 
 // New creates a new complete command.
@@ -33,14 +36,25 @@ func New(name string, command Command) *Complete {
 	return &Complete{
 		Command: command,
 		CLI:     cmd.CLI{Name: name},
+		Out:     os.Stdout,
 	}
 }
 
-// Run get a command, get the typed arguments from environment
-// variable, and print out the complete options
+// Run runs the completion and add installation flags beforehand.
+// The flags are added to the main flag CommandLine variable.
+func (c *Complete) Run() bool {
+	c.AddFlags(nil)
+	flag.Parse()
+	return c.Complete()
+}
+
+// Complete a command from completion line in environment variable,
+// and print out the complete options.
 // returns success if the completion ran or if the cli matched
 // any of the given flags, false otherwise
-func (c *Complete) Run() bool {
+// For installation: it assumes that flags were added and parsed before
+// it was called.
+func (c *Complete) Complete() bool {
 	line, ok := getLine()
 	if !ok {
 		// make sure flags parsed,
@@ -48,28 +62,34 @@ func (c *Complete) Run() bool {
 		return c.CLI.Run()
 	}
 	Log("Completing line: %s", line)
-
 	a := newArgs(line)
-
+	Log("Completing last field: %s", a.Last)
 	options := c.Command.Predict(a)
+	Log("Options: %s", options)
 
-	Log("Completion: %s", options)
-	output(options)
+	// filter only options that match the last argument
+	matches := []string{}
+	for _, option := range options {
+		if match.Prefix(option, a.Last) {
+			matches = append(matches, option)
+		}
+	}
+	Log("Matches: %s", matches)
+	c.output(matches)
 	return true
 }
 
-func getLine() ([]string, bool) {
+func getLine() (string, bool) {
 	line := os.Getenv(envComplete)
 	if line == "" {
-		return nil, false
+		return "", false
 	}
-	return strings.Split(line, " "), true
+	return line, true
 }
 
-func output(options []string) {
-	Log("")
+func (c *Complete) output(options []string) {
 	// stdout of program defines the complete options
 	for _, option := range options {
-		fmt.Println(option)
+		fmt.Fprintln(c.Out, option)
 	}
 }

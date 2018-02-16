@@ -78,7 +78,7 @@ func main() {
 					// build sub command has a flag '-cpus', which
 					// expects number of cpus after it. in that case
 					// anything could complete this flag.
-					"-cpus": complete.Anything,
+					"-cpus": complete.PredictAnything,
 				},
 			},
 		},
@@ -91,10 +91,10 @@ func main() {
 			"-o": complete.PredictFiles("*.out"),
 		},
 
-		// define gloabl flags of the 'run' main command
+		// define global flags of the 'run' main command
 		// those will show up also when a sub command was entered in the
 		// command line
-		Flags: complete.Flags{
+		GlobalFlags: complete.Flags{
 
 			// a flag '-h' which does not expects anything after it
 			"-h": complete.PredictNothing,

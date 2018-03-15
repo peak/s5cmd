@@ -49,7 +49,7 @@ func TestArgs(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.line, func(t *testing.T) {
 
-			a := newArgs(strings.Split(tt.line, " "))
+			a := newArgs(tt.line)
 
 			if got, want := strings.Join(a.Completed, " "), tt.completed; got != want {
 				t.Errorf("%s failed: Completed = %q, want %q", t.Name(), got, want)
@@ -131,7 +131,7 @@ func TestArgs_From(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("%s/%d", tt.line, tt.from), func(t *testing.T) {
 
-			a := newArgs(strings.Split(tt.line, " "))
+			a := newArgs(tt.line)
 			n := a.from(tt.from)
 
 			if got, want := strings.Join(n.All, " "), tt.newLine; got != want {
@@ -205,7 +205,7 @@ func TestArgs_Directory(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.line, func(t *testing.T) {
 
-			a := newArgs(strings.Split(tt.line, " "))
+			a := newArgs(tt.line)
 
 			if got, want := a.Directory(), tt.directory; got != want {
 				t.Errorf("%s failed: directory = %q, want %q", t.Name(), got, want)

@@ -108,7 +108,7 @@ func (c *CommandMap) String(optsOverride ...opt.OptionType) (s string) {
 
 // GetCommandList returns a text of accepted Commands with their options and arguments
 func GetCommandList() string {
-	list := make(map[string][]string, 0)
+	list := make(map[string][]string)
 	overrides := map[op.Operation]string{
 		op.Abort:     "exit [exit code]",
 		op.ShellExec: "! command [parameters...]",

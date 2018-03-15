@@ -202,7 +202,7 @@ func s3predictor(a cmp.Args) []string {
 	}
 
 	// Quickly create a new session with defaults
-	ses, err := core.NewAwsSession(-1)
+	ses, err := core.NewAwsSession(-1, "")
 	if err != nil {
 		return nil
 	}
@@ -239,6 +239,12 @@ func s3predictor(a cmp.Args) []string {
 	}
 
 	if s3bucket != "" {
+		// Override default region with bucket
+		ses, err := core.GetSessionForBucket(client, s3bucket)
+		if err == nil {
+			client = s3.New(ses)
+		}
+
 		var ret []string
 
 		prefix := "s3://" + s3bucket + "/"

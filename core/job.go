@@ -859,35 +859,30 @@ Midway-failing lister() fns are not thoroughly tested and may hang or panic
 
 func wildOperation(wp *WorkerParams, lister wildLister, callback wildCallback) error {
 	ch := make(chan interface{})
-	closer := make(chan bool)
+	closer := make(chan struct{})
 	subjobStats := subjobStatsType{} // Tally successful and total processed sub-jobs here
 	var subJobCounter uint32         // number of total subJobs issued
 
 	// This goroutine will read ls results from ch and issue new subJobs
 	go func() {
 		defer close(closer) // Close closer when goroutine exits
-		for {
-			select {
-			case data, ok := <-ch:
-				if !ok {
-					// Channel closed early: err returned from s3list?
+
+		// If channel closed early: err returned from s3list?
+		for data := range ch {
+			j := callback(data)
+			if j != nil {
+				j.subJobData = &subjobStats
+				subjobStats.Add(1)
+				subJobCounter++
+				select {
+				case *wp.subJobQueue <- j:
+				case <-wp.ctx.Done():
 					return
 				}
-				j := callback(data)
-				if j != nil {
-					j.subJobData = &subjobStats
-					subjobStats.Add(1)
-					subJobCounter++
-					select {
-					case *wp.subJobQueue <- j:
-					case <-wp.ctx.Done():
-						return
-					}
-				}
-				if data == nil {
-					// End of listing
-					return
-				}
+			}
+			if data == nil {
+				// End of listing
+				return
 			}
 		}
 	}()
@@ -900,7 +895,7 @@ func wildOperation(wp *WorkerParams, lister wildLister, callback wildCallback) e
 		<-closer // Wait for EOF on goroutine
 		verboseLog("wildOperation all subjobs sent")
 
-		closer = make(chan bool)
+		closer = make(chan struct{})
 		go func() {
 			subjobStats.Wait() // Wait for all jobs to finish
 			close(closer)

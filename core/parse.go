@@ -182,65 +182,61 @@ func ParseJob(jobdesc string) (*Job, error) {
 		err     error
 	)
 
-	for {
-		res := regexCmdAndOr.FindStringSubmatch(jobdesc)
-		if res != nil {
-			j, err = parseSingleJob(res[1])
-			if err != nil {
-				return nil, err
-			}
-
-			s, err = parseSingleJob(res[2])
-			if err != nil {
-				return nil, err
-			}
-
-			f, err = parseSingleJob(res[3])
-			if err != nil {
-				return nil, err
-			}
-			break
+	res := regexCmdAndOr.FindStringSubmatch(jobdesc)
+	if res != nil {
+		j, err = parseSingleJob(res[1])
+		if err != nil {
+			return nil, err
 		}
 
-		res = regexCmdAnd.FindStringSubmatch(jobdesc)
-		if res != nil {
-
-			j, err = parseSingleJob(res[1])
-			if err != nil {
-				return nil, err
-			}
-
-			s, err = parseSingleJob(res[2])
-			if err != nil {
-				return nil, err
-			}
-			break
+		s, err = parseSingleJob(res[2])
+		if err != nil {
+			return nil, err
 		}
 
-		res = regexCmdOr.FindStringSubmatch(jobdesc)
-		if res != nil {
-
-			j, err = parseSingleJob(res[1])
-			if err != nil {
-				return nil, err
-			}
-
-			f, err = parseSingleJob(res[2])
-			if err != nil {
-				return nil, err
-			}
-			break
+		f, err = parseSingleJob(res[3])
+		if err != nil {
+			return nil, err
 		}
-
-		j, err = parseSingleJob(jobdesc)
-		s = nil
-		f = nil
-		break
+		goto found
 	}
+
+	res = regexCmdAnd.FindStringSubmatch(jobdesc)
+	if res != nil {
+		j, err = parseSingleJob(res[1])
+		if err != nil {
+			return nil, err
+		}
+
+		s, err = parseSingleJob(res[2])
+		if err != nil {
+			return nil, err
+		}
+		goto found
+	}
+
+	res = regexCmdOr.FindStringSubmatch(jobdesc)
+	if res != nil {
+		j, err = parseSingleJob(res[1])
+		if err != nil {
+			return nil, err
+		}
+
+		f, err = parseSingleJob(res[2])
+		if err != nil {
+			return nil, err
+		}
+		goto found
+	}
+
+	j, err = parseSingleJob(jobdesc)
+	s = nil
+	f = nil
 	if err != nil {
 		return nil, err
 	}
 
+found:
 	if j != nil {
 		j.successCommand = s
 		j.failCommand = f

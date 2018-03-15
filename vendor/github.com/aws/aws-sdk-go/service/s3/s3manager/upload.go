@@ -117,6 +117,9 @@ type UploadInput struct {
 	// The language the content is in.
 	ContentLanguage *string `location:"header" locationName:"Content-Language" type:"string"`
 
+	// The base64-encoded 128-bit MD5 digest of the part data.
+	ContentMD5 *string `location:"header" locationName:"Content-MD5" type:"string"`
+
 	// A standard MIME type describing the format of the object data.
 	ContentType *string `location:"header" locationName:"Content-Type" type:"string"`
 
@@ -218,8 +221,11 @@ type Uploader struct {
 	// if this value is set to zero, the DefaultUploadPartSize value will be used.
 	PartSize int64
 
-	// The number of goroutines to spin up in parallel when sending parts.
-	// If this is set to zero, the DefaultUploadConcurrency value will be used.
+	// The number of goroutines to spin up in parallel per call to Upload when
+	// sending parts. If this is set to zero, the DefaultUploadConcurrency value
+	// will be used.
+	//
+	// The concurrency pool is not shared between calls to Upload.
 	Concurrency int
 
 	// Setting this value to true will cause the SDK to avoid calling
@@ -373,6 +379,61 @@ func (u Uploader) UploadWithContext(ctx aws.Context, input *UploadInput, opts ..
 	return i.upload()
 }
 
+// UploadWithIterator will upload a batched amount of objects to S3. This operation uses
+// the iterator pattern to know which object to upload next. Since this is an interface this
+// allows for custom defined functionality.
+//
+// Example:
+//	svc:= s3manager.NewUploader(sess)
+//
+//	objects := []BatchUploadObject{
+//		{
+//			Object:	&s3manager.UploadInput {
+//				Key: aws.String("key"),
+//				Bucket: aws.String("bucket"),
+//			},
+//		},
+//	}
+//
+//	iter := &s3managee.UploadObjectsIterator{Objects: objects}
+//	if err := svc.UploadWithIterator(aws.BackgroundContext(), iter); err != nil {
+//		return err
+//	}
+func (u Uploader) UploadWithIterator(ctx aws.Context, iter BatchUploadIterator, opts ...func(*Uploader)) error {
+	var errs []Error
+	for iter.Next() {
+		object := iter.UploadObject()
+		if _, err := u.UploadWithContext(ctx, object.Object, opts...); err != nil {
+			s3Err := Error{
+				OrigErr: err,
+				Bucket:  object.Object.Bucket,
+				Key:     object.Object.Key,
+			}
+
+			errs = append(errs, s3Err)
+		}
+
+		if object.After == nil {
+			continue
+		}
+
+		if err := object.After(); err != nil {
+			s3Err := Error{
+				OrigErr: err,
+				Bucket:  object.Object.Bucket,
+				Key:     object.Object.Key,
+			}
+
+			errs = append(errs, s3Err)
+		}
+	}
+
+	if len(errs) > 0 {
+		return NewBatchError("BatchedUploadIncomplete", "some objects have failed to upload.", errs)
+	}
+	return nil
+}
+
 // internal structure to manage an upload to S3.
 type uploader struct {
 	ctx aws.Context
@@ -426,10 +487,7 @@ func (u *uploader) initSize() {
 
 	switch r := u.in.Body.(type) {
 	case io.Seeker:
-		pos, _ := r.Seek(0, 1)
-		defer r.Seek(pos, 0)
-
-		n, err := r.Seek(0, 2)
+		n, err := aws.SeekerLen(r)
 		if err != nil {
 			return
 		}

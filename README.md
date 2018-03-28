@@ -57,32 +57,35 @@ s5cmd ls s3://my-bucket/my-prefix/some-object<tab>
 ```
 $ ./s5cmd
 
-Usage: ./s5cmd [OPTION]... [COMMAND [PARAMS...]]
+Usage: s5cmd [OPTION]... [COMMAND [PARAMS...]]
 
+Options:
   -cmp-install
-        Install shell completion
+    	Install shell completion
   -cmp-uninstall
-        Uninstall shell completion
-  -cs int
-        Multipart chunk size in MB for uploads (default 5, auto calculated)
-  -dlp int
-        Multipart chunk size in MB for downloads (default 5)
-  -dlw int
-        Download concurrency (single file) (default 5)
+    	Uninstall shell completion
+  -ds int
+    	Multipart chunk size in MB for downloads (default 50)
+  -dw int
+    	Download concurrency (single file) (default 5)
   -f string
-        Commands-file or - for stdin
+    	Commands-file or - for stdin
   -gops
-        Initialize gops agent
+    	Initialize gops agent
+  -install
+    	Install completion for s5cmd command
   -numworkers int
-        Number of worker goroutines. Negative numbers mean multiples of the CPU core count(default 256)
+    	Number of worker goroutines. Negative numbers mean multiples of the CPU core count. (default 256)
   -r int
-        Retry S3 operations N times before failing (default 10)
-  -ulw int
-        Upload concurrency (single file) (default 5)
+    	Retry S3 operations N times before failing (default 10)
   -stats
-        Always print stats
+    	Always print stats
+  -us int
+    	Multipart chunk size in MB for uploads (default 50, auto calculated)
+  -uw int
+    	Upload concurrency (single file) (default 5)
   -version
-        Prints current version
+    	Prints current version
 
 Commands:
     !, cp, du, exit, get, ls, mv, rm

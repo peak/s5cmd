@@ -57,16 +57,13 @@ func main() {
 		retries       int
 	)
 
-	defaultUploadPartSize := int(math.Ceil(float64(s3manager.DefaultUploadPartSize) / bytesInMb))     // Convert to MB
-	defaultDownloadPartSize := int(math.Ceil(float64(s3manager.DefaultDownloadPartSize) / bytesInMb)) // Convert to MB
-
 	flag.StringVar(&cmdFile, "f", "", "Commands-file or - for stdin")
 	flag.IntVar(&numWorkers, "numworkers", defaultNumWorkers, fmt.Sprintf("Number of worker goroutines. Negative numbers mean multiples of the CPU core count."))
-	flag.IntVar(&ulPartSize, "cs", defaultUploadPartSize, "Multipart chunk size in MB for uploads")
+	flag.IntVar(&ulPartSize, "cs", 50, "Multipart chunk size in MB for uploads")
 	flag.IntVar(&ulConcurrency, "ulw", s3manager.DefaultUploadConcurrency, "Upload concurrency (single file)")
 	flag.IntVar(&retries, "r", 10, "Retry S3 operations N times before failing")
 	flag.IntVar(&dlConcurrency, "dlw", s3manager.DefaultDownloadConcurrency, "Download concurrency (single file)")
-	flag.IntVar(&dlPartSize, "dlp", defaultDownloadPartSize, "Multipart chunk size in MB for downloads")
+	flag.IntVar(&dlPartSize, "dlp", 50, "Multipart chunk size in MB for downloads")
 	printStats := flag.Bool("stats", false, "Always print stats")
 	showVersion := flag.Bool("version", false, "Prints current version")
 	gops := flag.Bool("gops", false, "Initialize gops agent")

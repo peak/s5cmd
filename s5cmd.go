@@ -18,7 +18,6 @@ import (
 
 	"github.com/peakgames/s5cmd/complete"
 	"github.com/peakgames/s5cmd/core"
-	"github.com/peakgames/s5cmd/opt"
 	"github.com/peakgames/s5cmd/stats"
 	"github.com/peakgames/s5cmd/version"
 )
@@ -74,9 +73,15 @@ func main() {
 	verbose := flag.Bool("vv", false, "Verbose output")
 
 	flag.Usage = func() {
-		core.PrintUsageLine()
+		fmt.Fprintf(os.Stderr, "%v\n\n", core.UsageLine())
+
+		fmt.Fprint(os.Stderr, "Options:\n")
 		flag.PrintDefaults()
-		fmt.Fprint(os.Stderr, "\nTo list available commands, run without arguments.\n")
+
+		cl := core.GetCommandList()
+		fmt.Fprint(os.Stderr, "\nCommands:")
+		fmt.Fprintf(os.Stderr, "\n    %v\n", strings.Join(cl, ", "))
+		fmt.Fprintf(os.Stderr, "\nTo get help on a specific command, run \"%v <command> -h\"\n", os.Args[0])
 	}
 
 	//flag.Parse()
@@ -102,17 +107,7 @@ func main() {
 	}
 
 	if flag.Arg(0) == "" && cmdFile == "" {
-		core.PrintUsageLine()
-
-		cl, opts, _ := core.GetCommandList("")
-
-		fmt.Fprint(os.Stderr, "Command options:\n")
-		fmt.Fprintf(os.Stderr, opt.GetOptionHelps(opts))
-		fmt.Fprint(os.Stderr, "\n\n")
-
-		fmt.Fprint(os.Stderr, "Commands:\n")
-		fmt.Fprintf(os.Stderr, cl)
-		fmt.Fprint(os.Stderr, "\nTo list available options, run with the -h option.\n")
+		flag.Usage()
 		os.Exit(2)
 	}
 

@@ -55,7 +55,7 @@ s5cmd ls s3://my-bucket/my-prefix/some-object<tab>
 ## Usage ##
 
 ```
-$ ./s5cmd --help
+$ ./s5cmd
 
 Usage: ./s5cmd [OPTION]... [COMMAND [PARAMS...]]
 
@@ -84,7 +84,10 @@ Usage: ./s5cmd [OPTION]... [COMMAND [PARAMS...]]
   -version
         Prints current version
 
-To list available commands, run without arguments.
+Commands:
+    !, cp, du, exit, get, ls, mv, rm
+
+To get help on a specific command, run "s5cmd <command> -h"
 ```
 
 ## Commands File ##
@@ -116,7 +119,7 @@ There are three main commands: `cp`, `mv` and `rm`. Arguments can be either S3 u
 - Batch local-to-local `cp` and `mv` commands also accept the `-R` option for recursive operation.
 - The `ls` command accepts the `-e` option to show ETags in listing.
 - The `du` command only takes S3 arguments (prefix or wildcard)
-- `ls` and `du` commands both accept the `-h` option to show human-readable object sizes.
+- `ls` and `du` commands both accept the `-H` option to show human-readable object sizes.
 - `du` command also accepts the `-g` option to group by storage class.
 
 

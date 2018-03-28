@@ -108,8 +108,8 @@ func (c *CommandMap) String(optsOverride ...opt.OptionType) (s string) {
 	return
 }
 
-// GetCommandList returns a text of accepted Commands with their options and arguments, list of accepted options, and a count of command alternates
-func GetCommandList(filter string) (string, []opt.OptionType, int) {
+// GetCommandHelps returns a text of accepted Commands with their options and arguments, list of accepted options, and a count of command alternates
+func GetCommandHelps(filter string) (string, []opt.OptionType, int) {
 	list := make(map[string][]string)
 	overrides := map[op.Operation]string{
 		op.Abort:     "exit [exit code]",
@@ -189,6 +189,27 @@ func GetCommandList(filter string) (string, []opt.OptionType, int) {
 	return ret, optsUsed, len(list)
 }
 
-func PrintUsageLine() {
-	fmt.Fprintf(os.Stderr, "Usage: %s [OPTION]... [COMMAND [PARAMS...]]\n\n", os.Args[0])
+// GetCommandList returns a list of accepted Commands
+func GetCommandList() []string {
+	l := make(map[string]struct{})
+	for _, c := range Commands {
+		if c.Operation.IsInternal() {
+			continue
+		}
+		l[c.Keyword] = struct{}{}
+	}
+
+	var list []string
+
+	for k := range l {
+		list = append(list, k)
+	}
+	sort.Strings(list)
+
+	return list
+}
+
+// UsageLine returns the generic usage line for s5cmd
+func UsageLine() string {
+	return fmt.Sprintf("Usage: %s [OPTION]... [COMMAND [PARAMS...]]", os.Args[0])
 }

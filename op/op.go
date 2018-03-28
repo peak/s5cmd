@@ -31,6 +31,7 @@ const (
 	ShellExec                          // Execute shell command
 	AliasGet                           // Alias for Download
 	AliasBatchGet                      // Alias for BatchDownload
+	ShowHelp                           // Show help for command
 )
 
 // IsBatch returns true if this operation creates sub-jobs
@@ -83,6 +84,8 @@ func (o Operation) String() string {
 		return "get"
 	case AliasBatchGet:
 		return "batch-get"
+	case ShowHelp:
+		return "show-help"
 	}
 
 	return fmt.Sprintf("Unknown:%d", o)
@@ -154,7 +157,7 @@ func (o Operation) Describe(l opt.OptionList) string {
 
 // GetAcceptedOpts returns an opt.OptionList of optional parameters for a specific Operation
 func (o Operation) GetAcceptedOpts() *opt.OptionList {
-	l := opt.OptionList{}
+	l := opt.OptionList{opt.Help}
 
 	switch o {
 	case Download, Upload, Copy, LocalCopy, BatchDownload, BatchUpload, BatchLocalCopy, BatchCopy, AliasGet, AliasBatchGet:

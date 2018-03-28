@@ -165,6 +165,26 @@ func (j *Job) Notify(success bool) {
 func (j *Job) Run(wp *WorkerParams) error {
 	//log.Printf("Running %v", j)
 
+	if j.opts.Has(opt.Help) {
+		PrintUsageLine()
+
+		cl, opts, cnt := GetCommandList(j.command)
+
+		if ol := opt.GetOptionHelps(opts); ol != "" {
+			fmt.Fprintf(os.Stderr, "\"%v\" command options:\n", j.command)
+			fmt.Fprintf(os.Stderr, ol)
+			fmt.Fprint(os.Stderr, "\n\n")
+		}
+
+		if cnt > 1 {
+			fmt.Fprintf(os.Stderr, "Help for \"%v\" commands:\n", j.command)
+		}
+		fmt.Fprintf(os.Stderr, cl)
+		fmt.Fprint(os.Stderr, "\nTo list available general options, run \"%v -h\"\n", os.Args[0])
+
+		return ErrDisplayedHelp
+	}
+
 	switch j.operation {
 
 	// Local operations

@@ -25,6 +25,7 @@ const (
 	GroupByClass                        // Group by storage class (du)
 	IfSizeDiffers                       // Run only if size differs (or file non-existent on destination)
 	IfSourceNewer                       // Run only if source file is newer
+	Help                                // Show help
 )
 
 var optionsHelpOrder = [...]OptionType{
@@ -70,9 +71,11 @@ func (o OptionType) GetParam() string {
 	case ListETags:
 		return "-e"
 	case HumanReadable:
-		return "-h"
+		return "-H"
 	case GroupByClass:
 		return "-g"
+	case Help:
+		return "-h"
 	}
 	return ""
 }
@@ -100,21 +103,33 @@ func (o OptionType) HelpMessage() string {
 		return "Human-readable output for file sizes"
 	case GroupByClass:
 		return "Group sizes by storage class"
+	case Help:
+		return "Show help"
 	}
 	return ""
 }
 
-// GetOptionList returns a text of accepted command options with their help messages
-func GetOptionList() string {
+// GetOptionHelps returns a text of accepted command options with their help messages
+func GetOptionHelps(opts []OptionType) string {
+
+	filterMap := make(map[OptionType]struct{})
+	for _, f := range opts {
+		filterMap[f] = struct{}{}
+	}
+
 	var out []string
 
 	// use the order in optionsHelpOrder
 	for _, o := range optionsHelpOrder {
+		if _, ok := filterMap[o]; !ok {
+			continue
+		}
+
 		str := fmt.Sprintf("  %-10s %s", o.GetParam(), o.HelpMessage())
 		out = append(out, str)
 	}
 
-	return strings.Join(out, "\n") + "\n"
+	return strings.Join(out, "\n")
 }
 
 // GetParams runs GetParam() on an opt.OptionList and returns a concatenated string

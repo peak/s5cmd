@@ -299,10 +299,16 @@ func parseSingleJob(jobdesc string) (*Job, error) {
 				}
 			}
 		endOptParse:
+
+			// Don't parse args if we have the help option
+			if ourJob.opts.Has(opt.Help) {
+				return ourJob, nil
+			}
+
 			// Check number of arguments
 			suppliedParamCount := len(parts) - fileArgsStartPosition // Number of arguments/params (sans options and the command name itself)
-			minCount := len(c.Params) // Minimum number of parameters needed
-			maxCount := minCount      // Maximum
+			minCount := len(c.Params)                                // Minimum number of parameters needed
+			maxCount := minCount                                     // Maximum
 			if minCount > 0 && c.Params[minCount-1] == opt.UncheckedOneOrMore {
 				maxCount = -1 // Accept unlimited parameters if the last param is opt.UncheckedOneOrMore
 			}

@@ -198,7 +198,9 @@ func (p *WorkerPool) runWorker(st *stats.Stats, idlingCounter *int32, id int) {
 					job.Notify(false)
 					job = job.failCommand
 				} else {
-					job.PrintOK(acceptableErr)
+					if acceptableErr != ErrDisplayedHelp {
+						job.PrintOK(acceptableErr)
+					}
 					job.Notify(true)
 					job = job.successCommand
 				}

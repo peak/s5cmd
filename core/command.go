@@ -1,6 +1,8 @@
 package core
 
 import (
+	"fmt"
+	"os"
 	"sort"
 	"strings"
 
@@ -106,13 +108,15 @@ func (c *CommandMap) String(optsOverride ...opt.OptionType) (s string) {
 	return
 }
 
-// GetCommandList returns a text of accepted Commands with their options and arguments
-func GetCommandList() string {
+// GetCommandList returns a text of accepted Commands with their options and arguments, list of accepted options, and a count of command alternates
+func GetCommandList(filter string) (string, []opt.OptionType, int) {
 	list := make(map[string][]string)
 	overrides := map[op.Operation]string{
 		op.Abort:     "exit [exit code]",
 		op.ShellExec: "! command [parameters...]",
 	}
+
+	optsList := make(map[opt.OptionType]struct{})
 
 	var lastDesc string
 	var l []string
@@ -120,6 +124,10 @@ func GetCommandList() string {
 		if c.Operation.IsInternal() {
 			continue
 		}
+		if filter != "" && c.Keyword != filter {
+			continue
+		}
+
 		desc := c.Operation.Describe(c.Opts)
 		if lastDesc != desc {
 			if len(l) > 0 {
@@ -139,6 +147,11 @@ func GetCommandList() string {
 		s := c.Keyword
 		ao := c.Operation.GetAcceptedOpts()
 		for _, p := range *ao {
+			if p == opt.Help {
+				continue
+			}
+			optsList[p] = struct{}{}
+
 			s += " [" + p.GetParam() + "]"
 		}
 		for _, pt := range c.Params {
@@ -168,5 +181,14 @@ func GetCommandList() string {
 		}
 	}
 
-	return ret
+	var optsUsed []opt.OptionType
+	for k := range optsList {
+		optsUsed = append(optsUsed, k)
+	}
+
+	return ret, optsUsed, len(list)
+}
+
+func PrintUsageLine() {
+	fmt.Fprintf(os.Stderr, "Usage: %s [OPTION]... [COMMAND [PARAMS...]]\n\n", os.Args[0])
 }

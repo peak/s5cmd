@@ -43,10 +43,6 @@ func printOps(name string, counter uint64, elapsed time.Duration, extra string) 
 	log.Printf("# Stats: %-7s %10d %4d ops/sec%s", name, counter, ops, extra)
 }
 
-func printUsageLine() {
-	fmt.Fprintf(os.Stderr, "Usage: %s [OPTION]... [COMMAND [PARAMS...]]\n\n", os.Args[0])
-}
-
 func main() {
 	const bytesInMb = float64(1024 * 1024)
 	const minNumWorkers = 2
@@ -78,7 +74,7 @@ func main() {
 	verbose := flag.Bool("vv", false, "Verbose output")
 
 	flag.Usage = func() {
-		printUsageLine()
+		core.PrintUsageLine()
 		flag.PrintDefaults()
 		fmt.Fprint(os.Stderr, "\nTo list available commands, run without arguments.\n")
 	}
@@ -106,14 +102,16 @@ func main() {
 	}
 
 	if flag.Arg(0) == "" && cmdFile == "" {
-		printUsageLine()
+		core.PrintUsageLine()
+
+		cl, opts, _ := core.GetCommandList("")
 
 		fmt.Fprint(os.Stderr, "Command options:\n")
-		fmt.Fprintf(os.Stderr, opt.GetOptionList())
-		fmt.Fprint(os.Stderr, "\n")
+		fmt.Fprintf(os.Stderr, opt.GetOptionHelps(opts))
+		fmt.Fprint(os.Stderr, "\n\n")
 
 		fmt.Fprint(os.Stderr, "Commands:\n")
-		fmt.Fprintf(os.Stderr, core.GetCommandList())
+		fmt.Fprintf(os.Stderr, cl)
 		fmt.Fprint(os.Stderr, "\nTo list available options, run with the -h option.\n")
 		os.Exit(2)
 	}

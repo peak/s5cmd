@@ -18,6 +18,8 @@ var (
 	ErrObjectIsNewerButOk = NewAcceptableError("Object is newer or same age")
 	// ErrObjectSizesMatchButOk is used when a destination object size matches the source and opt.IfSizeDiffers is set.
 	ErrObjectSizesMatchButOk = NewAcceptableError("Object size matches")
+	// ErrDisplayedHelp is used when a command is invoked with "-h"
+	ErrDisplayedHelp = NewAcceptableError("Displayed help for command")
 )
 
 // JobArgument is an argument of the job. Can be a file/directory, an s3 url ("s3" is set in this case) or an arbitrary string.

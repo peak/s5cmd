@@ -168,9 +168,9 @@ func (j *Job) Run(wp *WorkerParams) error {
 	if j.opts.Has(opt.Help) {
 		fmt.Fprintf(os.Stderr, "%v\n\n", UsageLine())
 
-		cl, opts, cnt := GetCommandHelps(j.command)
+		cl, opts, cnt := CommandHelps(j.command)
 
-		if ol := opt.GetOptionHelps(opts); ol != "" {
+		if ol := opt.OptionHelps(opts); ol != "" {
 			fmt.Fprintf(os.Stderr, "\"%v\" command options:\n", j.command)
 			fmt.Fprintf(os.Stderr, ol)
 			fmt.Fprint(os.Stderr, "\n\n")

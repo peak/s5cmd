@@ -75,7 +75,7 @@ func main() {
 		fmt.Fprint(os.Stderr, "Options:\n")
 		flag.PrintDefaults()
 
-		cl := core.GetCommandList()
+		cl := core.CommandList()
 		fmt.Fprint(os.Stderr, "\nCommands:")
 		fmt.Fprintf(os.Stderr, "\n    %v\n", strings.Join(cl, ", "))
 		fmt.Fprintf(os.Stderr, "\nTo get help on a specific command, run \"%v <command> -h\"\n", os.Args[0])

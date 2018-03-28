@@ -108,8 +108,8 @@ func (c *CommandMap) String(optsOverride ...opt.OptionType) (s string) {
 	return
 }
 
-// GetCommandHelps returns a text of accepted Commands with their options and arguments, list of accepted options, and a count of command alternates
-func GetCommandHelps(filter string) (string, []opt.OptionType, int) {
+// CommandHelps returns a text of accepted Commands with their options and arguments, list of accepted options, and a count of command alternates
+func CommandHelps(filter string) (string, []opt.OptionType, int) {
 	list := make(map[string][]string)
 	overrides := map[op.Operation]string{
 		op.Abort:     "exit [exit code]",
@@ -189,8 +189,8 @@ func GetCommandHelps(filter string) (string, []opt.OptionType, int) {
 	return ret, optsUsed, len(list)
 }
 
-// GetCommandList returns a list of accepted Commands
-func GetCommandList() []string {
+// CommandList returns a list of accepted Commands
+func CommandList() []string {
 	l := make(map[string]struct{})
 	for _, c := range Commands {
 		if c.Operation.IsInternal() {

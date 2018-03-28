@@ -109,8 +109,8 @@ func (o OptionType) HelpMessage() string {
 	return ""
 }
 
-// GetOptionHelps returns a text of accepted command options with their help messages
-func GetOptionHelps(opts []OptionType) string {
+// OptionHelps returns a text of accepted command options with their help messages
+func OptionHelps(opts []OptionType) string {
 
 	filterMap := make(map[OptionType]struct{})
 	for _, f := range opts {

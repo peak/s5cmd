@@ -180,7 +180,7 @@ func (j *Job) Run(wp *WorkerParams) error {
 			fmt.Fprintf(os.Stderr, "Help for \"%v\" commands:\n", j.command)
 		}
 		fmt.Fprintf(os.Stderr, cl)
-		fmt.Fprint(os.Stderr, "\nTo list available general options, run \"%v -h\"\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "\nTo list available general options, run \"%v -h\"\n", os.Args[0])
 
 		return ErrDisplayedHelp
 	}

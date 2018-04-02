@@ -4,8 +4,8 @@ class S5cmd < Formula
   homepage "https://github.com/peakgames/s5cmd"
 
   # Source code archive. Each tagged release will have one
-  url "https://github.com/peakgames/s5cmd/archive/v0.5.7.tar.gz"
-  sha256 "99095c440ba4a1aeb5e1451d2fc8f396dcc401489e9f59cfbad6477bfec419e9"
+  url "https://github.com/peakgames/s5cmd/archive/v0.6.0.tar.gz"
+  sha256 "70d89cc5f4d5c26aff6af716e3a6bb5d17bc084fa09c89312ac4eb69ae468a2a"
   head "https://github.com/peakgames/s5cmd"
 
   depends_on "go" => :build
@@ -29,6 +29,6 @@ class S5cmd < Formula
   # Homebrew requires tests.
   test do
     # "2>&1" redirects standard error to stdout.
-    assert_match "s5cmd version v0.5.7", shell_output("#{bin}/s5cmd -version 2>&1", 0)
+    assert_match "s5cmd version v0.6.0", shell_output("#{bin}/s5cmd -version 2>&1", 0)
   end
 end

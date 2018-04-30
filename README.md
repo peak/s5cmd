@@ -13,7 +13,7 @@ This is a parallel S3 and local filesystem execution tool.
 
 ## Installation ##
 
-Using [go get](https://golang.org/dl/):
+You'll need at [Go 1.7+](https://golang.org/dl) to install `s5cmd`.
 
     go get -u github.com/peakgames/s5cmd
 

@@ -108,7 +108,9 @@ Single commands are also supported with the `s5cmd [command [params]]` syntax.
 There are three main commands: `cp`, `mv` and `rm`. Arguments can be either S3 urls, S3 wildcards, local file/directory references or local glob patterns.
 
 - Copy, Download or Upload: `cp [options] [src] [dst]`
+    - Note, the directory hierarchy will be flattened by default. Pass `--parents` to preserve the dir structure
 - Move, Download or Upload and then delete: `mv [options] [src] [dst]`
+    - Note, the directory hierarchy will be flattened by default. Pass `--parents` to preserve the dir structure
 - Delete: `rm [src]`
 - Count objects and determine total size: `du [src]`
 - Arbitrary shell-execute - `! commands...`

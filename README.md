@@ -34,6 +34,8 @@ s5cmd -cmp-install
 ```
 This will add a few lines (depending on configuration) to your `.bashrc` or `.zshrc` file. After installation, run `source .bashrc` (or restart your shell) to activate the changes.
 
+> Note: Auto-completion always works with AWS Endpoint, `-endpoint-url` does not override it's behaviour.
+
 #### Examples ####
 
 To utilize shell autocompletion, use the `<tab>` key on the shell CLI. If there is more than one match, nothing will happen until a second `<tab>` is hit, which then will show options. Examples:
@@ -68,6 +70,8 @@ Options:
     	Multipart chunk size in MB for downloads (default 50)
   -dw int
     	Download concurrency (single file) (default 5)
+  -endpoint-url string
+    	Override default URL with the given one
   -f string
     	Commands-file or - for stdin
   -gops
@@ -80,12 +84,17 @@ Options:
     	Retry S3 operations N times before failing (default 10)
   -stats
     	Always print stats
+  -uninstall
+    	Uninstall completion for s5cmd command
   -us int
-    	Multipart chunk size in MB for uploads (default 50, auto calculated)
+    	Multipart chunk size in MB for uploads (default 50)
   -uw int
     	Upload concurrency (single file) (default 5)
   -version
     	Prints current version
+  -vv
+    	Verbose output
+  -y	Don't prompt user for typing 'yes'
 
 Commands:
     !, cp, du, exit, get, ls, mv, rm

@@ -27,6 +27,7 @@ type WorkerPoolParams struct {
 	DownloadChunkSizeBytes int64
 	DownloadConcurrency    int
 	Retries                int
+	EndpointURL            string
 }
 
 // WorkerPool is the state of our worker pool.
@@ -55,7 +56,7 @@ type WorkerParams struct {
 }
 
 // NewAwsSession initializes a new AWS session with region fallback and custom options
-func NewAwsSession(maxRetries int, region string) (*session.Session, error) {
+func NewAwsSession(maxRetries int, endpointURL string, region string) (*session.Session, error) {
 	newSession := func(c *aws.Config) (*session.Session, error) {
 		useSharedConfig := session.SharedConfigEnable
 
@@ -70,6 +71,12 @@ func NewAwsSession(maxRetries int, region string) (*session.Session, error) {
 	}
 
 	awsCfg := aws.NewConfig().WithMaxRetries(maxRetries) //.WithLogLevel(aws.LogDebug))
+
+	if endpointURL != "" {
+		awsCfg = awsCfg.WithEndpoint(endpointURL).WithS3ForcePathStyle(true)
+		verboseLog("Setting Endpoint to %s on AWS Config", endpointURL)
+	}
+
 	if region != "" {
 		awsCfg = awsCfg.WithRegion(region)
 		return newSession(awsCfg)
@@ -89,7 +96,7 @@ func NewAwsSession(maxRetries int, region string) (*session.Session, error) {
 
 // NewWorkerPool creates a new worker pool and start the workers.
 func NewWorkerPool(ctx context.Context, params *WorkerPoolParams, st *stats.Stats) *WorkerPool {
-	ses, err := NewAwsSession(params.Retries, "")
+	ses, err := NewAwsSession(params.Retries, params.EndpointURL, "")
 	if err != nil {
 		log.Fatal(err)
 	}

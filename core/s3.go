@@ -195,5 +195,5 @@ func GetSessionForBucket(svc *s3.S3, bucket string) (*session.Session, error) {
 		return nil, err
 	}
 
-	return NewAwsSession(-1, *o.LocationConstraint)
+	return NewAwsSession(-1, "", *o.LocationConstraint)
 }

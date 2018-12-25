@@ -50,6 +50,7 @@ func main() {
 	var (
 		numWorkers    int
 		cmdFile       string
+		endpointURL   string
 		ulPartSize    int
 		ulConcurrency int
 		dlPartSize    int
@@ -58,6 +59,7 @@ func main() {
 	)
 
 	flag.StringVar(&cmdFile, "f", "", "Commands-file or - for stdin")
+	flag.StringVar(&endpointURL, "endpoint-url", "", "Override default URL with the given one")
 	flag.IntVar(&numWorkers, "numworkers", defaultNumWorkers, fmt.Sprintf("Number of worker goroutines. Negative numbers mean multiples of the CPU core count."))
 	flag.IntVar(&dlConcurrency, "dw", s3manager.DefaultDownloadConcurrency, "Download concurrency (single file)")
 	flag.IntVar(&dlPartSize, "ds", 50, "Multipart chunk size in MB for downloads")
@@ -139,6 +141,8 @@ func main() {
 		numWorkers = minNumWorkers
 	}
 
+	endpointURL = strings.TrimSpace(endpointURL)
+
 	startTime := time.Now()
 
 	if !cmdMode {
@@ -176,6 +180,7 @@ func main() {
 			DownloadChunkSizeBytes: dlPartSizeBytes,
 			DownloadConcurrency:    dlConcurrency,
 			Retries:                retries,
+			EndpointURL:            endpointURL,
 		}, &s)
 	if cmdMode {
 		wp.RunCmd(cmd)

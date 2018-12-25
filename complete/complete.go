@@ -202,7 +202,7 @@ func s3predictor(a cmp.Args) []string {
 	}
 
 	// Quickly create a new session with defaults
-	ses, err := core.NewAwsSession(-1, "")
+	ses, err := core.NewAwsSession(-1, "", "")
 	if err != nil {
 		return nil
 	}

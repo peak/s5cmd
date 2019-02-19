@@ -300,6 +300,7 @@ func (p *WorkerPool) Run(filename string) {
 	s := NewCancelableScanner(p.ctx, r).Start()
 
 	var j *Job
+	jobCount := 0
 	isAnyBatch := false
 	for {
 		line, err := s.ReadOne(p.subJobQueue, p.jobQueue)
@@ -313,8 +314,13 @@ func (p *WorkerPool) Run(filename string) {
 
 		j = p.parseJob(line)
 		if j != nil {
+			jobCount += 1
 			isAnyBatch = isAnyBatch || j.operation.IsBatch()
-			p.queueJob(j)
+			if jobCount < p.params.NumWorkers {
+				p.queueJob(j)
+			} else {
+				log.Fatal("-ERR Can't have less workers than operations in the input file")
+			}
 		}
 	}
 	if isAnyBatch {

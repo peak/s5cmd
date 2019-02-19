@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"errors"
+	"net/http"
 	"path"
 	"regexp"
 	"strings"
@@ -197,5 +198,11 @@ func GetSessionForBucket(svc *s3.S3, bucket string) (*session.Session, error) {
 
 	endpointURL := svc.Endpoint
 
-	return NewAwsSession(-1, endpointURL, *o.LocationConstraint)
+	noVerifySSL := false
+	transport, ok := svc.Config.HTTPClient.Transport.(*http.Transport)
+	if ok {
+		noVerifySSL = transport.TLSClientConfig.InsecureSkipVerify
+	}
+
+	return NewAwsSession(-1, endpointURL, *o.LocationConstraint, noVerifySSL)
 }

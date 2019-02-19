@@ -2,8 +2,10 @@ package core
 
 import (
 	"context"
+	"crypto/tls"
 	"io"
 	"log"
+	"net/http"
 	"os"
 	"strconv"
 	"sync"
@@ -28,6 +30,7 @@ type WorkerPoolParams struct {
 	DownloadConcurrency    int
 	Retries                int
 	EndpointURL            string
+	NoVerifySSL            bool
 }
 
 // WorkerPool is the state of our worker pool.
@@ -56,7 +59,7 @@ type WorkerParams struct {
 }
 
 // NewAwsSession initializes a new AWS session with region fallback and custom options
-func NewAwsSession(maxRetries int, endpointURL string, region string) (*session.Session, error) {
+func NewAwsSession(maxRetries int, endpointURL string, region string, noVerifySSL bool) (*session.Session, error) {
 	newSession := func(c *aws.Config) (*session.Session, error) {
 		useSharedConfig := session.SharedConfigEnable
 
@@ -75,6 +78,12 @@ func NewAwsSession(maxRetries int, endpointURL string, region string) (*session.
 	if endpointURL != "" {
 		awsCfg = awsCfg.WithEndpoint(endpointURL).WithS3ForcePathStyle(true)
 		verboseLog("Setting Endpoint to %s on AWS Config", endpointURL)
+	}
+
+	if noVerifySSL {
+		awsCfg = awsCfg.WithHTTPClient(&http.Client{Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		}})
 	}
 
 	if region != "" {
@@ -96,7 +105,7 @@ func NewAwsSession(maxRetries int, endpointURL string, region string) (*session.
 
 // NewWorkerPool creates a new worker pool and start the workers.
 func NewWorkerPool(ctx context.Context, params *WorkerPoolParams, st *stats.Stats) *WorkerPool {
-	ses, err := NewAwsSession(params.Retries, params.EndpointURL, "")
+	ses, err := NewAwsSession(params.Retries, params.EndpointURL, "", params.NoVerifySSL)
 	if err != nil {
 		log.Fatal(err)
 	}

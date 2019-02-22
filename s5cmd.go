@@ -56,7 +56,7 @@ func main() {
 		dlPartSize    int
 		dlConcurrency int
 		retries       int
-		noVerify      bool
+		noVerifySSL   bool
 	)
 
 	flag.StringVar(&cmdFile, "f", "", "Commands-file or - for stdin")
@@ -71,7 +71,7 @@ func main() {
 	showVersion := flag.Bool("version", false, "Prints current version")
 	gops := flag.Bool("gops", false, "Initialize gops agent")
 	verbose := flag.Bool("vv", false, "Verbose output")
-	flag.BoolVar(&noVerify, "no-verify", false, "Don't verify SSL certificates")
+	flag.BoolVar(&noVerifySSL, "no-verify-ssl", false, "Don't verify SSL certificates")
 
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "%v\n\n", core.UsageLine())
@@ -183,7 +183,7 @@ func main() {
 			DownloadConcurrency:    dlConcurrency,
 			Retries:                retries,
 			EndpointURL:            endpointURL,
-			NoVerifySSL:            noVerify,
+			NoVerifySSL:            noVerifySSL,
 		}, &s)
 	if cmdMode {
 		wp.RunCmd(cmd)

@@ -78,7 +78,7 @@ Options:
     	Initialize gops agent
   -install
     	Install completion for s5cmd command
-  -no-verify
+  -no-verify-ssl
     	Don't verify SSL certificates
   -numworkers int
     	Number of worker goroutines. Negative numbers mean multiples of the CPU core count. (default 256)

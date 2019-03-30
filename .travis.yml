@@ -18,5 +18,5 @@ after_success:
   - docker build -f Dockerfile -t $REPO:$TRAVIS_BRANCH .
   - docker push $REPO:$TRAVIS_BRANCH
   - export TAG=`if [ "$TRAVIS_BRANCH" == "master" ]; then echo "latest"; else echo $TRAVIS_TAG ; fi`
-  - if [ -z "${TAG}" ]; then docker tag $REPO:$TRAVIS_BRANCH $REPO:$TAG; fi
-  - if [ -z "${TAG}" ]; then docker push $REPO:$TAG; fi
+  - if [[ ! -z "${TAG}" ]]; then docker tag $REPO:$TRAVIS_BRANCH $REPO:$TAG; fi
+  - if [[ ! -z "${TAG}" ]]; then docker push $REPO:$TAG; fi

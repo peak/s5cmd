@@ -14,7 +14,9 @@ after_success:
   - CGO_ENABLED="0" GOARCH="amd64" GOOS="linux" go build -a -installsuffix cgo -o ./app
   - docker login -u $DOCKER_USER -p $DOCKER_PASSWORD
   - export REPO=peakcom/s5cmd
+  - echo $REPO:TRAVIS_BRANCH
+  - docker build -f Dockerfile -t $REPO:TRAVIS_BRANCH .
+  - docker push $REPO:TRAVIS_BRANCH
   - export TAG=`if [ "$TRAVIS_BRANCH" == "master" ]; then echo "latest"; else echo $TRAVIS_TAG ; fi`
-  - echo $REPO:$TAG
-  - docker build -f Dockerfile -t $REPO:$TAG .
-  - docker push $REPO
+  - if [ -z "${TAG}" ]; then docker tag $REPO:TRAVIS_BRANCH $REPO:TAG; fi
+  - if [ -z "${TAG}" ]; then docker push $REPO:TAG; fi

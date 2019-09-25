@@ -18,7 +18,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/cenkalti/backoff"
-	"github.com/peakgames/s5cmd/stats"
+	"github.com/peak/s5cmd/stats"
 )
 
 // WorkerPoolParams is the common parameters of all worker pools.

@@ -16,10 +16,10 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/google/gops/agent"
 
-	"github.com/peakgames/s5cmd/complete"
-	"github.com/peakgames/s5cmd/core"
-	"github.com/peakgames/s5cmd/stats"
-	"github.com/peakgames/s5cmd/version"
+	"github.com/peak/s5cmd/complete"
+	"github.com/peak/s5cmd/core"
+	"github.com/peak/s5cmd/stats"
+	"github.com/peak/s5cmd/version"
 )
 
 //go:generate go run version/cmd/generate.go

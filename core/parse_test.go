@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/peakgames/s5cmd/opt"
+	"github.com/peak/s5cmd/opt"
 )
 
 func TestParseUnchecked(t *testing.T) {

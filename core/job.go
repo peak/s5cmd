@@ -17,10 +17,10 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
-	"github.com/peakgames/s5cmd/op"
-	"github.com/peakgames/s5cmd/opt"
-	"github.com/peakgames/s5cmd/stats"
-	"github.com/peakgames/s5cmd/url"
+	"github.com/peak/s5cmd/op"
+	"github.com/peak/s5cmd/opt"
+	"github.com/peak/s5cmd/stats"
+	"github.com/peak/s5cmd/url"
 	"github.com/termie/go-shutil"
 )
 

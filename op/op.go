@@ -4,7 +4,7 @@ package op
 import (
 	"fmt"
 
-	"github.com/peakgames/s5cmd/opt"
+	"github.com/peak/s5cmd/opt"
 )
 
 // Operation is a type of our operations.

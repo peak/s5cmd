@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/peakgames/s5cmd/core"
-	"github.com/peakgames/s5cmd/opt"
-	"github.com/peakgames/s5cmd/url"
+	"github.com/peak/s5cmd/core"
+	"github.com/peak/s5cmd/opt"
+	"github.com/peak/s5cmd/url"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"

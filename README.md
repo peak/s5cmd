@@ -1,7 +1,7 @@
 ![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Tag](https://img.shields.io/github/tag/peakgames/s5cmd.svg)
-[![godoc](https://img.shields.io/badge/godoc-reference-blue.svg)](https://godoc.org/github.com/peakgames/s5cmd)
-[![Go Report](https://goreportcard.com/badge/github.com/peakgames/s5cmd)](https://goreportcard.com/report/github.com/peakgames/s5cmd)
+![Tag](https://img.shields.io/github/tag/peak/s5cmd.svg)
+[![godoc](https://img.shields.io/badge/godoc-reference-blue.svg)](https://godoc.org/github.com/peak/s5cmd)
+[![Go Report](https://goreportcard.com/badge/github.com/peak/s5cmd)](https://goreportcard.com/report/github.com/peak/s5cmd)
 
 # s5cmd #
 
@@ -15,13 +15,13 @@ This is a parallel S3 and local filesystem execution tool.
 
 You'll need [Go 1.8+](https://golang.org/dl) to install `s5cmd`.
 
-    go get -u github.com/peakgames/s5cmd
+    go get -u github.com/peak/s5cmd
 
 This will install `s5cmd` in your `$GOPATH/bin` directory.
 
 Using [Homebrew](https://brew.sh/):
 
-    brew tap peakgames/s5cmd https://github.com/peakgames/s5cmd
+    brew tap peak/s5cmd https://github.com/peak/s5cmd
     brew install s5cmd
 
 ### Shell Auto-Completion ###

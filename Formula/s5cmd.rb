@@ -6,7 +6,7 @@ class S5cmd < Formula
   # Source code archive. Each tagged release will have one
   url "https://github.com/peak/s5cmd/archive/v0.6.1.tar.gz"
   sha256 "6c259da9352ae00c8b4985546f51b0f36edb58ff430196d787bea64951ad95f6"
-  head "https://github.com/peak/s5mcd"
+  head "https://github.com/peak/s5cmd"
 
   depends_on "go" => :build
 

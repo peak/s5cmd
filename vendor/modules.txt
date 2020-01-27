@@ -1,0 +1,53 @@
+# github.com/aws/aws-sdk-go v1.12.78
+github.com/aws/aws-sdk-go/aws
+github.com/aws/aws-sdk-go/aws/awserr
+github.com/aws/aws-sdk-go/aws/awsutil
+github.com/aws/aws-sdk-go/aws/client
+github.com/aws/aws-sdk-go/aws/client/metadata
+github.com/aws/aws-sdk-go/aws/corehandlers
+github.com/aws/aws-sdk-go/aws/credentials
+github.com/aws/aws-sdk-go/aws/credentials/ec2rolecreds
+github.com/aws/aws-sdk-go/aws/credentials/endpointcreds
+github.com/aws/aws-sdk-go/aws/credentials/stscreds
+github.com/aws/aws-sdk-go/aws/defaults
+github.com/aws/aws-sdk-go/aws/ec2metadata
+github.com/aws/aws-sdk-go/aws/endpoints
+github.com/aws/aws-sdk-go/aws/request
+github.com/aws/aws-sdk-go/aws/session
+github.com/aws/aws-sdk-go/aws/signer/v4
+github.com/aws/aws-sdk-go/internal/shareddefaults
+github.com/aws/aws-sdk-go/private/protocol
+github.com/aws/aws-sdk-go/private/protocol/query
+github.com/aws/aws-sdk-go/private/protocol/query/queryutil
+github.com/aws/aws-sdk-go/private/protocol/rest
+github.com/aws/aws-sdk-go/private/protocol/restxml
+github.com/aws/aws-sdk-go/private/protocol/xml/xmlutil
+github.com/aws/aws-sdk-go/service/s3
+github.com/aws/aws-sdk-go/service/s3/s3iface
+github.com/aws/aws-sdk-go/service/s3/s3manager
+github.com/aws/aws-sdk-go/service/sts
+# github.com/cenkalti/backoff v1.1.0
+github.com/cenkalti/backoff
+# github.com/go-ini/ini v1.32.0
+github.com/go-ini/ini
+# github.com/google/gops v0.3.2
+github.com/google/gops/agent
+github.com/google/gops/internal
+github.com/google/gops/signal
+# github.com/hashicorp/errwrap v0.0.0-20141028054710-7554cd9344ce
+github.com/hashicorp/errwrap
+# github.com/hashicorp/go-multierror v0.0.0-20171204182908-b7773ae21874
+github.com/hashicorp/go-multierror
+# github.com/jmespath/go-jmespath v0.0.0-20160202185014-0b12d6b521d8
+github.com/jmespath/go-jmespath
+# github.com/kardianos/osext v0.0.0-20170510131534-ae77be60afb1
+github.com/kardianos/osext
+# github.com/posener/complete v0.0.0-20171104095702-dc2bc5a81acc
+github.com/posener/complete
+github.com/posener/complete/cmd
+github.com/posener/complete/cmd/install
+github.com/posener/complete/match
+# github.com/termie/go-shutil v0.0.0-20140729215957-bcacb06fecae
+github.com/termie/go-shutil
+# golang.org/x/net v0.0.0-20190311183353-d8887717615a
+golang.org/x/net/context

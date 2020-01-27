@@ -13,7 +13,7 @@ This is a parallel S3 and local filesystem execution tool.
 
 ## Installation ##
 
-You'll need [Go 1.8+](https://golang.org/dl) to install `s5cmd`.
+You'll need [Go 1.13+](https://golang.org/dl) to install `s5cmd`.
 
     go get -u github.com/peak/s5cmd
 
@@ -252,5 +252,5 @@ Set `S5CMD_GOPS` to always enable the [gops](https://github.com/google/gops) age
 ## Supported platforms ##
 
 - s5cmd is tested on Linux and macOS. Should work on Windows, however not tested as of release time.
-- Go 1.8 and up is supported.
+- Go 1.13 and up is supported.
 - Use in production environments is OK. (it works fine for us -- but as always with trying out new tools, proceed with caution)

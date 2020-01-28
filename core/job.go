@@ -766,19 +766,24 @@ func (j *Job) Run(wp *WorkerParams) error {
 			if li.isCommonPrefix {
 				j.out(shortOk, "%19s %1s %-38s  %12s  %s", "", "", "", "DIR", li.parsedKey)
 			} else {
-				var cls, etag, size string
+				var (
+					cls        = "?"
+					etag, size string
+				)
 
-				switch *li.StorageClass {
-				case s3.ObjectStorageClassStandard:
-					cls = ""
-				case s3.ObjectStorageClassGlacier:
-					cls = "G"
-				case s3.ObjectStorageClassReducedRedundancy:
-					cls = "R"
-				case s3.TransitionStorageClassStandardIa:
-					cls = "I"
-				default:
-					cls = "?"
+				if li.StorageClass != nil {
+					switch *li.StorageClass {
+					case s3.ObjectStorageClassStandard:
+						cls = ""
+					case s3.ObjectStorageClassGlacier:
+						cls = "G"
+					case s3.ObjectStorageClassReducedRedundancy:
+						cls = "R"
+					case s3.TransitionStorageClassStandardIa:
+						cls = "I"
+					default:
+						cls = "?"
+					}
 				}
 
 				if showETags {

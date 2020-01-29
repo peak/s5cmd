@@ -177,7 +177,8 @@ func match(expected string) compareFunc {
 	}
 }
 
-func equals(expected string) compareFunc {
+func equals(format string, args ...interface{}) compareFunc {
+	expected := fmt.Sprintf(format, args...)
 	return func(actual string) error {
 		if expected == actual {
 			return nil
@@ -188,7 +189,8 @@ func equals(expected string) compareFunc {
 	}
 }
 
-func prefix(expected string) compareFunc {
+func prefix(format string, args ...interface{}) compareFunc {
+	expected := fmt.Sprintf(format, args...)
 	return func(actual string) error {
 		if strings.HasPrefix(actual, expected) {
 			return nil
@@ -199,7 +201,8 @@ func prefix(expected string) compareFunc {
 	}
 }
 
-func suffix(expected string) compareFunc {
+func suffix(format string, args ...interface{}) compareFunc {
+	expected := fmt.Sprintf(format, args...)
 	return func(actual string) error {
 		if strings.HasSuffix(actual, expected) {
 			return nil
@@ -210,7 +213,8 @@ func suffix(expected string) compareFunc {
 	}
 }
 
-func contains(expected string) compareFunc {
+func contains(format string, args ...interface{}) compareFunc {
+	expected := fmt.Sprintf(format, args...)
 	return func(actual string) error {
 		if strings.Contains(actual, expected) {
 			return nil

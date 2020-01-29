@@ -25,10 +25,10 @@ func TestListBuckets(t *testing.T) {
 
 	// expect and ordered list
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: suffix("s3://" + bucketPrefix + "-1"),
-		1: suffix("s3://" + bucketPrefix + "-2"),
-		2: suffix("s3://" + bucketPrefix + "-3"),
-		3: suffix("s3://" + bucketPrefix + "-4"),
+		0: suffix("s3://%v-1", bucketPrefix),
+		1: suffix("s3://%v-2", bucketPrefix),
+		2: suffix("s3://%v-3", bucketPrefix),
+		3: suffix("s3://%v-4", bucketPrefix),
 		4: equals(""),
 	})
 }
@@ -51,12 +51,11 @@ func TestListSingleS3Object(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(`+OK "ls s3://` + bucket + `/testfile1.txt" (1)`),
+		0: suffix(`+OK "ls s3://%v/testfile1.txt" (1)`, bucket),
 	}, strictLineCheck(false))
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		// 0: suffix("317 testfile1.txt"),
-		0: match(`\s+(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}).*testfile1.txt`),
+		0: suffix("317 testfile1.txt"),
 		1: equals(""),
 	})
 }
@@ -78,7 +77,7 @@ func TestListSingleWildcardS3Object(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(`+OK "ls s3://` + bucket + `/*.txt" (3)`),
+		0: suffix(`+OK "ls s3://%v/*.txt" (3)`, bucket),
 	}, strictLineCheck(false))
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
@@ -114,7 +113,7 @@ func TestListMultipleWildcardS3Object(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(`+OK "ls s3://` + bucket + `/*/testfile*.txt" (6)`),
+		0: suffix(`+OK "ls s3://%v/*/testfile*.txt" (6)`, bucket),
 	}, strictLineCheck(false))
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
@@ -144,7 +143,7 @@ func TestListNonexistingS3Object(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(`+OK "ls s3://` + bucket + `/*/testfile*.txt"`),
+		0: suffix(`+OK "ls s3://%v/*/testfile*.txt"`, bucket),
 	}, strictLineCheck(false))
 
 	result.Assert(t, icmd.Expected{

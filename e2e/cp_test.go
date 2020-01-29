@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"path/filepath"
 	"testing"
 
 	"gotest.tools/v3/assert"
@@ -29,7 +30,7 @@ func TestCopySingleS3ObjectToLocal(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(`+OK "cp s3://` + bucket + `/testfile1.txt ./testfile1.txt"`),
+		0: suffix(` +OK "cp s3://%v/testfile1.txt ./testfile1.txt"`, bucket),
 		1: equals(""),
 	})
 
@@ -68,7 +69,7 @@ func TestCopyMultipleFlatS3ObjectsToLocal(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(` +OK "cp s3://` + bucket + `/* ./" (4)`),
+		0: suffix(` +OK "cp s3://%v/* ./" (4)`, bucket),
 		1: suffix(` # All workers idle, finishing up...`),
 		2: equals(""),
 	})
@@ -79,10 +80,10 @@ func TestCopyMultipleFlatS3ObjectsToLocal(t *testing.T) {
 		2: suffix(`# Downloading filename-with-hypen.gz...`),
 		3: suffix(`# Downloading readme.md...`),
 		4: suffix(`# Downloading testfile1.txt...`),
-		5: contains(` + "cp s3://test-copy-multiple-flat-s-3-objects-to-local/another_test_file.txt ./another_test_file.txt`),
-		6: contains(` + "cp s3://test-copy-multiple-flat-s-3-objects-to-local/filename-with-hypen.gz ./filename-with-hypen.gz"`),
-		7: contains(` + "cp s3://test-copy-multiple-flat-s-3-objects-to-local/readme.md ./readme.md"`),
-		8: contains(` + "cp s3://test-copy-multiple-flat-s-3-objects-to-local/testfile1.txt ./testfile1.txt"`),
+		5: contains(` + "cp s3://%v/another_test_file.txt ./another_test_file.txt`, bucket),
+		6: contains(` + "cp s3://%v/filename-with-hypen.gz ./filename-with-hypen.gz"`, bucket),
+		7: contains(` + "cp s3://%v/readme.md ./readme.md"`, bucket),
+		8: contains(` + "cp s3://%v/testfile1.txt ./testfile1.txt"`, bucket),
 	}, sortInput(true))
 
 	// assert local filesystem
@@ -94,4 +95,41 @@ func TestCopyMultipleFlatS3ObjectsToLocal(t *testing.T) {
 
 	expected := fs.Expected(t, expectedFiles...)
 	assert.Assert(t, fs.Equal(cmd.Dir, expected))
+}
+
+func TestCopySingleFileToS3(t *testing.T) {
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+
+	const (
+		filename = "testfile1.txt"
+		content  = "this is a test file"
+	)
+
+	file := fs.NewFile(t, filename, fs.WithContent(content))
+	defer file.Remove()
+
+	fpath := file.Path()
+	fname := filepath.Base(file.Path())
+
+	cmd := s5cmd("cp", fpath, "s3://"+bucket+"/")
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: suffix(` +OK "cp %v s3://%v/%v"`, fpath, bucket, fname),
+		1: equals(""),
+	})
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(` # Uploading %v... (%v bytes)`, fname, len(content)),
+		1: equals(""),
+	})
+
+	// TODO(ig): fetch the uploaded file and check the content
 }

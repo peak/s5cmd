@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http/httptest"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
@@ -14,8 +13,10 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/google/go-cmp/cmp"
+	"github.com/iancoleman/strcase"
 	"github.com/johannesboyne/gofakes3"
 	"github.com/johannesboyne/gofakes3/backend/s3bolt"
+	"gotest.tools/v3/fs"
 	"gotest.tools/v3/icmd"
 )
 
@@ -24,20 +25,13 @@ var (
 	defaultSecretAccessKey = "s5cmd-test-secret-access-key"
 )
 
-func setup(t *testing.T, testname string) (*s3.S3, func(...string) icmd.Cmd, func()) {
-	dbdir := filepath.Join(os.TempDir(), "s5cmd-test")
-	if err := os.MkdirAll(dbdir, 0755); err != nil {
-		t.Fatal(err)
-	}
-
-	tmpdir := filepath.Join(dbdir, testname, "tmp")
-	if err := os.MkdirAll(tmpdir, 0755); err != nil {
-		t.Fatal(err)
-	}
+func setup(t *testing.T) (*s3.S3, func(...string) icmd.Cmd, func()) {
+	testdir := fs.NewDir(t, t.Name(), fs.WithDir("workdir", fs.WithMode(0700)))
+	dbpath := testdir.Join("s3.boltdb")
+	workdir := testdir.Join("workdir")
 
 	// we use boltdb as the s3 backend because listing buckets in in-memory
 	// backend is not deterministic.
-	dbpath := filepath.Join(dbdir, testname+".boltdb")
 	backend, err := s3bolt.NewFile(dbpath)
 	if err != nil {
 		t.Fatal(err)
@@ -61,7 +55,7 @@ func setup(t *testing.T, testname string) (*s3.S3, func(...string) icmd.Cmd, fun
 		args = append(endpoint, args...)
 
 		cmd := icmd.Command("s5cmd", args...)
-		cmd.Dir = tmpdir
+		cmd.Dir = workdir
 		return cmd
 	}
 
@@ -108,9 +102,13 @@ func replaceMatchWithSpace(input string, match ...string) string {
 	return input
 }
 
+func s3BucketFromTestName(t *testing.T) string {
+	return strcase.ToKebab(t.Name())
+}
+
 type compareFunc func(string) error
 
-func assert(t *testing.T, actual string, expectedlines map[int]compareFunc, strict bool) {
+func assertLines(t *testing.T, actual string, expectedlines map[int]compareFunc, strict bool) {
 	t.Helper()
 
 	lines := strings.Split(actual, "\n")

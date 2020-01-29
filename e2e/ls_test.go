@@ -8,16 +8,15 @@ import (
 )
 
 func TestListBuckets(t *testing.T) {
-	const dbname = "test-list-buckets"
-
-	s3client, s5cmd, cleanup := setup(t, dbname)
+	s3client, s5cmd, cleanup := setup(t)
 	defer cleanup()
 
 	// alphabetically unordered list of buckets
-	createBucket(t, s3client, "test-list-buckets-1")
-	createBucket(t, s3client, "test-list-buckets-2")
-	createBucket(t, s3client, "test-list-buckets-4")
-	createBucket(t, s3client, "test-list-buckets-3")
+	bucketPrefix := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucketPrefix+"-1")
+	createBucket(t, s3client, bucketPrefix+"-2")
+	createBucket(t, s3client, bucketPrefix+"-4")
+	createBucket(t, s3client, bucketPrefix+"-3")
 
 	cmd := s5cmd("ls")
 
@@ -33,22 +32,19 @@ func TestListBuckets(t *testing.T) {
 	result.Assert(t, icmd.Expected{Err: `+OK "ls"`})
 
 	// expect and ordered list
-	assert(t, result.Stdout(), map[int]compareFunc{
-		0: suffix("s3://test-list-buckets-1"),
-		1: suffix("s3://test-list-buckets-2"),
-		2: suffix("s3://test-list-buckets-3"),
-		3: suffix("s3://test-list-buckets-4"),
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: suffix("s3://" + bucketPrefix + "-1"),
+		1: suffix("s3://" + bucketPrefix + "-2"),
+		2: suffix("s3://" + bucketPrefix + "-3"),
+		3: suffix("s3://" + bucketPrefix + "-4"),
 		4: equals(""),
 	}, true)
 }
 
 func TestListSingleS3Object(t *testing.T) {
-	const (
-		bucket = "test-list-single-s3-object"
-		dbname = bucket
-	)
+	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t, dbname)
+	s3client, s5cmd, cleanup := setup(t)
 	defer cleanup()
 
 	createBucket(t, s3client, bucket)
@@ -69,11 +65,11 @@ func TestListSingleS3Object(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	assert(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(`+OK "ls s3://test-list-single-s3-object/testfile1.txt" (1)`),
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: suffix(`+OK "ls s3://` + bucket + `/testfile1.txt" (1)`),
 	}, false)
 
-	assert(t, result.Stdout(), map[int]compareFunc{
+	assertLines(t, result.Stdout(), map[int]compareFunc{
 		// 0: suffix("317 testfile1.txt"),
 		0: match(`\s+(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}).*testfile1.txt`),
 		1: equals(""),
@@ -81,12 +77,9 @@ func TestListSingleS3Object(t *testing.T) {
 }
 
 func TestListSingleWildcardS3Object(t *testing.T) {
-	const (
-		bucket = "test-list-wildcard-s3-object"
-		dbname = bucket
-	)
+	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t, dbname)
+	s3client, s5cmd, cleanup := setup(t)
 	defer cleanup()
 
 	createBucket(t, s3client, bucket)
@@ -106,11 +99,11 @@ func TestListSingleWildcardS3Object(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	assert(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(`+OK "ls s3://test-list-wildcard-s3-object/*.txt" (3)`),
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: suffix(`+OK "ls s3://` + bucket + `/*.txt" (3)`),
 	}, false)
 
-	assert(t, result.Stdout(), map[int]compareFunc{
+	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: suffix("317 testfile1.txt"),
 		1: suffix("322 testfile2.txt"),
 		2: suffix("330 testfile3.txt"),
@@ -119,12 +112,9 @@ func TestListSingleWildcardS3Object(t *testing.T) {
 }
 
 func TestListMultipleWildcardS3Object(t *testing.T) {
-	const (
-		bucket = "test-list-wildcard-s3-object"
-		dbname = bucket
-	)
+	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t, dbname)
+	s3client, s5cmd, cleanup := setup(t)
 	defer cleanup()
 
 	createBucket(t, s3client, bucket)
@@ -152,11 +142,11 @@ func TestListMultipleWildcardS3Object(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	assert(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(`+OK "ls s3://test-list-wildcard-s3-object/*/testfile*.txt" (6)`),
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: suffix(`+OK "ls s3://` + bucket + `/*/testfile*.txt" (6)`),
 	}, false)
 
-	assert(t, result.Stdout(), map[int]compareFunc{
+	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: suffix("304 a/testfile1.txt"),
 		1: suffix("304 a/testfile2.txt"),
 		2: suffix("304 b/testfile3.txt"),

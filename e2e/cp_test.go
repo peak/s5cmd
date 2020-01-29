@@ -31,12 +31,12 @@ func TestCopySingleS3ObjectToLocal(t *testing.T) {
 	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: suffix(`+OK "cp s3://` + bucket + `/testfile1.txt ./testfile1.txt"`),
 		1: equals(""),
-	}, true)
+	})
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: suffix(`# Downloading testfile1.txt...`),
 		1: equals(""),
-	}, true)
+	})
 
 	// assert local filesystem
 	expected := fs.Expected(t, fs.WithFile(filename, content, fs.WithMode(0644)))
@@ -68,14 +68,22 @@ func TestCopyMultipleFlatS3ObjectsToLocal(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(`+OK "cp s3://` + bucket + `/testfile1.txt ./testfile1.txt"`),
-		1: equals(""),
-	}, true)
+		0: suffix(` +OK "cp s3://` + bucket + `/* ./" (4)`),
+		1: suffix(` # All workers idle, finishing up...`),
+		2: equals(""),
+	})
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: suffix(`# Downloading testfile1.txt...`),
-		1: equals(""),
-	}, true)
+		0: equals(""),
+		1: suffix(`# Downloading another_test_file.txt...`),
+		2: suffix(`# Downloading filename-with-hypen.gz...`),
+		3: suffix(`# Downloading readme.md...`),
+		4: suffix(`# Downloading testfile1.txt...`),
+		5: contains(` + "cp s3://test-copy-multiple-flat-s-3-objects-to-local/another_test_file.txt ./another_test_file.txt`),
+		6: contains(` + "cp s3://test-copy-multiple-flat-s-3-objects-to-local/filename-with-hypen.gz ./filename-with-hypen.gz"`),
+		7: contains(` + "cp s3://test-copy-multiple-flat-s-3-objects-to-local/readme.md ./readme.md"`),
+		8: contains(` + "cp s3://test-copy-multiple-flat-s-3-objects-to-local/testfile1.txt ./testfile1.txt"`),
+	}, sortInput(true))
 
 	// assert local filesystem
 	var expectedFiles []fs.PathOp

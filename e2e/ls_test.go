@@ -38,7 +38,7 @@ func TestListBuckets(t *testing.T) {
 		2: suffix("s3://" + bucketPrefix + "-3"),
 		3: suffix("s3://" + bucketPrefix + "-4"),
 		4: equals(""),
-	}, true)
+	})
 }
 
 func TestListSingleS3Object(t *testing.T) {
@@ -67,13 +67,13 @@ func TestListSingleS3Object(t *testing.T) {
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: suffix(`+OK "ls s3://` + bucket + `/testfile1.txt" (1)`),
-	}, false)
+	}, strictLineCheck(false))
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		// 0: suffix("317 testfile1.txt"),
 		0: match(`\s+(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}).*testfile1.txt`),
 		1: equals(""),
-	}, true)
+	})
 }
 
 func TestListSingleWildcardS3Object(t *testing.T) {
@@ -101,14 +101,14 @@ func TestListSingleWildcardS3Object(t *testing.T) {
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: suffix(`+OK "ls s3://` + bucket + `/*.txt" (3)`),
-	}, false)
+	}, strictLineCheck(false))
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: suffix("317 testfile1.txt"),
 		1: suffix("322 testfile2.txt"),
 		2: suffix("330 testfile3.txt"),
 		3: equals(""),
-	}, true)
+	})
 }
 
 func TestListMultipleWildcardS3Object(t *testing.T) {
@@ -144,7 +144,7 @@ func TestListMultipleWildcardS3Object(t *testing.T) {
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: suffix(`+OK "ls s3://` + bucket + `/*/testfile*.txt" (6)`),
-	}, false)
+	}, strictLineCheck(false))
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: suffix("304 a/testfile1.txt"),
@@ -154,5 +154,5 @@ func TestListMultipleWildcardS3Object(t *testing.T) {
 		4: suffix("312 d/foo/bar/testfile8.txt"),
 		5: suffix("309 f/txt/testfile10.txt"),
 		6: equals(""),
-	}, true)
+	})
 }

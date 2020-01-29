@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"regexp"
+	"sort"
 	"strings"
 	"testing"
 
@@ -108,17 +109,49 @@ func s3BucketFromTestName(t *testing.T) string {
 
 type compareFunc func(string) error
 
-func assertLines(t *testing.T, actual string, expectedlines map[int]compareFunc, strict bool) {
+type assertOpts struct {
+	strict bool
+	sort   bool
+}
+
+type assertOp func(*assertOpts)
+
+func sortInput(v bool) func(*assertOpts) {
+	return func(opts *assertOpts) {
+		opts.sort = v
+	}
+}
+
+func strictLineCheck(v bool) func(*assertOpts) {
+	return func(opts *assertOpts) {
+		opts.strict = v
+	}
+}
+
+func assertLines(t *testing.T, actual string, expectedlines map[int]compareFunc, fns ...assertOp) {
 	t.Helper()
 
+	// default assertion options
+	opts := assertOpts{
+		strict: true,
+		sort:   false,
+	}
+
+	for _, fn := range fns {
+		fn(&opts)
+	}
+
 	lines := strings.Split(actual, "\n")
+	if opts.sort {
+		sort.Strings(lines)
+	}
 
 	for i, line := range lines {
 		// trim consecutive spaces
 		line = replaceMatchWithSpace(line, `\s+`)
 		cmp, ok := expectedlines[i]
 		if !ok {
-			if strict {
+			if opts.strict {
 				t.Fatalf("expected a comparison function for line %q (lineno: %v)", line, i)
 			}
 			continue

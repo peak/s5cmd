@@ -1,7 +1,6 @@
 package e2e
 
 import (
-	"fmt"
 	"testing"
 
 	"gotest.tools/v3/icmd"
@@ -19,14 +18,7 @@ func TestListBuckets(t *testing.T) {
 	createBucket(t, s3client, bucketPrefix+"-3")
 
 	cmd := s5cmd("ls")
-
-	result := icmd.RunCmd(
-		cmd,
-		icmd.WithEnv(
-			fmt.Sprintf("AWS_ACCESS_KEY_ID=%v", defaultAccessKeyID),
-			fmt.Sprintf("AWS_SECRET_ACCESS_KEY=%v", defaultSecretAccessKey),
-		),
-	)
+	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Success)
 	result.Assert(t, icmd.Expected{Err: `+OK "ls"`})
@@ -54,14 +46,7 @@ func TestListSingleS3Object(t *testing.T) {
 	putFile(t, s3client, bucket, "testfile2.txt", "this is also a file content")
 
 	cmd := s5cmd("ls", "s3://"+bucket+"/testfile1.txt")
-
-	result := icmd.RunCmd(
-		cmd,
-		icmd.WithEnv(
-			fmt.Sprintf("AWS_ACCESS_KEY_ID=%v", defaultAccessKeyID),
-			fmt.Sprintf("AWS_SECRET_ACCESS_KEY=%v", defaultSecretAccessKey),
-		),
-	)
+	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Success)
 
@@ -88,14 +73,7 @@ func TestListSingleWildcardS3Object(t *testing.T) {
 	putFile(t, s3client, bucket, "testfile3.txt", "this is also a file content somehow")
 
 	cmd := s5cmd("ls", "s3://"+bucket+"/*.txt")
-
-	result := icmd.RunCmd(
-		cmd,
-		icmd.WithEnv(
-			fmt.Sprintf("AWS_ACCESS_KEY_ID=%v", defaultAccessKeyID),
-			fmt.Sprintf("AWS_SECRET_ACCESS_KEY=%v", defaultSecretAccessKey),
-		),
-	)
+	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Success)
 
@@ -131,14 +109,7 @@ func TestListMultipleWildcardS3Object(t *testing.T) {
 
 	const pattern = "/*/testfile*.txt"
 	cmd := s5cmd("ls", "s3://"+bucket+pattern)
-
-	result := icmd.RunCmd(
-		cmd,
-		icmd.WithEnv(
-			fmt.Sprintf("AWS_ACCESS_KEY_ID=%v", defaultAccessKeyID),
-			fmt.Sprintf("AWS_SECRET_ACCESS_KEY=%v", defaultSecretAccessKey),
-		),
-	)
+	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Success)
 
@@ -154,5 +125,30 @@ func TestListMultipleWildcardS3Object(t *testing.T) {
 		4: suffix("312 d/foo/bar/testfile8.txt"),
 		5: suffix("309 f/txt/testfile10.txt"),
 		6: equals(""),
+	})
+}
+
+func TestListNonexistingS3Object(t *testing.T) {
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+
+	const pattern = "/*/testfile*.txt"
+	cmd := s5cmd("ls", "s3://"+bucket+pattern)
+	result := icmd.RunCmd(cmd)
+
+	// s5cmd returns 0 even if it can't find the given object.
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: suffix(`+OK "ls s3://` + bucket + `/*/testfile*.txt"`),
+	}, strictLineCheck(false))
+
+	result.Assert(t, icmd.Expected{
+		Out:      "",
+		ExitCode: 0,
 	})
 }

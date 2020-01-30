@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"fmt"
 	"path/filepath"
 	"testing"
 
@@ -31,12 +32,10 @@ func TestCopySingleS3ObjectToLocal(t *testing.T) {
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: suffix(` +OK "cp s3://%v/testfile1.txt ./testfile1.txt"`, bucket),
-		1: equals(""),
 	})
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: suffix(`# Downloading testfile1.txt...`),
-		1: equals(""),
 	})
 
 	// assert local filesystem
@@ -55,7 +54,7 @@ func TestCopyMultipleFlatS3ObjectsToLocal(t *testing.T) {
 	filesToContent := map[string]string{
 		"testfile1.txt":          "this is a test file 1",
 		"readme.md":              "this is a readme file",
-		"filename-with-hypen.gz": "file has hypen it's name. btw, gz?",
+		"filename-with-hypen.gz": "file has hypen in its name",
 		"another_test_file.txt":  "yet another txt file. yatf.",
 	}
 
@@ -71,7 +70,6 @@ func TestCopyMultipleFlatS3ObjectsToLocal(t *testing.T) {
 	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: suffix(` +OK "cp s3://%v/* ./" (4)`, bucket),
 		1: suffix(` # All workers idle, finishing up...`),
-		2: equals(""),
 	})
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
@@ -123,13 +121,182 @@ func TestCopySingleFileToS3(t *testing.T) {
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: suffix(` +OK "cp %v s3://%v/%v"`, fpath, bucket, fname),
-		1: equals(""),
 	})
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(` # Uploading %v... (%v bytes)`, fname, len(content)),
-		1: equals(""),
 	})
 
-	// TODO(ig): fetch the uploaded file and check the content
+	// TODO(ig): fetch uploaded file and check content
+}
+
+func TestCopyMultipleFilesToS3(t *testing.T) {
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+
+	filesToContent := map[string]string{
+		"testfile1.txt":          "this is a test file 1",
+		"readme.md":              "this is a readme file",
+		"filename-with-hypen.gz": "file has hypen in its name",
+		"another_test_file.txt":  "yet another txt file. yatf.",
+	}
+
+	var files []fs.PathOp
+	for filename, content := range filesToContent {
+		op := fs.WithFile(filename, content)
+		files = append(files, op)
+	}
+
+	workdir := fs.NewDir(t, bucket, files...)
+	defer workdir.Remove()
+
+	cmd := s5cmd("cp", workdir.Path()+"/*", "s3://"+bucket+"/")
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: suffix(` +OK "cp %v/* s3://%v" (4)`, workdir.Path(), bucket),
+		1: suffix(` # All workers idle, finishing up...`),
+	})
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(""),
+		1: contains(` # Uploading another_test_file.txt...`),
+		2: contains(` # Uploading filename-with-hypen.gz...`),
+		3: contains(` # Uploading readme.md...`),
+		4: contains(` # Uploading testfile1.txt...`),
+		5: contains(` + "cp %v/another_test_file.txt s3://%v/another_test_file.txt"`, workdir.Path(), bucket),
+		6: contains(` + "cp %v/filename-with-hypen.gz s3://%v/filename-with-hypen.gz"`, workdir.Path(), bucket),
+		7: contains(` + "cp %v/readme.md s3://%v/readme.md`, workdir.Path(), bucket),
+		8: contains(` + "cp %v/testfile1.txt s3://%v/testfile1.txt"`, workdir.Path(), bucket),
+	}, sortInput(true))
+
+	// TODO(ig): fetch uploaded files and check content
+}
+
+func TestCopySingleS3ObjectToS3(t *testing.T) {
+	t.Skip("TODO: skipped because gofakes3 fails on bucket-to-bucket copy operation")
+	srcbucket := s3BucketFromTestName(t) + "-src"
+	dstbucket := s3BucketFromTestName(t) + "-dst"
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, srcbucket)
+	createBucket(t, s3client, dstbucket)
+
+	const (
+		filename = "testfile1.txt"
+		content  = "this is a test file"
+	)
+
+	putFile(t, s3client, srcbucket, filename, content)
+
+	src := fmt.Sprintf("s3://%v/%v", srcbucket, filename)
+	dst := fmt.Sprintf("s3://%v/", dstbucket)
+
+	cmd := s5cmd("cp", src, dst)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{})
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{})
+
+	// TODO(ig): fetch uploaded files and check content
+}
+
+func TestCopySingleS3ObjectIntoS3Path(t *testing.T) {
+	t.Skip("TODO: skipped because gofakes3 fails on bucket-to-bucket copy operation")
+}
+
+func TestCopyMultipleS3ObjectsToS3(t *testing.T) {
+	t.Skip("TODO: skipped because gofakes3 fails on bucket-to-bucket copy operation")
+}
+
+func TestCopySingleLocalFileToLocal(t *testing.T) {
+	_, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	const (
+		filename    = "testfile1.txt"
+		newFilename = "testfile1-copy.txt"
+		content     = "this is a test file"
+	)
+
+	workdir := fs.NewDir(t, t.Name(), fs.WithFile(filename, content))
+	defer workdir.Remove()
+
+	cmd := s5cmd("cp", filename, newFilename)
+	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: suffix(` +OK "cp %v %v"`, filename, newFilename),
+	})
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{})
+
+	// assert local filesystem
+	expected := fs.Expected(
+		t,
+		fs.WithFile(filename, content),
+		fs.WithFile(newFilename, content),
+	)
+
+	assert.Assert(t, fs.Equal(workdir.Path(), expected))
+}
+
+func TestCopyMultipleLocalFilesToLocal(t *testing.T) {
+	_, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	filesToContent := map[string]string{
+		"testfile1.txt":          "this is a test file 1",
+		"readme.md":              "this is a readme file",
+		"filename-with-hypen.gz": "file has hypen in its name",
+		"another_test_file.txt":  "yet another txt file. yatf.",
+	}
+
+	var files []fs.PathOp
+	for filename, content := range filesToContent {
+		op := fs.WithFile(filename, content)
+		files = append(files, op)
+	}
+
+	workdir := fs.NewDir(t, t.Name(), files...)
+	defer workdir.Remove()
+
+	cmd := s5cmd("cp", "*.txt", "another-directory/")
+	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: suffix(` +OK "cp *.txt another-directory/" (2)`),
+		1: suffix(` # All workers idle, finishing up...`),
+	})
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(""),
+		1: suffix(` + "cp another_test_file.txt another-directory//another_test_file.txt"`),
+		2: suffix(` + "cp testfile1.txt another-directory//testfile1.txt"`),
+	}, sortInput(true))
+
+	// assert local filesystem
+	expected := fs.Expected(
+		t,
+		fs.WithMode(0755),
+		fs.WithFile("testfile1.txt", "this is a test file 1"),
+		fs.WithFile("another_test_file.txt", "yet another txt file. yatf."),
+	)
+
+	assert.Assert(t, fs.Equal(workdir.Join("another-directory"), expected))
 }

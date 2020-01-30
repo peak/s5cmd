@@ -1,9 +1,9 @@
 package e2e
 
 import (
+	"flag"
 	"fmt"
 	"net/http/httptest"
-	"os"
 	"regexp"
 	"sort"
 	"strings"
@@ -26,6 +26,10 @@ var (
 	defaultSecretAccessKey = "s5cmd-test-secret-access-key"
 )
 
+var (
+	flagTestLogLevel = flag.String("test.log.level", "err", "Test log level: {debug|warn|err}")
+)
+
 func setup(t *testing.T) (*s3.S3, func(...string) icmd.Cmd, func()) {
 	testdir := fs.NewDir(t, t.Name(), fs.WithDir("workdir", fs.WithMode(0700)))
 	dbpath := testdir.Join("s3.boltdb")
@@ -33,21 +37,40 @@ func setup(t *testing.T) (*s3.S3, func(...string) icmd.Cmd, func()) {
 
 	// we use boltdb as the s3 backend because listing buckets in in-memory
 	// backend is not deterministic.
-	backend, err := s3bolt.NewFile(dbpath)
+	s3backend, err := s3bolt.NewFile(dbpath)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	faker := gofakes3.New(backend)
+	var (
+		fakes3LogLevel = *flagTestLogLevel
+		awsLogLevel    = aws.LogOff
+	)
+
+	switch *flagTestLogLevel {
+	case "debug":
+		// fakes3 has no 'debug' level. just set to 'info' to get the log we
+		// want
+		fakes3LogLevel = "info"
+		// aws has no level other than 'debug'
+		awsLogLevel = aws.LogDebug
+	}
+
+	withLogger := gofakes3.WithLogger(
+		gofakes3.GlobalLog(
+			gofakes3.LogLevel(strings.ToUpper(fakes3LogLevel)),
+		),
+	)
+	faker := gofakes3.New(s3backend, withLogger)
 	s3srv := httptest.NewServer(faker.Server())
 
-	s3Config := &aws.Config{
-		Credentials:      credentials.NewStaticCredentials("YOUR-ACCESSKEYID", "YOUR-SECRETACCESSKEY", ""),
-		Endpoint:         aws.String(s3srv.URL),
-		Region:           aws.String("us-east-1"),
-		DisableSSL:       aws.Bool(true),
-		S3ForcePathStyle: aws.Bool(true),
-	}
+	s3Config := aws.NewConfig().
+		WithEndpoint(s3srv.URL).
+		WithRegion("us-east-1").
+		WithCredentials(credentials.NewStaticCredentials(defaultAccessKeyID, defaultSecretAccessKey, "")).
+		WithDisableSSL(true).
+		WithS3ForcePathStyle(true).
+		WithLogLevel(awsLogLevel)
 
 	sess := session.New(s3Config)
 
@@ -61,7 +84,7 @@ func setup(t *testing.T) (*s3.S3, func(...string) icmd.Cmd, func()) {
 	}
 
 	cleanup := func() {
-		os.Remove(dbpath)
+		testdir.Remove()
 		s3srv.Close()
 	}
 
@@ -80,7 +103,6 @@ func createBucket(t *testing.T, client *s3.S3, bucket string) {
 }
 
 func putFile(t *testing.T, client *s3.S3, bucket string, filename string, content string) {
-	// Upload a new object "testobject" with the string "Hello World!" to our "newbucket".
 	_, err := client.PutObject(&s3.PutObjectInput{
 		Body:   strings.NewReader(content),
 		Bucket: aws.String(bucket),
@@ -105,6 +127,12 @@ func replaceMatchWithSpace(input string, match ...string) string {
 
 func s3BucketFromTestName(t *testing.T) string {
 	return strcase.ToKebab(t.Name())
+}
+
+func withWorkingDir(dir *fs.Dir) func(*icmd.Cmd) {
+	return func(cmd *icmd.Cmd) {
+		cmd.Dir = dir.Path()
+	}
 }
 
 type compareFunc func(string) error
@@ -149,6 +177,14 @@ func assertLines(t *testing.T, actual string, expectedlines map[int]compareFunc,
 	for i, line := range lines {
 		// trim consecutive spaces
 		line = replaceMatchWithSpace(line, `\s+`)
+
+		// trim last excessive new line. this one does not affect the output
+		// testing since it's the last newline character for the shell prompt
+		// to start from a new line.
+		if i == len(lines)-1 && line == "" {
+			continue
+		}
+
 		cmp, ok := expectedlines[i]
 		if !ok {
 			if opts.strict {

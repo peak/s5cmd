@@ -23,13 +23,12 @@ func TestListBuckets(t *testing.T) {
 	result.Assert(t, icmd.Success)
 	result.Assert(t, icmd.Expected{Err: `+OK "ls"`})
 
-	// expect and ordered list
+	// expect ordered list
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: suffix("s3://%v-1", bucketPrefix),
 		1: suffix("s3://%v-2", bucketPrefix),
 		2: suffix("s3://%v-3", bucketPrefix),
 		3: suffix("s3://%v-4", bucketPrefix),
-		4: equals(""),
 	})
 }
 
@@ -56,7 +55,6 @@ func TestListSingleS3Object(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: suffix("317 testfile1.txt"),
-		1: equals(""),
 	})
 }
 
@@ -84,7 +82,6 @@ func TestListSingleWildcardS3Object(t *testing.T) {
 		0: suffix("317 testfile1.txt"),
 		1: suffix("322 testfile2.txt"),
 		2: suffix("330 testfile3.txt"),
-		3: equals(""),
 	})
 }
 
@@ -123,7 +120,6 @@ func TestListMultipleWildcardS3Object(t *testing.T) {
 		3: suffix("304 b/testfile4.txt"),
 		4: suffix("312 d/foo/bar/testfile8.txt"),
 		5: suffix("309 f/txt/testfile10.txt"),
-		6: equals(""),
 	})
 }
 

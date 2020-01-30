@@ -127,7 +127,7 @@ func TestCopySingleFileToS3(t *testing.T) {
 		0: equals(` # Uploading %v... (%v bytes)`, fname, len(content)),
 	})
 
-	// TODO(ig): fetch uploaded file and check content
+	// TODO(ig): assert s3 object
 }
 
 func TestCopyMultipleFilesToS3(t *testing.T) {
@@ -176,7 +176,7 @@ func TestCopyMultipleFilesToS3(t *testing.T) {
 		8: contains(` + "cp %v/testfile1.txt s3://%v/testfile1.txt"`, workdir.Path(), bucket),
 	}, sortInput(true))
 
-	// TODO(ig): fetch uploaded files and check content
+	// TODO(ig): assert s3 objects
 }
 
 func TestCopySingleS3ObjectToS3(t *testing.T) {
@@ -209,7 +209,7 @@ func TestCopySingleS3ObjectToS3(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{})
 
-	// TODO(ig): fetch uploaded files and check content
+	// TODO(ig): assert s3 objects
 }
 
 func TestCopySingleS3ObjectIntoS3Path(t *testing.T) {

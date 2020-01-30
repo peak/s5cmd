@@ -16,7 +16,7 @@
 - Add option to disable SSL verification.
 - Add endpoint url flag to support S3 compatible services.
 - Use client's endpoint in GetSessionForBucket.
-- Upgrade minimum Go version to 1.7.
+- Upgrade minimum required Go version to 1.7.
 
 ## v0.6.0
 

@@ -1,8 +1,10 @@
 package e2e
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
+	"io"
 	"net/http/httptest"
 	"regexp"
 	"sort"
@@ -10,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
@@ -102,6 +105,37 @@ func createBucket(t *testing.T, client *s3.S3, bucket string) {
 	}
 }
 
+var errS3NoSuchKey = fmt.Errorf("s3: no such key")
+
+func ensureS3Object(client *s3.S3, bucket string, key string, expectedContent string) error {
+	output, err := client.GetObject(&s3.GetObjectInput{
+		Bucket: aws.String(bucket),
+		Key:    aws.String(key),
+	})
+	awsErr, ok := err.(awserr.Error)
+	if ok {
+		switch awsErr.Code() {
+		case s3.ErrCodeNoSuchKey:
+			return fmt.Errorf("%v: %w", key, errS3NoSuchKey)
+		}
+	}
+	if err != nil {
+		return err
+	}
+
+	var body bytes.Buffer
+	if _, err := io.Copy(&body, output.Body); err != nil {
+		return err
+	}
+	defer output.Body.Close()
+
+	if diff := cmp.Diff(expectedContent, body.String()); diff != "" {
+		return fmt.Errorf("s3 %v/%v: (-want +got):\n%v", bucket, key, diff)
+	}
+
+	return nil
+}
+
 func putFile(t *testing.T, client *s3.S3, bucket string, filename string, content string) {
 	_, err := client.PutObject(&s3.PutObjectInput{
 		Body:   strings.NewReader(content),
@@ -179,8 +213,8 @@ func assertLines(t *testing.T, actual string, expectedlines map[int]compareFunc,
 		line = replaceMatchWithSpace(line, `\s+`)
 
 		// trim last excessive new line. this one does not affect the output
-		// testing since it's the last newline character for the shell prompt
-		// to start from a new line.
+		// testing since it's the last newline character to make the shell
+		// prompt look nice.
 		if i == len(lines)-1 && line == "" {
 			continue
 		}

@@ -104,11 +104,10 @@ func TestCopySingleFileToS3(t *testing.T) {
 	createBucket(t, s3client, bucket)
 
 	const (
-		filename = "testfile1.txt"
-		content  = "this is a test file"
+		content = "this is a test file"
 	)
 
-	file := fs.NewFile(t, filename, fs.WithContent(content))
+	file := fs.NewFile(t, "", fs.WithContent(content))
 	defer file.Remove()
 
 	fpath := file.Path()
@@ -127,7 +126,7 @@ func TestCopySingleFileToS3(t *testing.T) {
 		0: equals(` # Uploading %v... (%v bytes)`, fname, len(content)),
 	})
 
-	// TODO(ig): assert s3 object
+	assert.Assert(t, ensureS3Object(s3client, bucket, fname, content))
 }
 
 func TestCopyMultipleFilesToS3(t *testing.T) {
@@ -176,11 +175,15 @@ func TestCopyMultipleFilesToS3(t *testing.T) {
 		8: contains(` + "cp %v/testfile1.txt s3://%v/testfile1.txt"`, workdir.Path(), bucket),
 	}, sortInput(true))
 
-	// TODO(ig): assert s3 objects
+	// assert s3
+	for filename, content := range filesToContent {
+		assert.Assert(t, ensureS3Object(s3client, bucket, filename, content))
+	}
 }
 
 func TestCopySingleS3ObjectToS3(t *testing.T) {
 	t.Skip("TODO: skipped because gofakes3 fails on bucket-to-bucket copy operation")
+
 	srcbucket := s3BucketFromTestName(t) + "-src"
 	dstbucket := s3BucketFromTestName(t) + "-dst"
 
@@ -209,7 +212,8 @@ func TestCopySingleS3ObjectToS3(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{})
 
-	// TODO(ig): assert s3 objects
+	assert.Assert(t, ensureS3Object(s3client, srcbucket, filename, content))
+	assert.Assert(t, ensureS3Object(s3client, dstbucket, filename, content))
 }
 
 func TestCopySingleS3ObjectIntoS3Path(t *testing.T) {

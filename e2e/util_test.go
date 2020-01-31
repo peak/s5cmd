@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"bytes"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -20,6 +21,7 @@ import (
 	"github.com/iancoleman/strcase"
 	"github.com/johannesboyne/gofakes3"
 	"github.com/johannesboyne/gofakes3/backend/s3bolt"
+	"gotest.tools/v3/assert"
 	"gotest.tools/v3/fs"
 	"gotest.tools/v3/icmd"
 )
@@ -188,6 +190,12 @@ func strictLineCheck(v bool) func(*assertOpts) {
 	return func(opts *assertOpts) {
 		opts.strict = v
 	}
+}
+
+func assertError(t *testing.T, err error, expected interface{}) {
+	// 'assert' package doesn't support Go1.13+ error unwrapping. Do it
+	// manually.
+	assert.ErrorType(t, errors.Unwrap(err), expected)
 }
 
 func assertLines(t *testing.T, actual string, expectedlines map[int]compareFunc, fns ...assertOp) {

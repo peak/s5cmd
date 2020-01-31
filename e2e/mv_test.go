@@ -1,7 +1,6 @@
 package e2e
 
 import (
-	"errors"
 	"path/filepath"
 	"testing"
 
@@ -42,10 +41,9 @@ func TestMoveSingleS3ObjectToLocal(t *testing.T) {
 	expected := fs.Expected(t, fs.WithFile(filename, content, fs.WithMode(0644)))
 	assert.Assert(t, fs.Equal(cmd.Dir, expected))
 
+	// assert s3 object
 	err := ensureS3Object(s3client, bucket, filename, content)
-	// 'assert' package doesn't support Go1.13+ error unwrapping. Do it
-	// manually.
-	assert.ErrorType(t, errors.Unwrap(err), errS3NoSuchKey)
+	assertError(t, err, errS3NoSuchKey)
 }
 
 func TestMoveMultipleFlatS3ObjectsToLocal(t *testing.T) {
@@ -95,15 +93,13 @@ func TestMoveMultipleFlatS3ObjectsToLocal(t *testing.T) {
 		pathop := fs.WithFile(filename, content, fs.WithMode(0644))
 		expectedFiles = append(expectedFiles, pathop)
 	}
-
 	expected := fs.Expected(t, expectedFiles...)
 	assert.Assert(t, fs.Equal(cmd.Dir, expected))
 
+	// assert s3 objects
 	for filename, content := range filesToContent {
 		err := ensureS3Object(s3client, bucket, filename, content)
-		// 'assert' package doesn't support Go1.13+ error unwrapping. Do it
-		// manually.
-		assert.ErrorType(t, errors.Unwrap(err), errS3NoSuchKey)
+		assertError(t, err, errS3NoSuchKey)
 	}
 }
 
@@ -140,6 +136,7 @@ func TestMoveSingleFileToS3(t *testing.T) {
 	expected := fs.Expected(t)
 	assert.Assert(t, fs.Equal(cmd.Dir, expected))
 
+	// assert s3 object
 	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content))
 }
 
@@ -193,7 +190,7 @@ func TestMoveMultipleFilesToS3(t *testing.T) {
 	expected := fs.Expected(t)
 	assert.Assert(t, fs.Equal(cmd.Dir, expected))
 
-	// assert s3
+	// assert s3 objects
 	for filename, content := range filesToContent {
 		assert.Assert(t, ensureS3Object(s3client, bucket, filename, content))
 	}
@@ -236,11 +233,7 @@ func TestMoveSingleFileToLocal(t *testing.T) {
 	assertLines(t, result.Stdout(), map[int]compareFunc{})
 
 	// assert local filesystem
-	expected := fs.Expected(
-		t,
-		fs.WithFile(newFilename, content),
-	)
-
+	expected := fs.Expected(t, fs.WithFile(newFilename, content))
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 }
 

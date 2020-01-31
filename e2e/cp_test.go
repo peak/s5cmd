@@ -216,7 +216,7 @@ func TestCopySingleS3ObjectToS3(t *testing.T) {
 	assert.Assert(t, ensureS3Object(s3client, dstbucket, filename, content))
 }
 
-func TestCopySingleS3ObjectIntoS3Path(t *testing.T) {
+func TestCopySingleS3ObjectIntoAnotherBucket(t *testing.T) {
 	t.Skip("TODO: skipped because gofakes3 fails on bucket-to-bucket copy operation")
 }
 
@@ -297,10 +297,17 @@ func TestCopyMultipleLocalFilesToLocal(t *testing.T) {
 	// assert local filesystem
 	expected := fs.Expected(
 		t,
-		fs.WithMode(0755),
+		fs.WithMode(0700),
 		fs.WithFile("testfile1.txt", "this is a test file 1"),
 		fs.WithFile("another_test_file.txt", "yet another txt file. yatf."),
+		fs.WithFile("readme.md", "this is a readme file"),
+		fs.WithFile("filename-with-hypen.gz", "file has hypen in its name"),
+		fs.WithDir("another-directory",
+			fs.WithMode(0755),
+			fs.WithFile("testfile1.txt", "this is a test file 1"),
+			fs.WithFile("another_test_file.txt", "yet another txt file. yatf."),
+		),
 	)
 
-	assert.Assert(t, fs.Equal(workdir.Join("another-directory"), expected))
+	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 }

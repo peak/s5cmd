@@ -448,7 +448,7 @@ func TestCopySingleLocalFileToLocal(t *testing.T) {
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 }
 
-func TestCopyMultipleLocalFilesToLocal(t *testing.T) {
+func TestCopyMultipleLocalFlatFilesToLocal(t *testing.T) {
 	_, s5cmd, cleanup := setup(t)
 	defer cleanup()
 
@@ -499,5 +499,138 @@ func TestCopyMultipleLocalFilesToLocal(t *testing.T) {
 		),
 	)
 
+	assert.Assert(t, fs.Equal(workdir.Path(), expected))
+}
+
+func TestCopyMultipleLocalNestedFilesToLocal(t *testing.T) {
+	_, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	// nested folder layout
+	//
+	// ├ a
+	// │ └─readme.md
+	// │ └─file1.txt
+	// └─b
+	//   └─c
+	//     └─file2.txt
+	//
+	// after `s5cmd cp -R * dst`, expect:
+	//
+	// ├ dst
+	// │ └─readme.md
+	// │ └─file1.txt
+	// │ └─file2.txt
+
+	folderLayout := []fs.PathOp{
+		fs.WithDir(
+			"a",
+			fs.WithFile("file1.txt", "this is the first test file"),
+			fs.WithFile("readme.md", "this is a readme file"),
+		),
+		fs.WithDir(
+			"b",
+			fs.WithDir(
+				"c",
+				fs.WithFile("file2.txt", "this is the second test file"),
+			),
+		),
+	}
+
+	workdir := fs.NewDir(t, t.Name(), folderLayout...)
+	defer workdir.Remove()
+
+	cmd := s5cmd("cp", "-R", "*", "dst")
+	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: suffix(` +OK "cp * dst/" (3)`),
+		1: suffix(` # All workers idle, finishing up...`),
+	})
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(""),
+		1: suffix(` + "cp -R a/file1.txt dst//file1.txt"`),
+		2: suffix(` + "cp -R a/readme.md dst//readme.md"`),
+		3: suffix(` + "cp -R b/c/file2.txt dst//file2.txt"`),
+	}, sortInput(true))
+
+	newLayout := append(folderLayout, fs.WithDir(
+		"dst",
+		fs.WithFile("file1.txt", "this is the first test file"),
+		fs.WithFile("file2.txt", "this is the second test file"),
+		fs.WithFile("readme.md", "this is a readme file"),
+	),
+	)
+
+	// assert local filesystem
+	expected := fs.Expected(t, newLayout...)
+	assert.Assert(t, fs.Equal(workdir.Path(), expected))
+}
+
+func TestCopyMultipleLocalNestedFilesToLocalPreserveLayout(t *testing.T) {
+	_, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	// nested folder layout
+	//
+	// ├ a
+	// │ └─readme.md
+	// │ └─file1.txt
+	// └─b
+	//   └─c
+	//     └─file2.txt
+	//
+	// after `s5cmd cp -R --parents * dst`, expect:
+	//
+	// └dst
+	//   ├ a
+	//   │ └─readme.md
+	//   │ └─file1.txt
+	//   └─b
+	//     └─c
+	//       └─file2.txt
+
+	folderLayout := []fs.PathOp{
+		fs.WithDir(
+			"a",
+			fs.WithFile("file1.txt", "this is the first test file"),
+			fs.WithFile("readme.md", "this is a readme file"),
+		),
+		fs.WithDir(
+			"b",
+			fs.WithDir(
+				"c",
+				fs.WithFile("file2.txt", "this is the second test file"),
+			),
+		),
+	}
+
+	workdir := fs.NewDir(t, t.Name(), folderLayout...)
+	defer workdir.Remove()
+
+	cmd := s5cmd("cp", "-R", "--parents", "*", "dst")
+	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: suffix(` +OK "cp * dst/" (3)`),
+		1: suffix(` # All workers idle, finishing up...`),
+	})
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(""),
+		1: suffix(` + "cp -R --parents a/file1.txt dst//a/file1.txt"`),
+		2: suffix(` + "cp -R --parents a/readme.md dst//a/readme.md"`),
+		3: suffix(` + "cp -R --parents b/c/file2.txt dst//b/c/file2.txt"`),
+	}, sortInput(true))
+
+	newLayout := append(folderLayout, fs.WithDir("dst", folderLayout...))
+
+	// assert local filesystem
+	expected := fs.Expected(t, newLayout...)
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 }

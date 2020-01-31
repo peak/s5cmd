@@ -230,7 +230,7 @@ func assertLines(t *testing.T, actual string, expectedlines map[int]compareFunc,
 		cmp, ok := expectedlines[i]
 		if !ok {
 			if opts.strict {
-				t.Fatalf("expected a comparison function for line %q (lineno: %v)", line, i)
+				t.Errorf("expected a comparison function for line %q (lineno: %v)", line, i)
 			}
 			continue
 		}

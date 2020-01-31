@@ -123,6 +123,45 @@ func TestListMultipleWildcardS3Object(t *testing.T) {
 	})
 }
 
+func TestListS3ObjectsAndFolders(t *testing.T) {
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+	putFile(t, s3client, bucket, "testfile1.txt", "content")
+	putFile(t, s3client, bucket, "report.gz", "content")
+	putFile(t, s3client, bucket, "/a/testfile2.txt", "content")
+	putFile(t, s3client, bucket, "/b/testfile3.txt", "content")
+	putFile(t, s3client, bucket, "/b/testfile4.txt", "content")
+	putFile(t, s3client, bucket, "/c/testfile5.gz", "content")
+	putFile(t, s3client, bucket, "/d/foo/bar/file7.txt", "content")
+	putFile(t, s3client, bucket, "/d/foo/bar/testfile8.txt", "content")
+	putFile(t, s3client, bucket, "/e/txt/testfile9.txt.gz", "content")
+	putFile(t, s3client, bucket, "/f/txt/testfile10.txt", "content")
+
+	cmd := s5cmd("ls", "s3://"+bucket)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: suffix(` +OK "ls s3://%v" (8)`, bucket),
+	}, strictLineCheck(false))
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: suffix("+ DIR a/"),
+		1: suffix("+ DIR b/"),
+		2: suffix("+ DIR c/"),
+		3: suffix("+ DIR d/"),
+		4: suffix("+ DIR e/"),
+		5: suffix("+ DIR f/"),
+		6: suffix("? 298 report.gz"),
+		7: suffix("? 302 testfile1.txt"),
+	})
+}
+
 func TestListNonexistingS3Object(t *testing.T) {
 	bucket := s3BucketFromTestName(t)
 

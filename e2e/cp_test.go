@@ -565,7 +565,6 @@ func TestCopyMultipleLocalNestedFilesToLocal(t *testing.T) {
 	),
 	)
 
-	// assert local filesystem
 	expected := fs.Expected(t, newLayout...)
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 }
@@ -630,7 +629,6 @@ func TestCopyMultipleLocalNestedFilesToLocalPreserveLayout(t *testing.T) {
 
 	newLayout := append(folderLayout, fs.WithDir("dst", folderLayout...))
 
-	// assert local filesystem
 	expected := fs.Expected(t, newLayout...)
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 }

@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
-	"runtime"
 	"strconv"
 	"time"
 
@@ -54,13 +53,6 @@ var BuildContentLengthHandler = request.NamedHandler{Name: "core.BuildContentLen
 	}
 }}
 
-// SDKVersionUserAgentHandler is a request handler for adding the SDK Version to the user agent.
-var SDKVersionUserAgentHandler = request.NamedHandler{
-	Name: "core.SDKVersionUserAgentHandler",
-	Fn: request.MakeAddToUserAgentHandler(aws.SDKName, aws.SDKVersion,
-		runtime.Version(), runtime.GOOS, runtime.GOARCH),
-}
-
 var reStatusCode = regexp.MustCompile(`^(\d{3})`)
 
 // ValidateReqSigHandler is a request handler to ensure that the request's
@@ -80,9 +72,9 @@ var ValidateReqSigHandler = request.NamedHandler{
 			signedTime = r.LastSignedAt
 		}
 
-		// 10 minutes to allow for some clock skew/delays in transmission.
+		// 5 minutes to allow for some clock skew/delays in transmission.
 		// Would be improved with aws/aws-sdk-go#423
-		if signedTime.Add(10 * time.Minute).After(time.Now()) {
+		if signedTime.Add(5 * time.Minute).After(time.Now()) {
 			return
 		}
 

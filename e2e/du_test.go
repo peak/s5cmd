@@ -109,18 +109,11 @@ func TestDiskUsageS3ObjectsAndFolders(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(` +OK "ls s3://%v" (8)`, bucket),
+		0: suffix(` +OK "du s3://%v" (1)`, bucket),
 	}, strictLineCheck(false))
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: suffix("+ DIR a/"),
-		1: suffix("+ DIR b/"),
-		2: suffix("+ DIR c/"),
-		3: suffix("+ DIR d/"),
-		4: suffix("+ DIR e/"),
-		5: suffix("+ DIR f/"),
-		6: suffix("? 298 report.gz"),
-		7: suffix("? 302 testfile1.txt"),
+		0: suffix(` + 600 bytes in 2 objects: s3://%v/ [Total]`, bucket),
 	})
 }
 
@@ -147,5 +140,28 @@ func TestDiskUsageWildcardS3ObjectsWithDashH(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: suffix(` + 241.8K bytes in 2 objects: s3://%v/ [Total]`, bucket),
+	})
+}
+
+func TestDiskUsageMissingObject(t *testing.T) {
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+
+	cmd := s5cmd("du", "s3://"+bucket+"/non-existent-file")
+	result := icmd.RunCmd(cmd)
+
+	// s5cmd returns 0 if given object is not found
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: suffix(` +OK "du s3://%v/non-existent-file" (1)`, bucket),
+	}, strictLineCheck(false))
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: suffix(` + 0 bytes in 0 objects: s3://%v/non-existent-file [Total]`, bucket),
 	})
 }

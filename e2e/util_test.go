@@ -31,6 +31,10 @@ var (
 	defaultSecretAccessKey = "s5cmd-test-secret-access-key"
 )
 
+// dateRe is the same <YYYY/MM/dd HH:mm:ss> string use throughout most command
+// outputs.
+var dateRe = `(\d{4}\/\d{2}\/\d{2} \d{2}:\d{2}:\d{2})`
+
 var (
 	flagTestLogLevel = flag.String("test.log.level", "err", "Test log level: {debug|warn|err}")
 )

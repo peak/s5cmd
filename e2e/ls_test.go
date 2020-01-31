@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"strings"
 	"testing"
 
 	"gotest.tools/v3/icmd"
@@ -184,5 +185,57 @@ func TestListNonexistingS3Object(t *testing.T) {
 	result.Assert(t, icmd.Expected{
 		Out:      "",
 		ExitCode: 0,
+	})
+}
+
+func TestListS3ObjectsWithDashE(t *testing.T) {
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+
+	putFile(t, s3client, bucket, "testfile1.txt", strings.Repeat("this is a file content", 10_000))
+	putFile(t, s3client, bucket, "testfile2.txt", strings.Repeat("this is also a file content", 10_000))
+
+	cmd := s5cmd("ls", "-e", "s3://"+bucket)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: suffix(` +OK "ls s3://%v" (2)`, bucket),
+	}, strictLineCheck(false))
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: match(`^ \+ ` + dateRe + ` \? \w+ \d+ testfile1.txt$`),
+		1: match(`^ \+ ` + dateRe + ` \? \w+ \d+ testfile2.txt$`),
+	})
+}
+
+func TestListS3ObjectsWithDashH(t *testing.T) {
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+
+	putFile(t, s3client, bucket, "testfile1.txt", strings.Repeat("this is a file content", 10_000))
+	putFile(t, s3client, bucket, "testfile2.txt", strings.Repeat("this is also a file content", 10_000))
+
+	cmd := s5cmd("ls", "-H", "s3://"+bucket)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: suffix(` +OK "ls s3://%v" (2)`, bucket),
+	}, strictLineCheck(false))
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: match(`^ \+ ` + dateRe + ` \? 215.1K testfile1.txt$`),
+		1: match(`^ \+ ` + dateRe + ` \? 264.0K testfile2.txt$`),
 	})
 }

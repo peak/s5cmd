@@ -196,8 +196,8 @@ func TestListS3ObjectsWithDashE(t *testing.T) {
 
 	createBucket(t, s3client, bucket)
 
-	putFile(t, s3client, bucket, "testfile1.txt", strings.Repeat("this is a file content", 10_000))
-	putFile(t, s3client, bucket, "testfile2.txt", strings.Repeat("this is also a file content", 10_000))
+	putFile(t, s3client, bucket, "testfile1.txt", strings.Repeat("this is a file content", 10000))
+	putFile(t, s3client, bucket, "testfile2.txt", strings.Repeat("this is also a file content", 10000))
 
 	cmd := s5cmd("ls", "-e", "s3://"+bucket)
 	result := icmd.RunCmd(cmd)
@@ -222,8 +222,8 @@ func TestListS3ObjectsWithDashH(t *testing.T) {
 
 	createBucket(t, s3client, bucket)
 
-	putFile(t, s3client, bucket, "testfile1.txt", strings.Repeat("this is a file content", 10_000))
-	putFile(t, s3client, bucket, "testfile2.txt", strings.Repeat("this is also a file content", 10_000))
+	putFile(t, s3client, bucket, "testfile1.txt", strings.Repeat("this is a file content", 10000))
+	putFile(t, s3client, bucket, "testfile2.txt", strings.Repeat("this is also a file content", 10000))
 
 	cmd := s5cmd("ls", "-H", "s3://"+bucket)
 	result := icmd.RunCmd(cmd)

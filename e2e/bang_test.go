@@ -39,3 +39,43 @@ func TestBangCommandNotFound(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{})
 }
+
+func TestSuccessfulBangBang(t *testing.T) {
+	_, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	cmd := s5cmd("!", "echo", "foo", "&&", "!", "echo SUCCESS", "||", "!", "echo FAIL")
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Expected{ExitCode: 0})
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: suffix(`+OK "! echo foo"`),
+		1: suffix(`+OK "! echo SUCCESS"`),
+	})
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: suffix(`foo`),
+		1: suffix(`SUCCESS`),
+	})
+}
+
+func TestFailedBangBang(t *testing.T) {
+	_, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	cmd := s5cmd("mv", "s3://nosuchbucket/nosuchkey", ".", "&&", "!", "echo SUCCESS", "||", "!", "echo FAIL")
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Expected{ExitCode: 127})
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: match(` -ERR "mv s3://nosuchbucket/nosuchkey ./nosuchkey": NoSuchBucket: The specified bucket does not exist status code: 404`),
+		1: suffix(`+OK "! echo FAIL"`),
+	})
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: suffix(` # Downloading nosuchkey...`),
+		1: suffix(`FAIL`),
+	})
+}

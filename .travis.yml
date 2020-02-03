@@ -3,7 +3,6 @@ language: go
 go:
   - 1.13.x
 
-# Fetch consul for the backend and provider tests
 before_install:
   - git clone https://github.com/peak/s5cmd.git
   - pushd s5cmd
@@ -14,4 +13,4 @@ before_install:
   - export PATH="~/bin:$PATH"
 
 script:
-- go test ./...
+- make test

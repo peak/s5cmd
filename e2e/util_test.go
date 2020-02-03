@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http/httptest"
+	"os"
 	"regexp"
 	"sort"
 	"strings"
@@ -89,6 +90,15 @@ func setup(t *testing.T) (*s3.S3, func(...string) icmd.Cmd, func()) {
 		args = append(endpoint, args...)
 
 		cmd := icmd.Command("s5cmd", args...)
+		env := os.Environ()
+		env = append(
+			env,
+			[]string{
+				fmt.Sprintf("AWS_ACCESS_KEY_ID=%v", defaultAccessKeyID),
+				fmt.Sprintf("AWS_SECRET_ACCESS_KEY=%v", defaultSecretAccessKey),
+			}...,
+		)
+		cmd.Env = env
 		cmd.Dir = workdir
 		return cmd
 	}

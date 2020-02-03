@@ -43,9 +43,10 @@ func TestDashFFromStdin(t *testing.T) {
 	}, sortInput(true))
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals("naber"),
+		0: equals(""),
 		1: suffix("file.txt"),
-	})
+		2: equals("naber"),
+	}, sortInput(true))
 }
 
 func TestDashFFromFile(t *testing.T) {
@@ -79,9 +80,10 @@ func TestDashFFromFile(t *testing.T) {
 	}, sortInput(true))
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals("naber"),
+		0: equals(""),
 		1: suffix("file.txt"),
-	})
+		2: equals("naber"),
+	}, sortInput(true))
 }
 
 func TestDashFWildcardCountGreaterEqualThanWorkerCount(t *testing.T) {

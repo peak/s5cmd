@@ -461,7 +461,8 @@ func (j *Job) Run(wp *WorkerParams) error {
 
 			arg2 := j.args[1].StripS3().Append(dstFn, true)
 			subJob := j.MakeSubJob(subCmd, op.Download, []*JobArgument{arg1, arg2}, j.opts)
-			if *li.StorageClass == s3.ObjectStorageClassGlacier {
+
+			if aws.StringValue(li.StorageClass) == s3.ObjectStorageClassGlacier {
 				subJob.out(shortErr, `"%s": Cannot download glacier object`, arg1.arg)
 				return nil
 			}
@@ -737,7 +738,7 @@ func (j *Job) Run(wp *WorkerParams) error {
 			)
 
 			subJob := j.MakeSubJob(subCmd, op.Copy, []*JobArgument{arg1, arg2}, j.opts)
-			if *li.StorageClass == s3.ObjectStorageClassGlacier {
+			if aws.StringValue(li.StorageClass) == s3.ObjectStorageClassGlacier {
 				subJob.out(shortErr, `"%s": Cannot download glacier object`, arg1.arg)
 				return nil
 			}
@@ -767,23 +768,20 @@ func (j *Job) Run(wp *WorkerParams) error {
 				j.out(shortOk, "%19s %1s %-38s  %12s  %s", "", "", "", "DIR", li.parsedKey)
 			} else {
 				var (
-					cls        = "?"
-					etag, size string
+					cls, etag, size string
 				)
 
-				if li.StorageClass != nil {
-					switch *li.StorageClass {
-					case s3.ObjectStorageClassStandard:
-						cls = ""
-					case s3.ObjectStorageClassGlacier:
-						cls = "G"
-					case s3.ObjectStorageClassReducedRedundancy:
-						cls = "R"
-					case s3.TransitionStorageClassStandardIa:
-						cls = "I"
-					default:
-						cls = "?"
-					}
+				switch aws.StringValue(li.StorageClass) {
+				case s3.ObjectStorageClassStandard:
+					cls = ""
+				case s3.ObjectStorageClassGlacier:
+					cls = "G"
+				case s3.ObjectStorageClassReducedRedundancy:
+					cls = "R"
+				case s3.TransitionStorageClassStandardIa:
+					cls = "I"
+				default:
+					cls = "?"
 				}
 
 				if showETags {
@@ -813,10 +811,11 @@ func (j *Job) Run(wp *WorkerParams) error {
 			if li == nil || li.isCommonPrefix {
 				return nil
 			}
-			s := totals[*li.StorageClass]
+			storageClass := aws.StringValue(li.StorageClass)
+			s := totals[storageClass]
 			s.size += *li.Size
 			s.count++
-			totals[*li.StorageClass] = s
+			totals[storageClass] = s
 
 			return nil
 		})

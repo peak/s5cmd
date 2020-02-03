@@ -9,6 +9,8 @@ import (
 )
 
 func TestRemoveSingleS3Object(t *testing.T) {
+	t.Parallel()
+
 	bucket := s3BucketFromTestName(t)
 
 	s3client, s5cmd, cleanup := setup(t)
@@ -42,6 +44,8 @@ func TestRemoveSingleS3Object(t *testing.T) {
 }
 
 func TestRemoveMultipleS3Objects(t *testing.T) {
+	t.Parallel()
+
 	bucket := s3BucketFromTestName(t)
 
 	s3client, s5cmd, cleanup := setup(t)
@@ -86,6 +90,8 @@ func TestRemoveMultipleS3Objects(t *testing.T) {
 }
 
 func TestRemoveSingleLocalFile(t *testing.T) {
+	t.Parallel()
+
 	_, s5cmd, cleanup := setup(t)
 	defer cleanup()
 
@@ -114,6 +120,8 @@ func TestRemoveSingleLocalFile(t *testing.T) {
 }
 
 func TestRemoveMultipleLocalFilesShouldFail(t *testing.T) {
+	t.Parallel()
+
 	_, s5cmd, cleanup := setup(t)
 	defer cleanup()
 

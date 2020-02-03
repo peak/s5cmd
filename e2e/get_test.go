@@ -9,6 +9,8 @@ import (
 )
 
 func TestGetSingleS3Object(t *testing.T) {
+	t.Parallel()
+
 	bucket := s3BucketFromTestName(t)
 
 	s3client, s5cmd, cleanup := setup(t)
@@ -45,6 +47,8 @@ func TestGetSingleS3Object(t *testing.T) {
 }
 
 func TestGetMultipleFlatS3Objects(t *testing.T) {
+	t.Parallel()
+
 	bucket := s3BucketFromTestName(t)
 
 	s3client, s5cmd, cleanup := setup(t)
@@ -101,6 +105,8 @@ func TestGetMultipleFlatS3Objects(t *testing.T) {
 }
 
 func TestGetMultipleS3ObjectsToGivenDirectory(t *testing.T) {
+	t.Parallel()
+
 	bucket := s3BucketFromTestName(t)
 
 	s3client, s5cmd, cleanup := setup(t)

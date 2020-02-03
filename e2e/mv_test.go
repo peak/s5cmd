@@ -10,6 +10,8 @@ import (
 )
 
 func TestMoveSingleS3ObjectToLocal(t *testing.T) {
+	t.Parallel()
+
 	bucket := s3BucketFromTestName(t)
 
 	s3client, s5cmd, cleanup := setup(t)
@@ -47,6 +49,8 @@ func TestMoveSingleS3ObjectToLocal(t *testing.T) {
 }
 
 func TestMoveMultipleFlatS3ObjectsToLocal(t *testing.T) {
+	t.Parallel()
+
 	bucket := s3BucketFromTestName(t)
 
 	s3client, s5cmd, cleanup := setup(t)
@@ -104,6 +108,8 @@ func TestMoveMultipleFlatS3ObjectsToLocal(t *testing.T) {
 }
 
 func TestMoveSingleFileToS3(t *testing.T) {
+	t.Parallel()
+
 	bucket := s3BucketFromTestName(t)
 
 	s3client, s5cmd, cleanup := setup(t)
@@ -141,6 +147,8 @@ func TestMoveSingleFileToS3(t *testing.T) {
 }
 
 func TestMoveMultipleFilesToS3(t *testing.T) {
+	t.Parallel()
+
 	bucket := s3BucketFromTestName(t)
 
 	s3client, s5cmd, cleanup := setup(t)
@@ -209,6 +217,8 @@ func TestMoveMultipleS3ObjectsToS3(t *testing.T) {
 }
 
 func TestMoveSingleFileToLocal(t *testing.T) {
+	t.Parallel()
+
 	_, s5cmd, cleanup := setup(t)
 	defer cleanup()
 
@@ -238,6 +248,8 @@ func TestMoveSingleFileToLocal(t *testing.T) {
 }
 
 func TestMoveMultipleFilesToLocal(t *testing.T) {
+	t.Parallel()
+
 	_, s5cmd, cleanup := setup(t)
 	defer cleanup()
 

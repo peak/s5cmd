@@ -8,6 +8,8 @@ import (
 )
 
 func TestDiskUsageSingleS3Object(t *testing.T) {
+	t.Parallel()
+
 	bucket := s3BucketFromTestName(t)
 
 	s3client, s5cmd, cleanup := setup(t)
@@ -34,6 +36,8 @@ func TestDiskUsageSingleS3Object(t *testing.T) {
 }
 
 func TestDiskUsageMultipleS3Objects(t *testing.T) {
+	t.Parallel()
+
 	bucket := s3BucketFromTestName(t)
 
 	s3client, s5cmd, cleanup := setup(t)
@@ -60,6 +64,8 @@ func TestDiskUsageMultipleS3Objects(t *testing.T) {
 }
 
 func TestDiskUsageWildcard(t *testing.T) {
+	t.Parallel()
+
 	bucket := s3BucketFromTestName(t)
 
 	s3client, s5cmd, cleanup := setup(t)
@@ -86,6 +92,8 @@ func TestDiskUsageWildcard(t *testing.T) {
 }
 
 func TestDiskUsageS3ObjectsAndFolders(t *testing.T) {
+	t.Parallel()
+
 	bucket := s3BucketFromTestName(t)
 
 	s3client, s5cmd, cleanup := setup(t)
@@ -118,6 +126,8 @@ func TestDiskUsageS3ObjectsAndFolders(t *testing.T) {
 }
 
 func TestDiskUsageWildcardS3ObjectsWithDashH(t *testing.T) {
+	t.Parallel()
+
 	bucket := s3BucketFromTestName(t)
 
 	s3client, s5cmd, cleanup := setup(t)
@@ -144,6 +154,8 @@ func TestDiskUsageWildcardS3ObjectsWithDashH(t *testing.T) {
 }
 
 func TestDiskUsageMissingObject(t *testing.T) {
+	t.Parallel()
+
 	bucket := s3BucketFromTestName(t)
 
 	s3client, s5cmd, cleanup := setup(t)

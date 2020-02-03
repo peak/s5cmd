@@ -7,6 +7,8 @@ import (
 )
 
 func TestBangRunEcho(t *testing.T) {
+	t.Parallel()
+
 	_, s5cmd, cleanup := setup(t)
 	defer cleanup()
 
@@ -25,6 +27,8 @@ func TestBangRunEcho(t *testing.T) {
 }
 
 func TestBangCommandNotFound(t *testing.T) {
+	t.Parallel()
+
 	_, s5cmd, cleanup := setup(t)
 	defer cleanup()
 
@@ -41,6 +45,8 @@ func TestBangCommandNotFound(t *testing.T) {
 }
 
 func TestSuccessfulBangBang(t *testing.T) {
+	t.Parallel()
+
 	_, s5cmd, cleanup := setup(t)
 	defer cleanup()
 
@@ -61,6 +67,8 @@ func TestSuccessfulBangBang(t *testing.T) {
 }
 
 func TestFailedBangBang(t *testing.T) {
+	t.Parallel()
+
 	_, s5cmd, cleanup := setup(t)
 	defer cleanup()
 

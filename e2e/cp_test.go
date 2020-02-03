@@ -10,6 +10,8 @@ import (
 )
 
 func TestCopySingleS3ObjectToLocal(t *testing.T) {
+	t.Parallel()
+
 	bucket := s3BucketFromTestName(t)
 
 	s3client, s5cmd, cleanup := setup(t)
@@ -46,6 +48,8 @@ func TestCopySingleS3ObjectToLocal(t *testing.T) {
 }
 
 func TestCopyMultipleFlatS3ObjectsToLocal(t *testing.T) {
+	t.Parallel()
+
 	bucket := s3BucketFromTestName(t)
 
 	s3client, s5cmd, cleanup := setup(t)
@@ -102,6 +106,8 @@ func TestCopyMultipleFlatS3ObjectsToLocal(t *testing.T) {
 }
 
 func TestCopyMultipleNestedS3ObjectsToLocal(t *testing.T) {
+	t.Parallel()
+
 	bucket := s3BucketFromTestName(t)
 
 	s3client, s5cmd, cleanup := setup(t)
@@ -166,6 +172,8 @@ func TestCopyMultipleNestedS3ObjectsToLocal(t *testing.T) {
 }
 
 func TestCopyMultipleNestedS3ObjectsToLocalWithParents(t *testing.T) {
+	t.Parallel()
+
 	bucket := s3BucketFromTestName(t)
 
 	s3client, s5cmd, cleanup := setup(t)
@@ -251,6 +259,8 @@ func TestCopyMultipleNestedS3ObjectsToLocalWithParents(t *testing.T) {
 }
 
 func TestCopyMultipleS3ObjectsToGivenLocalDirectory(t *testing.T) {
+	t.Parallel()
+
 	bucket := s3BucketFromTestName(t)
 
 	s3client, s5cmd, cleanup := setup(t)
@@ -308,6 +318,8 @@ func TestCopyMultipleS3ObjectsToGivenLocalDirectory(t *testing.T) {
 }
 
 func TestCopySingleFileToS3(t *testing.T) {
+	t.Parallel()
+
 	bucket := s3BucketFromTestName(t)
 
 	s3client, s5cmd, cleanup := setup(t)
@@ -347,6 +359,8 @@ func TestCopySingleFileToS3(t *testing.T) {
 }
 
 func TestCopyMultipleFilesToS3(t *testing.T) {
+	t.Parallel()
+
 	bucket := s3BucketFromTestName(t)
 
 	s3client, s5cmd, cleanup := setup(t)
@@ -415,6 +429,8 @@ func TestCopyMultipleS3ObjectsToS3(t *testing.T) {
 }
 
 func TestCopySingleLocalFileToLocal(t *testing.T) {
+	t.Parallel()
+
 	_, s5cmd, cleanup := setup(t)
 	defer cleanup()
 
@@ -449,6 +465,8 @@ func TestCopySingleLocalFileToLocal(t *testing.T) {
 }
 
 func TestCopyMultipleLocalFlatFilesToLocal(t *testing.T) {
+	t.Parallel()
+
 	_, s5cmd, cleanup := setup(t)
 	defer cleanup()
 
@@ -503,6 +521,8 @@ func TestCopyMultipleLocalFlatFilesToLocal(t *testing.T) {
 }
 
 func TestCopyMultipleLocalNestedFilesToLocal(t *testing.T) {
+	t.Parallel()
+
 	_, s5cmd, cleanup := setup(t)
 	defer cleanup()
 
@@ -570,6 +590,8 @@ func TestCopyMultipleLocalNestedFilesToLocal(t *testing.T) {
 }
 
 func TestCopyMultipleLocalNestedFilesToLocalPreserveLayout(t *testing.T) {
+	t.Parallel()
+
 	_, s5cmd, cleanup := setup(t)
 	defer cleanup()
 

@@ -9,6 +9,8 @@ import (
 )
 
 func TestDashFFromStdin(t *testing.T) {
+	t.Parallel()
+
 	bucket := s3BucketFromTestName(t)
 
 	s3client, s5cmd, cleanup := setup(t)
@@ -46,6 +48,8 @@ func TestDashFFromStdin(t *testing.T) {
 }
 
 func TestDashFFromFile(t *testing.T) {
+	t.Parallel()
+
 	bucket := s3BucketFromTestName(t)
 
 	s3client, s5cmd, cleanup := setup(t)

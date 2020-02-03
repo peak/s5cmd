@@ -8,6 +8,8 @@ import (
 )
 
 func TestExit(t *testing.T) {
+	t.Parallel()
+
 	_, s5cmd, cleanup := setup(t)
 	defer cleanup()
 

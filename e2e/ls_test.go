@@ -8,6 +8,8 @@ import (
 )
 
 func TestListBuckets(t *testing.T) {
+	t.Parallel()
+
 	s3client, s5cmd, cleanup := setup(t)
 	defer cleanup()
 
@@ -34,6 +36,8 @@ func TestListBuckets(t *testing.T) {
 }
 
 func TestListSingleS3Object(t *testing.T) {
+	t.Parallel()
+
 	bucket := s3BucketFromTestName(t)
 
 	s3client, s5cmd, cleanup := setup(t)
@@ -60,6 +64,8 @@ func TestListSingleS3Object(t *testing.T) {
 }
 
 func TestListSingleWildcardS3Object(t *testing.T) {
+	t.Parallel()
+
 	bucket := s3BucketFromTestName(t)
 
 	s3client, s5cmd, cleanup := setup(t)
@@ -87,6 +93,8 @@ func TestListSingleWildcardS3Object(t *testing.T) {
 }
 
 func TestListMultipleWildcardS3Object(t *testing.T) {
+	t.Parallel()
+
 	bucket := s3BucketFromTestName(t)
 
 	s3client, s5cmd, cleanup := setup(t)
@@ -125,6 +133,8 @@ func TestListMultipleWildcardS3Object(t *testing.T) {
 }
 
 func TestListS3ObjectsAndFolders(t *testing.T) {
+	t.Parallel()
+
 	bucket := s3BucketFromTestName(t)
 
 	s3client, s5cmd, cleanup := setup(t)
@@ -164,6 +174,8 @@ func TestListS3ObjectsAndFolders(t *testing.T) {
 }
 
 func TestListNonexistingS3Object(t *testing.T) {
+	t.Parallel()
+
 	bucket := s3BucketFromTestName(t)
 
 	s3client, s5cmd, cleanup := setup(t)
@@ -189,6 +201,8 @@ func TestListNonexistingS3Object(t *testing.T) {
 }
 
 func TestListS3ObjectsWithDashE(t *testing.T) {
+	t.Parallel()
+
 	bucket := s3BucketFromTestName(t)
 
 	s3client, s5cmd, cleanup := setup(t)
@@ -215,6 +229,8 @@ func TestListS3ObjectsWithDashE(t *testing.T) {
 }
 
 func TestListS3ObjectsWithDashH(t *testing.T) {
+	t.Parallel()
+
 	bucket := s3BucketFromTestName(t)
 
 	s3client, s5cmd, cleanup := setup(t)

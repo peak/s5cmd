@@ -12,5 +12,10 @@ before_install:
   - popd
   - export PATH="~/bin:$PATH"
 
+before_script:
+  # e2e tests expects 0755 as default folder modbits, however on travis VMs,
+  # it's 0775 by default. Keep test logic the same, change the environment.
+  - umask 022
+
 script:
 - make test

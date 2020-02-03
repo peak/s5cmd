@@ -4,7 +4,6 @@
 #
 
 SRCDIR ?= .
-GOROOT ?= /usr/local/go
 
 default: all
 
@@ -13,13 +12,16 @@ all: fmt build
 dist: generate all
 
 fmt:
-	find ${SRCDIR} ! -path "*/vendor/*" -type f -name '*.go' -exec ${GOROOT}/bin/gofmt -l -s -w {} \;
+	find ${SRCDIR} ! -path "*/vendor/*" -type f -name '*.go' -exec gofmt -l -s -w {} \;
 
 generate:
-	${GOROOT}/bin/go generate ${SRCDIR}
+	go generate ${SRCDIR}
 
 build:
-	${GOROOT}/bin/go build ${GCFLAGS} -ldflags "${LDFLAGS}" ${SRCDIR}
+	go build ${GCFLAGS} -ldflags "${LDFLAGS}" ${SRCDIR}
+
+test:
+	go test -mod=vendor ./...
 
 clean:
 	rm -vf ${SRCDIR}/s5cmd

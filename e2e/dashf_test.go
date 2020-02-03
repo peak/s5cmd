@@ -3,6 +3,7 @@ package e2e
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"gotest.tools/v3/fs"
 	"gotest.tools/v3/icmd"
@@ -81,4 +82,43 @@ func TestDashFFromFile(t *testing.T) {
 		0: equals("naber"),
 		1: suffix("file.txt"),
 	})
+}
+
+func TestDashFWildcardCountGreaterEqualThanWorkerCount(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+	putFile(t, s3client, bucket, "file.txt", "content")
+
+	content := []string{
+		"cp s3://" + bucket + "/f*.txt .",
+		"cp s3://" + bucket + "/f*.txt .",
+		"cp s3://" + bucket + "/f*.txt .",
+	}
+	file := fs.NewFile(t, "prefix", fs.WithContent(strings.Join(content, "\n")))
+	defer file.Remove()
+
+	// worker count < len(wildcards)
+	cmd := s5cmd("-numworkers", "2", "-f", file.Path())
+	cmd.Timeout = time.Second
+	result := icmd.RunCmd(cmd)
+
+	// FIXME(ig): This is a bug (see #19). If wildcard expansion operations are
+	// greater than the number of workers, queues are blocked and we got a
+	// timeout.
+	//
+	// After the issue is resolved, change the assertion to success.
+	result.Assert(t, icmd.Expected{Timeout: true})
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: equals(""),
+		1: suffix(`# Using 2 workers`),
+	}, sortInput(true))
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{})
 }

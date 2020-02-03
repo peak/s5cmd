@@ -79,6 +79,7 @@ func setup(t *testing.T) (*s3.S3, func(...string) icmd.Cmd, func()) {
 		WithCredentials(credentials.NewStaticCredentials(defaultAccessKeyID, defaultSecretAccessKey, "")).
 		WithDisableSSL(true).
 		WithS3ForcePathStyle(true).
+		WithCredentialsChainVerboseErrors(true).
 		WithLogLevel(awsLogLevel)
 
 	sess := session.New(s3Config)

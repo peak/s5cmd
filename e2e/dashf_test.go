@@ -108,7 +108,7 @@ func TestDashFWildcardCountGreaterEqualThanWorkerCount(t *testing.T) {
 	cmd.Timeout = time.Second
 	result := icmd.RunCmd(cmd)
 
-	// FIXME(ig): This is a bug (see #19). If wildcard expansion operations are
+	// FIXME(ig): This is a bug (see #12). If wildcard expansion operations are
 	// greater than the number of workers, queues are blocked and we got a
 	// timeout.
 	//

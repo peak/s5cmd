@@ -154,7 +154,7 @@ func setupCompletion(install bool) error {
 		takenAction = true
 	}
 	if !foundOne {
-		return fmt.Errorf("Could not find %s in home directory", strings.Join(configFiles(), " or "))
+		return fmt.Errorf("could not find %s in home directory", strings.Join(configFiles(), " or "))
 	}
 	if !takenAction {
 		fmt.Println("No action taken")

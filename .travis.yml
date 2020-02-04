@@ -10,3 +10,5 @@ before_script:
 
 script:
 - make test
+- make staticcheck
+- make vet

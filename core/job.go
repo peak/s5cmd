@@ -172,14 +172,14 @@ func (j *Job) Run(wp *WorkerParams) error {
 
 		if ol := opt.OptionHelps(opts); ol != "" {
 			fmt.Fprintf(os.Stderr, "\"%v\" command options:\n", j.command)
-			fmt.Fprintf(os.Stderr, ol)
+			fmt.Fprint(os.Stderr, ol)
 			fmt.Fprint(os.Stderr, "\n\n")
 		}
 
 		if cnt > 1 {
 			fmt.Fprintf(os.Stderr, "Help for \"%v\" commands:\n", j.command)
 		}
-		fmt.Fprintf(os.Stderr, cl)
+		fmt.Fprint(os.Stderr, cl)
 		fmt.Fprint(os.Stderr, "\nTo list available general options, run without arguments.\n")
 
 		return ErrDisplayedHelp
@@ -271,7 +271,7 @@ func (j *Job) Run(wp *WorkerParams) error {
 		if !walkMode {
 			loc := strings.IndexAny(trimPrefix, GlobCharacters)
 			if loc < 0 {
-				return fmt.Errorf("Internal error, not a glob: %s", trimPrefix)
+				return fmt.Errorf("internal error, not a glob: %s", trimPrefix)
 			}
 			trimPrefix = trimPrefix[:loc]
 		} else {
@@ -304,7 +304,7 @@ func (j *Job) Run(wp *WorkerParams) error {
 					return nil // Directory empty
 				}
 
-				return errors.New("Could not find match for glob")
+				return errors.New("could not find match for glob")
 			}
 
 			for _, f := range ma {
@@ -487,7 +487,7 @@ func (j *Job) Run(wp *WorkerParams) error {
 		if !walkMode {
 			loc := strings.IndexAny(trimPrefix, GlobCharacters)
 			if loc < 0 {
-				return fmt.Errorf("Internal error, not a glob: %s", trimPrefix)
+				return fmt.Errorf("internal error, not a glob: %s", trimPrefix)
 			}
 			trimPrefix = trimPrefix[:loc]
 		}
@@ -521,7 +521,7 @@ func (j *Job) Run(wp *WorkerParams) error {
 					return err
 				}
 				if len(ma) == 0 {
-					return errors.New("Could not find match for glob")
+					return errors.New("could not find match for glob")
 				}
 
 				for _, f := range ma {
@@ -860,7 +860,7 @@ func (j *Job) Run(wp *WorkerParams) error {
 
 	// Unhandled
 	default:
-		return fmt.Errorf("Unhandled operation %v", j.operation)
+		return fmt.Errorf("unhandled operation %v", j.operation)
 	}
 
 }
@@ -935,7 +935,7 @@ func wildOperation(wp *WorkerParams, lister wildLister, callback wildCallback) e
 		verboseLog("wildOperation all subjobs finished: %d/%d", s, subJobCounter)
 
 		if s != subJobCounter {
-			err = fmt.Errorf("Not all jobs completed successfully: %d/%d", s, subJobCounter)
+			err = fmt.Errorf("not all jobs completed successfully: %d/%d", s, subJobCounter)
 		}
 	} else {
 		verboseLog("wildOperation lister is done with error: %v", err)

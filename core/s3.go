@@ -17,7 +17,7 @@ import (
 
 var (
 	// ErrInterrupted is the error used when the main context is canceled
-	ErrInterrupted = errors.New("Operation interrupted")
+	ErrInterrupted = errors.New("operation interrupted")
 
 	// ErrNilResult is returned if a nil result in encountered
 	ErrNilResult = errors.New("nil result")

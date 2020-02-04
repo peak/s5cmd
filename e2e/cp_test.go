@@ -219,11 +219,6 @@ func TestCopyMultipleNestedS3ObjectsToLocalWithParents(t *testing.T) {
 	}, sortInput(true))
 
 	// assert local filesystem
-	var expectedFiles []fs.PathOp
-	for filename, content := range filesToContent {
-		pathop := fs.WithFile(filename, content, fs.WithMode(0644))
-		expectedFiles = append(expectedFiles, pathop)
-	}
 	expected := fs.Expected(
 		t,
 		fs.WithFile("testfile1.txt", "this is a test file 1"),

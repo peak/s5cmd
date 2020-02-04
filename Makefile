@@ -31,10 +31,10 @@ test:
 
 .PHONY: staticcheck
 staticcheck:
-	staticcheck -tags=integration -checks all ./...
+	@staticcheck -checks 'inherit,-SA4009,-U1000' ./...
 
-.PHONY: check-vet
-check-vet:
+.PHONY: vet
+vet:
 	@go vet -mod=vendor ./...
 
 .PHONY: lean

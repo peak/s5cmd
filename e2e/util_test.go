@@ -6,8 +6,10 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"net/http/httptest"
+	"io/ioutil"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
@@ -20,8 +22,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/google/go-cmp/cmp"
 	"github.com/iancoleman/strcase"
-	"github.com/johannesboyne/gofakes3"
-	"github.com/johannesboyne/gofakes3/backend/s3bolt"
 	"gotest.tools/v3/assert"
 	"gotest.tools/v3/fs"
 	"gotest.tools/v3/icmd"
@@ -38,44 +38,31 @@ var dateRe = `(\d{4}\/\d{2}\/\d{2} \d{2}:\d{2}:\d{2})`
 
 var (
 	flagTestLogLevel = flag.String("test.log.level", "err", "Test log level: {debug|warn|err}")
+	s5cmdPath        string
 )
 
 func setup(t *testing.T) (*s3.S3, func(...string) icmd.Cmd, func()) {
+	t.Helper()
+
 	testdir := fs.NewDir(t, t.Name(), fs.WithDir("workdir", fs.WithMode(0700)))
-	dbpath := testdir.Join("s3.boltdb")
 	workdir := testdir.Join("workdir")
 
-	// we use boltdb as the s3 backend because listing buckets in in-memory
-	// backend is not deterministic.
-	s3backend, err := s3bolt.NewFile(dbpath)
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	var (
-		fakes3LogLevel = *flagTestLogLevel
-		awsLogLevel    = aws.LogOff
+		s3LogLevel  = *flagTestLogLevel
+		awsLogLevel = aws.LogOff
 	)
 
 	switch *flagTestLogLevel {
 	case "debug":
-		// fakes3 has no 'debug' level. just set to 'info' to get the log we
-		// want
-		fakes3LogLevel = "info"
+		s3LogLevel = "info"
 		// aws has no level other than 'debug'
 		awsLogLevel = aws.LogDebug
 	}
 
-	withLogger := gofakes3.WithLogger(
-		gofakes3.GlobalLog(
-			gofakes3.LogLevel(strings.ToUpper(fakes3LogLevel)),
-		),
-	)
-	faker := gofakes3.New(s3backend, withLogger)
-	s3srv := httptest.NewServer(faker.Server())
+	endpoint, dbcleanup := s3ServerEndpoint(t, testdir, s3LogLevel)
 
 	s3Config := aws.NewConfig().
-		WithEndpoint(s3srv.URL).
+		WithEndpoint(endpoint).
 		WithRegion("us-east-1").
 		WithCredentials(credentials.NewStaticCredentials(defaultAccessKeyID, defaultSecretAccessKey, "")).
 		WithDisableSSL(true).
@@ -86,10 +73,10 @@ func setup(t *testing.T) (*s3.S3, func(...string) icmd.Cmd, func()) {
 	sess := session.New(s3Config)
 
 	s5cmd := func(args ...string) icmd.Cmd {
-		endpoint := []string{"-endpoint-url", s3srv.URL}
+		endpoint := []string{"-endpoint-url", endpoint}
 		args = append(endpoint, args...)
 
-		cmd := icmd.Command("s5cmd", args...)
+		cmd := icmd.Command(s5cmdPath, args...)
 		env := os.Environ()
 		env = append(
 			env,
@@ -105,13 +92,53 @@ func setup(t *testing.T) (*s3.S3, func(...string) icmd.Cmd, func()) {
 
 	cleanup := func() {
 		testdir.Remove()
-		s3srv.Close()
+		dbcleanup()
 	}
 
 	return s3.New(sess), s5cmd, cleanup
 }
 
+func goBuildS5cmd() func() {
+	tmpdir, err := ioutil.TempDir("", "")
+	if err != nil {
+		panic(err)
+	}
+
+	s5cmdPath = filepath.Join(tmpdir, "s5cmd")
+
+	workdir, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+	workdir = filepath.Dir(workdir)
+
+	cmd := exec.Command(
+		"go", "build",
+		"-mod=vendor",
+		"-o", s5cmdPath,
+	)
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
+	cmd.Dir = workdir
+
+	if err := cmd.Run(); err != nil {
+		// The go compiler will have already produced some error messages
+		// on stderr by the time we get here.
+		panic(fmt.Sprintf("failed to build executable: %s", err))
+	}
+
+	if err := os.Chmod(s5cmdPath, 0755); err != nil {
+		panic(err)
+	}
+
+	return func() {
+		os.RemoveAll(tmpdir)
+	}
+}
+
 func createBucket(t *testing.T, client *s3.S3, bucket string) {
+	t.Helper()
+
 	input := &s3.CreateBucketInput{
 		Bucket: aws.String(bucket),
 	}
@@ -154,6 +181,8 @@ func ensureS3Object(client *s3.S3, bucket string, key string, expectedContent st
 }
 
 func putFile(t *testing.T, client *s3.S3, bucket string, filename string, content string) {
+	t.Helper()
+
 	_, err := client.PutObject(&s3.PutObjectInput{
 		Body:   strings.NewReader(content),
 		Bucket: aws.String(bucket),
@@ -177,6 +206,7 @@ func replaceMatchWithSpace(input string, match ...string) string {
 }
 
 func s3BucketFromTestName(t *testing.T) string {
+	t.Helper()
 	return strcase.ToKebab(t.Name())
 }
 
@@ -208,6 +238,7 @@ func strictLineCheck(v bool) func(*assertOpts) {
 }
 
 func assertError(t *testing.T, err error, expected interface{}) {
+	t.Helper()
 	// 'assert' package doesn't support Go1.13+ error unwrapping. Do it
 	// manually.
 	assert.ErrorType(t, errors.Unwrap(err), expected)

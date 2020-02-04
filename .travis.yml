@@ -3,14 +3,6 @@ language: go
 go:
   - 1.13.x
 
-before_install:
-  - pushd $TRAVIS_BUILD_DIR
-  - go build .
-  - mkdir -p ~/bin
-  - mv s5cmd ~/bin
-  - popd
-  - export PATH="~/bin:$PATH"
-
 before_script:
   # e2e tests expects 0755 as default folder modbits, however on travis VMs,
   # it's 0775 by default. Keep test logic the same, change the environment.

@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -8,6 +9,13 @@ import (
 	"gotest.tools/v3/fs"
 	"gotest.tools/v3/icmd"
 )
+
+func TestMain(m *testing.M) {
+	cleanup := goBuildS5cmd()
+	code := m.Run()
+	cleanup()
+	os.Exit(code)
+}
 
 func TestCopySingleS3ObjectToLocal(t *testing.T) {
 	t.Parallel()
@@ -597,8 +605,8 @@ func TestCopyMultipleLocalNestedFilesToLocalPreserveLayout(t *testing.T) {
 
 	// nested folder layout
 	//
-	// ├ a
-	// │ └─readme.md
+	// ├─a
+	// │ ├─readme.md
 	// │ └─file1.txt
 	// └─b
 	//   └─c
@@ -607,8 +615,8 @@ func TestCopyMultipleLocalNestedFilesToLocalPreserveLayout(t *testing.T) {
 	// after `s5cmd cp -R --parents * dst`, expect:
 	//
 	// └dst
-	//   ├ a
-	//   │ └─readme.md
+	//   ├─a
+	//   │ ├─readme.md
 	//   │ └─file1.txt
 	//   └─b
 	//     └─c

@@ -757,7 +757,13 @@ func TestCopyS3ToLocalWithSameFilenameOverrideIfSizeDiffers(t *testing.T) {
 	// size differs.
 	result.Assert(t, icmd.Success)
 
-	// TODO(ig): assert stderr and stdout
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: suffix(` +OK "cp s3://%v/%v ./%v"`, bucket, filename, filename),
+	})
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(` # Downloading %v...`, filename),
+	})
 
 	expected := fs.Expected(t, fs.WithFile(filename, expectedContent))
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
@@ -797,7 +803,13 @@ func TestCopyS3ToLocalWithSameFilenameOverrideIfSourceIsNewer(t *testing.T) {
 	// size differs.
 	result.Assert(t, icmd.Success)
 
-	// TODO(ig): assert stderr and stdout
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: suffix(` +OK "cp s3://%v/%v ./%v"`, bucket, filename, filename),
+	})
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(` # Downloading %v...`, filename),
+	})
 
 	expected := fs.Expected(t, fs.WithFile(filename, expectedContent))
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
@@ -837,7 +849,13 @@ func TestCopyS3ToLocalWithSameFilenameDontOverrideIfS3ObjectIsOlder(t *testing.T
 	// size differs.
 	result.Assert(t, icmd.Success)
 
-	// TODO(ig): assert stderr and stdout
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: suffix(` +OK? "cp s3://%v/%v ./%v" (Object is newer or same age)`, bucket, filename, filename),
+	})
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(` # Downloading %v...`, filename),
+	})
 
 	expected := fs.Expected(t, fs.WithFile(filename, content))
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
@@ -870,7 +888,7 @@ func TestCopyLocalFileToS3WithTheSameFilename(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(` +OK "cp testfile1.txt s3://%v/testfile1.txt"`, bucket),
+		0: suffix(` +OK "cp %v s3://%v/%v"`, filename, bucket, filename),
 	})
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
@@ -912,7 +930,7 @@ func TestCopyLocalFileToS3WithSameFilenameWithNoClobber(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(` +OK? "cp testfile1.txt s3://%v/testfile1.txt" (Object already exists)`, bucket),
+		0: suffix(` +OK? "cp %v s3://%v/%v" (Object already exists)`, filename, bucket, filename),
 	})
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
@@ -955,7 +973,13 @@ func TestCopyLocalFileToS3WithSameFilenameOverrideIfSizeDiffers(t *testing.T) {
 	// size differs.
 	result.Assert(t, icmd.Success)
 
-	// TODO(ig): assert stderr and stdout
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: suffix(` +OK "cp %v s3://%v/%v"`, filename, bucket, filename),
+	})
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: suffix(` # Uploading %v... (%v bytes)`, filename, len(expectedContent)),
+	})
 
 	assert.NilError(t, ensureS3Object(s3client, bucket, filename, expectedContent))
 }
@@ -994,6 +1018,14 @@ func TestCopyLocalFileToS3WithSameFilenameOverrideIfSourceIsNewer(t *testing.T) 
 	// modtime differs.
 	result.Assert(t, icmd.Success)
 
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: suffix(` +OK "cp %v s3://%v/%v"`, filename, bucket, filename),
+	})
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: suffix(` # Uploading %v... (%v bytes)`, filename, len(expectedContent)),
+	})
+
 	assert.NilError(t, ensureS3Object(s3client, bucket, filename, expectedContent))
 }
 
@@ -1030,6 +1062,14 @@ func TestCopyLocalFileToS3WithSameFilenameDontOverrideIfS3ObjectIsOlder(t *testi
 	// '-n' prevents overriding the file, but '-u' overrides '-n' if the file
 	// modtime differs.
 	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: suffix(` +OK? "cp %v s3://%v/%v" (Object is newer or same age)`, filename, bucket, filename),
+	})
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: suffix(` # Uploading %v... (%v bytes)`, filename, len(expectedContent)),
+	})
 
 	assert.NilError(t, ensureS3Object(s3client, bucket, filename, content))
 }

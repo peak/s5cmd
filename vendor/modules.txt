@@ -1,4 +1,4 @@
-# github.com/aws/aws-sdk-go v1.12.78
+# github.com/aws/aws-sdk-go v1.17.4
 github.com/aws/aws-sdk-go/aws
 github.com/aws/aws-sdk-go/aws/awserr
 github.com/aws/aws-sdk-go/aws/awsutil
@@ -8,15 +8,24 @@ github.com/aws/aws-sdk-go/aws/corehandlers
 github.com/aws/aws-sdk-go/aws/credentials
 github.com/aws/aws-sdk-go/aws/credentials/ec2rolecreds
 github.com/aws/aws-sdk-go/aws/credentials/endpointcreds
+github.com/aws/aws-sdk-go/aws/credentials/processcreds
 github.com/aws/aws-sdk-go/aws/credentials/stscreds
+github.com/aws/aws-sdk-go/aws/csm
 github.com/aws/aws-sdk-go/aws/defaults
 github.com/aws/aws-sdk-go/aws/ec2metadata
 github.com/aws/aws-sdk-go/aws/endpoints
 github.com/aws/aws-sdk-go/aws/request
 github.com/aws/aws-sdk-go/aws/session
 github.com/aws/aws-sdk-go/aws/signer/v4
+github.com/aws/aws-sdk-go/internal/ini
+github.com/aws/aws-sdk-go/internal/s3err
+github.com/aws/aws-sdk-go/internal/sdkio
+github.com/aws/aws-sdk-go/internal/sdkrand
+github.com/aws/aws-sdk-go/internal/sdkuri
 github.com/aws/aws-sdk-go/internal/shareddefaults
 github.com/aws/aws-sdk-go/private/protocol
+github.com/aws/aws-sdk-go/private/protocol/eventstream
+github.com/aws/aws-sdk-go/private/protocol/eventstream/eventstreamapi
 github.com/aws/aws-sdk-go/private/protocol/query
 github.com/aws/aws-sdk-go/private/protocol/query/queryutil
 github.com/aws/aws-sdk-go/private/protocol/rest
@@ -26,10 +35,16 @@ github.com/aws/aws-sdk-go/service/s3
 github.com/aws/aws-sdk-go/service/s3/s3iface
 github.com/aws/aws-sdk-go/service/s3/s3manager
 github.com/aws/aws-sdk-go/service/sts
+# github.com/boltdb/bolt v1.3.1
+github.com/boltdb/bolt
 # github.com/cenkalti/backoff v1.1.0
 github.com/cenkalti/backoff
-# github.com/go-ini/ini v1.32.0
-github.com/go-ini/ini
+# github.com/google/go-cmp v0.4.0
+github.com/google/go-cmp/cmp
+github.com/google/go-cmp/cmp/internal/diff
+github.com/google/go-cmp/cmp/internal/flags
+github.com/google/go-cmp/cmp/internal/function
+github.com/google/go-cmp/cmp/internal/value
 # github.com/google/gops v0.3.2
 github.com/google/gops/agent
 github.com/google/gops/internal
@@ -38,16 +53,45 @@ github.com/google/gops/signal
 github.com/hashicorp/errwrap
 # github.com/hashicorp/go-multierror v0.0.0-20171204182908-b7773ae21874
 github.com/hashicorp/go-multierror
-# github.com/jmespath/go-jmespath v0.0.0-20160202185014-0b12d6b521d8
+# github.com/iancoleman/strcase v0.0.0-20191112232945-16388991a334
+github.com/iancoleman/strcase
+# github.com/jmespath/go-jmespath v0.0.0-20180206201540-c2b33e8439af
 github.com/jmespath/go-jmespath
+# github.com/johannesboyne/gofakes3 v0.0.0-20191228161223-9aee1c78a252
+github.com/johannesboyne/gofakes3
+github.com/johannesboyne/gofakes3/backend/s3bolt
+github.com/johannesboyne/gofakes3/internal/goskipiter
+github.com/johannesboyne/gofakes3/internal/s3io
 # github.com/kardianos/osext v0.0.0-20170510131534-ae77be60afb1
 github.com/kardianos/osext
+# github.com/pkg/errors v0.9.1
+github.com/pkg/errors
 # github.com/posener/complete v0.0.0-20171104095702-dc2bc5a81acc
 github.com/posener/complete
 github.com/posener/complete/cmd
 github.com/posener/complete/cmd/install
 github.com/posener/complete/match
+# github.com/ryszard/goskiplist v0.0.0-20150312221310-2dfbae5fcf46
+github.com/ryszard/goskiplist/skiplist
+# github.com/shabbyrobe/gocovmerge v0.0.0-20180507124511-f6ea450bfb63
+github.com/shabbyrobe/gocovmerge
 # github.com/termie/go-shutil v0.0.0-20140729215957-bcacb06fecae
 github.com/termie/go-shutil
 # golang.org/x/net v0.0.0-20190311183353-d8887717615a
 golang.org/x/net/context
+# golang.org/x/sys v0.0.0-20190310054646-10058d7d4faa
+golang.org/x/sys/unix
+# golang.org/x/tools v0.0.0-20190624222133-a101b041ded4
+golang.org/x/tools/cover
+# gopkg.in/mgo.v2 v2.0.0-20180705113604-9856a29383ce
+gopkg.in/mgo.v2/bson
+gopkg.in/mgo.v2/internal/json
+# gotest.tools/v3 v3.0.0
+gotest.tools/v3/assert
+gotest.tools/v3/assert/cmp
+gotest.tools/v3/fs
+gotest.tools/v3/icmd
+gotest.tools/v3/internal/difflib
+gotest.tools/v3/internal/format
+gotest.tools/v3/internal/source
+gotest.tools/v3/x/subtest

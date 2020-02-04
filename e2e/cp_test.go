@@ -1,7 +1,6 @@
 package e2e
 
 import (
-	"os"
 	"path/filepath"
 	"testing"
 
@@ -9,13 +8,6 @@ import (
 	"gotest.tools/v3/fs"
 	"gotest.tools/v3/icmd"
 )
-
-func TestMain(m *testing.M) {
-	cleanup := goBuildS5cmd()
-	code := m.Run()
-	cleanup()
-	os.Exit(code)
-}
 
 func TestCopySingleS3ObjectToLocal(t *testing.T) {
 	t.Parallel()

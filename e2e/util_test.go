@@ -110,6 +110,8 @@ func goBuildS5cmd() func() {
 	if err != nil {
 		panic(err)
 	}
+	// 'go build' will change the working directory to the path where tests
+	// reside. workdir should be the project root.
 	workdir = filepath.Dir(workdir)
 
 	cmd := exec.Command(

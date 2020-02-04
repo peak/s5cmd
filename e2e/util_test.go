@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -14,6 +15,7 @@ import (
 	"sort"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -40,6 +42,10 @@ var (
 	flagTestLogLevel = flag.String("test.log.level", "err", "Test log level: {debug|warn|err}")
 	s5cmdPath        string
 )
+
+func init() {
+	rand.Seed(time.Now().UnixNano())
+}
 
 func setup(t *testing.T) (*s3.S3, func(...string) icmd.Cmd, func()) {
 	t.Helper()
@@ -209,7 +215,22 @@ func replaceMatchWithSpace(input string, match ...string) string {
 
 func s3BucketFromTestName(t *testing.T) string {
 	t.Helper()
-	return strcase.ToKebab(t.Name())
+	bucket := strcase.ToKebab(t.Name())
+
+	if len(bucket) > 63 {
+		bucket = fmt.Sprintf("%v-%v", bucket[:55], randomString(7))
+	}
+
+	return bucket
+}
+
+func randomString(n int) string {
+	const alphabet = "abcdefghijklmnopqrstuvwxyz0123456789"
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = alphabet[rand.Intn(len(alphabet))]
+	}
+	return string(b)
 }
 
 func withWorkingDir(dir *fs.Dir) func(*icmd.Cmd) {
@@ -221,8 +242,9 @@ func withWorkingDir(dir *fs.Dir) func(*icmd.Cmd) {
 type compareFunc func(string) error
 
 type assertOpts struct {
-	strict bool
-	sort   bool
+	strict      bool
+	sort        bool
+	trimRegexes []*regexp.Regexp
 }
 
 type assertOp func(*assertOpts)
@@ -239,6 +261,13 @@ func strictLineCheck(v bool) func(*assertOpts) {
 	}
 }
 
+func trimMatch(match string) func(*assertOpts) {
+	re := regexp.MustCompile(match)
+	return func(opts *assertOpts) {
+		opts.trimRegexes = append(opts.trimRegexes, re)
+	}
+}
+
 func assertError(t *testing.T, err error, expected interface{}) {
 	t.Helper()
 	// 'assert' package doesn't support Go1.13+ error unwrapping. Do it
@@ -251,12 +280,17 @@ func assertLines(t *testing.T, actual string, expectedlines map[int]compareFunc,
 
 	// default assertion options
 	opts := assertOpts{
-		strict: true,
-		sort:   false,
+		strict:      true,
+		sort:        false,
+		trimRegexes: nil,
 	}
 
 	for _, fn := range fns {
 		fn(&opts)
+	}
+
+	for _, re := range opts.trimRegexes {
+		actual = re.ReplaceAllString(actual, "")
 	}
 
 	lines := strings.Split(actual, "\n")

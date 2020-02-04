@@ -223,9 +223,9 @@ func TestListS3ObjectsWithDashE(t *testing.T) {
 	}, strictLineCheck(false))
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: match(`^ \+ ` + dateRe + ` \? \w+ \d+ testfile1.txt$`),
-		1: match(`^ \+ ` + dateRe + ` \? \w+ \d+ testfile2.txt$`),
-	})
+		0: match(`^ \+ \? \w+ \d+ testfile1.txt$`),
+		1: match(`^ \+ \? \w+ \d+ testfile2.txt$`),
+	}, trimMatch(dateRe))
 }
 
 func TestListS3ObjectsWithDashH(t *testing.T) {
@@ -251,7 +251,7 @@ func TestListS3ObjectsWithDashH(t *testing.T) {
 	}, strictLineCheck(false))
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: match(`^ \+ ` + dateRe + ` \? 215.1K testfile1.txt$`),
-		1: match(`^ \+ ` + dateRe + ` \? 264.0K testfile2.txt$`),
-	})
+		0: match(`^ \+ \? 215.1K testfile1.txt$`),
+		1: match(`^ \+ \? 264.0K testfile2.txt$`),
+	}, trimMatch(dateRe))
 }

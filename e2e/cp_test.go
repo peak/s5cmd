@@ -3,6 +3,7 @@ package e2e
 import (
 	"path/filepath"
 	"testing"
+	"time"
 
 	"gotest.tools/v3/assert"
 	"gotest.tools/v3/fs"
@@ -653,4 +654,269 @@ func TestCopyMultipleLocalNestedFilesToLocalPreserveLayout(t *testing.T) {
 
 	expected := fs.Expected(t, newLayout...)
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
+}
+
+func TestCopyS3ObjectToLocalWithTheSameFilename(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	const (
+		filename        = "testfile1.txt"
+		content         = "this is the content"
+		expectedContent = content + "\n"
+	)
+
+	workdir := fs.NewDir(t, t.Name(), fs.WithFile(filename, content))
+	defer workdir.Remove()
+
+	createBucket(t, s3client, bucket)
+	// upload a modified version of the file
+	putFile(t, s3client, bucket, filename, expectedContent)
+
+	cmd := s5cmd("cp", "s3://"+bucket+"/"+filename, ".")
+	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: suffix(` +OK "cp s3://%v/%v ./%v"`, bucket, filename, filename),
+	})
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(" # Downloading %v...", filename),
+	})
+
+	expected := fs.Expected(t, fs.WithFile(filename, expectedContent))
+	assert.Assert(t, fs.Equal(workdir.Path(), expected))
+}
+
+func TestCopyS3ToLocalWithSameFilenameWithNoClobber(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	const (
+		filename = "testfile1.txt"
+		content  = "this is the content"
+	)
+
+	workdir := fs.NewDir(t, t.Name(), fs.WithFile(filename, content))
+	defer workdir.Remove()
+
+	createBucket(t, s3client, bucket)
+	// upload a modified version of the file
+	putFile(t, s3client, bucket, filename, content+"\n")
+
+	cmd := s5cmd("cp", "-n", "s3://"+bucket+"/"+filename, ".")
+	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: suffix(` +OK? "cp s3://%v/%v ./%v" (Object already exists)`, bucket, filename, filename),
+	})
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{})
+
+	expected := fs.Expected(t, fs.WithFile(filename, content))
+	assert.Assert(t, fs.Equal(workdir.Path(), expected))
+}
+
+func TestCopyS3ToLocalWithSameFilenameOverrideIfSizeDiffers(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	const (
+		filename        = "testfile1.txt"
+		content         = "this is the content"
+		expectedContent = content + "\n"
+	)
+
+	workdir := fs.NewDir(t, t.Name(), fs.WithFile(filename, content))
+	defer workdir.Remove()
+
+	createBucket(t, s3client, bucket)
+	// upload a modified version of the file
+	putFile(t, s3client, bucket, filename, expectedContent)
+
+	cmd := s5cmd("cp", "-n", "-s", "s3://"+bucket+"/"+filename, ".")
+	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
+
+	// '-n' prevents overriding the file, but '-s' overrides '-n' if the file
+	// size differs.
+	result.Assert(t, icmd.Success)
+
+	expected := fs.Expected(t, fs.WithFile(filename, expectedContent))
+	assert.Assert(t, fs.Equal(workdir.Path(), expected))
+}
+
+func TestCopyS3ToLocalWithSameFilenameOverrideIfSourceIsNewer(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	const (
+		filename        = "testfile1.txt"
+		content         = "this is the content"
+		expectedContent = content + "\n"
+	)
+
+	now := time.Now().UTC()
+	timestamp := fs.WithTimestamps(
+		now.Add(-time.Minute), // access time
+		now.Add(-time.Minute), // mod time
+	)
+	workdir := fs.NewDir(t, t.Name(), fs.WithFile(filename, content, timestamp))
+	defer workdir.Remove()
+
+	createBucket(t, s3client, bucket)
+	// upload a modified version of the file. also uploaded file is newer than
+	// the file on local fs.
+	putFile(t, s3client, bucket, filename, expectedContent)
+
+	cmd := s5cmd("cp", "-n", "-u", "s3://"+bucket+"/"+filename, ".")
+	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
+
+	// '-n' prevents overriding the file, but '-s' overrides '-n' if the file
+	// size differs.
+	result.Assert(t, icmd.Success)
+
+	expected := fs.Expected(t, fs.WithFile(filename, expectedContent))
+	assert.Assert(t, fs.Equal(workdir.Path(), expected))
+}
+
+func TestCopyS3ToLocalWithSameFilenameDontOverrideIfS3ObjectIsOlder(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	const (
+		filename = "testfile1.txt"
+		content  = "this is the content"
+	)
+
+	createBucket(t, s3client, bucket)
+	// upload a modified version of the file.
+	putFile(t, s3client, bucket, filename, content+"\n")
+
+	// file on the fs is newer than the file on s3. expect an 'dont override'
+	// behaviour.
+	now := time.Now().UTC()
+	timestamp := fs.WithTimestamps(
+		now.Add(time.Minute), // access time
+		now.Add(time.Minute), // mod time
+	)
+	workdir := fs.NewDir(t, t.Name(), fs.WithFile(filename, content, timestamp))
+	defer workdir.Remove()
+
+	cmd := s5cmd("cp", "-n", "-u", "s3://"+bucket+"/"+filename, ".")
+	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
+
+	// '-n' prevents overriding the file, but '-s' overrides '-n' if the file
+	// size differs.
+	result.Assert(t, icmd.Success)
+
+	expected := fs.Expected(t, fs.WithFile(filename, content))
+	assert.Assert(t, fs.Equal(workdir.Path(), expected))
+}
+
+func TestCopyLocalFileToS3WithTheSameFilename(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	const (
+		filename   = "testfile1.txt"
+		content    = "this is the content"
+		newContent = content + "\n"
+	)
+
+	createBucket(t, s3client, bucket)
+	putFile(t, s3client, bucket, filename, content)
+
+	// the file to be uploaded is modified
+	workdir := fs.NewDir(t, t.Name(), fs.WithFile(filename, newContent))
+	defer workdir.Remove()
+
+	cmd := s5cmd("cp", filename, "s3://"+bucket)
+	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: suffix(` +OK "cp testfile1.txt s3://%v/testfile1.txt"`, bucket),
+	})
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: suffix(` # Uploading %v... (%v bytes)`, filename, len(newContent)),
+	})
+
+	// assert local filesystem
+	expected := fs.Expected(t, fs.WithFile(filename, newContent))
+	assert.Assert(t, fs.Equal(workdir.Path(), expected))
+
+	// expect s3 object to be updated with new content
+	assert.Assert(t, ensureS3Object(s3client, bucket, filename, newContent))
+}
+
+func TestCopyLocalFileToS3WithSameFilenameWithNoClobber(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	const (
+		filename   = "testfile1.txt"
+		content    = "this is the content"
+		newContent = content + "\n"
+	)
+
+	createBucket(t, s3client, bucket)
+	putFile(t, s3client, bucket, filename, content)
+
+	// the file to be uploaded is modified
+	workdir := fs.NewDir(t, t.Name(), fs.WithFile(filename, newContent))
+	defer workdir.Remove()
+
+	cmd := s5cmd("cp", "-n", filename, "s3://"+bucket)
+	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: suffix(` +OK? "cp testfile1.txt s3://%v/testfile1.txt" (Object already exists)`, bucket),
+	})
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: suffix(` # Uploading %v... (%v bytes)`, filename, len(newContent)),
+	})
+
+	// assert local filesystem
+	expected := fs.Expected(t, fs.WithFile(filename, newContent))
+	assert.Assert(t, fs.Equal(workdir.Path(), expected))
+
+	// expect s3 object is not overriden
+	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content))
 }

@@ -757,6 +757,8 @@ func TestCopyS3ToLocalWithSameFilenameOverrideIfSizeDiffers(t *testing.T) {
 	// size differs.
 	result.Assert(t, icmd.Success)
 
+	// TODO(ig): assert stderr and stdout
+
 	expected := fs.Expected(t, fs.WithFile(filename, expectedContent))
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 }
@@ -795,6 +797,8 @@ func TestCopyS3ToLocalWithSameFilenameOverrideIfSourceIsNewer(t *testing.T) {
 	// size differs.
 	result.Assert(t, icmd.Success)
 
+	// TODO(ig): assert stderr and stdout
+
 	expected := fs.Expected(t, fs.WithFile(filename, expectedContent))
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 }
@@ -832,6 +836,8 @@ func TestCopyS3ToLocalWithSameFilenameDontOverrideIfS3ObjectIsOlder(t *testing.T
 	// '-n' prevents overriding the file, but '-s' overrides '-n' if the file
 	// size differs.
 	result.Assert(t, icmd.Success)
+
+	// TODO(ig): assert stderr and stdout
 
 	expected := fs.Expected(t, fs.WithFile(filename, content))
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
@@ -919,4 +925,111 @@ func TestCopyLocalFileToS3WithSameFilenameWithNoClobber(t *testing.T) {
 
 	// expect s3 object is not overriden
 	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content))
+}
+
+func TestCopyLocalFileToS3WithSameFilenameOverrideIfSizeDiffers(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	const (
+		filename        = "testfile1.txt"
+		content         = "this is the content"
+		expectedContent = content + "\n"
+	)
+
+	workdir := fs.NewDir(t, t.Name(), fs.WithFile(filename, expectedContent))
+	defer workdir.Remove()
+
+	createBucket(t, s3client, bucket)
+	// upload a modified version of the file
+	putFile(t, s3client, bucket, filename, content)
+
+	cmd := s5cmd("cp", "-n", "-s", filename, "s3://"+bucket)
+	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
+
+	// '-n' prevents overriding the file, but '-s' overrides '-n' if the file
+	// size differs.
+	result.Assert(t, icmd.Success)
+
+	// TODO(ig): assert stderr and stdout
+
+	assert.NilError(t, ensureS3Object(s3client, bucket, filename, expectedContent))
+}
+
+func TestCopyLocalFileToS3WithSameFilenameOverrideIfSourceIsNewer(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	const (
+		filename        = "testfile1.txt"
+		content         = "this is the content"
+		expectedContent = content + "\n"
+	)
+
+	createBucket(t, s3client, bucket)
+	// upload a modified version of the file. also uploaded file is newer than
+	// the file on local fs.
+	putFile(t, s3client, bucket, filename, content)
+
+	now := time.Now().UTC()
+	timestamp := fs.WithTimestamps(
+		now.Add(time.Minute), // access time
+		now.Add(time.Minute), // mod time
+	)
+	workdir := fs.NewDir(t, t.Name(), fs.WithFile(filename, expectedContent, timestamp))
+	defer workdir.Remove()
+
+	cmd := s5cmd("cp", "-n", "-u", filename, "s3://"+bucket)
+	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
+
+	// '-n' prevents overriding the file, but '-u' overrides '-n' if the file
+	// modtime differs.
+	result.Assert(t, icmd.Success)
+
+	assert.NilError(t, ensureS3Object(s3client, bucket, filename, expectedContent))
+}
+
+func TestCopyLocalFileToS3WithSameFilenameDontOverrideIfS3ObjectIsOlder(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	const (
+		filename        = "testfile1.txt"
+		content         = "this is the content"
+		expectedContent = content + "\n"
+	)
+
+	createBucket(t, s3client, bucket)
+	// upload a modified version of the file. also uploaded file is newer than
+	// the file on local fs.
+	putFile(t, s3client, bucket, filename, content)
+
+	now := time.Now().UTC()
+	timestamp := fs.WithTimestamps(
+		now.Add(-time.Minute), // access time
+		now.Add(-time.Minute), // mod time
+	)
+	workdir := fs.NewDir(t, t.Name(), fs.WithFile(filename, expectedContent, timestamp))
+	defer workdir.Remove()
+
+	cmd := s5cmd("cp", "-n", "-u", filename, "s3://"+bucket)
+	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
+
+	// '-n' prevents overriding the file, but '-u' overrides '-n' if the file
+	// modtime differs.
+	result.Assert(t, icmd.Success)
+
+	assert.NilError(t, ensureS3Object(s3client, bucket, filename, content))
 }

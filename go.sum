@@ -1,5 +1,7 @@
 github.com/aws/aws-sdk-go v1.17.4 h1:L2KFocQhg48kIzEAV98SnSz3nmIZ3UDFP+vU647KO3c=
 github.com/aws/aws-sdk-go v1.17.4/go.mod h1:KmX6BPdI08NWTb3/sm4ZGu5ShLoqVDhKgpiN924inxo=
+github.com/aws/aws-sdk-go v1.28.10 h1:uPaHYQWRXgI9ZrGrM6rkrHxkJOmI9orcvsTRhJXwX4I=
+github.com/aws/aws-sdk-go v1.28.10/go.mod h1:KmX6BPdI08NWTb3/sm4ZGu5ShLoqVDhKgpiN924inxo=
 github.com/boltdb/bolt v1.3.1 h1:JQmyP4ZBrce+ZQu0dY660FMfatumYDLun9hBCUVIkF4=
 github.com/boltdb/bolt v1.3.1/go.mod h1:clJnj/oiGkjum5o1McbSZDSLxVThjynRyGBgiAx27Ps=
 github.com/cenkalti/backoff v1.1.0 h1:QnvVp8ikKCDWOsFheytRCoYWYPO/ObCTBGxT19Hc+yE=

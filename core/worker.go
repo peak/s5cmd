@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"sync"
@@ -76,7 +77,18 @@ func NewAwsSession(maxRetries int, endpointURL string, region string, noVerifySS
 	awsCfg := aws.NewConfig().WithMaxRetries(maxRetries) //.WithLogLevel(aws.LogDebug))
 
 	if endpointURL != "" {
+		endpoint, err := url.Parse(endpointURL)
+		if err != nil {
+			return nil, err
+		}
+
 		awsCfg = awsCfg.WithEndpoint(endpointURL).WithS3ForcePathStyle(true)
+
+		const acceleratedHost = "s3-accelerate.amazonaws.com"
+		if endpoint.Hostname() == acceleratedHost {
+			awsCfg = awsCfg.WithS3UseAccelerate(true).WithS3ForcePathStyle(false)
+		}
+
 		verboseLog("Setting Endpoint to %s on AWS Config", endpointURL)
 	}
 

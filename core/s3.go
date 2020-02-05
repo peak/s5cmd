@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/peak/s5cmd/url"
@@ -45,6 +46,21 @@ type s3listItem struct {
 }
 
 func s3list(ctx context.Context, svc *s3.S3, s3url *url.S3Url, emitChan chan<- interface{}) error {
+	err := s3listv2(ctx, svc, s3url, emitChan)
+
+	awsErr, ok := err.(awserr.Error)
+	if !ok {
+		return err
+	}
+
+	if awsErr.Code() != "NotImplemented" {
+		return err
+	}
+
+	return s3listv1(ctx, svc, s3url, emitChan)
+}
+
+func s3listv2(ctx context.Context, svc *s3.S3, s3url *url.S3Url, emitChan chan<- interface{}) error {
 	inp := s3.ListObjectsV2Input{
 		Bucket: aws.String(s3url.Bucket),
 	}
@@ -124,6 +140,134 @@ func s3list(ctx context.Context, svc *s3.S3, s3url *url.S3Url, emitChan chan<- i
 	}
 
 	err = svc.ListObjectsV2PagesWithContext(ctx, &inp, func(p *s3.ListObjectsV2Output, lastPage bool) bool {
+		if isCanceled() {
+			return false
+		}
+		for _, c := range p.CommonPrefixes {
+			key := *c.Prefix
+			if strings.Index(key, trimPrefix) == 0 {
+				key = key[len(trimPrefix):]
+			}
+			if !emit(&s3listItem{
+				Object:         &s3.Object{Key: c.Prefix},
+				parsedKey:      key,
+				isCommonPrefix: true,
+			}) {
+				return false
+			}
+		}
+		for _, c := range p.Contents {
+			key := *c.Key
+			isCommonPrefix := wildOperation && key[len(key)-1] == '/' // Keys ending with prefix in wild output are "directories"
+			if strings.Index(key, trimPrefix) == 0 {
+				key = key[len(trimPrefix):]
+			}
+			if r != nil && !r.MatchString(key) {
+				continue
+			}
+			if !emit(&s3listItem{
+				Object:         c,
+				parsedKey:      key,
+				isCommonPrefix: isCommonPrefix,
+			}) {
+				return false
+			}
+		}
+		if !*p.IsTruncated {
+			emit(nil) // EOF
+		}
+
+		return !isCanceled()
+	})
+
+	mu.Lock()
+	defer mu.Unlock()
+	if err == nil && canceled {
+		return ErrInterrupted
+	}
+	return err
+}
+
+func s3listv1(ctx context.Context, svc *s3.S3, s3url *url.S3Url, emitChan chan<- interface{}) error {
+	inp := s3.ListObjectsInput{
+		Bucket: aws.String(s3url.Bucket),
+	}
+
+	wildkey := s3url.Key
+	var prefix, filter string
+	loc := strings.IndexAny(wildkey, url.S3WildCharacters)
+	wildOperation := loc > -1
+	if !wildOperation {
+		// no wildcard operation
+		inp.SetDelimiter("/")
+		prefix = s3url.Key
+
+	} else {
+		// wildcard operation
+		prefix = wildkey[:loc]
+		filter = wildkey[loc:]
+	}
+	inp.SetPrefix(prefix)
+
+	var (
+		r   *regexp.Regexp
+		err error
+	)
+
+	trimPrefix := path.Dir(prefix) + "/"
+	if trimPrefix == "./" {
+		trimPrefix = ""
+	}
+	if !wildOperation {
+		// prevent "ls s3://bucket/path/key" from matching s3://bucket/path/keyword
+		// it will still match s3://bucket/path/keydir/ because we don't match the regex on commonPrefixes
+		filter = prefix[len(trimPrefix):]
+	}
+
+	if filter != "" {
+		filterRegex := regexp.QuoteMeta(filter)
+		filterRegex = strings.Replace(filterRegex, "\\?", ".", -1)
+		filterRegex = strings.Replace(filterRegex, "\\*", ".*?", -1)
+		r, err = regexp.Compile("^" + filterRegex + "$")
+		if err != nil {
+			return err
+		}
+	}
+
+	var mu sync.Mutex
+	canceled := false
+	isCanceled := func() bool {
+		select {
+		case <-ctx.Done():
+			mu.Lock()
+			defer mu.Unlock()
+			canceled = true
+			return true
+		default:
+			return false
+		}
+	}
+	emit := func(item *s3listItem) bool {
+		var data interface{}
+		if item != nil {
+			// avoid nil inside interface
+			data = item
+		}
+
+		for {
+			select {
+			case <-ctx.Done():
+				mu.Lock()
+				defer mu.Unlock()
+				canceled = true
+				return false
+			case emitChan <- data:
+				return true
+			}
+		}
+	}
+
+	err = svc.ListObjectsPagesWithContext(ctx, &inp, func(p *s3.ListObjectsOutput, lastPage bool) bool {
 		if isCanceled() {
 			return false
 		}

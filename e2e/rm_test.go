@@ -147,7 +147,7 @@ func TestRemoveMultipleLocalFilesShouldFail(t *testing.T) {
 	result.Assert(t, icmd.Expected{ExitCode: 127})
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(` -ERR "rm *.txt": Invalid parameters to "rm": S3 url should start with s3://`),
+		0: suffix(` -ERR "rm *.txt": invalid parameters to "rm": s3 url should start with s3://`),
 	})
 
 	// assert local filesystem

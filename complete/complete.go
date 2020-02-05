@@ -1,3 +1,4 @@
+// Package complete provides shell completion generators.
 package complete
 
 import (
@@ -66,7 +67,7 @@ func ParseFlagsAndRun() (bool, error) {
 	cc := cmp.New("s5cmd", completer)
 
 	if *doInstall && *doUninstall {
-		return false, errors.New("Install and uninstall are mutually exclusive")
+		return false, errors.New("install and uninstall are mutually exclusive")
 	} else if *doInstall || *doUninstall {
 		return true, setupCompletion(*doInstall)
 	}

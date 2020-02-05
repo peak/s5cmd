@@ -51,29 +51,29 @@ func parseArgumentByType(s string, t opt.ParamType, fnObj *JobArgument) (*JobArg
 		s = "s3://" + uri.Format() // rebuild s with formatted url
 
 		if (t == opt.S3Obj || t == opt.S3ObjOrDir || t == opt.S3SimpleObj) && url.HasWild(uri.Key) {
-			return nil, errors.New("S3 key cannot contain wildcards")
+			return nil, errors.New("s3 key cannot contain wildcards")
 		}
 		if t == opt.S3WildObj {
 			if !url.HasWild(uri.Key) {
-				return nil, errors.New("S3 key should contain wildcards")
+				return nil, errors.New("s3 key should contain wildcards")
 			}
 			if uri.Key == "" {
-				return nil, errors.New("S3 key should not be empty")
+				return nil, errors.New("s3 key should not be empty")
 			}
 		}
 
 		if t == opt.S3SimpleObj && uri.Key == "" {
-			return nil, errors.New("S3 key should not be empty")
+			return nil, errors.New("s3 key should not be empty")
 		}
 
 		endsInSlash := strings.HasSuffix(uri.Key, "/")
 		if endsInSlash {
 			if t == opt.S3Obj || t == opt.S3SimpleObj {
-				return nil, errors.New("S3 key should not end with /")
+				return nil, errors.New("s3 key should not end with /")
 			}
 		} else {
 			if t == opt.S3Dir && uri.Key != "" {
-				return nil, errors.New("S3 dir should end with /")
+				return nil, errors.New("s3 dir should end with /")
 			}
 		}
 		if t == opt.S3ObjOrDir && endsInSlash && fnBase != "" {
@@ -95,7 +95,7 @@ func parseArgumentByType(s string, t opt.ParamType, fnObj *JobArgument) (*JobArg
 		// check if we have s3 object
 		_, err := url.ParseS3Url(s)
 		if err == nil {
-			return nil, errors.New("File param resembles s3 object")
+			return nil, errors.New("file param resembles s3 object")
 		}
 		if s == "." {
 			s = "." + string(filepath.Separator)
@@ -103,16 +103,16 @@ func parseArgumentByType(s string, t opt.ParamType, fnObj *JobArgument) (*JobArg
 		endsInSlash := len(s) > 0 && s[len(s)-1] == filepath.Separator
 
 		if isGlob(s) {
-			return nil, errors.New("Param should not contain glob characters")
+			return nil, errors.New("param should not contain glob characters")
 		}
 
 		if t == opt.FileObj {
 			if endsInSlash {
-				return nil, errors.New("File param should not end with /")
+				return nil, errors.New("file param should not end with /")
 			}
 			st, err := os.Stat(s)
 			if err == nil && st.IsDir() {
-				return nil, errors.New("File param should not be a directory")
+				return nil, errors.New("file param should not be a directory")
 			}
 		}
 		if (t == opt.FileOrDir || t == opt.OptionalFileOrDir) && endsInSlash && fnBase != "" {
@@ -122,7 +122,7 @@ func parseArgumentByType(s string, t opt.ParamType, fnObj *JobArgument) (*JobArg
 			st, err := os.Stat(s)
 			if err != nil {
 				if !os.IsNotExist(err) {
-					return nil, errors.New("Could not stat")
+					return nil, errors.New("could not stat")
 				}
 			} else {
 				if st.IsDir() {
@@ -135,11 +135,11 @@ func parseArgumentByType(s string, t opt.ParamType, fnObj *JobArgument) (*JobArg
 			st, err := os.Stat(s)
 			if err != nil {
 				if !os.IsNotExist(err) {
-					return nil, errors.New("Could not stat")
+					return nil, errors.New("could not stat")
 				}
 			} else {
 				if !st.IsDir() {
-					return nil, errors.New("Dir param can not be file")
+					return nil, errors.New("dir param can not be file")
 				}
 			}
 
@@ -151,10 +151,10 @@ func parseArgumentByType(s string, t opt.ParamType, fnObj *JobArgument) (*JobArg
 	case opt.Glob:
 		_, err := url.ParseS3Url(s)
 		if err == nil {
-			return nil, errors.New("Glob param resembles s3 object")
+			return nil, errors.New("glob param resembles s3 object")
 		}
 		if !isGlob(s) {
-			return nil, errors.New("Param does not look like a glob")
+			return nil, errors.New("param does not look like a glob")
 		}
 		_, err = filepath.Match(s, "")
 		if err != nil {
@@ -164,7 +164,7 @@ func parseArgumentByType(s string, t opt.ParamType, fnObj *JobArgument) (*JobArg
 
 	}
 
-	return nil, errors.New("Unhandled parseArgumentByType")
+	return nil, errors.New("unhandled parseArgumentByType")
 }
 
 // ParseJob parses a job description and returns a *Job type, possibly with other *Job types in successCommand/failCommand
@@ -252,10 +252,10 @@ func parseSingleJob(jobdesc string) (*Job, error) {
 	}
 
 	if strings.Contains(jobdesc, "&&") {
-		return nil, errors.New("Nested commands are not supported")
+		return nil, errors.New("nested commands are not supported")
 	}
 	if strings.Contains(jobdesc, "||") {
-		return nil, errors.New("Nested commands are not supported")
+		return nil, errors.New("nested commands are not supported")
 	}
 
 	// Tokenize arguments
@@ -373,9 +373,9 @@ func parseSingleJob(jobdesc string) (*Job, error) {
 
 	if found >= 0 {
 		if parseArgErr != nil {
-			return nil, fmt.Errorf(`Invalid parameters to "%s": %s`, Commands[found].Keyword, parseArgErr.Error())
+			return nil, fmt.Errorf("invalid parameters to %q: %s", Commands[found].Keyword, parseArgErr.Error())
 		}
-		return nil, fmt.Errorf(`Invalid parameters to "%s"`, parts[0])
+		return nil, fmt.Errorf("invalid parameters to %q", parts[0])
 	}
-	return nil, fmt.Errorf(`Unknown command "%s"`, parts[0])
+	return nil, fmt.Errorf("unknown command %q", parts[0])
 }

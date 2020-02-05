@@ -1,5 +1,3 @@
-// +build !localstack
-
 package e2e
 
 import (

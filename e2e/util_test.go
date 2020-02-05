@@ -1,3 +1,5 @@
+// Package e2e contains tests that run against a real s5cmd binary,
+// compiled on the fly at the start of the test run.
 package e2e
 
 import (
@@ -76,7 +78,8 @@ func setup(t *testing.T) (*s3.S3, func(...string) icmd.Cmd, func()) {
 		WithCredentialsChainVerboseErrors(true).
 		WithLogLevel(awsLogLevel)
 
-	sess := session.New(s3Config)
+	sess, err := session.NewSession(s3Config)
+	assert.NilError(t, err)
 
 	s5cmd := func(args ...string) icmd.Cmd {
 		endpoint := []string{"-endpoint-url", endpoint}

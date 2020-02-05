@@ -40,14 +40,14 @@ func HasWild(s string) bool {
 // ParseS3Url parses a string into an S3Url
 func ParseS3Url(object string) (*S3Url, error) {
 	if !strings.HasPrefix(object, "s3://") {
-		return nil, errors.New("S3 url should start with s3://")
+		return nil, errors.New("s3 url should start with s3://")
 	}
 	parts := strings.SplitN(object, "/", 4)
 	if parts[2] == "" {
-		return nil, errors.New("S3 url should have a bucket")
+		return nil, errors.New("s3 url should have a bucket")
 	}
 	if HasWild(parts[2]) {
-		return nil, errors.New("Bucket name cannot contain wildcards")
+		return nil, errors.New("bucket name cannot contain wildcards")
 	}
 	key := ""
 	if len(parts) == 4 {

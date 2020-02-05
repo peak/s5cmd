@@ -3,6 +3,9 @@ language: go
 go:
   - 1.13.x
 
+before_install:
+  - go get honnef.co/go/tools/cmd/staticcheck
+
 before_script:
   # e2e tests expects 0755 as default folder modbits, however on travis VMs,
   # it's 0775 by default. Keep test logic the same, change the environment.
@@ -10,3 +13,7 @@ before_script:
 
 script:
 - make test
+- go mod verify
+- make check-fmt
+- make staticcheck
+- make vet

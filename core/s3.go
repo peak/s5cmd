@@ -2,14 +2,18 @@ package core
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"net/http"
+	"os"
 	"path"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/endpoints"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/peak/s5cmd/url"
@@ -183,6 +187,51 @@ func s3wildOperation(url *url.S3Url, wp *WorkerParams, callback s3wildCallback) 
 		}
 		return callback(data.(*s3listItem))
 	})
+}
+
+// NewAwsSession initializes a new AWS session with region fallback and custom options
+func NewAwsSession(maxRetries int, endpointURL string, region string, noVerifySSL bool) (*session.Session, error) {
+	newSession := func(c *aws.Config) (*session.Session, error) {
+		useSharedConfig := session.SharedConfigEnable
+
+		// Reverse of what the SDK does: if AWS_SDK_LOAD_CONFIG is 0 (or a falsy value) disable shared configs
+		loadCfg := os.Getenv("AWS_SDK_LOAD_CONFIG")
+		if loadCfg != "" {
+			if enable, _ := strconv.ParseBool(loadCfg); !enable {
+				useSharedConfig = session.SharedConfigDisable
+			}
+		}
+		return session.NewSessionWithOptions(session.Options{Config: *c, SharedConfigState: useSharedConfig})
+	}
+
+	awsCfg := aws.NewConfig().WithMaxRetries(maxRetries) //.WithLogLevel(aws.LogDebug))
+
+	if endpointURL != "" {
+		awsCfg = awsCfg.WithEndpoint(endpointURL).WithS3ForcePathStyle(true)
+		verboseLog("Setting Endpoint to %s on AWS Config", endpointURL)
+	}
+
+	if noVerifySSL {
+		awsCfg = awsCfg.WithHTTPClient(&http.Client{Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		}})
+	}
+
+	if region != "" {
+		awsCfg = awsCfg.WithRegion(region)
+		return newSession(awsCfg)
+	}
+
+	ses, err := newSession(awsCfg)
+	if err != nil {
+		return nil, err
+	}
+	if (*ses).Config.Region == nil || *(*ses).Config.Region == "" { // No region specified in env or config, fallback to us-east-1
+		awsCfg = awsCfg.WithRegion(endpoints.UsEast1RegionID)
+		ses, err = newSession(awsCfg)
+	}
+
+	return ses, err
 }
 
 func GetSessionForBucket(svc *s3.S3, bucket string) (*session.Session, error) {

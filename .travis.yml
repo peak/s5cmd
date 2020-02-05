@@ -14,5 +14,6 @@ before_script:
 script:
 - make test
 - go mod verify
+- make check-fmt
 - make staticcheck
 - make vet

@@ -12,16 +12,19 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+
 	"github.com/peak/s5cmd/op"
 	"github.com/peak/s5cmd/opt"
 	"github.com/peak/s5cmd/stats"
 	"github.com/peak/s5cmd/url"
 )
 
-func S3Copy(job *Job, wp *WorkerParams) error {
+func S3Copy(job *Job, wp *WorkerParams) (stats.StatType, error) {
+	const opType = stats.S3Op
+
 	err := job.args[1].CheckConditionals(wp, job.args[0], job.opts)
 	if err != nil {
-		return err
+		return opType, err
 	}
 
 	var cls string
@@ -40,24 +43,24 @@ func S3Copy(job *Job, wp *WorkerParams) error {
 		CopySource:   aws.String(job.args[0].s3.Format()),
 		StorageClass: aws.String(cls),
 	})
-	wp.st.IncrementIfSuccess(stats.S3Op, err)
 
 	if job.opts.Has(opt.DeleteSource) && err == nil {
 		_, err = s3delete(wp.s3svc, job.args[0].s3)
-		wp.st.IncrementIfSuccess(stats.S3Op, err)
-		// FIXME if err != nil try to rollback by deleting job.args[1].s3 ?
-		// What if we don't have permission to delete?
 	}
 
-	return err
+	return opType, err
 }
 
-func S3Delete(job *Job, wp *WorkerParams) error {
+func S3Delete(job *Job, wp *WorkerParams) (stats.StatType, error) {
+	const opType = stats.S3Op
+
 	_, err := s3delete(wp.s3svc, job.args[0].s3)
-	return wp.st.IncrementIfSuccess(stats.S3Op, err)
+	return opType, err
 }
 
-func S3BatchDelete(job *Job, wp *WorkerParams) error {
+func S3BatchDelete(job *Job, wp *WorkerParams) (stats.StatType, error) {
+	const opType = stats.S3Op
+
 	var jobArgs []*JobArgument
 	srcBucket := *job.args[0].Clone()
 	srcBucket.arg = "s3://" + srcBucket.s3.Bucket
@@ -100,10 +103,12 @@ func S3BatchDelete(job *Job, wp *WorkerParams) error {
 		return addArg(li.Key)
 	})
 
-	return wp.st.IncrementIfSuccess(stats.S3Op, err)
+	return opType, err
 }
 
-func S3BatchDeleteActual(job *Job, wp *WorkerParams) error {
+func S3BatchDeleteActual(job *Job, wp *WorkerParams) (stats.StatType, error) {
+	const opType = stats.S3Op
+
 	obj := make([]*s3.ObjectIdentifier, len(job.args)-1)
 	for i, a := range job.args {
 		if i == 0 {
@@ -126,11 +131,13 @@ func S3BatchDeleteActual(job *Job, wp *WorkerParams) error {
 			err = errors.New(*e.Message)
 		}
 	}
-	return wp.st.IncrementIfSuccess(stats.S3Op, err)
+	return opType, err
 
 }
 
-func S3BatchDownload(job *Job, wp *WorkerParams) error {
+func S3BatchDownload(job *Job, wp *WorkerParams) (stats.StatType, error) {
+	const opType = stats.S3Op
+
 	subCmd := "cp"
 	if job.operation == op.AliasBatchGet {
 		subCmd = "get"
@@ -170,13 +177,15 @@ func S3BatchDownload(job *Job, wp *WorkerParams) error {
 		return subJob
 	})
 
-	return wp.st.IncrementIfSuccess(stats.S3Op, err)
+	return opType, err
 }
 
-func S3Download(job *Job, wp *WorkerParams) error {
+func S3Download(job *Job, wp *WorkerParams) (stats.StatType, error) {
+	const opType = stats.S3Op
+
 	err := job.args[1].CheckConditionals(wp, job.args[0], job.opts)
 	if err != nil {
-		return err
+		return opType, err
 	}
 
 	srcFn := path.Base(job.args[0].arg)
@@ -184,7 +193,7 @@ func S3Download(job *Job, wp *WorkerParams) error {
 
 	f, err := os.Create(destFn)
 	if err != nil {
-		return err
+		return opType, err
 	}
 
 	job.out(shortInfo, "Downloading %s...", srcFn)
@@ -221,42 +230,41 @@ func S3Download(job *Job, wp *WorkerParams) error {
 		break
 	}
 
+	// FIXME(ig): i don't see a reason for a race condition if this call is
+	// deferrred. Will check later.
 	f.Close() // Race: s3dl.Download or us?
 
-	wp.st.IncrementIfSuccess(stats.S3Op, err)
 	if err != nil {
 		os.Remove(destFn) // Remove partly downloaded file
 	} else if job.opts.Has(opt.DeleteSource) {
 		_, err = s3delete(wp.s3svc, job.args[0].s3)
-		wp.st.IncrementIfSuccess(stats.S3Op, err)
 	}
 
-	return err
+	return opType, err
 }
 
-func S3Upload(job *Job, wp *WorkerParams) error {
+func S3Upload(job *Job, wp *WorkerParams) (stats.StatType, error) {
+	const opType = stats.S3Op
+
 	const bytesInMb = float64(1024 * 1024)
 
-	var err error
-
 	if ex, err := job.args[0].Exists(wp); err != nil {
-		return err
+		return opType, err
 	} else if !ex {
-		return os.ErrNotExist
+		return opType, os.ErrNotExist
 	}
 
-	err = job.args[1].CheckConditionals(wp, job.args[0], job.opts)
+	err := job.args[1].CheckConditionals(wp, job.args[0], job.opts)
 	if err != nil {
-		return err
+		return opType, err
 	}
 
 	srcFn := filepath.Base(job.args[0].arg)
 
 	f, err := os.Open(job.args[0].arg)
 	if err != nil {
-		return err
+		return opType, err
 	}
-
 	defer f.Close()
 
 	filesize, _ := job.args[0].Size(wp)
@@ -315,17 +323,16 @@ func S3Upload(job *Job, wp *WorkerParams) error {
 		break
 	}
 
-	f.Close()
-
-	wp.st.IncrementIfSuccess(stats.S3Op, err)
 	if job.opts.Has(opt.DeleteSource) && err == nil {
-		err = wp.st.IncrementIfSuccess(stats.FileOp, os.Remove(job.args[0].arg))
+		err = os.Remove(job.args[0].arg)
 	}
 
-	return err
+	return opType, err
 }
 
-func S3BatchCopy(job *Job, wp *WorkerParams) error {
+func S3BatchCopy(job *Job, wp *WorkerParams) (stats.StatType, error) {
+	const opType = stats.S3Op
+
 	subCmd := "cp"
 	if job.opts.Has(opt.DeleteSource) {
 		subCmd = "mv"
@@ -362,21 +369,25 @@ func S3BatchCopy(job *Job, wp *WorkerParams) error {
 		return subJob
 	})
 
-	return wp.st.IncrementIfSuccess(stats.S3Op, err)
+	return opType, err
 }
 
-func S3ListBuckets(job *Job, wp *WorkerParams) error {
+func S3ListBuckets(job *Job, wp *WorkerParams) (stats.StatType, error) {
+	const opType = stats.S3Op
+
 	o, err := wp.s3svc.ListBucketsWithContext(wp.ctx, &s3.ListBucketsInput{})
 	if err == nil {
 		for _, b := range o.Buckets {
 			job.out(shortOk, "%s  s3://%s", b.CreationDate.Format(dateFormat), *b.Name)
 		}
 	}
-	return wp.st.IncrementIfSuccess(stats.S3Op, err)
+	return opType, err
 
 }
 
-func S3List(job *Job, wp *WorkerParams) error {
+func S3List(job *Job, wp *WorkerParams) (stats.StatType, error) {
+	const opType = stats.S3Op
+
 	showETags := job.opts.Has(opt.ListETags)
 	humanize := job.opts.Has(opt.HumanReadable)
 	err := s3wildOperation(job.args[0].s3, wp, func(li *s3listItem) *Job {
@@ -419,10 +430,12 @@ func S3List(job *Job, wp *WorkerParams) error {
 		return nil
 	})
 
-	return wp.st.IncrementIfSuccess(stats.S3Op, err)
+	return opType, err
 }
 
-func S3Size(job *Job, wp *WorkerParams) error {
+func S3Size(job *Job, wp *WorkerParams) (stats.StatType, error) {
+	const opType = stats.S3Op
+
 	type sizeAndCount struct {
 		size  int64
 		count int64
@@ -459,6 +472,6 @@ func S3Size(job *Job, wp *WorkerParams) error {
 			}
 		}
 	}
-	return wp.st.IncrementIfSuccess(stats.S3Op, err)
+	return opType, err
 
 }

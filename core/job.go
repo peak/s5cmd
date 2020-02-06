@@ -177,7 +177,8 @@ func (j *Job) Run(wp *WorkerParams) error {
 		return fmt.Errorf("unhandled operation %v", j.operation)
 	}
 
-	return cmdFunc(j, wp)
+	kind, err := cmdFunc(j, wp)
+	return wp.st.IncrementIfSuccess(kind, err)
 }
 
 type wildLister func(chan<- interface{}) error

@@ -43,35 +43,29 @@ func printOps(name string, counter uint64, elapsed time.Duration, extra string) 
 }
 
 func main() {
-	const bytesInMb = float64(1024 * 1024)
-	const minNumWorkers = 2
-	const defaultNumWorkers = 256
-
-	var (
-		numWorkers    int
-		cmdFile       string
-		endpointURL   string
-		ulPartSize    int
-		ulConcurrency int
-		dlPartSize    int
-		dlConcurrency int
-		retries       int
-		noVerifySSL   bool
+	const (
+		bytesInMb                  = float64(1024 * 1024)
+		minNumWorkers              = 2
+		defaultWorkerCount         = 256
+		defaultUploadConcurrency   = s3manager.DefaultUploadConcurrency
+		defaultDownloadConcurrency = s3manager.DefaultDownloadConcurrency
 	)
 
-	flag.StringVar(&cmdFile, "f", "", "Commands-file or - for stdin")
-	flag.StringVar(&endpointURL, "endpoint-url", "", "Override default URL with the given one")
-	flag.IntVar(&numWorkers, "numworkers", defaultNumWorkers, fmt.Sprintf("Number of worker goroutines. Negative numbers mean multiples of the CPU core count."))
-	flag.IntVar(&dlConcurrency, "dw", s3manager.DefaultDownloadConcurrency, "Download concurrency (single file)")
-	flag.IntVar(&dlPartSize, "ds", 50, "Multipart chunk size in MB for downloads")
-	flag.IntVar(&ulConcurrency, "uw", s3manager.DefaultUploadConcurrency, "Upload concurrency (single file)")
-	flag.IntVar(&ulPartSize, "us", 50, "Multipart chunk size in MB for uploads")
-	flag.IntVar(&retries, "r", 10, "Retry S3 operations N times before failing")
-	printStats := flag.Bool("stats", false, "Always print stats")
-	showVersion := flag.Bool("version", false, "Prints current version")
-	gops := flag.Bool("gops", false, "Initialize gops agent")
-	verbose := flag.Bool("vv", false, "Verbose output")
-	flag.BoolVar(&noVerifySSL, "no-verify-ssl", false, "Don't verify SSL certificates")
+	var (
+		flagCommandFile         = flag.String("f", "", "Commands-file or - for stdin")
+		flagEndpointURL         = flag.String("endpoint-url", "", "Override default URL with the given one")
+		flagWorkerCount         = flag.Int("numworkers", defaultWorkerCount, fmt.Sprintf("Number of worker goroutines. Negative numbers mean multiples of the CPU core count."))
+		flagDownloadConcurrency = flag.Int("dw", defaultDownloadConcurrency, "Download concurrency for each file")
+		flagDownloadPartSize    = flag.Int("ds", 50, "Multipart chunk size in MB for downloads")
+		flagUploadConcurrency   = flag.Int("uw", defaultUploadConcurrency, "Upload concurrency for each file")
+		flagUploadPartSize      = flag.Int("us", 50, "Multipart chunk size in MB for uploads")
+		flagRetryCount          = flag.Int("r", 10, "Retry S3 operations N times before failing")
+		flagPrintStats          = flag.Bool("stats", false, "Always print stats")
+		flagShowVersion         = flag.Bool("version", false, "Prints current version")
+		flagEnableGops          = flag.Bool("gops", false, "Initialize gops agent")
+		flagVerbose             = flag.Bool("vv", false, "Verbose output")
+		flagNoVerifySSL         = flag.Bool("no-verify-ssl", false, "Don't verify SSL certificates")
+	)
 
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "%v\n\n", core.UsageLine())
@@ -85,20 +79,19 @@ func main() {
 		fmt.Fprintf(os.Stderr, "\nTo get help on a specific command, run \"%v <command> -h\"\n", os.Args[0])
 	}
 
-	//flag.Parse()
 	if done, err := complete.ParseFlagsAndRun(); err != nil {
 		log.Fatal("-ERR " + err.Error())
 	} else if done {
 		os.Exit(0)
 	}
 
-	if *gops || os.Getenv("S5CMD_GOPS") != "" {
+	if *flagEnableGops || os.Getenv("S5CMD_GOPS") != "" {
 		if err := agent.Listen(&agent.Options{NoShutdownCleanup: true}); err != nil {
 			log.Fatal("-ERR", err)
 		}
 	}
 
-	if *showVersion {
+	if *flagShowVersion {
 		fmt.Printf("s5cmd version %s", GitSummary)
 		if GitBranch != "" {
 			fmt.Printf(" (from branch %s)", GitBranch)
@@ -107,28 +100,28 @@ func main() {
 		os.Exit(0)
 	}
 
-	if flag.Arg(0) == "" && cmdFile == "" {
+	if flag.Arg(0) == "" && *flagCommandFile == "" {
 		flag.Usage()
 		os.Exit(2)
 	}
 
 	cmd := strings.Join(flag.Args(), " ")
-	if cmd != "" && cmdFile != "" {
+	if cmd != "" && *flagCommandFile != "" {
 		log.Fatal("-ERR Only specify -f or command, not both")
 	}
-	if (cmd == "" && cmdFile == "") || numWorkers == 0 || ulPartSize < 1 || retries < 0 {
+	if (cmd == "" && *flagCommandFile == "") || *flagWorkerCount == 0 || *flagUploadPartSize < 1 || *flagRetryCount < 0 {
 		log.Fatal("-ERR Please specify all arguments.")
 	}
 
-	ulPartSizeBytes := int64(ulPartSize * int(bytesInMb))
+	ulPartSizeBytes := int64(*flagUploadPartSize * int(bytesInMb))
 	if ulPartSizeBytes < s3manager.MinUploadPartSize {
 		log.Fatalf("-ERR Multipart chunk size should be greater than %d", int(math.Ceil(float64(s3manager.MinUploadPartSize)/bytesInMb)))
 	}
-	dlPartSizeBytes := int64(dlPartSize * int(bytesInMb))
+	dlPartSizeBytes := int64(*flagDownloadPartSize * int(bytesInMb))
 	if dlPartSizeBytes < int64(5*bytesInMb) {
 		log.Fatalf("-ERR Download part size should be greater than 5")
 	}
-	if dlConcurrency < 1 || ulConcurrency < 1 {
+	if *flagDownloadConcurrency < 1 || *flagUploadConcurrency < 1 {
 		log.Fatalf("-ERR Download/Upload concurrency should be greater than 1")
 	}
 
@@ -136,31 +129,39 @@ func main() {
 	if cmd != "" {
 		cmdMode = true
 	}
-	if numWorkers < 0 {
-		numWorkers = runtime.NumCPU() * -numWorkers
+
+	if *flagWorkerCount < 0 {
+		*flagWorkerCount = runtime.NumCPU() * -*flagWorkerCount
 	}
-	if numWorkers < minNumWorkers {
-		numWorkers = minNumWorkers
+	if *flagWorkerCount < minNumWorkers {
+		*flagWorkerCount = minNumWorkers
 	}
 
-	endpointURL = strings.TrimSpace(endpointURL)
+	*flagEndpointURL = strings.TrimSpace(*flagEndpointURL)
 
 	startTime := time.Now()
 
 	if !cmdMode {
-		log.Printf("# Using %d workers", numWorkers)
+		log.Printf("# Using %d workers", *flagWorkerCount)
 	}
 
 	parentCtx, cancelFunc := context.WithCancel(context.Background())
 
 	exitCode := -1
 	exitFunc := func(code int) {
-		//log.Printf("Called exitFunc with code %d", code)
 		exitCode = code
 		cancelFunc()
 	}
 
-	ctx := context.WithValue(context.WithValue(parentCtx, core.ExitFuncKey, exitFunc), core.CancelFuncKey, cancelFunc)
+	ctx := context.WithValue(
+		context.WithValue(
+			parentCtx,
+			core.ExitFuncKey,
+			exitFunc,
+		),
+		core.CancelFuncKey,
+		cancelFunc,
+	)
 
 	go func() {
 		ch := make(chan os.Signal, 1)
@@ -172,30 +173,31 @@ func main() {
 
 	s := stats.Stats{}
 
-	core.Verbose = *verbose
+	core.Verbose = *flagVerbose
 
 	wp := core.NewWorkerPool(ctx,
 		&core.WorkerPoolParams{
-			NumWorkers:             numWorkers,
+			NumWorkers:             *flagWorkerCount,
 			UploadChunkSizeBytes:   ulPartSizeBytes,
-			UploadConcurrency:      ulConcurrency,
+			UploadConcurrency:      *flagUploadConcurrency,
 			DownloadChunkSizeBytes: dlPartSizeBytes,
-			DownloadConcurrency:    dlConcurrency,
-			Retries:                retries,
-			EndpointURL:            endpointURL,
-			NoVerifySSL:            noVerifySSL,
+			DownloadConcurrency:    *flagDownloadConcurrency,
+			Retries:                *flagRetryCount,
+			EndpointURL:            *flagEndpointURL,
+			NoVerifySSL:            *flagNoVerifySSL,
 		}, &s)
 	if cmdMode {
 		wp.RunCmd(cmd)
 	} else {
-		wp.Run(cmdFile)
+		wp.Run(*flagCommandFile)
 	}
 
 	elapsed := time.Since(startTime)
 
 	failops := s.Get(stats.Fail)
 
-	// if exitCode is -1 (default) and if we have at least one absolute-fail, exit with code 127
+	// if exitCode is -1 (default) and if we have at least one absolute-fail,
+	// exit with code 127
 	if exitCode == -1 {
 		if failops > 0 {
 			exitCode = 127
@@ -208,7 +210,7 @@ func main() {
 		log.Printf("# Exiting with code %d", exitCode)
 	}
 
-	if !cmdMode || *printStats {
+	if !cmdMode || *flagPrintStats {
 		s3ops := s.Get(stats.S3Op)
 		fileops := s.Get(stats.FileOp)
 		shellops := s.Get(stats.ShellOp)

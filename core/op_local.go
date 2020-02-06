@@ -74,7 +74,6 @@ func BatchLocalCopy(job *Job, wp *WorkerParams) error {
 			ch <- nil // send EOF
 		}()
 
-		// lister
 		ma, err := filepath.Glob(globStart)
 		if err != nil {
 			return err
@@ -110,7 +109,6 @@ func BatchLocalCopy(job *Job, wp *WorkerParams) error {
 		}
 		return nil
 	}, func(data interface{}) *Job {
-		// callback
 		if data == nil {
 			return nil
 		}
@@ -167,7 +165,6 @@ func BatchLocalUpload(job *Job, wp *WorkerParams) error {
 		defer func() {
 			ch <- nil // send EOF
 		}()
-		// lister
 		if walkMode {
 			err := filepath.Walk(job.args[0].arg, func(path string, st os.FileInfo, err error) error {
 				if err != nil {
@@ -199,7 +196,6 @@ func BatchLocalUpload(job *Job, wp *WorkerParams) error {
 			return nil
 		}
 	}, func(data interface{}) *Job {
-		// callback
 		if data == nil {
 			return nil
 		}

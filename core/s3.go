@@ -54,8 +54,10 @@ func s3list(ctx context.Context, svc *s3.S3, s3url *url.S3Url, emitChan chan<- i
 	}
 
 	wildkey := s3url.Key
-	var prefix, filter string
 	loc := strings.IndexAny(wildkey, url.S3WildCharacters)
+
+	var prefix, filter string
+
 	wildOperation := loc > -1
 	if !wildOperation {
 		// no wildcard operation

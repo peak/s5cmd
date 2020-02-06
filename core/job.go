@@ -183,19 +183,18 @@ func (j *Job) Run(wp *WorkerParams) error {
 type wildLister func(chan<- interface{}) error
 type wildCallback func(interface{}) *Job
 
-/*
-wildOperation is the cornerstone of sub-job launching.
-
-It will run lister() when ready and expect data from ch. On EOF, a single nil should be passed into ch.
-Data received from ch will be passed to callback() which in turn will create a *Job entry (or nil for no job)
-Then this entry is submitted to the subJobQueue chan.
-
-After lister() completes, the sub-jobs are tracked
-The fn will return when all jobs are processed, and it will return with error if even a single sub-job was not successful
-
-Midway-failing lister() fns are not thoroughly tested and may hang or panic
-*/
-
+// wildOperation is the cornerstone of sub-job launching.
+//
+// It will run lister() when ready and expect data from ch. On EOF, a single
+// nil should be passed into ch. Data received from ch will be passed to
+// callback() which in turn will create a *Job entry (or nil for no job)
+// Then this entry is submitted to the subJobQueue chan.
+//
+// After lister() completes, the sub-jobs are tracked
+// The fn will return when all jobs are processed, and it will return with
+// error if even a single sub-job was not successful
+//
+// Midway-failing lister() fns are not thoroughly tested and may hang or panic.
 func wildOperation(wp *WorkerParams, lister wildLister, callback wildCallback) error {
 	ch := make(chan interface{})
 	closer := make(chan struct{})

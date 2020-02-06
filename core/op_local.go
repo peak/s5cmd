@@ -14,10 +14,6 @@ import (
 	"github.com/termie/go-shutil"
 )
 
-func LocalDelete(job *Job, wp *WorkerParams) error {
-	return wp.st.IncrementIfSuccess(stats.FileOp, os.Remove(job.args[0].arg))
-}
-
 func LocalCopy(job *Job, wp *WorkerParams) error {
 	var err error
 
@@ -34,6 +30,10 @@ func LocalCopy(job *Job, wp *WorkerParams) error {
 
 	wp.st.IncrementIfSuccess(stats.FileOp, err)
 	return err
+}
+
+func LocalDelete(job *Job, wp *WorkerParams) error {
+	return wp.st.IncrementIfSuccess(stats.FileOp, os.Remove(job.args[0].arg))
 }
 
 func BatchLocalCopy(job *Job, wp *WorkerParams) error {
@@ -138,7 +138,7 @@ func BatchLocalCopy(job *Job, wp *WorkerParams) error {
 	return wp.st.IncrementIfSuccess(stats.FileOp, err)
 }
 
-func BatchUpload(job *Job, wp *WorkerParams) error {
+func BatchLocalUpload(job *Job, wp *WorkerParams) error {
 	subCmd := "cp"
 	if job.opts.Has(opt.DeleteSource) {
 		subCmd = "mv"

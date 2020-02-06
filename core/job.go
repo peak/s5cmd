@@ -397,7 +397,7 @@ func (j *Job) Run(wp *WorkerParams) error {
 				return addArg(nil)
 			}
 
-			if li.isCommonPrefix {
+			if li.isDirectory {
 				return nil
 			}
 
@@ -443,7 +443,7 @@ func (j *Job) Run(wp *WorkerParams) error {
 		subCmd += j.opts.GetParams()
 
 		err := s3wildOperation(j.args[0].s3, wp, func(li *s3listItem) *Job {
-			if li == nil || li.isCommonPrefix {
+			if li == nil || li.isDirectory {
 				return nil
 			}
 
@@ -454,9 +454,9 @@ func (j *Job) Run(wp *WorkerParams) error {
 
 			var dstFn string
 			if j.opts.Has(opt.Parents) {
-				dstFn = li.parsedKey
+				dstFn = li.key
 			} else {
-				dstFn = path.Base(li.parsedKey)
+				dstFn = path.Base(li.key)
 			}
 
 			arg2 := j.args[1].StripS3().Append(dstFn, true)
@@ -716,7 +716,7 @@ func (j *Job) Run(wp *WorkerParams) error {
 		subCmd += j.opts.GetParams()
 
 		err := s3wildOperation(j.args[0].s3, wp, func(li *s3listItem) *Job {
-			if li == nil || li.isCommonPrefix {
+			if li == nil || li.isDirectory {
 				return nil
 			}
 
@@ -727,9 +727,9 @@ func (j *Job) Run(wp *WorkerParams) error {
 
 			var dstFn string
 			if j.opts.Has(opt.Parents) {
-				dstFn = li.parsedKey
+				dstFn = li.key
 			} else {
-				dstFn = path.Base(li.parsedKey)
+				dstFn = path.Base(li.key)
 			}
 
 			arg2 := NewJobArgument(
@@ -764,8 +764,8 @@ func (j *Job) Run(wp *WorkerParams) error {
 				return nil
 			}
 
-			if li.isCommonPrefix {
-				j.out(shortOk, "%19s %1s %-38s  %12s  %s", "", "", "", "DIR", li.parsedKey)
+			if li.isDirectory {
+				j.out(shortOk, "%19s %1s %-38s  %12s  %s", "", "", "", "DIR", li.key)
 			} else {
 				var (
 					cls, etag, size string
@@ -793,7 +793,7 @@ func (j *Job) Run(wp *WorkerParams) error {
 					size = fmt.Sprintf("%d", *li.Size)
 				}
 
-				j.out(shortOk, "%s %1s %-38s %12s  %s", li.LastModified.Format(dateFormat), cls, etag, size, li.parsedKey)
+				j.out(shortOk, "%s %1s %-38s %12s  %s", li.LastModified.Format(dateFormat), cls, etag, size, li.key)
 			}
 
 			return nil
@@ -808,7 +808,7 @@ func (j *Job) Run(wp *WorkerParams) error {
 		}
 		totals := map[string]sizeAndCount{}
 		err := s3wildOperation(j.args[0].s3, wp, func(li *s3listItem) *Job {
-			if li == nil || li.isCommonPrefix {
+			if li == nil || li.isDirectory {
 				return nil
 			}
 			storageClass := aws.StringValue(li.StorageClass)

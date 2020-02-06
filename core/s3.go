@@ -6,8 +6,6 @@ import (
 	"errors"
 	"net/http"
 	"os"
-	"path"
-	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -44,54 +42,15 @@ func s3head(svc *s3.S3, obj *url.S3Url) (*s3.HeadObjectOutput, error) {
 type s3listItem struct {
 	*s3.Object
 
-	parsedKey      string
-	isCommonPrefix bool
+	key         string
+	isDirectory bool
 }
 
 func s3list(ctx context.Context, svc *s3.S3, s3url *url.S3Url, emitChan chan<- interface{}) error {
 	inp := s3.ListObjectsV2Input{
-		Bucket: aws.String(s3url.Bucket),
-	}
-
-	wildkey := s3url.Key
-	var prefix, filter string
-	loc := strings.IndexAny(wildkey, url.S3WildCharacters)
-	wildOperation := loc > -1
-	if !wildOperation {
-		// no wildcard operation
-		inp.SetDelimiter("/")
-		prefix = s3url.Key
-
-	} else {
-		// wildcard operation
-		prefix = wildkey[:loc]
-		filter = wildkey[loc:]
-	}
-	inp.SetPrefix(prefix)
-
-	var (
-		r   *regexp.Regexp
-		err error
-	)
-
-	trimPrefix := path.Dir(prefix) + "/"
-	if trimPrefix == "./" {
-		trimPrefix = ""
-	}
-	if !wildOperation {
-		// prevent "ls s3://bucket/path/key" from matching s3://bucket/path/keyword
-		// it will still match s3://bucket/path/keydir/ because we don't match the regex on commonPrefixes
-		filter = prefix[len(trimPrefix):]
-	}
-
-	if filter != "" {
-		filterRegex := regexp.QuoteMeta(filter)
-		filterRegex = strings.Replace(filterRegex, "\\?", ".", -1)
-		filterRegex = strings.Replace(filterRegex, "\\*", ".*?", -1)
-		r, err = regexp.Compile("^" + filterRegex + "$")
-		if err != nil {
-			return err
-		}
+		Bucket:    aws.String(s3url.Bucket),
+		Prefix:    aws.String(s3url.Prefix),
+		Delimiter: aws.String(s3url.Delimiter),
 	}
 
 	var mu sync.Mutex
@@ -127,36 +86,32 @@ func s3list(ctx context.Context, svc *s3.S3, s3url *url.S3Url, emitChan chan<- i
 		}
 	}
 
-	err = svc.ListObjectsV2PagesWithContext(ctx, &inp, func(p *s3.ListObjectsV2Output, lastPage bool) bool {
+	err := svc.ListObjectsV2PagesWithContext(ctx, &inp, func(p *s3.ListObjectsV2Output, lastPage bool) bool {
 		if isCanceled() {
 			return false
 		}
 		for _, c := range p.CommonPrefixes {
 			key := *c.Prefix
-			if strings.Index(key, trimPrefix) == 0 {
-				key = key[len(trimPrefix):]
+			if !s3url.Match(key) {
+				continue
 			}
 			if !emit(&s3listItem{
-				Object:         &s3.Object{Key: c.Prefix},
-				parsedKey:      key,
-				isCommonPrefix: true,
+				Object:      &s3.Object{Key: c.Prefix},
+				key:         strings.TrimPrefix(key, s3url.Prefix),
+				isDirectory: true,
 			}) {
 				return false
 			}
 		}
 		for _, c := range p.Contents {
 			key := *c.Key
-			isCommonPrefix := wildOperation && key[len(key)-1] == '/' // Keys ending with prefix in wild output are "directories"
-			if strings.Index(key, trimPrefix) == 0 {
-				key = key[len(trimPrefix):]
-			}
-			if r != nil && !r.MatchString(key) {
+			if !s3url.Match(key) {
 				continue
 			}
 			if !emit(&s3listItem{
-				Object:         c,
-				parsedKey:      key,
-				isCommonPrefix: isCommonPrefix,
+				Object:      c,
+				key:         strings.TrimPrefix(key, s3url.Prefix),
+				isDirectory: key[len(key)-1] == '/',
 			}) {
 				return false
 			}

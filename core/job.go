@@ -197,17 +197,18 @@ type wildCallback func(interface{}) *Job
 //
 // Midway-failing lister() fns are not thoroughly tested and may hang or panic.
 func wildOperation(wp *WorkerParams, lister wildLister, callback wildCallback) error {
-	ch := make(chan interface{})
-	closer := make(chan struct{})
+	itemCh := make(chan interface{})
+	doneCh := make(chan struct{})
+
 	subjobStats := subjobStatsType{} // Tally successful and total processed sub-jobs here
 	var subJobCounter uint32         // number of total subJobs issued
 
 	// This goroutine will read ls results from ch and issue new subJobs
 	go func() {
-		defer close(closer) // Close closer when goroutine exits
+		defer close(doneCh)
 
 		// If channel closed early: err returned from s3list?
-		for data := range ch {
+		for data := range itemCh {
 			j := callback(data)
 			if j != nil {
 				j.subJobData = &subjobStats
@@ -227,22 +228,24 @@ func wildOperation(wp *WorkerParams, lister wildLister, callback wildCallback) e
 	}()
 
 	// Do the actual work
-	err := lister(ch)
+	err := lister(itemCh)
 	if err == nil {
 		verboseLog("wildOperation lister is done without error")
-		// This select ensures that we don't return to the main loop without completely getting the list results (and queueing up operations on subJobQueue)
-		<-closer // Wait for EOF on goroutine
+		// This select ensures that we don't return to the main loop without
+		// completely getting the list results (and queueing up operations on
+		// subJobQueue)
+		<-doneCh
 		verboseLog("wildOperation all subjobs sent")
 
-		closer = make(chan struct{})
+		doneCh := make(chan struct{})
 		go func() {
 			subjobStats.Wait() // Wait for all jobs to finish
-			close(closer)
+			close(doneCh)
 		}()
 
 		// Block until waitgroup is finished or we're cancelled (then it won't finish)
 		select {
-		case <-closer:
+		case <-doneCh:
 		case <-wp.ctx.Done():
 		}
 
@@ -255,6 +258,6 @@ func wildOperation(wp *WorkerParams, lister wildLister, callback wildCallback) e
 	} else {
 		verboseLog("wildOperation lister is done with error: %v", err)
 	}
-	close(ch)
+	close(itemCh)
 	return err
 }

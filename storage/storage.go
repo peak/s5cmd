@@ -19,8 +19,8 @@ type Storage interface {
 	Head(context.Context, string, string) (*Item, error)
 	List(context.Context, *s3url.S3Url) (<-chan *Item, error)
 	Copy(context.Context, string, string, string, string) error
-	Get(context.Context, string, string, io.WriterAt) error
-	Put(context.Context, string, string, io.Reader, string) error
+	Get(context.Context, io.WriterAt, string, string) error
+	Put(context.Context, io.Reader, string, string, string) error
 	Remove(context.Context, string, ...string) error
 	ListBuckets(context.Context, string) ([]string, error)
 }

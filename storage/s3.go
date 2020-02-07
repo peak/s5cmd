@@ -54,7 +54,7 @@ func NewS3Storage(opts S3Opts) (*S3, error) {
 	}, nil
 }
 
-func (s *S3) Head(ctx context.Context, to string, key string) (*Item, error) {
+func (s *S3) Head(ctx context.Context, to, key string) (*Item, error) {
 	output, err := s.api.HeadObjectWithContext(ctx, &s3.HeadObjectInput{
 		Bucket: aws.String(to),
 		Key:    aws.String(key),
@@ -132,7 +132,7 @@ func (s *S3) Copy(ctx context.Context, from, key, dst, cls string) error {
 	return err
 }
 
-func (s *S3) Get(ctx context.Context, from string, key string, to io.WriterAt) error {
+func (s *S3) Get(ctx context.Context, to io.WriterAt, from, key string) error {
 	_, err := s.downloader.DownloadWithContext(ctx, to, &s3.GetObjectInput{
 		Bucket: aws.String(from),
 		Key:    aws.String(key),
@@ -143,11 +143,11 @@ func (s *S3) Get(ctx context.Context, from string, key string, to io.WriterAt) e
 	return err
 }
 
-func (s *S3) Put(ctx context.Context, to, key string, file io.Reader, cls string) error {
+func (s *S3) Put(ctx context.Context, content io.Reader, to, key, cls string) error {
 	_, err := s.uploader.UploadWithContext(ctx, &s3manager.UploadInput{
 		Bucket:       aws.String(to),
 		Key:          aws.String(key),
-		Body:         file,
+		Body:         content,
 		StorageClass: aws.String(cls),
 	}, func(u *s3manager.Uploader) {
 		u.PartSize = s.opts.MultipartSize

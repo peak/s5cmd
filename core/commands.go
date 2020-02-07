@@ -1,8 +1,11 @@
 package core
 
-import "github.com/peak/s5cmd/op"
+import (
+	"github.com/peak/s5cmd/op"
+	"github.com/peak/s5cmd/stats"
+)
 
-type commandFunc func(*Job, *WorkerParams) error
+type commandFunc func(*Job, *WorkerParams) (stats.StatType, error)
 
 var globalCmdRegistry = map[op.Operation]commandFunc{
 	op.LocalCopy:         LocalCopy,

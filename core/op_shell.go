@@ -8,7 +8,9 @@ import (
 	"github.com/peak/s5cmd/stats"
 )
 
-func ShellExec(job *Job, wp *WorkerParams) error {
+func ShellExec(job *Job, wp *WorkerParams) (stats.StatType, error) {
+	const opType = stats.ShellOp
+
 	strArgs := make([]string, 0)
 
 	for i, a := range job.args {
@@ -20,11 +22,14 @@ func ShellExec(job *Job, wp *WorkerParams) error {
 	cmd := exec.CommandContext(wp.ctx, job.args[0].arg, strArgs...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+	err := cmd.Run()
 
-	return wp.st.IncrementIfSuccess(stats.ShellOp, cmd.Run())
+	return opType, err
 }
 
-func ShellAbort(job *Job, wp *WorkerParams) error {
+func ShellAbort(job *Job, wp *WorkerParams) (stats.StatType, error) {
+	const opType = stats.ShellOp
+
 	var (
 		exitCode int64 = -1
 		err      error
@@ -40,5 +45,5 @@ func ShellAbort(job *Job, wp *WorkerParams) error {
 	ef := wp.ctx.Value(ExitFuncKey).(func(int))
 	ef(int(exitCode))
 
-	return nil
+	return opType, nil
 }

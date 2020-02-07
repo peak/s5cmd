@@ -473,5 +473,4 @@ func S3Size(job *Job, wp *WorkerParams) (stats.StatType, error) {
 		}
 	}
 	return opType, err
-
 }

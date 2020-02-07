@@ -66,7 +66,7 @@ func TestParseS3Url(t *testing.T) {
 				Key:         "key",
 				Bucket:      "bucket",
 				Prefix:      "key",
-				filterRegex: regexp.MustCompile("^key/.*$"),
+				filterRegex: regexp.MustCompile("^key.*$"),
 				Delimiter:   "/",
 			},
 		},
@@ -149,21 +149,37 @@ func TestS3Url_setPrefixAndFilter(t *testing.T) {
 
 func TestS3Url_ParseS3Url_and_CheckMatch(t *testing.T) {
 	tests := []struct {
-		name string
-		url  string
-		keys []string
-		want bool
+		name     string
+		url      string
+		keys     []string
+		want     bool
+		wantKeys []string
 	}{
 		{
-			name: "match_everything_if_has_no_wildcard_and_prefix",
+			name: "match_only_key_if_has_no_wildcard_and_not_dir_root",
 			url:  "s3://bucket/key",
 			keys: []string{
-				"key/folder/a",
-				"key/test.csv",
-				"key/folder/b/test.csv",
-				"key/folder/c",
+				"key",
 			},
 			want: true,
+			wantKeys: []string{
+				"key",
+			},
+		},
+		{
+			name: "match_multiple_if_has_no_wildcard_and_dir_root",
+			url:  "s3://bucket/key/",
+			keys: []string{
+				"key/a/",
+				"key/test.txt",
+				"key/test.pdf",
+			},
+			want: true,
+			wantKeys: []string{
+				"a/",
+				"test.txt",
+				"test.pdf",
+			},
 		},
 		{
 			name: "not_match_if_has_no_wildcard_and_invalid_prefix",
@@ -182,6 +198,11 @@ func TestS3Url_ParseS3Url_and_CheckMatch(t *testing.T) {
 				"key/c/b",
 			},
 			want: true,
+			wantKeys: []string{
+				"a/b",
+				"1/b",
+				"c/b",
+			},
 		},
 		{
 			name: "not_match_if_has_single_wildcard_and_invalid_prefix",
@@ -202,6 +223,13 @@ func TestS3Url_ParseS3Url_and_CheckMatch(t *testing.T) {
 				"key/a/b/c/c/another_file.tsv",
 			},
 			want: true,
+			wantKeys: []string{
+				"a/b/c/c/file.tsv",
+				"dummy/b/1/c/file.tsv",
+				"dummy/b/1/c/another_file.tsv",
+				"dummy/b/2/c/another_file.tsv",
+				"a/b/c/c/another_file.tsv",
+			},
 		},
 		{
 			name: "not_match_if_has_multiple_wildcard_and_invalid_prefix",
@@ -235,9 +263,16 @@ func TestS3Url_ParseS3Url_and_CheckMatch(t *testing.T) {
 				t.Errorf("unexpected error %v", err)
 			}
 
-			for _, key := range tt.keys {
-				if got := u.Match(key); got != tt.want {
+			for i, key := range tt.keys {
+				parsedKey, ok := u.Match(key)
+				if got := ok; got != tt.want {
 					t.Errorf("Match() got = %v, want %v", got, tt.want)
+				}
+				if ok {
+					want := tt.wantKeys[i]
+					if got := parsedKey; got != want {
+						t.Errorf("Match() parsedKey got = %v, want %v", got, want)
+					}
 				}
 			}
 		})

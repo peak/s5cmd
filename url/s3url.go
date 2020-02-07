@@ -51,7 +51,7 @@ func (s *S3Url) setPrefixAndFilter() {
 	loc := strings.IndexAny(s.Key, s3WildCharacters)
 	wildOperation := loc > -1
 	if !wildOperation {
-		s.Delimiter = "/"
+		s.Delimiter = s3Separator
 		s.Prefix = s.Key
 	} else {
 		s.Prefix = s.Key[:loc]
@@ -69,11 +69,7 @@ func (s *S3Url) setFilterRegex() error {
 		filterRegex = strings.Replace(filterRegex, "\\?", ".", -1)
 		filterRegex = strings.Replace(filterRegex, "\\*", ".*?", -1)
 	}
-	separator := ""
-	if s.Prefix != "" && !strings.HasSuffix(s.Prefix, "/") {
-		separator = "/"
-	}
-	filterRegex = s.Prefix + separator + filterRegex
+	filterRegex = s.Prefix + filterRegex
 	r, err := regexp.Compile("^" + filterRegex + "$")
 	if err != nil {
 		return err
@@ -94,9 +90,37 @@ func (s S3Url) Clone() S3Url {
 	}
 }
 
-// Match check if given key matches with regex
-func (s S3Url) Match(key string) bool {
-	return s.filterRegex.MatchString(key)
+// Match check if given key matches with regex and
+// returns parsed key
+func (s S3Url) Match(key string) (string, bool) {
+	if !s.filterRegex.MatchString(key) {
+		return "", false
+	}
+
+	// if it has filter path, it will proceed batch operation
+	isBatch := s.filter != ""
+	if isBatch {
+		slashBeforeWild := strings.LastIndex(s.Prefix, s3Separator)
+		return trimKey(key, slashBeforeWild), true
+	}
+
+	var index int
+	if !strings.HasSuffix(key, s3Separator) {
+		index = strings.LastIndex(key, s3Separator)
+	} else {
+		trim := strings.TrimSuffix(key, s3Separator)
+		index = strings.LastIndex(trim, s3Separator)
+	}
+	return trimKey(key, index), true
+}
+
+func trimKey(key string, index int) string {
+	if index < 0 {
+		index = 0
+	}
+	trimmedKey := key[index:]
+	trimmedKey = strings.TrimPrefix(trimmedKey, s3Separator)
+	return trimmedKey
 }
 
 // HasWild checks if a string contains any S3 wildcard chars

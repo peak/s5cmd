@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"os"
 	"strconv"
-	"strings"
 	"sync"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -91,26 +90,28 @@ func s3list(ctx context.Context, svc *s3.S3, s3url *url.S3Url, emitChan chan<- i
 			return false
 		}
 		for _, c := range p.CommonPrefixes {
-			key := *c.Prefix
-			if !s3url.Match(key) {
+			key, ok := s3url.Match(*c.Prefix)
+			if !ok {
 				continue
 			}
+
 			if !emit(&s3listItem{
 				Object:      &s3.Object{Key: c.Prefix},
-				key:         strings.TrimPrefix(key, s3url.Prefix),
+				key:         key,
 				isDirectory: true,
 			}) {
 				return false
 			}
 		}
 		for _, c := range p.Contents {
-			key := *c.Key
-			if !s3url.Match(key) {
+			key, ok := s3url.Match(*c.Key)
+			if !ok {
 				continue
 			}
+
 			if !emit(&s3listItem{
 				Object:      c,
-				key:         strings.TrimPrefix(key, s3url.Prefix),
+				key:         key,
 				isDirectory: key[len(key)-1] == '/',
 			}) {
 				return false

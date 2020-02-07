@@ -240,7 +240,7 @@ func TestS3Url_ParseS3Url_and_CheckMatch(t *testing.T) {
 			},
 		},
 		{
-			name: "not_match_if_multiple_wildcard_not_match_with_key",
+			name: "not_match_if_multiple_wildcard_does_not_match_with_key",
 			url:  "s3://bucket/prefix/*/c/*.tsv",
 			keys: []string{
 				"prefix/a/b/c/c/file.bsv",
@@ -248,7 +248,7 @@ func TestS3Url_ParseS3Url_and_CheckMatch(t *testing.T) {
 			},
 		},
 		{
-			name: "not_match_if_single_wildcard_not_match_with_key",
+			name: "not_match_if_single_wildcard_does_not_match_with_key",
 			url:  "s3://bucket/*.tsv",
 			keys: []string{
 				"file.bsv",
@@ -271,7 +271,7 @@ func TestS3Url_ParseS3Url_and_CheckMatch(t *testing.T) {
 				if ok {
 					want := tt.wantKeys[i]
 					if got := parsedKey; got != want {
-						t.Errorf("Match() parsedKey got = %v, want %v", got, want)
+						t.Errorf("Match() got = %v, want %v", got, want)
 					}
 				}
 			}

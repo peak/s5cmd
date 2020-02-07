@@ -31,7 +31,6 @@ const (
 	ShellExec                          // Execute shell command
 	AliasGet                           // Alias for Download
 	AliasBatchGet                      // Alias for BatchDownload
-	ShowHelp                           // Show help for command
 )
 
 // IsBatch returns true if this operation creates sub-jobs
@@ -84,8 +83,6 @@ func (o Operation) String() string {
 		return "get"
 	case AliasBatchGet:
 		return "batch-get"
-	case ShowHelp:
-		return "show-help"
 	}
 
 	return fmt.Sprintf("Unknown:%d", o)

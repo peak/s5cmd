@@ -31,7 +31,7 @@ type Stats struct {
 // IncrementIfSuccess atomically increments the StatType's counter in Stats if err is nil
 func (s *Stats) IncrementIfSuccess(t StatType, err error) error {
 	if err == nil {
-		atomic.AddUint64(&(s.ops[t]), 1)
+		s.Increment(t)
 	}
 	return err
 }

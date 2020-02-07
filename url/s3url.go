@@ -97,23 +97,22 @@ func (s S3Url) Match(key string) (string, bool) {
 		return "", false
 	}
 
-	// if it has filter path, it will proceed batch operation
+	var index int
+	// if it is a batch operation, get key before the filter part
+	// starting from last "/", otherwise get last directory or file
 	isBatch := s.filter != ""
 	if isBatch {
-		slashBeforeWild := strings.LastIndex(s.Prefix, s3Separator)
-		return trimKey(key, slashBeforeWild), true
-	}
-
-	var index int
-	if !strings.HasSuffix(key, s3Separator) {
-		index = strings.LastIndex(key, s3Separator)
+		index = strings.LastIndex(s.Prefix, s3Separator)
 	} else {
+		// trim last char if it is "/"
 		trim := strings.TrimSuffix(key, s3Separator)
 		index = strings.LastIndex(trim, s3Separator)
 	}
 	return trimKey(key, index), true
 }
 
+// trimKey trims keys by given index and clears
+// "/" prefix if it exists
 func trimKey(key string, index int) string {
 	if index < 0 {
 		index = 0

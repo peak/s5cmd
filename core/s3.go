@@ -47,9 +47,11 @@ type s3listItem struct {
 
 func s3list(ctx context.Context, svc *s3.S3, s3url *url.S3Url, emitChan chan<- interface{}) error {
 	inp := s3.ListObjectsV2Input{
-		Bucket:    aws.String(s3url.Bucket),
-		Prefix:    aws.String(s3url.Prefix),
-		Delimiter: aws.String(s3url.Delimiter),
+		Bucket: aws.String(s3url.Bucket),
+		Prefix: aws.String(s3url.Prefix),
+	}
+	if s3url.Delimiter != "" {
+		inp.SetDelimiter(s3url.Delimiter)
 	}
 
 	var mu sync.Mutex
@@ -84,11 +86,11 @@ func s3list(ctx context.Context, svc *s3.S3, s3url *url.S3Url, emitChan chan<- i
 			}
 		}
 	}
-
 	err := svc.ListObjectsV2PagesWithContext(ctx, &inp, func(p *s3.ListObjectsV2Output, lastPage bool) bool {
 		if isCanceled() {
 			return false
 		}
+
 		for _, c := range p.CommonPrefixes {
 			key, ok := s3url.Match(*c.Prefix)
 			if !ok {

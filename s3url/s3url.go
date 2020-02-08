@@ -35,7 +35,7 @@ func (s S3Url) String() string {
 	return "s3://" + s.Bucket + "/" + s.Key
 }
 
-// Format formats the S3Url to the format "<bucket>[/<key>]"
+// Format formats the S3Url to the format "<bucket>[/<key>]".
 func (s S3Url) Format() string {
 	if s.Key == "" {
 		return s.Bucket
@@ -49,8 +49,8 @@ func (s S3Url) Format() string {
 // and pre-compiles it for later usage. It is default to
 // ".*" to match every key on S3.
 //
-// filter is the part that comes after the wildcard string
-// prefix is the part that comes before the wildcard string
+// filter is the part that comes after the wildcard string.
+// prefix is the part that comes before the wildcard string.
 //
 // Example:
 //		key: a/b/test?/c/*.tsv
@@ -96,7 +96,7 @@ func (s *S3Url) setPrefixAndFilter() error {
 	return nil
 }
 
-// Clone creates a new s3url with the values from the receiver
+// Clone creates a new s3url with the values from the receiver.
 func (s S3Url) Clone() S3Url {
 	return S3Url{
 		Bucket:      s.Bucket,
@@ -109,7 +109,7 @@ func (s S3Url) Clone() S3Url {
 }
 
 // Match check if given key matches with regex and
-// returns parsed key
+// returns parsed key.
 func (s S3Url) Match(key string) (string, bool) {
 	if !s.filterRegex.MatchString(key) {
 		return "", false
@@ -143,7 +143,7 @@ func parseBatch(prefix string, key string) string {
 
 // parseNonBatch parses keys for non-wildcard operations.
 // It substracts prefix part from the key and gets first
-// path coming after.
+// path.
 //
 // Example:
 //		key: a/b/c/d
@@ -164,12 +164,12 @@ func parseNonBatch(prefix string, key string) string {
 	return trimmedKey
 }
 
-// HasWild checks if a string contains any S3 wildcard chars
+// HasWild checks if a string contains any S3 wildcard chars.
 func HasWild(s string) bool {
 	return strings.ContainsAny(s, s3WildCharacters)
 }
 
-// New creates new S3Url by parsing given url
+// New creates new S3Url by parsing given url.
 func New(rawUrl string) (*S3Url, error) {
 	if !strings.HasPrefix(rawUrl, s3Prefix) {
 		return nil, fmt.Errorf("s3 url should start with %s", s3Prefix)

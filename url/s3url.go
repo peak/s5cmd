@@ -17,11 +17,11 @@ const (
 	// s3Separator is the path separator for s3 URLs
 	s3Separator string = "/"
 
-	// defaultRegex is the regex to match every key
+	// matchAllRe is the regex to match everything
 	matchAllRe string = ".*"
 )
 
-// S3Url represents an S3 object (or bucket)
+// S3Url is the metadata that is used on S3 operations (listing, querying)
 type S3Url struct {
 	Bucket      string
 	Delimiter   string
@@ -122,7 +122,7 @@ func (s S3Url) Match(key string) (string, bool) {
 	return parseNonBatch(s.Prefix, key), true
 }
 
-// ParseBatch parses keys for wildcard operations.
+// parseBatch parses keys for wildcard operations.
 // It cuts the key starting from first directory before the
 // wildcard part (filter)
 //
@@ -141,7 +141,7 @@ func parseBatch(prefix string, key string) string {
 	return trimmedKey
 }
 
-// ParseNonBatch parses keys for non-wildcard operations.
+// parseNonBatch parses keys for non-wildcard operations.
 // It substracts prefix part from the key and gets first
 // path coming after.
 //
@@ -169,12 +169,12 @@ func HasWild(s string) bool {
 	return strings.ContainsAny(s, s3WildCharacters)
 }
 
-// ParseS3Url parses a string into an S3Url
-func New(object string) (*S3Url, error) {
-	if !strings.HasPrefix(object, s3Prefix) {
+// New creates new S3Url by parsing given url
+func New(rawUrl string) (*S3Url, error) {
+	if !strings.HasPrefix(rawUrl, s3Prefix) {
 		return nil, fmt.Errorf("s3 url should start with %s", s3Prefix)
 	}
-	parts := strings.SplitN(object, s3Separator, 4)
+	parts := strings.SplitN(rawUrl, s3Separator, 4)
 	if parts[2] == "" {
 		return nil, fmt.Errorf("s3 url should have a bucket")
 	}

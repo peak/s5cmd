@@ -53,22 +53,22 @@ func (s S3Url) Format() string {
 // prefix is the part that comes before the wildcard string
 //
 // Example:
-//	  key: a/b/test?/c/*.tsv
-//    prefix: a/b/test
-// 	  filter: ?/c/*
-//    regex: ^a/b/test./c/.*?\\.tsv$
-//    delimiter: ""
+//		key: a/b/test?/c/*.tsv
+//		prefix: a/b/test
+//		filter: ?/c/*
+//		regex: ^a/b/test./c/.*?\\.tsv$
+//		delimiter: ""
 //
 // It prepares delimiter, prefix and regex for regular strings.
 // These are used in S3 listing operations.
 // See: https://docs.aws.amazon.com/AmazonS3/latest/dev/ListingKeysHierarchy.html
 //
 // Example:
-//	  key: a/b/c
-//    prefix: a/b/c
-// 	  filter: ""
-//    regex: ^a/b/c.*$
-//    delimiter: "/"
+//		key: a/b/c
+//		prefix: a/b/c
+//		filter: ""
+//		regex: ^a/b/c.*$
+//		delimiter: "/"
 //
 func (s *S3Url) setPrefixAndFilter() error {
 	loc := strings.IndexAny(s.Key, s3WildCharacters)

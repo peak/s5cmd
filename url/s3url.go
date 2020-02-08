@@ -18,7 +18,7 @@ const (
 	s3Separator string = "/"
 
 	// defaultRegex is the regex to match every key
-	defaultRegex string = ".*"
+	matchAllRe string = ".*"
 )
 
 // S3Url represents an S3 object (or bucket)
@@ -43,11 +43,34 @@ func (s S3Url) Format() string {
 	return s.Bucket + s3Separator + s.Key
 }
 
-// setPrefixAndFilter sets prefix and filter parts on s3 key
+// setFilterRegex creates url metadata for both wildcard and non-wildcard operations.
+//
+// It converts wildcard strings to regex format
+// and pre-compiles it for later usage. It is default to
+// ".*" to match every key on S3.
 //
 // filter is the part that comes after the wildcard string
 // prefix is the part that comes before the wildcard string
-func (s *S3Url) setPrefixAndFilter() {
+//
+// Example:
+//	  key: a/b/test?/c/*.tsv
+//    prefix: a/b/test
+// 	  filter: ?/c/*
+//    regex: ^a/b/test./c/.*?\\.tsv$
+//    delimiter: ""
+//
+// It prepares delimiter, prefix and regex for regular strings.
+// These are used in S3 listing operations.
+// See: https://docs.aws.amazon.com/AmazonS3/latest/dev/ListingKeysHierarchy.html
+//
+// Example:
+//	  key: a/b/c
+//    prefix: a/b/c
+// 	  filter: ""
+//    regex: ^a/b/c.*$
+//    delimiter: "/"
+//
+func (s *S3Url) setPrefixAndFilter() error {
 	loc := strings.IndexAny(s.Key, s3WildCharacters)
 	wildOperation := loc > -1
 	if !wildOperation {
@@ -57,13 +80,8 @@ func (s *S3Url) setPrefixAndFilter() {
 		s.Prefix = s.Key[:loc]
 		s.filter = s.Key[loc:]
 	}
-}
 
-// setFilterRegex converts wildcard strings to regex format
-// and precompiles it for later usage. It is default to
-// ".*" to match every key on S3
-func (s *S3Url) setFilterRegex() error {
-	filterRegex := defaultRegex
+	filterRegex := matchAllRe
 	if s.filter != "" {
 		filterRegex = regexp.QuoteMeta(s.filter)
 		filterRegex = strings.Replace(filterRegex, "\\?", ".", -1)
@@ -97,28 +115,52 @@ func (s S3Url) Match(key string) (string, bool) {
 		return "", false
 	}
 
-	var index int
-	// if it is a batch operation, get key before the filter part
-	// starting from last "/", otherwise get last directory or file
 	isBatch := s.filter != ""
 	if isBatch {
-		index = strings.LastIndex(s.Prefix, s3Separator)
-	} else {
-		// trim last char if it is "/"
-		trim := strings.TrimSuffix(key, s3Separator)
-		index = strings.LastIndex(trim, s3Separator)
+		return parseBatch(s.Prefix, key), true
 	}
-	return trimKey(key, index), true
+	return parseNonBatch(s.Prefix, key), true
 }
 
-// trimKey trims keys by given index and clears
-// "/" prefix if it exists
-func trimKey(key string, index int) string {
-	if index < 0 {
-		index = 0
+// ParseBatch parses keys for wildcard operations.
+// It cuts the key starting from first directory before the
+// wildcard part (filter)
+//
+// Example:
+//		key: a/b/test2/c/example_file.tsv
+//		prefix: a/b/
+//		output: test2/c/example_file.tsv
+//
+func parseBatch(prefix string, key string) string {
+	index := strings.LastIndex(prefix, s3Separator)
+	if index < 0 || !strings.HasPrefix(key, prefix) {
+		return key
 	}
 	trimmedKey := key[index:]
 	trimmedKey = strings.TrimPrefix(trimmedKey, s3Separator)
+	return trimmedKey
+}
+
+// ParseNonBatch parses keys for non-wildcard operations.
+// It substracts prefix part from the key and gets first
+// path coming after.
+//
+// Example:
+//		key: a/b/c/d
+//		prefix: a/b
+//		output: c/
+//
+func parseNonBatch(prefix string, key string) string {
+	if key == prefix || !strings.HasPrefix(key, prefix) {
+		return key
+	}
+	parsedKey := strings.TrimPrefix(key, prefix)
+	parsedKey = strings.TrimPrefix(parsedKey, s3Separator)
+	index := strings.Index(parsedKey, s3Separator) + 1
+	if index <= 0 || index >= len(parsedKey) {
+		return parsedKey
+	}
+	trimmedKey := parsedKey[:index]
 	return trimmedKey
 }
 
@@ -128,7 +170,7 @@ func HasWild(s string) bool {
 }
 
 // ParseS3Url parses a string into an S3Url
-func ParseS3Url(object string) (*S3Url, error) {
+func New(object string) (*S3Url, error) {
 	if !strings.HasPrefix(object, s3Prefix) {
 		return nil, fmt.Errorf("s3 url should start with %s", s3Prefix)
 	}
@@ -145,7 +187,9 @@ func ParseS3Url(object string) (*S3Url, error) {
 	}
 
 	url := &S3Url{Key: key, Bucket: parts[2]}
-	url.setPrefixAndFilter()
-	err := url.setFilterRegex()
-	return url, err
+
+	if err := url.setPrefixAndFilter(); err != nil {
+		return nil, err
+	}
+	return url, nil
 }

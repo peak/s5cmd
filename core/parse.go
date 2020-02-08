@@ -44,7 +44,7 @@ func parseArgumentByType(s string, t opt.ParamType, fnObj *JobArgument) (*JobArg
 		return NewJobArgument(s, nil), nil
 
 	case opt.S3Obj, opt.S3ObjOrDir, opt.S3WildObj, opt.S3Dir, opt.S3SimpleObj:
-		uri, err := url.ParseS3Url(s)
+		uri, err := url.New(s)
 		if err != nil {
 			return nil, err
 		}
@@ -93,7 +93,7 @@ func parseArgumentByType(s string, t opt.ParamType, fnObj *JobArgument) (*JobArg
 		fallthrough
 	case opt.FileObj, opt.FileOrDir, opt.Dir:
 		// check if we have s3 object
-		_, err := url.ParseS3Url(s)
+		_, err := url.New(s)
 		if err == nil {
 			return nil, errors.New("file param resembles s3 object")
 		}
@@ -149,7 +149,7 @@ func parseArgumentByType(s string, t opt.ParamType, fnObj *JobArgument) (*JobArg
 		return NewJobArgument(s, nil), nil
 
 	case opt.Glob:
-		_, err := url.ParseS3Url(s)
+		_, err := url.New(s)
 		if err == nil {
 			return nil, errors.New("glob param resembles s3 object")
 		}

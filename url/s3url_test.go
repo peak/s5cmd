@@ -37,7 +37,7 @@ func TestHasWild(t *testing.T) {
 	}
 }
 
-func TestParseS3Url(t *testing.T) {
+func TestNew(t *testing.T) {
 	tests := []struct {
 		name    string
 		object  string
@@ -96,7 +96,7 @@ func TestParseS3Url(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := ParseS3Url(tt.object)
+			got, err := New(tt.object)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ParseS3Url() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -119,9 +119,10 @@ func TestS3Url_setPrefixAndFilter(t *testing.T) {
 				Key: "a/b_c/*/de/*/test",
 			},
 			after: &S3Url{
-				Key:    "a/b_c/*/de/*/test",
-				Prefix: "a/b_c/",
-				filter: "*/de/*/test",
+				Key:         "a/b_c/*/de/*/test",
+				Prefix:      "a/b_c/",
+				filter:      "*/de/*/test",
+				filterRegex: regexp.MustCompile("^a/b_c/.*?/de/.*?/test$"),
 			},
 		},
 		{
@@ -130,16 +131,22 @@ func TestS3Url_setPrefixAndFilter(t *testing.T) {
 				Key: "a/b_c/d/e",
 			},
 			after: &S3Url{
-				Key:       "a/b_c/d/e",
-				Prefix:    "a/b_c/d/e",
-				Delimiter: "/",
+				Key:         "a/b_c/d/e",
+				Prefix:      "a/b_c/d/e",
+				Delimiter:   "/",
+				filter:      "",
+				filterRegex: regexp.MustCompile("^a/b_c/d/e.*$"),
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := tt.before
-			got.setPrefixAndFilter()
+			err := got.setPrefixAndFilter()
+			if err != nil {
+				t.Errorf("unexpected error %v", err)
+			}
+
 			if !reflect.DeepEqual(got, tt.after) {
 				t.Errorf("setPrefixAndFilter() got = %v, want %v", got, tt.after)
 			}
@@ -147,133 +154,196 @@ func TestS3Url_setPrefixAndFilter(t *testing.T) {
 	}
 }
 
-func TestS3Url_ParseS3Url_and_CheckMatch(t *testing.T) {
+func TestS3Url_New_and_CheckMatch(t *testing.T) {
 	tests := []struct {
-		name     string
-		url      string
-		keys     []string
-		want     bool
-		wantKeys []string
+		name string
+		url  string
+		want bool
+		keys map[string]string
 	}{
 		{
 			name: "match_only_key_if_has_no_wildcard_and_not_dir_root",
 			url:  "s3://bucket/key",
-			keys: []string{
-				"key",
+			keys: map[string]string{
+				"key": "key",
 			},
 			want: true,
-			wantKeys: []string{
-				"key",
-			},
 		},
 		{
 			name: "match_multiple_if_has_no_wildcard_and_dir_root",
 			url:  "s3://bucket/key/",
-			keys: []string{
-				"key/a/",
-				"key/test.txt",
-				"key/test.pdf",
+			keys: map[string]string{
+				"key/a/":           "a/",
+				"key/test.txt":     "test.txt",
+				"key/test.pdf":     "test.pdf",
+				"key/test.pdf/aaa": "test.pdf/",
 			},
 			want: true,
-			wantKeys: []string{
-				"a/",
-				"test.txt",
-				"test.pdf",
-			},
 		},
 		{
 			name: "not_match_if_has_no_wildcard_and_invalid_prefix",
 			url:  "s3://bucket/key",
-			keys: []string{
-				"anotherkey",
-				"invalidkey/dummy",
+			keys: map[string]string{
+				"anotherkey":       "",
+				"invalidkey/dummy": "",
 			},
+			want: false,
 		},
 		{
 			name: "match_if_has_single_wildcard_and_valid_prefix",
 			url:  "s3://bucket/key/?/b",
-			keys: []string{
-				"key/a/b",
-				"key/1/b",
-				"key/c/b",
+			keys: map[string]string{
+				"key/a/b": "a/b",
+				"key/1/b": "1/b",
+				"key/c/b": "c/b",
 			},
 			want: true,
-			wantKeys: []string{
-				"a/b",
-				"1/b",
-				"c/b",
-			},
 		},
 		{
 			name: "not_match_if_has_single_wildcard_and_invalid_prefix",
 			url:  "s3://bucket/key/?/b",
-			keys: []string{
-				"another/a/b",
-				"invalid/1/b",
+			keys: map[string]string{
+				"another/a/b": "",
+				"invalid/1/b": "",
 			},
+			want: false,
 		},
 		{
 			name: "match_if_has_multiple_wildcard_and_valid_prefix",
 			url:  "s3://bucket/key/*/b/*/c/*.tsv",
-			keys: []string{
-				"key/a/b/c/c/file.tsv",
-				"key/dummy/b/1/c/file.tsv",
-				"key/dummy/b/1/c/another_file.tsv",
-				"key/dummy/b/2/c/another_file.tsv",
-				"key/a/b/c/c/another_file.tsv",
+			keys: map[string]string{
+				"key/a/b/c/c/file.tsv":             "a/b/c/c/file.tsv",
+				"key/dummy/b/1/c/file.tsv":         "dummy/b/1/c/file.tsv",
+				"key/dummy/b/1/c/another_file.tsv": "dummy/b/1/c/another_file.tsv",
+				"key/dummy/b/2/c/another_file.tsv": "dummy/b/2/c/another_file.tsv",
+				"key/a/b/c/c/another_file.tsv":     "a/b/c/c/another_file.tsv",
 			},
 			want: true,
-			wantKeys: []string{
-				"a/b/c/c/file.tsv",
-				"dummy/b/1/c/file.tsv",
-				"dummy/b/1/c/another_file.tsv",
-				"dummy/b/2/c/another_file.tsv",
-				"a/b/c/c/another_file.tsv",
-			},
 		},
 		{
 			name: "not_match_if_has_multiple_wildcard_and_invalid_prefix",
 			url:  "s3://bucket/key/*/b/*/c/*.tsv",
-			keys: []string{
-				"another/a/b/c/c/file.tsv",
-				"invalid/dummy/b/1/c/file.tsv",
+			keys: map[string]string{
+				"another/a/b/c/c/file.tsv":     "",
+				"invalid/dummy/b/1/c/file.tsv": "",
 			},
+			want: false,
 		},
 		{
 			name: "not_match_if_multiple_wildcard_does_not_match_with_key",
 			url:  "s3://bucket/prefix/*/c/*.tsv",
-			keys: []string{
-				"prefix/a/b/c/c/file.bsv",
-				"prefix/dummy/a",
+			keys: map[string]string{
+				"prefix/a/b/c/c/file.bsv": "",
+				"prefix/dummy/a":          "",
 			},
 		},
 		{
 			name: "not_match_if_single_wildcard_does_not_match_with_key",
 			url:  "s3://bucket/*.tsv",
-			keys: []string{
-				"file.bsv",
-				"a/b/c.csv",
+			keys: map[string]string{
+				"file.bsv":  "",
+				"a/b/c.csv": "",
 			},
+			want: false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			u, err := ParseS3Url(tt.url)
+			u, err := New(tt.url)
 			if err != nil {
 				t.Errorf("unexpected error %v", err)
 			}
 
-			for i, key := range tt.keys {
+			for key, want := range tt.keys {
 				parsedKey, ok := u.Match(key)
 				if got := ok; got != tt.want {
 					t.Errorf("Match() got = %v, want %v", got, tt.want)
 				}
-				if ok {
-					want := tt.wantKeys[i]
-					if got := parsedKey; got != want {
-						t.Errorf("Match() got = %v, want %v", got, want)
-					}
+				if got := parsedKey; got != want {
+					t.Errorf("Match() got = %v, want %v", got, want)
 				}
+			}
+		})
+	}
+}
+
+func Test_parseBatch(t *testing.T) {
+	tests := []struct {
+		name   string
+		prefix string
+		key    string
+		want   string
+	}{
+		{
+			name:   "do_nothing_if_key_does_not_include_prefix",
+			prefix: "a/b/c",
+			key:    "d/e",
+			want:   "d/e",
+		},
+		{
+			name:   "do_nothing_prefix_does_not_include_slash",
+			prefix: "some_random_string",
+			key:    "a/b",
+			want:   "a/b",
+		},
+		{
+			name:   "parse_key_if_prefix_is_a_dir",
+			prefix: "a/b/",
+			key:    "a/b/c/d",
+			want:   "c/d",
+		},
+		{
+			name:   "parse_key_if_prefix_is_not_a_dir",
+			prefix: "a/b",
+			key:    "a/b/asset.txt",
+			want:   "b/asset.txt",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := parseBatch(tt.prefix, tt.key); got != tt.want {
+				t.Errorf("parseBatch() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_parseNonBatch(t *testing.T) {
+	tests := []struct {
+		name   string
+		prefix string
+		key    string
+		want   string
+	}{
+		{
+			name:   "do_nothing_if_key_does_not_include_prefix",
+			prefix: "a/b/c",
+			key:    "d/e",
+			want:   "d/e",
+		},
+		{
+			name:   "do_nothing_prefix_equals_to_key",
+			prefix: "a/b",
+			key:    "a/b",
+			want:   "a/b",
+		},
+		{
+			name:   "parse_key_and_return_first_dir_after_prefix",
+			prefix: "a/b/",
+			key:    "a/b/c/d",
+			want:   "c/",
+		},
+		{
+			name:   "parse_key_and_return_asset_after_prefix",
+			prefix: "a/b",
+			key:    "a/b/asset.txt",
+			want:   "asset.txt",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := parseNonBatch(tt.prefix, tt.key); got != tt.want {
+				t.Errorf("parseNonBatch() = %v, want %v", got, tt.want)
 			}
 		})
 	}

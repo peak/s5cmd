@@ -193,7 +193,7 @@ func s3predictor(a cmp.Args) []string {
 		s3bucket = ""
 		s3key = ""
 	} else {
-		s3u, err := url.ParseS3Url(a.Last)
+		s3u, err := url.New(a.Last)
 		if err != nil {
 			return nil
 		}

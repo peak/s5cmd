@@ -1,5 +1,5 @@
 // Package url defines URL types and has helper methods to parse a string into URLs.
-package url
+package s3url
 
 import (
 	"fmt"

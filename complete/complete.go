@@ -13,7 +13,7 @@ import (
 
 	"github.com/peak/s5cmd/core"
 	"github.com/peak/s5cmd/opt"
-	"github.com/peak/s5cmd/url"
+	"github.com/peak/s5cmd/s3url"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
@@ -193,7 +193,7 @@ func s3predictor(a cmp.Args) []string {
 		s3bucket = ""
 		s3key = ""
 	} else {
-		s3u, err := url.New(a.Last)
+		s3u, err := s3url.New(a.Last)
 		if err != nil {
 			return nil
 		}

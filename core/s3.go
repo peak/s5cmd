@@ -13,7 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/endpoints"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/peak/s5cmd/url"
+	"github.com/peak/s5cmd/s3url"
 )
 
 var (
@@ -24,14 +24,14 @@ var (
 	ErrNilResult = errors.New("nil result")
 )
 
-func s3delete(svc *s3.S3, obj *url.S3Url) (*s3.DeleteObjectOutput, error) {
+func s3delete(svc *s3.S3, obj *s3url.S3Url) (*s3.DeleteObjectOutput, error) {
 	return svc.DeleteObject(&s3.DeleteObjectInput{
 		Bucket: aws.String(obj.Bucket),
 		Key:    aws.String(obj.Key),
 	})
 }
 
-func s3head(svc *s3.S3, obj *url.S3Url) (*s3.HeadObjectOutput, error) {
+func s3head(svc *s3.S3, obj *s3url.S3Url) (*s3.HeadObjectOutput, error) {
 	return svc.HeadObject(&s3.HeadObjectInput{
 		Bucket: aws.String(obj.Bucket),
 		Key:    aws.String(obj.Key),
@@ -45,7 +45,7 @@ type s3listItem struct {
 	isDirectory bool
 }
 
-func s3list(ctx context.Context, svc *s3.S3, s3url *url.S3Url, emitChan chan<- interface{}) error {
+func s3list(ctx context.Context, svc *s3.S3, s3url *s3url.S3Url, emitChan chan<- interface{}) error {
 	inp := s3.ListObjectsV2Input{
 		Bucket: aws.String(s3url.Bucket),
 		Prefix: aws.String(s3url.Prefix),
@@ -136,7 +136,7 @@ func s3list(ctx context.Context, svc *s3.S3, s3url *url.S3Url, emitChan chan<- i
 
 type s3wildCallback func(*s3listItem) *Job
 
-func s3wildOperation(url *url.S3Url, wp *WorkerParams, callback s3wildCallback) error {
+func s3wildOperation(url *s3url.S3Url, wp *WorkerParams, callback s3wildCallback) error {
 	return wildOperation(wp, func(ch chan<- interface{}) error {
 		return s3list(wp.ctx, wp.s3svc, url, ch)
 	}, func(data interface{}) *Job {

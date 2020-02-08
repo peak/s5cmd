@@ -1,4 +1,4 @@
-package url
+package s3url
 
 import (
 	"reflect"

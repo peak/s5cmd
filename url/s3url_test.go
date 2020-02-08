@@ -281,7 +281,7 @@ func Test_parseBatch(t *testing.T) {
 			want:   "d/e",
 		},
 		{
-			name:   "do_nothing_prefix_does_not_include_slash",
+			name:   "do_nothing_if_prefix_does_not_include_slash",
 			prefix: "some_random_string",
 			key:    "a/b",
 			want:   "a/b",
@@ -322,7 +322,7 @@ func Test_parseNonBatch(t *testing.T) {
 			want:   "d/e",
 		},
 		{
-			name:   "do_nothing_prefix_equals_to_key",
+			name:   "do_nothing_if_prefix_equals_to_key",
 			prefix: "a/b",
 			key:    "a/b",
 			want:   "a/b",

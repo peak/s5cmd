@@ -9,10 +9,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/aws/aws-sdk-go/service/s3/s3manager"
-	"github.com/cenkalti/backoff"
+	"github.com/peak/s5cmd/storage"
+
 	"github.com/peak/s5cmd/stats"
 )
 
@@ -35,7 +33,7 @@ type WorkerPool struct {
 	jobQueue      chan *Job
 	subJobQueue   chan *Job
 	wg            *sync.WaitGroup
-	awsSession    *session.Session
+	storage       storage.Storage
 	cancelFunc    context.CancelFunc
 	st            *stats.Stats
 	idlingCounter int32
@@ -43,19 +41,25 @@ type WorkerPool struct {
 
 // WorkerParams is the params/state of a single worker.
 type WorkerParams struct {
-	s3svc         *s3.S3
-	s3dl          *s3manager.Downloader
-	s3ul          *s3manager.Uploader
 	ctx           context.Context
 	poolParams    *WorkerPoolParams
 	st            *stats.Stats
 	subJobQueue   *chan *Job
 	idlingCounter *int32
+	storage       storage.Storage
 }
 
 // NewWorkerPool creates a new worker pool and start the workers.
 func NewWorkerPool(ctx context.Context, params *WorkerPoolParams, st *stats.Stats) *WorkerPool {
-	ses, err := NewAwsSession(params.Retries, params.EndpointURL, "", params.NoVerifySSL)
+	s3, err := storage.NewS3Storage(storage.S3Opts{
+		MaxRetries:           params.Retries,
+		EndpointURL:          params.EndpointURL,
+		Region:               "",
+		NoVerifySSL:          params.NoVerifySSL,
+		UploadChunkSizeBytes: params.UploadChunkSizeBytes,
+		UploadConcurrency:    params.UploadConcurrency,
+	})
+
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -68,7 +72,7 @@ func NewWorkerPool(ctx context.Context, params *WorkerPoolParams, st *stats.Stat
 		jobQueue:    make(chan *Job),
 		subJobQueue: make(chan *Job),
 		wg:          &sync.WaitGroup{},
-		awsSession:  ses,
+		storage:     s3,
 		cancelFunc:  cancelFunc,
 		st:          st,
 	}
@@ -87,25 +91,14 @@ func (p *WorkerPool) runWorker(st *stats.Stats, idlingCounter *int32, id int) {
 	defer verboseLog("Exiting goroutine %d", id)
 
 	wp := WorkerParams{
-		s3.New(p.awsSession),
-		// Give each worker its own s3manager
-		s3manager.NewDownloader(p.awsSession),
-		s3manager.NewUploader(p.awsSession),
-		p.ctx,
-		p.params,
-		st,
-		&p.subJobQueue,
-		idlingCounter,
+		ctx:           p.ctx,
+		poolParams:    p.params,
+		st:            st,
+		subJobQueue:   &p.subJobQueue,
+		idlingCounter: idlingCounter,
+		storage:       p.storage,
 	}
 
-	bkf := backoff.NewExponentialBackOff()
-	bkf.InitialInterval = time.Second
-	bkf.MaxInterval = time.Minute
-	bkf.Multiplier = 2
-	bkf.MaxElapsedTime = 0
-	bkf.Reset()
-
-	run := true
 	lastSetIdle := false
 	setIdle := func() {
 		if !lastSetIdle {
@@ -121,7 +114,7 @@ func (p *WorkerPool) runWorker(st *stats.Stats, idlingCounter *int32, id int) {
 	}
 	defer setIdle()
 
-	for run {
+	for {
 		select {
 		case <-time.After(100 * time.Millisecond):
 			setIdle()
@@ -133,45 +126,20 @@ func (p *WorkerPool) runWorker(st *stats.Stats, idlingCounter *int32, id int) {
 			}
 			setWorking()
 
-			tries := 0
-			for job != nil {
-				err := job.Run(&wp)
-				var acceptableErr AcceptableError
-				if err != nil {
-					acceptableErr = IsAcceptableError(err)
-					if acceptableErr != nil {
-						err = nil
-					}
-				}
-
-				if err != nil {
-					errCode, doRetry := IsRetryableError(err)
-					if doRetry && p.params.Retries > 0 && tries < p.params.Retries {
-						tries++
-						sleepTime := bkf.NextBackOff()
-						log.Printf(`?%s "%s", sleep for %v`, errCode, job, sleepTime)
-						select {
-						case <-time.After(sleepTime):
-							wp.st.Increment(stats.RetryOp)
-							continue
-						case <-p.ctx.Done():
-							run = false // if Canceled during sleep, report ERR and immediately process failCommand
-						}
-					}
-
+			if err := job.Run(&wp); err != nil {
+				if IsAcceptableError(err) {
+					job.Notify(true)
+					job = job.successCommand
+				} else {
 					job.PrintErr(err)
 					wp.st.Increment(stats.Fail)
 					job.Notify(false)
 					job = job.failCommand
-				} else {
-					if acceptableErr != ErrDisplayedHelp {
-						job.PrintOK(acceptableErr)
-					}
-					job.Notify(true)
-					job = job.successCommand
 				}
-				tries = 0
-				bkf.Reset()
+			} else {
+				job.PrintOK()
+				job.Notify(true)
+				job = job.successCommand
 			}
 
 		case <-p.ctx.Done():

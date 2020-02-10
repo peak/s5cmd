@@ -16,7 +16,7 @@ import (
 	"github.com/peak/s5cmd/op"
 	"github.com/peak/s5cmd/opt"
 	"github.com/peak/s5cmd/stats"
-	"github.com/peak/s5cmd/url"
+	"github.com/peak/s5cmd/s3url"
 )
 
 func S3Copy(job *Job, wp *WorkerParams) (stats.StatType, error) {
@@ -96,7 +96,7 @@ func S3BatchDelete(job *Job, wp *WorkerParams) (stats.StatType, error) {
 			return addArg(nil)
 		}
 
-		if li.isCommonPrefix {
+		if li.isDirectory {
 			return nil
 		}
 
@@ -149,20 +149,20 @@ func S3BatchDownload(job *Job, wp *WorkerParams) (stats.StatType, error) {
 	subCmd += job.opts.GetParams()
 
 	err := s3wildOperation(job.args[0].s3, wp, func(li *s3listItem) *Job {
-		if li == nil || li.isCommonPrefix {
+		if li == nil || li.isDirectory {
 			return nil
 		}
 
 		arg1 := NewJobArgument(
 			"s3://"+job.args[0].s3.Bucket+"/"+*li.Key,
-			&url.S3Url{Bucket: job.args[0].s3.Bucket, Key: *li.Key},
+			&s3url.S3Url{Bucket: job.args[0].s3.Bucket, Key: *li.Key},
 		)
 
 		var dstFn string
 		if job.opts.Has(opt.Parents) {
-			dstFn = li.parsedKey
+			dstFn = li.key
 		} else {
-			dstFn = path.Base(li.parsedKey)
+			dstFn = path.Base(li.key)
 		}
 
 		arg2 := job.args[1].StripS3().Append(dstFn, true)
@@ -340,25 +340,25 @@ func S3BatchCopy(job *Job, wp *WorkerParams) (stats.StatType, error) {
 	subCmd += job.opts.GetParams()
 
 	err := s3wildOperation(job.args[0].s3, wp, func(li *s3listItem) *Job {
-		if li == nil || li.isCommonPrefix {
+		if li == nil || li.isDirectory {
 			return nil
 		}
 
 		arg1 := NewJobArgument(
 			"s3://"+job.args[0].s3.Bucket+"/"+*li.Key,
-			&url.S3Url{Bucket: job.args[0].s3.Bucket, Key: *li.Key},
+			&s3url.S3Url{Bucket: job.args[0].s3.Bucket, Key: *li.Key},
 		)
 
 		var dstFn string
 		if job.opts.Has(opt.Parents) {
-			dstFn = li.parsedKey
+			dstFn = li.key
 		} else {
-			dstFn = path.Base(li.parsedKey)
+			dstFn = path.Base(li.key)
 		}
 
 		arg2 := NewJobArgument(
 			"s3://"+job.args[1].s3.Bucket+"/"+job.args[1].s3.Key+dstFn,
-			&url.S3Url{Bucket: job.args[1].s3.Bucket, Key: job.args[1].s3.Key + dstFn},
+			&s3url.S3Url{Bucket: job.args[1].s3.Bucket, Key: job.args[1].s3.Key + dstFn},
 		)
 
 		subJob := job.MakeSubJob(subCmd, op.Copy, []*JobArgument{arg1, arg2}, job.opts)
@@ -395,8 +395,8 @@ func S3List(job *Job, wp *WorkerParams) (stats.StatType, error) {
 			return nil
 		}
 
-		if li.isCommonPrefix {
-			job.out(shortOk, "%19s %1s %-38s  %12s  %s", "", "", "", "DIR", li.parsedKey)
+		if li.isDirectory {
+			job.out(shortOk, "%19s %1s %-38s  %12s  %s", "", "", "", "DIR", li.key)
 		} else {
 			var (
 				cls, etag, size string
@@ -424,7 +424,7 @@ func S3List(job *Job, wp *WorkerParams) (stats.StatType, error) {
 				size = fmt.Sprintf("%d", *li.Size)
 			}
 
-			job.out(shortOk, "%s %1s %-38s %12s  %s", li.LastModified.Format(dateFormat), cls, etag, size, li.parsedKey)
+			job.out(shortOk, "%s %1s %-38s %12s  %s", li.LastModified.Format(dateFormat), cls, etag, size, li.key)
 		}
 
 		return nil
@@ -442,7 +442,7 @@ func S3Size(job *Job, wp *WorkerParams) (stats.StatType, error) {
 	}
 	totals := map[string]sizeAndCount{}
 	err := s3wildOperation(job.args[0].s3, wp, func(li *s3listItem) *Job {
-		if li == nil || li.isCommonPrefix {
+		if li == nil || li.isDirectory {
 			return nil
 		}
 		storageClass := aws.StringValue(li.StorageClass)

@@ -6,8 +6,13 @@ import (
 	"io"
 
 	"github.com/aws/aws-sdk-go/service/s3"
-	s3url "github.com/peak/s5cmd/url"
+	"github.com/peak/s5cmd/s3url"
 )
+
+type ItemResponse struct {
+	item Item
+	err error
+}
 
 type Item struct {
 	Content     *s3.Object
@@ -17,7 +22,7 @@ type Item struct {
 
 type Storage interface {
 	Head(context.Context, string, string) (*Item, error)
-	List(context.Context, *s3url.S3Url) (<-chan *Item, error)
+	List(context.Context, *s3url.S3Url) <-chan *ItemResponse
 	Copy(context.Context, string, string, string, string) error
 	Get(context.Context, io.WriterAt, string, string) error
 	Put(context.Context, io.Reader, string, string, string) error

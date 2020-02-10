@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -10,18 +11,19 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/aws/aws-sdk-go/service/s3/s3manager"
-	"github.com/aws/aws-sdk-go/service/s3/s3manager/s3manageriface"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/endpoints"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
-	s3url "github.com/peak/s5cmd/url"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager/s3manageriface"
+	"github.com/peak/s5cmd/s3url"
 )
 
 var _ Storage = (*S3)(nil)
+
+var ErrNoItemFound = fmt.Errorf("No item found")
 
 type S3 struct {
 	api        s3iface.S3API
@@ -35,7 +37,6 @@ type S3Opts struct {
 	EndpointURL          string
 	Region               string
 	NoVerifySSL          bool
-	MultipartThreshold   int64
 	MultipartSize        int64
 	MultipartConcurrency int
 }
@@ -74,8 +75,8 @@ func (s *S3) Head(ctx context.Context, to, key string) (*Item, error) {
 	}, nil
 }
 
-func (s *S3) List(ctx context.Context, url *s3url.S3Url) (<-chan *Item, error) {
-	itemChan := make(chan *Item)
+func (s *S3) List(ctx context.Context, url *s3url.S3Url) <-chan *ItemResponse {
+	itemChan := make(chan *ItemResponse)
 	inp := s3.ListObjectsV2Input{
 		Bucket: aws.String(url.Bucket),
 		Prefix: aws.String(url.Prefix),
@@ -84,43 +85,58 @@ func (s *S3) List(ctx context.Context, url *s3url.S3Url) (<-chan *Item, error) {
 		inp.SetDelimiter(url.Delimiter)
 	}
 
-	err := s.api.ListObjectsV2PagesWithContext(ctx, &inp, func(p *s3.ListObjectsV2Output, lastPage bool) bool {
-		for _, c := range p.CommonPrefixes {
-			key, ok := url.Match(*c.Prefix)
-			if !ok {
-				continue
+	go func() {
+		defer close(itemChan)
+		itemFound := false
+
+		err := s.api.ListObjectsV2PagesWithContext(ctx, &inp, func(p *s3.ListObjectsV2Output, lastPage bool) bool {
+			for _, c := range p.CommonPrefixes {
+				key, ok := url.Match(*c.Prefix)
+				if !ok {
+					continue
+				}
+
+				itemChan <- &ItemResponse{
+					item: Item{
+						Content:     &s3.Object{Key: c.Prefix},
+						Key:         key,
+						IsDirectory: true,
+					},
+				}
+				itemFound = true
 			}
-			itemChan <- &Item{
-				Content:     &s3.Object{Key: c.Prefix},
-				Key:         key,
-				IsDirectory: true,
+			for _, c := range p.Contents {
+				key, ok := url.Match(*c.Key)
+				if !ok {
+					continue
+				}
+
+				itemChan <- &ItemResponse{
+					item: Item{
+						Content:     c,
+						Key:         key,
+						IsDirectory: key[len(key)-1] == '/',
+					},
+				}
+				itemFound = true
 			}
+
+			return !lastPage
+		})
+
+		if err != nil {
+			itemChan <- &ItemResponse{err:  err}
+			return
 		}
-		for _, c := range p.Contents {
-			key, ok := url.Match(*c.Key)
-			if !ok {
-				continue
-			}
 
-			itemChan <- &Item{
-				Content:     c,
-				Key:         key,
-				IsDirectory: key[len(key)-1] == '/',
-			}
+		if !itemFound {
+			itemChan <- &ItemResponse{err: ErrNoItemFound}
 		}
-		if !*p.IsTruncated {
-			itemChan <- nil // EOF
-		}
+	}()
 
-		return true
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	return itemChan, nil
+	return itemChan
 }
+
 
 func (s *S3) Copy(ctx context.Context, from, key, dst, cls string) error {
 	_, err := s.api.CopyObject(&s3.CopyObjectInput{
@@ -172,6 +188,7 @@ func (s *S3) Remove(ctx context.Context, from string, keys ...string) error {
 	return err
 }
 
+// retry on 429
 func (s *S3) ListBuckets(ctx context.Context, prefix string) ([]string, error) {
 	o, err := s.api.ListBucketsWithContext(ctx, &s3.ListBucketsInput{})
 	if err != nil {
@@ -186,6 +203,7 @@ func (s *S3) ListBuckets(ctx context.Context, prefix string) ([]string, error) {
 	}
 	return buckets, nil
 }
+
 
 // NewAwsSession initializes a new AWS session with region fallback and custom options
 func newAWSSession(opts S3Opts) (*session.Session, error) {
@@ -241,3 +259,4 @@ func newAWSSession(opts S3Opts) (*session.Session, error) {
 
 	return ses, err
 }
+

@@ -8,7 +8,7 @@ import (
 
 	"github.com/peak/s5cmd/opt"
 	"github.com/peak/s5cmd/stats"
-	"github.com/peak/s5cmd/url"
+	"github.com/peak/s5cmd/s3url"
 )
 
 var (
@@ -25,7 +25,7 @@ var (
 // JobArgument is an argument of the job. Can be a file/directory, an s3 url ("s3" is set in this case) or an arbitrary string.
 type JobArgument struct {
 	arg string
-	s3  *url.S3Url
+	s3  *s3url.S3Url
 
 	filled  bool
 	exists  bool
@@ -33,13 +33,13 @@ type JobArgument struct {
 	modTime time.Time
 }
 
-func NewJobArgument(arg string, s3 *url.S3Url) *JobArgument {
+func NewJobArgument(arg string, s3 *s3url.S3Url) *JobArgument {
 	return &JobArgument{arg: arg, s3: s3}
 }
 
 // Clone duplicates a JobArgument and returns a pointer to a new one
 func (a *JobArgument) Clone() *JobArgument {
-	var s url.S3Url
+	var s s3url.S3Url
 	if a.s3 != nil {
 		s = a.s3.Clone()
 	}

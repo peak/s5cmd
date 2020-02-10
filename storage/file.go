@@ -4,7 +4,7 @@ import (
 	"context"
 	"io"
 
-	"github.com/peak/s5cmd/url"
+	"github.com/peak/s5cmd/s3url"
 )
 
 var _ Storage = (*File)(nil)
@@ -16,7 +16,7 @@ func (f File) Head(context.Context, string, string) (*Item, error) {
 	panic("implement me")
 }
 
-func (f File) List(context.Context, *url.S3Url) (<-chan *Item, error) {
+func (f File) List(context.Context, *s3url.S3Url) <-chan *ItemResponse {
 	panic("implement me")
 }
 

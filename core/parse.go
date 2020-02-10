@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/peak/s5cmd/opt"
-	"github.com/peak/s5cmd/url"
+	"github.com/peak/s5cmd/s3url"
 )
 
 const (
@@ -44,17 +44,17 @@ func parseArgumentByType(s string, t opt.ParamType, fnObj *JobArgument) (*JobArg
 		return NewJobArgument(s, nil), nil
 
 	case opt.S3Obj, opt.S3ObjOrDir, opt.S3WildObj, opt.S3Dir, opt.S3SimpleObj:
-		uri, err := url.ParseS3Url(s)
+		uri, err := s3url.New(s)
 		if err != nil {
 			return nil, err
 		}
 		s = "s3://" + uri.Format() // rebuild s with formatted url
 
-		if (t == opt.S3Obj || t == opt.S3ObjOrDir || t == opt.S3SimpleObj) && url.HasWild(uri.Key) {
+		if (t == opt.S3Obj || t == opt.S3ObjOrDir || t == opt.S3SimpleObj) && s3url.HasWild(uri.Key) {
 			return nil, errors.New("s3 key cannot contain wildcards")
 		}
 		if t == opt.S3WildObj {
-			if !url.HasWild(uri.Key) {
+			if !s3url.HasWild(uri.Key) {
 				return nil, errors.New("s3 key should contain wildcards")
 			}
 			if uri.Key == "" {
@@ -93,7 +93,7 @@ func parseArgumentByType(s string, t opt.ParamType, fnObj *JobArgument) (*JobArg
 		fallthrough
 	case opt.FileObj, opt.FileOrDir, opt.Dir:
 		// check if we have s3 object
-		_, err := url.ParseS3Url(s)
+		_, err := s3url.New(s)
 		if err == nil {
 			return nil, errors.New("file param resembles s3 object")
 		}
@@ -149,7 +149,7 @@ func parseArgumentByType(s string, t opt.ParamType, fnObj *JobArgument) (*JobArg
 		return NewJobArgument(s, nil), nil
 
 	case opt.Glob:
-		_, err := url.ParseS3Url(s)
+		_, err := s3url.New(s)
 		if err == nil {
 			return nil, errors.New("glob param resembles s3 object")
 		}

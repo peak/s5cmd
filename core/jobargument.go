@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/peak/s5cmd/opt"
-	"github.com/peak/s5cmd/stats"
 	"github.com/peak/s5cmd/s3url"
+	"github.com/peak/s5cmd/stats"
 )
 
 var (
@@ -154,7 +154,7 @@ func (a *JobArgument) fillData(wp *WorkerParams) error {
 
 	}
 
-	h, err := s3head(wp.s3svc, a.s3)
+	item, err := wp.storage.Head(wp.ctx, a.s3)
 	wp.st.IncrementIfSuccess(stats.S3Op, err)
 
 	if err != nil {
@@ -165,12 +165,12 @@ func (a *JobArgument) fillData(wp *WorkerParams) error {
 
 	a.filled = true
 	a.exists = true
-	if h.LastModified != nil {
-		a.modTime = *(h.LastModified)
+	if item.Content.LastModified != nil {
+		a.modTime = *(item.Content.LastModified)
 	}
 
-	if h.ContentLength != nil {
-		a.size = *(h.ContentLength)
+	if item.Content.Size != nil {
+		a.size = *(item.Content.Size)
 	}
 
 	return nil

@@ -9,6 +9,8 @@ import (
 
 	"github.com/peak/s5cmd/op"
 	"github.com/peak/s5cmd/opt"
+	"github.com/peak/s5cmd/s3url"
+	"github.com/peak/s5cmd/storage"
 )
 
 const dateFormat = "2006/01/02 15:04:05"
@@ -75,26 +77,17 @@ func (j *Job) out(short shortCode, format string, a ...interface{}) {
 }
 
 // PrintOK notifies the user about the positive outcome of the job. Internal operations are not shown, sub-jobs use short syntax.
-func (j *Job) PrintOK(err AcceptableError) {
+func (j *Job) PrintOK() {
 	if j.operation.IsInternal() {
 		return
 	}
 
 	if j.isSubJob {
-		if err != nil {
-			j.out(shortOkWithError, `"%s" (%s)`, j, err.Error())
-		} else {
-			j.out(shortOk, `"%s"`, j)
-		}
+		j.out(shortOk, `"%s"`, j)
 		return
 	}
 
-	errStr := ""
 	okStr := "OK"
-	if err != nil {
-		errStr = " (" + err.Error() + ")"
-		okStr = "OK?"
-	}
 
 	// Add successful jobs and considered-successful (finished with AcceptableError) jobs together
 	var totalSuccess uint32
@@ -110,14 +103,14 @@ func (j *Job) PrintOK(err AcceptableError) {
 
 	if totalSuccess > 0 {
 		if j.numFails != nil && *j.numFails > 0 {
-			log.Printf(`+%s "%s"%s (%d, %d failed)`, okStr, j, errStr, totalSuccess, *j.numFails)
+			log.Printf(`+%s "%s" (%d, %d failed)`, okStr, j, totalSuccess, *j.numFails)
 		} else {
-			log.Printf(`+%s "%s"%s (%d)`, okStr, j, errStr, totalSuccess)
+			log.Printf(`+%s "%s" (%d)`, okStr, j, totalSuccess)
 		}
 	} else if j.numFails != nil && *j.numFails > 0 {
-		log.Printf(`+%s "%s"%s (%d failed)`, okStr, j, errStr, *j.numFails)
+		log.Printf(`+%s "%s" (%d failed)`, okStr, j, *j.numFails)
 	} else {
-		log.Printf(`+%s "%s"%s`, okStr, j, errStr)
+		log.Printf(`+%s "%s"`, okStr, j)
 	}
 }
 
@@ -181,8 +174,7 @@ func (j *Job) Run(wp *WorkerParams) error {
 	return wp.st.IncrementIfSuccess(kind, err)
 }
 
-type wildLister func(chan<- interface{}) error
-type wildCallback func(interface{}) *Job
+type wildCallback func(*storage.Item) *Job
 
 // wildOperation is the cornerstone of sub-job launching.
 //
@@ -196,68 +188,58 @@ type wildCallback func(interface{}) *Job
 // error if even a single sub-job was not successful
 //
 // Midway-failing lister() fns are not thoroughly tested and may hang or panic.
-func wildOperation(wp *WorkerParams, lister wildLister, callback wildCallback) error {
-	itemCh := make(chan interface{})
-	doneCh := make(chan struct{})
-
+func wildOperation(url *s3url.S3Url, wp *WorkerParams, callback wildCallback) error {
 	subjobStats := subjobStatsType{} // Tally successful and total processed sub-jobs here
 	var subJobCounter uint32         // number of total subJobs issued
 
-	// This goroutine will read ls results from ch and issue new subJobs
+	doneCh := make(chan struct{})
 	go func() {
-		defer close(doneCh)
+		subjobStats.Wait() // Wait for all jobs to finish
+		close(doneCh)
+	}()
 
-		// If channel closed early: err returned from s3list?
-		for data := range itemCh {
-			j := callback(data)
-			if j != nil {
-				j.subJobData = &subjobStats
-				subjobStats.Add(1)
-				subJobCounter++
-				select {
-				case *wp.subJobQueue <- j:
-				case <-wp.ctx.Done():
+	go func() {
+		for {
+			select {
+			case res, ok := <-wp.storage.List(wp.ctx, url):
+				if !ok {
 					return
 				}
-			}
-			if data == nil {
-				// End of listing
+
+				if res.Err != nil {
+					verboseLog("wildOperation lister is done with error: %v", res.Err)
+					return
+				}
+
+				j := callback(res.Item)
+				if j != nil {
+					j.subJobData = &subjobStats
+					subjobStats.Add(1)
+					subJobCounter++
+					select {
+					case *wp.subJobQueue <- j:
+					case <-wp.ctx.Done():
+						return
+					}
+				}
+			case <-wp.ctx.Done():
 				return
 			}
 		}
 	}()
 
-	// Do the actual work
-	err := lister(itemCh)
-	if err == nil {
-		verboseLog("wildOperation lister is done without error")
-		// This select ensures that we don't return to the main loop without
-		// completely getting the list results (and queueing up operations on
-		// subJobQueue)
-		<-doneCh
-		verboseLog("wildOperation all subjobs sent")
-
-		doneCh := make(chan struct{})
-		go func() {
-			subjobStats.Wait() // Wait for all jobs to finish
-			close(doneCh)
-		}()
-
-		// Block until waitgroup is finished or we're cancelled (then it won't finish)
-		select {
-		case <-doneCh:
-		case <-wp.ctx.Done():
-		}
-
-		s := atomic.LoadUint32(&(subjobStats.numSuccess))
-		verboseLog("wildOperation all subjobs finished: %d/%d", s, subJobCounter)
-
-		if s != subJobCounter {
-			err = fmt.Errorf("not all jobs completed successfully: %d/%d", s, subJobCounter)
-		}
-	} else {
-		verboseLog("wildOperation lister is done with error: %v", err)
+	// Block until waitgroup is finished or we're cancelled (then it won't finish)
+	select {
+	case <-doneCh:
+	case <-wp.ctx.Done():
 	}
-	close(itemCh)
+
+	s := atomic.LoadUint32(&(subjobStats.numSuccess))
+	verboseLog("wildOperation all subjobs finished: %d/%d", s, subJobCounter)
+
+	var err error
+	if s != subJobCounter {
+		err = fmt.Errorf("not all jobs completed successfully: %d/%d", s, subJobCounter)
+	}
 	return err
 }

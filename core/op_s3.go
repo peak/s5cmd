@@ -1,7 +1,6 @@
 package core
 
 import (
-	"errors"
 	"fmt"
 	"math"
 	"os"
@@ -15,8 +14,9 @@ import (
 
 	"github.com/peak/s5cmd/op"
 	"github.com/peak/s5cmd/opt"
-	"github.com/peak/s5cmd/stats"
 	"github.com/peak/s5cmd/s3url"
+	"github.com/peak/s5cmd/stats"
+	"github.com/peak/s5cmd/storage"
 )
 
 func S3Copy(job *Job, wp *WorkerParams) (stats.StatType, error) {
@@ -37,15 +37,15 @@ func S3Copy(job *Job, wp *WorkerParams) (stats.StatType, error) {
 		cls = s3.ObjectStorageClassStandard
 	}
 
-	_, err = wp.s3svc.CopyObject(&s3.CopyObjectInput{
-		Bucket:       aws.String(job.args[1].s3.Bucket),
-		Key:          aws.String(job.args[1].s3.Key),
-		CopySource:   aws.String(job.args[0].s3.Format()),
-		StorageClass: aws.String(cls),
-	})
+	err = wp.storage.Copy(
+		wp.ctx,
+		job.args[1].s3,
+		job.args[0].s3,
+		cls,
+	)
 
 	if job.opts.Has(opt.DeleteSource) && err == nil {
-		_, err = s3delete(wp.s3svc, job.args[0].s3)
+		err = wp.storage.Delete(wp.ctx, job.args[0].s3.Bucket, job.args[0].s3.Key)
 	}
 
 	return opType, err
@@ -54,7 +54,7 @@ func S3Copy(job *Job, wp *WorkerParams) (stats.StatType, error) {
 func S3Delete(job *Job, wp *WorkerParams) (stats.StatType, error) {
 	const opType = stats.S3Op
 
-	_, err := s3delete(wp.s3svc, job.args[0].s3)
+	err := wp.storage.Delete(wp.ctx, job.args[0].s3.Bucket, job.args[0].s3.Key)
 	return opType, err
 }
 
@@ -72,35 +72,35 @@ func S3BatchDelete(job *Job, wp *WorkerParams) (stats.StatType, error) {
 		jobArgs = append(jobArgs, &srcBucket)
 	}
 
-	addArg := func(key *string) *Job {
+	addArg := func(item *storage.Item) *Job {
 		var subJob *Job
 
 		if jobArgs == nil {
 			initArgs()
 		}
 
-		if (key == nil || len(jobArgs) == maxArgs) && len(jobArgs) > 1 {
+		if (item == nil || len(jobArgs) == maxArgs) && len(jobArgs) > 1 {
 			subJob = job.MakeSubJob("batch-rm", op.BatchDeleteActual, jobArgs, opt.OptionList{})
 			initArgs()
 		}
 
-		if key != nil {
-			jobArgs = append(jobArgs, &JobArgument{arg: *key})
+		if item != nil {
+			jobArgs = append(jobArgs, &JobArgument{arg: item.Key})
 		}
 
 		return subJob
 	}
 
-	err := s3wildOperation(job.args[0].s3, wp, func(li *s3listItem) *Job {
-		if li == nil {
+	err := wildOperation(job.args[0].s3, wp, func(item *storage.Item) *Job {
+		if item == nil {
 			return addArg(nil)
 		}
 
-		if li.isDirectory {
+		if item.IsDirectory {
 			return nil
 		}
 
-		return addArg(li.Key)
+		return addArg(item)
 	})
 
 	return opType, err
@@ -109,28 +109,15 @@ func S3BatchDelete(job *Job, wp *WorkerParams) (stats.StatType, error) {
 func S3BatchDeleteActual(job *Job, wp *WorkerParams) (stats.StatType, error) {
 	const opType = stats.S3Op
 
-	obj := make([]*s3.ObjectIdentifier, len(job.args)-1)
+	deleteObjects := make([]string, len(job.args)-1)
 	for i, a := range job.args {
 		if i == 0 {
 			continue
 		}
-		obj[i-1] = &s3.ObjectIdentifier{Key: aws.String(a.arg)}
+		deleteObjects[i-1] = a.arg
 	}
-	o, err := wp.s3svc.DeleteObjectsWithContext(wp.ctx, &s3.DeleteObjectsInput{
-		Bucket: aws.String(job.args[0].s3.Bucket),
-		Delete: &s3.Delete{
-			Objects: obj,
-		},
-	})
-	for _, o := range o.Deleted {
-		job.out(shortOk, `Batch-delete s3://%s/%s`, job.args[0].s3.Bucket, *o.Key)
-	}
-	for _, e := range o.Errors {
-		job.out(shortErr, `Batch-delete s3://%s/%s: %s`, job.args[0].s3.Bucket, *e.Key, *e.Message)
-		if err != nil {
-			err = errors.New(*e.Message)
-		}
-	}
+
+	err := wp.storage.Delete(wp.ctx, job.args[0].s3.Bucket, deleteObjects...)
 	return opType, err
 
 }
@@ -148,27 +135,27 @@ func S3BatchDownload(job *Job, wp *WorkerParams) (stats.StatType, error) {
 	}
 	subCmd += job.opts.GetParams()
 
-	err := s3wildOperation(job.args[0].s3, wp, func(li *s3listItem) *Job {
-		if li == nil || li.isDirectory {
+	err := wildOperation(job.args[0].s3, wp, func(item *storage.Item) *Job {
+		if item == nil || item.IsDirectory {
 			return nil
 		}
 
 		arg1 := NewJobArgument(
-			"s3://"+job.args[0].s3.Bucket+"/"+*li.Key,
-			&s3url.S3Url{Bucket: job.args[0].s3.Bucket, Key: *li.Key},
+			"s3://"+job.args[0].s3.Bucket+"/"+item.Key,
+			&s3url.S3Url{Bucket: job.args[0].s3.Bucket, Key: item.Key},
 		)
 
 		var dstFn string
 		if job.opts.Has(opt.Parents) {
-			dstFn = li.key
+			dstFn = item.Key
 		} else {
-			dstFn = path.Base(li.key)
+			dstFn = path.Base(item.Key)
 		}
 
 		arg2 := job.args[1].StripS3().Append(dstFn, true)
 		subJob := job.MakeSubJob(subCmd, op.Download, []*JobArgument{arg1, arg2}, job.opts)
 
-		if aws.StringValue(li.StorageClass) == s3.ObjectStorageClassGlacier {
+		if aws.StringValue(item.Content.StorageClass) == s3.ObjectStorageClassGlacier {
 			subJob.out(shortErr, `"%s": Cannot download glacier object`, arg1.arg)
 			return nil
 		}
@@ -197,38 +184,7 @@ func S3Download(job *Job, wp *WorkerParams) (stats.StatType, error) {
 	}
 
 	job.out(shortInfo, "Downloading %s...", srcFn)
-
-	ch := make(chan error, 1)
-
-	go func() {
-		var (
-			err      error
-			panicked bool
-		)
-		(func() {
-			defer recoverer(ch, "s3manager.Download", &panicked)
-
-			_, err = wp.s3dl.DownloadWithContext(wp.ctx, f, &s3.GetObjectInput{
-				Bucket: aws.String(job.args[0].s3.Bucket),
-				Key:    aws.String(job.args[0].s3.Key),
-			}, func(u *s3manager.Downloader) {
-				u.PartSize = wp.poolParams.DownloadChunkSizeBytes
-				u.Concurrency = wp.poolParams.DownloadConcurrency
-			})
-
-		})()
-		if !panicked {
-			ch <- err
-		}
-		close(ch)
-	}()
-
-	select {
-	case <-wp.ctx.Done():
-		err = ErrInterrupted
-	case err = <-ch:
-		break
-	}
+	err = wp.storage.Get(wp.ctx, job.args[0].s3, f)
 
 	// FIXME(ig): i don't see a reason for a race condition if this call is
 	// deferrred. Will check later.
@@ -237,7 +193,7 @@ func S3Download(job *Job, wp *WorkerParams) (stats.StatType, error) {
 	if err != nil {
 		os.Remove(destFn) // Remove partly downloaded file
 	} else if job.opts.Has(opt.DeleteSource) {
-		_, err = s3delete(wp.s3svc, job.args[0].s3)
+		err = wp.storage.Delete(wp.ctx, job.args[0].s3.Bucket, job.args[0].s3.Key)
 	}
 
 	return opType, err
@@ -270,7 +226,7 @@ func S3Upload(job *Job, wp *WorkerParams) (stats.StatType, error) {
 	filesize, _ := job.args[0].Size(wp)
 
 	numPartsNeeded := filesize / wp.poolParams.UploadChunkSizeBytes
-	chunkSize := int64(wp.poolParams.UploadChunkSizeBytes / int64(bytesInMb))
+	chunkSize := wp.poolParams.UploadChunkSizeBytes / int64(bytesInMb)
 	if numPartsNeeded > s3manager.MaxUploadParts {
 		cSize := float64(filesize / s3manager.MaxUploadParts)
 		chunkSize = int64(math.Ceil(cSize / bytesInMb))
@@ -279,50 +235,17 @@ func S3Upload(job *Job, wp *WorkerParams) (stats.StatType, error) {
 		job.out(shortInfo, "Uploading %s... (%d bytes)", srcFn, filesize)
 	}
 
-	ch := make(chan error, 1)
+	var cls string
 
-	go func(chunkSizeInBytes int64) {
-		var cls string
-
-		if job.opts.Has(opt.RR) {
-			cls = s3.ObjectStorageClassReducedRedundancy
-		} else if job.opts.Has(opt.IA) {
-			cls = s3.TransitionStorageClassStandardIa
-		} else {
-			cls = s3.ObjectStorageClassStandard
-		}
-
-		var (
-			err      error
-			panicked bool
-		)
-
-		(func() {
-			defer recoverer(ch, "s3manager.Upload", &panicked)
-
-			_, err = wp.s3ul.UploadWithContext(wp.ctx, &s3manager.UploadInput{
-				Bucket:       aws.String(job.args[1].s3.Bucket),
-				Key:          aws.String(job.args[1].s3.Key),
-				Body:         f,
-				StorageClass: aws.String(cls),
-			}, func(u *s3manager.Uploader) {
-				u.PartSize = chunkSizeInBytes
-				u.Concurrency = wp.poolParams.UploadConcurrency
-			})
-		})()
-		if !panicked {
-			ch <- err
-		}
-		close(ch)
-	}(chunkSize * int64(bytesInMb))
-
-	select {
-	case <-wp.ctx.Done():
-		err = ErrInterrupted
-	case err = <-ch:
-		break
+	if job.opts.Has(opt.RR) {
+		cls = s3.ObjectStorageClassReducedRedundancy
+	} else if job.opts.Has(opt.IA) {
+		cls = s3.TransitionStorageClassStandardIa
+	} else {
+		cls = s3.ObjectStorageClassStandard
 	}
 
+	err = wp.storage.Put(wp.ctx, f, job.args[1].s3, cls)
 	if job.opts.Has(opt.DeleteSource) && err == nil {
 		err = os.Remove(job.args[0].arg)
 	}
@@ -339,21 +262,21 @@ func S3BatchCopy(job *Job, wp *WorkerParams) (stats.StatType, error) {
 	}
 	subCmd += job.opts.GetParams()
 
-	err := s3wildOperation(job.args[0].s3, wp, func(li *s3listItem) *Job {
-		if li == nil || li.isDirectory {
+	err := wildOperation(job.args[0].s3, wp, func(item *storage.Item) *Job {
+		if item == nil || item.IsDirectory {
 			return nil
 		}
 
 		arg1 := NewJobArgument(
-			"s3://"+job.args[0].s3.Bucket+"/"+*li.Key,
-			&s3url.S3Url{Bucket: job.args[0].s3.Bucket, Key: *li.Key},
+			"s3://"+job.args[0].s3.Bucket+"/"+item.Key,
+			&s3url.S3Url{Bucket: job.args[0].s3.Bucket, Key: item.Key},
 		)
 
 		var dstFn string
 		if job.opts.Has(opt.Parents) {
-			dstFn = li.key
+			dstFn = item.Key
 		} else {
-			dstFn = path.Base(li.key)
+			dstFn = path.Base(item.Key)
 		}
 
 		arg2 := NewJobArgument(
@@ -362,7 +285,7 @@ func S3BatchCopy(job *Job, wp *WorkerParams) (stats.StatType, error) {
 		)
 
 		subJob := job.MakeSubJob(subCmd, op.Copy, []*JobArgument{arg1, arg2}, job.opts)
-		if aws.StringValue(li.StorageClass) == s3.ObjectStorageClassGlacier {
+		if aws.StringValue(item.Content.StorageClass) == s3.ObjectStorageClassGlacier {
 			subJob.out(shortErr, `"%s": Cannot download glacier object`, arg1.arg)
 			return nil
 		}
@@ -375,10 +298,10 @@ func S3BatchCopy(job *Job, wp *WorkerParams) (stats.StatType, error) {
 func S3ListBuckets(job *Job, wp *WorkerParams) (stats.StatType, error) {
 	const opType = stats.S3Op
 
-	o, err := wp.s3svc.ListBucketsWithContext(wp.ctx, &s3.ListBucketsInput{})
+	buckets, err := wp.storage.ListBuckets(wp.ctx, "")
 	if err == nil {
-		for _, b := range o.Buckets {
-			job.out(shortOk, "%s  s3://%s", b.CreationDate.Format(dateFormat), *b.Name)
+		for _, b := range buckets {
+			job.out(shortOk, "%s  s3://%s", b.CreationDate.Format(dateFormat), b.Name)
 		}
 	}
 	return opType, err
@@ -390,19 +313,19 @@ func S3List(job *Job, wp *WorkerParams) (stats.StatType, error) {
 
 	showETags := job.opts.Has(opt.ListETags)
 	humanize := job.opts.Has(opt.HumanReadable)
-	err := s3wildOperation(job.args[0].s3, wp, func(li *s3listItem) *Job {
-		if li == nil {
+	err := wildOperation(job.args[0].s3, wp, func(item *storage.Item) *Job {
+		if item == nil {
 			return nil
 		}
 
-		if li.isDirectory {
-			job.out(shortOk, "%19s %1s %-38s  %12s  %s", "", "", "", "DIR", li.key)
+		if item.IsDirectory {
+			job.out(shortOk, "%19s %1s %-38s  %12s  %s", "", "", "", "DIR", item.Key)
 		} else {
 			var (
 				cls, etag, size string
 			)
 
-			switch aws.StringValue(li.StorageClass) {
+			switch aws.StringValue(item.Content.StorageClass) {
 			case s3.ObjectStorageClassStandard:
 				cls = ""
 			case s3.ObjectStorageClassGlacier:
@@ -416,15 +339,15 @@ func S3List(job *Job, wp *WorkerParams) (stats.StatType, error) {
 			}
 
 			if showETags {
-				etag = strings.Trim(*li.ETag, `"`)
+				etag = strings.Trim(*item.Content.ETag, `"`)
 			}
 			if humanize {
-				size = HumanizeBytes(*li.Size)
+				size = HumanizeBytes(*item.Content.Size)
 			} else {
-				size = fmt.Sprintf("%d", *li.Size)
+				size = fmt.Sprintf("%d", *item.Content.Size)
 			}
 
-			job.out(shortOk, "%s %1s %-38s %12s  %s", li.LastModified.Format(dateFormat), cls, etag, size, li.key)
+			job.out(shortOk, "%s %1s %-38s %12s  %s", item.Content.LastModified.Format(dateFormat), cls, etag, size, item.Key)
 		}
 
 		return nil
@@ -441,13 +364,13 @@ func S3Size(job *Job, wp *WorkerParams) (stats.StatType, error) {
 		count int64
 	}
 	totals := map[string]sizeAndCount{}
-	err := s3wildOperation(job.args[0].s3, wp, func(li *s3listItem) *Job {
-		if li == nil || li.isDirectory {
+	err := wildOperation(job.args[0].s3, wp, func(item *storage.Item) *Job {
+		if item == nil || item.IsDirectory {
 			return nil
 		}
-		storageClass := aws.StringValue(li.StorageClass)
+		storageClass := aws.StringValue(item.Content.StorageClass)
 		s := totals[storageClass]
-		s.size += *li.Size
+		s.size += *item.Content.Size
 		s.count++
 		totals[storageClass] = s
 

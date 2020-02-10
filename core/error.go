@@ -2,13 +2,8 @@ package core
 
 import (
 	"errors"
-	"fmt"
 	"strings"
-
-	"github.com/aws/aws-sdk-go/aws/awserr"
 )
-
-const sdkPanicErrCode = "SdkPanic"
 
 // AcceptableError interface defines an error which is OK-to-have, for things like "cp -n" etc. It should not be treated as an error (regarding the exit code etc)
 type AcceptableError interface {
@@ -48,12 +43,4 @@ func IsAcceptableError(err error) bool {
 		return true
 	}
 	return false
-}
-
-func recoverer(ch chan error, where string, failed *bool) {
-	if r := recover(); r != nil {
-		ch <- awserr.New(sdkPanicErrCode, fmt.Sprintf("Caught %s panic", where), fmt.Errorf("%s: %v", where, r))
-		f := true
-		failed = &f
-	}
 }

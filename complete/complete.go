@@ -22,8 +22,6 @@ import (
 
 const (
 	s3CompletionTimeout = 5 * time.Second
-	s3MaxKeys           = 20
-	s3MaxPages          = 1
 )
 
 // ParseFlagsAndRun will initialize shell-completion, and introduce the shell completion specific options. It also calls flag.Parse()

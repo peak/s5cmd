@@ -97,8 +97,8 @@ func (s *S3) List(ctx context.Context, url *s3url.S3Url) <-chan *ItemResponse {
 
 		err := s.api.ListObjectsV2PagesWithContext(ctx, &inp, func(p *s3.ListObjectsV2Output, lastPage bool) bool {
 			for _, c := range p.CommonPrefixes {
-				key, ok := url.Match(*c.Prefix)
-				if !ok {
+				key := url.Match(*c.Prefix)
+				if key == "" {
 					continue
 				}
 
@@ -112,8 +112,8 @@ func (s *S3) List(ctx context.Context, url *s3url.S3Url) <-chan *ItemResponse {
 				itemFound = true
 			}
 			for _, c := range p.Contents {
-				key, ok := url.Match(*c.Key)
-				if !ok {
+				key := url.Match(*c.Key)
+				if key == "" {
 					continue
 				}
 
@@ -121,7 +121,7 @@ func (s *S3) List(ctx context.Context, url *s3url.S3Url) <-chan *ItemResponse {
 					Item: &Item{
 						Content:     c,
 						Key:         key,
-						IsDirectory: key[len(key)-1] == '/',
+						IsDirectory: strings.HasSuffix(key, "/"),
 					},
 				}
 				itemFound = true

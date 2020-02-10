@@ -121,6 +121,7 @@ func TestS3Url_setPrefixAndFilter(t *testing.T) {
 			after: &S3Url{
 				Key:         "a/b_c/*/de/*/test",
 				Prefix:      "a/b_c/",
+				Delimiter:   "",
 				filter:      "*/de/*/test",
 				filterRegex: regexp.MustCompile("^a/b_c/.*?/de/.*?/test$"),
 			},
@@ -142,8 +143,7 @@ func TestS3Url_setPrefixAndFilter(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := tt.before
-			err := got.setPrefixAndFilter()
-			if err != nil {
+			if err := got.setPrefixAndFilter(); err != nil {
 				t.Errorf("unexpected error %v", err)
 			}
 
@@ -158,7 +158,6 @@ func TestS3Url_New_and_CheckMatch(t *testing.T) {
 	tests := []struct {
 		name string
 		url  string
-		want bool
 		keys map[string]string
 	}{
 		{
@@ -167,7 +166,6 @@ func TestS3Url_New_and_CheckMatch(t *testing.T) {
 			keys: map[string]string{
 				"key": "key",
 			},
-			want: true,
 		},
 		{
 			name: "match_multiple_if_has_no_wildcard_and_dir_root",
@@ -178,7 +176,6 @@ func TestS3Url_New_and_CheckMatch(t *testing.T) {
 				"key/test.pdf":     "test.pdf",
 				"key/test.pdf/aaa": "test.pdf/",
 			},
-			want: true,
 		},
 		{
 			name: "not_match_if_has_no_wildcard_and_invalid_prefix",
@@ -187,7 +184,6 @@ func TestS3Url_New_and_CheckMatch(t *testing.T) {
 				"anotherkey":       "",
 				"invalidkey/dummy": "",
 			},
-			want: false,
 		},
 		{
 			name: "match_if_has_single_wildcard_and_valid_prefix",
@@ -197,7 +193,6 @@ func TestS3Url_New_and_CheckMatch(t *testing.T) {
 				"key/1/b": "1/b",
 				"key/c/b": "c/b",
 			},
-			want: true,
 		},
 		{
 			name: "not_match_if_has_single_wildcard_and_invalid_prefix",
@@ -206,7 +201,6 @@ func TestS3Url_New_and_CheckMatch(t *testing.T) {
 				"another/a/b": "",
 				"invalid/1/b": "",
 			},
-			want: false,
 		},
 		{
 			name: "match_if_has_multiple_wildcard_and_valid_prefix",
@@ -218,7 +212,6 @@ func TestS3Url_New_and_CheckMatch(t *testing.T) {
 				"key/dummy/b/2/c/another_file.tsv": "dummy/b/2/c/another_file.tsv",
 				"key/a/b/c/c/another_file.tsv":     "a/b/c/c/another_file.tsv",
 			},
-			want: true,
 		},
 		{
 			name: "not_match_if_has_multiple_wildcard_and_invalid_prefix",
@@ -227,7 +220,6 @@ func TestS3Url_New_and_CheckMatch(t *testing.T) {
 				"another/a/b/c/c/file.tsv":     "",
 				"invalid/dummy/b/1/c/file.tsv": "",
 			},
-			want: false,
 		},
 		{
 			name: "not_match_if_multiple_wildcard_does_not_match_with_key",
@@ -244,7 +236,6 @@ func TestS3Url_New_and_CheckMatch(t *testing.T) {
 				"file.bsv":  "",
 				"a/b/c.csv": "",
 			},
-			want: false,
 		},
 	}
 	for _, tt := range tests {
@@ -255,11 +246,7 @@ func TestS3Url_New_and_CheckMatch(t *testing.T) {
 			}
 
 			for key, want := range tt.keys {
-				parsedKey, ok := u.Match(key)
-				if got := ok; got != tt.want {
-					t.Errorf("Match() got = %v, want %v", got, tt.want)
-				}
-				if got := parsedKey; got != want {
+				if got := u.Match(key); got != want {
 					t.Errorf("Match() got = %v, want %v", got, want)
 				}
 			}

@@ -1,4 +1,4 @@
-// Package url defines URL types and has helper methods to parse a string into URLs.
+// Package s3url defines URL types and has helper methods to parse a string into URLs.
 package s3url
 
 import (
@@ -11,8 +11,8 @@ const (
 	// s3WildCharacters is valid wildcard characters for a S3Url
 	s3WildCharacters string = "?*"
 
-	// s3Prefix is the prefix used on s3 URLs
-	s3Prefix string = "s3://"
+	// s3Schema is the schema used on s3 URLs
+	s3Schema string = "s3://"
 
 	// s3Separator is the path separator for s3 URLs
 	s3Separator string = "/"
@@ -21,7 +21,7 @@ const (
 	matchAllRe string = ".*"
 )
 
-// S3Url is the metadata that is used on S3 operations (listing, querying)
+// S3Url is the metadata that is used on S3 operations (listing, querying).
 type S3Url struct {
 	Bucket      string
 	Delimiter   string
@@ -43,7 +43,7 @@ func (s S3Url) Format() string {
 	return s.Bucket + s3Separator + s.Key
 }
 
-// setFilterRegex creates url metadata for both wildcard and non-wildcard operations.
+// setPrefixAndFilter creates url metadata for both wildcard and non-wildcard operations.
 //
 // It converts wildcard strings to regex format
 // and pre-compiles it for later usage. It is default to
@@ -110,16 +110,16 @@ func (s S3Url) Clone() S3Url {
 
 // Match check if given key matches with regex and
 // returns parsed key.
-func (s S3Url) Match(key string) (string, bool) {
+func (s S3Url) Match(key string) string {
 	if !s.filterRegex.MatchString(key) {
-		return "", false
+		return ""
 	}
 
 	isBatch := s.filter != ""
 	if isBatch {
-		return parseBatch(s.Prefix, key), true
+		return parseBatch(s.Prefix, key)
 	}
-	return parseNonBatch(s.Prefix, key), true
+	return parseNonBatch(s.Prefix, key)
 }
 
 // parseBatch parses keys for wildcard operations.
@@ -171,8 +171,8 @@ func HasWild(s string) bool {
 
 // New creates new S3Url by parsing given url.
 func New(rawUrl string) (*S3Url, error) {
-	if !strings.HasPrefix(rawUrl, s3Prefix) {
-		return nil, fmt.Errorf("s3 url should start with %s", s3Prefix)
+	if !strings.HasPrefix(rawUrl, s3Schema) {
+		return nil, fmt.Errorf("s3 url should start with %s", s3Schema)
 	}
 	parts := strings.SplitN(rawUrl, s3Separator, 4)
 	if parts[2] == "" {

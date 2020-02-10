@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -114,7 +115,7 @@ func s3list(ctx context.Context, svc *s3.S3, s3url *s3url.S3Url, emitChan chan<-
 			if !emit(&s3listItem{
 				Object:      c,
 				key:         key,
-				isDirectory: key[len(key)-1] == '/',
+				isDirectory: strings.HasSuffix(key, "/"),
 			}) {
 				return false
 			}

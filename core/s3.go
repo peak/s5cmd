@@ -6,8 +6,6 @@ import (
 	"errors"
 	"net/http"
 	"os"
-	"path"
-	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -16,7 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/endpoints"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/peak/s5cmd/url"
+	"github.com/peak/s5cmd/s3url"
 )
 
 var (
@@ -27,14 +25,14 @@ var (
 	ErrNilResult = errors.New("nil result")
 )
 
-func s3delete(svc *s3.S3, obj *url.S3Url) (*s3.DeleteObjectOutput, error) {
+func s3delete(svc *s3.S3, obj *s3url.S3Url) (*s3.DeleteObjectOutput, error) {
 	return svc.DeleteObject(&s3.DeleteObjectInput{
 		Bucket: aws.String(obj.Bucket),
 		Key:    aws.String(obj.Key),
 	})
 }
 
-func s3head(svc *s3.S3, obj *url.S3Url) (*s3.HeadObjectOutput, error) {
+func s3head(svc *s3.S3, obj *s3url.S3Url) (*s3.HeadObjectOutput, error) {
 	return svc.HeadObject(&s3.HeadObjectInput{
 		Bucket: aws.String(obj.Bucket),
 		Key:    aws.String(obj.Key),
@@ -44,56 +42,17 @@ func s3head(svc *s3.S3, obj *url.S3Url) (*s3.HeadObjectOutput, error) {
 type s3listItem struct {
 	*s3.Object
 
-	parsedKey      string
-	isCommonPrefix bool
+	key         string
+	isDirectory bool
 }
 
-func s3list(ctx context.Context, svc *s3.S3, s3url *url.S3Url, emitChan chan<- interface{}) error {
+func s3list(ctx context.Context, svc *s3.S3, s3url *s3url.S3Url, emitChan chan<- interface{}) error {
 	inp := s3.ListObjectsV2Input{
 		Bucket: aws.String(s3url.Bucket),
+		Prefix: aws.String(s3url.Prefix),
 	}
-
-	wildkey := s3url.Key
-	loc := strings.IndexAny(wildkey, url.S3WildCharacters)
-
-	var prefix, filter string
-
-	wildOperation := loc > -1
-	if !wildOperation {
-		// no wildcard operation
-		inp.SetDelimiter("/")
-		prefix = s3url.Key
-
-	} else {
-		// wildcard operation
-		prefix = wildkey[:loc]
-		filter = wildkey[loc:]
-	}
-	inp.SetPrefix(prefix)
-
-	var (
-		r   *regexp.Regexp
-		err error
-	)
-
-	trimPrefix := path.Dir(prefix) + "/"
-	if trimPrefix == "./" {
-		trimPrefix = ""
-	}
-	if !wildOperation {
-		// prevent "ls s3://bucket/path/key" from matching s3://bucket/path/keyword
-		// it will still match s3://bucket/path/keydir/ because we don't match the regex on commonPrefixes
-		filter = prefix[len(trimPrefix):]
-	}
-
-	if filter != "" {
-		filterRegex := regexp.QuoteMeta(filter)
-		filterRegex = strings.Replace(filterRegex, "\\?", ".", -1)
-		filterRegex = strings.Replace(filterRegex, "\\*", ".*?", -1)
-		r, err = regexp.Compile("^" + filterRegex + "$")
-		if err != nil {
-			return err
-		}
+	if s3url.Delimiter != "" {
+		inp.SetDelimiter(s3url.Delimiter)
 	}
 
 	var mu sync.Mutex
@@ -128,37 +87,35 @@ func s3list(ctx context.Context, svc *s3.S3, s3url *url.S3Url, emitChan chan<- i
 			}
 		}
 	}
-
-	err = svc.ListObjectsV2PagesWithContext(ctx, &inp, func(p *s3.ListObjectsV2Output, lastPage bool) bool {
+	err := svc.ListObjectsV2PagesWithContext(ctx, &inp, func(p *s3.ListObjectsV2Output, lastPage bool) bool {
 		if isCanceled() {
 			return false
 		}
+
 		for _, c := range p.CommonPrefixes {
-			key := *c.Prefix
-			if strings.Index(key, trimPrefix) == 0 {
-				key = key[len(trimPrefix):]
+			key := s3url.Match(*c.Prefix)
+			if key == "" {
+				continue
 			}
+
 			if !emit(&s3listItem{
-				Object:         &s3.Object{Key: c.Prefix},
-				parsedKey:      key,
-				isCommonPrefix: true,
+				Object:      &s3.Object{Key: c.Prefix},
+				key:         key,
+				isDirectory: true,
 			}) {
 				return false
 			}
 		}
 		for _, c := range p.Contents {
-			key := *c.Key
-			isCommonPrefix := wildOperation && key[len(key)-1] == '/' // Keys ending with prefix in wild output are "directories"
-			if strings.Index(key, trimPrefix) == 0 {
-				key = key[len(trimPrefix):]
-			}
-			if r != nil && !r.MatchString(key) {
+			key := s3url.Match(*c.Key)
+			if key == "" {
 				continue
 			}
+
 			if !emit(&s3listItem{
-				Object:         c,
-				parsedKey:      key,
-				isCommonPrefix: isCommonPrefix,
+				Object:      c,
+				key:         key,
+				isDirectory: strings.HasSuffix(key, "/"),
 			}) {
 				return false
 			}
@@ -180,7 +137,7 @@ func s3list(ctx context.Context, svc *s3.S3, s3url *url.S3Url, emitChan chan<- i
 
 type s3wildCallback func(*s3listItem) *Job
 
-func s3wildOperation(url *url.S3Url, wp *WorkerParams, callback s3wildCallback) error {
+func s3wildOperation(url *s3url.S3Url, wp *WorkerParams, callback s3wildCallback) error {
 	return wildOperation(wp, func(ch chan<- interface{}) error {
 		return s3list(wp.ctx, wp.s3svc, url, ch)
 	}, func(data interface{}) *Job {

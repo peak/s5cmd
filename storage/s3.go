@@ -23,7 +23,11 @@ import (
 
 var _ Storage = (*S3)(nil)
 
-var ErrNoItemFound = fmt.Errorf("No item found")
+var (
+	ErrNoItemFound = fmt.Errorf("no item found")
+
+	ErrNilResult = fmt.Errorf("nil result")
+)
 
 type S3 struct {
 	api        s3iface.S3API
@@ -97,7 +101,7 @@ func (s *S3) List(ctx context.Context, url *s3url.S3Url) <-chan *ItemResponse {
 				}
 
 				itemChan <- &ItemResponse{
-					item: Item{
+					Item: &Item{
 						Content:     &s3.Object{Key: c.Prefix},
 						Key:         key,
 						IsDirectory: true,
@@ -112,7 +116,7 @@ func (s *S3) List(ctx context.Context, url *s3url.S3Url) <-chan *ItemResponse {
 				}
 
 				itemChan <- &ItemResponse{
-					item: Item{
+					Item: &Item{
 						Content:     c,
 						Key:         key,
 						IsDirectory: key[len(key)-1] == '/',
@@ -125,18 +129,17 @@ func (s *S3) List(ctx context.Context, url *s3url.S3Url) <-chan *ItemResponse {
 		})
 
 		if err != nil {
-			itemChan <- &ItemResponse{err:  err}
+			itemChan <- &ItemResponse{Err: err}
 			return
 		}
 
 		if !itemFound {
-			itemChan <- &ItemResponse{err: ErrNoItemFound}
+			itemChan <- &ItemResponse{Err: ErrNoItemFound}
 		}
 	}()
 
 	return itemChan
 }
-
 
 func (s *S3) Copy(ctx context.Context, from, key, dst, cls string) error {
 	_, err := s.api.CopyObject(&s3.CopyObjectInput{
@@ -188,7 +191,6 @@ func (s *S3) Remove(ctx context.Context, from string, keys ...string) error {
 	return err
 }
 
-// retry on 429
 func (s *S3) ListBuckets(ctx context.Context, prefix string) ([]string, error) {
 	o, err := s.api.ListBucketsWithContext(ctx, &s3.ListBucketsInput{})
 	if err != nil {
@@ -204,6 +206,33 @@ func (s *S3) ListBuckets(ctx context.Context, prefix string) ([]string, error) {
 	return buckets, nil
 }
 
+func (s *S3) UpdateRegion(bucket string) error {
+	o, err := s.api.GetBucketLocation(&s3.GetBucketLocationInput{
+		Bucket: &bucket,
+	})
+	if err == nil && o.LocationConstraint == nil {
+		err = ErrNilResult
+	}
+	if err != nil {
+		return err
+	}
+
+	ses, err := newAWSSession(S3Opts{
+		MaxRetries:           s.opts.MaxRetries,
+		EndpointURL:          s.opts.EndpointURL,
+		Region:               *o.LocationConstraint,
+		NoVerifySSL:          s.opts.NoVerifySSL,
+		MultipartSize:        s.opts.MultipartSize,
+		MultipartConcurrency: s.opts.MultipartConcurrency,
+	})
+
+	if err != nil {
+		return err
+	}
+
+	s.api = s3.New(ses)
+	return nil
+}
 
 // NewAwsSession initializes a new AWS session with region fallback and custom options
 func newAWSSession(opts S3Opts) (*session.Session, error) {
@@ -220,7 +249,7 @@ func newAWSSession(opts S3Opts) (*session.Session, error) {
 		return session.NewSessionWithOptions(session.Options{Config: *c, SharedConfigState: useSharedConfig})
 	}
 
-	awsCfg := aws.NewConfig().WithMaxRetries(opts.MaxRetries) //.WithLogLevel(aws.LogDebug))
+	awsCfg := aws.NewConfig().WithMaxRetries(opts.MaxRetries)
 
 	if opts.EndpointURL != "" {
 		awsCfg = awsCfg.WithEndpoint(opts.EndpointURL).WithS3ForcePathStyle(true)
@@ -252,11 +281,11 @@ func newAWSSession(opts S3Opts) (*session.Session, error) {
 	if err != nil {
 		return nil, err
 	}
-	if (*ses).Config.Region == nil || *(*ses).Config.Region == "" { // No region specified in env or config, fallback to us-east-1
+	if (*ses).Config.Region == nil || *(*ses).Config.Region == "" {
+		// No region specified in env or config, fallback to us-east-1
 		awsCfg = awsCfg.WithRegion(endpoints.UsEast1RegionID)
 		ses, err = newSession(awsCfg)
 	}
 
 	return ses, err
 }
-

@@ -12,6 +12,10 @@ var _ Storage = (*File)(nil)
 type File struct {
 }
 
+func (f File) UpdateRegion(string)  error {
+	panic("implement me")
+}
+
 func (f File) Head(context.Context, string, string) (*Item, error) {
 	panic("implement me")
 }

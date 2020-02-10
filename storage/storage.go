@@ -10,14 +10,18 @@ import (
 )
 
 type ItemResponse struct {
-	item Item
-	err error
+	Item *Item
+	Err error
 }
 
 type Item struct {
 	Content     *s3.Object
 	Key         string
 	IsDirectory bool
+}
+
+func (i Item) String() string {
+	return i.Key
 }
 
 type Storage interface {
@@ -28,4 +32,5 @@ type Storage interface {
 	Put(context.Context, io.Reader, string, string, string) error
 	Remove(context.Context, string, ...string) error
 	ListBuckets(context.Context, string) ([]string, error)
+	UpdateRegion(string) error
 }

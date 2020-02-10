@@ -69,12 +69,12 @@ func TestS3_List_success(t *testing.T) {
 
 	index := 0
 	for got := range mockS3.List(context.Background(), url) {
-		if got.err != nil {
-			t.Errorf("unexpected error: %v", got.err)
+		if got.Err != nil {
+			t.Errorf("unexpected error: %v", got.Err)
 		}
 		want := items[index]
-		if !reflect.DeepEqual(got.item, want) {
-			t.Errorf("got = %v, want %v", got.item, want)
+		if !reflect.DeepEqual(got.Item, want) {
+			t.Errorf("got = %v, want %v", got.Item, want)
 		}
 		index++
 	}
@@ -101,8 +101,8 @@ func TestS3_List_error(t *testing.T) {
 	})
 
 	for got := range mockS3.List(context.Background(), url) {
-		if got.err != mockErr {
-			t.Errorf("error got = %v, want %v", got.err, mockErr)
+		if got.Err != mockErr {
+			t.Errorf("error got = %v, want %v", got.Err, mockErr)
 		}
 	}
 }
@@ -138,8 +138,8 @@ func TestS3_List_no_item_found(t *testing.T) {
 	})
 
 	for got := range mockS3.List(context.Background(), url) {
-		if got.err != ErrNoItemFound {
-			t.Errorf("error got = %v, want %v", got.err, ErrNoItemFound)
+		if got.Err != ErrNoItemFound {
+			t.Errorf("error got = %v, want %v", got.Err, ErrNoItemFound)
 		}
 	}
 }
@@ -172,13 +172,13 @@ func TestS3_List_context_cancelled(t *testing.T) {
 	})
 
 	for got := range mockS3.List(ctx, url) {
-		reqErr, ok := got.err.(awserr.Error)
+		reqErr, ok := got.Err.(awserr.Error)
 		if !ok {
 			t.Errorf("could not convert error")
 		}
 
 		if reqErr.Code() != request.CanceledErrorCode {
-			t.Errorf("error got = %v, want %v", got.err, context.Canceled)
+			t.Errorf("error got = %v, want %v", got.Err, context.Canceled)
 		}
 	}
 }

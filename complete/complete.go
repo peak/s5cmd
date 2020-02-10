@@ -220,7 +220,7 @@ func s3predictor(a cmp.Args) []string {
 		}
 
 		// if only 1 match, fall through and list objects in the bucket
-		if len(buckets) != 1 {
+		if len(ret) != 1 {
 			return ret
 		}
 

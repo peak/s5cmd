@@ -93,8 +93,8 @@ func s3list(ctx context.Context, svc *s3.S3, s3url *s3url.S3Url, emitChan chan<-
 		}
 
 		for _, c := range p.CommonPrefixes {
-			key, ok := s3url.Match(*c.Prefix)
-			if !ok {
+			key := s3url.Match(*c.Prefix)
+			if key == "" {
 				continue
 			}
 
@@ -107,8 +107,8 @@ func s3list(ctx context.Context, svc *s3.S3, s3url *s3url.S3Url, emitChan chan<-
 			}
 		}
 		for _, c := range p.Contents {
-			key, ok := s3url.Match(*c.Key)
-			if !ok {
+			key := s3url.Match(*c.Key)
+			if key == "" {
 				continue
 			}
 

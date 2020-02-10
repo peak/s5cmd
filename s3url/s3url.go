@@ -110,16 +110,16 @@ func (s S3Url) Clone() S3Url {
 
 // Match check if given key matches with regex and
 // returns parsed key.
-func (s S3Url) Match(key string) (string, bool) {
+func (s S3Url) Match(key string) string {
 	if !s.filterRegex.MatchString(key) {
-		return "", false
+		return ""
 	}
 
 	isBatch := s.filter != ""
 	if isBatch {
-		return parseBatch(s.Prefix, key), true
+		return parseBatch(s.Prefix, key)
 	}
-	return parseNonBatch(s.Prefix, key), true
+	return parseNonBatch(s.Prefix, key)
 }
 
 // parseBatch parses keys for wildcard operations.

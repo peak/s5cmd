@@ -121,6 +121,7 @@ func TestS3Url_setPrefixAndFilter(t *testing.T) {
 			after: &S3Url{
 				Key:         "a/b_c/*/de/*/test",
 				Prefix:      "a/b_c/",
+				Delimiter:   "",
 				filter:      "*/de/*/test",
 				filterRegex: regexp.MustCompile("^a/b_c/.*?/de/.*?/test$"),
 			},
@@ -142,8 +143,7 @@ func TestS3Url_setPrefixAndFilter(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := tt.before
-			err := got.setPrefixAndFilter()
-			if err != nil {
+			if err := got.setPrefixAndFilter(); err != nil {
 				t.Errorf("unexpected error %v", err)
 			}
 
@@ -255,11 +255,7 @@ func TestS3Url_New_and_CheckMatch(t *testing.T) {
 			}
 
 			for key, want := range tt.keys {
-				parsedKey, ok := u.Match(key)
-				if got := ok; got != tt.want {
-					t.Errorf("Match() got = %v, want %v", got, tt.want)
-				}
-				if got := parsedKey; got != want {
+				if got := u.Match(key); got != want {
 					t.Errorf("Match() got = %v, want %v", got, want)
 				}
 			}

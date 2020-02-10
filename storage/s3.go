@@ -37,12 +37,14 @@ type S3 struct {
 }
 
 type S3Opts struct {
-	MaxRetries           int
-	EndpointURL          string
-	Region               string
-	NoVerifySSL          bool
-	MultipartSize        int64
-	MultipartConcurrency int
+	MaxRetries             int
+	EndpointURL            string
+	Region                 string
+	NoVerifySSL            bool
+	UploadChunkSizeBytes   int64
+	UploadConcurrency      int
+	DownloadChunkSizeBytes int64
+	DownloadConcurrency    int
 }
 
 func NewS3Storage(opts S3Opts) (*S3, error) {
@@ -59,10 +61,10 @@ func NewS3Storage(opts S3Opts) (*S3, error) {
 	}, nil
 }
 
-func (s *S3) Head(ctx context.Context, to, key string) (*Item, error) {
+func (s *S3) Head(ctx context.Context, url *s3url.S3Url) (*Item, error) {
 	output, err := s.api.HeadObjectWithContext(ctx, &s3.HeadObjectInput{
-		Bucket: aws.String(to),
-		Key:    aws.String(key),
+		Bucket: aws.String(url.Bucket),
+		Key:    aws.String(url.Key),
 	})
 
 	if err != nil {
@@ -75,7 +77,7 @@ func (s *S3) Head(ctx context.Context, to, key string) (*Item, error) {
 			LastModified: output.LastModified,
 			Size:         output.ContentLength,
 		},
-		Key: key,
+		Key: url.Key,
 	}, nil
 }
 
@@ -141,42 +143,42 @@ func (s *S3) List(ctx context.Context, url *s3url.S3Url) <-chan *ItemResponse {
 	return itemChan
 }
 
-func (s *S3) Copy(ctx context.Context, from, key, dst, cls string) error {
+func (s *S3) Copy(ctx context.Context, from, to *s3url.S3Url, cls string) error {
 	_, err := s.api.CopyObject(&s3.CopyObjectInput{
-		Bucket:       aws.String(from),
-		Key:          aws.String(key),
-		CopySource:   aws.String(dst),
+		Bucket:       aws.String(from.Bucket),
+		Key:          aws.String(from.Key),
+		CopySource:   aws.String(to.Format()),
 		StorageClass: aws.String(cls),
 	})
 	return err
 }
 
-func (s *S3) Get(ctx context.Context, to io.WriterAt, from, key string) error {
+func (s *S3) Get(ctx context.Context, from *s3url.S3Url, to io.WriterAt) error {
 	_, err := s.downloader.DownloadWithContext(ctx, to, &s3.GetObjectInput{
-		Bucket: aws.String(from),
-		Key:    aws.String(key),
+		Bucket: aws.String(from.Bucket),
+		Key:    aws.String(from.Key),
 	}, func(u *s3manager.Downloader) {
-		u.PartSize = s.opts.MultipartSize
-		u.Concurrency = s.opts.MultipartConcurrency
+		u.PartSize = s.opts.DownloadChunkSizeBytes
+		u.Concurrency = s.opts.DownloadConcurrency
 	})
 	return err
 }
 
-func (s *S3) Put(ctx context.Context, content io.Reader, to, key, cls string) error {
+func (s *S3) Put(ctx context.Context, from io.Reader, to *s3url.S3Url, cls string) error {
 	_, err := s.uploader.UploadWithContext(ctx, &s3manager.UploadInput{
-		Bucket:       aws.String(to),
-		Key:          aws.String(key),
-		Body:         content,
+		Bucket:       aws.String(to.Bucket),
+		Key:          aws.String(to.Key),
+		Body:         from,
 		StorageClass: aws.String(cls),
 	}, func(u *s3manager.Uploader) {
-		u.PartSize = s.opts.MultipartSize
-		u.Concurrency = s.opts.MultipartConcurrency
+		u.PartSize = s.opts.UploadChunkSizeBytes
+		u.Concurrency = s.opts.UploadConcurrency
 	})
 
 	return err
 }
 
-func (s *S3) Remove(ctx context.Context, from string, keys ...string) error {
+func (s *S3) Delete(ctx context.Context, from string, keys ...string) error {
 	var objects []*s3.ObjectIdentifier
 	for _, key := range keys {
 		objects = append(objects, &s3.ObjectIdentifier{Key: aws.String(key)})
@@ -191,16 +193,19 @@ func (s *S3) Remove(ctx context.Context, from string, keys ...string) error {
 	return err
 }
 
-func (s *S3) ListBuckets(ctx context.Context, prefix string) ([]string, error) {
+func (s *S3) ListBuckets(ctx context.Context, prefix string) ([]Bucket, error) {
 	o, err := s.api.ListBucketsWithContext(ctx, &s3.ListBucketsInput{})
 	if err != nil {
 		return nil, err
 	}
 
-	var buckets []string
+	var buckets []Bucket
 	for _, b := range o.Buckets {
 		if prefix == "" || strings.HasPrefix(*b.Name, prefix) {
-			buckets = append(buckets, prefix)
+			buckets = append(buckets, Bucket{
+				CreationDate: *b.CreationDate,
+				Name:         *b.Name,
+			})
 		}
 	}
 	return buckets, nil
@@ -218,12 +223,14 @@ func (s *S3) UpdateRegion(bucket string) error {
 	}
 
 	ses, err := newAWSSession(S3Opts{
-		MaxRetries:           s.opts.MaxRetries,
-		EndpointURL:          s.opts.EndpointURL,
-		Region:               *o.LocationConstraint,
-		NoVerifySSL:          s.opts.NoVerifySSL,
-		MultipartSize:        s.opts.MultipartSize,
-		MultipartConcurrency: s.opts.MultipartConcurrency,
+		MaxRetries:             s.opts.MaxRetries,
+		EndpointURL:            s.opts.EndpointURL,
+		Region:                 *o.LocationConstraint,
+		NoVerifySSL:            s.opts.NoVerifySSL,
+		DownloadConcurrency:    s.opts.DownloadConcurrency,
+		DownloadChunkSizeBytes: s.opts.DownloadChunkSizeBytes,
+		UploadConcurrency:      s.opts.UploadConcurrency,
+		UploadChunkSizeBytes:   s.opts.UploadChunkSizeBytes,
 	})
 
 	if err != nil {

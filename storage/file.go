@@ -12,11 +12,7 @@ var _ Storage = (*File)(nil)
 type File struct {
 }
 
-func (f File) UpdateRegion(string)  error {
-	panic("implement me")
-}
-
-func (f File) Head(context.Context, string, string) (*Item, error) {
+func (f File) Head(context.Context, *s3url.S3Url) (*Item, error) {
 	panic("implement me")
 }
 
@@ -24,23 +20,26 @@ func (f File) List(context.Context, *s3url.S3Url) <-chan *ItemResponse {
 	panic("implement me")
 }
 
-func (f File) Copy(context.Context, string, string, string, string) error {
+func (f File) Copy(context.Context, *s3url.S3Url, *s3url.S3Url, string) error {
 	panic("implement me")
 }
 
-func (f File) Get(context.Context, io.WriterAt, string, string) error {
+func (f File) Get(context.Context, *s3url.S3Url, io.WriterAt) error {
 	panic("implement me")
 }
 
-func (f File) Put(context.Context, io.Reader, string, string, string) error {
+func (f File) Put(context.Context, io.Reader, *s3url.S3Url, string) error {
 	panic("implement me")
 }
 
-func (f File) Remove(context.Context, string, ...string) error {
+func (f File) Delete(context.Context, string, ...string) error {
 	panic("implement me")
 }
 
-func (f File) ListBuckets(context.Context, string) ([]string, error) {
+func (f File) ListBuckets(context.Context, string) ([]Bucket, error) {
 	panic("implement me")
 }
 
+func (f File) UpdateRegion(string) error {
+	panic("implement me")
+}

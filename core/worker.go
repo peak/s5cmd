@@ -164,15 +164,6 @@ func (p *WorkerPool) queueJob(job *Job) bool {
 	}
 }
 
-func queueSubJob(job *Job, wp *WorkerParams) bool {
-	select {
-	case <-wp.ctx.Done():
-		return false
-	case *wp.subJobQueue <- job:
-		return true
-	}
-}
-
 func (p *WorkerPool) pumpJobQueues() {
 	verboseLog("Start pumping...")
 

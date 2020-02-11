@@ -165,14 +165,8 @@ func (a *JobArgument) fillData(wp *WorkerParams) error {
 
 	a.filled = true
 	a.exists = true
-	if item.Content.LastModified != nil {
-		a.modTime = *(item.Content.LastModified)
-	}
-
-	if item.Content.Size != nil {
-		a.size = *(item.Content.Size)
-	}
-
+	a.modTime = item.LastModified
+	a.size = item.Size
 	return nil
 }
 

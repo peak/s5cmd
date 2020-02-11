@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -29,8 +28,11 @@ var (
 	ErrNilResult = fmt.Errorf("nil result")
 )
 
+// ListAllItems is a type to paginate all S3 keys
+const ListAllItems = -1
+
 // SequenceEndMarker is a marker that is dispatched on end of each sequence
-var SequenceEndMarker = &ItemResponse{}
+var SequenceEndMarker = &Item{}
 
 type S3 struct {
 	api        s3iface.S3API
@@ -75,23 +77,27 @@ func (s *S3) Head(ctx context.Context, url *s3url.S3Url) (*Item, error) {
 	}
 
 	return &Item{
-		Content: &s3.Object{
-			ETag:         output.ETag,
-			LastModified: output.LastModified,
-			Size:         output.ContentLength,
-		},
-		Key: url.Key,
+		Etag:         aws.StringValue(output.ETag),
+		LastModified: aws.TimeValue(output.LastModified),
+		Size:         aws.Int64Value(output.ContentLength),
+		Key:          url.Key,
 	}, nil
 }
 
-func (s *S3) List(ctx context.Context, url *s3url.S3Url) <-chan *ItemResponse {
-	itemChan := make(chan *ItemResponse)
+func (s *S3) List(ctx context.Context, url *s3url.S3Url, maxKeys int64) <-chan *Item {
+	itemChan := make(chan *Item)
 	inp := s3.ListObjectsV2Input{
 		Bucket: aws.String(url.Bucket),
 		Prefix: aws.String(url.Prefix),
 	}
+
 	if url.Delimiter != "" {
 		inp.SetDelimiter(url.Delimiter)
+	}
+
+	shouldPaginate := maxKeys < 0
+	if !shouldPaginate {
+		inp.SetMaxKeys(maxKeys)
 	}
 
 	go func() {
@@ -105,28 +111,29 @@ func (s *S3) List(ctx context.Context, url *s3url.S3Url) <-chan *ItemResponse {
 					continue
 				}
 
-				itemChan <- &ItemResponse{
-					Item: &Item{
-						Content:     &s3.Object{Key: c.Prefix},
-						Key:         key,
-						IsDirectory: true,
-					},
+				itemChan <- &Item{
+					Key:         key,
+					IsDirectory: true,
 				}
+
 				itemFound = true
 			}
+
 			for _, c := range p.Contents {
 				key := url.Match(*c.Key)
 				if key == "" {
 					continue
 				}
 
-				itemChan <- &ItemResponse{
-					Item: &Item{
-						Content:     c,
-						Key:         key,
-						IsDirectory: strings.HasSuffix(key, "/"),
-					},
+				itemChan <- &Item{
+					Key:          key,
+					Etag:         aws.StringValue(c.ETag),
+					LastModified: aws.TimeValue(c.LastModified),
+					IsDirectory:  strings.HasSuffix(key, "/"),
+					Size:         aws.Int64Value(c.Size),
+					StorageClass: aws.StringValue(c.StorageClass),
 				}
+
 				itemFound = true
 			}
 
@@ -134,16 +141,16 @@ func (s *S3) List(ctx context.Context, url *s3url.S3Url) <-chan *ItemResponse {
 				itemChan <- SequenceEndMarker
 			}
 
-			return !lastPage
+			return shouldPaginate && !lastPage
 		})
 
 		if err != nil {
-			itemChan <- &ItemResponse{Err: err}
+			itemChan <- &Item{Err: err}
 			return
 		}
 
 		if !itemFound {
-			itemChan <- &ItemResponse{Err: ErrNoItemFound}
+			itemChan <- &Item{Err: ErrNoItemFound}
 		}
 	}()
 
@@ -171,11 +178,11 @@ func (s *S3) Get(ctx context.Context, from *s3url.S3Url, to io.WriterAt) error {
 	return err
 }
 
-func (s *S3) Put(ctx context.Context, from io.Reader, to *s3url.S3Url, cls string) error {
+func (s *S3) Put(ctx context.Context, reader io.Reader, to *s3url.S3Url, cls string) error {
 	_, err := s.uploader.UploadWithContext(ctx, &s3manager.UploadInput{
 		Bucket:       aws.String(to.Bucket),
 		Key:          aws.String(to.Key),
-		Body:         from,
+		Body:         reader,
 		StorageClass: aws.String(cls),
 	}, func(u *s3manager.Uploader) {
 		u.PartSize = s.opts.UploadChunkSizeBytes
@@ -185,17 +192,15 @@ func (s *S3) Put(ctx context.Context, from io.Reader, to *s3url.S3Url, cls strin
 	return err
 }
 
-func (s *S3) Delete(ctx context.Context, from string, keys ...string) error {
+func (s *S3) Delete(ctx context.Context, bucket string, keys ...string) error {
 	var objects []*s3.ObjectIdentifier
 	for _, key := range keys {
 		objects = append(objects, &s3.ObjectIdentifier{Key: aws.String(key)})
 	}
 
 	_, err := s.api.DeleteObjectsWithContext(ctx, &s3.DeleteObjectsInput{
-		Bucket: aws.String(from),
-		Delete: &s3.Delete{
-			Objects: objects,
-		},
+		Bucket: aws.String(bucket),
+		Delete: &s3.Delete{Objects: objects},
 	})
 	return err
 }
@@ -208,10 +213,11 @@ func (s *S3) ListBuckets(ctx context.Context, prefix string) ([]Bucket, error) {
 
 	var buckets []Bucket
 	for _, b := range o.Buckets {
-		if prefix == "" || strings.HasPrefix(*b.Name, prefix) {
+		bucketName := aws.StringValue(b.Name)
+		if prefix == "" || strings.HasPrefix(bucketName, prefix) {
 			buckets = append(buckets, Bucket{
-				CreationDate: *b.CreationDate,
-				Name:         *b.Name,
+				CreationDate: aws.TimeValue(b.CreationDate),
+				Name:         bucketName,
 			})
 		}
 	}
@@ -232,7 +238,7 @@ func (s *S3) UpdateRegion(bucket string) error {
 	ses, err := newAWSSession(S3Opts{
 		MaxRetries:             s.opts.MaxRetries,
 		EndpointURL:            s.opts.EndpointURL,
-		Region:                 *o.LocationConstraint,
+		Region:                 aws.StringValue(o.LocationConstraint),
 		NoVerifySSL:            s.opts.NoVerifySSL,
 		DownloadConcurrency:    s.opts.DownloadConcurrency,
 		DownloadChunkSizeBytes: s.opts.DownloadChunkSizeBytes,
@@ -267,17 +273,6 @@ func newAWSSession(opts S3Opts) (*session.Session, error) {
 
 	if opts.EndpointURL != "" {
 		awsCfg = awsCfg.WithEndpoint(opts.EndpointURL).WithS3ForcePathStyle(true)
-		endpoint, err := url.Parse(opts.EndpointURL)
-		if err != nil {
-			return nil, err
-		}
-
-		awsCfg = awsCfg.WithEndpoint(opts.EndpointURL).WithS3ForcePathStyle(true)
-
-		const acceleratedHost = "s3-accelerate.amazonaws.com"
-		if endpoint.Hostname() == acceleratedHost {
-			awsCfg = awsCfg.WithS3UseAccelerate(true).WithS3ForcePathStyle(false)
-		}
 	}
 
 	if opts.NoVerifySSL {

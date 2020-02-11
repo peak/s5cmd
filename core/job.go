@@ -139,6 +139,18 @@ func (j *Job) PrintErr(err error) {
 	}
 }
 
+func (j *Job) getStorageClass() string {
+	var cls string
+	if j.opts.Has(opt.RR) {
+		cls = storage.ObjectStorageClassReducedRedundancy
+	} else if j.opts.Has(opt.IA) {
+		cls = storage.TransitionStorageClassStandardIa
+	} else {
+		cls = storage.ObjectStorageClassStandard
+	}
+	return cls
+}
+
 // Notify informs the parent/issuer job if the job succeeded or failed.
 func (j *Job) Notify(success bool) {
 	if j.subJobData == nil {
@@ -202,13 +214,13 @@ func wildOperation(url *s3url.S3Url, wp *WorkerParams, callback wildCallback) er
 	subjobStats := subjobStatsType{} // Tally successful and total processed sub-jobs here
 	var subJobCounter uint32         // number of total subJobs issued
 
-	for res := range wp.storage.List(wp.ctx, url) {
-		if res.Err != nil {
-			verboseLog("wildOperation lister is done with error: %v", res.Err)
+	for item := range wp.storage.List(wp.ctx, url, storage.ListAllItems) {
+		if item.Err != nil {
+			verboseLog("wildOperation lister is done with error: %v", item.Err)
 			continue
 		}
 
-		j := callback(res.Item)
+		j := callback(item)
 		if j != nil {
 			j.subJobData = &subjobStats
 			subjobStats.Add(1)

@@ -22,6 +22,7 @@ import (
 
 const (
 	s3CompletionTimeout = 5 * time.Second
+	s3MaxKeys           = 20
 )
 
 // ParseFlagsAndRun will initialize shell-completion, and introduce the shell completion specific options. It also calls flag.Parse()
@@ -242,10 +243,9 @@ func s3predictor(a cmp.Args) []string {
 			return nil
 		}
 
-		for rec := range client.List(ctx, url) {
-			item := rec.Item
+		for item := range client.List(ctx, url, s3MaxKeys) {
 			// Ignore the 0-byte "*_$folder$" objects in shell completion, created by s3n
-			if *item.Content.Size == 0 && strings.HasSuffix(*item.Content.Key, "_$folder$") {
+			if item.Size == 0 && strings.HasSuffix(item.Key, "_$folder$") {
 				continue
 			}
 

@@ -31,7 +31,6 @@ func CleanupError(err error) (s string) {
 	s = strings.Replace(err.Error(), "\n", " ", -1)
 	s = strings.Replace(s, "\t", " ", -1)
 	s = strings.Replace(s, "  ", " ", -1)
-	s = strings.Replace(s, "  ", " ", -1)
 	s = strings.TrimSpace(s)
 	return
 }

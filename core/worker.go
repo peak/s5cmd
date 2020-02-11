@@ -9,9 +9,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/peak/s5cmd/storage"
-
 	"github.com/peak/s5cmd/stats"
+	"github.com/peak/s5cmd/storage"
 )
 
 // WorkerPoolParams is the common parameters of all worker pools.

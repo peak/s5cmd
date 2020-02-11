@@ -29,6 +29,9 @@ var (
 	ErrNilResult = fmt.Errorf("nil result")
 )
 
+// SequenceEndMarker is a marker that is dispatched on end of each sequence
+var SequenceEndMarker = &ItemResponse{}
+
 type S3 struct {
 	api        s3iface.S3API
 	downloader s3manageriface.DownloaderAPI
@@ -125,6 +128,10 @@ func (s *S3) List(ctx context.Context, url *s3url.S3Url) <-chan *ItemResponse {
 					},
 				}
 				itemFound = true
+			}
+
+			if itemFound && !*p.IsTruncated {
+				itemChan <- SequenceEndMarker
 			}
 
 			return !lastPage

@@ -193,23 +193,6 @@ func wildOperation(url *s3url.S3Url, wp *WorkerParams, callback wildCallback) er
 	subjobStats := subjobStatsType{} // Tally successful and total processed sub-jobs here
 	var subJobCounter uint32         // number of total subJobs issued
 
-	pumpSubJob := func(subJob *Job) {
-		select {
-		case *wp.subJobQueue <- subJob:
-		case <-wp.ctx.Done():
-			break
-		}
-	}
-
-	// TODO: remove this
-	// it is needed to send marker nil callback
-	// to finish batch job creation
-	defer func() {
-		if j := callback(nil); j != nil {
-			pumpSubJob(j)
-		}
-	}()
-
 	for res := range wp.storage.List(wp.ctx, url) {
 		if res.Err != nil {
 			verboseLog("wildOperation lister is done with error: %v", res.Err)
@@ -221,11 +204,15 @@ func wildOperation(url *s3url.S3Url, wp *WorkerParams, callback wildCallback) er
 			j.subJobData = &subjobStats
 			subjobStats.Add(1)
 			subJobCounter++
-			pumpSubJob(j)
+			select {
+			case *wp.subJobQueue <- j:
+			case <-wp.ctx.Done():
+				break
+			}
 		}
 	}
 
-	subjobStats.Wait() // Wait for all jobs to finish
+	subjobStats.Wait()
 
 	s := atomic.LoadUint32(&(subjobStats.numSuccess))
 	verboseLog("wildOperation all subjobs finished: %d/%d", s, subJobCounter)

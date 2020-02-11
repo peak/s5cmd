@@ -127,7 +127,10 @@ func (p *WorkerPool) runWorker(st *stats.Stats, idlingCounter *int32, id int) {
 			setWorking()
 
 			if err := job.Run(&wp); err != nil {
-				if IsAcceptableError(err) {
+				if acceptableErr := IsAcceptableError(err); acceptableErr != nil {
+					if acceptableErr != ErrDisplayedHelp {
+						job.PrintOK(acceptableErr)
+					}
 					job.Notify(true)
 				} else {
 					job.PrintErr(err)
@@ -135,7 +138,7 @@ func (p *WorkerPool) runWorker(st *stats.Stats, idlingCounter *int32, id int) {
 					job.Notify(false)
 				}
 			} else {
-				job.PrintOK()
+				job.PrintOK(nil)
 				job.Notify(true)
 			}
 

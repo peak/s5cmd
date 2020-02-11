@@ -214,11 +214,9 @@ func main() {
 		s3ops := s.Get(stats.S3Op)
 		fileops := s.Get(stats.FileOp)
 		shellops := s.Get(stats.ShellOp)
-		retryops := s.Get(stats.RetryOp)
 		printOps("S3", s3ops, elapsed, "")
 		printOps("File", fileops, elapsed, "")
 		printOps("Shell", shellops, elapsed, "")
-		printOps("Retried", retryops, elapsed, "")
 		printOps("Failed", failops, elapsed, "")
 
 		printOps("Total", s3ops+fileops+shellops+failops, elapsed, fmt.Sprintf(" %v", elapsed))

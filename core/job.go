@@ -77,17 +77,26 @@ func (j *Job) out(short shortCode, format string, a ...interface{}) {
 }
 
 // PrintOK notifies the user about the positive outcome of the job. Internal operations are not shown, sub-jobs use short syntax.
-func (j *Job) PrintOK() {
+func (j *Job) PrintOK(err AcceptableError) {
 	if j.operation.IsInternal() {
 		return
 	}
 
 	if j.isSubJob {
-		j.out(shortOk, `"%s"`, j)
+		if err != nil {
+			j.out(shortOkWithError, `"%s" (%s)`, j, err.Error())
+		} else {
+			j.out(shortOk, `"%s"`, j)
+		}
 		return
 	}
 
+	errStr := ""
 	okStr := "OK"
+	if err != nil {
+		errStr = " (" + err.Error() + ")"
+		okStr = "OK?"
+	}
 
 	// Add successful jobs and considered-successful (finished with AcceptableError) jobs together
 	var totalSuccess uint32
@@ -103,14 +112,14 @@ func (j *Job) PrintOK() {
 
 	if totalSuccess > 0 {
 		if j.numFails != nil && *j.numFails > 0 {
-			log.Printf(`+%s "%s" (%d, %d failed)`, okStr, j, totalSuccess, *j.numFails)
+			log.Printf(`+%s "%s"%s (%d, %d failed)`, okStr, j, errStr, totalSuccess, *j.numFails)
 		} else {
-			log.Printf(`+%s "%s" (%d)`, okStr, j, totalSuccess)
+			log.Printf(`+%s "%s"%s (%d)`, okStr, j, errStr, totalSuccess)
 		}
 	} else if j.numFails != nil && *j.numFails > 0 {
-		log.Printf(`+%s "%s" (%d failed)`, okStr, j, *j.numFails)
+		log.Printf(`+%s "%s"%s (%d failed)`, okStr, j, errStr, *j.numFails)
 	} else {
-		log.Printf(`+%s "%s"`, okStr, j)
+		log.Printf(`+%s "%s"%s`, okStr, j, errStr)
 	}
 }
 

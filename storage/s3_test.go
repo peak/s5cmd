@@ -20,17 +20,17 @@ func TestS3_List_success(t *testing.T) {
 		t.Errorf("unexpected error: %v", err)
 	}
 
-	testClient := s3.New(unit.Session)
+	mockApi := s3.New(unit.Session)
 	mockS3 := &S3{
-		api:  testClient,
+		api:  mockApi,
 		opts: S3Opts{},
 	}
 
-	testClient.Handlers.Send.Clear() // mock sending
-	testClient.Handlers.Unmarshal.Clear()
-	testClient.Handlers.UnmarshalMeta.Clear()
-	testClient.Handlers.ValidateResponse.Clear()
-	testClient.Handlers.Unmarshal.PushBack(func(r *request.Request) {
+	mockApi.Handlers.Send.Clear() // mock sending
+	mockApi.Handlers.Unmarshal.Clear()
+	mockApi.Handlers.UnmarshalMeta.Clear()
+	mockApi.Handlers.ValidateResponse.Clear()
+	mockApi.Handlers.Unmarshal.PushBack(func(r *request.Request) {
 		r.Data = &s3.ListObjectsV2Output{
 			CommonPrefixes: []*s3.CommonPrefix{
 				{Prefix: aws.String("key/a/")},
@@ -94,17 +94,17 @@ func TestS3_List_error(t *testing.T) {
 		t.Errorf("unexpected error: %v", err)
 	}
 
-	testClient := s3.New(unit.Session)
+	mockApi := s3.New(unit.Session)
 	mockS3 := &S3{
-		api:  testClient,
+		api:  mockApi,
 		opts: S3Opts{},
 	}
 	mockErr := fmt.Errorf("mock error")
 
-	testClient.Handlers.Unmarshal.Clear()
-	testClient.Handlers.UnmarshalMeta.Clear()
-	testClient.Handlers.ValidateResponse.Clear()
-	testClient.Handlers.Send.PushBack(func(r *request.Request) {
+	mockApi.Handlers.Unmarshal.Clear()
+	mockApi.Handlers.UnmarshalMeta.Clear()
+	mockApi.Handlers.ValidateResponse.Clear()
+	mockApi.Handlers.Send.PushBack(func(r *request.Request) {
 		r.Error = mockErr
 	})
 
@@ -121,17 +121,17 @@ func TestS3_List_no_item_found(t *testing.T) {
 		t.Errorf("unexpected error: %v", err)
 	}
 
-	testClient := s3.New(unit.Session)
+	mockApi := s3.New(unit.Session)
 	mockS3 := &S3{
-		api:  testClient,
+		api:  mockApi,
 		opts: S3Opts{},
 	}
 
-	testClient.Handlers.Send.Clear() // mock sending
-	testClient.Handlers.Unmarshal.Clear()
-	testClient.Handlers.UnmarshalMeta.Clear()
-	testClient.Handlers.ValidateResponse.Clear()
-	testClient.Handlers.Unmarshal.PushBack(func(r *request.Request) {
+	mockApi.Handlers.Send.Clear() // mock sending
+	mockApi.Handlers.Unmarshal.Clear()
+	mockApi.Handlers.UnmarshalMeta.Clear()
+	mockApi.Handlers.ValidateResponse.Clear()
+	mockApi.Handlers.Unmarshal.PushBack(func(r *request.Request) {
 		// output does not include keys that match with given key
 		r.Data = &s3.ListObjectsV2Output{
 			CommonPrefixes: []*s3.CommonPrefix{
@@ -158,9 +158,9 @@ func TestS3_List_context_cancelled(t *testing.T) {
 		t.Errorf("unexpected error: %v", err)
 	}
 
-	testClient := s3.New(unit.Session)
+	mockApi := s3.New(unit.Session)
 	mockS3 := &S3{
-		api:  testClient,
+		api:  mockApi,
 		opts: S3Opts{},
 	}
 
@@ -168,10 +168,10 @@ func TestS3_List_context_cancelled(t *testing.T) {
 	cancel()
 	// cancel request before handling it
 
-	testClient.Handlers.Unmarshal.Clear()
-	testClient.Handlers.UnmarshalMeta.Clear()
-	testClient.Handlers.ValidateResponse.Clear()
-	testClient.Handlers.Unmarshal.PushBack(func(r *request.Request) {
+	mockApi.Handlers.Unmarshal.Clear()
+	mockApi.Handlers.UnmarshalMeta.Clear()
+	mockApi.Handlers.ValidateResponse.Clear()
+	mockApi.Handlers.Unmarshal.PushBack(func(r *request.Request) {
 		r.Data = &s3.ListObjectsV2Output{
 			CommonPrefixes: []*s3.CommonPrefix{
 				{Prefix: aws.String("key/a/")},

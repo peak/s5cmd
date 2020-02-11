@@ -14,7 +14,6 @@ import (
 	"github.com/peak/s5cmd/s3url"
 )
 
-
 func TestS3_List_success(t *testing.T) {
 	url, err := s3url.New("s3://bucket/key")
 	if err != nil {
@@ -23,8 +22,8 @@ func TestS3_List_success(t *testing.T) {
 
 	testClient := s3.New(unit.Session)
 	mockS3 := &S3{
-		api:        testClient,
-		opts:       S3Opts{},
+		api:  testClient,
+		opts: S3Opts{},
 	}
 
 	testClient.Handlers.Send.Clear() // mock sending
@@ -37,33 +36,41 @@ func TestS3_List_success(t *testing.T) {
 				{Prefix: aws.String("key/a/")},
 				{Prefix: aws.String("key/b/")},
 			},
-			Contents:               []*s3.Object{
+			Contents: []*s3.Object{
 				{Key: aws.String("key/test.txt")},
 				{Key: aws.String("key/test.pdf")},
 			},
 		}
 	})
 
-	items := []Item{
+	responses := []*ItemResponse{
 		{
-			IsDirectory: true,
-			Key: "a/",
-			Content:  &s3.Object{Key: aws.String("key/a/")},
+			Item: &Item{
+				IsDirectory: true,
+				Key:         "a/",
+				Content:     &s3.Object{Key: aws.String("key/a/")},
+			},
 		},
 		{
-			IsDirectory: true,
-			Key: "b/",
-			Content:  &s3.Object{Key: aws.String("key/b/")},
+			Item: &Item{
+				IsDirectory: true,
+				Key:         "b/",
+				Content:     &s3.Object{Key: aws.String("key/b/")},
+			},
 		},
 		{
-			IsDirectory: false,
-			Key: "test.txt",
-			Content:  &s3.Object{Key: aws.String("key/test.txt")},
+			Item: &Item{
+				IsDirectory: false,
+				Key:         "test.txt",
+				Content:     &s3.Object{Key: aws.String("key/test.txt")},
+			},
 		},
 		{
-			IsDirectory: false,
-			Key: "test.pdf",
-			Content:  &s3.Object{Key: aws.String("key/test.pdf")},
+			Item: &Item{
+				IsDirectory: false,
+				Key:         "test.pdf",
+				Content:     &s3.Object{Key: aws.String("key/test.pdf")},
+			},
 		},
 	}
 
@@ -72,9 +79,9 @@ func TestS3_List_success(t *testing.T) {
 		if got.Err != nil {
 			t.Errorf("unexpected error: %v", got.Err)
 		}
-		want := items[index]
-		if !reflect.DeepEqual(got.Item, want) {
-			t.Errorf("got = %v, want %v", got.Item, want)
+		want := responses[index]
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("got = %v, want %v", got, want)
 		}
 		index++
 	}
@@ -88,8 +95,8 @@ func TestS3_List_error(t *testing.T) {
 
 	testClient := s3.New(unit.Session)
 	mockS3 := &S3{
-		api:        testClient,
-		opts:       S3Opts{},
+		api:  testClient,
+		opts: S3Opts{},
 	}
 	mockErr := fmt.Errorf("mock error")
 
@@ -115,8 +122,8 @@ func TestS3_List_no_item_found(t *testing.T) {
 
 	testClient := s3.New(unit.Session)
 	mockS3 := &S3{
-		api:        testClient,
-		opts:       S3Opts{},
+		api:  testClient,
+		opts: S3Opts{},
 	}
 
 	testClient.Handlers.Send.Clear() // mock sending
@@ -130,7 +137,7 @@ func TestS3_List_no_item_found(t *testing.T) {
 				{Prefix: aws.String("anotherkey/a/")},
 				{Prefix: aws.String("anotherkey/b/")},
 			},
-			Contents:               []*s3.Object{
+			Contents: []*s3.Object{
 				{Key: aws.String("a/b/c/d/test.txt")},
 				{Key: aws.String("unknown/test.pdf")},
 			},
@@ -152,8 +159,8 @@ func TestS3_List_context_cancelled(t *testing.T) {
 
 	testClient := s3.New(unit.Session)
 	mockS3 := &S3{
-		api:        testClient,
-		opts:       S3Opts{},
+		api:  testClient,
+		opts: S3Opts{},
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())

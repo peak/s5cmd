@@ -2,7 +2,6 @@ package core
 
 import (
 	"fmt"
-	"math"
 	"os"
 	"path"
 	"path/filepath"
@@ -10,7 +9,6 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 
 	"github.com/peak/s5cmd/op"
 	"github.com/peak/s5cmd/opt"
@@ -224,16 +222,7 @@ func S3Upload(job *Job, wp *WorkerParams) (stats.StatType, error) {
 	defer f.Close()
 
 	filesize, _ := job.args[0].Size(wp)
-
-	numPartsNeeded := filesize / wp.poolParams.UploadChunkSizeBytes
-	chunkSize := wp.poolParams.UploadChunkSizeBytes / int64(bytesInMb)
-	if numPartsNeeded > s3manager.MaxUploadParts {
-		cSize := float64(filesize / s3manager.MaxUploadParts)
-		chunkSize = int64(math.Ceil(cSize / bytesInMb))
-		job.out(shortInfo, "Uploading %s... (%d bytes) (chunk size %d MB)", srcFn, filesize, chunkSize)
-	} else {
-		job.out(shortInfo, "Uploading %s... (%d bytes)", srcFn, filesize)
-	}
+	job.out(shortInfo, "Uploading %s... (%d bytes)", srcFn, filesize)
 
 	var cls string
 
@@ -310,7 +299,6 @@ func S3ListBuckets(job *Job, wp *WorkerParams) (stats.StatType, error) {
 
 func S3List(job *Job, wp *WorkerParams) (stats.StatType, error) {
 	const opType = stats.S3Op
-
 	showETags := job.opts.Has(opt.ListETags)
 	humanize := job.opts.Has(opt.HumanReadable)
 	err := wildOperation(job.args[0].s3, wp, func(item *storage.Item) *Job {

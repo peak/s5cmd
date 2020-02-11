@@ -198,18 +198,13 @@ func (j *Job) Run(wp *WorkerParams) error {
 type wildCallback func(*storage.Item) *Job
 type wildLister func(chan<- interface{}) error
 
-// wildOperation is the cornerstone of sub-job launching.
+// wildOperation is the cornerstone of sub-job launching for S3.
 //
-// It will run lister() when ready and expect data from ch. On EOF, a single
-// nil should be passed into ch. Data received from ch will be passed to
-// callback() which in turn will create a *Job entry (or nil for no job)
-// Then this entry is submitted to the subJobQueue chan.
+// It will run storage.List() and creates jobs from produced items by
+// running callback function. Generated jobs will be pumped to subJobQueue
+// for sub-job launching.
 //
-// After lister() completes, the sub-jobs are tracked
-// The fn will return when all jobs are processed, and it will return with
-// error if even a single sub-job was not successful
-//
-// Midway-failing lister() fns are not thoroughly tested and may hang or panic.
+// After all sub-jobs created and executed, it waits all jobs to finish.
 func wildOperation(url *s3url.S3Url, wp *WorkerParams, callback wildCallback) error {
 	subjobStats := subjobStatsType{} // Tally successful and total processed sub-jobs here
 	var subJobCounter uint32         // number of total subJobs issued
@@ -245,8 +240,8 @@ func wildOperation(url *s3url.S3Url, wp *WorkerParams, callback wildCallback) er
 	return err
 }
 
-// TODO: Remove
-// wildOperation is the cornerstone of sub-job launching.
+// TODO: Remove this function after implementing file storage
+// wildOperationLocal is the cornerstone of sub-job launching for local filesystem.
 //
 // It will run lister() when ready and expect data from ch. On EOF, a single
 // nil should be passed into ch. Data received from ch will be passed to

@@ -106,7 +106,7 @@ func (s *S3) List(ctx context.Context, url *s3url.S3Url, maxKeys int64) <-chan *
 
 		err := s.api.ListObjectsV2PagesWithContext(ctx, &inp, func(p *s3.ListObjectsV2Output, lastPage bool) bool {
 			for _, c := range p.CommonPrefixes {
-				key := url.Match(*c.Prefix)
+				key := url.Match(aws.StringValue(c.Prefix))
 				if key == "" {
 					continue
 				}
@@ -120,7 +120,7 @@ func (s *S3) List(ctx context.Context, url *s3url.S3Url, maxKeys int64) <-chan *
 			}
 
 			for _, c := range p.Contents {
-				key := url.Match(*c.Key)
+				key := url.Match(aws.StringValue(c.Key))
 				if key == "" {
 					continue
 				}

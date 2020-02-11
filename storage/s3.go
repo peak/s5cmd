@@ -130,7 +130,7 @@ func (s *S3) List(ctx context.Context, url *s3url.S3Url) <-chan *ItemResponse {
 				itemFound = true
 			}
 
-			if itemFound && !*p.IsTruncated {
+			if itemFound && lastPage {
 				itemChan <- SequenceEndMarker
 			}
 

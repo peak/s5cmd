@@ -40,7 +40,6 @@ func TestS3_List_success(t *testing.T) {
 				{Key: aws.String("key/test.txt")},
 				{Key: aws.String("key/test.pdf")},
 			},
-			IsTruncated: aws.Bool(false),
 		}
 	})
 
@@ -143,7 +142,6 @@ func TestS3_List_no_item_found(t *testing.T) {
 				{Key: aws.String("a/b/c/d/test.txt")},
 				{Key: aws.String("unknown/test.pdf")},
 			},
-			IsTruncated: aws.Bool(false),
 		}
 	})
 

@@ -129,17 +129,14 @@ func (p *WorkerPool) runWorker(st *stats.Stats, idlingCounter *int32, id int) {
 			if err := job.Run(&wp); err != nil {
 				if IsAcceptableError(err) {
 					job.Notify(true)
-					job = job.successCommand
 				} else {
 					job.PrintErr(err)
 					wp.st.Increment(stats.Fail)
 					job.Notify(false)
-					job = job.failCommand
 				}
 			} else {
 				job.PrintOK()
 				job.Notify(true)
-				job = job.successCommand
 			}
 
 		case <-p.ctx.Done():

@@ -39,8 +39,5 @@ func CleanupError(err error) (s string) {
 // IsAcceptableError determines if the error is an AcceptableError, and if so, returns true
 func IsAcceptableError(err error) bool {
 	_, ok := err.(AcceptableError)
-	if ok {
-		return true
-	}
-	return false
+	return ok
 }

@@ -23,17 +23,25 @@ import (
 var _ Storage = (*S3)(nil)
 
 var (
+	// ErrNoItemFound is a error type for marking empty list results.
 	ErrNoItemFound = fmt.Errorf("no item found")
 
+	// ErrNilResult is a nil error type.
 	ErrNilResult = fmt.Errorf("nil result")
 )
 
-// ListAllItems is a type to paginate all S3 keys
-const ListAllItems = -1
+const (
+	// ListAllItems is a type to paginate all S3 keys.
+	ListAllItems = -1
 
-// SequenceEndMarker is a marker that is dispatched on end of each sequence
+	// DeleteItemsMax is the max allowed items to be deleted on single HTTP request.
+	DeleteItemsMax = 1000
+)
+
+// SequenceEndMarker is a marker that is dispatched on end of each sequence.
 var SequenceEndMarker = &Item{}
 
+// S3 is a storage type which interacts with S3API, DownloaderAPI and UploaderAPI.
 type S3 struct {
 	api        s3iface.S3API
 	downloader s3manageriface.DownloaderAPI
@@ -41,6 +49,7 @@ type S3 struct {
 	opts       S3Opts
 }
 
+// S3Opts stores configuration for S3 storage.
 type S3Opts struct {
 	MaxRetries             int
 	EndpointURL            string
@@ -52,6 +61,7 @@ type S3Opts struct {
 	DownloadConcurrency    int
 }
 
+// NewS3Storage creates new S3 session.
 func NewS3Storage(opts S3Opts) (*S3, error) {
 	awsSession, err := newAWSSession(opts)
 	if err != nil {
@@ -66,6 +76,7 @@ func NewS3Storage(opts S3Opts) (*S3, error) {
 	}, nil
 }
 
+// Head retrieves metadata from S3 object without returning the object itself.
 func (s *S3) Head(ctx context.Context, url *s3url.S3Url) (*Item, error) {
 	output, err := s.api.HeadObjectWithContext(ctx, &s3.HeadObjectInput{
 		Bucket: aws.String(url.Bucket),
@@ -84,6 +95,9 @@ func (s *S3) Head(ctx context.Context, url *s3url.S3Url) (*Item, error) {
 	}, nil
 }
 
+// List is a non-blocking S3 list operation which paginates and filters S3 keys.
+// It sends SequenceEndMarker at the end of each pagination. If no item found or an error
+// is encountered during this period, it sends these errors to item channel.
 func (s *S3) List(ctx context.Context, url *s3url.S3Url, maxKeys int64) <-chan *Item {
 	itemChan := make(chan *Item)
 	inp := s3.ListObjectsV2Input{
@@ -157,6 +171,7 @@ func (s *S3) List(ctx context.Context, url *s3url.S3Url, maxKeys int64) <-chan *
 	return itemChan
 }
 
+// Copy is a single-object copy operation which copies objects to S3 destination from another S3 source.
 func (s *S3) Copy(ctx context.Context, from, to *s3url.S3Url, cls string) error {
 	_, err := s.api.CopyObject(&s3.CopyObjectInput{
 		Bucket:       aws.String(from.Bucket),
@@ -167,6 +182,8 @@ func (s *S3) Copy(ctx context.Context, from, to *s3url.S3Url, cls string) error 
 	return err
 }
 
+// Get is a multipart download operation which downloads S3 objects into any destination that implements
+// io.WriterAt interface.
 func (s *S3) Get(ctx context.Context, from *s3url.S3Url, to io.WriterAt) error {
 	_, err := s.downloader.DownloadWithContext(ctx, to, &s3.GetObjectInput{
 		Bucket: aws.String(from.Bucket),
@@ -178,6 +195,8 @@ func (s *S3) Get(ctx context.Context, from *s3url.S3Url, to io.WriterAt) error {
 	return err
 }
 
+// Put is a multipart upload operation to upload resources, which implements io.Reader interface,
+// into S3 destination.
 func (s *S3) Put(ctx context.Context, reader io.Reader, to *s3url.S3Url, cls string) error {
 	_, err := s.uploader.UploadWithContext(ctx, &s3manager.UploadInput{
 		Bucket:       aws.String(to.Bucket),
@@ -192,7 +211,15 @@ func (s *S3) Put(ctx context.Context, reader io.Reader, to *s3url.S3Url, cls str
 	return err
 }
 
+// Delete is a removal operation which removes multiple S3 objects from a bucket using single HTTP
+// request. It allows deleting objects up to 1000.
 func (s *S3) Delete(ctx context.Context, bucket string, keys ...string) error {
+	if len(keys) > DeleteItemsMax || len(keys) == 0 {
+		return fmt.Errorf(
+			"delete size should be between %d and %d, given: %d",
+			0, DeleteItemsMax, len(keys),
+		)
+	}
 	var objects []*s3.ObjectIdentifier
 	for _, key := range keys {
 		objects = append(objects, &s3.ObjectIdentifier{Key: aws.String(key)})
@@ -205,6 +232,8 @@ func (s *S3) Delete(ctx context.Context, bucket string, keys ...string) error {
 	return err
 }
 
+// ListBuckets is a blocking list-operation which gets bucket list and returns the buckets
+// that match with given prefix.
 func (s *S3) ListBuckets(ctx context.Context, prefix string) ([]Bucket, error) {
 	o, err := s.api.ListBucketsWithContext(ctx, &s3.ListBucketsInput{})
 	if err != nil {
@@ -224,6 +253,7 @@ func (s *S3) ListBuckets(ctx context.Context, prefix string) ([]Bucket, error) {
 	return buckets, nil
 }
 
+// UpdateRegion overrides AWS session with the region of given bucket.
 func (s *S3) UpdateRegion(bucket string) error {
 	o, err := s.api.GetBucketLocation(&s3.GetBucketLocationInput{
 		Bucket: &bucket,
@@ -254,7 +284,7 @@ func (s *S3) UpdateRegion(bucket string) error {
 	return nil
 }
 
-// NewAwsSession initializes a new AWS session with region fallback and custom options
+// NewAwsSession initializes a new AWS session with region fallback and custom options.
 func newAWSSession(opts S3Opts) (*session.Session, error) {
 	newSession := func(c *aws.Config) (*session.Session, error) {
 		useSharedConfig := session.SharedConfigEnable

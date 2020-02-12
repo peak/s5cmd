@@ -164,8 +164,6 @@ func (j *Job) Notify(success bool) {
 
 // Run runs the Job and returns error
 func (j *Job) Run(wp *WorkerParams) error {
-	//log.Printf("Running %v", j)
-
 	if j.opts.Has(opt.Help) {
 		fmt.Fprintf(os.Stderr, "%v\n\n", UsageLine())
 
@@ -206,8 +204,8 @@ type wildLister func(chan<- interface{}) error
 //
 // After all sub-jobs created and executed, it waits all jobs to finish.
 func wildOperation(url *s3url.S3Url, wp *WorkerParams, callback wildCallback) error {
-	subjobStats := subjobStatsType{} // Tally successful and total processed sub-jobs here
-	var subJobCounter uint32         // number of total subJobs issued
+	subjobStats := subjobStatsType{}
+	var subJobCounter uint32
 
 	for item := range wp.storage.List(wp.ctx, url, storage.ListAllItems) {
 		if item.Err != nil {

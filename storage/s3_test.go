@@ -154,7 +154,7 @@ func TestS3_List_context_cancelled(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	// cancel request before handling it
+	// cancel on-flying request
 
 	mockApi.Handlers.Unmarshal.Clear()
 	mockApi.Handlers.UnmarshalMeta.Clear()

@@ -50,7 +50,7 @@ func S3BatchDelete(job *Job, wp *WorkerParams) (stats.StatType, error) {
 	srcBucket := *job.args[0].Clone()
 	srcBucket.arg = "s3://" + srcBucket.s3.Bucket
 
-	maxArgs := 1000
+	maxArgs := storage.DeleteItemsMax
 
 	initArgs := func() {
 		jobArgs = make([]*JobArgument, 0, maxArgs+1)

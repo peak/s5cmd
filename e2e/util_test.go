@@ -301,6 +301,14 @@ func assertLines(t *testing.T, actual string, expectedlines map[int]compareFunc,
 		sort.Strings(lines)
 	}
 
+	if len(expectedlines) > len(lines) {
+		t.Errorf(
+			"expected lines (count: %v) should be <= actual lines (count: %v)",
+			len(expectedlines),
+			len(lines),
+		)
+	}
+
 	for i, line := range lines {
 		// trim consecutive spaces
 		line = replaceMatchWithSpace(line, `\s+`)

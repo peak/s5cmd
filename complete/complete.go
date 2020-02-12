@@ -217,7 +217,7 @@ func s3predictor(a cmp.Args) []string {
 
 		var ret []string
 		for _, bucket := range buckets {
-			ret = append(ret, bucket.Name)
+			ret = append(ret, fmt.Sprintf("s3://%s/", bucket.Name))
 		}
 
 		// if only 1 match, fall through and list objects in the bucket
@@ -230,8 +230,7 @@ func s3predictor(a cmp.Args) []string {
 
 	if s3bucket != "" {
 		// Override default region with bucket
-		err := client.UpdateRegion(s3bucket)
-		if err == nil {
+		if err := client.UpdateRegion(s3bucket); err != nil {
 			return nil
 		}
 

@@ -233,11 +233,10 @@ func wildOperation(url *s3url.S3Url, wp *WorkerParams, callback wildCallback) er
 	s := atomic.LoadUint32(&(subjobStats.numSuccess))
 	verboseLog("wildOperation all subjobs finished: %d/%d", s, subJobCounter)
 
-	var err error
 	if s != subJobCounter {
-		err = fmt.Errorf("not all jobs completed successfully: %d/%d", s, subJobCounter)
+		return fmt.Errorf("not all jobs completed successfully: %d/%d", s, subJobCounter)
 	}
-	return err
+	return nil
 }
 
 // TODO: Remove this function after implementing file storage

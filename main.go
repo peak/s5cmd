@@ -13,9 +13,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/google/gops/agent"
-
 	"github.com/peak/s5cmd/complete"
 	"github.com/peak/s5cmd/core"
 	"github.com/peak/s5cmd/stats"
@@ -47,8 +45,9 @@ func main() {
 		bytesInMb                  = float64(1024 * 1024)
 		minNumWorkers              = 2
 		defaultWorkerCount         = 256
-		defaultUploadConcurrency   = s3manager.DefaultUploadConcurrency
-		defaultDownloadConcurrency = s3manager.DefaultDownloadConcurrency
+		defaultUploadConcurrency   = 5
+		defaultDownloadConcurrency = 5
+		minUploadPartSize          = 5 * bytesInMb
 	)
 
 	var (
@@ -114,8 +113,8 @@ func main() {
 	}
 
 	ulPartSizeBytes := int64(*flagUploadPartSize * int(bytesInMb))
-	if ulPartSizeBytes < s3manager.MinUploadPartSize {
-		log.Fatalf("-ERR Multipart chunk size should be greater than %d", int(math.Ceil(float64(s3manager.MinUploadPartSize)/bytesInMb)))
+	if ulPartSizeBytes < int64(minUploadPartSize) {
+		log.Fatalf("-ERR Multipart chunk size should be greater than %d", int(math.Ceil(minUploadPartSize/bytesInMb)))
 	}
 	dlPartSizeBytes := int64(*flagDownloadPartSize * int(bytesInMb))
 	if dlPartSizeBytes < int64(5*bytesInMb) {

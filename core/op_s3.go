@@ -125,7 +125,6 @@ func S3BatchDeleteActual(job *Job, wp *WorkerParams) (stats.StatType, error) {
 	}
 
 	return opType, err
-
 }
 
 func S3BatchDownload(job *Job, wp *WorkerParams) (stats.StatType, error) {
@@ -312,7 +311,6 @@ func S3ListBuckets(job *Job, wp *WorkerParams) (stats.StatType, error) {
 		}
 	}
 	return opType, err
-
 }
 
 func S3List(job *Job, wp *WorkerParams) (stats.StatType, error) {
@@ -327,9 +325,8 @@ func S3List(job *Job, wp *WorkerParams) (stats.StatType, error) {
 		if item.IsDirectory {
 			job.out(shortOk, "%19s %1s %-38s  %12s  %s", "", "", "", "DIR", item.Key)
 		} else {
-			var (
-				cls, etag, size string
-			)
+
+			var cls, etag, size string
 
 			switch item.StorageClass {
 			case storage.ObjectStorageClassStandard:

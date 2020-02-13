@@ -43,7 +43,7 @@ func (s *CancelableScanner) Start() *CancelableScanner {
 func (s *CancelableScanner) ReadOne(from <-chan *Job, to chan<- *Job) (string, error) {
 	for {
 		select {
-		//case to <- <-from:
+		// case to <- <-from:
 		case j, ok := <-from:
 			if ok {
 				to <- j

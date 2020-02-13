@@ -179,10 +179,12 @@ func (a *JobArgument) Size(wp *WorkerParams) (int64, error) {
 	err := a.fillData(wp)
 	return a.size, err
 }
+
 func (a *JobArgument) Exists(wp *WorkerParams) (bool, error) {
 	err := a.fillData(wp)
 	return a.exists, err
 }
+
 func (a *JobArgument) ModTime(wp *WorkerParams) (time.Time, error) {
 	err := a.fillData(wp)
 	return a.modTime, err

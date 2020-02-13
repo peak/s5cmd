@@ -59,7 +59,6 @@ func NewWorkerPool(ctx context.Context, params *WorkerPoolParams, st *stats.Stat
 			UploadChunkSizeBytes: params.UploadChunkSizeBytes,
 			UploadConcurrency:    params.UploadConcurrency,
 		})
-
 		if err != nil {
 			return nil, err
 		}
@@ -241,6 +240,5 @@ func (p *WorkerPool) Run(filename string) {
 	}
 	close(p.jobQueue)
 
-	//log.Print("# Waiting...")
 	p.wg.Wait()
 }

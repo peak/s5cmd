@@ -7,11 +7,10 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/peak/s5cmd/stats"
-
 	"github.com/peak/s5cmd/op"
 	"github.com/peak/s5cmd/opt"
 	"github.com/peak/s5cmd/s3url"
+	"github.com/peak/s5cmd/stats"
 	"github.com/peak/s5cmd/storage"
 )
 
@@ -44,7 +43,6 @@ func (j Job) String() (s string) {
 	for _, a := range j.args {
 		s += " " + a.arg
 	}
-	//s += " # from " + j.sourceDesc
 	return
 }
 
@@ -221,8 +219,10 @@ func (j *Job) Run(wp WorkerParams) *Job {
 	return j.failCommand
 }
 
-type wildCallback func(*storage.Item) *Job
-type wildLister func(chan<- interface{}) error
+type (
+	wildCallback func(*storage.Item) *Job
+	wildLister   func(chan<- interface{}) error
+)
 
 // wildOperation is the cornerstone of sub-job launching for S3.
 //

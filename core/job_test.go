@@ -220,7 +220,6 @@ func testLocalCopyOrMove(t *testing.T, isMove bool) {
 	if newContents != fileContents {
 		t.Error("File contents do not match")
 	}
-
 }
 
 func TestJobRunLocalCopy(t *testing.T) {

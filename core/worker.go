@@ -129,8 +129,9 @@ func (p *WorkerPool) runWorker(st *stats.Stats, idlingCounter *int32, id int) {
 			}
 			setWorking()
 			for {
-				if p.runJob(wp, job) == nil {
-					break
+				job = p.runJob(wp, job)
+				if job == nil {
+					return
 				}
 			}
 		case <-p.ctx.Done():

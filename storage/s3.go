@@ -44,7 +44,7 @@ type S3 struct {
 	downloader s3manageriface.DownloaderAPI
 	uploader   s3manageriface.UploaderAPI
 	opts       S3Opts
-	stats      Stats
+	stats      *Stats
 }
 
 // S3Opts stores configuration for S3 storage.
@@ -71,7 +71,7 @@ func NewS3Storage(opts S3Opts) (*S3, error) {
 		downloader: s3manager.NewDownloader(awsSession),
 		uploader:   s3manager.NewUploader(awsSession),
 		opts:       opts,
-		stats:      Stats{},
+		stats:      &Stats{},
 	}, nil
 }
 
@@ -304,7 +304,7 @@ func (s *S3) UpdateRegion(bucket string) error {
 }
 
 // Stats returns the stats of the storage.
-func (s *S3) Stats() Stats {
+func (s *S3) Stats() *Stats {
 	return s.stats
 }
 

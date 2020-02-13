@@ -17,7 +17,7 @@ type StatsResponse struct {
 }
 
 // SuccessCount returns the total success count for stats.
-func (s Stats) Keys() map[string]StatsResponse {
+func (s *Stats) Keys() map[string]StatsResponse {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.keys

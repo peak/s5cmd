@@ -22,7 +22,7 @@ func S3Copy(job *Job, wp *WorkerParams) (stats.StatType, error) {
 		return opType, err
 	}
 
-	client, err := wp.storageFactory()
+	client, err := wp.newClient()
 	if err != nil {
 		return opType, err
 	}
@@ -44,7 +44,7 @@ func S3Copy(job *Job, wp *WorkerParams) (stats.StatType, error) {
 func S3Delete(job *Job, wp *WorkerParams) (stats.StatType, error) {
 	const opType = stats.S3Op
 
-	client, err := wp.storageFactory()
+	client, err := wp.newClient()
 	if err != nil {
 		return opType, err
 	}
@@ -100,7 +100,7 @@ func S3BatchDelete(job *Job, wp *WorkerParams) (stats.StatType, error) {
 func S3BatchDeleteActual(job *Job, wp *WorkerParams) (stats.StatType, error) {
 	const opType = stats.S3Op
 
-	client, err := wp.storageFactory()
+	client, err := wp.newClient()
 	if err != nil {
 		return opType, err
 	}
@@ -179,7 +179,7 @@ func S3Download(job *Job, wp *WorkerParams) (stats.StatType, error) {
 		return opType, err
 	}
 
-	client, err := wp.storageFactory()
+	client, err := wp.newClient()
 	if err != nil {
 		return opType, err
 	}
@@ -221,7 +221,7 @@ func S3Upload(job *Job, wp *WorkerParams) (stats.StatType, error) {
 		return opType, err
 	}
 
-	client, err := wp.storageFactory()
+	client, err := wp.newClient()
 	if err != nil {
 		return opType, err
 	}
@@ -290,7 +290,7 @@ func S3BatchCopy(job *Job, wp *WorkerParams) (stats.StatType, error) {
 func S3ListBuckets(job *Job, wp *WorkerParams) (stats.StatType, error) {
 	const opType = stats.S3Op
 
-	client, err := wp.storageFactory()
+	client, err := wp.newClient()
 	if err != nil {
 		return opType, err
 	}

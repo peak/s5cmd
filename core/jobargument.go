@@ -154,7 +154,7 @@ func (a *JobArgument) fillData(wp *WorkerParams) error {
 
 	}
 
-	client, err := wp.storageFactory()
+	client, err := wp.newClient()
 	if err != nil {
 		return err
 	}

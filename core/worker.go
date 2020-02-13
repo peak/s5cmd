@@ -27,30 +27,30 @@ type WorkerPoolParams struct {
 
 // WorkerPool is the state of our worker pool.
 type WorkerPool struct {
-	ctx            context.Context
-	params         *WorkerPoolParams
-	jobQueue       chan *Job
-	subJobQueue    chan *Job
-	wg             *sync.WaitGroup
-	storageFactory func() (storage.Storage, error)
-	cancelFunc     context.CancelFunc
-	st             *stats.Stats
-	idlingCounter  int32
+	ctx           context.Context
+	params        *WorkerPoolParams
+	jobQueue      chan *Job
+	subJobQueue   chan *Job
+	wg            *sync.WaitGroup
+	newClient     func() (storage.Storage, error)
+	cancelFunc    context.CancelFunc
+	st            *stats.Stats
+	idlingCounter int32
 }
 
 // WorkerParams is the params/state of a single worker.
 type WorkerParams struct {
-	ctx            context.Context
-	poolParams     *WorkerPoolParams
-	st             *stats.Stats
-	subJobQueue    *chan *Job
-	idlingCounter  *int32
-	storageFactory func() (storage.Storage, error)
+	ctx           context.Context
+	poolParams    *WorkerPoolParams
+	st            *stats.Stats
+	subJobQueue   *chan *Job
+	idlingCounter *int32
+	newClient     func() (storage.Storage, error)
 }
 
 // NewWorkerPool creates a new worker pool and start the workers.
 func NewWorkerPool(ctx context.Context, params *WorkerPoolParams, st *stats.Stats) *WorkerPool {
-	factory := func() (storage.Storage, error) {
+	newClient := func() (storage.Storage, error) {
 		s3, err := storage.NewS3Storage(storage.S3Opts{
 			MaxRetries:           params.Retries,
 			EndpointURL:          params.EndpointURL,
@@ -70,14 +70,14 @@ func NewWorkerPool(ctx context.Context, params *WorkerPoolParams, st *stats.Stat
 	cancelFunc := ctx.Value(CancelFuncKey).(context.CancelFunc)
 
 	p := &WorkerPool{
-		ctx:            ctx,
-		params:         params,
-		jobQueue:       make(chan *Job),
-		subJobQueue:    make(chan *Job),
-		wg:             &sync.WaitGroup{},
-		storageFactory: factory,
-		cancelFunc:     cancelFunc,
-		st:             st,
+		ctx:         ctx,
+		params:      params,
+		jobQueue:    make(chan *Job),
+		subJobQueue: make(chan *Job),
+		wg:          &sync.WaitGroup{},
+		newClient:   newClient,
+		cancelFunc:  cancelFunc,
+		st:          st,
 	}
 
 	for i := 0; i < params.NumWorkers; i++ {
@@ -94,12 +94,12 @@ func (p *WorkerPool) runWorker(st *stats.Stats, idlingCounter *int32, id int) {
 	defer verboseLog("Exiting goroutine %d", id)
 
 	wp := WorkerParams{
-		ctx:            p.ctx,
-		poolParams:     p.params,
-		st:             st,
-		subJobQueue:    &p.subJobQueue,
-		idlingCounter:  idlingCounter,
-		storageFactory: p.storageFactory,
+		ctx:           p.ctx,
+		poolParams:    p.params,
+		st:            st,
+		subJobQueue:   &p.subJobQueue,
+		idlingCounter: idlingCounter,
+		newClient:     p.newClient,
 	}
 
 	lastSetIdle := false

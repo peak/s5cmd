@@ -57,7 +57,7 @@ func benchmarkJobRun(b *testing.B, j *Job) {
 
 	for n := 0; n < b.N; n++ {
 		createFile("test-src", "")
-		err = j.Run(&wp)
+		err = j.run(&wp)
 	}
 
 	deleteFile("test-dst")
@@ -135,7 +135,7 @@ func TestJobRunLocalDelete(t *testing.T) {
 	}
 
 	// execute
-	err = localDeleteJob.Run(&wp)
+	err = localDeleteJob.run(&wp)
 	if err != nil {
 		t.Error(err)
 	}
@@ -197,7 +197,7 @@ func testLocalCopyOrMove(t *testing.T, isMove bool) {
 	}
 
 	// execute
-	err = job.Run(&wp)
+	err = job.run(&wp)
 	if err != nil {
 		t.Error(err)
 		return

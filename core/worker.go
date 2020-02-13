@@ -129,7 +129,7 @@ func (p *WorkerPool) runWorker(st *stats.Stats, idlingCounter *int32, id int) {
 			}
 			setWorking()
 			for {
-				job = p.runJob(wp, job)
+				job = job.Run(wp)
 				if job == nil {
 					return
 				}
@@ -138,26 +138,6 @@ func (p *WorkerPool) runWorker(st *stats.Stats, idlingCounter *int32, id int) {
 			return
 		}
 	}
-}
-
-// runJob runs parent job and returns sub-job.
-func (p *WorkerPool) runJob(wp WorkerParams, job *Job) *Job {
-	if err := job.Run(&wp); err != nil {
-		if acceptableErr := IsAcceptableError(err); acceptableErr != nil {
-			if acceptableErr != ErrDisplayedHelp {
-				job.PrintOK(acceptableErr)
-			}
-			job.Notify(true)
-			return job.successCommand
-		}
-		job.PrintErr(err)
-		wp.st.Increment(stats.Fail)
-		job.Notify(false)
-		return job.failCommand
-	}
-	job.PrintOK(nil)
-	job.Notify(true)
-	return job.successCommand
 }
 
 func (p *WorkerPool) parseJob(line string) *Job {

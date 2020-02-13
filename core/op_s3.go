@@ -114,6 +114,16 @@ func S3BatchDeleteActual(job *Job, wp *WorkerParams) (stats.StatType, error) {
 	}
 
 	err = client.Delete(wp.ctx, job.args[0].s3.Bucket, deleteObjects...)
+	st := client.Stats()
+
+	for key, stat := range st.Keys() {
+		if stat.Success {
+			job.out(shortOk, `Batch-delete s3://%s/%s`, job.args[0].s3.Bucket, key)
+		} else {
+			job.out(shortErr, `Batch-delete s3://%s/%s: %s`, job.args[0].s3.Bucket, key, stat.Message)
+		}
+	}
+
 	return opType, err
 
 }

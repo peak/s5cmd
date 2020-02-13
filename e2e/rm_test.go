@@ -70,7 +70,7 @@ func TestRemoveMultipleS3Objects(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(` +OK "rm s3://%v/*"`, bucket),
+		0: suffix(` +OK "rm s3://%v/*" (4)`, bucket),
 		1: suffix(` # All workers idle, finishing up...`),
 	})
 

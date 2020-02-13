@@ -7,6 +7,8 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/peak/s5cmd/stats"
+
 	"github.com/peak/s5cmd/op"
 	"github.com/peak/s5cmd/opt"
 	"github.com/peak/s5cmd/s3url"
@@ -162,28 +164,32 @@ func (j *Job) Notify(success bool) {
 	j.subJobData.Done()
 }
 
-// Run runs the Job and returns error
-func (j *Job) Run(wp *WorkerParams) error {
+func (j *Job) displayHelp() {
+	fmt.Fprintf(os.Stderr, "%v\n\n", UsageLine())
+
+	cl, opts, cnt := CommandHelps(j.command)
+
+	if ol := opt.OptionHelps(opts); ol != "" {
+		fmt.Fprintf(os.Stderr, "\"%v\" command options:\n", j.command)
+		fmt.Fprint(os.Stderr, ol)
+		fmt.Fprint(os.Stderr, "\n\n")
+	}
+
+	if cnt > 1 {
+		fmt.Fprintf(os.Stderr, "Help for \"%v\" commands:\n", j.command)
+	}
+	fmt.Fprint(os.Stderr, cl)
+	fmt.Fprint(os.Stderr, "\nTo list available general options, run without arguments.\n")
+}
+
+// run runs the Job and returns error
+func (j *Job) run(wp *WorkerParams) error {
 	if j.opts.Has(opt.Help) {
-		fmt.Fprintf(os.Stderr, "%v\n\n", UsageLine())
-
-		cl, opts, cnt := CommandHelps(j.command)
-
-		if ol := opt.OptionHelps(opts); ol != "" {
-			fmt.Fprintf(os.Stderr, "\"%v\" command options:\n", j.command)
-			fmt.Fprint(os.Stderr, ol)
-			fmt.Fprint(os.Stderr, "\n\n")
-		}
-
-		if cnt > 1 {
-			fmt.Fprintf(os.Stderr, "Help for \"%v\" commands:\n", j.command)
-		}
-		fmt.Fprint(os.Stderr, cl)
-		fmt.Fprint(os.Stderr, "\nTo list available general options, run without arguments.\n")
-
+		j.displayHelp()
 		return ErrDisplayedHelp
 	}
 
+	var err error
 	cmdFunc, ok := globalCmdRegistry[j.operation]
 	if !ok {
 		return fmt.Errorf("unhandled operation %v", j.operation)
@@ -191,6 +197,27 @@ func (j *Job) Run(wp *WorkerParams) error {
 
 	kind, err := cmdFunc(j, wp)
 	return wp.st.IncrementIfSuccess(kind, err)
+}
+
+// Run runs the Job, logs the results and returns sub-job of parent job.
+func (j *Job) Run(wp WorkerParams) *Job {
+	err := j.run(&wp)
+	if err == nil {
+		j.PrintOK(nil)
+		j.Notify(true)
+		return j.successCommand
+	}
+	if acceptableErr := IsAcceptableError(err); acceptableErr != nil {
+		if acceptableErr != ErrDisplayedHelp {
+			j.PrintOK(acceptableErr)
+		}
+		j.Notify(true)
+		return j.successCommand
+	}
+	j.PrintErr(err)
+	wp.st.Increment(stats.Fail)
+	j.Notify(false)
+	return j.failCommand
 }
 
 type wildCallback func(*storage.Item) *Job

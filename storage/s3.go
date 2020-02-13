@@ -71,6 +71,7 @@ func NewS3Storage(opts S3Opts) (*S3, error) {
 		downloader: s3manager.NewDownloader(awsSession),
 		uploader:   s3manager.NewUploader(awsSession),
 		opts:       opts,
+		stats:      Stats{},
 	}, nil
 }
 
@@ -224,13 +225,24 @@ func (s *S3) Delete(ctx context.Context, bucket string, keys ...string) error {
 		objects = append(objects, &s3.ObjectIdentifier{Key: aws.String(key)})
 	}
 
-	_, err := s.api.DeleteObjectsWithContext(ctx, &s3.DeleteObjectsInput{
+	o, err := s.api.DeleteObjectsWithContext(ctx, &s3.DeleteObjectsInput{
 		Bucket: aws.String(bucket),
 		Delete: &s3.Delete{Objects: objects},
 	})
 
 	if err != nil {
 		return err
+	}
+
+	for _, d := range o.Deleted {
+		s.stats.put(aws.StringValue(d.Key), StatsResponse{Success: true})
+	}
+
+	for _, e := range o.Errors {
+		s.stats.put(aws.StringValue(e.Key), StatsResponse{
+			Success: true,
+			Message: aws.StringValue(e.Message),
+		})
 	}
 
 	return nil

@@ -70,4 +70,5 @@ type Storage interface {
 	Delete(context.Context, string, ...string) error
 	ListBuckets(context.Context, string) ([]Bucket, error)
 	UpdateRegion(string) error
+	Stats() Stats
 }

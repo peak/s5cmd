@@ -47,6 +47,7 @@ type S3 struct {
 	downloader s3manageriface.DownloaderAPI
 	uploader   s3manageriface.UploaderAPI
 	opts       S3Opts
+	stats      Stats
 }
 
 // S3Opts stores configuration for S3 storage.
@@ -131,6 +132,7 @@ func (s *S3) List(ctx context.Context, url *s3url.S3Url, maxKeys int64) <-chan *
 				}
 
 				itemFound = true
+				s.stats.put(key, StatsResponse{Success: true})
 			}
 
 			for _, c := range p.Contents {
@@ -149,6 +151,7 @@ func (s *S3) List(ctx context.Context, url *s3url.S3Url, maxKeys int64) <-chan *
 				}
 
 				itemFound = true
+				s.stats.put(key, StatsResponse{Success: true})
 			}
 
 			if itemFound && lastPage {
@@ -159,6 +162,7 @@ func (s *S3) List(ctx context.Context, url *s3url.S3Url, maxKeys int64) <-chan *
 		})
 
 		if err != nil {
+			s.stats.incrementFailCount()
 			itemChan <- &Item{Err: err}
 			return
 		}
@@ -179,6 +183,7 @@ func (s *S3) Copy(ctx context.Context, from, to *s3url.S3Url, cls string) error 
 		CopySource:   aws.String(to.Format()),
 		StorageClass: aws.String(cls),
 	})
+
 	return err
 }
 
@@ -225,11 +230,29 @@ func (s *S3) Delete(ctx context.Context, bucket string, keys ...string) error {
 		objects = append(objects, &s3.ObjectIdentifier{Key: aws.String(key)})
 	}
 
-	_, err := s.api.DeleteObjectsWithContext(ctx, &s3.DeleteObjectsInput{
+	o, err := s.api.DeleteObjectsWithContext(ctx, &s3.DeleteObjectsInput{
 		Bucket: aws.String(bucket),
 		Delete: &s3.Delete{Objects: objects},
 	})
-	return err
+
+	if err != nil {
+		return err
+	}
+
+	for _, d := range o.Deleted {
+		s.stats.put(aws.StringValue(d.Key), StatsResponse{Success: true})
+		s.stats.incrementSuccessCount()
+	}
+
+	for _, e := range o.Errors {
+		s.stats.put(aws.StringValue(e.Key), StatsResponse{
+			Success: true,
+			Message: aws.StringValue(e.Message),
+		})
+		s.stats.incrementFailCount()
+	}
+
+	return nil
 }
 
 // ListBuckets is a blocking list-operation which gets bucket list and returns the buckets
@@ -282,6 +305,11 @@ func (s *S3) UpdateRegion(bucket string) error {
 
 	s.api = s3.New(ses)
 	return nil
+}
+
+// Stats returns the stats of the storage.
+func (s *S3) Stats() Stats {
+	return s.stats
 }
 
 // NewAwsSession initializes a new AWS session with region fallback and custom options.

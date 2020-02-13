@@ -240,7 +240,7 @@ func (s *S3) Delete(ctx context.Context, bucket string, keys ...string) error {
 
 	for _, e := range o.Errors {
 		s.stats.put(aws.StringValue(e.Key), StatsResponse{
-			Success: true,
+			Success: false,
 			Message: aws.StringValue(e.Message),
 		})
 	}

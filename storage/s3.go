@@ -24,10 +24,7 @@ var _ Storage = (*S3)(nil)
 
 var (
 	// ErrNoItemFound is a error type for marking empty list results.
-	ErrNoItemFound = fmt.Errorf("no item found")
-
-	// ErrNilResult is a nil error type.
-	ErrNilResult = fmt.Errorf("nil result")
+	ErrNoItemFound = fmt.Errorf("s3: no item found")
 )
 
 const (
@@ -258,11 +255,14 @@ func (s *S3) UpdateRegion(bucket string) error {
 	o, err := s.api.GetBucketLocation(&s3.GetBucketLocationInput{
 		Bucket: &bucket,
 	})
-	if err == nil && o.LocationConstraint == nil {
-		err = ErrNilResult
-	}
 	if err != nil {
 		return err
+	}
+
+	// don't change the session region if given bucket has no location
+	// constraint set.
+	if o.LocationConstraint == nil {
+		return nil
 	}
 
 	ses, err := newAWSSession(S3Opts{

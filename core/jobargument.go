@@ -154,7 +154,12 @@ func (a *JobArgument) fillData(wp *WorkerParams) error {
 
 	}
 
-	item, err := wp.storage.Head(wp.ctx, a.s3)
+	client, err := wp.storageFactory()
+	if err != nil {
+		return err
+	}
+
+	item, err := client.Head(wp.ctx, a.s3)
 	wp.st.IncrementIfSuccess(stats.S3Op, err)
 
 	if err != nil {

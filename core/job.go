@@ -207,7 +207,12 @@ func wildOperation(url *s3url.S3Url, wp *WorkerParams, callback wildCallback) er
 	subjobStats := subjobStatsType{}
 	var subJobCounter uint32
 
-	for item := range wp.storage.List(wp.ctx, url, storage.ListAllItems) {
+	client, err := wp.storageFactory()
+	if err != nil {
+		return err
+	}
+
+	for item := range client.List(wp.ctx, url, storage.ListAllItems) {
 		if item.Err != nil {
 			verboseLog("wildOperation lister is done with error: %v", item.Err)
 			continue

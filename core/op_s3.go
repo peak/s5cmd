@@ -22,7 +22,12 @@ func S3Copy(job *Job, wp *WorkerParams) (stats.StatType, error) {
 		return opType, err
 	}
 
-	err = wp.storage.Copy(
+	client, err := wp.storageFactory()
+	if err != nil {
+		return opType, err
+	}
+
+	err = client.Copy(
 		wp.ctx,
 		job.args[1].s3,
 		job.args[0].s3,
@@ -30,7 +35,7 @@ func S3Copy(job *Job, wp *WorkerParams) (stats.StatType, error) {
 	)
 
 	if job.opts.Has(opt.DeleteSource) && err == nil {
-		err = wp.storage.Delete(wp.ctx, job.args[0].s3.Bucket, job.args[0].s3.Key)
+		err = client.Delete(wp.ctx, job.args[0].s3.Bucket, job.args[0].s3.Key)
 	}
 
 	return opType, err
@@ -39,7 +44,12 @@ func S3Copy(job *Job, wp *WorkerParams) (stats.StatType, error) {
 func S3Delete(job *Job, wp *WorkerParams) (stats.StatType, error) {
 	const opType = stats.S3Op
 
-	err := wp.storage.Delete(wp.ctx, job.args[0].s3.Bucket, job.args[0].s3.Key)
+	client, err := wp.storageFactory()
+	if err != nil {
+		return opType, err
+	}
+
+	err = client.Delete(wp.ctx, job.args[0].s3.Bucket, job.args[0].s3.Key)
 	return opType, err
 }
 
@@ -90,6 +100,11 @@ func S3BatchDelete(job *Job, wp *WorkerParams) (stats.StatType, error) {
 func S3BatchDeleteActual(job *Job, wp *WorkerParams) (stats.StatType, error) {
 	const opType = stats.S3Op
 
+	client, err := wp.storageFactory()
+	if err != nil {
+		return opType, err
+	}
+
 	deleteObjects := make([]string, len(job.args)-1)
 	for i, a := range job.args {
 		if i == 0 {
@@ -98,7 +113,7 @@ func S3BatchDeleteActual(job *Job, wp *WorkerParams) (stats.StatType, error) {
 		deleteObjects[i-1] = a.arg
 	}
 
-	err := wp.storage.Delete(wp.ctx, job.args[0].s3.Bucket, deleteObjects...)
+	err = client.Delete(wp.ctx, job.args[0].s3.Bucket, deleteObjects...)
 	return opType, err
 
 }
@@ -164,8 +179,13 @@ func S3Download(job *Job, wp *WorkerParams) (stats.StatType, error) {
 		return opType, err
 	}
 
+	client, err := wp.storageFactory()
+	if err != nil {
+		return opType, err
+	}
+
 	job.out(shortInfo, "Downloading %s...", srcFn)
-	err = wp.storage.Get(wp.ctx, job.args[0].s3, f)
+	err = client.Get(wp.ctx, job.args[0].s3, f)
 
 	// FIXME(ig): i don't see a reason for a race condition if this call is
 	// deferrred. Will check later.
@@ -174,7 +194,7 @@ func S3Download(job *Job, wp *WorkerParams) (stats.StatType, error) {
 	if err != nil {
 		os.Remove(destFn) // Remove partly downloaded file
 	} else if job.opts.Has(opt.DeleteSource) {
-		err = wp.storage.Delete(wp.ctx, job.args[0].s3.Bucket, job.args[0].s3.Key)
+		err = client.Delete(wp.ctx, job.args[0].s3.Bucket, job.args[0].s3.Key)
 	}
 
 	return opType, err
@@ -200,12 +220,18 @@ func S3Upload(job *Job, wp *WorkerParams) (stats.StatType, error) {
 	if err != nil {
 		return opType, err
 	}
+
+	client, err := wp.storageFactory()
+	if err != nil {
+		return opType, err
+	}
+
 	defer f.Close()
 
 	filesize, _ := job.args[0].Size(wp)
 	job.out(shortInfo, "Uploading %s... (%d bytes)", srcFn, filesize)
 
-	err = wp.storage.Put(
+	err = client.Put(
 		wp.ctx,
 		f,
 		job.args[1].s3,
@@ -264,7 +290,12 @@ func S3BatchCopy(job *Job, wp *WorkerParams) (stats.StatType, error) {
 func S3ListBuckets(job *Job, wp *WorkerParams) (stats.StatType, error) {
 	const opType = stats.S3Op
 
-	buckets, err := wp.storage.ListBuckets(wp.ctx, "")
+	client, err := wp.storageFactory()
+	if err != nil {
+		return opType, err
+	}
+
+	buckets, err := client.ListBuckets(wp.ctx, "")
 	if err == nil {
 		for _, b := range buckets {
 			job.out(shortOk, "%s  s3://%s", b.CreationDate.Format(dateFormat), b.Name)

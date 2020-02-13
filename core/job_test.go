@@ -27,12 +27,12 @@ var (
 	idlingCounter int32
 	subJobQueue   = make(chan *Job)
 	wp            = WorkerParams{
-		ctx:           context.TODO(),
-		poolParams:    nil,
-		st:            &st,
-		subJobQueue:   &subJobQueue,
-		idlingCounter: &idlingCounter,
-		storage:       nil,
+		ctx:            context.TODO(),
+		poolParams:     nil,
+		st:             &st,
+		subJobQueue:    &subJobQueue,
+		idlingCounter:  &idlingCounter,
+		storageFactory: nil,
 	}
 
 	// These Jobs are used for benchmarks and also as skeletons for tests

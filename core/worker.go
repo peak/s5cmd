@@ -27,53 +27,57 @@ type WorkerPoolParams struct {
 
 // WorkerPool is the state of our worker pool.
 type WorkerPool struct {
-	ctx           context.Context
-	params        *WorkerPoolParams
-	jobQueue      chan *Job
-	subJobQueue   chan *Job
-	wg            *sync.WaitGroup
-	storage       storage.Storage
-	cancelFunc    context.CancelFunc
-	st            *stats.Stats
-	idlingCounter int32
+	ctx            context.Context
+	params         *WorkerPoolParams
+	jobQueue       chan *Job
+	subJobQueue    chan *Job
+	wg             *sync.WaitGroup
+	storageFactory func() (storage.Storage, error)
+	cancelFunc     context.CancelFunc
+	st             *stats.Stats
+	idlingCounter  int32
 }
 
 // WorkerParams is the params/state of a single worker.
 type WorkerParams struct {
-	ctx           context.Context
-	poolParams    *WorkerPoolParams
-	st            *stats.Stats
-	subJobQueue   *chan *Job
-	idlingCounter *int32
-	storage       storage.Storage
+	ctx            context.Context
+	poolParams     *WorkerPoolParams
+	st             *stats.Stats
+	subJobQueue    *chan *Job
+	idlingCounter  *int32
+	storageFactory func() (storage.Storage, error)
 }
 
 // NewWorkerPool creates a new worker pool and start the workers.
 func NewWorkerPool(ctx context.Context, params *WorkerPoolParams, st *stats.Stats) *WorkerPool {
-	s3, err := storage.NewS3Storage(storage.S3Opts{
-		MaxRetries:           params.Retries,
-		EndpointURL:          params.EndpointURL,
-		Region:               "",
-		NoVerifySSL:          params.NoVerifySSL,
-		UploadChunkSizeBytes: params.UploadChunkSizeBytes,
-		UploadConcurrency:    params.UploadConcurrency,
-	})
+	factory := func() (storage.Storage, error) {
+		s3, err := storage.NewS3Storage(storage.S3Opts{
+			MaxRetries:           params.Retries,
+			EndpointURL:          params.EndpointURL,
+			Region:               "",
+			NoVerifySSL:          params.NoVerifySSL,
+			UploadChunkSizeBytes: params.UploadChunkSizeBytes,
+			UploadConcurrency:    params.UploadConcurrency,
+		})
 
-	if err != nil {
-		log.Fatal(err)
+		if err != nil {
+			return nil, err
+		}
+
+		return s3, nil
 	}
 
 	cancelFunc := ctx.Value(CancelFuncKey).(context.CancelFunc)
 
 	p := &WorkerPool{
-		ctx:         ctx,
-		params:      params,
-		jobQueue:    make(chan *Job),
-		subJobQueue: make(chan *Job),
-		wg:          &sync.WaitGroup{},
-		storage:     s3,
-		cancelFunc:  cancelFunc,
-		st:          st,
+		ctx:            ctx,
+		params:         params,
+		jobQueue:       make(chan *Job),
+		subJobQueue:    make(chan *Job),
+		wg:             &sync.WaitGroup{},
+		storageFactory: factory,
+		cancelFunc:     cancelFunc,
+		st:             st,
 	}
 
 	for i := 0; i < params.NumWorkers; i++ {
@@ -90,12 +94,12 @@ func (p *WorkerPool) runWorker(st *stats.Stats, idlingCounter *int32, id int) {
 	defer verboseLog("Exiting goroutine %d", id)
 
 	wp := WorkerParams{
-		ctx:           p.ctx,
-		poolParams:    p.params,
-		st:            st,
-		subJobQueue:   &p.subJobQueue,
-		idlingCounter: idlingCounter,
-		storage:       p.storage,
+		ctx:            p.ctx,
+		poolParams:     p.params,
+		st:             st,
+		subJobQueue:    &p.subJobQueue,
+		idlingCounter:  idlingCounter,
+		storageFactory: p.storageFactory,
 	}
 
 	lastSetIdle := false
@@ -124,27 +128,35 @@ func (p *WorkerPool) runWorker(st *stats.Stats, idlingCounter *int32, id int) {
 				return
 			}
 			setWorking()
-
-			if err := job.Run(&wp); err != nil {
-				if acceptableErr := IsAcceptableError(err); acceptableErr != nil {
-					if acceptableErr != ErrDisplayedHelp {
-						job.PrintOK(acceptableErr)
-					}
-					job.Notify(true)
-				} else {
-					job.PrintErr(err)
-					wp.st.Increment(stats.Fail)
-					job.Notify(false)
+			for {
+				if p.runJob(wp, job) == nil {
+					break
 				}
-			} else {
-				job.PrintOK(nil)
-				job.Notify(true)
 			}
-
 		case <-p.ctx.Done():
 			return
 		}
 	}
+}
+
+// runJob runs parent job and returns sub-job.
+func (p *WorkerPool) runJob(wp WorkerParams, job *Job) *Job {
+	if err := job.Run(&wp); err != nil {
+		if acceptableErr := IsAcceptableError(err); acceptableErr != nil {
+			if acceptableErr != ErrDisplayedHelp {
+				job.PrintOK(acceptableErr)
+			}
+			job.Notify(true)
+			return job.successCommand
+		}
+		job.PrintErr(err)
+		wp.st.Increment(stats.Fail)
+		job.Notify(false)
+		return job.failCommand
+	}
+	job.PrintOK(nil)
+	job.Notify(true)
+	return job.successCommand
 }
 
 func (p *WorkerPool) parseJob(line string) *Job {

@@ -125,7 +125,7 @@ func (j *Job) PrintOK(err AcceptableError) {
 	}
 }
 
-// PrintErr prints the error response from a Job
+// PrintErr prints the error response from a Job.
 func (j *Job) PrintErr(err error) {
 	if j.operation.IsInternal() {
 		// TODO are we sure about ignoring errors from internal jobs?
@@ -164,6 +164,7 @@ func (j *Job) Notify(success bool) {
 	j.subJobData.Done()
 }
 
+// displayHelp displays help text.
 func (j *Job) displayHelp() {
 	fmt.Fprintf(os.Stderr, "%v\n\n", UsageLine())
 
@@ -182,7 +183,7 @@ func (j *Job) displayHelp() {
 	fmt.Fprint(os.Stderr, "\nTo list available general options, run without arguments.\n")
 }
 
-// run runs the Job and returns error
+// run runs the Job and returns error.
 func (j *Job) run(wp *WorkerParams) error {
 	if j.opts.Has(opt.Help) {
 		j.displayHelp()

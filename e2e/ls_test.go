@@ -173,6 +173,36 @@ func TestListS3ObjectsAndFolders(t *testing.T) {
 	})
 }
 
+func TestListS3ObjectsAndFoldersWithPrefix(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+	putFile(t, s3client, bucket, "testfile1.txt", "content")
+	putFile(t, s3client, bucket, "report.gz", "content")
+	putFile(t, s3client, bucket, "/a/testfile2.txt", "content")
+	putFile(t, s3client, bucket, "/t/testfile3.txt", "content")
+
+	// search with prefix t
+	cmd := s5cmd("ls", "s3://"+bucket+"/t")
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: suffix(` +OK "ls s3://%v/t" (2)`, bucket),
+	}, strictLineCheck(false))
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: suffix("+ DIR t/"),
+		1: suffix("? 302 testfile1.txt"),
+	})
+}
+
 func TestListNonexistingS3Object(t *testing.T) {
 	t.Parallel()
 

@@ -154,7 +154,15 @@ func parseNonBatch(prefix string, key string) string {
 	if key == prefix || !strings.HasPrefix(key, prefix) {
 		return key
 	}
-	parsedKey := strings.TrimPrefix(key, prefix)
+	parsedKey := strings.TrimSuffix(key, s3Separator)
+	if loc := strings.LastIndex(parsedKey, s3Separator); loc < len(prefix) {
+		if loc < 0 {
+			return key
+		}
+		parsedKey = key[loc:]
+		return strings.TrimPrefix(parsedKey, s3Separator)
+	}
+	parsedKey = strings.TrimPrefix(key, prefix)
 	parsedKey = strings.TrimPrefix(parsedKey, s3Separator)
 	index := strings.Index(parsedKey, s3Separator) + 1
 	if index <= 0 || index >= len(parsedKey) {

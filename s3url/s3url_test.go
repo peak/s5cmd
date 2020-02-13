@@ -326,6 +326,18 @@ func Test_parseNonBatch(t *testing.T) {
 			key:    "a/b/asset.txt",
 			want:   "asset.txt",
 		},
+		{
+			name:   "parse_key_and_return_current_asset_if_prefix_is_not_dir",
+			prefix: "a/b/ab",
+			key:    "a/b/abc.txt",
+			want:   "abc.txt",
+		},
+		{
+			name:   "parse_key_and_return_current_dir_if_prefix_is_not_dir",
+			prefix: "test",
+			key:    "testdir/",
+			want:   "testdir/",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

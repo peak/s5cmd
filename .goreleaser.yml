@@ -1,15 +1,16 @@
-# .goreleaser.yml
-# Build customization
 builds:
-  - main: s5cmd.go
-    binary: s5cmd
-    goos:
-      - windows
-      - darwin
-      - linux
-    goarch:
-      - amd64
-      - arm64
-# Archive customization
-archive:
-  format: tar.gz
+- env:
+  - CGO_ENABLED=0
+
+archives:
+- replacements:
+    darwin: Darwin
+    linux: Linux
+    windows: Windows
+    amd64: x86_64
+changelog:
+  sort: asc
+  filters:
+    exclude:
+    - '^docs:'
+    - '^test:'

@@ -1,4 +1,4 @@
-package s3url
+package objurl
 
 import (
 	"reflect"

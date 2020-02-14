@@ -7,9 +7,9 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/peak/s5cmd/objurl"
 	"github.com/peak/s5cmd/op"
 	"github.com/peak/s5cmd/opt"
-	"github.com/peak/s5cmd/s3url"
 	"github.com/peak/s5cmd/stats"
 	"github.com/peak/s5cmd/storage"
 )
@@ -231,7 +231,7 @@ type (
 // for sub-job launching.
 //
 // After all sub-jobs created and executed, it waits all jobs to finish.
-func wildOperation(url *s3url.S3Url, wp *WorkerParams, callback wildCallback) error {
+func wildOperation(url *objurl.S3Url, wp *WorkerParams, callback wildCallback) error {
 	subjobStats := subjobStatsType{}
 	var subJobCounter uint32
 

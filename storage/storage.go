@@ -6,7 +6,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/peak/s5cmd/s3url"
+	"github.com/peak/s5cmd/objurl"
 )
 
 // Item is a generic type which contains metadata for storage items.
@@ -62,11 +62,11 @@ const (
 
 // Storage is an interface for storage operations.
 type Storage interface {
-	Head(context.Context, *s3url.S3Url) (*Item, error)
-	List(context.Context, *s3url.S3Url, int64) <-chan *Item
-	Copy(context.Context, *s3url.S3Url, *s3url.S3Url, string) error
-	Get(context.Context, *s3url.S3Url, io.WriterAt) error
-	Put(context.Context, io.Reader, *s3url.S3Url, string) error
+	Head(context.Context, *objurl.S3Url) (*Item, error)
+	List(context.Context, *objurl.S3Url, int64) <-chan *Item
+	Copy(context.Context, *objurl.S3Url, *objurl.S3Url, string) error
+	Get(context.Context, *objurl.S3Url, io.WriterAt) error
+	Put(context.Context, io.Reader, *objurl.S3Url, string) error
 	Delete(context.Context, string, ...string) error
 	ListBuckets(context.Context, string) ([]Bucket, error)
 	UpdateRegion(string) error

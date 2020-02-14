@@ -1,5 +1,5 @@
-// Package s3url defines URL types and has helper methods to parse a string into URLs.
-package s3url
+// Package objurl abstracts local and remote file URLs.
+package objurl
 
 import (
 	"fmt"

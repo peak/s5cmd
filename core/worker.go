@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/peak/s5cmd/opt"
 	"github.com/peak/s5cmd/stats"
 	"github.com/peak/s5cmd/storage"
 )
@@ -140,6 +141,7 @@ func (p *WorkerPool) runWorker(st *stats.Stats, idlingCounter *int32, id int) {
 
 func (p *WorkerPool) parseJob(line string) *Job {
 	job, err := ParseJob(line)
+
 	if err != nil {
 		log.Print(`-ERR "`, line, `": `, err)
 		p.st.Increment(stats.Fail)
@@ -188,6 +190,12 @@ func (p *WorkerPool) pumpJobQueues() {
 // RunCmd will run a single command (and subsequent sub-commands) in the worker pool, wait for it to finish, clean up and return.
 func (p *WorkerPool) RunCmd(commandLine string) {
 	j := p.parseJob(commandLine)
+
+	if j.opts.Has(opt.Help) {
+		j.displayHelp()
+		return
+	}
+
 	if j != nil {
 		p.queueJob(j)
 		if j.operation.IsBatch() {

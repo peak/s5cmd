@@ -183,12 +183,6 @@ func (j *Job) displayHelp() {
 
 // run runs the Job and returns error.
 func (j *Job) run(wp *WorkerParams) error {
-	if j.opts.Has(opt.Help) {
-		j.displayHelp()
-		return ErrDisplayedHelp
-	}
-
-	var err error
 	cmdFunc, ok := globalCmdRegistry[j.operation]
 	if !ok {
 		return fmt.Errorf("unhandled operation %v", j.operation)
@@ -207,9 +201,7 @@ func (j *Job) Run(wp WorkerParams) *Job {
 		return j.successCommand
 	}
 	if acceptableErr := IsAcceptableError(err); acceptableErr != nil {
-		if acceptableErr != ErrDisplayedHelp {
-			j.PrintOK(acceptableErr)
-		}
+		j.PrintOK(acceptableErr)
 		j.Notify(true)
 		return j.successCommand
 	}

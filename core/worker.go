@@ -13,6 +13,9 @@ import (
 	"github.com/peak/s5cmd/storage"
 )
 
+// ClientFunc is the function type to create new storage objects.
+type ClientFunc func() (storage.Storage, error)
+
 // WorkerPoolParams is the common parameters of all worker pools.
 type WorkerPoolParams struct {
 	NumWorkers             int
@@ -32,7 +35,7 @@ type WorkerPool struct {
 	jobQueue      chan *Job
 	subJobQueue   chan *Job
 	wg            *sync.WaitGroup
-	newClient     func() (storage.Storage, error)
+	newClient     ClientFunc
 	cancelFunc    context.CancelFunc
 	st            *stats.Stats
 	idlingCounter int32
@@ -45,7 +48,7 @@ type WorkerParams struct {
 	st            *stats.Stats
 	subJobQueue   *chan *Job
 	idlingCounter *int32
-	newClient     func() (storage.Storage, error)
+	newClient     ClientFunc
 }
 
 // NewWorkerPool creates a new worker pool and start the workers.

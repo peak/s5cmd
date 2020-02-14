@@ -62,11 +62,7 @@ func NewWorkerPool(ctx context.Context, params *WorkerPoolParams, st *stats.Stat
 			UploadChunkSizeBytes: params.UploadChunkSizeBytes,
 			UploadConcurrency:    params.UploadConcurrency,
 		})
-		if err != nil {
-			return nil, err
-		}
-
-		return s3, nil
+		return s3, err
 	}
 
 	cancelFunc := ctx.Value(CancelFuncKey).(context.CancelFunc)

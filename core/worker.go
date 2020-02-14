@@ -144,7 +144,6 @@ func (p *WorkerPool) runWorker(st *stats.Stats, idlingCounter *int32, id int) {
 
 func (p *WorkerPool) parseJob(line string) *Job {
 	job, err := ParseJob(line)
-
 	if err != nil {
 		log.Print(`-ERR "`, line, `": `, err)
 		p.st.Increment(stats.Fail)
@@ -213,7 +212,6 @@ func (p *WorkerPool) RunCmd(commandLine string) {
 
 	// start workers if the job is parsable and not help
 	p.startWorkers()
-
 	p.queueJob(j)
 	if j.operation.IsBatch() {
 		p.pumpJobQueues()

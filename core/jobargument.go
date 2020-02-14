@@ -63,13 +63,13 @@ func (a *JobArgument) Append(s string, isS3path bool) *JobArgument {
 	}
 
 	if a.s3 != nil {
-		if a.s3.Key == "" {
+		if a.s3.Path == "" {
 			a.arg += "/" + s
 		} else {
 			a.arg += s
 		}
 
-		a.s3.Key += s
+		a.s3.Path += s
 	} else {
 		a.arg += s
 	}
@@ -77,9 +77,9 @@ func (a *JobArgument) Append(s string, isS3path bool) *JobArgument {
 	return a
 }
 
-func (a *JobArgument) CheckConditionals(wp *WorkerParams, src *JobArgument, opts opt.OptionList) (ret error) {
+func CheckConditionals(src, dst *JobArgument, wp *WorkerParams, opts opt.OptionList) (ret error) {
 	if opts.Has(opt.IfNotExists) {
-		ex, err := a.Exists(wp)
+		ex, err := dst.Exists(wp)
 		if err != nil {
 			return err
 		}
@@ -91,7 +91,7 @@ func (a *JobArgument) CheckConditionals(wp *WorkerParams, src *JobArgument, opts
 	}
 
 	if opts.Has(opt.IfSizeDiffers) {
-		sDest, err := a.Size(wp)
+		sDest, err := dst.Size(wp)
 		if err != nil {
 			return err
 		}
@@ -109,7 +109,7 @@ func (a *JobArgument) CheckConditionals(wp *WorkerParams, src *JobArgument, opts
 	}
 
 	if opts.Has(opt.IfSourceNewer) {
-		tDest, err := a.ModTime(wp)
+		tDest, err := dst.ModTime(wp)
 		if err != nil {
 			return err
 		}

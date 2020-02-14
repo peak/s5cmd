@@ -89,7 +89,6 @@ func NewWorkerPool(ctx context.Context, params *WorkerPoolParams, st *stats.Stat
 // runWorker is the main function of a single worker.
 func (p *WorkerPool) runWorker(st *stats.Stats, idlingCounter *int32, id int) {
 	defer p.wg.Done()
-	defer verboseLog("Exiting goroutine %d", id)
 
 	wp := WorkerParams{
 		ctx:           p.ctx,
@@ -122,7 +121,6 @@ func (p *WorkerPool) runWorker(st *stats.Stats, idlingCounter *int32, id int) {
 
 		case job, ok := <-p.jobQueue:
 			if !ok {
-				verboseLog("Channel closed %d", id)
 				return
 			}
 			setWorking()
@@ -158,14 +156,11 @@ func (p *WorkerPool) queueJob(job *Job) bool {
 }
 
 func (p *WorkerPool) pumpJobQueues() {
-	verboseLog("Start pumping...")
-
 	var idc int32
 	for {
 		select {
 		case <-time.After(500 * time.Millisecond):
 			idc = atomic.LoadInt32(&p.idlingCounter)
-			verboseLog("idlingCounter is %d, expected to be %d", idc, p.params.NumWorkers)
 
 			if idc == int32(p.params.NumWorkers) {
 				log.Print("# All workers idle, finishing up...")

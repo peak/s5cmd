@@ -17,15 +17,17 @@ import (
 func LocalCopy(job *Job, wp *WorkerParams) (stats.StatType, error) {
 	const opType = stats.FileOp
 
-	err := job.args[1].CheckConditionals(wp, job.args[0], job.opts)
+	src, dst := job.args[0], job.args[1]
+
+	err := CheckConditionals(src, dst, wp, job.opts)
 	if err != nil {
 		return opType, err
 	}
 
 	if job.opts.Has(opt.DeleteSource) {
-		err = os.Rename(job.args[0].arg, job.args[1].arg)
+		err = os.Rename(src.arg, dst.arg)
 	} else {
-		_, err = shutil.Copy(job.args[0].arg, job.args[1].arg, true)
+		_, err = shutil.Copy(src.arg, src.arg, true)
 	}
 
 	return opType, err
@@ -33,7 +35,9 @@ func LocalCopy(job *Job, wp *WorkerParams) (stats.StatType, error) {
 
 func LocalDelete(job *Job, wp *WorkerParams) (stats.StatType, error) {
 	const opType = stats.FileOp
-	return opType, os.Remove(job.args[0].arg)
+
+	src := job.args[0]
+	return opType, os.Remove(src.arg)
 }
 
 func BatchLocalCopy(job *Job, wp *WorkerParams) (stats.StatType, error) {
@@ -45,11 +49,14 @@ func BatchLocalCopy(job *Job, wp *WorkerParams) (stats.StatType, error) {
 	}
 	subCmd += job.opts.GetParams()
 
-	st, err := os.Stat(job.args[0].arg)
+	src, dst := job.args[0], job.args[1]
+
+	st, err := os.Stat(src.arg)
 	walkMode := err == nil && st.IsDir() // walk or glob?
 
-	trimPrefix := job.args[0].arg
-	globStart := job.args[0].arg
+	trimPrefix := src.arg
+	globStart := src.arg
+
 	if !walkMode {
 		loc := strings.IndexAny(trimPrefix, GlobCharacters)
 		if loc < 0 {
@@ -127,7 +134,7 @@ func BatchLocalCopy(job *Job, wp *WorkerParams) (stats.StatType, error) {
 		}
 
 		arg1 := NewJobArgument(*fn, nil)
-		arg2 := job.args[1].Clone().Append(dstFn, false)
+		arg2 := dst.Clone().Append(dstFn, false)
 
 		dir := filepath.Dir(arg2.arg)
 		os.MkdirAll(dir, os.ModePerm)
@@ -147,10 +154,12 @@ func BatchLocalUpload(job *Job, wp *WorkerParams) (stats.StatType, error) {
 	}
 	subCmd += job.opts.GetParams()
 
-	st, err := os.Stat(job.args[0].arg)
+	src, dst := job.args[0], job.args[1]
+
+	st, err := os.Stat(src.arg)
 	walkMode := err == nil && st.IsDir() // walk or glob?
 
-	trimPrefix := job.args[0].arg
+	trimPrefix := src.arg
 	if !walkMode {
 		loc := strings.IndexAny(trimPrefix, GlobCharacters)
 		if loc < 0 {
@@ -170,7 +179,7 @@ func BatchLocalUpload(job *Job, wp *WorkerParams) (stats.StatType, error) {
 			ch <- nil // send EOF
 		}()
 		if walkMode {
-			err := filepath.Walk(job.args[0].arg, func(path string, st os.FileInfo, err error) error {
+			err := filepath.Walk(src.arg, func(path string, st os.FileInfo, err error) error {
 				if err != nil {
 					return err
 				}
@@ -182,7 +191,7 @@ func BatchLocalUpload(job *Job, wp *WorkerParams) (stats.StatType, error) {
 			})
 			return err
 		} else {
-			ma, err := filepath.Glob(job.args[0].arg)
+			ma, err := filepath.Glob(src.arg)
 			if err != nil {
 				return err
 			}
@@ -216,7 +225,7 @@ func BatchLocalUpload(job *Job, wp *WorkerParams) (stats.StatType, error) {
 		}
 
 		arg1 := NewJobArgument(*fn, nil)
-		arg2 := job.args[1].Clone().Append(dstFn, false)
+		arg2 := dst.Clone().Append(dstFn, false)
 		return job.MakeSubJob(subCmd, op.Upload, []*JobArgument{arg1, arg2}, job.opts)
 	})
 

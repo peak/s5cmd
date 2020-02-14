@@ -80,7 +80,7 @@ func NewS3Storage(opts S3Opts) (*S3, error) {
 func (s *S3) Head(ctx context.Context, url *objurl.ObjectURL) (*Item, error) {
 	output, err := s.api.HeadObjectWithContext(ctx, &s3.HeadObjectInput{
 		Bucket: aws.String(url.Bucket),
-		Key:    aws.String(url.Key),
+		Key:    aws.String(url.Path),
 	})
 
 	if err != nil {
@@ -91,7 +91,7 @@ func (s *S3) Head(ctx context.Context, url *objurl.ObjectURL) (*Item, error) {
 		Etag:         aws.StringValue(output.ETag),
 		LastModified: aws.TimeValue(output.LastModified),
 		Size:         aws.Int64Value(output.ContentLength),
-		Key:          url.Key,
+		Key:          url.Path,
 	}, nil
 }
 
@@ -175,7 +175,7 @@ func (s *S3) List(ctx context.Context, url *objurl.ObjectURL, maxKeys int64) <-c
 func (s *S3) Copy(ctx context.Context, from, to *objurl.ObjectURL, cls string) error {
 	_, err := s.api.CopyObject(&s3.CopyObjectInput{
 		Bucket:       aws.String(from.Bucket),
-		Key:          aws.String(from.Key),
+		Key:          aws.String(from.Path),
 		CopySource:   aws.String(to.Format()),
 		StorageClass: aws.String(cls),
 	})
@@ -188,7 +188,7 @@ func (s *S3) Copy(ctx context.Context, from, to *objurl.ObjectURL, cls string) e
 func (s *S3) Get(ctx context.Context, from *objurl.ObjectURL, to io.WriterAt) error {
 	_, err := s.downloader.DownloadWithContext(ctx, to, &s3.GetObjectInput{
 		Bucket: aws.String(from.Bucket),
-		Key:    aws.String(from.Key),
+		Key:    aws.String(from.Path),
 	}, func(u *s3manager.Downloader) {
 		u.PartSize = s.opts.DownloadChunkSizeBytes
 		u.Concurrency = s.opts.DownloadConcurrency
@@ -201,7 +201,7 @@ func (s *S3) Get(ctx context.Context, from *objurl.ObjectURL, to io.WriterAt) er
 func (s *S3) Put(ctx context.Context, reader io.Reader, to *objurl.ObjectURL, cls string) error {
 	_, err := s.uploader.UploadWithContext(ctx, &s3manager.UploadInput{
 		Bucket:       aws.String(to.Bucket),
-		Key:          aws.String(to.Key),
+		Key:          aws.String(to.Path),
 		Body:         reader,
 		StorageClass: aws.String(cls),
 	}, func(u *s3manager.Uploader) {

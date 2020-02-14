@@ -4,6 +4,9 @@ import (
 	"reflect"
 	"regexp"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
 func TestHasWild(t *testing.T) {
@@ -30,7 +33,7 @@ func TestHasWild(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := HasWild(tt.s); got != tt.want {
+			if got := HasGlobCharacter(tt.s); got != tt.want {
 				t.Errorf("HasWild() = %v, want %v", got, tt.want)
 			}
 		})
@@ -39,16 +42,12 @@ func TestHasWild(t *testing.T) {
 
 func TestNew(t *testing.T) {
 	tests := []struct {
-		name    string
-		object  string
-		want    *ObjectURL
-		wantErr bool
+		name         string
+		object       string
+		want         *ObjectURL
+		wantFilterRe string
+		wantErr      bool
 	}{
-		{
-			name:    "error_if_prefix_does_not_match",
-			object:  "test/nos3prefix/1.txt",
-			wantErr: true,
-		},
 		{
 			name:    "error_if_does_not_have_bucket",
 			object:  "s3://",
@@ -63,35 +62,38 @@ func TestNew(t *testing.T) {
 			name:   "url_with_no_wildcard",
 			object: "s3://bucket/key",
 			want: &ObjectURL{
-				Key:         "key",
-				Bucket:      "bucket",
-				Prefix:      "key",
-				filterRegex: regexp.MustCompile("^key.*$"),
-				Delimiter:   "/",
+				Scheme:    "s3",
+				Bucket:    "bucket",
+				Path:      "key",
+				Prefix:    "key",
+				Delimiter: "/",
 			},
+			wantFilterRe: regexp.MustCompile(`^key.*$`).String(),
 		},
 		{
 			name:   "url_with_no_wildcard_end_with_slash",
 			object: "s3://bucket/key/",
 			want: &ObjectURL{
-				Key:         "key/",
-				Bucket:      "bucket",
-				Prefix:      "key/",
-				filterRegex: regexp.MustCompile("^key/.*$"),
-				Delimiter:   "/",
+				Scheme:    "s3",
+				Bucket:    "bucket",
+				Path:      "key/",
+				Prefix:    "key/",
+				Delimiter: "/",
 			},
+			wantFilterRe: regexp.MustCompile(`^key/.*$`).String(),
 		},
 		{
 			name:   "url_with_wildcard",
 			object: "s3://bucket/key/a/?/test/*",
 			want: &ObjectURL{
-				Key:         "key/a/?/test/*",
+				Scheme:      "s3",
 				Bucket:      "bucket",
+				Path:        "key/a/?/test/*",
 				Prefix:      "key/a/",
-				filter:      "?/test/*",
-				filterRegex: regexp.MustCompile("^key/a/./test/.*?$"),
+				filterRegex: regexp.MustCompile(`^key/a/./test/.*?$`),
 				Delimiter:   "",
 			},
+			wantFilterRe: regexp.MustCompile(`^key/a/./test/.*?$`).String(),
 		},
 	}
 	for _, tt := range tests {
@@ -100,8 +102,15 @@ func TestNew(t *testing.T) {
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ParseObjectURL() error = %v, wantErr %v", err, tt.wantErr)
 			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("ParseObjectURL() got = %v, want %v", got, tt.want)
+			if diff := cmp.Diff(tt.want, got, cmpopts.IgnoreUnexported(ObjectURL{})); diff != "" {
+				t.Errorf("test case %q: ObjectURL mismatch (-want +got):\n%v", tt.name, diff)
+
+			}
+			if tt.wantFilterRe != "" {
+				if diff := cmp.Diff(tt.wantFilterRe, got.filterRegex.String()); diff != "" {
+					t.Errorf("test case %q: ObjectURL.filterRegex mismatch (-want +got):\n%v", tt.name, diff)
+
+				}
 			}
 		})
 	}
@@ -116,10 +125,10 @@ func TestObjectURL_setPrefixAndFilter(t *testing.T) {
 		{
 			name: "wild_operation",
 			before: &ObjectURL{
-				Key: "a/b_c/*/de/*/test",
+				Path: "a/b_c/*/de/*/test",
 			},
 			after: &ObjectURL{
-				Key:         "a/b_c/*/de/*/test",
+				Path:        "a/b_c/*/de/*/test",
 				Prefix:      "a/b_c/",
 				Delimiter:   "",
 				filter:      "*/de/*/test",
@@ -129,10 +138,10 @@ func TestObjectURL_setPrefixAndFilter(t *testing.T) {
 		{
 			name: "not_wild_operation",
 			before: &ObjectURL{
-				Key: "a/b_c/d/e",
+				Path: "a/b_c/d/e",
 			},
 			after: &ObjectURL{
-				Key:         "a/b_c/d/e",
+				Path:        "a/b_c/d/e",
 				Prefix:      "a/b_c/d/e",
 				Delimiter:   "/",
 				filter:      "",

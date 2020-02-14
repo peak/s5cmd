@@ -196,7 +196,7 @@ func s3predictor(a cmp.Args) []string {
 			return nil
 		}
 		s3bucket = s3u.Bucket
-		s3key = s3u.Key
+		s3key = s3u.Path
 		endsInSlash = a.Last[len(a.Last)-1] == '/'
 	}
 

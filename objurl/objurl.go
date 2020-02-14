@@ -20,35 +20,66 @@ const (
 	matchAllRe string = ".*"
 )
 
+type objurlType int
+
+const (
+	remoteObject objurlType = iota
+	localObject
+)
+
 // ObjectURL is the canonical representation of an object, either on local or
 // remote storage.
 type ObjectURL struct {
-	Bucket      string
-	Delimiter   string
-	Key         string
-	Prefix      string
+	Type      objurlType
+	Scheme    string
+	Bucket    string
+	Path      string
+	Delimiter string
+	Prefix    string
+
 	filter      string
 	filterRegex *regexp.Regexp
 }
 
 // New creates a new ObjectURL from given path string.
 func New(s string) (*ObjectURL, error) {
-	if !strings.HasPrefix(s, s3Schema) {
-		return nil, fmt.Errorf("s3 url should start with %s", s3Schema)
-	}
-	parts := strings.SplitN(s, s3Separator, 4)
-	if parts[2] == "" {
-		return nil, fmt.Errorf("s3 url should have a bucket")
-	}
-	if HasWild(parts[2]) {
-		return nil, fmt.Errorf("bucket name cannot contain wildcards")
-	}
-	key := ""
-	if len(parts) == 4 {
-		key = strings.TrimLeft(parts[3], s3Separator)
+	split := strings.Split(s, "://")
+	if len(split) != 2 {
+		return &ObjectURL{
+			Type:   localObject,
+			Scheme: "",
+			Path:   s,
+		}, nil
 	}
 
-	url := &ObjectURL{Key: key, Bucket: parts[2]}
+	scheme, rest := split[0], split[1]
+
+	if scheme != "s3" {
+		return nil, fmt.Errorf("s3 url should start with %q", s3Schema)
+	}
+
+	parts := strings.SplitN(rest, s3Separator, 2)
+
+	key := ""
+	bucket := parts[0]
+	if len(parts) == 2 {
+		key = strings.TrimLeft(parts[1], s3Separator)
+	}
+
+	if bucket == "" {
+		return nil, fmt.Errorf("s3 url should have a bucket")
+	}
+
+	if HasGlobCharacter(bucket) {
+		return nil, fmt.Errorf("bucket name cannot contain wildcards")
+	}
+
+	url := &ObjectURL{
+		Type:   remoteObject,
+		Scheme: "s3",
+		Bucket: bucket,
+		Path:   key,
+	}
 
 	if err := url.setPrefixAndFilter(); err != nil {
 		return nil, err
@@ -56,16 +87,37 @@ func New(s string) (*ObjectURL, error) {
 	return url, nil
 }
 
+func (o ObjectURL) IsRemote() bool {
+	return o.Type == remoteObject
+}
+
 func (o ObjectURL) String() string {
-	return "s3://" + o.Bucket + "/" + o.Key
+	if !o.IsRemote() {
+		return o.Path
+	}
+
+	return o.RemoteURL()
+}
+
+func (o ObjectURL) RemoteURL() string {
+	s := o.Scheme + "://"
+	if o.Bucket != "" {
+		s += o.Bucket
+	}
+
+	if o.Path != "" {
+		s += "/" + o.Path
+	}
+
+	return s
 }
 
 // Format formats the ObjectURL to the format "<bucket>[/<key>]".
 func (o ObjectURL) Format() string {
-	if o.Key == "" {
+	if o.Path == "" {
 		return o.Bucket
 	}
-	return o.Bucket + s3Separator + o.Key
+	return o.Bucket + s3Separator + o.Path
 }
 
 // setPrefixAndFilter creates url metadata for both wildcard and non-wildcard operations.
@@ -96,14 +148,14 @@ func (o ObjectURL) Format() string {
 //		delimiter: "/"
 //
 func (o *ObjectURL) setPrefixAndFilter() error {
-	loc := strings.IndexAny(o.Key, globCharacters)
+	loc := strings.IndexAny(o.Path, globCharacters)
 	wildOperation := loc > -1
 	if !wildOperation {
 		o.Delimiter = s3Separator
-		o.Prefix = o.Key
+		o.Prefix = o.Path
 	} else {
-		o.Prefix = o.Key[:loc]
-		o.filter = o.Key[loc:]
+		o.Prefix = o.Path[:loc]
+		o.filter = o.Path[loc:]
 	}
 
 	filterRegex := matchAllRe
@@ -126,7 +178,7 @@ func (o ObjectURL) Clone() ObjectURL {
 	return ObjectURL{
 		Bucket:      o.Bucket,
 		Delimiter:   o.Delimiter,
-		Key:         o.Key,
+		Path:        o.Path,
 		Prefix:      o.Prefix,
 		filter:      o.filter,
 		filterRegex: o.filterRegex,
@@ -197,7 +249,7 @@ func parseNonBatch(prefix string, key string) string {
 	return trimmedKey
 }
 
-// HasWild checks if a string contains any S3 wildcard chars.
-func HasWild(s string) bool {
+// HasGlobCharacter checks if a string contains any wildcard chars.
+func HasGlobCharacter(s string) bool {
 	return strings.ContainsAny(s, globCharacters)
 }

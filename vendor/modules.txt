@@ -39,8 +39,6 @@ github.com/aws/aws-sdk-go/service/s3/s3manager/s3manageriface
 github.com/aws/aws-sdk-go/service/sts
 # github.com/boltdb/bolt v1.3.1
 github.com/boltdb/bolt
-# github.com/davecgh/go-spew v1.1.1
-github.com/davecgh/go-spew/spew
 # github.com/google/go-cmp v0.4.0
 github.com/google/go-cmp/cmp
 github.com/google/go-cmp/cmp/internal/diff
@@ -68,8 +66,6 @@ github.com/johannesboyne/gofakes3/internal/s3io
 github.com/kardianos/osext
 # github.com/pkg/errors v0.9.1
 github.com/pkg/errors
-# github.com/pmezard/go-difflib v1.0.0
-github.com/pmezard/go-difflib/difflib
 # github.com/posener/complete v0.0.0-20171104095702-dc2bc5a81acc
 github.com/posener/complete
 github.com/posener/complete/cmd
@@ -79,11 +75,6 @@ github.com/posener/complete/match
 github.com/ryszard/goskiplist/skiplist
 # github.com/shabbyrobe/gocovmerge v0.0.0-20180507124511-f6ea450bfb63
 github.com/shabbyrobe/gocovmerge
-# github.com/stretchr/objx v0.1.1
-github.com/stretchr/objx
-# github.com/stretchr/testify v1.4.0
-github.com/stretchr/testify/assert
-github.com/stretchr/testify/mock
 # github.com/termie/go-shutil v0.0.0-20140729215957-bcacb06fecae
 github.com/termie/go-shutil
 # golang.org/x/sys v0.0.0-20190310054646-10058d7d4faa
@@ -93,8 +84,6 @@ golang.org/x/tools/cover
 # gopkg.in/mgo.v2 v2.0.0-20180705113604-9856a29383ce
 gopkg.in/mgo.v2/bson
 gopkg.in/mgo.v2/internal/json
-# gopkg.in/yaml.v2 v2.2.2
-gopkg.in/yaml.v2
 # gotest.tools/v3 v3.0.0
 gotest.tools/v3/assert
 gotest.tools/v3/assert/cmp

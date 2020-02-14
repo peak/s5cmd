@@ -210,7 +210,7 @@ func s3predictor(a cmp.Args) []string {
 
 	// No object key and (no bucket or not ending in slash char): get S3 buckets
 	if s3key == "" && (s3bucket == "" || !endsInSlash) {
-		buckets, err := client.ListBuckets(ctx, "")
+		buckets, err := client.ListBuckets(ctx, s3bucket)
 		if err != nil {
 			return nil
 		}

@@ -210,7 +210,6 @@ func (p *WorkerPool) RunCmd(commandLine string) {
 		return
 	}
 
-	// start workers if the job is parsable and not help
 	p.startWorkers()
 	p.queueJob(j)
 	if j.operation.IsBatch() {

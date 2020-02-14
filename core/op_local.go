@@ -27,7 +27,7 @@ func LocalCopy(job *Job, wp *WorkerParams) (stats.StatType, error) {
 	if job.opts.Has(opt.DeleteSource) {
 		err = os.Rename(src.arg, dst.arg)
 	} else {
-		_, err = shutil.Copy(src.arg, src.arg, true)
+		_, err = shutil.Copy(src.arg, dst.arg, true)
 	}
 
 	return opType, err

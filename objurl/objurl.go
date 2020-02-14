@@ -44,12 +44,17 @@ type ObjectURL struct {
 // New creates a new ObjectURL from given path string.
 func New(s string) (*ObjectURL, error) {
 	split := strings.Split(s, "://")
-	if len(split) != 2 {
+
+	if len(split) == 1 {
 		return &ObjectURL{
 			Type:   localObject,
 			Scheme: "",
 			Path:   s,
 		}, nil
+	}
+
+	if len(split) != 2 {
+		return nil, fmt.Errorf("objurl: unknown url format %q", s)
 	}
 
 	scheme, rest := split[0], split[1]

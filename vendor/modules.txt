@@ -17,6 +17,7 @@ github.com/aws/aws-sdk-go/aws/endpoints
 github.com/aws/aws-sdk-go/aws/request
 github.com/aws/aws-sdk-go/aws/session
 github.com/aws/aws-sdk-go/aws/signer/v4
+github.com/aws/aws-sdk-go/awstesting/unit
 github.com/aws/aws-sdk-go/internal/ini
 github.com/aws/aws-sdk-go/internal/s3err
 github.com/aws/aws-sdk-go/internal/sdkio
@@ -34,11 +35,10 @@ github.com/aws/aws-sdk-go/private/protocol/xml/xmlutil
 github.com/aws/aws-sdk-go/service/s3
 github.com/aws/aws-sdk-go/service/s3/s3iface
 github.com/aws/aws-sdk-go/service/s3/s3manager
+github.com/aws/aws-sdk-go/service/s3/s3manager/s3manageriface
 github.com/aws/aws-sdk-go/service/sts
 # github.com/boltdb/bolt v1.3.1
 github.com/boltdb/bolt
-# github.com/cenkalti/backoff v1.1.0
-github.com/cenkalti/backoff
 # github.com/google/go-cmp v0.4.0
 github.com/google/go-cmp/cmp
 github.com/google/go-cmp/cmp/internal/diff
@@ -77,8 +77,6 @@ github.com/ryszard/goskiplist/skiplist
 github.com/shabbyrobe/gocovmerge
 # github.com/termie/go-shutil v0.0.0-20140729215957-bcacb06fecae
 github.com/termie/go-shutil
-# golang.org/x/net v0.0.0-20190311183353-d8887717615a
-golang.org/x/net/context
 # golang.org/x/sys v0.0.0-20190310054646-10058d7d4faa
 golang.org/x/sys/unix
 # golang.org/x/tools v0.0.0-20190624222133-a101b041ded4

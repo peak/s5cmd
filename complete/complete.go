@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"flag"
+	"fmt"
 	"math"
 	"runtime"
 	"strconv"
@@ -14,16 +15,14 @@ import (
 	"github.com/peak/s5cmd/core"
 	"github.com/peak/s5cmd/opt"
 	"github.com/peak/s5cmd/s3url"
+	"github.com/peak/s5cmd/storage"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/s3"
 	cmp "github.com/posener/complete"
 )
 
 const (
 	s3CompletionTimeout = 5 * time.Second
 	s3MaxKeys           = 20
-	s3MaxPages          = 1
 )
 
 // ParseFlagsAndRun will initialize shell-completion, and introduce the shell completion specific options. It also calls flag.Parse()
@@ -133,7 +132,6 @@ func getSubCommands() cmp.Commands {
 		ret[kw] = c
 	}
 
-	// Now the args
 	for kw, v := range argList {
 		predictorList := make([]cmp.Predictor, 0)
 		addedS3predictor := false
@@ -203,32 +201,23 @@ func s3predictor(a cmp.Args) []string {
 	}
 
 	// Quickly create a new session with defaults
-	ses, err := core.NewAwsSession(-1, "", "", false)
+	client, err := storage.NewS3Storage(storage.S3Opts{})
 	if err != nil {
 		return nil
 	}
-	client := s3.New(ses)
 	ctx, canceler := context.WithTimeout(context.Background(), s3CompletionTimeout)
 	defer canceler() // avoid a leak and make go vet happy
 
 	// No object key and (no bucket or not ending in slash char): get S3 buckets
 	if s3key == "" && (s3bucket == "" || !endsInSlash) {
-		o, err := client.ListBucketsWithContext(ctx, &s3.ListBucketsInput{})
+		buckets, err := client.ListBuckets(ctx, s3bucket)
 		if err != nil {
 			return nil
 		}
 
 		var ret []string
-		for _, b := range o.Buckets {
-			if s3bucket == "" {
-				// Return a list of all buckets
-				ret = append(ret, "s3://"+*b.Name+"/")
-			} else {
-				// Check starts-with and only return matching buckets
-				if strings.HasPrefix(*b.Name, s3bucket) {
-					ret = append(ret, "s3://"+*b.Name+"/")
-				}
-			}
+		for _, bucket := range buckets {
+			ret = append(ret, fmt.Sprintf("s3://%s/", bucket.Name))
 		}
 
 		// if only 1 match, fall through and list objects in the bucket
@@ -241,38 +230,26 @@ func s3predictor(a cmp.Args) []string {
 
 	if s3bucket != "" {
 		// Override default region with bucket
-		ses, err := core.GetSessionForBucket(client, s3bucket)
-		if err == nil {
-			client = s3.New(ses)
+		if err := client.UpdateRegion(s3bucket); err != nil {
+			return nil
 		}
 
 		var ret []string
 
 		prefix := "s3://" + s3bucket + "/"
+		url, err := s3url.New(prefix)
+		if err != nil {
+			return nil
+		}
 
-		page := 0
-		client.ListObjectsV2PagesWithContext(ctx, &s3.ListObjectsV2Input{
-			Bucket:    &s3bucket,
-			Delimiter: aws.String("/"),
-			Prefix:    &s3key,
-			MaxKeys:   aws.Int64(s3MaxKeys),
-		}, func(o *s3.ListObjectsV2Output, lastPage bool) bool {
-			for _, p := range o.CommonPrefixes {
-				ret = append(ret, prefix+*p.Prefix)
+		for item := range client.List(ctx, url, s3MaxKeys) {
+			// Ignore the 0-byte "*_$folder$" objects in shell completion, created by s3n
+			if item.Size == 0 && strings.HasSuffix(item.Key, "_$folder$") {
+				continue
 			}
 
-			for _, q := range o.Contents {
-				// Ignore the 0-byte "*_$folder$" objects in shell completion, created by s3n
-				if *q.Size == 0 && strings.HasSuffix(*q.Key, "_$folder$") {
-					continue
-				}
-
-				ret = append(ret, prefix+*q.Key)
-			}
-
-			page++
-			return page < s3MaxPages
-		})
+			ret = append(ret, fmt.Sprintf("%s%s", prefix, item))
+		}
 
 		// If no s3key given, add the bare bucket name to our results
 		if s3key == "" {

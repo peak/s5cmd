@@ -169,7 +169,6 @@ func parseArgumentByType(s string, t opt.ParamType, fnObj *JobArgument) (*JobArg
 
 // ParseJob parses a job description and returns a *Job type, possibly with other *Job types in successCommand/failCommand
 func ParseJob(jobdesc string) (*Job, error) {
-
 	jobdesc = strings.Split(jobdesc, " #")[0] // Get rid of comments
 	jobdesc = strings.TrimSpace(jobdesc)
 	// Get rid of double or more spaces

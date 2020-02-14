@@ -9,6 +9,9 @@ import (
 
 	"github.com/peak/s5cmd/op"
 	"github.com/peak/s5cmd/opt"
+	"github.com/peak/s5cmd/s3url"
+	"github.com/peak/s5cmd/stats"
+	"github.com/peak/s5cmd/storage"
 )
 
 const dateFormat = "2006/01/02 15:04:05"
@@ -40,7 +43,6 @@ func (j Job) String() (s string) {
 	for _, a := range j.args {
 		s += " " + a.arg
 	}
-	//s += " # from " + j.sourceDesc
 	return
 }
 
@@ -121,7 +123,7 @@ func (j *Job) PrintOK(err AcceptableError) {
 	}
 }
 
-// PrintErr prints the error response from a Job
+// PrintErr prints the error response from a Job.
 func (j *Job) PrintErr(err error) {
 	if j.operation.IsInternal() {
 		// TODO are we sure about ignoring errors from internal jobs?
@@ -137,6 +139,18 @@ func (j *Job) PrintErr(err error) {
 	}
 }
 
+func (j *Job) getStorageClass() string {
+	var cls string
+	if j.opts.Has(opt.RR) {
+		cls = storage.ObjectStorageClassReducedRedundancy
+	} else if j.opts.Has(opt.IA) {
+		cls = storage.TransitionStorageClassStandardIa
+	} else {
+		cls = storage.ObjectStorageClassStandard
+	}
+	return cls
+}
+
 // Notify informs the parent/issuer job if the job succeeded or failed.
 func (j *Job) Notify(success bool) {
 	if j.subJobData == nil {
@@ -148,30 +162,33 @@ func (j *Job) Notify(success bool) {
 	j.subJobData.Done()
 }
 
-// Run runs the Job and returns error
-func (j *Job) Run(wp *WorkerParams) error {
-	//log.Printf("Running %v", j)
+// displayHelp displays help text.
+func (j *Job) displayHelp() {
+	fmt.Fprintf(os.Stderr, "%v\n\n", UsageLine())
 
+	cl, opts, cnt := CommandHelps(j.command)
+
+	if ol := opt.OptionHelps(opts); ol != "" {
+		fmt.Fprintf(os.Stderr, "\"%v\" command options:\n", j.command)
+		fmt.Fprint(os.Stderr, ol)
+		fmt.Fprint(os.Stderr, "\n\n")
+	}
+
+	if cnt > 1 {
+		fmt.Fprintf(os.Stderr, "Help for \"%v\" commands:\n", j.command)
+	}
+	fmt.Fprint(os.Stderr, cl)
+	fmt.Fprint(os.Stderr, "\nTo list available general options, run without arguments.\n")
+}
+
+// run runs the Job and returns error.
+func (j *Job) run(wp *WorkerParams) error {
 	if j.opts.Has(opt.Help) {
-		fmt.Fprintf(os.Stderr, "%v\n\n", UsageLine())
-
-		cl, opts, cnt := CommandHelps(j.command)
-
-		if ol := opt.OptionHelps(opts); ol != "" {
-			fmt.Fprintf(os.Stderr, "\"%v\" command options:\n", j.command)
-			fmt.Fprint(os.Stderr, ol)
-			fmt.Fprint(os.Stderr, "\n\n")
-		}
-
-		if cnt > 1 {
-			fmt.Fprintf(os.Stderr, "Help for \"%v\" commands:\n", j.command)
-		}
-		fmt.Fprint(os.Stderr, cl)
-		fmt.Fprint(os.Stderr, "\nTo list available general options, run without arguments.\n")
-
+		j.displayHelp()
 		return ErrDisplayedHelp
 	}
 
+	var err error
 	cmdFunc, ok := globalCmdRegistry[j.operation]
 	if !ok {
 		return fmt.Errorf("unhandled operation %v", j.operation)
@@ -181,10 +198,80 @@ func (j *Job) Run(wp *WorkerParams) error {
 	return wp.st.IncrementIfSuccess(kind, err)
 }
 
-type wildLister func(chan<- interface{}) error
-type wildCallback func(interface{}) *Job
+// Run runs the Job, logs the results and returns sub-job of parent job.
+func (j *Job) Run(wp WorkerParams) *Job {
+	err := j.run(&wp)
+	if err == nil {
+		j.PrintOK(nil)
+		j.Notify(true)
+		return j.successCommand
+	}
+	if acceptableErr := IsAcceptableError(err); acceptableErr != nil {
+		if acceptableErr != ErrDisplayedHelp {
+			j.PrintOK(acceptableErr)
+		}
+		j.Notify(true)
+		return j.successCommand
+	}
+	j.PrintErr(err)
+	wp.st.Increment(stats.Fail)
+	j.Notify(false)
+	return j.failCommand
+}
 
-// wildOperation is the cornerstone of sub-job launching.
+type (
+	wildCallback func(*storage.Item) *Job
+	wildLister   func(chan<- interface{}) error
+)
+
+// wildOperation is the cornerstone of sub-job launching for S3.
+//
+// It will run storage.List() and creates jobs from produced items by
+// running callback function. Generated jobs will be pumped to subJobQueue
+// for sub-job launching.
+//
+// After all sub-jobs created and executed, it waits all jobs to finish.
+func wildOperation(url *s3url.S3Url, wp *WorkerParams, callback wildCallback) error {
+	subjobStats := subjobStatsType{}
+	var subJobCounter uint32
+
+	client, err := wp.newClient()
+	if err != nil {
+		return err
+	}
+
+	for item := range client.List(wp.ctx, url, storage.ListAllItems) {
+		if item.Err != nil {
+			verboseLog("wildOperation lister is done with error: %v", item.Err)
+			continue
+		}
+
+		j := callback(item)
+		if j != nil {
+			j.subJobData = &subjobStats
+			subjobStats.Add(1)
+			subJobCounter++
+			select {
+			case *wp.subJobQueue <- j:
+			case <-wp.ctx.Done():
+				break
+			}
+		}
+	}
+
+	subjobStats.Wait()
+
+	s := atomic.LoadUint32(&(subjobStats.numSuccess))
+	verboseLog("wildOperation all subjobs finished: %d/%d", s, subJobCounter)
+
+	if s != subJobCounter {
+		return fmt.Errorf("not all jobs completed successfully: %d/%d", s, subJobCounter)
+	}
+	return nil
+}
+
+// TODO: Remove this function after implementing file storage
+// wildOperationLocal is the cornerstone of sub-job launching for local filesystem.
 //
 // It will run lister() when ready and expect data from ch. On EOF, a single
 // nil should be passed into ch. Data received from ch will be passed to
@@ -196,7 +283,7 @@ type wildCallback func(interface{}) *Job
 // error if even a single sub-job was not successful
 //
 // Midway-failing lister() fns are not thoroughly tested and may hang or panic.
-func wildOperation(wp *WorkerParams, lister wildLister, callback wildCallback) error {
+func wildOperationLocal(wp *WorkerParams, lister wildLister, callback func(interface{}) *Job) error {
 	itemCh := make(chan interface{})
 	doneCh := make(chan struct{})
 

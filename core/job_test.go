@@ -27,14 +27,12 @@ var (
 	idlingCounter int32
 	subJobQueue   = make(chan *Job)
 	wp            = WorkerParams{
-		nil,
-		nil,
-		nil,
-		context.TODO(),
-		nil,
-		&st,
-		&subJobQueue,
-		&idlingCounter,
+		ctx:           context.TODO(),
+		poolParams:    nil,
+		st:            &st,
+		subJobQueue:   &subJobQueue,
+		idlingCounter: &idlingCounter,
+		newClient:     nil,
 	}
 
 	// These Jobs are used for benchmarks and also as skeletons for tests
@@ -59,7 +57,7 @@ func benchmarkJobRun(b *testing.B, j *Job) {
 
 	for n := 0; n < b.N; n++ {
 		createFile("test-src", "")
-		err = j.Run(&wp)
+		err = j.run(&wp)
 	}
 
 	deleteFile("test-dst")
@@ -137,7 +135,7 @@ func TestJobRunLocalDelete(t *testing.T) {
 	}
 
 	// execute
-	err = localDeleteJob.Run(&wp)
+	err = localDeleteJob.run(&wp)
 	if err != nil {
 		t.Error(err)
 	}
@@ -199,7 +197,7 @@ func testLocalCopyOrMove(t *testing.T, isMove bool) {
 	}
 
 	// execute
-	err = job.Run(&wp)
+	err = job.run(&wp)
 	if err != nil {
 		t.Error(err)
 		return
@@ -222,7 +220,6 @@ func testLocalCopyOrMove(t *testing.T, isMove bool) {
 	if newContents != fileContents {
 		t.Error("File contents do not match")
 	}
-
 }
 
 func TestJobRunLocalCopy(t *testing.T) {

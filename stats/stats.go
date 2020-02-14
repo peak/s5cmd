@@ -18,14 +18,11 @@ const (
 
 	// ShellOp is successful shell invocations
 	ShellOp
-
-	// RetryOp is retried operations
-	RetryOp
 )
 
 // Stats contain the number of operations of each StatType
 type Stats struct {
-	ops [5]uint64
+	ops [4]uint64
 }
 
 // IncrementIfSuccess atomically increments the StatType's counter in Stats if err is nil

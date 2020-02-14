@@ -71,7 +71,7 @@ func BatchLocalCopy(job *Job, wp *WorkerParams) (stats.StatType, error) {
 
 	recurse := job.opts.Has(opt.Recursive)
 
-	err = wildOperation(wp, func(ch chan<- interface{}) error {
+	err = wildOperationLocal(wp, func(ch chan<- interface{}) error {
 		defer func() {
 			ch <- nil // send EOF
 		}()
@@ -165,7 +165,7 @@ func BatchLocalUpload(job *Job, wp *WorkerParams) (stats.StatType, error) {
 		trimPrefix += string(filepath.Separator)
 	}
 
-	err = wildOperation(wp, func(ch chan<- interface{}) error {
+	err = wildOperationLocal(wp, func(ch chan<- interface{}) error {
 		defer func() {
 			ch <- nil // send EOF
 		}()

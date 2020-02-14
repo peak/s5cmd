@@ -52,7 +52,7 @@ type WorkerParams struct {
 	newClient     ClientFunc
 }
 
-// NewWorkerPool creates a new worker pool and start the workers.
+// NewWorkerPool creates a new worker pool.
 func NewWorkerPool(ctx context.Context, params *WorkerPoolParams, st *stats.Stats) *WorkerPool {
 	newClient := func() (storage.Storage, error) {
 		s3, err := storage.NewS3Storage(storage.S3Opts{
@@ -79,12 +79,15 @@ func NewWorkerPool(ctx context.Context, params *WorkerPoolParams, st *stats.Stat
 		st:          st,
 	}
 
-	for i := 0; i < params.NumWorkers; i++ {
-		p.wg.Add(1)
-		go p.runWorker(st, &p.idlingCounter, i)
-	}
-
 	return p
+}
+
+// startWorkers starts the workers.
+func (p *WorkerPool) startWorkers() {
+	for i := 0; i < p.params.NumWorkers; i++ {
+		p.wg.Add(1)
+		go p.runWorker(p.st, &p.idlingCounter, i)
+	}
 }
 
 // runWorker is the main function of a single worker.
@@ -187,28 +190,40 @@ func (p *WorkerPool) pumpJobQueues() {
 	}
 }
 
+// closeAndWait closes the channel and waits all jobs to finish.
+func (p *WorkerPool) closeAndWait() {
+	close(p.jobQueue)
+	p.wg.Wait()
+}
+
 // RunCmd will run a single command (and subsequent sub-commands) in the worker pool, wait for it to finish, clean up and return.
 func (p *WorkerPool) RunCmd(commandLine string) {
+	defer p.closeAndWait()
+
 	j := p.parseJob(commandLine)
+
+	if j == nil {
+		return
+	}
 
 	if j.opts.Has(opt.Help) {
 		j.displayHelp()
 		return
 	}
 
-	if j != nil {
-		p.queueJob(j)
-		if j.operation.IsBatch() {
-			p.pumpJobQueues()
-		}
-	}
+	// start workers if the job is parsable and not help
+	p.startWorkers()
 
-	close(p.jobQueue)
-	p.wg.Wait()
+	p.queueJob(j)
+	if j.operation.IsBatch() {
+		p.pumpJobQueues()
+	}
 }
 
 // Run runs the commands in filename in the worker pool, on EOF it will wait for all commands to finish, clean up and return.
 func (p *WorkerPool) Run(filename string) {
+	defer p.closeAndWait()
+
 	var r io.ReadCloser
 	var err error
 
@@ -222,6 +237,7 @@ func (p *WorkerPool) Run(filename string) {
 		defer r.Close()
 	}
 
+	p.startWorkers()
 	s := NewCancelableScanner(p.ctx, r).Start()
 
 	var j *Job
@@ -245,7 +261,4 @@ func (p *WorkerPool) Run(filename string) {
 	if isAnyBatch {
 		p.pumpJobQueues()
 	}
-	close(p.jobQueue)
-
-	p.wg.Wait()
 }

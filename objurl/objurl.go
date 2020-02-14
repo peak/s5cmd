@@ -8,8 +8,7 @@ import (
 )
 
 const (
-	// s3WildCharacters is valid wildcard characters for a S3Url
-	s3WildCharacters string = "?*"
+	globCharacters string = "?*"
 
 	// s3Schema is the schema used on s3 URLs
 	s3Schema string = "s3://"
@@ -21,8 +20,9 @@ const (
 	matchAllRe string = ".*"
 )
 
-// S3Url is the metadata that is used on S3 operations (listing, querying).
-type S3Url struct {
+// ObjectURL is the canonical representation of an object, either on local or
+// remote storage.
+type ObjectURL struct {
 	Bucket      string
 	Delimiter   string
 	Key         string
@@ -31,16 +31,41 @@ type S3Url struct {
 	filterRegex *regexp.Regexp
 }
 
-func (s S3Url) String() string {
-	return "s3://" + s.Bucket + "/" + s.Key
+// New creates a new ObjectURL from given path string.
+func New(s string) (*ObjectURL, error) {
+	if !strings.HasPrefix(s, s3Schema) {
+		return nil, fmt.Errorf("s3 url should start with %s", s3Schema)
+	}
+	parts := strings.SplitN(s, s3Separator, 4)
+	if parts[2] == "" {
+		return nil, fmt.Errorf("s3 url should have a bucket")
+	}
+	if HasWild(parts[2]) {
+		return nil, fmt.Errorf("bucket name cannot contain wildcards")
+	}
+	key := ""
+	if len(parts) == 4 {
+		key = strings.TrimLeft(parts[3], s3Separator)
+	}
+
+	url := &ObjectURL{Key: key, Bucket: parts[2]}
+
+	if err := url.setPrefixAndFilter(); err != nil {
+		return nil, err
+	}
+	return url, nil
 }
 
-// Format formats the S3Url to the format "<bucket>[/<key>]".
-func (s S3Url) Format() string {
-	if s.Key == "" {
-		return s.Bucket
+func (o ObjectURL) String() string {
+	return "s3://" + o.Bucket + "/" + o.Key
+}
+
+// Format formats the ObjectURL to the format "<bucket>[/<key>]".
+func (o ObjectURL) Format() string {
+	if o.Key == "" {
+		return o.Bucket
 	}
-	return s.Bucket + s3Separator + s.Key
+	return o.Bucket + s3Separator + o.Key
 }
 
 // setPrefixAndFilter creates url metadata for both wildcard and non-wildcard operations.
@@ -70,56 +95,56 @@ func (s S3Url) Format() string {
 //		regex: ^a/b/c.*$
 //		delimiter: "/"
 //
-func (s *S3Url) setPrefixAndFilter() error {
-	loc := strings.IndexAny(s.Key, s3WildCharacters)
+func (o *ObjectURL) setPrefixAndFilter() error {
+	loc := strings.IndexAny(o.Key, globCharacters)
 	wildOperation := loc > -1
 	if !wildOperation {
-		s.Delimiter = s3Separator
-		s.Prefix = s.Key
+		o.Delimiter = s3Separator
+		o.Prefix = o.Key
 	} else {
-		s.Prefix = s.Key[:loc]
-		s.filter = s.Key[loc:]
+		o.Prefix = o.Key[:loc]
+		o.filter = o.Key[loc:]
 	}
 
 	filterRegex := matchAllRe
-	if s.filter != "" {
-		filterRegex = regexp.QuoteMeta(s.filter)
+	if o.filter != "" {
+		filterRegex = regexp.QuoteMeta(o.filter)
 		filterRegex = strings.Replace(filterRegex, "\\?", ".", -1)
 		filterRegex = strings.Replace(filterRegex, "\\*", ".*?", -1)
 	}
-	filterRegex = s.Prefix + filterRegex
+	filterRegex = o.Prefix + filterRegex
 	r, err := regexp.Compile("^" + filterRegex + "$")
 	if err != nil {
 		return err
 	}
-	s.filterRegex = r
+	o.filterRegex = r
 	return nil
 }
 
-// Clone creates a new s3url with the values from the receiver.
-func (s S3Url) Clone() S3Url {
-	return S3Url{
-		Bucket:      s.Bucket,
-		Delimiter:   s.Delimiter,
-		Key:         s.Key,
-		Prefix:      s.Prefix,
-		filter:      s.filter,
-		filterRegex: s.filterRegex,
+// Clone creates a copy of the receiver.
+func (o ObjectURL) Clone() ObjectURL {
+	return ObjectURL{
+		Bucket:      o.Bucket,
+		Delimiter:   o.Delimiter,
+		Key:         o.Key,
+		Prefix:      o.Prefix,
+		filter:      o.filter,
+		filterRegex: o.filterRegex,
 	}
 }
 
 // Match check if given key matches with regex and
 // returns parsed key.
-func (s S3Url) Match(key string) string {
-	if !s.filterRegex.MatchString(key) {
+func (o ObjectURL) Match(key string) string {
+	if !o.filterRegex.MatchString(key) {
 		return ""
 	}
 
-	isBatch := s.filter != ""
+	isBatch := o.filter != ""
 	if isBatch {
-		return parseBatch(s.Prefix, key)
+		return parseBatch(o.Prefix, key)
 	}
-	return parseNonBatch(s.Prefix, key)
+	return parseNonBatch(o.Prefix, key)
 }
 
 // parseBatch parses keys for wildcard operations.
@@ -174,30 +199,5 @@ func parseNonBatch(prefix string, key string) string {
 
 // HasWild checks if a string contains any S3 wildcard chars.
 func HasWild(s string) bool {
-	return strings.ContainsAny(s, s3WildCharacters)
-}
-
-// New creates new S3Url by parsing given url.
-func New(rawUrl string) (*S3Url, error) {
-	if !strings.HasPrefix(rawUrl, s3Schema) {
-		return nil, fmt.Errorf("s3 url should start with %s", s3Schema)
-	}
-	parts := strings.SplitN(rawUrl, s3Separator, 4)
-	if parts[2] == "" {
-		return nil, fmt.Errorf("s3 url should have a bucket")
-	}
-	if HasWild(parts[2]) {
-		return nil, fmt.Errorf("bucket name cannot contain wildcards")
-	}
-	key := ""
-	if len(parts) == 4 {
-		key = strings.TrimLeft(parts[3], s3Separator)
-	}
-
-	url := &S3Url{Key: key, Bucket: parts[2]}
-
-	if err := url.setPrefixAndFilter(); err != nil {
-		return nil, err
-	}
-	return url, nil
+	return strings.ContainsAny(s, globCharacters)
 }

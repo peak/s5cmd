@@ -11,11 +11,12 @@ import (
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/awstesting/unit"
 	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/peak/s5cmd/s3url"
+
+	"github.com/peak/s5cmd/objurl"
 )
 
 func TestS3_List_success(t *testing.T) {
-	url, err := s3url.New("s3://bucket/key")
+	url, err := objurl.New("s3://bucket/key")
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -77,7 +78,7 @@ func TestS3_List_success(t *testing.T) {
 }
 
 func TestS3_List_error(t *testing.T) {
-	url, err := s3url.New("s3://bucket/key")
+	url, err := objurl.New("s3://bucket/key")
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -104,7 +105,7 @@ func TestS3_List_error(t *testing.T) {
 }
 
 func TestS3_List_no_item_found(t *testing.T) {
-	url, err := s3url.New("s3://bucket/key")
+	url, err := objurl.New("s3://bucket/key")
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -141,7 +142,7 @@ func TestS3_List_no_item_found(t *testing.T) {
 }
 
 func TestS3_List_context_cancelled(t *testing.T) {
-	url, err := s3url.New("s3://bucket/key")
+	url, err := objurl.New("s3://bucket/key")
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}

@@ -231,7 +231,7 @@ type (
 // for sub-job launching.
 //
 // After all sub-jobs created and executed, it waits all jobs to finish.
-func wildOperation(url *objurl.S3Url, wp *WorkerParams, callback wildCallback) error {
+func wildOperation(url *objurl.ObjectURL, wp *WorkerParams, callback wildCallback) error {
 	subjobStats := subjobStatsType{}
 	var subJobCounter uint32
 

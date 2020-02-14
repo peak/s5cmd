@@ -41,7 +41,7 @@ func TestNew(t *testing.T) {
 	tests := []struct {
 		name    string
 		object  string
-		want    *S3Url
+		want    *ObjectURL
 		wantErr bool
 	}{
 		{
@@ -62,7 +62,7 @@ func TestNew(t *testing.T) {
 		{
 			name:   "url_with_no_wildcard",
 			object: "s3://bucket/key",
-			want: &S3Url{
+			want: &ObjectURL{
 				Key:         "key",
 				Bucket:      "bucket",
 				Prefix:      "key",
@@ -73,7 +73,7 @@ func TestNew(t *testing.T) {
 		{
 			name:   "url_with_no_wildcard_end_with_slash",
 			object: "s3://bucket/key/",
-			want: &S3Url{
+			want: &ObjectURL{
 				Key:         "key/",
 				Bucket:      "bucket",
 				Prefix:      "key/",
@@ -84,7 +84,7 @@ func TestNew(t *testing.T) {
 		{
 			name:   "url_with_wildcard",
 			object: "s3://bucket/key/a/?/test/*",
-			want: &S3Url{
+			want: &ObjectURL{
 				Key:         "key/a/?/test/*",
 				Bucket:      "bucket",
 				Prefix:      "key/a/",
@@ -98,27 +98,27 @@ func TestNew(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := New(tt.object)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("ParseS3Url() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("ParseObjectURL() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("ParseS3Url() got = %v, want %v", got, tt.want)
+				t.Errorf("ParseObjectURL() got = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
-func TestS3Url_setPrefixAndFilter(t *testing.T) {
+func TestObjectURL_setPrefixAndFilter(t *testing.T) {
 	tests := []struct {
 		name   string
-		before *S3Url
-		after  *S3Url
+		before *ObjectURL
+		after  *ObjectURL
 	}{
 		{
 			name: "wild_operation",
-			before: &S3Url{
+			before: &ObjectURL{
 				Key: "a/b_c/*/de/*/test",
 			},
-			after: &S3Url{
+			after: &ObjectURL{
 				Key:         "a/b_c/*/de/*/test",
 				Prefix:      "a/b_c/",
 				Delimiter:   "",
@@ -128,10 +128,10 @@ func TestS3Url_setPrefixAndFilter(t *testing.T) {
 		},
 		{
 			name: "not_wild_operation",
-			before: &S3Url{
+			before: &ObjectURL{
 				Key: "a/b_c/d/e",
 			},
-			after: &S3Url{
+			after: &ObjectURL{
 				Key:         "a/b_c/d/e",
 				Prefix:      "a/b_c/d/e",
 				Delimiter:   "/",
@@ -154,7 +154,7 @@ func TestS3Url_setPrefixAndFilter(t *testing.T) {
 	}
 }
 
-func TestS3Url_New_and_CheckMatch(t *testing.T) {
+func TestObjectURL_New_and_CheckMatch(t *testing.T) {
 	tests := []struct {
 		name string
 		url  string

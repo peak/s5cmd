@@ -62,11 +62,11 @@ const (
 
 // Storage is an interface for storage operations.
 type Storage interface {
-	Head(context.Context, *objurl.S3Url) (*Item, error)
-	List(context.Context, *objurl.S3Url, int64) <-chan *Item
-	Copy(context.Context, *objurl.S3Url, *objurl.S3Url, string) error
-	Get(context.Context, *objurl.S3Url, io.WriterAt) error
-	Put(context.Context, io.Reader, *objurl.S3Url, string) error
+	Head(context.Context, *objurl.ObjectURL) (*Item, error)
+	List(context.Context, *objurl.ObjectURL, int64) <-chan *Item
+	Copy(context.Context, *objurl.ObjectURL, *objurl.ObjectURL, string) error
+	Get(context.Context, *objurl.ObjectURL, io.WriterAt) error
+	Put(context.Context, io.Reader, *objurl.ObjectURL, string) error
 	Delete(context.Context, string, ...string) error
 	ListBuckets(context.Context, string) ([]Bucket, error)
 	UpdateRegion(string) error

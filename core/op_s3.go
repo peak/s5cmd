@@ -147,7 +147,7 @@ func S3BatchDownload(job *Job, wp *WorkerParams) (stats.StatType, error) {
 
 		arg1 := NewJobArgument(
 			"s3://"+job.args[0].s3.Bucket+"/"+item.Key,
-			&objurl.S3Url{Bucket: job.args[0].s3.Bucket, Key: item.Key},
+			&objurl.ObjectURL{Bucket: job.args[0].s3.Bucket, Key: item.Key},
 		)
 
 		var dstFn string
@@ -270,7 +270,7 @@ func S3BatchCopy(job *Job, wp *WorkerParams) (stats.StatType, error) {
 
 		arg1 := NewJobArgument(
 			"s3://"+job.args[0].s3.Bucket+"/"+item.Key,
-			&objurl.S3Url{Bucket: job.args[0].s3.Bucket, Key: item.Key},
+			&objurl.ObjectURL{Bucket: job.args[0].s3.Bucket, Key: item.Key},
 		)
 
 		var dstFn string
@@ -282,7 +282,7 @@ func S3BatchCopy(job *Job, wp *WorkerParams) (stats.StatType, error) {
 
 		arg2 := NewJobArgument(
 			"s3://"+job.args[1].s3.Bucket+"/"+job.args[1].s3.Key+dstFn,
-			&objurl.S3Url{Bucket: job.args[1].s3.Bucket, Key: job.args[1].s3.Key + dstFn},
+			&objurl.ObjectURL{Bucket: job.args[1].s3.Bucket, Key: job.args[1].s3.Key + dstFn},
 		)
 
 		subJob := job.MakeSubJob(subCmd, op.Copy, []*JobArgument{arg1, arg2}, job.opts)

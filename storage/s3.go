@@ -77,7 +77,7 @@ func NewS3Storage(opts S3Opts) (*S3, error) {
 }
 
 // Head retrieves metadata from S3 object without returning the object itself.
-func (s *S3) Head(ctx context.Context, url *objurl.S3Url) (*Item, error) {
+func (s *S3) Head(ctx context.Context, url *objurl.ObjectURL) (*Item, error) {
 	output, err := s.api.HeadObjectWithContext(ctx, &s3.HeadObjectInput{
 		Bucket: aws.String(url.Bucket),
 		Key:    aws.String(url.Key),
@@ -98,7 +98,7 @@ func (s *S3) Head(ctx context.Context, url *objurl.S3Url) (*Item, error) {
 // List is a non-blocking S3 list operation which paginates and filters S3 keys.
 // It sends SequenceEndMarker at the end of each pagination. If no item found or an error
 // is encountered during this period, it sends these errors to item channel.
-func (s *S3) List(ctx context.Context, url *objurl.S3Url, maxKeys int64) <-chan *Item {
+func (s *S3) List(ctx context.Context, url *objurl.ObjectURL, maxKeys int64) <-chan *Item {
 	itemChan := make(chan *Item)
 	inp := s3.ListObjectsV2Input{
 		Bucket: aws.String(url.Bucket),
@@ -172,7 +172,7 @@ func (s *S3) List(ctx context.Context, url *objurl.S3Url, maxKeys int64) <-chan 
 }
 
 // Copy is a single-object copy operation which copies objects to S3 destination from another S3 source.
-func (s *S3) Copy(ctx context.Context, from, to *objurl.S3Url, cls string) error {
+func (s *S3) Copy(ctx context.Context, from, to *objurl.ObjectURL, cls string) error {
 	_, err := s.api.CopyObject(&s3.CopyObjectInput{
 		Bucket:       aws.String(from.Bucket),
 		Key:          aws.String(from.Key),
@@ -185,7 +185,7 @@ func (s *S3) Copy(ctx context.Context, from, to *objurl.S3Url, cls string) error
 
 // Get is a multipart download operation which downloads S3 objects into any destination that implements
 // io.WriterAt interface.
-func (s *S3) Get(ctx context.Context, from *objurl.S3Url, to io.WriterAt) error {
+func (s *S3) Get(ctx context.Context, from *objurl.ObjectURL, to io.WriterAt) error {
 	_, err := s.downloader.DownloadWithContext(ctx, to, &s3.GetObjectInput{
 		Bucket: aws.String(from.Bucket),
 		Key:    aws.String(from.Key),
@@ -198,7 +198,7 @@ func (s *S3) Get(ctx context.Context, from *objurl.S3Url, to io.WriterAt) error 
 
 // Put is a multipart upload operation to upload resources, which implements io.Reader interface,
 // into S3 destination.
-func (s *S3) Put(ctx context.Context, reader io.Reader, to *objurl.S3Url, cls string) error {
+func (s *S3) Put(ctx context.Context, reader io.Reader, to *objurl.ObjectURL, cls string) error {
 	_, err := s.uploader.UploadWithContext(ctx, &s3manager.UploadInput{
 		Bucket:       aws.String(to.Bucket),
 		Key:          aws.String(to.Key),

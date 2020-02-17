@@ -715,7 +715,7 @@ func TestCopyS3ToLocalWithSameFilenameWithNoClobber(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(` +OK? "cp s3://%v/%v ./%v" (Object already exists)`, bucket, filename, filename),
+		0: suffix(` +OK? "cp s3://%v/%v ./%v" (object already exists)`, bucket, filename, filename),
 	})
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{})
@@ -845,7 +845,7 @@ func TestCopyS3ToLocalWithSameFilenameDontOverrideIfS3ObjectIsOlder(t *testing.T
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(` +OK? "cp s3://%v/%v ./%v" (Object is newer or same age)`, bucket, filename, filename),
+		0: suffix(` +OK? "cp s3://%v/%v ./%v" (object is newer or same age)`, bucket, filename, filename),
 	})
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
@@ -925,7 +925,7 @@ func TestCopyLocalFileToS3WithSameFilenameWithNoClobber(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(` +OK? "cp %v s3://%v/%v" (Object already exists)`, filename, bucket, filename),
+		0: suffix(` +OK? "cp %v s3://%v/%v" (object already exists)`, filename, bucket, filename),
 	})
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
@@ -1059,7 +1059,7 @@ func TestCopyLocalFileToS3WithSameFilenameDontOverrideIfS3ObjectIsOlder(t *testi
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(` +OK? "cp %v s3://%v/%v" (Object is newer or same age)`, filename, bucket, filename),
+		0: suffix(` +OK? "cp %v s3://%v/%v" (object is newer or same age)`, filename, bucket, filename),
 	})
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{

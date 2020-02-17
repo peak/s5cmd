@@ -26,7 +26,7 @@ func (s JobStatus) String() string {
 }
 
 var (
-	WarningObjectExists     = fmt.Errorf("Object already exists")
-	WarningObjectIsNewer    = fmt.Errorf("Object is newer or same age")
-	WarningObjectSizesMatch = fmt.Errorf("Object size matches")
+	WarningObjectExists     = fmt.Errorf("object already exists")
+	WarningObjectIsNewer    = fmt.Errorf("object is newer or same age")
+	WarningObjectSizesMatch = fmt.Errorf("object size matches")
 )

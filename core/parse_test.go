@@ -7,38 +7,6 @@ import (
 	"github.com/peak/s5cmd/opt"
 )
 
-/*
---- FAIL: TestParseUnchecked (0.00s)
-    --- FAIL: TestParseUnchecked/opt.Unchecked (0.00s)
-        parse_test.go:57: Expected nil a.s3
-    --- FAIL: TestParseUnchecked/opt.UncheckedOneOrMore (0.00s)
-        parse_test.go:57: Expected nil a.s3
-    --- FAIL: TestParseUnchecked/opt.UncheckedOneOrMore#01 (0.00s)
-        parse_test.go:57: Expected nil a.s3
---- FAIL: TestParseFileObj (0.00s)
-    --- FAIL: TestParseFileObj/path/to/obj (0.00s)
-        parse_test.go:57: Expected nil a.s3
---- FAIL: TestParseFileDir (0.00s)
-    --- FAIL: TestParseFileDir/path/to/obj/ (0.00s)
-        parse_test.go:57: Expected nil a.s3
-    --- FAIL: TestParseFileDir/existing-dir (0.00s)
-        parse_test.go:57: Expected nil a.s3
-    --- FAIL: TestParseFileDir/path/to/obj (0.00s)
-        parse_test.go:57: Expected nil a.s3
---- FAIL: TestParseFileOrDir (0.00s)
-    --- FAIL: TestParseFileOrDir/path/to/obj (0.00s)
-        parse_test.go:57: Expected nil a.s3
-    --- FAIL: TestParseFileOrDir/path/to/obj/ (0.00s)
-        parse_test.go:57: Expected nil a.s3
-    --- FAIL: TestParseFileOrDir/Existing-dir-without-slash (0.00s)
-        parse_test.go:57: Expected nil a.s3
---- FAIL: TestParseGlob (0.00s)
-    --- FAIL: TestParseGlob/path/to/obj* (0.00s)
-        parse_test.go:57: Expected nil a.s3
-FAIL
-
-*/
-
 func TestParseUnchecked(t *testing.T) {
 	t.Run("opt.Unchecked", func(t *testing.T) {
 		input := "testStr"

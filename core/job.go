@@ -91,7 +91,7 @@ func (j *Job) Log() {
 		return
 	}
 
-	if err != nil && status != statusWarning {
+	if status == statusErr {
 		log.Printf(`-ERR "%s": %s`, j, errStr)
 		return
 	}

@@ -15,21 +15,21 @@ import (
 
 const dateFormat = "2006/01/02 15:04:05"
 
-// Job is our basic job type.
+// Job is the job type that is executed for each command.
 type Job struct {
-	sourceDesc     string // Source job description which we parsed this from
-	command        string // Different from operation, as multiple commands can map to the same op
+	sourceDesc     string
+	command        string
 	operation      op.Operation
 	args           []*JobArgument
 	opts           opt.OptionList
-	successCommand *Job             // Next job to run if this one is successful
-	failCommand    *Job             // ... if unsuccessful
-	subJobData     *subjobStatsType // WaitGroup and success counter for sub-jobs launched from this job using wildOperation()
+	successCommand *Job
+	failCommand    *Job
+	subJobData     *subjobStatsType
 	isSubJob       bool
 	response       *JobResponse
 }
 
-// JobResponse is the response type of job.
+// JobResponse is the response type.
 type JobResponse struct {
 	status  JobStatus
 	message []string
@@ -60,11 +60,10 @@ func (j Job) MakeSubJob(command string, operation op.Operation, args []*JobArgum
 		args:       ptr,
 		opts:       opts,
 		isSubJob:   true,
-		response:   &JobResponse{},
 	}
 }
 
-// Log prints the result of jobs.
+// Log prints the results of jobs.
 func (j *Job) Log() {
 	status := j.response.status
 	err := j.response.err
@@ -77,30 +76,28 @@ func (j *Job) Log() {
 		return
 	}
 
+	errStr := ""
+	if err != nil {
+		errStr = CleanupError(err)
+	}
+
 	if j.isSubJob {
 		m := fmt.Sprintf(`"%s"`, j)
 		if err != nil {
-			m += fmt.Sprintf(`(%s)`, err.Error())
+			m += fmt.Sprintf(`(%s)`, errStr)
 		}
 		fmt.Println("                   ", status, m)
 		return
 	}
 
 	if err != nil && status != statusWarning {
-		errStr := CleanupError(err)
-		if j.isSubJob {
-			m := fmt.Sprintf(`"%s": %s`, j, errStr)
-			fmt.Println("                   ", status, m)
-		} else {
-			log.Printf(`-ERR "%s": %s`, j, errStr)
-			return
-		}
+		log.Printf(`-ERR "%s": %s`, j, errStr)
+		return
 	}
 
-	errStr := ""
 	okStr := "OK"
-	if err != nil {
-		errStr = " (" + err.Error() + ")"
+	if status == statusWarning {
+		errStr = fmt.Sprintf(" (%s)", errStr)
 		okStr = "OK?"
 	}
 

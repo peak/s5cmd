@@ -66,6 +66,9 @@ func (a *JobArgument) Append(s string, isS3path bool) *JobArgument {
 	return a
 }
 
+// CheckConditions checks if the job satisfies the conditions if the job has -n, -s and -u flags.
+// It returns error-embedded JobResponse with status "warning" if none of the requirements are met.
+// It returns nil if any warning or error is encountered during this check.
 func (a *JobArgument) CheckConditions(wp *WorkerParams, src *JobArgument, opts opt.OptionList) *JobResponse {
 	var res *JobResponse
 
@@ -75,7 +78,7 @@ func (a *JobArgument) CheckConditions(wp *WorkerParams, src *JobArgument, opts o
 			return &JobResponse{status: statusErr, err: err}
 		}
 		if ex {
-			res = &JobResponse{status: statusWarning, err: WarningObjectExists}
+			res = &JobResponse{status: statusWarning, err: ErrObjectExists}
 		} else {
 			res = nil
 		}
@@ -93,7 +96,7 @@ func (a *JobArgument) CheckConditions(wp *WorkerParams, src *JobArgument, opts o
 		}
 
 		if sDest == sSrc {
-			res = &JobResponse{status: statusWarning, err: WarningObjectSizesMatch}
+			res = &JobResponse{status: statusWarning, err: ErrObjectSizesMatch}
 		} else {
 			res = nil
 		}
@@ -111,7 +114,7 @@ func (a *JobArgument) CheckConditions(wp *WorkerParams, src *JobArgument, opts o
 		}
 
 		if !tSrc.After(tDest) {
-			res = &JobResponse{status: statusWarning, err: WarningObjectIsNewer}
+			res = &JobResponse{status: statusWarning, err: ErrObjectIsNewer}
 		} else {
 			res = nil
 		}

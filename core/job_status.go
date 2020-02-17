@@ -4,6 +4,7 @@ import (
 	"fmt"
 )
 
+// JobStatus is the status of Job.
 type JobStatus int
 
 const (
@@ -12,6 +13,7 @@ const (
 	statusWarning
 )
 
+// String returns the string representation of JobStatus.
 func (s JobStatus) String() string {
 	switch s {
 	case statusSuccess:
@@ -25,8 +27,9 @@ func (s JobStatus) String() string {
 	}
 }
 
+//  OK-to-have error types (warnings) that is used when the job status is warning.
 var (
-	WarningObjectExists     = fmt.Errorf("object already exists")
-	WarningObjectIsNewer    = fmt.Errorf("object is newer or same age")
-	WarningObjectSizesMatch = fmt.Errorf("object size matches")
+	ErrObjectExists     = fmt.Errorf("object already exists")
+	ErrObjectIsNewer    = fmt.Errorf("object is newer or same age")
+	ErrObjectSizesMatch = fmt.Errorf("object size matches")
 )

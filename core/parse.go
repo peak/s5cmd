@@ -263,7 +263,6 @@ func parseSingleJob(jobdesc string) (*Job, error) {
 	// Create a skeleton Job
 	ourJob := &Job{
 		sourceDesc: jobdesc,
-		response:   &JobResponse{},
 	}
 
 	found := -1

@@ -42,8 +42,8 @@ func (a *JobArgument) Clone() *JobArgument {
 	return NewJobArgument(a.url.Clone())
 }
 
-// Join joins a string to a JobArgument and returns itself.
-func (a *JobArgument) Join(s string, isS3path bool) *JobArgument {
+// Join appends the given s to the JobArgument.
+func (a *JobArgument) Join(s string) *JobArgument {
 	joinfn := filepath.Join
 	if a.url.IsRemote() {
 		joinfn = path.Join

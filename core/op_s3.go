@@ -167,7 +167,7 @@ func S3BatchDownload(job *Job, wp *WorkerParams) (stats.StatType, error) {
 			dstFn = path.Base(item.Key)
 		}
 
-		arg2 := dst.Join(dstFn, true)
+		arg2 := dst.Join(dstFn)
 
 		subJob := job.MakeSubJob(subCmd, op.Download, []*JobArgument{arg1, arg2}, job.opts)
 

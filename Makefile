@@ -3,7 +3,7 @@ SRCDIR ?= .
 default: all
 
 .PHONY: all
-all: build test check-fmt staticcheck
+all: clean build test vet staticcheck check-fmt
 
 .PHONY: dist
 dist: generate all

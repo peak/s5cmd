@@ -92,11 +92,11 @@ func New(s string) (*ObjectURL, error) {
 	return url, nil
 }
 
-func (o ObjectURL) IsRemote() bool {
+func (o *ObjectURL) IsRemote() bool {
 	return o.Type == remoteObject
 }
 
-func (o ObjectURL) String() string {
+func (o *ObjectURL) String() string {
 	if !o.IsRemote() {
 		return o.Path
 	}
@@ -104,7 +104,7 @@ func (o ObjectURL) String() string {
 	return o.RemoteURL()
 }
 
-func (o ObjectURL) RemoteURL() string {
+func (o *ObjectURL) RemoteURL() string {
 	s := o.Scheme + "://"
 	if o.Bucket != "" {
 		s += o.Bucket
@@ -118,7 +118,7 @@ func (o ObjectURL) RemoteURL() string {
 }
 
 // Format formats the ObjectURL to the format "<bucket>[/<key>]".
-func (o ObjectURL) Format() string {
+func (o *ObjectURL) Format() string {
 	if o.Path == "" {
 		return o.Bucket
 	}
@@ -179,8 +179,8 @@ func (o *ObjectURL) setPrefixAndFilter() error {
 }
 
 // Clone creates a copy of the receiver.
-func (o ObjectURL) Clone() ObjectURL {
-	return ObjectURL{
+func (o *ObjectURL) Clone() *ObjectURL {
+	return &ObjectURL{
 		Bucket:      o.Bucket,
 		Delimiter:   o.Delimiter,
 		Path:        o.Path,
@@ -192,7 +192,7 @@ func (o ObjectURL) Clone() ObjectURL {
 
 // Match check if given key matches with regex and
 // returns parsed key.
-func (o ObjectURL) Match(key string) string {
+func (o *ObjectURL) Match(key string) string {
 	if !o.filterRegex.MatchString(key) {
 		return ""
 	}

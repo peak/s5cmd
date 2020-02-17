@@ -34,12 +34,13 @@ var (
 func parseArgumentByType(s string, t opt.ParamType, fnObj *JobArgument) (*JobArgument, error) {
 	fnBase := ""
 	if (t == opt.S3ObjOrDir || t == opt.FileOrDir || t == opt.OptionalFileOrDir) && fnObj != nil {
-		fnBase = filepath.Base(fnObj.arg)
+		fnBase = filepath.Base(fnObj.url.String())
 	}
 
 	switch t {
 	case opt.Unchecked, opt.UncheckedOneOrMore:
-		return NewJobArgument(s, nil), nil
+		url, _ := objurl.New(s)
+		return NewJobArgument(url), nil
 
 	case opt.S3Obj, opt.S3ObjOrDir, opt.S3WildObj, opt.S3Dir, opt.S3SimpleObj:
 		url, err := objurl.New(s)
@@ -88,7 +89,10 @@ func parseArgumentByType(s string, t opt.ParamType, fnObj *JobArgument) (*JobArg
 			url.Path += fnBase
 			s += "/" + fnBase
 		}
-		return NewJobArgument(s, url), nil
+
+		url, _ = objurl.New(s)
+
+		return NewJobArgument(url), nil
 
 	case opt.OptionalFileOrDir, opt.OptionalDir:
 		if s == "" {
@@ -151,7 +155,8 @@ func parseArgumentByType(s string, t opt.ParamType, fnObj *JobArgument) (*JobArg
 			s += string(filepath.Separator)
 		}
 
-		return NewJobArgument(s, nil), nil
+		url, _ = objurl.New(s)
+		return NewJobArgument(url), nil
 
 	case opt.Glob:
 		url, _ := objurl.New(s)
@@ -167,7 +172,8 @@ func parseArgumentByType(s string, t opt.ParamType, fnObj *JobArgument) (*JobArg
 		if err != nil {
 			return nil, err
 		}
-		return NewJobArgument(s, nil), nil
+
+		return NewJobArgument(url), nil
 
 	}
 

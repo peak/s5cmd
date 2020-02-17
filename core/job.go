@@ -41,7 +41,7 @@ type subjobStatsType struct {
 func (j Job) String() (s string) {
 	s = j.command
 	for _, a := range j.args {
-		s += " " + a.arg
+		s += " " + a.url.String()
 	}
 	return
 }

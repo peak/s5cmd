@@ -6,6 +6,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/peak/s5cmd/objurl"
 	"github.com/peak/s5cmd/op"
 	"github.com/peak/s5cmd/opt"
 	"github.com/peak/s5cmd/stats"
@@ -19,6 +20,11 @@ func newJob(sourceDesc, command string, operation op.Operation, args []*JobArgum
 		args:       args,
 		opts:       opts,
 	}
+}
+
+func newURL(s string) *objurl.ObjectURL {
+	url, _ := objurl.New(s)
+	return url
 }
 
 var (
@@ -38,18 +44,26 @@ var (
 	// These Jobs are used for benchmarks and also as skeletons for tests
 	localCopyJob = newJob("!cp-test", "!cp", op.LocalCopy,
 		[]*JobArgument{
-			{arg: "test-src"},
-			{arg: "test-dst"},
-		}, opt.OptionList{})
+			{url: newURL("test-src")},
+			{url: newURL("test-dst")},
+		},
+		opt.OptionList{},
+	)
+
 	localMoveJob = newJob("!mv-test", "!mv", op.LocalCopy,
 		[]*JobArgument{
-			{arg: "test-src"},
-			{arg: "test-dst"},
-		}, opt.OptionList{opt.DeleteSource})
+			{url: newURL("test-src")},
+			{url: newURL("test-dst")},
+		},
+		opt.OptionList{opt.DeleteSource},
+	)
+
 	localDeleteJob = newJob("!rm-test", "!rm", op.LocalDelete,
 		[]*JobArgument{
-			{arg: "test-src"},
-		}, opt.OptionList{})
+			{url: newURL("test-src")},
+		},
+		opt.OptionList{},
+	)
 )
 
 func benchmarkJobRun(b *testing.B, j *Job) {
@@ -131,7 +145,7 @@ func TestJobRunLocalDelete(t *testing.T) {
 	oldArgs := localDeleteJob.args
 
 	localDeleteJob.args = []*JobArgument{
-		{arg: fn},
+		{url: newURL(fn)},
 	}
 
 	// execute
@@ -192,8 +206,8 @@ func testLocalCopyOrMove(t *testing.T, isMove bool) {
 	t.Logf("Created temp files: src=%s dst=%s", src, dst)
 
 	job.args = []*JobArgument{
-		{arg: src},
-		{arg: dst},
+		{url: newURL(src)},
+		{url: newURL(dst)},
 	}
 
 	// execute

@@ -178,7 +178,6 @@ func (s *S3) Copy(ctx context.Context, from, to *s3url.S3Url, cls string) error 
 		CopySource:   aws.String(to.Format()),
 		StorageClass: aws.String(cls),
 	})
-
 	return err
 }
 

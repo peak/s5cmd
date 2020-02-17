@@ -73,7 +73,7 @@ func TestGetMultipleFlatS3Objects(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(` +OK "get s3://%v/* ./" (4)`, bucket),
+		0: suffix(` +OK "get s3://%v/* ./"`, bucket),
 		1: suffix(` # All workers idle, finishing up...`),
 	})
 
@@ -132,7 +132,7 @@ func TestGetMultipleS3ObjectsToGivenDirectory(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(` +OK "get s3://%v/* %v/" (4)`, bucket, dst),
+		0: suffix(` +OK "get s3://%v/* %v/"`, bucket, dst),
 		1: suffix(` # All workers idle, finishing up...`),
 	})
 

@@ -10,3 +10,9 @@ func verboseLog(format string, a ...interface{}) {
 		fmt.Printf("VERBOSE: "+format+"\n", a...)
 	}
 }
+
+func infoLog(format string, a ...interface{}) {
+	const prefix = "#"
+	s := fmt.Sprintf(format, a...)
+	fmt.Println("                   ", prefix, s)
+}

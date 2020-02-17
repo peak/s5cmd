@@ -5,7 +5,7 @@ import (
 	"github.com/peak/s5cmd/stats"
 )
 
-type commandFunc func(*Job, *WorkerParams) (stats.StatType, error)
+type commandFunc func(*Job, *WorkerParams) (stats.StatType, *JobResponse)
 
 var globalCmdRegistry = map[op.Operation]commandFunc{
 	op.LocalCopy:         LocalCopy,

@@ -35,8 +35,6 @@ func TestBangCommandNotFound(t *testing.T) {
 	cmd := s5cmd("!", "there-is-no-command-like-this")
 	result := icmd.RunCmd(cmd)
 
-	result.Assert(t, icmd.Expected{ExitCode: 127})
-
 	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: suffix(` -ERR "! there-is-no-command-like-this": exec: "there-is-no-command-like-this": executable file not found in $PATH`),
 	})
@@ -54,7 +52,6 @@ func TestSuccessfulBangBang(t *testing.T) {
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Expected{ExitCode: 0})
-
 	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: suffix(`+OK "! echo foo"`),
 		1: suffix(`+OK "! echo SUCCESS"`),
@@ -74,8 +71,6 @@ func TestFailedBangBang(t *testing.T) {
 
 	cmd := s5cmd("mv", "s3://nosuchbucket/nosuchkey", ".", "&&", "!", "echo SUCCESS", "||", "!", "echo FAIL")
 	result := icmd.RunCmd(cmd)
-
-	result.Assert(t, icmd.Expected{ExitCode: 127})
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: match(` -ERR "mv s3://nosuchbucket/nosuchkey ./nosuchkey": NoSuchBucket: The specified bucket does not exist status code: 404`),

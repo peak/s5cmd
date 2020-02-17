@@ -101,10 +101,10 @@ func (o *ObjectURL) String() string {
 		return o.Path
 	}
 
-	return o.RemoteURL()
+	return o.remoteURL()
 }
 
-func (o *ObjectURL) RemoteURL() string {
+func (o *ObjectURL) remoteURL() string {
 	s := o.Scheme + "://"
 	if o.Bucket != "" {
 		s += o.Bucket
@@ -115,14 +115,6 @@ func (o *ObjectURL) RemoteURL() string {
 	}
 
 	return s
-}
-
-// Format formats the ObjectURL to the format "<bucket>[/<key>]".
-func (o *ObjectURL) Format() string {
-	if o.Path == "" {
-		return o.Bucket
-	}
-	return o.Bucket + s3Separator + o.Path
 }
 
 // setPrefixAndFilter creates url metadata for both wildcard and non-wildcard operations.

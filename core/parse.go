@@ -52,7 +52,7 @@ func parseArgumentByType(s string, t opt.ParamType, fnObj *JobArgument) (*JobArg
 			return nil, fmt.Errorf("given argument %q is not a remote path", s)
 		}
 
-		s = url.RemoteURL()
+		s = url.String()
 
 		if (t == opt.S3Obj || t == opt.S3ObjOrDir || t == opt.S3SimpleObj) && objurl.HasGlobCharacter(url.Path) {
 			return nil, errors.New("s3 key cannot contain wildcards")

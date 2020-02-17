@@ -173,10 +173,13 @@ func (s *S3) List(ctx context.Context, url *objurl.ObjectURL, maxKeys int64) <-c
 
 // Copy is a single-object copy operation which copies objects to S3 destination from another S3 source.
 func (s *S3) Copy(ctx context.Context, from, to *objurl.ObjectURL, cls string) error {
+	// SDK expects CopySource like "bucket[/key]"
+	copySource := strings.TrimPrefix(to.String(), "s3://")
+
 	_, err := s.api.CopyObject(&s3.CopyObjectInput{
 		Bucket:       aws.String(from.Bucket),
 		Key:          aws.String(from.Path),
-		CopySource:   aws.String(to.Format()),
+		CopySource:   aws.String(copySource),
 		StorageClass: aws.String(cls),
 	})
 

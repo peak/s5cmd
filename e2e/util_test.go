@@ -167,6 +167,7 @@ func ensureS3Object(client *s3.S3, bucket string, key string, expectedContent st
 		Bucket: aws.String(bucket),
 		Key:    aws.String(key),
 	})
+
 	awsErr, ok := err.(awserr.Error)
 	if ok {
 		switch awsErr.Code() {

@@ -85,10 +85,10 @@ func TestMoveMultipleFlatS3ObjectsToLocal(t *testing.T) {
 		2: suffix(`# Downloading filename-with-hypen.gz...`),
 		3: suffix(`# Downloading readme.md...`),
 		4: suffix(`# Downloading testfile1.txt...`),
-		5: contains(` + "mv s3://%v/another_test_file.txt ./another_test_file.txt`, bucket),
-		6: contains(` + "mv s3://%v/filename-with-hypen.gz ./filename-with-hypen.gz"`, bucket),
-		7: contains(` + "mv s3://%v/readme.md ./readme.md"`, bucket),
-		8: contains(` + "mv s3://%v/testfile1.txt ./testfile1.txt"`, bucket),
+		5: contains(` + "mv s3://%v/another_test_file.txt another_test_file.txt`, bucket),
+		6: contains(` + "mv s3://%v/filename-with-hypen.gz filename-with-hypen.gz"`, bucket),
+		7: contains(` + "mv s3://%v/readme.md readme.md"`, bucket),
+		8: contains(` + "mv s3://%v/testfile1.txt testfile1.txt"`, bucket),
 	}, sortInput(true))
 
 	// assert local filesystem
@@ -281,8 +281,8 @@ func TestMoveMultipleFilesToLocal(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(""),
-		1: suffix(` + "mv another_test_file.txt another-directory//another_test_file.txt"`),
-		2: suffix(` + "mv testfile1.txt another-directory//testfile1.txt"`),
+		1: suffix(` + "mv another_test_file.txt another-directory/another_test_file.txt"`),
+		2: suffix(` + "mv testfile1.txt another-directory/testfile1.txt"`),
 	}, sortInput(true))
 
 	// assert local filesystem

@@ -37,7 +37,7 @@ func S3Copy(job *Job, wp *WorkerParams) (stats.StatType, error) {
 	)
 
 	if job.opts.Has(opt.DeleteSource) && err == nil {
-		err = client.Delete(wp.ctx, src.url.Bucket, src.url.Path)
+		err = client.Delete(wp.ctx, src.url.Bucket, src.url)
 	}
 
 	return opType, err
@@ -53,7 +53,7 @@ func S3Delete(job *Job, wp *WorkerParams) (stats.StatType, error) {
 
 	src := job.args[0]
 
-	err = client.Delete(wp.ctx, src.url.Bucket, src.url.Path)
+	err = client.Delete(wp.ctx, src.url.Bucket, src.url)
 	return opType, err
 }
 
@@ -72,7 +72,7 @@ func S3BatchDelete(job *Job, wp *WorkerParams) (stats.StatType, error) {
 		jobArgs = append(jobArgs, &srcBucket)
 	}
 
-	addArg := func(item *storage.Item) *Job {
+	makeJob := func(item *storage.Item) *Job {
 		var subJob *Job
 
 		if jobArgs == nil {
@@ -98,7 +98,7 @@ func S3BatchDelete(job *Job, wp *WorkerParams) (stats.StatType, error) {
 			return nil
 		}
 
-		return addArg(item)
+		return makeJob(item)
 	})
 
 	return opType, err
@@ -114,12 +114,12 @@ func S3BatchDeleteActual(job *Job, wp *WorkerParams) (stats.StatType, error) {
 
 	src := job.args[0]
 
-	deleteObjects := make([]string, len(job.args)-1)
+	deleteObjects := make([]*objurl.ObjectURL, len(job.args)-1)
 	for i, a := range job.args {
 		if i == 0 {
 			continue
 		}
-		deleteObjects[i-1] = a.url.String()
+		deleteObjects[i-1] = a.url
 	}
 
 	err = client.Delete(wp.ctx, src.url.Bucket, deleteObjects...)
@@ -127,9 +127,9 @@ func S3BatchDeleteActual(job *Job, wp *WorkerParams) (stats.StatType, error) {
 
 	for key, stat := range st.Keys() {
 		if stat.Success {
-			job.out(shortOk, `Batch-delete s3://%s/%s`, src.url.Bucket, key)
+			job.out(shortOk, `Batch-delete %v`, key)
 		} else {
-			job.out(shortErr, `Batch-delete s3://%s/%s: %s`, src.url.Bucket, key, stat.Message)
+			job.out(shortErr, `Batch-delete %v: %s`, key, stat.Message)
 		}
 	}
 
@@ -168,6 +168,7 @@ func S3BatchDownload(job *Job, wp *WorkerParams) (stats.StatType, error) {
 		}
 
 		arg2 := dst.Append(dstFn, true)
+
 		subJob := job.MakeSubJob(subCmd, op.Download, []*JobArgument{arg1, arg2}, job.opts)
 
 		if item.IsGlacierObject() {
@@ -215,7 +216,7 @@ func S3Download(job *Job, wp *WorkerParams) (stats.StatType, error) {
 	if err != nil {
 		os.Remove(destFn) // Remove partly downloaded file
 	} else if job.opts.Has(opt.DeleteSource) {
-		err = client.Delete(wp.ctx, src.url.Bucket, src.url.Path)
+		err = client.Delete(wp.ctx, src.url.Bucket, src.url)
 	}
 
 	return opType, err

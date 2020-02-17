@@ -83,10 +83,10 @@ func TestGetMultipleFlatS3Objects(t *testing.T) {
 		2: suffix(`# Downloading filename-with-hypen.gz...`),
 		3: suffix(`# Downloading readme.md...`),
 		4: suffix(`# Downloading testfile1.txt...`),
-		5: contains(` + "get s3://%v/another_test_file.txt ./another_test_file.txt`, bucket),
-		6: contains(` + "get s3://%v/filename-with-hypen.gz ./filename-with-hypen.gz"`, bucket),
-		7: contains(` + "get s3://%v/readme.md ./readme.md"`, bucket),
-		8: contains(` + "get s3://%v/testfile1.txt ./testfile1.txt"`, bucket),
+		5: contains(` + "get s3://%v/another_test_file.txt another_test_file.txt`, bucket),
+		6: contains(` + "get s3://%v/filename-with-hypen.gz filename-with-hypen.gz"`, bucket),
+		7: contains(` + "get s3://%v/readme.md readme.md"`, bucket),
+		8: contains(` + "get s3://%v/testfile1.txt testfile1.txt"`, bucket),
 	}, sortInput(true))
 
 	// assert local filesystem

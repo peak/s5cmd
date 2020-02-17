@@ -2,6 +2,8 @@ package core
 
 import (
 	"os"
+	"path"
+	"path/filepath"
 	"time"
 
 	"github.com/peak/s5cmd/objurl"
@@ -42,17 +44,14 @@ func (a *JobArgument) Clone() *JobArgument {
 
 // Append appends a string to a JobArgument and returns itself.
 func (a *JobArgument) Append(s string, isS3path bool) *JobArgument {
-	if !a.url.IsRemote() {
-		a.url.Path += s
-		return a
+	joinfn := filepath.Join
+	if a.url.IsRemote() {
+		joinfn = path.Join
 	}
 
-	if a.url.Path == "" {
-		a.url.Path += "/" + s
-	} else {
-		a.url.Path += s
-	}
-	return a
+	clone := a.Clone()
+	clone.url.Path = joinfn(clone.url.Path, s)
+	return clone
 }
 
 func CheckConditionals(src, dst *JobArgument, wp *WorkerParams, opts opt.OptionList) (ret error) {

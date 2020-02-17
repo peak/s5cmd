@@ -67,7 +67,7 @@ type Storage interface {
 	Copy(context.Context, *objurl.ObjectURL, *objurl.ObjectURL, string) error
 	Get(context.Context, *objurl.ObjectURL, io.WriterAt) error
 	Put(context.Context, io.Reader, *objurl.ObjectURL, string) error
-	Delete(context.Context, string, ...string) error
+	Delete(context.Context, string, ...*objurl.ObjectURL) error
 	ListBuckets(context.Context, string) ([]Bucket, error)
 	UpdateRegion(string) error
 	Stats() *Stats

@@ -214,33 +214,40 @@ func (s *S3) Put(ctx context.Context, reader io.Reader, to *objurl.ObjectURL, cl
 
 // Delete is a removal operation which removes multiple S3 objects from a bucket using single HTTP
 // request. It allows deleting objects up to 1000.
-func (s *S3) Delete(ctx context.Context, bucket string, keys ...string) error {
-	if len(keys) > DeleteItemsMax || len(keys) == 0 {
+func (s *S3) Delete(ctx context.Context, bucket string, urls ...*objurl.ObjectURL) error {
+	if len(urls) > DeleteItemsMax || len(urls) == 0 {
 		return fmt.Errorf(
 			"delete size should be between %d and %d, given: %d",
-			0, DeleteItemsMax, len(keys),
+			0,
+			DeleteItemsMax,
+			len(urls),
 		)
 	}
+
 	var objects []*s3.ObjectIdentifier
-	for _, key := range keys {
-		objects = append(objects, &s3.ObjectIdentifier{Key: aws.String(key)})
+	for _, url := range urls {
+		objects = append(
+			objects,
+			&s3.ObjectIdentifier{Key: aws.String(url.Path)},
+		)
 	}
 
 	o, err := s.api.DeleteObjectsWithContext(ctx, &s3.DeleteObjectsInput{
 		Bucket: aws.String(bucket),
 		Delete: &s3.Delete{Objects: objects},
 	})
-
 	if err != nil {
 		return err
 	}
 
 	for _, d := range o.Deleted {
-		s.stats.put(aws.StringValue(d.Key), StatsResponse{Success: true})
+		key := fmt.Sprintf("s3://%v/%v", bucket, aws.StringValue(d.Key))
+		s.stats.put(key, StatsResponse{Success: true})
 	}
 
 	for _, e := range o.Errors {
-		s.stats.put(aws.StringValue(e.Key), StatsResponse{
+		key := fmt.Sprintf("s3://%v/%v", bucket, aws.StringValue(e.Key))
+		s.stats.put(key, StatsResponse{
 			Success: false,
 			Message: aws.StringValue(e.Message),
 		})

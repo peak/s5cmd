@@ -87,11 +87,11 @@ func BatchLocalCopy(job *Job, wp *WorkerParams) (stats.StatType, error) {
 			ch <- nil // send EOF
 		}()
 
-		ma, err := filepath.Glob(globStart)
+		matchedFiles, err := filepath.Glob(globStart)
 		if err != nil {
 			return err
 		}
-		if len(ma) == 0 {
+		if len(matchedFiles) == 0 {
 			if walkMode {
 				return nil // Directory empty
 			}
@@ -99,7 +99,7 @@ func BatchLocalCopy(job *Job, wp *WorkerParams) (stats.StatType, error) {
 			return errors.New("could not find match for glob")
 		}
 
-		for _, f := range ma {
+		for _, f := range matchedFiles {
 			s := f // copy
 			st, _ := os.Stat(s)
 			if !st.IsDir() {
@@ -196,15 +196,15 @@ func BatchLocalUpload(job *Job, wp *WorkerParams) (stats.StatType, error) {
 			})
 			return err
 		} else {
-			ma, err := filepath.Glob(src.url.String())
+			matchedFiles, err := filepath.Glob(src.url.String())
 			if err != nil {
 				return err
 			}
-			if len(ma) == 0 {
+			if len(matchedFiles) == 0 {
 				return errors.New("could not find match for glob")
 			}
 
-			for _, f := range ma {
+			for _, f := range matchedFiles {
 				s := f // copy
 				st, _ = os.Stat(s)
 				if !st.IsDir() {
@@ -232,6 +232,7 @@ func BatchLocalUpload(job *Job, wp *WorkerParams) (stats.StatType, error) {
 		url, _ := objurl.New(*fn)
 		arg1 := NewJobArgument(url)
 		arg2 := dst.Clone().Append(dstFn, false)
+
 		return job.MakeSubJob(subCmd, op.Upload, []*JobArgument{arg1, arg2}, job.opts)
 	})
 

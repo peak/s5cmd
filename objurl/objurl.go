@@ -181,6 +181,8 @@ func (o *ObjectURL) setPrefixAndFilter() error {
 // Clone creates a copy of the receiver.
 func (o *ObjectURL) Clone() *ObjectURL {
 	return &ObjectURL{
+		Type:        o.Type,
+		Scheme:      o.Scheme,
 		Bucket:      o.Bucket,
 		Delimiter:   o.Delimiter,
 		Path:        o.Path,

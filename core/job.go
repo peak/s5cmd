@@ -10,6 +10,7 @@ import (
 	"github.com/peak/s5cmd/op"
 	"github.com/peak/s5cmd/opt"
 	"github.com/peak/s5cmd/s3url"
+	"github.com/peak/s5cmd/stats"
 	"github.com/peak/s5cmd/storage"
 )
 
@@ -173,6 +174,7 @@ func (j *Job) Run(wp WorkerParams) *Job {
 		j.Notify(true)
 		return j.successCommand
 	case statusErr:
+		wp.st.Increment(stats.Fail)
 		j.Notify(false)
 		return j.failCommand
 	default:

@@ -139,7 +139,7 @@ func BatchLocalCopy(job *Job, wp *WorkerParams) (stats.StatType, error) {
 
 		url, _ := objurl.New(*fn)
 		arg1 := NewJobArgument(url)
-		arg2 := dst.Clone().Append(dstFn, false)
+		arg2 := dst.Clone().Join(dstFn, false)
 
 		dir := filepath.Dir(arg2.url.String())
 		os.MkdirAll(dir, os.ModePerm)
@@ -231,7 +231,7 @@ func BatchLocalUpload(job *Job, wp *WorkerParams) (stats.StatType, error) {
 
 		url, _ := objurl.New(*fn)
 		arg1 := NewJobArgument(url)
-		arg2 := dst.Clone().Append(dstFn, false)
+		arg2 := dst.Clone().Join(dstFn, false)
 
 		return job.MakeSubJob(subCmd, op.Upload, []*JobArgument{arg1, arg2}, job.opts)
 	})

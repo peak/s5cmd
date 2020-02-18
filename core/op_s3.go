@@ -414,6 +414,10 @@ func S3Size(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
 		return nil
 	})
 
+	if err != nil {
+		return opType, jobResponse(err)
+	}
+
 	sz := sizeAndCount{}
 	if !job.opts.Has(opt.GroupByClass) {
 		for k, v := range totals {

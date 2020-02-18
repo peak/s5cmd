@@ -244,7 +244,7 @@ func s3predictor(a cmp.Args) []string {
 
 		for item := range client.List(ctx, url, s3MaxKeys) {
 			// Ignore the 0-byte "*_$folder$" objects in shell completion, created by s3n
-			if item.Size == 0 && strings.HasSuffix(item.Key, "_$folder$") {
+			if item.Size == 0 && strings.HasSuffix(item.URL.Path, "_$folder$") {
 				continue
 			}
 

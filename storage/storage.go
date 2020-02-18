@@ -10,8 +10,8 @@ import (
 )
 
 // Item is a generic type which contains metadata for storage items.
-type Item struct {
-	Key          string
+type Object struct {
+	URL          *objurl.ObjectURL
 	Etag         string
 	LastModified time.Time
 	IsDirectory  bool
@@ -20,25 +20,25 @@ type Item struct {
 	Err          error
 }
 
+// String returns the string representation of Item.
+func (o *Object) String() string {
+	return o.URL.String()
+}
+
+// IsGlacierObject checks if the storage class of item is glacier.
+func (o *Object) IsGlacierObject() bool {
+	return o.StorageClass == ObjectStorageClassGlacier
+}
+
+// IsMarkerObject checks if the item is a marker object to mark end of sequence.
+func (o *Object) IsMarkerObject() bool {
+	return o == SequenceEndMarker
+}
+
 // Bucket is a container for storage items.
 type Bucket struct {
 	CreationDate time.Time
 	Name         string
-}
-
-// String returns the string representation of Item.
-func (i Item) String() string {
-	return i.Key
-}
-
-// IsGlacierObject checks if the storage class of item is glacier.
-func (i Item) IsGlacierObject() bool {
-	return i.StorageClass == ObjectStorageClassGlacier
-}
-
-// IsMarkerObject checks if the item is a marker object to mark end of sequence.
-func (i *Item) IsMarkerObject() bool {
-	return i == SequenceEndMarker
 }
 
 // String returns the string representation of Bucket.
@@ -62,8 +62,8 @@ const (
 
 // Storage is an interface for storage operations.
 type Storage interface {
-	Head(context.Context, *objurl.ObjectURL) (*Item, error)
-	List(context.Context, *objurl.ObjectURL, int64) <-chan *Item
+	Head(context.Context, *objurl.ObjectURL) (*Object, error)
+	List(context.Context, *objurl.ObjectURL, int64) <-chan *Object
 	Copy(context.Context, *objurl.ObjectURL, *objurl.ObjectURL, string) error
 	Get(context.Context, *objurl.ObjectURL, io.WriterAt) error
 	Put(context.Context, io.Reader, *objurl.ObjectURL, string) error

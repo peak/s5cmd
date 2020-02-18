@@ -3,6 +3,8 @@ package objurl
 
 import (
 	"fmt"
+	"path"
+	"path/filepath"
 	"regexp"
 	"strings"
 )
@@ -37,6 +39,7 @@ type ObjectURL struct {
 	Delimiter string
 	Prefix    string
 
+	trimmedPath string
 	filter      string
 	filterRegex *regexp.Regexp
 }
@@ -96,12 +99,26 @@ func (o *ObjectURL) IsRemote() bool {
 	return o.Type == remoteObject
 }
 
-func (o *ObjectURL) String() string {
+func (o *ObjectURL) URL() string {
 	if !o.IsRemote() {
 		return o.Path
 	}
 
 	return o.remoteURL()
+}
+
+func (o *ObjectURL) RelURL() string {
+	return o.trimmedPath
+}
+
+// Base returns the last element of object path.
+func (o *ObjectURL) Base() string {
+	basefn := filepath.Base
+	if o.IsRemote() {
+		basefn = path.Base
+	}
+
+	return basefn(o.Path)
 }
 
 func (o *ObjectURL) remoteURL() string {
@@ -173,12 +190,14 @@ func (o *ObjectURL) setPrefixAndFilter() error {
 // Clone creates a copy of the receiver.
 func (o *ObjectURL) Clone() *ObjectURL {
 	return &ObjectURL{
-		Type:        o.Type,
-		Scheme:      o.Scheme,
-		Bucket:      o.Bucket,
-		Delimiter:   o.Delimiter,
-		Path:        o.Path,
-		Prefix:      o.Prefix,
+		Type:      o.Type,
+		Scheme:    o.Scheme,
+		Bucket:    o.Bucket,
+		Delimiter: o.Delimiter,
+		Path:      o.Path,
+		Prefix:    o.Prefix,
+		// FIXME(ig): TBD
+		trimmedPath: o.trimmedPath,
 		filter:      o.filter,
 		filterRegex: o.filterRegex,
 	}
@@ -186,16 +205,25 @@ func (o *ObjectURL) Clone() *ObjectURL {
 
 // Match check if given key matches with regex and
 // returns parsed key.
-func (o *ObjectURL) Match(key string) string {
+func (o *ObjectURL) Match(key string) bool {
 	if !o.filterRegex.MatchString(key) {
-		return ""
+		return false
 	}
 
 	isBatch := o.filter != ""
 	if isBatch {
-		return parseBatch(o.Prefix, key)
+		v := parseBatch(o.Prefix, key)
+		o.trimmedPath = v
+		return true
 	}
-	return parseNonBatch(o.Prefix, key)
+
+	v := parseNonBatch(o.Prefix, key)
+	o.trimmedPath = v
+	return true
+}
+
+func (o *ObjectURL) String() string {
+	return o.URL()
 }
 
 // parseBatch parses keys for wildcard operations.

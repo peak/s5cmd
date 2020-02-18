@@ -131,21 +131,20 @@ func fileExists(filename string) bool {
 
 func TestJobRunLocalDelete(t *testing.T) {
 	// setup
-	fn, err := tempFile("localdelete")
+	filename, err := tempFile("localdelete")
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = createFile(fn, "contents")
+	err = createFile(filename, "contents")
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	t.Logf("Created temp file: %s", fn)
+	defer deleteFile(filename)
 
 	oldArgs := localDeleteJob.args
 
 	localDeleteJob.args = []*JobArgument{
-		{url: newURL(fn)},
+		{url: newURL(filename)},
 	}
 
 	// execute
@@ -155,12 +154,9 @@ func TestJobRunLocalDelete(t *testing.T) {
 	}
 
 	// verify
-	if fileExists(fn) {
+	if fileExists(filename) {
 		t.Error("File should not exist after delete")
 	}
-
-	// teardown
-	deleteFile(fn)
 
 	localDeleteJob.args = oldArgs
 }
@@ -202,8 +198,6 @@ func testLocalCopyOrMove(t *testing.T, isMove bool) {
 		t.Error(err)
 		return
 	}
-
-	t.Logf("Created temp files: src=%s dst=%s", src, dst)
 
 	job.args = []*JobArgument{
 		{url: newURL(src)},

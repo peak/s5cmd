@@ -3,7 +3,6 @@ package storage
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -11,6 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/awstesting/unit"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/google/go-cmp/cmp"
 
 	"github.com/peak/s5cmd/objurl"
 )
@@ -44,24 +44,31 @@ func TestS3_List_success(t *testing.T) {
 		}
 	})
 
-	responses := []*Item{
+	responses := []struct {
+		isDir  bool
+		url    string
+		relurl string
+	}{
 		{
-			IsDirectory: true,
-			Key:         "a/",
+			isDir:  true,
+			url:    "s3://bucket/key/a/",
+			relurl: "a/",
 		},
 		{
-			IsDirectory: true,
-			Key:         "b/",
+			isDir:  true,
+			url:    "s3://bucket/key/b/",
+			relurl: "b/",
 		},
 		{
-			IsDirectory: false,
-			Key:         "test.txt",
+			isDir:  false,
+			url:    "s3://bucket/key/test.txt",
+			relurl: "test.txt",
 		},
 		{
-			IsDirectory: false,
-			Key:         "test.pdf",
+			isDir:  false,
+			url:    "s3://bucket/key/test.pdf",
+			relurl: "test.pdf",
 		},
-		SequenceEndMarker,
 	}
 
 	index := 0
@@ -69,9 +76,20 @@ func TestS3_List_success(t *testing.T) {
 		if got.Err != nil {
 			t.Errorf("unexpected error: %v", got.Err)
 		}
+
+		if got == SequenceEndMarker {
+			continue
+		}
+
 		want := responses[index]
-		if !reflect.DeepEqual(got, want) {
-			t.Errorf("got = %v, want %v", got, want)
+		if diff := cmp.Diff(want.isDir, got.IsDirectory); diff != "" {
+			t.Errorf("(-want +got):\n%v", diff)
+		}
+		if diff := cmp.Diff(want.url, got.URL.URL()); diff != "" {
+			t.Errorf("(-want +got):\n%v", diff)
+		}
+		if diff := cmp.Diff(want.relurl, got.URL.RelURL()); diff != "" {
+			t.Errorf("(-want +got):\n%v", diff)
 		}
 		index++
 	}

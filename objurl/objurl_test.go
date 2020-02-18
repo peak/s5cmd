@@ -164,86 +164,90 @@ func TestObjectURL_setPrefixAndFilter(t *testing.T) {
 }
 
 func TestObjectURL_New_and_CheckMatch(t *testing.T) {
+	type matchResult struct {
+		matched bool
+		relurl  string
+	}
 	tests := []struct {
 		name string
 		url  string
-		keys map[string]string
+		keys map[string]matchResult
 	}{
 		{
 			name: "match_only_key_if_has_no_wildcard_and_not_dir_root",
 			url:  "s3://bucket/key",
-			keys: map[string]string{
-				"key": "key",
+			keys: map[string]matchResult{
+				"key": {true, "key"},
 			},
 		},
 		{
 			name: "match_multiple_if_has_no_wildcard_and_dir_root",
 			url:  "s3://bucket/key/",
-			keys: map[string]string{
-				"key/a/":           "a/",
-				"key/test.txt":     "test.txt",
-				"key/test.pdf":     "test.pdf",
-				"key/test.pdf/aaa": "test.pdf/",
+			keys: map[string]matchResult{
+				"key/a/":           {true, "a/"},
+				"key/test.txt":     {true, "test.txt"},
+				"key/test.pdf":     {true, "test.pdf"},
+				"key/test.pdf/aaa": {true, "test.pdf/"},
 			},
 		},
 		{
 			name: "not_match_if_has_no_wildcard_and_invalid_prefix",
 			url:  "s3://bucket/key",
-			keys: map[string]string{
-				"anotherkey":       "",
-				"invalidkey/dummy": "",
+			keys: map[string]matchResult{
+				"anotherkey":       {},
+				"invalidkey/dummy": {},
 			},
 		},
 		{
 			name: "match_if_has_single_wildcard_and_valid_prefix",
 			url:  "s3://bucket/key/?/b",
-			keys: map[string]string{
-				"key/a/b": "a/b",
-				"key/1/b": "1/b",
-				"key/c/b": "c/b",
+			keys: map[string]matchResult{
+				"key/a/b": {true, "a/b"},
+				"key/1/b": {true, "1/b"},
+				"key/c/b": {true, "c/b"},
 			},
 		},
 		{
 			name: "not_match_if_has_single_wildcard_and_invalid_prefix",
 			url:  "s3://bucket/key/?/b",
-			keys: map[string]string{
-				"another/a/b": "",
-				"invalid/1/b": "",
+			keys: map[string]matchResult{
+				"another/a/b": {},
+				"invalid/1/b": {},
 			},
 		},
 		{
 			name: "match_if_has_multiple_wildcard_and_valid_prefix",
 			url:  "s3://bucket/key/*/b/*/c/*.tsv",
-			keys: map[string]string{
-				"key/a/b/c/c/file.tsv":             "a/b/c/c/file.tsv",
-				"key/dummy/b/1/c/file.tsv":         "dummy/b/1/c/file.tsv",
-				"key/dummy/b/1/c/another_file.tsv": "dummy/b/1/c/another_file.tsv",
-				"key/dummy/b/2/c/another_file.tsv": "dummy/b/2/c/another_file.tsv",
-				"key/a/b/c/c/another_file.tsv":     "a/b/c/c/another_file.tsv",
+			keys: map[string]matchResult{
+				"key/a/b/c/c/file.tsv":             {true, "a/b/c/c/file.tsv"},
+				"key/dummy/b/1/c/file.tsv":         {true, "dummy/b/1/c/file.tsv"},
+				"key/dummy/b/1/c/another_file.tsv": {true, "dummy/b/1/c/another_file.tsv"},
+				"key/dummy/b/2/c/another_file.tsv": {true, "dummy/b/2/c/another_file.tsv"},
+				"key/a/b/c/c/another_file.tsv":     {true, "a/b/c/c/another_file.tsv"},
 			},
 		},
 		{
 			name: "not_match_if_has_multiple_wildcard_and_invalid_prefix",
 			url:  "s3://bucket/key/*/b/*/c/*.tsv",
-			keys: map[string]string{
-				"another/a/b/c/c/file.tsv":     "",
-				"invalid/dummy/b/1/c/file.tsv": "",
+			keys: map[string]matchResult{
+				"another/a/b/c/c/file.tsv":     {},
+				"invalid/dummy/b/1/c/file.tsv": {},
 			},
 		},
 		{
 			name: "not_match_if_multiple_wildcard_does_not_match_with_key",
 			url:  "s3://bucket/prefix/*/c/*.tsv",
-			keys: map[string]string{
-				"prefix/a/b/c/c/file.bsv": "",
-				"prefix/dummy/a":          "",
+			keys: map[string]matchResult{
+				"prefix/a/b/c/c/file.bsv": {},
+				"prefix/dummy/a":          {},
 			},
 		},
 		{
 			name: "not_match_if_single_wildcard_does_not_match_with_key",
 			url:  "s3://bucket/*.tsv",
-			keys: map[string]string{
-				"file.bsv":  "",
-				"a/b/c.csv": "",
+			keys: map[string]matchResult{
+				"file.bsv":  {},
+				"a/b/c.csv": {},
 			},
 		},
 	}
@@ -254,9 +258,13 @@ func TestObjectURL_New_and_CheckMatch(t *testing.T) {
 				t.Errorf("unexpected error %v", err)
 			}
 
-			for key, want := range tt.keys {
-				if got := u.Match(key); got != want {
-					t.Errorf("Match() got = %v, want %v", got, want)
+			for key, matchResult := range tt.keys {
+				got := u.Match(key)
+				if got != matchResult.matched {
+					t.Errorf("Match() got = %v, want %v", got, matchResult.matched)
+				}
+				if u.RelURL() != matchResult.relurl {
+					t.Errorf("Match() got = %v, want %v", got, matchResult.relurl)
 				}
 			}
 		})

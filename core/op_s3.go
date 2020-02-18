@@ -3,7 +3,6 @@ package core
 import (
 	"fmt"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 
@@ -72,7 +71,7 @@ func S3BatchDelete(job *Job, wp *WorkerParams) (stats.StatType, error) {
 		jobArgs = append(jobArgs, &srcBucket)
 	}
 
-	makeJob := func(item *storage.Item) *Job {
+	makeJob := func(item *storage.Object) *Job {
 		var subJob *Job
 
 		if jobArgs == nil {
@@ -85,15 +84,13 @@ func S3BatchDelete(job *Job, wp *WorkerParams) (stats.StatType, error) {
 		}
 
 		if item != nil {
-			s3path := fmt.Sprintf("s3://%v/%v", srcBucket.url.Bucket, item.Key)
-			url, _ := objurl.New(s3path)
-			jobArgs = append(jobArgs, NewJobArgument(url))
+			jobArgs = append(jobArgs, NewJobArgument(item.URL))
 		}
 
 		return subJob
 	}
 
-	err := wildOperation(src.url, wp, func(item *storage.Item) *Job {
+	err := wildOperation(src.url, wp, func(item *storage.Object) *Job {
 		if item.IsDirectory {
 			return nil
 		}
@@ -151,20 +148,18 @@ func S3BatchDownload(job *Job, wp *WorkerParams) (stats.StatType, error) {
 
 	src, dst := job.args[0], job.args[1]
 
-	err := wildOperation(src.url, wp, func(item *storage.Item) *Job {
+	err := wildOperation(src.url, wp, func(item *storage.Object) *Job {
 		if item.IsMarkerObject() || item.IsDirectory {
 			return nil
 		}
 
-		s3path := fmt.Sprintf("s3://%v/%v", src.url.Bucket, item.Key)
-		url, _ := objurl.New(s3path)
-		arg1 := NewJobArgument(url)
+		arg1 := NewJobArgument(item.URL)
 
 		var dstFn string
 		if job.opts.Has(opt.Parents) {
-			dstFn = item.Key
+			dstFn = item.URL.Path
 		} else {
-			dstFn = path.Base(item.Key)
+			dstFn = item.URL.Base()
 		}
 
 		arg2 := dst.Join(dstFn)
@@ -193,7 +188,7 @@ func S3Download(job *Job, wp *WorkerParams) (stats.StatType, error) {
 		return opType, err
 	}
 
-	srcFn := path.Base(src.url.String())
+	srcFn := src.url.Base()
 	destFn := dst.url.String()
 
 	f, err := os.Create(destFn)
@@ -280,20 +275,18 @@ func S3BatchCopy(job *Job, wp *WorkerParams) (stats.StatType, error) {
 
 	src, dst := job.args[0], job.args[1]
 
-	err := wildOperation(src.url, wp, func(item *storage.Item) *Job {
+	err := wildOperation(src.url, wp, func(item *storage.Object) *Job {
 		if item.IsMarkerObject() || item.IsDirectory {
 			return nil
 		}
 
-		arg1s3path := fmt.Sprintf("s3://%v/%v/", src.url.Bucket, item.Key)
-		arg1url, _ := objurl.New(arg1s3path)
-		arg1 := NewJobArgument(arg1url)
+		arg1 := NewJobArgument(item.URL)
 
 		var dstFn string
 		if job.opts.Has(opt.Parents) {
-			dstFn = item.Key
+			dstFn = item.URL.Path
 		} else {
-			dstFn = path.Base(item.Key)
+			dstFn = item.URL.Base()
 		}
 
 		arg2s3path := fmt.Sprintf("s3://%v/%v%v", dst.url.Bucket, dst.url.Path, dstFn)
@@ -336,13 +329,13 @@ func S3List(job *Job, wp *WorkerParams) (stats.StatType, error) {
 
 	src := job.args[0]
 
-	err := wildOperation(src.url, wp, func(item *storage.Item) *Job {
+	err := wildOperation(src.url, wp, func(item *storage.Object) *Job {
 		if item.IsMarkerObject() {
 			return nil
 		}
 
 		if item.IsDirectory {
-			job.out(shortOk, "%19s %1s %-38s  %12s  %s", "", "", "", "DIR", item.Key)
+			job.out(shortOk, "%19s %1s %-38s  %12s  %s", "", "", "", "DIR", item.URL.Path)
 		} else {
 
 			var cls, etag, size string
@@ -369,7 +362,15 @@ func S3List(job *Job, wp *WorkerParams) (stats.StatType, error) {
 				size = fmt.Sprintf("%d", item.Size)
 			}
 
-			job.out(shortOk, "%s %1s %-38s %12s  %s", item.LastModified.Format(dateFormat), cls, etag, size, item.Key)
+			job.out(
+				shortOk,
+				"%s %1s %-38s %12s  %s",
+				item.LastModified.Format(dateFormat),
+				cls,
+				etag,
+				size,
+				item.URL.RelURL(),
+			)
 		}
 
 		return nil
@@ -389,7 +390,7 @@ func S3Size(job *Job, wp *WorkerParams) (stats.StatType, error) {
 	src := job.args[0]
 
 	totals := map[string]sizeAndCount{}
-	err := wildOperation(src.url, wp, func(item *storage.Item) *Job {
+	err := wildOperation(src.url, wp, func(item *storage.Object) *Job {
 		if item.IsMarkerObject() || item.IsDirectory {
 			return nil
 		}

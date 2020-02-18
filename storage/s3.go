@@ -37,7 +37,7 @@ const (
 )
 
 // SequenceEndMarker is a marker that is dispatched on end of each sequence.
-var SequenceEndMarker = &Item{}
+var SequenceEndMarker = &Object{}
 
 // S3 is a storage type which interacts with S3API, DownloaderAPI and UploaderAPI.
 type S3 struct {
@@ -77,7 +77,7 @@ func NewS3Storage(opts S3Opts) (*S3, error) {
 }
 
 // Head retrieves metadata from S3 object without returning the object itself.
-func (s *S3) Head(ctx context.Context, url *objurl.ObjectURL) (*Item, error) {
+func (s *S3) Head(ctx context.Context, url *objurl.ObjectURL) (*Object, error) {
 	output, err := s.api.HeadObjectWithContext(ctx, &s3.HeadObjectInput{
 		Bucket: aws.String(url.Bucket),
 		Key:    aws.String(url.Path),
@@ -87,19 +87,19 @@ func (s *S3) Head(ctx context.Context, url *objurl.ObjectURL) (*Item, error) {
 		return nil, err
 	}
 
-	return &Item{
+	return &Object{
+		URL:          url,
 		Etag:         aws.StringValue(output.ETag),
 		LastModified: aws.TimeValue(output.LastModified),
 		Size:         aws.Int64Value(output.ContentLength),
-		Key:          url.Path,
 	}, nil
 }
 
 // List is a non-blocking S3 list operation which paginates and filters S3 keys.
 // It sends SequenceEndMarker at the end of each pagination. If no item found or an error
 // is encountered during this period, it sends these errors to item channel.
-func (s *S3) List(ctx context.Context, url *objurl.ObjectURL, maxKeys int64) <-chan *Item {
-	itemChan := make(chan *Item)
+func (s *S3) List(ctx context.Context, url *objurl.ObjectURL, maxKeys int64) <-chan *Object {
+	itemChan := make(chan *Object)
 	inp := s3.ListObjectsV2Input{
 		Bucket: aws.String(url.Bucket),
 		Prefix: aws.String(url.Prefix),
@@ -120,13 +120,14 @@ func (s *S3) List(ctx context.Context, url *objurl.ObjectURL, maxKeys int64) <-c
 
 		err := s.api.ListObjectsV2PagesWithContext(ctx, &inp, func(p *s3.ListObjectsV2Output, lastPage bool) bool {
 			for _, c := range p.CommonPrefixes {
-				key := url.Match(aws.StringValue(c.Prefix))
-				if key == "" {
+				if !url.Match(aws.StringValue(c.Prefix)) {
 					continue
 				}
 
-				itemChan <- &Item{
-					Key:         key,
+				newurl := url.Clone()
+				newurl.Path = aws.StringValue(c.Prefix)
+				itemChan <- &Object{
+					URL:         newurl,
 					IsDirectory: true,
 				}
 
@@ -134,16 +135,17 @@ func (s *S3) List(ctx context.Context, url *objurl.ObjectURL, maxKeys int64) <-c
 			}
 
 			for _, c := range p.Contents {
-				key := url.Match(aws.StringValue(c.Key))
-				if key == "" {
+				if !url.Match(aws.StringValue(c.Key)) {
 					continue
 				}
 
-				itemChan <- &Item{
-					Key:          key,
+				newurl := url.Clone()
+				newurl.Path = aws.StringValue(c.Key)
+				itemChan <- &Object{
+					URL:          newurl,
 					Etag:         aws.StringValue(c.ETag),
 					LastModified: aws.TimeValue(c.LastModified),
-					IsDirectory:  strings.HasSuffix(key, "/"),
+					IsDirectory:  strings.HasSuffix(aws.StringValue(c.Key), "/"),
 					Size:         aws.Int64Value(c.Size),
 					StorageClass: aws.StringValue(c.StorageClass),
 				}
@@ -159,12 +161,12 @@ func (s *S3) List(ctx context.Context, url *objurl.ObjectURL, maxKeys int64) <-c
 		})
 
 		if err != nil {
-			itemChan <- &Item{Err: err}
+			itemChan <- &Object{Err: err}
 			return
 		}
 
 		if !itemFound {
-			itemChan <- &Item{Err: ErrNoItemFound}
+			itemChan <- &Object{Err: ErrNoItemFound}
 		}
 	}()
 

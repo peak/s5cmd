@@ -42,8 +42,8 @@ func ShellAbort(job *Job, wp *WorkerParams) (stats.StatType, error) {
 		}
 	}
 
-	ef := wp.ctx.Value(ExitFuncKey).(func(int))
-	ef(int(exitCode))
+	exitFn := wp.ctx.Value(ExitFuncKey).(func(int))
+	exitFn(int(exitCode))
 
 	return opType, nil
 }

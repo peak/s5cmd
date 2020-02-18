@@ -220,7 +220,7 @@ func (j *Job) Run(wp WorkerParams) *Job {
 }
 
 type (
-	wildCallback func(*storage.Item) *Job
+	wildCallback func(*storage.Object) *Job
 	wildLister   func(chan<- interface{}) error
 )
 

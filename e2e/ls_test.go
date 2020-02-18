@@ -132,6 +132,43 @@ func TestListMultipleWildcardS3Object(t *testing.T) {
 	})
 }
 
+func TestListMultipleWildcardS3ObjectWithPrefix(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+	putFile(t, s3client, bucket, "/a/testfile1.txt", "content")
+	putFile(t, s3client, bucket, "/a/testfile2.txt", "content")
+	putFile(t, s3client, bucket, "/a/testfile3.txt", "content")
+	putFile(t, s3client, bucket, "/b/testfile4.txt", "content")
+	putFile(t, s3client, bucket, "/c/testfile5.gz", "content")
+	putFile(t, s3client, bucket, "/c/testfile6.txt.gz", "content")
+	putFile(t, s3client, bucket, "/d/foo/bar/file7.txt", "content")
+	putFile(t, s3client, bucket, "/d/foo/bar/testfile8.txt", "content")
+	putFile(t, s3client, bucket, "/e/txt/testfile9.txt.gz", "content")
+	putFile(t, s3client, bucket, "/f/txt/testfile10.txt", "content")
+
+	const pattern = "/a/testfile*.txt"
+	cmd := s5cmd("ls", "s3://"+bucket+pattern)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: suffix(`+OK "ls s3://%v/a/testfile*.txt" (3)`, bucket),
+	}, strictLineCheck(false))
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: suffix("304 testfile1.txt"),
+		1: suffix("304 testfile2.txt"),
+		2: suffix("304 testfile3.txt"),
+	})
+}
+
 func TestListS3ObjectsAndFolders(t *testing.T) {
 	t.Parallel()
 

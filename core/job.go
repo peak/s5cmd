@@ -51,12 +51,12 @@ func (j Job) String() string {
 	return s
 }
 
-// jobResponse creates a new JobResponse by setting job status and error.
-func jobResponse(err error) *JobResponse {
+// jobResponse creates a new JobResponse by setting job status, message and error.
+func jobResponse(err error, msg ...string) *JobResponse {
 	if err == nil {
-		return &JobResponse{status: statusSuccess}
+		return &JobResponse{status: statusSuccess, message: msg}
 	}
-	return &JobResponse{status: statusErr, err: err}
+	return &JobResponse{status: statusErr, err: err, message: msg}
 }
 
 // MakeSubJob creates a sub-job linked to the original. sourceDesc is copied, numSuccess/numFails are linked. Returns a pointer to the new job.

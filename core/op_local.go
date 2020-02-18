@@ -17,16 +17,18 @@ import (
 func LocalCopy(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
 	const opType = stats.FileOp
 
-	response := job.args[1].CheckConditions(wp, job.args[0], job.opts)
+	var src, dst = job.args[0], job.args[1]
+
+	response := CheckConditions(src, dst, wp, job.opts)
 	if response != nil {
 		return opType, response
 	}
 
 	var err error
 	if job.opts.Has(opt.DeleteSource) {
-		err = os.Rename(job.args[0].arg, job.args[1].arg)
+		err = os.Rename(src.arg, dst.arg)
 	} else {
-		_, err = shutil.Copy(job.args[0].arg, job.args[1].arg, true)
+		_, err = shutil.Copy(src.arg, dst.arg, true)
 	}
 
 	return opType, jobResponse(err)
@@ -55,10 +57,7 @@ func BatchLocalCopy(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
 	if !walkMode {
 		loc := strings.IndexAny(trimPrefix, GlobCharacters)
 		if loc < 0 {
-			return opType, &JobResponse{
-				status: statusErr,
-				err:    fmt.Errorf("internal error, not a glob: %s", trimPrefix),
-			}
+			return opType, jobResponse(fmt.Errorf("internal error, not a glob: %s", trimPrefix))
 		}
 		trimPrefix = trimPrefix[:loc]
 	} else {
@@ -159,10 +158,7 @@ func BatchLocalUpload(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse)
 	if !walkMode {
 		loc := strings.IndexAny(trimPrefix, GlobCharacters)
 		if loc < 0 {
-			return opType, &JobResponse{
-				status: statusErr,
-				err:    fmt.Errorf("internal error, not a glob: %s", trimPrefix),
-			}
+			return opType, jobResponse(fmt.Errorf("internal error, not a glob: %s", trimPrefix))
 		}
 		trimPrefix = trimPrefix[:loc]
 	}

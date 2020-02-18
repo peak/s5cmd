@@ -45,5 +45,5 @@ func ShellAbort(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
 	ef := wp.ctx.Value(ExitFuncKey).(func(int))
 	ef(int(exitCode))
 
-	return opType, &JobResponse{status: statusSuccess}
+	return opType, jobResponse(nil)
 }

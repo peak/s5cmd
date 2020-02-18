@@ -69,13 +69,13 @@ func (a *JobArgument) Append(s string, isS3path bool) *JobArgument {
 // CheckConditions checks if the job satisfies the conditions if the job has -n, -s and -u flags.
 // It returns error-embedded JobResponse with status "warning" if none of the requirements are met.
 // It returns nil if any warning or error is encountered during this check.
-func (a *JobArgument) CheckConditions(wp *WorkerParams, src *JobArgument, opts opt.OptionList) *JobResponse {
+func CheckConditions(src, dst *JobArgument, wp *WorkerParams, opts opt.OptionList) *JobResponse {
 	var res *JobResponse
 
 	if opts.Has(opt.IfNotExists) {
-		ex, err := a.Exists(wp)
+		ex, err := dst.Exists(wp)
 		if err != nil {
-			return &JobResponse{status: statusErr, err: err}
+			return jobResponse(err)
 		}
 		if ex {
 			res = &JobResponse{status: statusWarning, err: ErrObjectExists}
@@ -85,14 +85,14 @@ func (a *JobArgument) CheckConditions(wp *WorkerParams, src *JobArgument, opts o
 	}
 
 	if opts.Has(opt.IfSizeDiffers) {
-		sDest, err := a.Size(wp)
+		sDest, err := dst.Size(wp)
 		if err != nil {
-			return &JobResponse{status: statusErr, err: err}
+			return jobResponse(err)
 		}
 
 		sSrc, err := src.Size(wp)
 		if err != nil {
-			return &JobResponse{status: statusErr, err: err}
+			return jobResponse(err)
 		}
 
 		if sDest == sSrc {
@@ -103,14 +103,14 @@ func (a *JobArgument) CheckConditions(wp *WorkerParams, src *JobArgument, opts o
 	}
 
 	if opts.Has(opt.IfSourceNewer) {
-		tDest, err := a.ModTime(wp)
+		tDest, err := dst.ModTime(wp)
 		if err != nil {
-			return &JobResponse{status: statusErr, err: err}
+			return jobResponse(err)
 		}
 
 		tSrc, err := src.ModTime(wp)
 		if err != nil {
-			return &JobResponse{status: statusErr, err: err}
+			return jobResponse(err)
 		}
 
 		if !tSrc.After(tDest) {

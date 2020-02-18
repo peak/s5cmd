@@ -39,7 +39,7 @@ func TestDashFFromStdin(t *testing.T) {
 		4: match(`# Stats: Total 2 \d+ ops/sec \d+\.\d+ms$`),
 		5: suffix(`# Using 256 workers`),
 		6: suffix(` +OK "! echo naber"`),
-		7: suffix(` +OK "ls s3://test-dash-f-from-stdin" (1)`),
+		7: suffix(` +OK "ls s3://test-dash-f-from-stdin"`),
 	}, trimMatch(dateRe), sortInput(true))
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
@@ -76,7 +76,7 @@ func TestDashFFromFile(t *testing.T) {
 		4: match(`.* Stats: Total 2 \d+ ops/sec \d+\.\d+ms$`),
 		5: suffix(`# Using 256 workers`),
 		6: suffix(` +OK "! echo naber"`),
-		7: suffix(` +OK "ls s3://test-dash-f-from-file" (1)`),
+		7: suffix(` +OK "ls s3://test-dash-f-from-file"`),
 	}, trimMatch(dateRe), sortInput(true))
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{

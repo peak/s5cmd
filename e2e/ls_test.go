@@ -55,7 +55,7 @@ func TestListSingleS3Object(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(`+OK "ls s3://%v/testfile1.txt" (1)`, bucket),
+		0: suffix(`+OK "ls s3://%v/testfile1.txt"`, bucket),
 	}, strictLineCheck(false))
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
@@ -82,7 +82,7 @@ func TestListSingleWildcardS3Object(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(`+OK "ls s3://%v/*.txt" (3)`, bucket),
+		0: suffix(`+OK "ls s3://%v/*.txt"`, bucket),
 	}, strictLineCheck(false))
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
@@ -119,7 +119,7 @@ func TestListMultipleWildcardS3Object(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(`+OK "ls s3://%v/*/testfile*.txt" (6)`, bucket),
+		0: suffix(`+OK "ls s3://%v/*/testfile*.txt"`, bucket),
 	}, strictLineCheck(false))
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
@@ -158,7 +158,7 @@ func TestListS3ObjectsAndFolders(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(` +OK "ls s3://%v" (8)`, bucket),
+		0: suffix(` +OK "ls s3://%v"`, bucket),
 	}, strictLineCheck(false))
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
@@ -194,7 +194,7 @@ func TestListS3ObjectsAndFoldersWithPrefix(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(` +OK "ls s3://%v/t" (2)`, bucket),
+		0: suffix(` +OK "ls s3://%v/t"`, bucket),
 	}, strictLineCheck(false))
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
@@ -249,7 +249,7 @@ func TestListS3ObjectsWithDashE(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(` +OK "ls s3://%v" (2)`, bucket),
+		0: suffix(` +OK "ls s3://%v"`, bucket),
 	}, strictLineCheck(false))
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
@@ -277,7 +277,7 @@ func TestListS3ObjectsWithDashH(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(` +OK "ls s3://%v" (2)`, bucket),
+		0: suffix(` +OK "ls s3://%v"`, bucket),
 	}, strictLineCheck(false))
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{

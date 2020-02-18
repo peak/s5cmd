@@ -75,7 +75,7 @@ func TestMoveMultipleFlatS3ObjectsToLocal(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(` +OK "mv s3://%v/* ./" (4)`, bucket),
+		0: suffix(` +OK "mv s3://%v/* ./"`, bucket),
 		1: suffix(` # All workers idle, finishing up...`),
 	})
 
@@ -178,7 +178,7 @@ func TestMoveMultipleFilesToS3(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(` +OK "mv %v/* s3://%v" (4)`, workdir.Path(), bucket),
+		0: suffix(` +OK "mv %v/* s3://%v"`, workdir.Path(), bucket),
 		1: suffix(` # All workers idle, finishing up...`),
 	})
 
@@ -275,7 +275,7 @@ func TestMoveMultipleFilesToLocal(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(` +OK "mv *.txt another-directory/" (2)`),
+		0: suffix(` +OK "mv *.txt another-directory/"`),
 		1: suffix(` # All workers idle, finishing up...`),
 	})
 

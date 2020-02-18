@@ -26,11 +26,10 @@ type Stats struct {
 }
 
 // IncrementIfSuccess atomically increments the StatType's counter in Stats if err is nil
-func (s *Stats) IncrementIfSuccess(t StatType, err error) error {
+func (s *Stats) IncrementIfSuccess(t StatType, err error) {
 	if err == nil {
 		s.Increment(t)
 	}
-	return err
 }
 
 // Increment atomically increments the StatType's counter

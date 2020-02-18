@@ -11,15 +11,6 @@ import (
 	"github.com/peak/s5cmd/stats"
 )
 
-var (
-	// ErrObjectExistsButOk is used when a destination object already exists and opt.IfNotExists is set.
-	ErrObjectExistsButOk = NewAcceptableError("Object already exists")
-	// ErrObjectIsNewerButOk is used when a destination object is newer than the source and opt.IfSourceNewer is set.
-	ErrObjectIsNewerButOk = NewAcceptableError("Object is newer or same age")
-	// ErrObjectSizesMatchButOk is used when a destination object size matches the source and opt.IfSizeDiffers is set.
-	ErrObjectSizesMatchButOk = NewAcceptableError("Object size matches")
-)
-
 // JobArgument is an argument of the job. Can be a file/directory, an s3 url ("s3" is set in this case) or an arbitrary string.
 type JobArgument struct {
 	arg string
@@ -75,56 +66,61 @@ func (a *JobArgument) Append(s string, isS3path bool) *JobArgument {
 	return a
 }
 
-func (a *JobArgument) CheckConditionals(wp *WorkerParams, src *JobArgument, opts opt.OptionList) (ret error) {
+// CheckConditions checks if the job satisfies the conditions if the job has -n, -s and -u flags.
+// It returns error-embedded JobResponse with status "warning" if none of the requirements are met.
+// It returns nil if any warning or error is encountered during this check.
+func CheckConditions(src, dst *JobArgument, wp *WorkerParams, opts opt.OptionList) *JobResponse {
+	var res *JobResponse
+
 	if opts.Has(opt.IfNotExists) {
-		ex, err := a.Exists(wp)
+		ex, err := dst.Exists(wp)
 		if err != nil {
-			return err
+			return jobResponse(err)
 		}
 		if ex {
-			ret = ErrObjectExistsButOk
+			res = &JobResponse{status: statusWarning, err: ErrObjectExists}
 		} else {
-			ret = nil
+			res = nil
 		}
 	}
 
 	if opts.Has(opt.IfSizeDiffers) {
-		sDest, err := a.Size(wp)
+		sDest, err := dst.Size(wp)
 		if err != nil {
-			return err
+			return jobResponse(err)
 		}
 
 		sSrc, err := src.Size(wp)
 		if err != nil {
-			return err
+			return jobResponse(err)
 		}
 
 		if sDest == sSrc {
-			ret = ErrObjectSizesMatchButOk
+			res = &JobResponse{status: statusWarning, err: ErrObjectSizesMatch}
 		} else {
-			ret = nil
+			res = nil
 		}
 	}
 
 	if opts.Has(opt.IfSourceNewer) {
-		tDest, err := a.ModTime(wp)
+		tDest, err := dst.ModTime(wp)
 		if err != nil {
-			return err
+			return jobResponse(err)
 		}
 
 		tSrc, err := src.ModTime(wp)
 		if err != nil {
-			return err
+			return jobResponse(err)
 		}
 
 		if !tSrc.After(tDest) {
-			ret = ErrObjectIsNewerButOk
+			res = &JobResponse{status: statusWarning, err: ErrObjectIsNewer}
 		} else {
-			ret = nil
+			res = nil
 		}
 	}
 
-	return ret
+	return res
 }
 
 func (a *JobArgument) fillData(wp *WorkerParams) error {

@@ -133,7 +133,7 @@ mainLoop:
 				}
 			}
 		case <-p.ctx.Done():
-			break
+			return
 		}
 	}
 }

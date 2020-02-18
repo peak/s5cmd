@@ -200,7 +200,7 @@ func (o *ObjectURL) Clone() *ObjectURL {
 		Delimiter: o.Delimiter,
 		Path:      o.Path,
 		Prefix:    o.Prefix,
-		// FIXME(ig): TBD
+
 		relativePath: o.relativePath,
 		filter:       o.filter,
 		filterRegex:  o.filterRegex,

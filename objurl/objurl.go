@@ -39,9 +39,9 @@ type ObjectURL struct {
 	Delimiter string
 	Prefix    string
 
-	trimmedPath string
-	filter      string
-	filterRegex *regexp.Regexp
+	relativePath string
+	filter       string
+	filterRegex  *regexp.Regexp
 }
 
 // New creates a new ObjectURL from given path string.
@@ -111,7 +111,7 @@ func (o *ObjectURL) Absolute() string {
 
 // Relative returns a URI reference based on the calculated prefix.
 func (o *ObjectURL) Relative() string {
-	return o.trimmedPath
+	return o.relativePath
 }
 
 // Base returns the last element of object path.
@@ -201,9 +201,9 @@ func (o *ObjectURL) Clone() *ObjectURL {
 		Path:      o.Path,
 		Prefix:    o.Prefix,
 		// FIXME(ig): TBD
-		trimmedPath: o.trimmedPath,
-		filter:      o.filter,
-		filterRegex: o.filterRegex,
+		relativePath: o.relativePath,
+		filter:       o.filter,
+		filterRegex:  o.filterRegex,
 	}
 }
 
@@ -216,12 +216,12 @@ func (o *ObjectURL) Match(key string) bool {
 	isBatch := o.filter != ""
 	if isBatch {
 		v := parseBatch(o.Prefix, key)
-		o.trimmedPath = v
+		o.relativePath = v
 		return true
 	}
 
 	v := parseNonBatch(o.Prefix, key)
-	o.trimmedPath = v
+	o.relativePath = v
 	return true
 }
 

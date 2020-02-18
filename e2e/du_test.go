@@ -27,7 +27,7 @@ func TestDiskUsageSingleS3Object(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(`+OK "du s3://%v/testfile1.txt" (1)`, bucket),
+		0: suffix(`+OK "du s3://%v/testfile1.txt"`, bucket),
 	}, strictLineCheck(false))
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
@@ -55,7 +55,7 @@ func TestDiskUsageMultipleS3Objects(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(` +OK "du s3://%v" (1)`, bucket),
+		0: suffix(` +OK "du s3://%v"`, bucket),
 	}, strictLineCheck(false))
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
@@ -83,7 +83,7 @@ func TestDiskUsageWildcard(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(` +OK "du s3://%v/*.txt" (1)`, bucket),
+		0: suffix(` +OK "du s3://%v/*.txt"`, bucket),
 	}, strictLineCheck(false))
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
@@ -117,7 +117,7 @@ func TestDiskUsageS3ObjectsAndFolders(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(` +OK "du s3://%v" (1)`, bucket),
+		0: suffix(` +OK "du s3://%v"`, bucket),
 	}, strictLineCheck(false))
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
@@ -145,7 +145,7 @@ func TestDiskUsageWildcardS3ObjectsWithDashH(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(` +OK "du s3://%v" (1)`, bucket),
+		0: suffix(` +OK "du s3://%v"`, bucket),
 	}, strictLineCheck(false))
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
@@ -170,7 +170,7 @@ func TestDiskUsageMissingObject(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(` +OK "du s3://%v/non-existent-file" (1)`, bucket),
+		0: suffix(` +OK "du s3://%v/non-existent-file"`, bucket),
 	}, strictLineCheck(false))
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{

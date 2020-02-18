@@ -15,36 +15,38 @@ import (
 	"github.com/termie/go-shutil"
 )
 
-func LocalCopy(job *Job, wp *WorkerParams) (stats.StatType, error) {
+func LocalCopy(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
 	const opType = stats.FileOp
 
 	src, dst := job.args[0], job.args[1]
 
-	err := CheckConditionals(src, dst, wp, job.opts)
-	if err != nil {
-		return opType, err
+	response := CheckConditions(src, dst, wp, job.opts)
+	if response != nil {
+		return opType, response
 	}
 
 	srcpath := src.url.Absolute()
 	dstpath := dst.url.Absolute()
 
+	var err error
 	if job.opts.Has(opt.DeleteSource) {
 		err = os.Rename(srcpath, dstpath)
 	} else {
 		_, err = shutil.Copy(srcpath, dstpath, true)
 	}
 
-	return opType, err
+	return opType, jobResponse(err)
 }
 
-func LocalDelete(job *Job, wp *WorkerParams) (stats.StatType, error) {
+func LocalDelete(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
 	const opType = stats.FileOp
 
 	srcpath := job.args[0].url.Absolute()
-	return opType, os.Remove(srcpath)
+	err := os.Remove(srcpath)
+	return opType, jobResponse(err)
 }
 
-func BatchLocalCopy(job *Job, wp *WorkerParams) (stats.StatType, error) {
+func BatchLocalCopy(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
 	const opType = stats.FileOp
 
 	subCmd := "cp"
@@ -64,7 +66,7 @@ func BatchLocalCopy(job *Job, wp *WorkerParams) (stats.StatType, error) {
 	if !walkMode {
 		loc := strings.IndexAny(trimPrefix, GlobCharacters)
 		if loc < 0 {
-			return opType, fmt.Errorf("internal error, not a glob: %s", trimPrefix)
+			return opType, jobResponse(fmt.Errorf("internal error, not a glob: %s", trimPrefix))
 		}
 		trimPrefix = trimPrefix[:loc]
 	} else {
@@ -147,10 +149,10 @@ func BatchLocalCopy(job *Job, wp *WorkerParams) (stats.StatType, error) {
 		return job.MakeSubJob(subCmd, op.LocalCopy, []*JobArgument{arg1, arg2}, job.opts)
 	})
 
-	return opType, err
+	return opType, jobResponse(err)
 }
 
-func BatchLocalUpload(job *Job, wp *WorkerParams) (stats.StatType, error) {
+func BatchLocalUpload(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
 	const opType = stats.FileOp
 
 	subCmd := "cp"
@@ -168,7 +170,7 @@ func BatchLocalUpload(job *Job, wp *WorkerParams) (stats.StatType, error) {
 	if !walkMode {
 		loc := strings.IndexAny(trimPrefix, GlobCharacters)
 		if loc < 0 {
-			return opType, fmt.Errorf("internal error, not a glob: %s", trimPrefix)
+			return opType, jobResponse(fmt.Errorf("internal error, not a glob: %s", trimPrefix))
 		}
 		trimPrefix = trimPrefix[:loc]
 	}
@@ -236,5 +238,5 @@ func BatchLocalUpload(job *Job, wp *WorkerParams) (stats.StatType, error) {
 		return job.MakeSubJob(subCmd, op.Upload, []*JobArgument{arg1, arg2}, job.opts)
 	})
 
-	return opType, err
+	return opType, jobResponse(err)
 }

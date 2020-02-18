@@ -67,15 +67,13 @@ var (
 )
 
 func benchmarkJobRun(b *testing.B, j *Job) {
-	var err error
 
 	for n := 0; n < b.N; n++ {
 		createFile("test-src", "")
-		err = j.run(&wp)
+		_ = j.run(&wp)
 	}
 
 	deleteFile("test-dst")
-	result = err
 }
 
 func BenchmarkJobRunLocalCopy(b *testing.B) {
@@ -148,9 +146,9 @@ func TestJobRunLocalDelete(t *testing.T) {
 	}
 
 	// execute
-	err = localDeleteJob.run(&wp)
-	if err != nil {
-		t.Error(err)
+	resp := localDeleteJob.run(&wp)
+	if resp.err != nil {
+		t.Error(resp.err)
 	}
 
 	// verify
@@ -205,9 +203,9 @@ func testLocalCopyOrMove(t *testing.T, isMove bool) {
 	}
 
 	// execute
-	err = job.run(&wp)
-	if err != nil {
-		t.Error(err)
+	resp := job.run(&wp)
+	if resp.err != nil {
+		t.Error(resp.err)
 		return
 	}
 

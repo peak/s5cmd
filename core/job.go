@@ -16,20 +16,25 @@ import (
 
 const dateFormat = "2006/01/02 15:04:05"
 
-// Job is our basic job type.
+// Job is the job type that is executed for each command.
 type Job struct {
-	sourceDesc         string // Source job description which we parsed this from
-	command            string // Different from operation, as multiple commands can map to the same op
-	operation          op.Operation
-	args               []*JobArgument
-	opts               opt.OptionList
-	successCommand     *Job             // Next job to run if this one is successful
-	failCommand        *Job             // ... if unsuccessful
-	subJobData         *subjobStatsType // WaitGroup and success counter for sub-jobs launched from this job using wildOperation()
-	isSubJob           bool
-	numSuccess         *uint32 // Number of affected objects (only on batch operations)
-	numFails           *uint32
-	numAcceptableFails *uint32
+	sourceDesc     string
+	command        string
+	operation      op.Operation
+	args           []*JobArgument
+	opts           opt.OptionList
+	successCommand *Job
+	failCommand    *Job
+	subJobData     *subjobStatsType
+	isSubJob       bool
+	response       *JobResponse
+}
+
+// JobResponse is the response type.
+type JobResponse struct {
+	status  JobStatus
+	message []string
+	err     error
 }
 
 type subjobStatsType struct {
@@ -38,105 +43,74 @@ type subjobStatsType struct {
 }
 
 // String formats the job using its command and arguments.
-func (j Job) String() (s string) {
-	s = j.command
+func (j Job) String() string {
+	s := j.command
 	for _, a := range j.args {
 		s += " " + a.url.Absolute()
 	}
-	return
+	return s
+}
+
+// jobResponse creates a new JobResponse by setting job status, message and error.
+func jobResponse(err error, msg ...string) *JobResponse {
+	if err == nil {
+		return &JobResponse{status: statusSuccess, message: msg}
+	}
+	return &JobResponse{status: statusErr, err: err, message: msg}
 }
 
 // MakeSubJob creates a sub-job linked to the original. sourceDesc is copied, numSuccess/numFails are linked. Returns a pointer to the new job.
 func (j Job) MakeSubJob(command string, operation op.Operation, args []*JobArgument, opts opt.OptionList) *Job {
 	ptr := args
 	return &Job{
-		sourceDesc:         j.sourceDesc,
-		command:            command,
-		operation:          operation,
-		args:               ptr,
-		opts:               opts,
-		isSubJob:           true,
-		numSuccess:         j.numSuccess,
-		numFails:           j.numFails,
-		numAcceptableFails: j.numAcceptableFails,
+		sourceDesc: j.sourceDesc,
+		command:    command,
+		operation:  operation,
+		args:       ptr,
+		opts:       opts,
+		isSubJob:   true,
 	}
 }
 
-func (j *Job) out(short shortCode, format string, a ...interface{}) {
-	s := fmt.Sprintf(format, a...)
-	fmt.Println("                   ", short, s)
-	if j.numSuccess != nil && short == shortOk {
-		atomic.AddUint32(j.numSuccess, 1)
-	}
-	if j.numAcceptableFails != nil && short == shortOkWithError {
-		atomic.AddUint32(j.numAcceptableFails, 1)
-	}
-	if j.numFails != nil && short == shortErr {
-		atomic.AddUint32(j.numFails, 1)
-	}
-}
+// Log prints the results of jobs.
+func (j *Job) Log() {
+	status := j.response.status
+	err := j.response.err
 
-// PrintOK notifies the user about the positive outcome of the job. Internal operations are not shown, sub-jobs use short syntax.
-func (j *Job) PrintOK(err AcceptableError) {
+	for _, m := range j.response.message {
+		fmt.Println("                   ", status, m)
+	}
+
 	if j.operation.IsInternal() {
-		return
-	}
-
-	if j.isSubJob {
-		if err != nil {
-			j.out(shortOkWithError, `"%s" (%s)`, j, err.Error())
-		} else {
-			j.out(shortOk, `"%s"`, j)
-		}
 		return
 	}
 
 	errStr := ""
-	okStr := "OK"
 	if err != nil {
-		errStr = " (" + err.Error() + ")"
-		okStr = "OK?"
+		errStr = CleanupError(err)
 	}
 
-	// Add successful jobs and considered-successful (finished with AcceptableError) jobs together
-	var totalSuccess uint32
-	if j.numSuccess != nil {
-		totalSuccess += *j.numSuccess
-	}
-	if j.numAcceptableFails != nil {
-		totalSuccess += *j.numAcceptableFails
-		if *j.numAcceptableFails > 0 {
-			okStr = "OK?"
+	if j.isSubJob {
+		m := fmt.Sprintf(`"%s"`, j)
+		if err != nil {
+			m += fmt.Sprintf(`(%s)`, errStr)
 		}
-	}
-
-	if totalSuccess > 0 {
-		if j.numFails != nil && *j.numFails > 0 {
-			log.Printf(`+%s "%s"%s (%d, %d failed)`, okStr, j, errStr, totalSuccess, *j.numFails)
-		} else {
-			log.Printf(`+%s "%s"%s (%d)`, okStr, j, errStr, totalSuccess)
-		}
-	} else if j.numFails != nil && *j.numFails > 0 {
-		log.Printf(`+%s "%s"%s (%d failed)`, okStr, j, errStr, *j.numFails)
-	} else {
-		log.Printf(`+%s "%s"%s`, okStr, j, errStr)
-	}
-}
-
-// PrintErr prints the error response from a Job.
-func (j *Job) PrintErr(err error) {
-	if j.operation.IsInternal() {
-		// TODO are we sure about ignoring errors from internal jobs?
+		fmt.Println("                   ", status, m)
 		return
 	}
 
-	errStr := CleanupError(err)
-
-	if j.isSubJob {
-		j.out(shortErr, `"%s": %s`, j, errStr)
-	} else {
+	if status == statusErr {
 		log.Printf(`-ERR "%s": %s`, j, errStr)
+		return
 	}
+
+	okStr := "OK"
+	if status == statusWarning {
+		errStr = fmt.Sprintf(" (%s)", errStr)
+		okStr = "OK?"
+	}
+
+	log.Printf(`+%s "%s"%s`, okStr, j, errStr)
 }
 
 func (j *Job) getStorageClass() string {
@@ -181,42 +155,39 @@ func (j *Job) displayHelp() {
 	fmt.Fprint(os.Stderr, "\nTo list available general options, run without arguments.\n")
 }
 
-// run runs the Job and returns error.
-func (j *Job) run(wp *WorkerParams) error {
-	if j.opts.Has(opt.Help) {
-		j.displayHelp()
-		return ErrDisplayedHelp
-	}
-
-	var err error
+// Run runs the Job and returns error.
+func (j *Job) run(wp *WorkerParams) *JobResponse {
 	cmdFunc, ok := globalCmdRegistry[j.operation]
 	if !ok {
-		return fmt.Errorf("unhandled operation %v", j.operation)
+		return &JobResponse{
+			status: statusErr,
+			err:    fmt.Errorf("unhandled operation %v", j.operation),
+		}
 	}
 
-	kind, err := cmdFunc(j, wp)
-	return wp.st.IncrementIfSuccess(kind, err)
+	kind, response := cmdFunc(j, wp)
+	if response != nil {
+		wp.st.IncrementIfSuccess(kind, response.err)
+		j.response = response
+		j.Log()
+	}
+	return response
 }
 
 // Run runs the Job, logs the results and returns sub-job of parent job.
 func (j *Job) Run(wp WorkerParams) *Job {
-	err := j.run(&wp)
-	if err == nil {
-		j.PrintOK(nil)
+	response := j.run(&wp)
+	switch response.status {
+	case statusSuccess, statusWarning:
 		j.Notify(true)
 		return j.successCommand
+	case statusErr:
+		wp.st.Increment(stats.Fail)
+		j.Notify(false)
+		return j.failCommand
+	default:
+		return nil
 	}
-	if acceptableErr := IsAcceptableError(err); acceptableErr != nil {
-		if acceptableErr != ErrDisplayedHelp {
-			j.PrintOK(acceptableErr)
-		}
-		j.Notify(true)
-		return j.successCommand
-	}
-	j.PrintErr(err)
-	wp.st.Increment(stats.Fail)
-	j.Notify(false)
-	return j.failCommand
 }
 
 type (
@@ -231,14 +202,9 @@ type (
 // for sub-job launching.
 //
 // After all sub-jobs created and executed, it waits all jobs to finish.
-func wildOperation(url *objurl.ObjectURL, wp *WorkerParams, callback wildCallback) error {
-	subjobStats := subjobStatsType{}
+func wildOperation(client storage.Storage, url *objurl.ObjectURL, wp *WorkerParams, callback wildCallback) error {
 	var subJobCounter uint32
-
-	client, err := wp.newClient()
-	if err != nil {
-		return err
-	}
+	subjobStats := subjobStatsType{}
 
 	for item := range client.List(wp.ctx, url, storage.ListAllItems) {
 		if item.Err != nil {

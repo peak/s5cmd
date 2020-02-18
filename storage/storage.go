@@ -3,11 +3,14 @@ package storage
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"time"
 
 	"github.com/peak/s5cmd/objurl"
 )
+
+const dateFormat = "2006/01/02 15:04:05"
 
 // Item is a generic type which contains metadata for storage items.
 type Object struct {
@@ -43,7 +46,7 @@ type Bucket struct {
 
 // String returns the string representation of Bucket.
 func (b Bucket) String() string {
-	return b.Name
+	return fmt.Sprintf("%s  s3://%s", b.CreationDate.Format(dateFormat), b.Name)
 }
 
 const (

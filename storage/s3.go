@@ -39,7 +39,8 @@ const (
 // SequenceEndMarker is a marker that is dispatched on end of each sequence.
 var SequenceEndMarker = &Object{}
 
-// S3 is a storage type which interacts with S3API, DownloaderAPI and UploaderAPI.
+// S3 is a storage type which interacts with S3API, DownloaderAPI and
+// UploaderAPI.
 type S3 struct {
 	api        s3iface.S3API
 	downloader s3manageriface.DownloaderAPI
@@ -95,9 +96,10 @@ func (s *S3) Head(ctx context.Context, url *objurl.ObjectURL) (*Object, error) {
 	}, nil
 }
 
-// List is a non-blocking S3 list operation which paginates and filters S3 keys.
-// It sends SequenceEndMarker at the end of each pagination. If no item found or an error
-// is encountered during this period, it sends these errors to item channel.
+// List is a non-blocking S3 list operation which paginates and filters S3
+// keys. It sends SequenceEndMarker at the end of each pagination. If no item
+// found or an error is encountered during this period, it sends these errors
+// to item channel.
 func (s *S3) List(ctx context.Context, url *objurl.ObjectURL, maxKeys int64) <-chan *Object {
 	itemChan := make(chan *Object)
 	inp := s3.ListObjectsV2Input{
@@ -173,7 +175,8 @@ func (s *S3) List(ctx context.Context, url *objurl.ObjectURL, maxKeys int64) <-c
 	return itemChan
 }
 
-// Copy is a single-object copy operation which copies objects to S3 destination from another S3 source.
+// Copy is a single-object copy operation which copies objects to S3
+// destination from another S3 source.
 func (s *S3) Copy(ctx context.Context, from, to *objurl.ObjectURL, cls string) error {
 	// SDK expects CopySource like "bucket[/key]"
 	copySource := strings.TrimPrefix(to.String(), "s3://")
@@ -184,12 +187,11 @@ func (s *S3) Copy(ctx context.Context, from, to *objurl.ObjectURL, cls string) e
 		CopySource:   aws.String(copySource),
 		StorageClass: aws.String(cls),
 	})
-
 	return err
 }
 
-// Get is a multipart download operation which downloads S3 objects into any destination that implements
-// io.WriterAt interface.
+// Get is a multipart download operation which downloads S3 objects into any
+// destination that implements io.WriterAt interface.
 func (s *S3) Get(ctx context.Context, from *objurl.ObjectURL, to io.WriterAt) error {
 	_, err := s.downloader.DownloadWithContext(ctx, to, &s3.GetObjectInput{
 		Bucket: aws.String(from.Bucket),
@@ -201,8 +203,8 @@ func (s *S3) Get(ctx context.Context, from *objurl.ObjectURL, to io.WriterAt) er
 	return err
 }
 
-// Put is a multipart upload operation to upload resources, which implements io.Reader interface,
-// into S3 destination.
+// Put is a multipart upload operation to upload resources, which implements
+// io.Reader interface, into S3 destination.
 func (s *S3) Put(ctx context.Context, reader io.Reader, to *objurl.ObjectURL, cls string) error {
 	_, err := s.uploader.UploadWithContext(ctx, &s3manager.UploadInput{
 		Bucket:       aws.String(to.Bucket),
@@ -217,8 +219,8 @@ func (s *S3) Put(ctx context.Context, reader io.Reader, to *objurl.ObjectURL, cl
 	return err
 }
 
-// Delete is a removal operation which removes multiple S3 objects from a bucket using single HTTP
-// request. It allows deleting objects up to 1000.
+// Delete is a removal operation which removes multiple S3 objects from a
+// bucket using single HTTP request. It allows deleting objects up to 1000.
 func (s *S3) Delete(ctx context.Context, bucket string, urls ...*objurl.ObjectURL) error {
 	if len(urls) > DeleteItemsMax || len(urls) == 0 {
 		return fmt.Errorf(
@@ -261,8 +263,8 @@ func (s *S3) Delete(ctx context.Context, bucket string, urls ...*objurl.ObjectUR
 	return nil
 }
 
-// ListBuckets is a blocking list-operation which gets bucket list and returns the buckets
-// that match with given prefix.
+// ListBuckets is a blocking list-operation which gets bucket list and returns
+// the buckets that match with given prefix.
 func (s *S3) ListBuckets(ctx context.Context, prefix string) ([]Bucket, error) {
 	o, err := s.api.ListBucketsWithContext(ctx, &s3.ListBucketsInput{})
 	if err != nil {
@@ -321,7 +323,8 @@ func (s *S3) Stats() *Stats {
 	return s.stats
 }
 
-// NewAwsSession initializes a new AWS session with region fallback and custom options.
+// NewAwsSession initializes a new AWS session with region fallback and custom
+// options.
 func newAWSSession(opts S3Opts) (*session.Session, error) {
 	newSession := func(c *aws.Config) (*session.Session, error) {
 		useSharedConfig := session.SharedConfigEnable

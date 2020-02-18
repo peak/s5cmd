@@ -54,6 +54,7 @@ func TestSuccessfulBangBang(t *testing.T) {
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Expected{ExitCode: 0})
+
 	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: suffix(`+OK "! echo foo"`),
 		1: suffix(`+OK "! echo SUCCESS"`),

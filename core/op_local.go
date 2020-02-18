@@ -28,20 +28,14 @@ func LocalCopy(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
 	} else {
 		_, err = shutil.Copy(job.args[0].arg, job.args[1].arg, true)
 	}
-	if err != nil {
-		return opType, &JobResponse{status: statusErr, err: err}
-	}
 
-	return opType, &JobResponse{status: statusSuccess}
+	return opType, jobResponse(err)
 }
 
 func LocalDelete(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
 	const opType = stats.FileOp
-	if err := os.Remove(job.args[0].arg); err != nil {
-		return opType, &JobResponse{status: statusErr, err: err}
-	}
-
-	return opType, &JobResponse{status: statusSuccess}
+	err := os.Remove(job.args[0].arg)
+	return opType, jobResponse(err)
 }
 
 func BatchLocalCopy(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
@@ -145,11 +139,8 @@ func BatchLocalCopy(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
 
 		return job.MakeSubJob(subCmd, op.LocalCopy, []*JobArgument{arg1, arg2}, job.opts)
 	})
-	if err != nil {
-		return opType, &JobResponse{status: statusErr, err: err}
-	}
 
-	return opType, &JobResponse{status: statusSuccess}
+	return opType, jobResponse(err)
 }
 
 func BatchLocalUpload(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
@@ -237,9 +228,5 @@ func BatchLocalUpload(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse)
 		return job.MakeSubJob(subCmd, op.Upload, []*JobArgument{arg1, arg2}, job.opts)
 	})
 
-	if err != nil {
-		return opType, &JobResponse{status: statusErr, err: err}
-	}
-
-	return opType, &JobResponse{status: statusSuccess}
+	return opType, jobResponse(err)
 }

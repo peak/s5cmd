@@ -22,11 +22,9 @@ func ShellExec(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
 	cmd := exec.CommandContext(wp.ctx, job.args[0].arg, strArgs...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		return opType, &JobResponse{status: statusErr, err: err}
-	}
+	err := cmd.Run()
 
-	return opType, &JobResponse{status: statusSuccess}
+	return opType, jobResponse(err)
 }
 
 func ShellAbort(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {

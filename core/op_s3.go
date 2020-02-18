@@ -38,11 +38,7 @@ func S3Copy(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
 		err = client.Delete(wp.ctx, job.args[0].s3.Bucket, job.args[0].s3.Key)
 	}
 
-	if err != nil {
-		return opType, &JobResponse{status: statusErr, err: err}
-	}
-
-	return opType, &JobResponse{status: statusSuccess}
+	return opType, jobResponse(err)
 }
 
 func S3Delete(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
@@ -53,11 +49,8 @@ func S3Delete(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
 		return opType, &JobResponse{status: statusErr, err: err}
 	}
 
-	if err = client.Delete(wp.ctx, job.args[0].s3.Bucket, job.args[0].s3.Key); err != nil {
-		return opType, &JobResponse{status: statusErr, err: err}
-	}
-
-	return opType, &JobResponse{status: statusSuccess}
+	err = client.Delete(wp.ctx, job.args[0].s3.Bucket, job.args[0].s3.Key)
+	return opType, jobResponse(err)
 }
 
 func S3BatchDelete(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
@@ -106,11 +99,7 @@ func S3BatchDelete(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
 		return addArg(item)
 	})
 
-	if err != nil {
-		return opType, &JobResponse{status: statusErr, err: err}
-	}
-
-	return opType, &JobResponse{status: statusSuccess}
+	return opType, jobResponse(err)
 }
 
 func S3BatchDeleteActual(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
@@ -191,11 +180,7 @@ func S3BatchDownload(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) 
 		return subJob
 	})
 
-	if err != nil {
-		return opType, &JobResponse{status: statusErr, err: err}
-	}
-
-	return opType, &JobResponse{status: statusSuccess}
+	return opType, jobResponse(err)
 }
 
 func S3Download(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
@@ -228,17 +213,11 @@ func S3Download(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
 
 	if err != nil {
 		os.Remove(destFn) // Remove partly downloaded file
-		return opType, &JobResponse{status: statusErr, err: err}
+	} else if job.opts.Has(opt.DeleteSource) {
+		err = client.Delete(wp.ctx, job.args[0].s3.Bucket, job.args[0].s3.Key)
 	}
 
-	if job.opts.Has(opt.DeleteSource) {
-		err := client.Delete(wp.ctx, job.args[0].s3.Bucket, job.args[0].s3.Key)
-		if err != nil {
-			return opType, &JobResponse{status: statusErr, err: err}
-		}
-	}
-
-	return opType, &JobResponse{status: statusSuccess}
+	return opType, jobResponse(err)
 }
 
 func S3Upload(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
@@ -286,11 +265,8 @@ func S3Upload(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
 	if job.opts.Has(opt.DeleteSource) && err == nil {
 		err = os.Remove(job.args[0].arg)
 	}
-	if err != nil {
-		return opType, &JobResponse{status: statusErr, err: err}
-	}
 
-	return opType, &JobResponse{status: statusSuccess}
+	return opType, jobResponse(err)
 }
 
 func S3BatchCopy(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
@@ -333,11 +309,7 @@ func S3BatchCopy(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
 		return subJob
 	})
 
-	if err != nil {
-		return opType, &JobResponse{status: statusErr, err: err}
-	}
-
-	return opType, &JobResponse{status: statusSuccess}
+	return opType, jobResponse(err)
 }
 
 func S3ListBuckets(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {

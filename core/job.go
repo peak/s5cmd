@@ -7,9 +7,9 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/peak/s5cmd/objurl"
 	"github.com/peak/s5cmd/op"
 	"github.com/peak/s5cmd/opt"
-	"github.com/peak/s5cmd/s3url"
 	"github.com/peak/s5cmd/stats"
 	"github.com/peak/s5cmd/storage"
 )
@@ -46,7 +46,7 @@ type subjobStatsType struct {
 func (j Job) String() string {
 	s := j.command
 	for _, a := range j.args {
-		s += " " + a.arg
+		s += " " + a.url.Absolute()
 	}
 	return s
 }
@@ -191,7 +191,7 @@ func (j *Job) Run(wp WorkerParams) *Job {
 }
 
 type (
-	wildCallback func(*storage.Item) *Job
+	wildCallback func(*storage.Object) *Job
 	wildLister   func(chan<- interface{}) error
 )
 
@@ -202,7 +202,7 @@ type (
 // for sub-job launching.
 //
 // After all sub-jobs created and executed, it waits all jobs to finish.
-func wildOperation(client storage.Storage, url *s3url.S3Url, wp *WorkerParams, callback wildCallback) error {
+func wildOperation(client storage.Storage, url *objurl.ObjectURL, wp *WorkerParams, callback wildCallback) error {
 	var subJobCounter uint32
 	subjobStats := subjobStatsType{}
 

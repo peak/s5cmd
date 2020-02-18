@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/peak/s5cmd/objurl"
 	"github.com/peak/s5cmd/op"
 	"github.com/peak/s5cmd/opt"
 	"github.com/peak/s5cmd/stats"
@@ -17,18 +18,21 @@ import (
 func LocalCopy(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
 	const opType = stats.FileOp
 
-	var src, dst = job.args[0], job.args[1]
+	src, dst := job.args[0], job.args[1]
 
 	response := CheckConditions(src, dst, wp, job.opts)
 	if response != nil {
 		return opType, response
 	}
 
+	srcpath := src.url.Absolute()
+	dstpath := dst.url.Absolute()
+
 	var err error
 	if job.opts.Has(opt.DeleteSource) {
-		err = os.Rename(src.arg, dst.arg)
+		err = os.Rename(srcpath, dstpath)
 	} else {
-		_, err = shutil.Copy(src.arg, dst.arg, true)
+		_, err = shutil.Copy(srcpath, dstpath, true)
 	}
 
 	return opType, jobResponse(err)
@@ -36,7 +40,9 @@ func LocalCopy(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
 
 func LocalDelete(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
 	const opType = stats.FileOp
-	err := os.Remove(job.args[0].arg)
+
+	srcpath := job.args[0].url.Absolute()
+	err := os.Remove(srcpath)
 	return opType, jobResponse(err)
 }
 
@@ -49,11 +55,14 @@ func BatchLocalCopy(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
 	}
 	subCmd += job.opts.GetParams()
 
-	st, err := os.Stat(job.args[0].arg)
+	src, dst := job.args[0], job.args[1]
+
+	st, err := os.Stat(src.url.Absolute())
 	walkMode := err == nil && st.IsDir() // walk or glob?
 
-	trimPrefix := job.args[0].arg
-	globStart := job.args[0].arg
+	trimPrefix := src.url.Absolute()
+	globStart := src.url.Absolute()
+
 	if !walkMode {
 		loc := strings.IndexAny(trimPrefix, GlobCharacters)
 		if loc < 0 {
@@ -80,11 +89,11 @@ func BatchLocalCopy(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
 			ch <- nil // send EOF
 		}()
 
-		ma, err := filepath.Glob(globStart)
+		matchedFiles, err := filepath.Glob(globStart)
 		if err != nil {
 			return err
 		}
-		if len(ma) == 0 {
+		if len(matchedFiles) == 0 {
 			if walkMode {
 				return nil // Directory empty
 			}
@@ -92,7 +101,7 @@ func BatchLocalCopy(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
 			return errors.New("could not find match for glob")
 		}
 
-		for _, f := range ma {
+		for _, f := range matchedFiles {
 			s := f // copy
 			st, _ := os.Stat(s)
 			if !st.IsDir() {
@@ -130,10 +139,11 @@ func BatchLocalCopy(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
 			dstFn = filepath.Base(*fn)
 		}
 
-		arg1 := NewJobArgument(*fn, nil)
-		arg2 := job.args[1].Clone().Append(dstFn, false)
+		url, _ := objurl.New(*fn)
+		arg1 := NewJobArgument(url)
+		arg2 := dst.Clone().Join(dstFn)
 
-		dir := filepath.Dir(arg2.arg)
+		dir := filepath.Dir(arg2.url.Absolute())
 		os.MkdirAll(dir, os.ModePerm)
 
 		return job.MakeSubJob(subCmd, op.LocalCopy, []*JobArgument{arg1, arg2}, job.opts)
@@ -151,10 +161,12 @@ func BatchLocalUpload(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse)
 	}
 	subCmd += job.opts.GetParams()
 
-	st, err := os.Stat(job.args[0].arg)
+	src, dst := job.args[0], job.args[1]
+
+	st, err := os.Stat(src.url.Absolute())
 	walkMode := err == nil && st.IsDir() // walk or glob?
 
-	trimPrefix := job.args[0].arg
+	trimPrefix := src.url.Absolute()
 	if !walkMode {
 		loc := strings.IndexAny(trimPrefix, GlobCharacters)
 		if loc < 0 {
@@ -174,7 +186,7 @@ func BatchLocalUpload(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse)
 			ch <- nil // send EOF
 		}()
 		if walkMode {
-			err := filepath.Walk(job.args[0].arg, func(path string, st os.FileInfo, err error) error {
+			err := filepath.Walk(src.url.Absolute(), func(path string, st os.FileInfo, err error) error {
 				if err != nil {
 					return err
 				}
@@ -186,15 +198,15 @@ func BatchLocalUpload(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse)
 			})
 			return err
 		} else {
-			ma, err := filepath.Glob(job.args[0].arg)
+			matchedFiles, err := filepath.Glob(src.url.Absolute())
 			if err != nil {
 				return err
 			}
-			if len(ma) == 0 {
+			if len(matchedFiles) == 0 {
 				return errors.New("could not find match for glob")
 			}
 
-			for _, f := range ma {
+			for _, f := range matchedFiles {
 				s := f // copy
 				st, _ = os.Stat(s)
 				if !st.IsDir() {
@@ -219,8 +231,10 @@ func BatchLocalUpload(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse)
 			dstFn = filepath.Base(*fn)
 		}
 
-		arg1 := NewJobArgument(*fn, nil)
-		arg2 := job.args[1].Clone().Append(dstFn, false)
+		url, _ := objurl.New(*fn)
+		arg1 := NewJobArgument(url)
+		arg2 := dst.Clone().Join(dstFn)
+
 		return job.MakeSubJob(subCmd, op.Upload, []*JobArgument{arg1, arg2}, job.opts)
 	})
 

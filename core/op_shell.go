@@ -17,9 +17,9 @@ func ShellExec(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
 		if i == 0 {
 			continue
 		}
-		strArgs = append(strArgs, a.arg)
+		strArgs = append(strArgs, a.url.Absolute())
 	}
-	cmd := exec.CommandContext(wp.ctx, job.args[0].arg, strArgs...)
+	cmd := exec.CommandContext(wp.ctx, job.args[0].url.Absolute(), strArgs...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	err := cmd.Run()
@@ -36,14 +36,14 @@ func ShellAbort(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
 	)
 
 	if len(job.args) > 0 {
-		exitCode, err = strconv.ParseInt(job.args[0].arg, 10, 8)
+		exitCode, err = strconv.ParseInt(job.args[0].url.Absolute(), 10, 8)
 		if err != nil {
 			exitCode = 255
 		}
 	}
 
-	ef := wp.ctx.Value(ExitFuncKey).(func(int))
-	ef(int(exitCode))
+	exitFn := wp.ctx.Value(ExitFuncKey).(func(int))
+	exitFn(int(exitCode))
 
 	return opType, jobResponse(nil)
 }

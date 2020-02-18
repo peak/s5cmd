@@ -9,8 +9,8 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/peak/s5cmd/objurl"
 	"github.com/peak/s5cmd/opt"
-	"github.com/peak/s5cmd/s3url"
 )
 
 const (
@@ -27,64 +27,72 @@ var (
 	regexCmdOr = regexp.MustCompile(`^\s*(.+?)\s*\|\|\s*(.+?)\s*$`)
 )
 
-func isGlob(s string) bool {
-	return strings.ContainsAny(s, GlobCharacters)
-}
-
-// parseArgumentByType attempts to parse an input string according to the given opt.ParamType and returns a JobArgument (or error)
-// fnObj is the last/previous successfully parsed argument, used mainly to append the basenames of the source files to destination directories
+// parseArgumentByType parses an input string according to the given
+// opt.ParamType and returns a JobArgument (or error). fnObj is the
+// last/previous successfully parsed argument, used mainly to append the
+// basenames of the source files to destination directories.
 func parseArgumentByType(s string, t opt.ParamType, fnObj *JobArgument) (*JobArgument, error) {
 	fnBase := ""
 	if (t == opt.S3ObjOrDir || t == opt.FileOrDir || t == opt.OptionalFileOrDir) && fnObj != nil {
-		fnBase = filepath.Base(fnObj.arg)
+		fnBase = fnObj.url.Base()
 	}
 
 	switch t {
 	case opt.Unchecked, opt.UncheckedOneOrMore:
-		return NewJobArgument(s, nil), nil
+		url, _ := objurl.New(s)
+		return NewJobArgument(url), nil
 
 	case opt.S3Obj, opt.S3ObjOrDir, opt.S3WildObj, opt.S3Dir, opt.S3SimpleObj:
-		uri, err := s3url.New(s)
+		url, err := objurl.New(s)
 		if err != nil {
 			return nil, err
 		}
-		s = "s3://" + uri.Format() // rebuild s with formatted url
 
-		if (t == opt.S3Obj || t == opt.S3ObjOrDir || t == opt.S3SimpleObj) && s3url.HasWild(uri.Key) {
+		if !url.IsRemote() {
+			return nil, fmt.Errorf("given argument %q is not a remote path", s)
+		}
+
+		s = url.Absolute()
+
+		if (t == opt.S3Obj || t == opt.S3ObjOrDir || t == opt.S3SimpleObj) && objurl.HasGlobCharacter(url.Path) {
 			return nil, errors.New("s3 key cannot contain wildcards")
 		}
+
 		if t == opt.S3WildObj {
-			if !s3url.HasWild(uri.Key) {
+			if !objurl.HasGlobCharacter(url.Path) {
 				return nil, errors.New("s3 key should contain wildcards")
 			}
-			if uri.Key == "" {
-				return nil, errors.New("s3 key should not be empty")
+			if url.Path == "" {
+				return nil, errors.New("s3 key cannot not be empty")
 			}
 		}
 
-		if t == opt.S3SimpleObj && uri.Key == "" {
+		if t == opt.S3SimpleObj && url.Path == "" {
 			return nil, errors.New("s3 key should not be empty")
 		}
 
-		endsInSlash := strings.HasSuffix(uri.Key, "/")
+		endsInSlash := strings.HasSuffix(url.Path, "/")
 		if endsInSlash {
 			if t == opt.S3Obj || t == opt.S3SimpleObj {
 				return nil, errors.New("s3 key should not end with /")
 			}
 		} else {
-			if t == opt.S3Dir && uri.Key != "" {
+			if t == opt.S3Dir && url.Path != "" {
 				return nil, errors.New("s3 dir should end with /")
 			}
 		}
 		if t == opt.S3ObjOrDir && endsInSlash && fnBase != "" {
-			uri.Key += fnBase
+			url.Path += fnBase
 			s += fnBase
 		}
-		if t == opt.S3ObjOrDir && uri.Key == "" && fnBase != "" {
-			uri.Key += fnBase
+		if t == opt.S3ObjOrDir && url.Path == "" && fnBase != "" {
+			url.Path += fnBase
 			s += "/" + fnBase
 		}
-		return NewJobArgument(s, uri), nil
+
+		url, _ = objurl.New(s)
+
+		return NewJobArgument(url), nil
 
 	case opt.OptionalFileOrDir, opt.OptionalDir:
 		if s == "" {
@@ -93,16 +101,17 @@ func parseArgumentByType(s string, t opt.ParamType, fnObj *JobArgument) (*JobArg
 		fallthrough
 	case opt.FileObj, opt.FileOrDir, opt.Dir:
 		// check if we have s3 object
-		_, err := s3url.New(s)
-		if err == nil {
+		url, _ := objurl.New(s)
+		if url.IsRemote() {
 			return nil, errors.New("file param resembles s3 object")
 		}
+
 		if s == "." {
 			s = "." + string(filepath.Separator)
 		}
 		endsInSlash := len(s) > 0 && s[len(s)-1] == filepath.Separator
 
-		if isGlob(s) {
+		if objurl.HasGlobCharacter(s) {
 			return nil, errors.New("param should not contain glob characters")
 		}
 
@@ -146,21 +155,25 @@ func parseArgumentByType(s string, t opt.ParamType, fnObj *JobArgument) (*JobArg
 			s += string(filepath.Separator)
 		}
 
-		return NewJobArgument(s, nil), nil
+		url, _ = objurl.New(s)
+		return NewJobArgument(url), nil
 
 	case opt.Glob:
-		_, err := s3url.New(s)
-		if err == nil {
-			return nil, errors.New("glob param resembles s3 object")
+		url, _ := objurl.New(s)
+		if url.IsRemote() {
+			return nil, errors.New("glob param resembles a remote object")
 		}
-		if !isGlob(s) {
+
+		if !objurl.HasGlobCharacter(s) {
 			return nil, errors.New("param does not look like a glob")
 		}
-		_, err = filepath.Match(s, "")
+
+		_, err := filepath.Match(s, "")
 		if err != nil {
 			return nil, err
 		}
-		return NewJobArgument(s, nil), nil
+
+		return NewJobArgument(url), nil
 
 	}
 

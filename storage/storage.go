@@ -7,14 +7,14 @@ import (
 	"io"
 	"time"
 
-	"github.com/peak/s5cmd/s3url"
+	"github.com/peak/s5cmd/objurl"
 )
 
 const dateFormat = "2006/01/02 15:04:05"
 
 // Item is a generic type which contains metadata for storage items.
-type Item struct {
-	Key          string
+type Object struct {
+	URL          *objurl.ObjectURL
 	Etag         string
 	LastModified time.Time
 	IsDirectory  bool
@@ -23,25 +23,25 @@ type Item struct {
 	Err          error
 }
 
+// String returns the string representation of Item.
+func (o *Object) String() string {
+	return o.URL.String()
+}
+
+// IsGlacierObject checks if the storage class of item is glacier.
+func (o *Object) IsGlacierObject() bool {
+	return o.StorageClass == ObjectStorageClassGlacier
+}
+
+// IsMarkerObject checks if the item is a marker object to mark end of sequence.
+func (o *Object) IsMarkerObject() bool {
+	return o == SequenceEndMarker
+}
+
 // Bucket is a container for storage items.
 type Bucket struct {
 	CreationDate time.Time
 	Name         string
-}
-
-// String returns the string representation of Item.
-func (i Item) String() string {
-	return i.Key
-}
-
-// IsGlacierObject checks if the storage class of item is glacier.
-func (i Item) IsGlacierObject() bool {
-	return i.StorageClass == ObjectStorageClassGlacier
-}
-
-// IsMarkerObject checks if the item is a marker object to mark end of sequence.
-func (i *Item) IsMarkerObject() bool {
-	return i == SequenceEndMarker
 }
 
 // String returns the string representation of Bucket.
@@ -65,12 +65,12 @@ const (
 
 // Storage is an interface for storage operations.
 type Storage interface {
-	Head(context.Context, *s3url.S3Url) (*Item, error)
-	List(context.Context, *s3url.S3Url, int64) <-chan *Item
-	Copy(context.Context, *s3url.S3Url, *s3url.S3Url, string) error
-	Get(context.Context, *s3url.S3Url, io.WriterAt) error
-	Put(context.Context, io.Reader, *s3url.S3Url, string) error
-	Delete(context.Context, string, ...string) error
+	Head(context.Context, *objurl.ObjectURL) (*Object, error)
+	List(context.Context, *objurl.ObjectURL, int64) <-chan *Object
+	Copy(context.Context, *objurl.ObjectURL, *objurl.ObjectURL, string) error
+	Get(context.Context, *objurl.ObjectURL, io.WriterAt) error
+	Put(context.Context, io.Reader, *objurl.ObjectURL, string) error
+	Delete(context.Context, string, ...*objurl.ObjectURL) error
 	ListBuckets(context.Context, string) ([]Bucket, error)
 	UpdateRegion(string) error
 	Stats() *Stats

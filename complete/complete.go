@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/peak/s5cmd/core"
+	"github.com/peak/s5cmd/objurl"
 	"github.com/peak/s5cmd/opt"
-	"github.com/peak/s5cmd/s3url"
 	"github.com/peak/s5cmd/storage"
 
 	cmp "github.com/posener/complete"
@@ -191,12 +191,12 @@ func s3predictor(a cmp.Args) []string {
 		s3bucket = ""
 		s3key = ""
 	} else {
-		s3u, err := s3url.New(a.Last)
+		s3u, err := objurl.New(a.Last)
 		if err != nil {
 			return nil
 		}
 		s3bucket = s3u.Bucket
-		s3key = s3u.Key
+		s3key = s3u.Path
 		endsInSlash = a.Last[len(a.Last)-1] == '/'
 	}
 
@@ -237,14 +237,14 @@ func s3predictor(a cmp.Args) []string {
 		var ret []string
 
 		prefix := "s3://" + s3bucket + "/"
-		url, err := s3url.New(prefix)
+		url, err := objurl.New(prefix)
 		if err != nil {
 			return nil
 		}
 
 		for item := range client.List(ctx, url, s3MaxKeys) {
 			// Ignore the 0-byte "*_$folder$" objects in shell completion, created by s3n
-			if item.Size == 0 && strings.HasSuffix(item.Key, "_$folder$") {
+			if item.Size == 0 && strings.HasSuffix(item.URL.Path, "_$folder$") {
 				continue
 			}
 

@@ -59,7 +59,7 @@ func TestDiskUsageMultipleS3Objects(t *testing.T) {
 	}, strictLineCheck(false))
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: suffix(` + 639 bytes in 2 objects: s3://%v/ [Total]`, bucket),
+		0: suffix(` + 639 bytes in 2 objects: s3://%v [Total]`, bucket),
 	})
 }
 
@@ -121,7 +121,7 @@ func TestDiskUsageS3ObjectsAndFolders(t *testing.T) {
 	}, strictLineCheck(false))
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: suffix(` + 600 bytes in 2 objects: s3://%v/ [Total]`, bucket),
+		0: suffix(` + 600 bytes in 2 objects: s3://%v [Total]`, bucket),
 	})
 }
 
@@ -149,7 +149,7 @@ func TestDiskUsageWildcardS3ObjectsWithDashH(t *testing.T) {
 	}, strictLineCheck(false))
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: suffix(` + 241.8K bytes in 2 objects: s3://%v/ [Total]`, bucket),
+		0: suffix(` + 241.8K bytes in 2 objects: s3://%v [Total]`, bucket),
 	})
 }
 

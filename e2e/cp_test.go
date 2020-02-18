@@ -85,10 +85,10 @@ func TestCopyMultipleFlatS3ObjectsToLocal(t *testing.T) {
 		2: suffix(`# Downloading filename-with-hypen.gz...`),
 		3: suffix(`# Downloading readme.md...`),
 		4: suffix(`# Downloading testfile1.txt...`),
-		5: contains(` + "cp s3://%v/another_test_file.txt ./another_test_file.txt`, bucket),
-		6: contains(` + "cp s3://%v/filename-with-hypen.gz ./filename-with-hypen.gz"`, bucket),
-		7: contains(` + "cp s3://%v/readme.md ./readme.md"`, bucket),
-		8: contains(` + "cp s3://%v/testfile1.txt ./testfile1.txt"`, bucket),
+		5: contains(` + "cp s3://%v/another_test_file.txt another_test_file.txt`, bucket),
+		6: contains(` + "cp s3://%v/filename-with-hypen.gz filename-with-hypen.gz"`, bucket),
+		7: contains(` + "cp s3://%v/readme.md readme.md"`, bucket),
+		8: contains(` + "cp s3://%v/testfile1.txt testfile1.txt"`, bucket),
 	}, sortInput(true))
 
 	// assert local filesystem
@@ -148,11 +148,11 @@ func TestCopyMultipleNestedS3ObjectsToLocal(t *testing.T) {
 		3:  suffix(`# Downloading filename-with-hypen.gz...`),
 		4:  suffix(`# Downloading readme.md...`),
 		5:  suffix(`# Downloading testfile1.txt...`),
-		6:  contains(` + "cp s3://%v/a/b/filename-with-hypen.gz ./filename-with-hypen.gz"`, bucket),
-		7:  contains(` + "cp s3://%v/a/readme.md ./readme.md"`, bucket),
-		8:  contains(` + "cp s3://%v/b/another_test_file.txt ./another_test_file.txt`, bucket),
-		9:  contains(` + "cp s3://%v/c/d/e/another_test_file.txt ./another_test_file.txt`, bucket),
-		10: contains(` + "cp s3://%v/testfile1.txt ./testfile1.txt"`, bucket),
+		6:  contains(` + "cp s3://%v/a/b/filename-with-hypen.gz filename-with-hypen.gz"`, bucket),
+		7:  contains(` + "cp s3://%v/a/readme.md readme.md"`, bucket),
+		8:  contains(` + "cp s3://%v/b/another_test_file.txt another_test_file.txt`, bucket),
+		9:  contains(` + "cp s3://%v/c/d/e/another_test_file.txt another_test_file.txt`, bucket),
+		10: contains(` + "cp s3://%v/testfile1.txt testfile1.txt"`, bucket),
 	}, sortInput(true))
 
 	// assert local filesystem
@@ -211,11 +211,11 @@ func TestCopyMultipleNestedS3ObjectsToLocalWithParents(t *testing.T) {
 		3:  suffix(`# Downloading filename-with-hypen.gz...`),
 		4:  suffix(`# Downloading readme.md...`),
 		5:  suffix(`# Downloading testfile1.txt...`),
-		6:  contains(` + "cp --parents s3://%v/a/b/filename-with-hypen.gz ./a/b/filename-with-hypen.gz"`, bucket),
-		7:  contains(` + "cp --parents s3://%v/a/readme.md ./a/readme.md"`, bucket),
-		8:  contains(` + "cp --parents s3://%v/b/another_test_file.txt ./b/another_test_file.txt`, bucket),
-		9:  contains(` + "cp --parents s3://%v/c/d/e/another_test_file.txt ./c/d/e/another_test_file.txt`, bucket),
-		10: contains(` + "cp --parents s3://%v/testfile1.txt ./testfile1.txt"`, bucket),
+		6:  contains(` + "cp --parents s3://%v/a/b/filename-with-hypen.gz a/b/filename-with-hypen.gz"`, bucket),
+		7:  contains(` + "cp --parents s3://%v/a/readme.md a/readme.md"`, bucket),
+		8:  contains(` + "cp --parents s3://%v/b/another_test_file.txt b/another_test_file.txt`, bucket),
+		9:  contains(` + "cp --parents s3://%v/c/d/e/another_test_file.txt c/d/e/another_test_file.txt`, bucket),
+		10: contains(` + "cp --parents s3://%v/testfile1.txt testfile1.txt"`, bucket),
 	}, sortInput(true))
 
 	// assert local filesystem
@@ -494,8 +494,8 @@ func TestCopyMultipleLocalFlatFilesToLocal(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(""),
-		1: suffix(` + "cp another_test_file.txt another-directory//another_test_file.txt"`),
-		2: suffix(` + "cp testfile1.txt another-directory//testfile1.txt"`),
+		1: suffix(` + "cp another_test_file.txt another-directory/another_test_file.txt"`),
+		2: suffix(` + "cp testfile1.txt another-directory/testfile1.txt"`),
 	}, sortInput(true))
 
 	// assert local filesystem
@@ -568,9 +568,9 @@ func TestCopyMultipleLocalNestedFilesToLocal(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(""),
-		1: suffix(` + "cp -R a/file1.txt dst//file1.txt"`),
-		2: suffix(` + "cp -R a/readme.md dst//readme.md"`),
-		3: suffix(` + "cp -R b/c/file2.txt dst//file2.txt"`),
+		1: suffix(` + "cp -R a/file1.txt dst/file1.txt"`),
+		2: suffix(` + "cp -R a/readme.md dst/readme.md"`),
+		3: suffix(` + "cp -R b/c/file2.txt dst/file2.txt"`),
 	}, sortInput(true))
 
 	newLayout := append(folderLayout, fs.WithDir(
@@ -640,9 +640,9 @@ func TestCopyMultipleLocalNestedFilesToLocalPreserveLayout(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(""),
-		1: suffix(` + "cp -R --parents a/file1.txt dst//a/file1.txt"`),
-		2: suffix(` + "cp -R --parents a/readme.md dst//a/readme.md"`),
-		3: suffix(` + "cp -R --parents b/c/file2.txt dst//b/c/file2.txt"`),
+		1: suffix(` + "cp -R --parents a/file1.txt dst/a/file1.txt"`),
+		2: suffix(` + "cp -R --parents a/readme.md dst/a/readme.md"`),
+		3: suffix(` + "cp -R --parents b/c/file2.txt dst/b/c/file2.txt"`),
 	}, sortInput(true))
 
 	newLayout := append(folderLayout, fs.WithDir("dst", folderLayout...))

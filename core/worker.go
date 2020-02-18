@@ -114,6 +114,7 @@ func (p *WorkerPool) runWorker(st *stats.Stats, idlingCounter *int32, id int) {
 	}
 	defer setIdle()
 
+mainLoop:
 	for {
 		select {
 		case <-time.After(100 * time.Millisecond):
@@ -127,11 +128,12 @@ func (p *WorkerPool) runWorker(st *stats.Stats, idlingCounter *int32, id int) {
 			for {
 				job = job.Run(wp)
 				if job == nil {
-					return
+					// don't close the worker yet
+					continue mainLoop
 				}
 			}
 		case <-p.ctx.Done():
-			return
+			break
 		}
 	}
 }

@@ -263,7 +263,7 @@ func TestObjectURL_New_and_CheckMatch(t *testing.T) {
 				if got != matchResult.matched {
 					t.Errorf("Match() got = %v, want %v", got, matchResult.matched)
 				}
-				if u.RelURL() != matchResult.relurl {
+				if u.Relative() != matchResult.relurl {
 					t.Errorf("Match() got = %v, want %v", got, matchResult.relurl)
 				}
 			}

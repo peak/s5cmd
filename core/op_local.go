@@ -25,8 +25,8 @@ func LocalCopy(job *Job, wp *WorkerParams) (stats.StatType, error) {
 		return opType, err
 	}
 
-	srcpath := src.url.String()
-	dstpath := dst.url.String()
+	srcpath := src.url.Absolute()
+	dstpath := dst.url.Absolute()
 
 	if job.opts.Has(opt.DeleteSource) {
 		err = os.Rename(srcpath, dstpath)
@@ -40,7 +40,7 @@ func LocalCopy(job *Job, wp *WorkerParams) (stats.StatType, error) {
 func LocalDelete(job *Job, wp *WorkerParams) (stats.StatType, error) {
 	const opType = stats.FileOp
 
-	srcpath := job.args[0].url.String()
+	srcpath := job.args[0].url.Absolute()
 	return opType, os.Remove(srcpath)
 }
 
@@ -55,11 +55,11 @@ func BatchLocalCopy(job *Job, wp *WorkerParams) (stats.StatType, error) {
 
 	src, dst := job.args[0], job.args[1]
 
-	st, err := os.Stat(src.url.String())
+	st, err := os.Stat(src.url.Absolute())
 	walkMode := err == nil && st.IsDir() // walk or glob?
 
-	trimPrefix := src.url.String()
-	globStart := src.url.String()
+	trimPrefix := src.url.Absolute()
+	globStart := src.url.Absolute()
 
 	if !walkMode {
 		loc := strings.IndexAny(trimPrefix, GlobCharacters)
@@ -141,7 +141,7 @@ func BatchLocalCopy(job *Job, wp *WorkerParams) (stats.StatType, error) {
 		arg1 := NewJobArgument(url)
 		arg2 := dst.Clone().Join(dstFn)
 
-		dir := filepath.Dir(arg2.url.String())
+		dir := filepath.Dir(arg2.url.Absolute())
 		os.MkdirAll(dir, os.ModePerm)
 
 		return job.MakeSubJob(subCmd, op.LocalCopy, []*JobArgument{arg1, arg2}, job.opts)
@@ -161,10 +161,10 @@ func BatchLocalUpload(job *Job, wp *WorkerParams) (stats.StatType, error) {
 
 	src, dst := job.args[0], job.args[1]
 
-	st, err := os.Stat(src.url.String())
+	st, err := os.Stat(src.url.Absolute())
 	walkMode := err == nil && st.IsDir() // walk or glob?
 
-	trimPrefix := src.url.String()
+	trimPrefix := src.url.Absolute()
 	if !walkMode {
 		loc := strings.IndexAny(trimPrefix, GlobCharacters)
 		if loc < 0 {
@@ -184,7 +184,7 @@ func BatchLocalUpload(job *Job, wp *WorkerParams) (stats.StatType, error) {
 			ch <- nil // send EOF
 		}()
 		if walkMode {
-			err := filepath.Walk(src.url.String(), func(path string, st os.FileInfo, err error) error {
+			err := filepath.Walk(src.url.Absolute(), func(path string, st os.FileInfo, err error) error {
 				if err != nil {
 					return err
 				}
@@ -196,7 +196,7 @@ func BatchLocalUpload(job *Job, wp *WorkerParams) (stats.StatType, error) {
 			})
 			return err
 		} else {
-			matchedFiles, err := filepath.Glob(src.url.String())
+			matchedFiles, err := filepath.Glob(src.url.Absolute())
 			if err != nil {
 				return err
 			}

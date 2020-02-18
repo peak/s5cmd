@@ -167,10 +167,10 @@ func S3BatchDownload(job *Job, wp *WorkerParams) (stats.StatType, error) {
 		subJob := job.MakeSubJob(subCmd, op.Download, []*JobArgument{arg1, arg2}, job.opts)
 
 		if item.IsGlacierObject() {
-			subJob.out(shortErr, `"%s": Cannot download glacier object`, arg1.url.String())
+			subJob.out(shortErr, `"%s": Cannot download glacier object`, arg1.url)
 			return nil
 		}
-		dir := filepath.Dir(arg2.url.String())
+		dir := filepath.Dir(arg2.url.Absolute())
 		os.MkdirAll(dir, os.ModePerm)
 		return subJob
 	})
@@ -189,7 +189,7 @@ func S3Download(job *Job, wp *WorkerParams) (stats.StatType, error) {
 	}
 
 	srcFn := src.url.Base()
-	destFn := dst.url.String()
+	destFn := dst.url.Absolute()
 
 	f, err := os.Create(destFn)
 	if err != nil {
@@ -233,9 +233,9 @@ func S3Upload(job *Job, wp *WorkerParams) (stats.StatType, error) {
 		return opType, err
 	}
 
-	srcFn := filepath.Base(src.url.String())
+	srcFn := src.url.Base()
 
-	f, err := os.Open(src.url.String())
+	f, err := os.Open(src.url.Absolute())
 	if err != nil {
 		return opType, err
 	}
@@ -258,7 +258,7 @@ func S3Upload(job *Job, wp *WorkerParams) (stats.StatType, error) {
 	)
 
 	if job.opts.Has(opt.DeleteSource) && err == nil {
-		err = os.Remove(src.url.String())
+		err = os.Remove(src.url.Absolute())
 	}
 
 	return opType, err
@@ -295,7 +295,7 @@ func S3BatchCopy(job *Job, wp *WorkerParams) (stats.StatType, error) {
 
 		subJob := job.MakeSubJob(subCmd, op.Copy, []*JobArgument{arg1, arg2}, job.opts)
 		if item.IsGlacierObject() {
-			subJob.out(shortErr, `"%s": Cannot download glacier object`, arg1.url.String())
+			subJob.out(shortErr, `"%s": Cannot download glacier object`, arg1.url)
 			return nil
 		}
 		return subJob
@@ -369,7 +369,7 @@ func S3List(job *Job, wp *WorkerParams) (stats.StatType, error) {
 				cls,
 				etag,
 				size,
-				item.URL.RelURL(),
+				item.URL.Relative(),
 			)
 		}
 

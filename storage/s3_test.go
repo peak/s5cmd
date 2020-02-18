@@ -85,10 +85,10 @@ func TestS3_List_success(t *testing.T) {
 		if diff := cmp.Diff(want.isDir, got.IsDirectory); diff != "" {
 			t.Errorf("(-want +got):\n%v", diff)
 		}
-		if diff := cmp.Diff(want.url, got.URL.URL()); diff != "" {
+		if diff := cmp.Diff(want.url, got.URL.Absolute()); diff != "" {
 			t.Errorf("(-want +got):\n%v", diff)
 		}
-		if diff := cmp.Diff(want.relurl, got.URL.RelURL()); diff != "" {
+		if diff := cmp.Diff(want.relurl, got.URL.Relative()); diff != "" {
 			t.Errorf("(-want +got):\n%v", diff)
 		}
 		index++

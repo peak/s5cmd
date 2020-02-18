@@ -95,11 +95,13 @@ func New(s string) (*ObjectURL, error) {
 	return url, nil
 }
 
+// IsRemote reports whether the object is stored on a remote storage system.
 func (o *ObjectURL) IsRemote() bool {
 	return o.Type == remoteObject
 }
 
-func (o *ObjectURL) URL() string {
+// Absolute returns the absolute URL format of the object.
+func (o *ObjectURL) Absolute() string {
 	if !o.IsRemote() {
 		return o.Path
 	}
@@ -107,7 +109,8 @@ func (o *ObjectURL) URL() string {
 	return o.remoteURL()
 }
 
-func (o *ObjectURL) RelURL() string {
+// Relative returns a URI reference based on the calculated prefix.
+func (o *ObjectURL) Relative() string {
 	return o.trimmedPath
 }
 
@@ -134,7 +137,8 @@ func (o *ObjectURL) remoteURL() string {
 	return s
 }
 
-// setPrefixAndFilter creates url metadata for both wildcard and non-wildcard operations.
+// setPrefixAndFilter creates url metadata for both wildcard and non-wildcard
+// operations.
 //
 // It converts wildcard strings to regex format
 // and pre-compiles it for later usage. It is default to
@@ -203,8 +207,7 @@ func (o *ObjectURL) Clone() *ObjectURL {
 	}
 }
 
-// Match check if given key matches with regex and
-// returns parsed key.
+// Match checks if given key matches with the object.
 func (o *ObjectURL) Match(key string) bool {
 	if !o.filterRegex.MatchString(key) {
 		return false
@@ -223,7 +226,7 @@ func (o *ObjectURL) Match(key string) bool {
 }
 
 func (o *ObjectURL) String() string {
-	return o.URL()
+	return o.Absolute()
 }
 
 // parseBatch parses keys for wildcard operations.

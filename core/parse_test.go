@@ -327,8 +327,8 @@ func assertParse(
 		return // Success
 	}
 
-	if a.url.String() != expectedOutArg {
-		t.Errorf(`"Expected a.arg was "%s" but got "%s"`, expectedOutArg, a.url.String())
+	if a.url.Absolute() != expectedOutArg {
+		t.Errorf(`"Expected a.arg was "%s" but got "%s"`, expectedOutArg, a.url.Absolute())
 	}
 
 	if expectRemoteURL {

@@ -112,7 +112,7 @@ func (a *JobArgument) fillData(wp *WorkerParams) error {
 	}
 
 	if !a.url.IsRemote() {
-		fpath := a.url.String()
+		fpath := a.url.Absolute()
 
 		st, err := os.Stat(fpath)
 		if err == nil {

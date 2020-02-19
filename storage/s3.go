@@ -77,8 +77,8 @@ func NewS3Storage(opts S3Opts) (*S3, error) {
 	}, nil
 }
 
-// Head retrieves metadata from S3 object without returning the object itself.
-func (s *S3) Head(ctx context.Context, url *objurl.ObjectURL) (*Object, error) {
+// Stat retrieves metadata from S3 object without returning the object itself.
+func (s *S3) Stat(ctx context.Context, url *objurl.ObjectURL) (*Object, error) {
 	output, err := s.api.HeadObjectWithContext(ctx, &s3.HeadObjectInput{
 		Bucket: aws.String(url.Bucket),
 		Key:    aws.String(url.Path),
@@ -318,8 +318,9 @@ func (s *S3) UpdateRegion(bucket string) error {
 	return nil
 }
 
-// Stats returns the stats of the storage.
-func (s *S3) Stats() *Stats {
+// Statistics returns the stats of the storage.
+func (s *S3) Statistics() *Stats {
+
 	return s.stats
 }
 

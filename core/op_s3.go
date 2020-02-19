@@ -23,7 +23,7 @@ func S3Copy(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
 		return opType, response
 	}
 
-	client, err := wp.newClient()
+	client, err := wp.newClient(src.url)
 	if err != nil {
 		return opType, jobResponse(err)
 	}
@@ -45,12 +45,12 @@ func S3Copy(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
 func S3Delete(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
 	const opType = stats.S3Op
 
-	client, err := wp.newClient()
+	src := job.args[0]
+
+	client, err := wp.newClient(src.url)
 	if err != nil {
 		return opType, jobResponse(err)
 	}
-
-	src := job.args[0]
 
 	err = client.Delete(wp.ctx, src.url.Bucket, src.url)
 	return opType, jobResponse(err)
@@ -90,7 +90,7 @@ func S3BatchDelete(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
 		return subJob
 	}
 
-	client, err := wp.newClient()
+	client, err := wp.newClient(src.url)
 	if err != nil {
 		return opType, jobResponse(err)
 	}
@@ -109,12 +109,12 @@ func S3BatchDelete(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
 func S3BatchDeleteActual(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
 	const opType = stats.S3Op
 
-	client, err := wp.newClient()
+	src := job.args[0]
+
+	client, err := wp.newClient(src.url)
 	if err != nil {
 		return opType, jobResponse(err)
 	}
-
-	src := job.args[0]
 
 	deleteObjects := make([]*objurl.ObjectURL, len(job.args)-1)
 	for i, a := range job.args {
@@ -129,7 +129,7 @@ func S3BatchDeleteActual(job *Job, wp *WorkerParams) (stats.StatType, *JobRespon
 		return opType, jobResponse(err)
 	}
 
-	st := client.Stats()
+	st := client.Statistics()
 
 	var msg []string
 	for key, stat := range st.Keys() {
@@ -158,7 +158,7 @@ func S3BatchDownload(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) 
 
 	src, dst := job.args[0], job.args[1]
 
-	client, err := wp.newClient()
+	client, err := wp.newClient(src.url)
 	if err != nil {
 		return opType, jobResponse(err)
 	}
@@ -206,7 +206,9 @@ func S3Download(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
 		return opType, jobResponse(err)
 	}
 
-	client, err := wp.newClient()
+	// infer the client based on the source argument, which is a remote
+	// storage.
+	client, err := wp.newClient(src.url)
 	if err != nil {
 		return opType, jobResponse(err)
 	}
@@ -251,7 +253,8 @@ func S3Upload(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
 	}
 	defer f.Close()
 
-	client, err := wp.newClient()
+	// infer the client based on destination, which is a remote storage.
+	client, err := wp.newClient(dst.url)
 	if err != nil {
 		return opType, jobResponse(err)
 	}
@@ -288,7 +291,7 @@ func S3BatchCopy(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
 
 	src, dst := job.args[0], job.args[1]
 
-	client, err := wp.newClient()
+	client, err := wp.newClient(src.url)
 	if err != nil {
 		return opType, jobResponse(err)
 	}
@@ -320,7 +323,9 @@ func S3BatchCopy(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
 func S3ListBuckets(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
 	const opType = stats.S3Op
 
-	client, err := wp.newClient()
+	// set as remote storage
+	url := &objurl.ObjectURL{Type: 0}
+	client, err := wp.newClient(url)
 	if err != nil {
 		return opType, jobResponse(err)
 	}
@@ -346,7 +351,7 @@ func S3List(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
 
 	src := job.args[0]
 
-	client, err := wp.newClient()
+	client, err := wp.newClient(src.url)
 	if err != nil {
 		return opType, jobResponse(err)
 	}
@@ -412,7 +417,7 @@ func S3Size(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
 
 	totals := map[string]sizeAndCount{}
 
-	client, err := wp.newClient()
+	client, err := wp.newClient(src.url)
 	if err != nil {
 		return opType, jobResponse(err)
 	}

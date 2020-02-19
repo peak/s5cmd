@@ -128,12 +128,12 @@ func (a *JobArgument) fillData(wp *WorkerParams) error {
 		}
 	}
 
-	client, err := wp.newClient()
+	client, err := wp.newClient(a.url)
 	if err != nil {
 		return err
 	}
 
-	item, err := client.Head(wp.ctx, a.url)
+	item, err := client.Stat(wp.ctx, a.url)
 	wp.st.IncrementIfSuccess(stats.S3Op, err)
 
 	if err != nil {

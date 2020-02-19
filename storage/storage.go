@@ -12,6 +12,19 @@ import (
 
 const dateFormat = "2006/01/02 15:04:05"
 
+// Storage is an interface for storage operations.
+type Storage interface {
+	Stat(context.Context, *objurl.ObjectURL) (*Object, error)
+	List(context.Context, *objurl.ObjectURL, int64) <-chan *Object
+	Copy(ctx context.Context, from, to *objurl.ObjectURL, class string) error
+	Get(context.Context, *objurl.ObjectURL, io.WriterAt) error
+	Put(context.Context, io.Reader, *objurl.ObjectURL, string) error
+	Delete(context.Context, string, ...*objurl.ObjectURL) error
+	ListBuckets(context.Context, string) ([]Bucket, error)
+	UpdateRegion(string) error
+	Statistics() *Stats
+}
+
 // Item is a generic type which contains metadata for storage items.
 type Object struct {
 	URL          *objurl.ObjectURL
@@ -63,15 +76,11 @@ const (
 	TransitionStorageClassStandardIa = "STANDARD_IA"
 )
 
-// Storage is an interface for storage operations.
-type Storage interface {
-	Head(context.Context, *objurl.ObjectURL) (*Object, error)
-	List(context.Context, *objurl.ObjectURL, int64) <-chan *Object
-	Copy(context.Context, *objurl.ObjectURL, *objurl.ObjectURL, string) error
-	Get(context.Context, *objurl.ObjectURL, io.WriterAt) error
-	Put(context.Context, io.Reader, *objurl.ObjectURL, string) error
-	Delete(context.Context, string, ...*objurl.ObjectURL) error
-	ListBuckets(context.Context, string) ([]Bucket, error)
-	UpdateRegion(string) error
-	Stats() *Stats
+type notImplemented struct {
+	apiType string
+	method  string
+}
+
+func (e notImplemented) Error() string {
+	return fmt.Sprintf("%q is not supported on %q storage", e.method, e.apiType)
 }

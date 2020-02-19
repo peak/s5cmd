@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"time"
 
 	"github.com/peak/s5cmd/objurl"
@@ -29,8 +30,8 @@ type Storage interface {
 type Object struct {
 	URL          *objurl.ObjectURL
 	Etag         string
-	LastModified time.Time
-	IsDirectory  bool
+	ModTime      time.Time
+	Type         os.FileMode
 	Size         int64
 	StorageClass string
 	Err          error

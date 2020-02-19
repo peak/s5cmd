@@ -29,8 +29,8 @@ func (f *Filesystem) List(ctx context.Context, url *objurl.ObjectURL, _ int64) <
 			}
 
 			obj := &Object{
-				URL:         url,
-				IsDirectory: dirent.IsDir(),
+				URL:  url,
+				Type: dirent.ModeType(),
 			}
 
 			select {

@@ -96,7 +96,7 @@ func S3BatchDelete(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
 	}
 
 	err = wildOperation(client, src.url, wp, func(item *storage.Object) *Job {
-		if item.IsDirectory {
+		if item.Type.IsDir() {
 			return nil
 		}
 
@@ -163,7 +163,7 @@ func S3BatchDownload(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) 
 		return opType, jobResponse(err)
 	}
 	err = wildOperation(client, src.url, wp, func(item *storage.Object) *Job {
-		if item.IsMarkerObject() || item.IsDirectory {
+		if item.IsMarkerObject() || item.Type.IsDir() {
 			return nil
 		}
 
@@ -297,7 +297,7 @@ func S3BatchCopy(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
 	}
 
 	err = wildOperation(client, src.url, wp, func(item *storage.Object) *Job {
-		if item.IsMarkerObject() || item.IsGlacierObject() || item.IsDirectory {
+		if item.IsMarkerObject() || item.IsGlacierObject() || item.Type.IsDir() {
 			return nil
 		}
 
@@ -362,7 +362,7 @@ func S3List(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
 			continue
 		}
 
-		if item.IsDirectory {
+		if item.Type.IsDir() {
 			msg = append(msg, fmt.Sprintf("%19s %1s %-38s  %12s  %s", "", "", "", "DIR", item.URL.Relative()))
 		} else {
 			var cls, etag, size string
@@ -392,7 +392,7 @@ func S3List(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
 			msg = append(
 				msg,
 				fmt.Sprintf("%s %1s %-38s %12s  %s",
-					item.LastModified.Format(dateFormat),
+					item.ModTime.Format(dateFormat),
 					cls,
 					etag,
 					size,
@@ -423,7 +423,7 @@ func S3Size(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
 	}
 
 	err = wildOperation(client, src.url, wp, func(item *storage.Object) *Job {
-		if item.IsMarkerObject() || item.IsDirectory {
+		if item.IsMarkerObject() || item.Type.IsDir() {
 			return nil
 		}
 		storageClass := item.StorageClass

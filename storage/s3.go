@@ -89,10 +89,10 @@ func (s *S3) Stat(ctx context.Context, url *objurl.ObjectURL) (*Object, error) {
 	}
 
 	return &Object{
-		URL:          url,
-		Etag:         aws.StringValue(output.ETag),
-		LastModified: aws.TimeValue(output.LastModified),
-		Size:         aws.Int64Value(output.ContentLength),
+		URL:     url,
+		Etag:    aws.StringValue(output.ETag),
+		ModTime: aws.TimeValue(output.LastModified),
+		Size:    aws.Int64Value(output.ContentLength),
 	}, nil
 }
 
@@ -129,8 +129,8 @@ func (s *S3) List(ctx context.Context, url *objurl.ObjectURL, maxKeys int64) <-c
 				newurl := url.Clone()
 				newurl.Path = aws.StringValue(c.Prefix)
 				itemChan <- &Object{
-					URL:         newurl,
-					IsDirectory: true,
+					URL:  newurl,
+					Type: os.ModeDir,
 				}
 
 				itemFound = true
@@ -141,13 +141,18 @@ func (s *S3) List(ctx context.Context, url *objurl.ObjectURL, maxKeys int64) <-c
 					continue
 				}
 
+				var objtype os.FileMode
+				if strings.HasSuffix(aws.StringValue(c.Key), "/") {
+					objtype = os.ModeDir
+				}
+
 				newurl := url.Clone()
 				newurl.Path = aws.StringValue(c.Key)
 				itemChan <- &Object{
 					URL:          newurl,
 					Etag:         aws.StringValue(c.ETag),
-					LastModified: aws.TimeValue(c.LastModified),
-					IsDirectory:  strings.HasSuffix(aws.StringValue(c.Key), "/"),
+					ModTime:      aws.TimeValue(c.LastModified),
+					Type:         objtype,
 					Size:         aws.Int64Value(c.Size),
 					StorageClass: aws.StringValue(c.StorageClass),
 				}

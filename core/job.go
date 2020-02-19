@@ -18,16 +18,14 @@ const dateFormat = "2006/01/02 15:04:05"
 
 // Job is the job type that is executed for each command.
 type Job struct {
-	sourceDesc     string
-	command        string
-	operation      op.Operation
-	args           []*JobArgument
-	opts           opt.OptionList
-	successCommand *Job
-	failCommand    *Job
-	subJobData     *subjobStatsType
-	isSubJob       bool
-	response       *JobResponse
+	sourceDesc string
+	command    string
+	operation  op.Operation
+	args       []*JobArgument
+	opts       opt.OptionList
+	subJobData *subjobStatsType
+	isSubJob   bool
+	response   *JobResponse
 }
 
 // JobResponse is the response type.
@@ -175,18 +173,16 @@ func (j *Job) run(wp *WorkerParams) *JobResponse {
 }
 
 // Run runs the Job, logs the results and returns sub-job of parent job.
-func (j *Job) Run(wp WorkerParams) *Job {
+func (j *Job) Run(wp WorkerParams) {
 	response := j.run(&wp)
 	switch response.status {
 	case statusSuccess, statusWarning:
 		j.Notify(true)
-		return j.successCommand
+		return
 	case statusErr:
 		wp.st.Increment(stats.Fail)
 		j.Notify(false)
-		return j.failCommand
-	default:
-		return nil
+		return
 	}
 }
 

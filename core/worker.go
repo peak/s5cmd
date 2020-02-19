@@ -74,7 +74,9 @@ func NewAwsSession(maxRetries int, endpointURL string, region string, noVerifySS
 		return session.NewSessionWithOptions(session.Options{Config: *c, SharedConfigState: useSharedConfig})
 	}
 
-	awsCfg := aws.NewConfig().WithMaxRetries(maxRetries) //.WithLogLevel(aws.LogDebug))
+	awsCfg := aws.NewConfig().
+		WithMaxRetries(maxRetries).
+		WithCredentialsChainVerboseErrors(true)
 
 	if endpointURL != "" {
 		endpoint, err := url.Parse(endpointURL)

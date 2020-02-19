@@ -46,7 +46,7 @@ func IsRetryableError(err error) (code string, retryable bool) {
 
 		errCode := awsErr.Code()
 		switch errCode {
-		case "SlowDown", "SerializationError", "RequestError", sdkPanicErrCode:
+		case "SlowDown", "SerializationError", "RequestError", sdkPanicErrCode, "NoCredentialProviders":
 			code = errCode
 			return
 		}

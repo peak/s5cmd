@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 
 	"github.com/peak/s5cmd/objurl"
@@ -16,15 +15,6 @@ import (
 const (
 	// GlobCharacters is valid glob characters for local files
 	GlobCharacters string = "?*["
-)
-
-var (
-	// cmd && success-cmd || fail-cmd
-	regexCmdAndOr = regexp.MustCompile(`^\s*(.+?)\s*&&\s*(.+?)\s*\|\|\s*(.+?)\s*$`)
-	// cmd && success-cmd
-	regexCmdAnd = regexp.MustCompile(`^\s*(.+?)\s*&&\s*(.+?)\s*$`)
-	// cmd || fail-cmd
-	regexCmdOr = regexp.MustCompile(`^\s*(.+?)\s*\|\|\s*(.+?)\s*$`)
 )
 
 // parseArgumentByType parses an input string according to the given
@@ -189,71 +179,7 @@ func ParseJob(jobdesc string) (*Job, error) {
 	jobdesc = strings.Replace(jobdesc, "  ", " ", -1)
 	jobdesc = strings.Replace(jobdesc, "  ", " ", -1)
 
-	var (
-		j, s, f *Job
-		err     error
-	)
-
-	res := regexCmdAndOr.FindStringSubmatch(jobdesc)
-	if res != nil {
-		j, err = parseSingleJob(res[1])
-		if err != nil {
-			return nil, err
-		}
-
-		s, err = parseSingleJob(res[2])
-		if err != nil {
-			return nil, err
-		}
-
-		f, err = parseSingleJob(res[3])
-		if err != nil {
-			return nil, err
-		}
-		goto found
-	}
-
-	res = regexCmdAnd.FindStringSubmatch(jobdesc)
-	if res != nil {
-		j, err = parseSingleJob(res[1])
-		if err != nil {
-			return nil, err
-		}
-
-		s, err = parseSingleJob(res[2])
-		if err != nil {
-			return nil, err
-		}
-		goto found
-	}
-
-	res = regexCmdOr.FindStringSubmatch(jobdesc)
-	if res != nil {
-		j, err = parseSingleJob(res[1])
-		if err != nil {
-			return nil, err
-		}
-
-		f, err = parseSingleJob(res[2])
-		if err != nil {
-			return nil, err
-		}
-		goto found
-	}
-
-	j, err = parseSingleJob(jobdesc)
-	s = nil
-	f = nil
-	if err != nil {
-		return nil, err
-	}
-
-found:
-	if j != nil {
-		j.successCommand = s
-		j.failCommand = f
-	}
-	return j, nil
+	return parseSingleJob(jobdesc)
 }
 
 // parseSingleJob attempts to parse a single job description to a standalone Job struct.

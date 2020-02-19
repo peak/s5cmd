@@ -177,27 +177,6 @@ rm s3://from-bucket/prefix/*/file*gz # Wild-delete S3 objects (Batch-API)
 - `-numworkers -1` means use `runtime.NumCPU` goroutines. `-2` means `2*runtime.NumCPU` and so on.
 - The S3 throttling error `SlowDown` is exponentially retried. "Retryable operations" as specified by the AWS SDK (currently `RequestError` and `RequestError`) are retried by the SDK.
 
-### Nested Commands (Basic) ###
-
-Success and fail commands can be specified with `&&` and `||` operators. As the parser is pretty simple, multiple-level nested commands (doing something based on a result of a result) are not supported.
-
-If you want to move an object between s3 buckets and then delete a local file if successful, you can do this:
-
-```
-mv s3://source-bkt/key s3://dest-bkt/key && rm /path/to/key
-```
-
-This is also valid:
-
-```
-mv a b/ || ! touch could-not-move # This is a comment
-```
-
-This as well:
-```
-! touch a && ! touch a-touched || ! touch a-couldnotbetouched
-```
-
 ### S3 Credentials ###
 S3 credentials can be provided in a variety of ways.
 

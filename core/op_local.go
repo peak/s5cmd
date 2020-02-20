@@ -1,14 +1,12 @@
 package core
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
 
-	"github.com/peak/s5cmd/objurl"
 	"github.com/peak/s5cmd/op"
 	"github.com/peak/s5cmd/opt"
 	"github.com/peak/s5cmd/stats"
@@ -101,65 +99,24 @@ func BatchLocalCopy(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
 		trimPrefix += string(filepath.Separator)
 	}
 
-	recurse := job.opts.Has(opt.Recursive)
+	isRecursive := job.opts.Has(opt.Recursive)
 
-	err = wildOperationLocal(wp, func(ch chan<- interface{}) error {
-		defer func() {
-			ch <- nil // send EOF
-		}()
-
-		matchedFiles, err := filepath.Glob(globStart)
-		if err != nil {
-			return err
-		}
-		if len(matchedFiles) == 0 {
-			if walkMode {
-				return nil // Directory empty
-			}
-
-			return errors.New("could not find match for glob")
-		}
-
-		for _, f := range matchedFiles {
-			s := f // copy
-			st, _ := os.Stat(s)
-			if !st.IsDir() {
-				ch <- &s
-			} else if recurse {
-				err = filepath.Walk(s, func(path string, st os.FileInfo, err error) error {
-					if err != nil {
-						return err
-					}
-					if st.IsDir() {
-						return nil
-					}
-					ch <- &path
-					return nil
-				})
-				if err != nil {
-					return err
-				}
-			}
-		}
-		return nil
-	}, func(data interface{}) *Job {
-		if data == nil {
+	err = wildOperation(client, src.url, isRecursive, wp, func(item *storage.Object) *Job {
+		if item.IsMarkerObject() || item.Type.IsDir() {
 			return nil
 		}
-		fn := data.(*string)
 
 		var dstFn string
 		if job.opts.Has(opt.Parents) {
-			dstFn = *fn
+			dstFn = item.URL.Absolute()
 			if strings.Index(dstFn, trimPrefix) == 0 {
 				dstFn = dstFn[len(trimPrefix):]
 			}
 		} else {
-			dstFn = filepath.Base(*fn)
+			dstFn = item.URL.Base()
 		}
 
-		url, _ := objurl.New(*fn)
-		arg1 := NewJobArgument(url)
+		arg1 := NewJobArgument(item.URL)
 		arg2 := dst.Clone().Join(dstFn)
 
 		dir := filepath.Dir(arg2.url.Absolute())

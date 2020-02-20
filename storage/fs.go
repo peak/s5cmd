@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -12,8 +13,7 @@ import (
 	"github.com/peak/s5cmd/objurl"
 )
 
-type Filesystem struct {
-}
+type Filesystem struct{}
 
 func NewFilesystem() *Filesystem { return &Filesystem{} }
 
@@ -37,19 +37,18 @@ func (f *Filesystem) List(ctx context.Context, url *objurl.ObjectURL, isRecursiv
 	isDir := err == nil && obj.Type.IsDir()
 
 	if isDir {
-		if isRecursive {
-			return f.walkDir(ctx, url)
-		}
-
-		ch := make(chan *Object)
-		close(ch)
-		return ch
+		return f.walkDir(ctx, url, isRecursive)
 	}
 
-	return f.expandGlob(ctx, url)
+	hasGlob := objurl.HasGlobCharacter(url.Absolute())
+	if hasGlob {
+		return f.expandGlob(ctx, url, isRecursive)
+	}
+
+	panic(fmt.Sprintf("unexpected visit for %q", url.Absolute()))
 }
 
-func (f *Filesystem) expandGlob(ctx context.Context, url *objurl.ObjectURL) <-chan *Object {
+func (f *Filesystem) expandGlob(ctx context.Context, url *objurl.ObjectURL, isRecursive bool) <-chan *Object {
 	ch := make(chan *Object)
 	go func() {
 		defer close(ch)
@@ -65,22 +64,72 @@ func (f *Filesystem) expandGlob(ctx context.Context, url *objurl.ObjectURL) <-ch
 		}
 
 		for _, filename := range matchedFiles {
+			filename := filename
 			url, _ := objurl.New(filename)
 			obj, _ := f.Stat(ctx, url)
 
-			ch <- obj
+			if !obj.Type.IsDir() {
+				sendObject(ctx, obj, ch)
+			}
+
+			// don't walk the directory if not asked
+			if !isRecursive {
+				continue
+			}
+
+			godirwalk.Walk(url.Absolute(), &godirwalk.Options{
+				Callback: func(pathname string, dirent *godirwalk.Dirent) error {
+					// we're interested in files
+					if dirent.IsDir() {
+						return nil
+					}
+
+					url, err := objurl.New(pathname)
+					if err != nil {
+						return err
+					}
+
+					obj := &Object{
+						URL:  url,
+						Type: dirent.ModeType(),
+					}
+
+					sendObject(ctx, obj, ch)
+					return nil
+				},
+				// TODO(ig): enable following symlink once we have the necessary cli
+				// flags
+				FollowSymbolicLinks: false,
+			})
 		}
 	}()
 	return ch
 }
 
-func (f *Filesystem) walkDir(ctx context.Context, url *objurl.ObjectURL) <-chan *Object {
+func sendObject(ctx context.Context, obj *Object, ch chan *Object) {
+	select {
+	case <-ctx.Done():
+	case ch <- obj:
+	}
+}
+
+func (f *Filesystem) walkDir(ctx context.Context, url *objurl.ObjectURL, isRecursive bool) <-chan *Object {
 	ch := make(chan *Object)
 	go func() {
 		defer close(ch)
 
+		// there's no use case for a Readdir call in the codebase.
+		if !isRecursive {
+			return
+		}
+
 		godirwalk.Walk(url.Absolute(), &godirwalk.Options{
 			Callback: func(pathname string, dirent *godirwalk.Dirent) error {
+				// we're interested in files
+				if dirent.IsDir() {
+					return nil
+				}
+
 				url, err := objurl.New(pathname)
 				if err != nil {
 					return err
@@ -91,11 +140,7 @@ func (f *Filesystem) walkDir(ctx context.Context, url *objurl.ObjectURL) <-chan 
 					Type: dirent.ModeType(),
 				}
 
-				select {
-				case <-ctx.Done():
-					return ctx.Err()
-				case ch <- obj:
-				}
+				sendObject(ctx, obj, ch)
 
 				return nil
 			},

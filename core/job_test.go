@@ -12,13 +12,13 @@ import (
 	"github.com/peak/s5cmd/stats"
 )
 
-func newJob(sourceDesc, command string, operation op.Operation, args []*JobArgument, opts opt.OptionList) Job {
+func newJob(command string, operation op.Operation, opts opt.OptionList, src *objurl.ObjectURL, dst ...*objurl.ObjectURL) Job {
 	return Job{
-		sourceDesc: sourceDesc,
-		command:    command,
-		operation:  operation,
-		args:       args,
-		opts:       opts,
+		command:   command,
+		operation: operation,
+		src:       src,
+		opts:      opts,
+		dst:       dst,
 	}
 }
 
@@ -28,41 +28,36 @@ func newURL(s string) *objurl.ObjectURL {
 }
 
 var (
-	result        error
-	st            = stats.Stats{}
-	idlingCounter int32
-	subJobQueue   = make(chan *Job)
-	wp            = WorkerParams{
-		ctx:           context.TODO(),
-		poolParams:    nil,
-		st:            &st,
-		subJobQueue:   &subJobQueue,
-		idlingCounter: &idlingCounter,
-		newClient:     nil,
+	st = stats.Stats{}
+	wp = WorkerParams{
+		ctx:        context.TODO(),
+		poolParams: nil,
+		st:         &st,
+		newClient:  nil,
 	}
 
 	// These Jobs are used for benchmarks and also as skeletons for tests
-	localCopyJob = newJob("!cp-test", "!cp", op.LocalCopy,
-		[]*JobArgument{
-			{url: newURL("test-src")},
-			{url: newURL("test-dst")},
-		},
+	localCopyJob = newJob(
+		"!cp-test",
+		op.LocalCopy,
 		opt.OptionList{},
+		newURL("test-src"),
+		newURL("test-dst"),
 	)
 
-	localMoveJob = newJob("!mv-test", "!mv", op.LocalCopy,
-		[]*JobArgument{
-			{url: newURL("test-src")},
-			{url: newURL("test-dst")},
-		},
+	localMoveJob = newJob(
+		"!mv-test",
+		op.LocalCopy,
 		opt.OptionList{opt.DeleteSource},
+		newURL("test-src"),
+		newURL("test-dst"),
 	)
 
-	localDeleteJob = newJob("!rm-test", "!rm", op.LocalDelete,
-		[]*JobArgument{
-			{url: newURL("test-src")},
-		},
+	localDeleteJob = newJob(
+		"!rm-test",
+		op.LocalDelete,
 		opt.OptionList{},
+		newURL("test-src"),
 	)
 )
 
@@ -139,11 +134,10 @@ func TestJobRunLocalDelete(t *testing.T) {
 	}
 	defer deleteFile(filename)
 
-	oldArgs := localDeleteJob.args
+	oldSrc := localDeleteJob.src
+	oldDst := localDeleteJob.dst
 
-	localDeleteJob.args = []*JobArgument{
-		{url: newURL(filename)},
-	}
+	localDeleteJob.src = newURL(filename)
 
 	// execute
 	resp := localDeleteJob.run(&wp)
@@ -156,7 +150,8 @@ func TestJobRunLocalDelete(t *testing.T) {
 		t.Error("File should not exist after delete")
 	}
 
-	localDeleteJob.args = oldArgs
+	localDeleteJob.src = oldSrc
+	localDeleteJob.dst = oldDst
 }
 
 func testLocalCopyOrMove(t *testing.T, isMove bool) {
@@ -178,7 +173,8 @@ func testLocalCopyOrMove(t *testing.T, isMove bool) {
 		job = &localCopyJob
 	}
 
-	oldArgs := job.args
+	oldSrc := job.src
+	oldDst := job.dst
 	dst := ""
 
 	// teardown
@@ -188,7 +184,8 @@ func testLocalCopyOrMove(t *testing.T, isMove bool) {
 			deleteFile(dst)
 		}
 
-		job.args = oldArgs
+		job.src = oldSrc
+		job.dst = oldDst
 	}()
 
 	dst, err = tempFile("dst")
@@ -197,10 +194,8 @@ func testLocalCopyOrMove(t *testing.T, isMove bool) {
 		return
 	}
 
-	job.args = []*JobArgument{
-		{url: newURL(src)},
-		{url: newURL(dst)},
-	}
+	job.src = newURL(src)
+	job.dst = []*objurl.ObjectURL{newURL(dst)}
 
 	// execute
 	resp := job.run(&wp)

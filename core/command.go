@@ -6,9 +6,75 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/peak/s5cmd/objurl"
 	"github.com/peak/s5cmd/op"
 	"github.com/peak/s5cmd/opt"
+	"github.com/peak/s5cmd/storage"
 )
+
+// Job is the job type that is executed for each command.
+type Command struct {
+	sourceDesc string
+	keyword    string
+	operation  op.Operation
+	src        *objurl.ObjectURL
+	dst        *objurl.ObjectURL
+	opts       opt.OptionList
+}
+
+// String formats the job using its command and arguments.
+func (c Command) String() string {
+	return c.sourceDesc
+}
+
+// getStorageClass gets storage class from option list.
+func (c Command) getStorageClass() string {
+	var cls string
+	if c.opts.Has(opt.RR) {
+		cls = storage.ObjectStorageClassReducedRedundancy
+	} else if c.opts.Has(opt.IA) {
+		cls = storage.TransitionStorageClassStandardIa
+	} else {
+		cls = storage.ObjectStorageClassStandard
+	}
+	return cls
+}
+
+// IsBatch() checks if it is a batch operation.
+func (c Command) IsBatch() bool {
+	return c.operation.IsBatch()
+}
+
+func (c Command) makeJob(cmd string, client storage.Storage, operation op.Operation, src, dst *objurl.ObjectURL) *Job {
+	return &Job{
+		command:   cmd,
+		operation: operation,
+		opts:      c.opts,
+		src:       src,
+		dst:       dst,
+		cls:       c.getStorageClass(),
+		client:    client,
+	}
+}
+
+// displayHelp displays help text.
+func (c Command) displayHelp() {
+	fmt.Fprintf(os.Stderr, "%v\n\n", UsageLine())
+
+	cl, opts, cnt := CommandHelps(c.keyword)
+
+	if ol := opt.OptionHelps(opts); ol != "" {
+		fmt.Fprintf(os.Stderr, "\"%v\" command options:\n", c.sourceDesc)
+		fmt.Fprint(os.Stderr, ol)
+		fmt.Fprint(os.Stderr, "\n\n")
+	}
+
+	if cnt > 1 {
+		fmt.Fprintf(os.Stderr, "Help for \"%v\" commands:\n", c.sourceDesc)
+	}
+	fmt.Fprint(os.Stderr, cl)
+	fmt.Fprint(os.Stderr, "\nTo list available general options, run without arguments.\n")
+}
 
 // CommandMap describes each command
 type CommandMap struct {

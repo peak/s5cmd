@@ -2,12 +2,11 @@ package core
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log"
 	"os"
 	"sync"
-	"sync/atomic"
-	"time"
 
 	"github.com/peak/s5cmd/opt"
 	"github.com/peak/s5cmd/stats"
@@ -17,9 +16,12 @@ import (
 // ClientFunc is the function type to create new storage objects.
 type ClientFunc func() (storage.Storage, error)
 
+// WorkerFunc is the function type to create and run workers.
+type WorkerFunc func(*Job)
+
 // WorkerPoolParams is the common parameters of all worker pools.
-type WorkerPoolParams struct {
-	NumWorkers             int
+type WorkerManagerParams struct {
+	MaxWorkers             int
 	UploadChunkSizeBytes   int64
 	UploadConcurrency      int
 	DownloadChunkSizeBytes int64
@@ -29,31 +31,29 @@ type WorkerPoolParams struct {
 	NoVerifySSL            bool
 }
 
-// WorkerPool is the state of our worker pool.
-type WorkerPool struct {
-	ctx           context.Context
-	params        *WorkerPoolParams
-	jobQueue      chan *Job
-	subJobQueue   chan *Job
-	wg            *sync.WaitGroup
-	newClient     ClientFunc
-	cancelFunc    context.CancelFunc
-	st            *stats.Stats
-	idlingCounter int32
+// WorkerManager is the manager to run and manage workers.
+type WorkerManager struct {
+	ctx         context.Context
+	params      *WorkerManagerParams
+	wg          *sync.WaitGroup
+	newClient   ClientFunc
+	cancelFunc  context.CancelFunc
+	st          *stats.Stats
+	jobQueue    chan *Job
+	jobProducer *Producer
 }
 
 // WorkerParams is the params/state of a single worker.
 type WorkerParams struct {
-	ctx           context.Context
-	poolParams    *WorkerPoolParams
-	st            *stats.Stats
-	subJobQueue   *chan *Job
-	idlingCounter *int32
-	newClient     ClientFunc
+	ctx        context.Context
+	poolParams *WorkerManagerParams
+	st         *stats.Stats
+	newClient  ClientFunc
+	runWorker  WorkerFunc
 }
 
-// NewWorkerPool creates a new worker pool.
-func NewWorkerPool(ctx context.Context, params *WorkerPoolParams, st *stats.Stats) *WorkerPool {
+// NewWorkerManager creates a new WorkerManager.
+func NewWorkerManager(ctx context.Context, params *WorkerManagerParams, st *stats.Stats) *WorkerManager {
 	newClient := func() (storage.Storage, error) {
 		s3, err := storage.NewS3Storage(storage.S3Opts{
 			MaxRetries:           params.Retries,
@@ -68,149 +68,97 @@ func NewWorkerPool(ctx context.Context, params *WorkerPoolParams, st *stats.Stat
 
 	cancelFunc := ctx.Value(CancelFuncKey).(context.CancelFunc)
 
-	p := &WorkerPool{
-		ctx:         ctx,
-		params:      params,
-		jobQueue:    make(chan *Job),
-		subJobQueue: make(chan *Job),
-		wg:          &sync.WaitGroup{},
-		newClient:   newClient,
-		cancelFunc:  cancelFunc,
-		st:          st,
+	wg := &sync.WaitGroup{}
+	jobQueue := make(chan *Job, params.MaxWorkers)
+
+	enqueueJob := func(job *Job) {
+		wg.Add(1)
+		jobQueue <- job
 	}
 
-	return p
+	w := &WorkerManager{
+		ctx:        ctx,
+		params:     params,
+		wg:         wg,
+		newClient:  newClient,
+		cancelFunc: cancelFunc,
+		st:         st,
+		jobQueue:   jobQueue,
+		jobProducer: &Producer{
+			newClient:  newClient,
+			batchSize:  1,
+			enqueueJob: enqueueJob,
+		},
+	}
+
+	return w
 }
 
-// startWorkers starts the workers.
-func (p *WorkerPool) startWorkers() {
-	for i := 0; i < p.params.NumWorkers; i++ {
-		p.wg.Add(1)
-		go p.runWorker(p.st, &p.idlingCounter, i)
-	}
-}
-
-// runWorker is the main function of a single worker.
-func (p *WorkerPool) runWorker(st *stats.Stats, idlingCounter *int32, id int) {
-	defer p.wg.Done()
-
-	wp := WorkerParams{
-		ctx:           p.ctx,
-		poolParams:    p.params,
-		st:            st,
-		subJobQueue:   &p.subJobQueue,
-		idlingCounter: idlingCounter,
-		newClient:     p.newClient,
-	}
-
-	lastSetIdle := false
-	setIdle := func() {
-		if !lastSetIdle {
-			atomic.AddInt32(idlingCounter, 1)
-			lastSetIdle = true
-		}
-	}
-	setWorking := func() {
-		if lastSetIdle {
-			atomic.AddInt32(idlingCounter, ^int32(0))
-			lastSetIdle = false
-		}
-	}
-	defer setIdle()
-
+func (w *WorkerManager) watchJobs() {
 	for {
 		select {
-		case <-time.After(100 * time.Millisecond):
-			setIdle()
-
-		case job, ok := <-p.jobQueue:
-			if !ok {
-				return
-			}
-			setWorking()
-			job.Run(wp)
-		case <-p.ctx.Done():
+		case j := <-w.jobQueue:
+			w.runWorker(j)
+		case <-w.ctx.Done():
 			return
 		}
 	}
 }
 
-func (p *WorkerPool) parseJob(line string) *Job {
-	job, err := ParseJob(line)
+// runWorker creates new worker (goroutine) for the job.
+// Worker is closed after all jobs done.
+func (w *WorkerManager) runWorker(job *Job) {
+	go func() {
+		defer w.wg.Done()
+		wp := WorkerParams{
+			ctx:        w.ctx,
+			poolParams: w.params,
+			st:         w.st,
+			newClient:  w.newClient,
+			runWorker:  w.runWorker,
+		}
+		job.Run(wp)
+	}()
+}
+
+// RunCmd will run a single command (and subsequent sub-commands) in the worker pool,
+// wait for it to finish, clean up and return.
+func (w *WorkerManager) RunCmd(cmd string) {
+	command := w.parseCommand(cmd)
+	if command == nil {
+		return
+	}
+
+	if command.opts.Has(opt.Help) {
+		command.displayHelp()
+		return
+	}
+
+	go func() {
+		err := w.jobProducer.Produce(w.ctx, command)
+		if err != nil {
+			log.Printf("%v\n", err)
+		}
+		w.wg.Wait()
+		close(w.jobQueue)
+	}()
+
+	w.watchJobs()
+}
+
+func (w *WorkerManager) parseCommand(cmd string) *Command {
+	command, err := ParseCommand(cmd)
 	if err != nil {
-		log.Print(`-ERR "`, line, `": `, err)
-		p.st.Increment(stats.Fail)
+		log.Println(`-ERR "`, cmd, `": `, err)
+		w.st.Increment(stats.Fail)
 		return nil
 	}
-	return job
+	return command
 }
 
-func (p *WorkerPool) queueJob(job *Job) bool {
-	select {
-	case <-p.ctx.Done():
-		return false
-	case p.jobQueue <- job:
-		return true
-	}
-}
-
-func (p *WorkerPool) pumpJobQueues() {
-	var idc int32
-	for {
-		select {
-		case <-time.After(500 * time.Millisecond):
-			idc = atomic.LoadInt32(&p.idlingCounter)
-
-			if idc == int32(p.params.NumWorkers) {
-				log.Print("# All workers idle, finishing up...")
-				return
-			}
-		case <-p.ctx.Done():
-			return
-		case j, ok := <-p.subJobQueue:
-			if ok {
-				select {
-				case p.jobQueue <- j:
-				case <-p.ctx.Done():
-					return
-				}
-			}
-		}
-	}
-}
-
-// closeAndWait closes the channel and waits all jobs to finish.
-func (p *WorkerPool) closeAndWait() {
-	close(p.jobQueue)
-	p.wg.Wait()
-}
-
-// RunCmd will run a single command (and subsequent sub-commands) in the worker pool, wait for it to finish, clean up and return.
-func (p *WorkerPool) RunCmd(commandLine string) {
-	defer p.closeAndWait()
-
-	j := p.parseJob(commandLine)
-
-	if j == nil {
-		return
-	}
-
-	if j.opts.Has(opt.Help) {
-		j.displayHelp()
-		return
-	}
-
-	p.startWorkers()
-	p.queueJob(j)
-	if j.operation.IsBatch() {
-		p.pumpJobQueues()
-	}
-}
-
-// Run runs the commands in filename in the worker pool, on EOF it will wait for all commands to finish, clean up and return.
-func (p *WorkerPool) Run(filename string) {
-	defer p.closeAndWait()
-
+// Run runs the commands in filename in the worker pool, on EOF
+// it will wait for all commands to finish, clean up and return.
+func (w *WorkerManager) Run(filename string) {
 	var r io.ReadCloser
 	var err error
 
@@ -224,28 +172,25 @@ func (p *WorkerPool) Run(filename string) {
 		defer r.Close()
 	}
 
-	p.startWorkers()
-	s := NewCancelableScanner(p.ctx, r).Start()
+	scanner := NewScanner(w.ctx, r)
 
-	var j *Job
-	isAnyBatch := false
-	for {
-		line, err := s.ReadOne(p.subJobQueue, p.jobQueue)
-		if err != nil {
-			if err == context.Canceled || err == io.EOF {
-				break
+	for cmd := range scanner.Scan() {
+		command := w.parseCommand(cmd)
+		if command != nil {
+			err := w.jobProducer.Produce(w.ctx, command)
+			if err != nil {
+				fmt.Println(err)
 			}
-			log.Printf("-ERR Error reading: %v", err)
-			break
 		}
+	}
 
-		j = p.parseJob(line)
-		if j != nil {
-			isAnyBatch = isAnyBatch || j.operation.IsBatch()
-			p.queueJob(j)
-		}
+	if err := scanner.Err(); err != nil {
+		log.Printf("-ERR Error reading: %v\n", err)
 	}
-	if isAnyBatch {
-		p.pumpJobQueues()
-	}
+
+	go func() {
+		w.wg.Wait()
+		close(w.jobQueue)
+	}()
+	w.watchJobs()
 }

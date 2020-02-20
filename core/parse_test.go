@@ -4,6 +4,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/peak/s5cmd/objurl"
+
 	"github.com/peak/s5cmd/opt"
 )
 
@@ -308,11 +310,14 @@ func assertParse(
 	expectRemoteURL bool,
 	expectedS3bucket string,
 	expectedS3key string,
-	fnObj *JobArgument,
+	fnObj *objurl.ObjectURL,
 ) {
 	t.Helper()
 
 	a, err := parseArgumentByType(input, typ, fnObj)
+	if a == nil {
+		t.Fatal("Unexpected nil result")
+	}
 
 	if expectError {
 		if err == nil {
@@ -327,16 +332,16 @@ func assertParse(
 		return // Success
 	}
 
-	if a.url.Absolute() != expectedOutArg {
+	if a.Absolute() != expectedOutArg {
 		t.Errorf(`"Expected a.arg was "%s" but got "%s"`, expectedOutArg, a.url.Absolute())
 	}
 
 	if expectRemoteURL {
-		if !a.url.IsRemote() {
+		if !a.IsRemote() {
 			t.Fatalf("Expected remote file, got local: %q", a.url)
 		}
 	} else {
-		if a.url.IsRemote() {
+		if a.IsRemote() {
 			t.Fatalf("Expected local file, got: %q", a.url)
 		}
 	}
@@ -345,10 +350,10 @@ func assertParse(
 		return // Success
 	}
 
-	if a.url.Bucket != expectedS3bucket {
+	if a.Bucket != expectedS3bucket {
 		t.Errorf(`"Expected a.s3.bucket was "%s" but got "%s"`, expectedS3bucket, a.url.Bucket)
 	}
-	if a.url.Path != expectedS3key {
+	if a.Path != expectedS3key {
 		t.Errorf(`"Expected a.s3.key was "%s" but got "%s"`, expectedS3key, a.url.Path)
 	}
 }

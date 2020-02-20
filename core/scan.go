@@ -6,62 +6,55 @@ import (
 	"io"
 )
 
-// CancelableScanner is a scanner which also listens for the context cancellations and optionally pumps data between channels
-type CancelableScanner struct {
+// Scanner is a cancelable scanner.
+type Scanner struct {
 	*bufio.Scanner
+	err  error
 	data chan string
-	err  chan error
 	ctx  context.Context
 }
 
-// NewCancelableScanner creates a new CancelableScanner
-func NewCancelableScanner(ctx context.Context, r io.Reader) *CancelableScanner {
-	return &CancelableScanner{
-		bufio.NewScanner(r),
-		make(chan string),
-		make(chan error),
-		ctx,
+// NewScanner creates a new scanner with cancellation.
+func NewScanner(ctx context.Context, r io.Reader) *Scanner {
+	scanner := &Scanner{
+		ctx:     ctx,
+		Scanner: bufio.NewScanner(r),
+		data:    make(chan string),
 	}
+
+	go scanner.scan()
+	return scanner
 }
 
-// Start stats the goroutine on the CancelableScanner and returns itself
-func (s *CancelableScanner) Start() *CancelableScanner {
-	go func() {
-		defer func() {
-			close(s.data)
-			close(s.err)
-		}()
-		for s.Scan() {
-			s.data <- s.Text()
-		}
-		if err := s.Err(); err != nil {
-			s.err <- err
-		}
-	}()
-	return s
-}
+// scan read the underlying reader.
+func (s *Scanner) scan() {
+	defer close(s.data)
 
-// ReadOne reads one line from the started CancelableScanner, as well as listening to ctx.Done messages and optionally/continuously pumping *Jobs from the from<- chan to the to<- chan
-func (s *CancelableScanner) ReadOne(from <-chan *Job, to chan<- *Job) (string, error) {
 	for {
 		select {
-		// case to <- <-from:
-		case j, ok := <-from:
-			if ok {
-				to <- j
-			}
 		case <-s.ctx.Done():
-			return "", context.Canceled
-		case str, ok := <-s.data:
-			if !ok {
-				return "", io.EOF
+			s.err = s.ctx.Err()
+			return
+		default:
+			if !s.Scanner.Scan() {
+				return
 			}
-			return str, nil
-		case err, ok := <-s.err:
-			if !ok {
-				return "", io.EOF
-			}
-			return "", err
+
+			s.data <- s.Scanner.Text()
 		}
 	}
+}
+
+// Scan returns read-only channel to consume lines.
+func (s *Scanner) Scan() <-chan string {
+	return s.data
+}
+
+// Err returns error of scanner.
+func (s *Scanner) Err() error {
+	if s.err != nil {
+		return s.err
+	}
+
+	return s.Scanner.Err()
 }

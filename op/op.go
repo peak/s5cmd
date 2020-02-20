@@ -33,9 +33,23 @@ const (
 	AliasBatchGet                      // Alias for BatchDownload
 )
 
+var batchOperations = []Operation{
+	BatchDownload,
+	BatchUpload,
+	BatchDelete,
+	BatchLocalCopy,
+	BatchCopy,
+	AliasBatchGet,
+}
+
 // IsBatch returns true if this operation creates sub-jobs
 func (o Operation) IsBatch() bool {
-	return o == BatchDownload || o == BatchUpload || o == BatchDelete || o == BatchLocalCopy || o == BatchCopy || o == AliasBatchGet
+	for _, operation := range batchOperations {
+		if o == operation {
+			return true
+		}
+	}
+	return false
 }
 
 // IsInternal returns true if this operation is considered internal. Internal operations are not shown in +OK messages

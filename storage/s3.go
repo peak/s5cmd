@@ -100,7 +100,7 @@ func (s *S3) Stat(ctx context.Context, url *objurl.ObjectURL) (*Object, error) {
 // keys. It sends SequenceEndMarker at the end of each pagination. If no item
 // found or an error is encountered during this period, it sends these errors
 // to item channel.
-func (s *S3) List(ctx context.Context, url *objurl.ObjectURL, maxKeys int64) <-chan *Object {
+func (s *S3) List(ctx context.Context, url *objurl.ObjectURL, _ bool, maxKeys int64) <-chan *Object {
 	itemChan := make(chan *Object)
 	inp := s3.ListObjectsV2Input{
 		Bucket: aws.String(url.Bucket),
@@ -226,7 +226,7 @@ func (s *S3) Put(ctx context.Context, reader io.Reader, to *objurl.ObjectURL, cl
 
 // Delete is a removal operation which removes multiple S3 objects from a
 // bucket using single HTTP request. It allows deleting objects up to 1000.
-func (s *S3) Delete(ctx context.Context, bucket string, urls ...*objurl.ObjectURL) error {
+func (s *S3) Delete(ctx context.Context, urls ...*objurl.ObjectURL) error {
 	if len(urls) > DeleteItemsMax || len(urls) == 0 {
 		return fmt.Errorf(
 			"delete size should be between %d and %d, given: %d",
@@ -243,6 +243,8 @@ func (s *S3) Delete(ctx context.Context, bucket string, urls ...*objurl.ObjectUR
 			&s3.ObjectIdentifier{Key: aws.String(url.Path)},
 		)
 	}
+
+	bucket := urls[0].Bucket
 
 	o, err := s.api.DeleteObjectsWithContext(ctx, &s3.DeleteObjectsInput{
 		Bucket: aws.String(bucket),

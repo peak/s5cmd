@@ -198,11 +198,11 @@ type (
 // for sub-job launching.
 //
 // After all sub-jobs created and executed, it waits all jobs to finish.
-func wildOperation(client storage.Storage, url *objurl.ObjectURL, wp *WorkerParams, callback wildCallback) error {
+func wildOperation(client storage.Storage, url *objurl.ObjectURL, isRecursive bool, wp *WorkerParams, callback wildCallback) error {
 	var subJobCounter uint32
 	subjobStats := subjobStatsType{}
 
-	for item := range client.List(wp.ctx, url, storage.ListAllItems) {
+	for item := range client.List(wp.ctx, url, isRecursive, storage.ListAllItems) {
 		if item.Err != nil {
 			verboseLog("wildOperation lister is done with error: %v", item.Err)
 			continue

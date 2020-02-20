@@ -16,11 +16,11 @@ const dateFormat = "2006/01/02 15:04:05"
 // Storage is an interface for storage operations.
 type Storage interface {
 	Stat(context.Context, *objurl.ObjectURL) (*Object, error)
-	List(context.Context, *objurl.ObjectURL, int64) <-chan *Object
+	List(context.Context, *objurl.ObjectURL, bool, int64) <-chan *Object
 	Copy(ctx context.Context, from, to *objurl.ObjectURL, class string) error
 	Get(context.Context, *objurl.ObjectURL, io.WriterAt) error
 	Put(context.Context, io.Reader, *objurl.ObjectURL, string) error
-	Delete(context.Context, string, ...*objurl.ObjectURL) error
+	Delete(context.Context, ...*objurl.ObjectURL) error
 	ListBuckets(context.Context, string) ([]Bucket, error)
 	UpdateRegion(string) error
 	Statistics() *Stats

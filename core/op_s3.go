@@ -36,7 +36,7 @@ func S3Copy(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
 	)
 
 	if job.opts.Has(opt.DeleteSource) && err == nil {
-		err = client.Delete(wp.ctx, src.url.Bucket, src.url)
+		err = client.Delete(wp.ctx, src.url)
 	}
 
 	return opType, jobResponse(err)
@@ -52,7 +52,7 @@ func S3Delete(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
 		return opType, jobResponse(err)
 	}
 
-	err = client.Delete(wp.ctx, src.url.Bucket, src.url)
+	err = client.Delete(wp.ctx, src.url)
 	return opType, jobResponse(err)
 }
 
@@ -95,7 +95,7 @@ func S3BatchDelete(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
 		return opType, jobResponse(err)
 	}
 
-	err = wildOperation(client, src.url, wp, func(item *storage.Object) *Job {
+	err = wildOperation(client, src.url, true, wp, func(item *storage.Object) *Job {
 		if item.Type.IsDir() {
 			return nil
 		}
@@ -124,7 +124,7 @@ func S3BatchDeleteActual(job *Job, wp *WorkerParams) (stats.StatType, *JobRespon
 		deleteObjects[i-1] = a.url
 	}
 
-	err = client.Delete(wp.ctx, src.url.Bucket, deleteObjects...)
+	err = client.Delete(wp.ctx, deleteObjects...)
 	if err != nil {
 		return opType, jobResponse(err)
 	}
@@ -162,7 +162,7 @@ func S3BatchDownload(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) 
 	if err != nil {
 		return opType, jobResponse(err)
 	}
-	err = wildOperation(client, src.url, wp, func(item *storage.Object) *Job {
+	err = wildOperation(client, src.url, true, wp, func(item *storage.Object) *Job {
 		if item.IsMarkerObject() || item.Type.IsDir() {
 			return nil
 		}
@@ -223,7 +223,7 @@ func S3Download(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
 	if err != nil {
 		os.Remove(destFn) // Remove partly downloaded file
 	} else if job.opts.Has(opt.DeleteSource) {
-		err = client.Delete(wp.ctx, src.url.Bucket, src.url)
+		err = client.Delete(wp.ctx, src.url)
 	}
 
 	return opType, jobResponse(err)
@@ -296,7 +296,7 @@ func S3BatchCopy(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
 		return opType, jobResponse(err)
 	}
 
-	err = wildOperation(client, src.url, wp, func(item *storage.Object) *Job {
+	err = wildOperation(client, src.url, true, wp, func(item *storage.Object) *Job {
 		if item.IsMarkerObject() || item.IsGlacierObject() || item.Type.IsDir() {
 			return nil
 		}
@@ -357,7 +357,7 @@ func S3List(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
 	}
 
 	var msg []string
-	for item := range client.List(wp.ctx, src.url, storage.ListAllItems) {
+	for item := range client.List(wp.ctx, src.url, true, storage.ListAllItems) {
 		if item.IsMarkerObject() || item.Err != nil {
 			continue
 		}
@@ -422,7 +422,7 @@ func S3Size(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
 		return opType, jobResponse(err)
 	}
 
-	err = wildOperation(client, src.url, wp, func(item *storage.Object) *Job {
+	err = wildOperation(client, src.url, true, wp, func(item *storage.Object) *Job {
 		if item.IsMarkerObject() || item.Type.IsDir() {
 			return nil
 		}

@@ -13,9 +13,13 @@ import (
 	"github.com/peak/s5cmd/objurl"
 )
 
-type Filesystem struct{}
+type Filesystem struct {
+	stats *Stats
+}
 
-func NewFilesystem() *Filesystem { return &Filesystem{} }
+func NewFilesystem() *Filesystem {
+	return &Filesystem{stats: &Stats{}}
+}
 
 func (f *Filesystem) Stat(ctx context.Context, url *objurl.ObjectURL) (*Object, error) {
 	st, err := os.Stat(url.Absolute())
@@ -158,15 +162,19 @@ func (f *Filesystem) Copy(ctx context.Context, src, dst *objurl.ObjectURL, _ str
 }
 
 func (f *Filesystem) Delete(ctx context.Context, urls ...*objurl.ObjectURL) error {
-	// TODO(ig): use multierr or a chan error
-	var rerr error
 	for _, url := range urls {
-		err := os.Remove(url.Absolute())
+		fpath := url.Absolute()
+		err := os.Remove(fpath)
 		if err != nil {
-			rerr = err
+			f.stats.put(fpath, StatsResponse{
+				Success: false,
+				Message: err.Error(),
+			})
+		} else {
+			f.stats.put(fpath, StatsResponse{Success: true})
 		}
 	}
-	return rerr
+	return nil
 }
 
 func (f *Filesystem) Put(ctx context.Context, body io.Reader, url *objurl.ObjectURL, _ string) error {
@@ -186,7 +194,7 @@ func (f *Filesystem) UpdateRegion(_ string) error {
 }
 
 func (f *Filesystem) Statistics() *Stats {
-	panic("not implemented") // TODO: Implement
+	return f.stats
 }
 
 func (f *Filesystem) notimplemented(method string) error {

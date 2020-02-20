@@ -327,7 +327,6 @@ func (s *S3) UpdateRegion(bucket string) error {
 
 // Statistics returns the stats of the storage.
 func (s *S3) Statistics() *Stats {
-
 	return s.stats
 }
 

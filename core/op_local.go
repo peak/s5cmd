@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/peak/s5cmd/objurl"
 	"github.com/peak/s5cmd/op"
 	"github.com/peak/s5cmd/opt"
 	"github.com/peak/s5cmd/stats"
@@ -99,24 +100,25 @@ func BatchLocalCopy(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
 		trimPrefix += string(filepath.Separator)
 	}
 
+	globurl, _ := objurl.New(globStart)
 	isRecursive := job.opts.Has(opt.Recursive)
 
-	err = wildOperation(client, src.url, isRecursive, wp, func(item *storage.Object) *Job {
-		if item.IsMarkerObject() || item.Type.IsDir() {
+	err = wildOperation(client, globurl, isRecursive, wp, func(object *storage.Object) *Job {
+		if object.IsMarker() || object.Type.IsDir() {
 			return nil
 		}
 
 		var dstFn string
 		if job.opts.Has(opt.Parents) {
-			dstFn = item.URL.Absolute()
+			dstFn = object.URL.Absolute()
 			if strings.Index(dstFn, trimPrefix) == 0 {
 				dstFn = dstFn[len(trimPrefix):]
 			}
 		} else {
-			dstFn = item.URL.Base()
+			dstFn = object.URL.Base()
 		}
 
-		arg1 := NewJobArgument(item.URL)
+		arg1 := NewJobArgument(object.URL)
 		arg2 := dst.Clone().Join(dstFn)
 
 		dir := filepath.Dir(arg2.url.Absolute())
@@ -164,29 +166,23 @@ func BatchLocalUpload(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse)
 		trimPrefix += string(filepath.Separator)
 	}
 
-	// fmt.Println("*** trimprefix:", trimPrefix)
-	// fmt.Println("*** walkmode:", walkMode)
-
-	err = wildOperation(client, src.url, true, wp, func(item *storage.Object) *Job {
-		if item.IsMarkerObject() || item.Type.IsDir() {
+	err = wildOperation(client, src.url, true, wp, func(object *storage.Object) *Job {
+		if object.IsMarker() || object.Type.IsDir() {
 			return nil
 		}
 
 		var dstFn string
 		if job.opts.Has(opt.Parents) {
-			dstFn = item.URL.Absolute()
+			dstFn = object.URL.Absolute()
 			if strings.Index(dstFn, trimPrefix) == 0 {
 				dstFn = dstFn[len(trimPrefix):]
 			}
 		} else {
-			dstFn = item.URL.Base()
+			dstFn = object.URL.Base()
 		}
 
-		arg1 := NewJobArgument(item.URL)
+		arg1 := NewJobArgument(object.URL)
 		arg2 := dst.Clone().Join(dstFn)
-
-		// fmt.Println("*** arg1", arg1.url)
-		// fmt.Println("*** arg2", arg2.url)
 
 		return job.MakeSubJob(subCmd, op.Upload, []*JobArgument{arg1, arg2}, job.opts)
 	})

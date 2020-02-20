@@ -101,7 +101,7 @@ func (s *S3) Stat(ctx context.Context, url *objurl.ObjectURL) (*Object, error) {
 // found or an error is encountered during this period, it sends these errors
 // to item channel.
 func (s *S3) List(ctx context.Context, url *objurl.ObjectURL, _ bool, maxKeys int64) <-chan *Object {
-	itemChan := make(chan *Object)
+	objCh := make(chan *Object)
 	inp := s3.ListObjectsV2Input{
 		Bucket: aws.String(url.Bucket),
 		Prefix: aws.String(url.Prefix),
@@ -117,7 +117,7 @@ func (s *S3) List(ctx context.Context, url *objurl.ObjectURL, _ bool, maxKeys in
 	}
 
 	go func() {
-		defer close(itemChan)
+		defer close(objCh)
 		itemFound := false
 
 		err := s.api.ListObjectsV2PagesWithContext(ctx, &inp, func(p *s3.ListObjectsV2Output, lastPage bool) bool {
@@ -128,7 +128,7 @@ func (s *S3) List(ctx context.Context, url *objurl.ObjectURL, _ bool, maxKeys in
 
 				newurl := url.Clone()
 				newurl.Path = aws.StringValue(c.Prefix)
-				itemChan <- &Object{
+				objCh <- &Object{
 					URL:  newurl,
 					Type: os.ModeDir,
 				}
@@ -148,36 +148,36 @@ func (s *S3) List(ctx context.Context, url *objurl.ObjectURL, _ bool, maxKeys in
 
 				newurl := url.Clone()
 				newurl.Path = aws.StringValue(c.Key)
-				itemChan <- &Object{
+				objCh <- &Object{
 					URL:          newurl,
 					Etag:         aws.StringValue(c.ETag),
 					ModTime:      aws.TimeValue(c.LastModified),
 					Type:         objtype,
 					Size:         aws.Int64Value(c.Size),
-					StorageClass: aws.StringValue(c.StorageClass),
+					StorageClass: storageClass(aws.StringValue(c.StorageClass)),
 				}
 
 				itemFound = true
 			}
 
 			if itemFound && lastPage {
-				itemChan <- SequenceEndMarker
+				objCh <- SequenceEndMarker
 			}
 
 			return shouldPaginate && !lastPage
 		})
 
 		if err != nil {
-			itemChan <- &Object{Err: err}
+			objCh <- &Object{Err: err}
 			return
 		}
 
 		if !itemFound {
-			itemChan <- &Object{Err: ErrNoItemFound}
+			objCh <- &Object{Err: ErrNoItemFound}
 		}
 	}()
 
-	return itemChan
+	return objCh
 }
 
 // Copy is a single-object copy operation which copies objects to S3

@@ -26,33 +26,28 @@ type Storage interface {
 	Statistics() *Stats
 }
 
-// Item is a generic type which contains metadata for storage items.
+// Object is a generic type which contains metadata for storage items.
 type Object struct {
 	URL          *objurl.ObjectURL
 	Etag         string
 	ModTime      time.Time
 	Type         os.FileMode
 	Size         int64
-	StorageClass string
+	StorageClass storageClass
 	Err          error
 }
 
-// String returns the string representation of Item.
+// String returns the string representation of Object.
 func (o *Object) String() string {
 	return o.URL.String()
 }
 
-// IsGlacierObject checks if the storage class of item is glacier.
-func (o *Object) IsGlacierObject() bool {
-	return o.StorageClass == ObjectStorageClassGlacier
-}
-
-// IsMarkerObject checks if the item is a marker object to mark end of sequence.
-func (o *Object) IsMarkerObject() bool {
+// IsMarkerchecks if the object is a marker object to mark end of sequence.
+func (o *Object) IsMarker() bool {
 	return o == SequenceEndMarker
 }
 
-// Bucket is a container for storage items.
+// Bucket is a container for storage objects.
 type Bucket struct {
 	CreationDate time.Time
 	Name         string
@@ -63,18 +58,26 @@ func (b Bucket) String() string {
 	return fmt.Sprintf("%s  s3://%s", b.CreationDate.Format(dateFormat), b.Name)
 }
 
+type storageClass string
+
+// IsGlacierObject checks if the storage class of object is glacier.
+func (s storageClass) IsGlacier() bool {
+	return s == ObjectStorageClassGlacier
+}
+
 const (
 	// ObjectStorageClassStandard is a standard storage class type.
-	ObjectStorageClassStandard = "STANDARD"
+	ObjectStorageClassStandard storageClass = "STANDARD"
 
 	// ObjectStorageClassReducedRedundancy is a reduced redundancy storage class type.
-	ObjectStorageClassReducedRedundancy = "REDUCED_REDUNDANCY"
+	ObjectStorageClassReducedRedundancy storageClass = "REDUCED_REDUNDANCY"
 
 	// ObjectStorageClassGlacier is a glacier storage class type.
-	ObjectStorageClassGlacier = "GLACIER"
+	ObjectStorageClassGlacier storageClass = "GLACIER"
 
-	// TransitionStorageClassStandardIa is a standard ia storage class type.
-	TransitionStorageClassStandardIa = "STANDARD_IA"
+	// TransitionStorageClassStandardIA is a Standard Infrequent-Access storage
+	// class type.
+	TransitionStorageClassStandardIA storageClass = "STANDARD_IA"
 )
 
 type notImplemented struct {

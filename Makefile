@@ -38,6 +38,6 @@ check-fmt:
 
 .PHONY: clean
 clean:
-	@rm -vf ${SRCDIR}/s5cmd
+	@rm -f ${SRCDIR}/s5cmd
 
 .NOTPARALLEL:

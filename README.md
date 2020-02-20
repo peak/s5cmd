@@ -26,19 +26,26 @@ Using [Homebrew](https://brew.sh/):
 
 ### Shell Auto-Completion ###
 
-Bash and zsh shell completion is supported, utilizing [posener/complete](https://github.com/posener/complete). Tool and subcommand parameters, local files/dirs, as well as remote (S3) buckets and objects are supported.
+Bash and zsh shell completion is supported, utilizing
+[posener/complete](https://github.com/posener/complete). Tool and subcommand
+parameters, local files/dirs, as well as remote (S3) buckets and objects are
+supported.
 
 To enable auto-completion, run:
 ```
 s5cmd -cmp-install
 ```
-This will add a few lines (depending on configuration) to your `.bashrc` or `.zshrc` file. After installation, run `source .bashrc` (or restart your shell) to activate the changes.
+This will add a few lines (depending on configuration) to your `.bashrc` or
+`.zshrc` file. After installation, run `source .bashrc` (or restart your shell)
+to activate the changes.
 
 > Note: Auto-completion always works with AWS Endpoint, `-endpoint-url` does not override it's behaviour.
 
 #### Examples ####
 
-To utilize shell autocompletion, use the `<tab>` key on the shell CLI. If there is more than one match, nothing will happen until a second `<tab>` is hit, which then will show options. Examples:
+To utilize shell autocompletion, use the `<tab>` key on the shell CLI. If there
+is more than one match, nothing will happen until a second `<tab>` is hit, which
+then will show options. Examples:
 
 ```
 s5cmd <tab> # This is going to list commands and general parameters
@@ -106,7 +113,11 @@ To get help on a specific command, run "s5cmd <command> -h"
 
 ## Commands File ##
 
-The most powerful feature of s5cmd is the commands file. Thousands of S3 and filesystem commands are declared in a file (or simply piped in from another process) and they are executed using multiple parallel workers. Since only one program is launched, thousands of unnecessary fork-exec calls are avoided. This way S3 execution times can reach a few thousand operations per second.
+The most powerful feature of `s5cmd` is the commands file. Thousands of S3 and
+filesystem commands are declared in a file (or simply piped in from another
+process) and they are executed using multiple parallel workers. Since only one
+program is launched, thousands of unnecessary fork-exec calls are avoided. This
+way S3 execution times can reach a few thousand operations per second.
 
 See also: [Nested Commands](#nested-commands-basic) 
 
@@ -116,26 +127,40 @@ Single commands are also supported with the `s5cmd [command [params]]` syntax.
 
 ## Supported commands ##
 
-There are three main commands: `cp`, `mv` and `rm`. Arguments can be either S3 urls, S3 wildcards, local file/directory references or local glob patterns.
+There are three main commands: `cp`, `mv` and `rm`. Arguments can be either S3
+urls, S3 wildcards, local file/directory references or local glob patterns.
 
 - Copy, Download or Upload: `cp [options] [src] [dst]`
-    - Note, the directory hierarchy will be flattened by default. Pass `--parents` to preserve the dir structure
+    - Note, the directory hierarchy will be flattened by default. Pass
+      `--parents` to preserve the dir structure
 - Move, Download or Upload and then delete: `mv [options] [src] [dst]`
-    - Note, the directory hierarchy will be flattened by default. Pass `--parents` to preserve the dir structure
+    - Note, the directory hierarchy will be flattened by default. Pass
+      `--parents` to preserve the dir structure
 - Delete: `rm [src]`
 - Count objects and determine total size: `du [src]`
 - Arbitrary shell-execute - `! commands...`
 - Exit - `exit [exitcode]` (see [Exit Code](#exit-code))
 
 ### Command options ###
+
 - S3 urls should be in the format `s3://bucket/key`
-- `cp` and `mv` commands accept the `-n` (no-clobber) option to prevent overwriting existing files or objects, `-s` option to match source-destination file sizes and skip upload if sizes are equal, and `-u` option to match source-destination last modification times and skip upload if destination is newer or same. If these options are combined, overwrite is skipped only if all of the specified conditions are met.
-- Uploading `cp` and `mv` commands accept the `-rr` and `-ia` options to store objects in reduced-redundancy and infrequent-access modes respectively.
-- Batch `cp` and `mv` commands also accept the `--parents` option to create the dir structure in destination. Dir structure is created from the first wildcard onwards.
-- Batch local-to-local `cp` and `mv` commands also accept the `-R` option for recursive operation.
+- `cp` and `mv` commands accept the `-n` (no-clobber) option to prevent
+  overwriting existing files or objects, `-s` option to match source-destination
+  file sizes and skip upload if sizes are equal, and `-u` option to match
+  source-destination last modification times and skip upload if destination is
+  newer or same. If these options are combined, overwrite is skipped only if all
+  of the specified conditions are met.
+- Uploading `cp` and `mv` commands accept the `-rr` and `-ia` options to store
+  objects in reduced-redundancy and infrequent-access modes respectively.
+- Batch `cp` and `mv` commands also accept the `--parents` option to create the
+  dir structure in destination. Dir structure is created from the first wildcard
+  onwards.
+- Batch local-to-local `cp` and `mv` commands also accept the `-R` option for
+  recursive operation.
 - The `ls` command accepts the `-e` option to show ETags in listing.
 - The `du` command only takes S3 arguments (prefix or wildcard)
-- `ls` and `du` commands both accept the `-H` option to show human-readable object sizes.
+- `ls` and `du` commands both accept the `-H` option to show human-readable
+  object sizes.
 - `du` command also accepts the `-g` option to group by storage class.
 
 
@@ -158,9 +183,13 @@ cp /path/to/src/*.go s3://to-bucket/to-prefix/ # Upload glob to S3
 
 ## Wild operations ##
 
-Multiple-level wildcards are supported in S3 operations. This is achieved by listing all S3 objects with the prefix up to the first wildcard, then filtering the results in-memory. ie. For batch-downloads, first a `ls` call is made, the results are then converted to separate commands and executed in parallel. 
+Multiple-level wildcards are supported in S3 operations. This is achieved by
+listing all S3 objects with the prefix up to the first wildcard, then filtering
+the results in-memory. ie. For batch-downloads, first a `ls` call is made, the
+results are then converted to separate commands and executed in parallel. 
 
-Batch API is used deleting multiple S3 objects, so up to 1000 S3 objects can be deleted with a single call.
+Batch API is used deleting multiple S3 objects, so up to 1000 S3 objects can be
+deleted with a single call.
 
 ### Wild operation examples ###
 ```
@@ -174,10 +203,14 @@ rm s3://from-bucket/prefix/*/file*gz # Wild-delete S3 objects (Batch-API)
 
 - Comments start with a space followed by `#`, as in " # This is a comment"
 - Empty lines are also ok
-- `-numworkers -1` means use `runtime.NumCPU` goroutines. `-2` means `2*runtime.NumCPU` and so on.
-- The S3 throttling error `SlowDown` is exponentially retried. "Retryable operations" as specified by the AWS SDK (currently `RequestError` and `RequestError`) are retried by the SDK.
+- `-numworkers -1` means use `runtime.NumCPU` goroutines. `-2` means
+  `2*runtime.NumCPU` and so on.
+- The S3 throttling error `SlowDown` is exponentially retried. "Retryable
+  operations" as specified by the AWS SDK (currently `RequestError` and
+  `RequestError`) are retried by the SDK.
 
 ### S3 Credentials ###
+
 S3 credentials can be provided in a variety of ways.
 
 #### Full environment variables ####
@@ -221,15 +254,19 @@ Shell output (used in `!`) does not modify the executed command's output. Both `
 
 ### Exit Code ###
 
-If failed jobs are present, process exits with code `127`. This can be overridden with the command `exit`, though in that case finishing the job list is not guaranteed.
+If failed jobs are present, process exits with code `127`. This can be
+overridden with the command `exit`, though in that case finishing the job list
+is not guaranteed.
 
 ## Environment Variables ##
 
 Set `S5CMD_GOPS` to always enable the [gops](https://github.com/google/gops) agent.
 
-
 ## Supported platforms ##
 
-- s5cmd is tested on Linux and macOS. Should work on Windows, however not tested as of release time.
+- s5cmd is tested on Linux and macOS. Should work on Windows, however not tested
+  as of release time.
 - Go 1.13 and up is supported.
-- Use in production environments is OK. (it works fine for us -- but as always with trying out new tools, proceed with caution)
+- Use in production environments is OK. (it works fine for us -- but as always
+  with trying out new tools, proceed with caution)
+

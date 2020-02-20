@@ -77,7 +77,7 @@ func TestS3_List_success(t *testing.T) {
 			t.Errorf("unexpected error: %v", got.Err)
 		}
 
-		if got == SequenceEndMarker {
+		if got.IsMarker() {
 			continue
 		}
 

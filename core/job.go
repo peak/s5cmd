@@ -114,11 +114,11 @@ func (j *Job) Log() {
 func (j *Job) getStorageClass() string {
 	var cls string
 	if j.opts.Has(opt.RR) {
-		cls = storage.ObjectStorageClassReducedRedundancy
+		cls = string(storage.ObjectStorageClassReducedRedundancy)
 	} else if j.opts.Has(opt.IA) {
-		cls = storage.TransitionStorageClassStandardIa
+		cls = string(storage.TransitionStorageClassStandardIA)
 	} else {
-		cls = storage.ObjectStorageClassStandard
+		cls = string(storage.ObjectStorageClassStandard)
 	}
 	return cls
 }

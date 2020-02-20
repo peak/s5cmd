@@ -242,13 +242,13 @@ func s3predictor(a cmp.Args) []string {
 			return nil
 		}
 
-		for item := range client.List(ctx, url, true, s3MaxKeys) {
+		for object := range client.List(ctx, url, true, s3MaxKeys) {
 			// Ignore the 0-byte "*_$folder$" objects in shell completion, created by s3n
-			if item.Size == 0 && strings.HasSuffix(item.URL.Path, "_$folder$") {
+			if object.Size == 0 && strings.HasSuffix(object.URL.Path, "_$folder$") {
 				continue
 			}
 
-			ret = append(ret, fmt.Sprintf("%s%s", prefix, item))
+			ret = append(ret, fmt.Sprintf("%s%s", prefix, object))
 		}
 
 		// If no s3key given, add the bare bucket name to our results

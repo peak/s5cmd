@@ -72,17 +72,17 @@ func TestS3_List_success(t *testing.T) {
 	}
 
 	index := 0
-	for got := range mockS3.List(context.Background(), url, ListAllItems) {
+	for got := range mockS3.List(context.Background(), url, true, ListAllItems) {
 		if got.Err != nil {
 			t.Errorf("unexpected error: %v", got.Err)
 		}
 
-		if got == SequenceEndMarker {
+		if got.IsMarker() {
 			continue
 		}
 
 		want := responses[index]
-		if diff := cmp.Diff(want.isDir, got.IsDirectory); diff != "" {
+		if diff := cmp.Diff(want.isDir, got.Type.IsDir()); diff != "" {
 			t.Errorf("(-want +got):\n%v", diff)
 		}
 		if diff := cmp.Diff(want.url, got.URL.Absolute()); diff != "" {
@@ -115,7 +115,7 @@ func TestS3_List_error(t *testing.T) {
 		r.Error = mockErr
 	})
 
-	for got := range mockS3.List(context.Background(), url, ListAllItems) {
+	for got := range mockS3.List(context.Background(), url, true, ListAllItems) {
 		if got.Err != mockErr {
 			t.Errorf("error got = %v, want %v", got.Err, mockErr)
 		}
@@ -152,7 +152,7 @@ func TestS3_List_no_item_found(t *testing.T) {
 		}
 	})
 
-	for got := range mockS3.List(context.Background(), url, ListAllItems) {
+	for got := range mockS3.List(context.Background(), url, true, ListAllItems) {
 		if got.Err != ErrNoItemFound {
 			t.Errorf("error got = %v, want %v", got.Err, ErrNoItemFound)
 		}
@@ -186,7 +186,7 @@ func TestS3_List_context_cancelled(t *testing.T) {
 		}
 	})
 
-	for got := range mockS3.List(ctx, url, ListAllItems) {
+	for got := range mockS3.List(ctx, url, true, ListAllItems) {
 		reqErr, ok := got.Err.(awserr.Error)
 		if !ok {
 			t.Errorf("could not convert error")

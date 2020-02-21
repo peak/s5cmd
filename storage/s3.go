@@ -77,8 +77,8 @@ func NewS3Storage(opts S3Opts) (*S3, error) {
 	}, nil
 }
 
-// Head retrieves metadata from S3 object without returning the object itself.
-func (s *S3) Head(ctx context.Context, url *objurl.ObjectURL) (*Object, error) {
+// Stat retrieves metadata from S3 object without returning the object itself.
+func (s *S3) Stat(ctx context.Context, url *objurl.ObjectURL) (*Object, error) {
 	output, err := s.api.HeadObjectWithContext(ctx, &s3.HeadObjectInput{
 		Bucket: aws.String(url.Bucket),
 		Key:    aws.String(url.Path),
@@ -89,10 +89,10 @@ func (s *S3) Head(ctx context.Context, url *objurl.ObjectURL) (*Object, error) {
 	}
 
 	return &Object{
-		URL:          url,
-		Etag:         aws.StringValue(output.ETag),
-		LastModified: aws.TimeValue(output.LastModified),
-		Size:         aws.Int64Value(output.ContentLength),
+		URL:     url,
+		Etag:    aws.StringValue(output.ETag),
+		ModTime: aws.TimeValue(output.LastModified),
+		Size:    aws.Int64Value(output.ContentLength),
 	}, nil
 }
 
@@ -100,79 +100,87 @@ func (s *S3) Head(ctx context.Context, url *objurl.ObjectURL) (*Object, error) {
 // keys. It sends SequenceEndMarker at the end of each pagination. If no item
 // found or an error is encountered during this period, it sends these errors
 // to item channel.
-func (s *S3) List(ctx context.Context, url *objurl.ObjectURL, maxKeys int64) <-chan *Object {
-	itemChan := make(chan *Object)
-	inp := s3.ListObjectsV2Input{
+func (s *S3) List(ctx context.Context, url *objurl.ObjectURL, _ bool, maxKeys int64) <-chan *Object {
+	listInput := s3.ListObjectsV2Input{
 		Bucket: aws.String(url.Bucket),
 		Prefix: aws.String(url.Prefix),
 	}
 
 	if url.Delimiter != "" {
-		inp.SetDelimiter(url.Delimiter)
+		listInput.SetDelimiter(url.Delimiter)
 	}
 
 	shouldPaginate := maxKeys < 0
 	if !shouldPaginate {
-		inp.SetMaxKeys(maxKeys)
+		listInput.SetMaxKeys(maxKeys)
 	}
 
+	objCh := make(chan *Object)
+
 	go func() {
-		defer close(itemChan)
+		defer close(objCh)
 		itemFound := false
 
-		err := s.api.ListObjectsV2PagesWithContext(ctx, &inp, func(p *s3.ListObjectsV2Output, lastPage bool) bool {
+		err := s.api.ListObjectsV2PagesWithContext(ctx, &listInput, func(p *s3.ListObjectsV2Output, lastPage bool) bool {
 			for _, c := range p.CommonPrefixes {
-				if !url.Match(aws.StringValue(c.Prefix)) {
+				prefix := aws.StringValue(c.Prefix)
+				if !url.Match(prefix) {
 					continue
 				}
 
 				newurl := url.Clone()
-				newurl.Path = aws.StringValue(c.Prefix)
-				itemChan <- &Object{
-					URL:         newurl,
-					IsDirectory: true,
+				newurl.Path = prefix
+				objCh <- &Object{
+					URL:  newurl,
+					Type: os.ModeDir,
 				}
 
 				itemFound = true
 			}
 
 			for _, c := range p.Contents {
-				if !url.Match(aws.StringValue(c.Key)) {
+				key := aws.StringValue(c.Key)
+				if !url.Match(key) {
 					continue
+				}
+
+				var objtype os.FileMode
+				if strings.HasSuffix(key, "/") {
+					objtype = os.ModeDir
 				}
 
 				newurl := url.Clone()
 				newurl.Path = aws.StringValue(c.Key)
-				itemChan <- &Object{
+				objCh <- &Object{
 					URL:          newurl,
 					Etag:         aws.StringValue(c.ETag),
-					LastModified: aws.TimeValue(c.LastModified),
-					IsDirectory:  strings.HasSuffix(aws.StringValue(c.Key), "/"),
+					ModTime:      aws.TimeValue(c.LastModified),
+					Type:         objtype,
 					Size:         aws.Int64Value(c.Size),
-					StorageClass: aws.StringValue(c.StorageClass),
+					StorageClass: storageClass(aws.StringValue(c.StorageClass)),
 				}
 
 				itemFound = true
 			}
 
 			if itemFound && lastPage {
-				itemChan <- SequenceEndMarker
+				objCh <- SequenceEndMarker
 			}
 
 			return shouldPaginate && !lastPage
 		})
 
 		if err != nil {
-			itemChan <- &Object{Err: err}
+			objCh <- &Object{Err: err}
 			return
 		}
 
 		if !itemFound {
-			itemChan <- &Object{Err: ErrNoItemFound}
+			objCh <- &Object{Err: ErrNoItemFound}
 		}
 	}()
 
-	return itemChan
+	return objCh
 }
 
 // Copy is a single-object copy operation which copies objects to S3
@@ -221,7 +229,7 @@ func (s *S3) Put(ctx context.Context, reader io.Reader, to *objurl.ObjectURL, cl
 
 // Delete is a removal operation which removes multiple S3 objects from a
 // bucket using single HTTP request. It allows deleting objects up to 1000.
-func (s *S3) Delete(ctx context.Context, bucket string, urls ...*objurl.ObjectURL) error {
+func (s *S3) Delete(ctx context.Context, urls ...*objurl.ObjectURL) error {
 	if len(urls) > DeleteItemsMax || len(urls) == 0 {
 		return fmt.Errorf(
 			"delete size should be between %d and %d, given: %d",
@@ -238,6 +246,8 @@ func (s *S3) Delete(ctx context.Context, bucket string, urls ...*objurl.ObjectUR
 			&s3.ObjectIdentifier{Key: aws.String(url.Path)},
 		)
 	}
+
+	bucket := urls[0].Bucket
 
 	o, err := s.api.DeleteObjectsWithContext(ctx, &s3.DeleteObjectsInput{
 		Bucket: aws.String(bucket),
@@ -318,8 +328,8 @@ func (s *S3) UpdateRegion(bucket string) error {
 	return nil
 }
 
-// Stats returns the stats of the storage.
-func (s *S3) Stats() *Stats {
+// Statistics returns the stats of the storage.
+func (s *S3) Statistics() *Stats {
 	return s.stats
 }
 

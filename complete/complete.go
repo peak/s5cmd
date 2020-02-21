@@ -177,7 +177,9 @@ func getSubCommands() cmp.Commands {
 
 func s3predictor(a cmp.Args) []string {
 	if a.Last == "" || a.Last == "s3" || a.Last == "s3:" || a.Last == "s3:/" {
-		// Return more than one match so that after "s5cmd ls s3<tab>" completes to s3://, double <tab> lists the buckets without the need for a backspace
+		// Return more than one match so that after "s5cmd ls s3<tab>"
+		// completes to s3://, double <tab> lists the buckets without the need
+		// for a backspace
 		return []string{"s3://a-bucket", "s3://my-bucket"}
 	}
 
@@ -205,6 +207,7 @@ func s3predictor(a cmp.Args) []string {
 	if err != nil {
 		return nil
 	}
+
 	ctx, canceler := context.WithTimeout(context.Background(), s3CompletionTimeout)
 	defer canceler() // avoid a leak and make go vet happy
 
@@ -236,24 +239,29 @@ func s3predictor(a cmp.Args) []string {
 
 		var ret []string
 
-		prefix := "s3://" + s3bucket + "/"
-		url, err := objurl.New(prefix)
+		base := "s3://" + s3bucket + "/"
+		url, err := objurl.New(base)
 		if err != nil {
 			return nil
 		}
+		url.Prefix = s3key
 
-		for item := range client.List(ctx, url, s3MaxKeys) {
-			// Ignore the 0-byte "*_$folder$" objects in shell completion, created by s3n
-			if item.Size == 0 && strings.HasSuffix(item.URL.Path, "_$folder$") {
+		for object := range client.List(ctx, url, true, s3MaxKeys) {
+			if object.IsMarker() {
 				continue
 			}
 
-			ret = append(ret, fmt.Sprintf("%s%s", prefix, item))
+			// Ignore the 0-byte "*_$folder$" objects in shell completion, created by s3n
+			if object.Size == 0 && strings.HasSuffix(object.URL.Path, "_$folder$") {
+				continue
+			}
+
+			ret = append(ret, object.URL.Absolute())
 		}
 
 		// If no s3key given, add the bare bucket name to our results
 		if s3key == "" {
-			ret = append(ret, prefix)
+			ret = append(ret, base)
 		}
 
 		return ret

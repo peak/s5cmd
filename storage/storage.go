@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"time"
 
 	"github.com/peak/s5cmd/objurl"
@@ -12,33 +13,41 @@ import (
 
 const dateFormat = "2006/01/02 15:04:05"
 
-// Item is a generic type which contains metadata for storage items.
+// Storage is an interface for storage operations.
+type Storage interface {
+	Stat(context.Context, *objurl.ObjectURL) (*Object, error)
+	List(context.Context, *objurl.ObjectURL, bool, int64) <-chan *Object
+	Copy(ctx context.Context, from, to *objurl.ObjectURL, class string) error
+	Get(context.Context, *objurl.ObjectURL, io.WriterAt) error
+	Put(context.Context, io.Reader, *objurl.ObjectURL, string) error
+	Delete(context.Context, ...*objurl.ObjectURL) error
+	ListBuckets(context.Context, string) ([]Bucket, error)
+	UpdateRegion(string) error
+	Statistics() *Stats
+}
+
+// Object is a generic type which contains metadata for storage items.
 type Object struct {
 	URL          *objurl.ObjectURL
 	Etag         string
-	LastModified time.Time
-	IsDirectory  bool
+	ModTime      time.Time
+	Type         os.FileMode
 	Size         int64
-	StorageClass string
+	StorageClass storageClass
 	Err          error
 }
 
-// String returns the string representation of Item.
+// String returns the string representation of Object.
 func (o *Object) String() string {
 	return o.URL.String()
 }
 
-// IsGlacierObject checks if the storage class of item is glacier.
-func (o *Object) IsGlacierObject() bool {
-	return o.StorageClass == ObjectStorageClassGlacier
-}
-
-// IsMarkerObject checks if the item is a marker object to mark end of sequence.
-func (o *Object) IsMarkerObject() bool {
+// IsMarkerchecks if the object is a marker object to mark end of sequence.
+func (o *Object) IsMarker() bool {
 	return o == SequenceEndMarker
 }
 
-// Bucket is a container for storage items.
+// Bucket is a container for storage objects.
 type Bucket struct {
 	CreationDate time.Time
 	Name         string
@@ -49,29 +58,33 @@ func (b Bucket) String() string {
 	return fmt.Sprintf("%s  s3://%s", b.CreationDate.Format(dateFormat), b.Name)
 }
 
+type storageClass string
+
+// IsGlacierObject checks if the storage class of object is glacier.
+func (s storageClass) IsGlacier() bool {
+	return s == ObjectStorageClassGlacier
+}
+
 const (
 	// ObjectStorageClassStandard is a standard storage class type.
-	ObjectStorageClassStandard = "STANDARD"
+	ObjectStorageClassStandard storageClass = "STANDARD"
 
 	// ObjectStorageClassReducedRedundancy is a reduced redundancy storage class type.
-	ObjectStorageClassReducedRedundancy = "REDUCED_REDUNDANCY"
+	ObjectStorageClassReducedRedundancy storageClass = "REDUCED_REDUNDANCY"
 
 	// ObjectStorageClassGlacier is a glacier storage class type.
-	ObjectStorageClassGlacier = "GLACIER"
+	ObjectStorageClassGlacier storageClass = "GLACIER"
 
-	// TransitionStorageClassStandardIa is a standard ia storage class type.
-	TransitionStorageClassStandardIa = "STANDARD_IA"
+	// TransitionStorageClassStandardIA is a Standard Infrequent-Access storage
+	// class type.
+	TransitionStorageClassStandardIA storageClass = "STANDARD_IA"
 )
 
-// Storage is an interface for storage operations.
-type Storage interface {
-	Head(context.Context, *objurl.ObjectURL) (*Object, error)
-	List(context.Context, *objurl.ObjectURL, int64) <-chan *Object
-	Copy(context.Context, *objurl.ObjectURL, *objurl.ObjectURL, string) error
-	Get(context.Context, *objurl.ObjectURL, io.WriterAt) error
-	Put(context.Context, io.Reader, *objurl.ObjectURL, string) error
-	Delete(context.Context, string, ...*objurl.ObjectURL) error
-	ListBuckets(context.Context, string) ([]Bucket, error)
-	UpdateRegion(string) error
-	Stats() *Stats
+type notImplemented struct {
+	apiType string
+	method  string
+}
+
+func (e notImplemented) Error() string {
+	return fmt.Sprintf("%q is not supported on %q storage", e.method, e.apiType)
 }

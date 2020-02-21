@@ -10,6 +10,7 @@ import (
 	"github.com/peak/s5cmd/op"
 	"github.com/peak/s5cmd/opt"
 	"github.com/peak/s5cmd/stats"
+	"github.com/peak/s5cmd/storage"
 )
 
 func newJob(sourceDesc, command string, operation op.Operation, args []*JobArgument, opts opt.OptionList) Job {
@@ -38,7 +39,13 @@ var (
 		st:            &st,
 		subJobQueue:   &subJobQueue,
 		idlingCounter: &idlingCounter,
-		newClient:     nil,
+		newClient: func(url *objurl.ObjectURL) (storage.Storage, error) {
+			if url.IsRemote() {
+				panic("remote url is not expected")
+			}
+
+			return storage.NewFilesystem(), nil
+		},
 	}
 
 	// These Jobs are used for benchmarks and also as skeletons for tests

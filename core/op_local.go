@@ -1,7 +1,6 @@
 package core
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path"
@@ -12,7 +11,7 @@ import (
 	"github.com/peak/s5cmd/op"
 	"github.com/peak/s5cmd/opt"
 	"github.com/peak/s5cmd/stats"
-	"github.com/termie/go-shutil"
+	"github.com/peak/s5cmd/storage"
 )
 
 func LocalCopy(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
@@ -25,14 +24,20 @@ func LocalCopy(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
 		return opType, response
 	}
 
-	srcpath := src.url.Absolute()
-	dstpath := dst.url.Absolute()
+	client, err := wp.newClient(src.url)
+	if err != nil {
+		return opType, jobResponse(err)
+	}
 
-	var err error
-	if job.opts.Has(opt.DeleteSource) {
-		err = os.Rename(srcpath, dstpath)
-	} else {
-		_, err = shutil.Copy(srcpath, dstpath, true)
+	err = client.Copy(
+		wp.ctx,
+		src.url,
+		dst.url,
+		job.getStorageClass(),
+	)
+
+	if job.opts.Has(opt.DeleteSource) && err == nil {
+		err = client.Delete(wp.ctx, src.url)
 	}
 
 	return opType, jobResponse(err)
@@ -41,8 +46,14 @@ func LocalCopy(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
 func LocalDelete(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
 	const opType = stats.FileOp
 
-	srcpath := job.args[0].url.Absolute()
-	err := os.Remove(srcpath)
+	src := job.args[0]
+
+	client, err := wp.newClient(src.url)
+	if err != nil {
+		return opType, jobResponse(err)
+	}
+
+	err = client.Delete(wp.ctx, src.url)
 	return opType, jobResponse(err)
 }
 
@@ -57,8 +68,15 @@ func BatchLocalCopy(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
 
 	src, dst := job.args[0], job.args[1]
 
-	st, err := os.Stat(src.url.Absolute())
-	walkMode := err == nil && st.IsDir() // walk or glob?
+	client, err := wp.newClient(src.url)
+	if err != nil {
+		return opType, jobResponse(err)
+	}
+
+	// src.url could contain glob, or could be a directory.
+	// err is not important here
+	obj, err := client.Stat(wp.ctx, src.url)
+	walkMode := err == nil && obj.Type.IsDir()
 
 	trimPrefix := src.url.Absolute()
 	globStart := src.url.Absolute()
@@ -82,65 +100,25 @@ func BatchLocalCopy(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
 		trimPrefix += string(filepath.Separator)
 	}
 
-	recurse := job.opts.Has(opt.Recursive)
+	globurl, _ := objurl.New(globStart)
+	isRecursive := job.opts.Has(opt.Recursive)
 
-	err = wildOperationLocal(wp, func(ch chan<- interface{}) error {
-		defer func() {
-			ch <- nil // send EOF
-		}()
-
-		matchedFiles, err := filepath.Glob(globStart)
-		if err != nil {
-			return err
-		}
-		if len(matchedFiles) == 0 {
-			if walkMode {
-				return nil // Directory empty
-			}
-
-			return errors.New("could not find match for glob")
-		}
-
-		for _, f := range matchedFiles {
-			s := f // copy
-			st, _ := os.Stat(s)
-			if !st.IsDir() {
-				ch <- &s
-			} else if recurse {
-				err = filepath.Walk(s, func(path string, st os.FileInfo, err error) error {
-					if err != nil {
-						return err
-					}
-					if st.IsDir() {
-						return nil
-					}
-					ch <- &path
-					return nil
-				})
-				if err != nil {
-					return err
-				}
-			}
-		}
-		return nil
-	}, func(data interface{}) *Job {
-		if data == nil {
+	err = wildOperation(client, globurl, isRecursive, wp, func(object *storage.Object) *Job {
+		if object.IsMarker() || object.Type.IsDir() {
 			return nil
 		}
-		fn := data.(*string)
 
 		var dstFn string
 		if job.opts.Has(opt.Parents) {
-			dstFn = *fn
+			dstFn = object.URL.Absolute()
 			if strings.Index(dstFn, trimPrefix) == 0 {
 				dstFn = dstFn[len(trimPrefix):]
 			}
 		} else {
-			dstFn = filepath.Base(*fn)
+			dstFn = object.URL.Base()
 		}
 
-		url, _ := objurl.New(*fn)
-		arg1 := NewJobArgument(url)
+		arg1 := NewJobArgument(object.URL)
 		arg2 := dst.Clone().Join(dstFn)
 
 		dir := filepath.Dir(arg2.url.Absolute())
@@ -163,8 +141,15 @@ func BatchLocalUpload(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse)
 
 	src, dst := job.args[0], job.args[1]
 
-	st, err := os.Stat(src.url.Absolute())
-	walkMode := err == nil && st.IsDir() // walk or glob?
+	client, err := wp.newClient(src.url)
+	if err != nil {
+		return opType, jobResponse(err)
+	}
+
+	// src.url could contain glob, or could be a directory.
+	// err is not important here
+	obj, err := client.Stat(wp.ctx, src.url)
+	walkMode := err == nil && obj.Type.IsDir()
 
 	trimPrefix := src.url.Absolute()
 	if !walkMode {
@@ -181,58 +166,22 @@ func BatchLocalUpload(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse)
 		trimPrefix += string(filepath.Separator)
 	}
 
-	err = wildOperationLocal(wp, func(ch chan<- interface{}) error {
-		defer func() {
-			ch <- nil // send EOF
-		}()
-		if walkMode {
-			err := filepath.Walk(src.url.Absolute(), func(path string, st os.FileInfo, err error) error {
-				if err != nil {
-					return err
-				}
-				if st.IsDir() {
-					return nil
-				}
-				ch <- &path
-				return nil
-			})
-			return err
-		} else {
-			matchedFiles, err := filepath.Glob(src.url.Absolute())
-			if err != nil {
-				return err
-			}
-			if len(matchedFiles) == 0 {
-				return errors.New("could not find match for glob")
-			}
-
-			for _, f := range matchedFiles {
-				s := f // copy
-				st, _ = os.Stat(s)
-				if !st.IsDir() {
-					ch <- &s
-				}
-			}
+	err = wildOperation(client, src.url, true, wp, func(object *storage.Object) *Job {
+		if object.IsMarker() || object.Type.IsDir() {
 			return nil
 		}
-	}, func(data interface{}) *Job {
-		if data == nil {
-			return nil
-		}
-		fn := data.(*string)
 
 		var dstFn string
 		if job.opts.Has(opt.Parents) {
-			dstFn = *fn
+			dstFn = object.URL.Absolute()
 			if strings.Index(dstFn, trimPrefix) == 0 {
 				dstFn = dstFn[len(trimPrefix):]
 			}
 		} else {
-			dstFn = filepath.Base(*fn)
+			dstFn = object.URL.Base()
 		}
 
-		url, _ := objurl.New(*fn)
-		arg1 := NewJobArgument(url)
+		arg1 := NewJobArgument(object.URL)
 		arg2 := dst.Clone().Join(dstFn)
 
 		return job.MakeSubJob(subCmd, op.Upload, []*JobArgument{arg1, arg2}, job.opts)

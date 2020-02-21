@@ -128,12 +128,12 @@ func (a *JobArgument) fillData(wp *WorkerParams) error {
 		}
 	}
 
-	client, err := wp.newClient()
+	client, err := wp.newClient(a.url)
 	if err != nil {
 		return err
 	}
 
-	item, err := client.Head(wp.ctx, a.url)
+	object, err := client.Stat(wp.ctx, a.url)
 	wp.st.IncrementIfSuccess(stats.S3Op, err)
 
 	if err != nil {
@@ -144,8 +144,8 @@ func (a *JobArgument) fillData(wp *WorkerParams) error {
 
 	a.filled = true
 	a.exists = true
-	a.modTime = item.LastModified
-	a.size = item.Size
+	a.modTime = object.ModTime
+	a.size = object.Size
 	return nil
 }
 

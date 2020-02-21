@@ -170,7 +170,8 @@ func parseArgumentByType(s string, t opt.ParamType, fnObj *JobArgument) (*JobArg
 	return nil, errors.New("unhandled parseArgumentByType")
 }
 
-// ParseJob parses a job description and returns a *Job type, possibly with other *Job types in successCommand/failCommand
+// ParseJob parses a job description and returns a *Job type, possibly with
+// other *Job types in successCommand/failCommand.
 func ParseJob(jobdesc string) (*Job, error) {
 	jobdesc = strings.Split(jobdesc, " #")[0] // Get rid of comments
 	jobdesc = strings.TrimSpace(jobdesc)
@@ -182,8 +183,9 @@ func ParseJob(jobdesc string) (*Job, error) {
 	return parseSingleJob(jobdesc)
 }
 
-// parseSingleJob attempts to parse a single job description to a standalone Job struct.
-// It will loop through each accepted command-signature, trying to find the first one that fits.
+// parseSingleJob attempts to parse a single job description to a standalone
+// Job struct. It will loop through each accepted command-signature, trying to
+// find the first one that fits.
 func parseSingleJob(jobdesc string) (*Job, error) {
 	if jobdesc == "" || jobdesc[0] == '#' {
 		return nil, nil
@@ -210,14 +212,18 @@ func parseSingleJob(jobdesc string) (*Job, error) {
 		if parts[0] == c.Keyword { // The first token is the name of our command, "cp", "mv" etc.
 			found = i // Save the id of the last matching command, we will use this in our error message if needed
 
-			// Enrich our skeleton Job with default values for this specific command
+			// Enrich our skeleton Job with default values for this specific
+			// command
 			ourJob.command = c.Keyword
 			ourJob.operation = c.Operation
 			ourJob.args = []*JobArgument{}
 			ourJob.opts = c.Opts
 
 			// Parse options below, until endOptParse
-			fileArgsStartPosition := 1 // Position where the real file/s3 arguments start. Before this comes the options/flags.
+
+			// Position where the real file/s3 arguments start. Before this comes the
+			// options/flags.
+			fileArgsStartPosition := 1
 			acceptedOpts := c.Operation.GetAcceptedOpts()
 			for k := 1; k < len(parts); k++ {
 				if parts[k][0] != '-' { // If it doesn't look like an option, end option parsing
@@ -232,7 +238,9 @@ func parseSingleJob(jobdesc string) (*Job, error) {
 						foundOpt = true
 					}
 				}
-				if !foundOpt { // End option parsing if it looks like an option but isn't/doesn't match the list
+				// End option parsing if it looks like an option but
+				// isn't/doesn't match the list
+				if !foundOpt {
 					fileArgsStartPosition = k
 					goto endOptParse
 				}
@@ -254,6 +262,7 @@ func parseSingleJob(jobdesc string) (*Job, error) {
 			if minCount > 0 && (c.Params[minCount-1] == opt.OptionalDir || c.Params[minCount-1] == opt.OptionalFileOrDir) {
 				minCount-- // Optional params are optional
 			}
+
 			if suppliedParamCount < minCount || (maxCount > -1 && suppliedParamCount > maxCount) { // Check if param counts are acceptable
 				// If the number of parameters does not match, try another command
 				continue
@@ -285,7 +294,9 @@ func parseSingleJob(jobdesc string) (*Job, error) {
 				maxI = i
 				lastType = t
 			}
-			if parseArgErr == nil && minCount != maxCount && maxCount == -1 { // If no error yet, and we have unlimited/repeating parameters...
+
+			// If no error yet, and we have unlimited/repeating parameters...
+			if parseArgErr == nil && minCount != maxCount && maxCount == -1 {
 				for i, p := range parts {
 					if i <= maxI+1 {
 						continue

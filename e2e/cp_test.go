@@ -354,6 +354,66 @@ func TestCopySingleFileToS3(t *testing.T) {
 	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content))
 }
 
+func TestCopyDirToS3(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+
+	filesToContent := map[string]string{
+		"testfile1.txt":          "this is a test file 1",
+		"readme.md":              "this is a readme file",
+		"filename-with-hypen.gz": "file has hypen in its name",
+		"another_test_file.txt":  "yet another txt file. yatf.",
+	}
+
+	var files []fs.PathOp
+	for filename, content := range filesToContent {
+		op := fs.WithFile(filename, content)
+		files = append(files, op)
+	}
+
+	workdir := fs.NewDir(t, "somedir", files...)
+	defer workdir.Remove()
+
+	// this command ('s5cmd cp dir/ s3://bucket/') will run in 'walk' mode,
+	// which is different than 'glob' mode.
+	cmd := s5cmd("cp", workdir.Path()+"/", "s3://"+bucket+"/")
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: suffix(` +OK "cp %v/ s3://%v"`, workdir.Path(), bucket),
+		1: suffix(` # All workers idle, finishing up...`),
+	})
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(""),
+		1: contains(` # Uploading another_test_file.txt...`),
+		2: contains(` # Uploading filename-with-hypen.gz...`),
+		3: contains(` # Uploading readme.md...`),
+		4: contains(` # Uploading testfile1.txt...`),
+		5: contains(` + "cp %v/another_test_file.txt s3://%v/another_test_file.txt"`, workdir.Path(), bucket),
+		6: contains(` + "cp %v/filename-with-hypen.gz s3://%v/filename-with-hypen.gz"`, workdir.Path(), bucket),
+		7: contains(` + "cp %v/readme.md s3://%v/readme.md`, workdir.Path(), bucket),
+		8: contains(` + "cp %v/testfile1.txt s3://%v/testfile1.txt"`, workdir.Path(), bucket),
+	}, sortInput(true))
+
+	// assert local filesystem
+	expected := fs.Expected(t, files...)
+	assert.Assert(t, fs.Equal(workdir.Path(), expected))
+
+	// assert s3
+	for filename, content := range filesToContent {
+		assert.Assert(t, ensureS3Object(s3client, bucket, filename, content))
+	}
+}
+
 func TestCopyMultipleFilesToS3(t *testing.T) {
 	t.Parallel()
 

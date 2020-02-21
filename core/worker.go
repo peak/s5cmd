@@ -9,13 +9,14 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/peak/s5cmd/objurl"
 	"github.com/peak/s5cmd/opt"
 	"github.com/peak/s5cmd/stats"
 	"github.com/peak/s5cmd/storage"
 )
 
 // ClientFunc is the function type to create new storage objects.
-type ClientFunc func() (storage.Storage, error)
+type ClientFunc func(*objurl.ObjectURL) (storage.Storage, error)
 
 // WorkerPoolParams is the common parameters of all worker pools.
 type WorkerPoolParams struct {
@@ -54,16 +55,20 @@ type WorkerParams struct {
 
 // NewWorkerPool creates a new worker pool.
 func NewWorkerPool(ctx context.Context, params *WorkerPoolParams, st *stats.Stats) *WorkerPool {
-	newClient := func() (storage.Storage, error) {
-		s3, err := storage.NewS3Storage(storage.S3Opts{
-			MaxRetries:           params.Retries,
-			EndpointURL:          params.EndpointURL,
-			Region:               "",
-			NoVerifySSL:          params.NoVerifySSL,
-			UploadChunkSizeBytes: params.UploadChunkSizeBytes,
-			UploadConcurrency:    params.UploadConcurrency,
-		})
-		return s3, err
+	newClient := func(url *objurl.ObjectURL) (storage.Storage, error) {
+		if url.IsRemote() {
+			s3, err := storage.NewS3Storage(storage.S3Opts{
+				MaxRetries:           params.Retries,
+				EndpointURL:          params.EndpointURL,
+				Region:               "",
+				NoVerifySSL:          params.NoVerifySSL,
+				UploadChunkSizeBytes: params.UploadChunkSizeBytes,
+				UploadConcurrency:    params.UploadConcurrency,
+			})
+			return s3, err
+		}
+
+		return storage.NewFilesystem(), nil
 	}
 
 	cancelFunc := ctx.Value(CancelFuncKey).(context.CancelFunc)
@@ -172,6 +177,7 @@ func (p *WorkerPool) pumpJobQueues() {
 				select {
 				case p.jobQueue <- j:
 				case <-p.ctx.Done():
+					j.subJobData.Done()
 					return
 				}
 			}

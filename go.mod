@@ -12,6 +12,7 @@ require (
 	github.com/iancoleman/strcase v0.0.0-20191112232945-16388991a334
 	github.com/johannesboyne/gofakes3 v0.0.0-20191228161223-9aee1c78a252
 	github.com/kardianos/osext v0.0.0-20170510131534-ae77be60afb1 // indirect
+	github.com/karrick/godirwalk v1.15.3
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/posener/complete v0.0.0-20171104095702-dc2bc5a81acc

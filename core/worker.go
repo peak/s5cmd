@@ -2,7 +2,6 @@ package core
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"log"
 	"os"
@@ -15,9 +14,6 @@ import (
 
 // ClientFunc is the function type to create new storage objects.
 type ClientFunc func() (storage.Storage, error)
-
-// WorkerFunc is the function type to create and run workers.
-type WorkerFunc func(*Job)
 
 // WorkerPoolParams is the common parameters of all worker pools.
 type WorkerManagerParams struct {
@@ -50,7 +46,6 @@ type WorkerParams struct {
 	poolParams *WorkerManagerParams
 	st         *stats.Stats
 	newClient  ClientFunc
-	runWorker  WorkerFunc
 }
 
 // NewWorkerManager creates a new WorkerManager.
@@ -108,6 +103,7 @@ func (w *WorkerManager) release() {
 	<-w.semaphore
 }
 
+// watchJobs listens for the jobs and starts new worker for produced jobs.
 func (w *WorkerManager) watchJobs() {
 	for {
 		select {
@@ -122,8 +118,8 @@ func (w *WorkerManager) watchJobs() {
 	}
 }
 
-// runWorker creates new worker (goroutine) for the job.
-// Worker is closed after all jobs done.
+// runWorker acquires semaphore and creates new worker (goroutine) for the job.
+// Worker is closed after all jobs are done and releases the semaphore.
 func (w *WorkerManager) runWorker(job *Job) {
 	w.acquire()
 	go func() {
@@ -133,13 +129,12 @@ func (w *WorkerManager) runWorker(job *Job) {
 			poolParams: w.params,
 			st:         w.st,
 			newClient:  w.newClient,
-			runWorker:  w.runWorker,
 		}
 		job.Run(wp)
 	}()
 }
 
-// RunCmd will run a single command (and subsequent sub-commands) in the worker pool,
+// RunCmd will run a single command (and subsequent sub-commands) in the worker manager,
 // wait for it to finish, clean up and return.
 func (w *WorkerManager) RunCmd(cmd string) {
 	command := w.parseCommand(cmd)
@@ -153,17 +148,14 @@ func (w *WorkerManager) RunCmd(cmd string) {
 	}
 
 	go func() {
-		err := w.jobProducer.Produce(w.ctx, command)
-		if err != nil {
-			log.Printf("%v\n", err)
-		}
-		w.wg.Wait()
-		close(w.jobQueue)
+		defer w.close()
+		w.jobProducer.Produce(w.ctx, command)
 	}()
 
 	w.watchJobs()
 }
 
+// parseCommand parses command.
 func (w *WorkerManager) parseCommand(cmd string) *Command {
 	command, err := ParseCommand(cmd)
 	if err != nil {
@@ -174,8 +166,14 @@ func (w *WorkerManager) parseCommand(cmd string) *Command {
 	return command
 }
 
-// Run runs the commands in filename in the worker pool, on EOF
-// it will wait for all commands to finish, clean up and return.
+// close waits all jobs to finish and closes jobQueue channel.
+func (w *WorkerManager) close() {
+	w.wg.Wait()
+	close(w.jobQueue)
+}
+
+// Run runs the commands in filename in the worker manager, on EOF
+// it will wait for all jobs to finish, clean up and return.
 func (w *WorkerManager) Run(filename string) {
 	var r io.ReadCloser
 	var err error
@@ -190,26 +188,25 @@ func (w *WorkerManager) Run(filename string) {
 		defer r.Close()
 	}
 
-	go func() {
-		scanner := NewScanner(w.ctx, r)
-
-		for cmd := range scanner.Scan() {
-			command := w.parseCommand(cmd)
-			if command != nil {
-				err := w.jobProducer.Produce(w.ctx, command)
-				if err != nil {
-					fmt.Println(err)
-				}
-			}
-		}
-
-		if err := scanner.Err(); err != nil {
-			log.Printf("-ERR Error reading: %v\n", err)
-		}
-
-		w.wg.Wait()
-		close(w.jobQueue)
-	}()
-
+	go w.produceWithScanner(r)
 	w.watchJobs()
+}
+
+// produceWithScanner reads content from io.ReadCloser and
+// produces jobs for valid commands.
+func (w *WorkerManager) produceWithScanner(r io.ReadCloser) {
+	defer w.close()
+
+	scanner := NewScanner(w.ctx, r)
+
+	for cmd := range scanner.Scan() {
+		command := w.parseCommand(cmd)
+		if command != nil {
+			w.jobProducer.Produce(w.ctx, command)
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		log.Printf("-ERR Error reading: %v\n", err)
+	}
 }

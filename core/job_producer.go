@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/peak/s5cmd/op"
-
 	"github.com/peak/s5cmd/storage"
 )
 
@@ -21,25 +20,20 @@ type Producer struct {
 	enqueueJob func(*Job)
 }
 
-func (p *Producer) Produce(ctx context.Context, command *Command) error {
+func (p *Producer) Produce(ctx context.Context, command *Command) {
 	if command.IsBatch() {
-		return p.batchProduce(ctx, command)
+		p.batchProduce(ctx, command)
+		return
 	}
 
 	job := command.toJob()
 	p.enqueueJob(job)
-	return nil
 }
 
-func (p *Producer) batchProduce(ctx context.Context, command *Command) error {
-	var err error
+func (p *Producer) batchProduce(ctx context.Context, command *Command) {
 	for object := range p.client.List(ctx, command.src, storage.ListAllItems) {
-		if object.Err != nil {
-			err = object.Err
-			continue
-		}
-
-		if object.IsMarkerObject() {
+		// TODO(os): handle error
+		if object.Err != nil || object.IsMarkerObject() {
 			continue
 		}
 
@@ -49,6 +43,4 @@ func (p *Producer) batchProduce(ctx context.Context, command *Command) error {
 			p.enqueueJob(job)
 		}
 	}
-
-	return err
 }

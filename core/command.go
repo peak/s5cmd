@@ -45,7 +45,7 @@ func (c Command) IsBatch() bool {
 	return c.operation.IsBatch()
 }
 
-func (c Command) makeJob(cmd string, operation op.Operation, src, dst *objurl.ObjectURL) *Job {
+func (c Command) makeJob(cmd string, operation op.Operation, dst *objurl.ObjectURL, src ...*objurl.ObjectURL) *Job {
 	return &Job{
 		command:   cmd,
 		operation: operation,
@@ -61,7 +61,7 @@ func (c Command) toJob() *Job {
 		command:   c.keyword,
 		operation: c.operation,
 		opts:      c.opts,
-		src:       c.src,
+		src:       []*objurl.ObjectURL{c.src},
 		dst:       c.dst,
 		cls:       c.getStorageClass(),
 	}

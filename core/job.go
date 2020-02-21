@@ -16,7 +16,7 @@ const dateFormat = "2006/01/02 15:04:05"
 type Job struct {
 	opts      opt.OptionList
 	operation op.Operation
-	src       *objurl.ObjectURL
+	src       []*objurl.ObjectURL
 	dst       *objurl.ObjectURL
 	cls       string
 	command   string
@@ -41,7 +41,10 @@ func jobResponse(err error, msg ...string) *JobResponse {
 // String formats the job using its command and arguments.
 func (j Job) String() string {
 	s := j.command
-	s += " " + j.src.Absolute()
+	for _, src := range j.src {
+		s += " " + src.Absolute()
+	}
+
 	if j.dst != nil {
 		s += " " + j.dst.Absolute()
 	}

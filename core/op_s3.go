@@ -10,7 +10,7 @@ import (
 )
 
 func S3Copy(job *Job, wp *WorkerParams) *JobResponse {
-	src, dst := job.src, job.dst
+	src, dst := job.src[0], job.dst
 
 	client, err := wp.newClient()
 	if err != nil {

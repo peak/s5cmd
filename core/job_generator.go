@@ -9,10 +9,9 @@ import (
 	"github.com/peak/s5cmd/objurl"
 	"github.com/peak/s5cmd/op"
 	"github.com/peak/s5cmd/opt"
-	"github.com/peak/s5cmd/storage"
 )
 
-func S3BatchDownload(command *Command, object *storage.Object) *Job {
+func S3BatchDownload(command *Command, sources ...*objurl.ObjectURL) *Job {
 	cmd := "cp"
 	if command.operation == op.AliasBatchGet {
 		cmd = "get"
@@ -23,28 +22,29 @@ func S3BatchDownload(command *Command, object *storage.Object) *Job {
 	}
 
 	cmd += command.opts.GetParams()
-	dst := command.dst
+	cmdDst := command.dst
+	src := sources[0]
 
 	var dstFn string
 	if command.opts.Has(opt.Parents) {
-		dstFn = object.URL.Path
+		dstFn = src.Path
 	} else {
-		dstFn = object.URL.Base()
+		dstFn = src.Base()
 	}
 
 	joinfn := filepath.Join
-	if dst.IsRemote() {
+	if cmdDst.IsRemote() {
 		joinfn = path.Join
 	}
 
-	clone := dst.Clone()
-	clone.Path = joinfn(clone.Path, dstFn)
-	dir := filepath.Dir(clone.Absolute())
+	dst := cmdDst.Clone()
+	dst.Path = joinfn(dst.Path, dstFn)
+	dir := filepath.Dir(dst.Absolute())
 	os.MkdirAll(dir, os.ModePerm)
-	return command.makeJob(cmd, op.Download, object.URL, clone)
+	return command.makeJob(cmd, op.Download, src, dst)
 }
 
-func S3BatchCopy(command *Command, object *storage.Object) *Job {
+func S3BatchCopy(command *Command, sources ...*objurl.ObjectURL) *Job {
 	cmd := "cp"
 	if command.opts.Has(opt.DeleteSource) {
 		cmd = "mv"
@@ -52,16 +52,20 @@ func S3BatchCopy(command *Command, object *storage.Object) *Job {
 	cmd += command.opts.GetParams()
 
 	dst := command.dst
-	src := object.URL
+	src := sources[0]
 
 	var dstFn string
 	if command.opts.Has(opt.Parents) {
-		dstFn = object.URL.Path
+		dstFn = src.Path
 	} else {
-		dstFn = object.URL.Base()
+		dstFn = src.Base()
 	}
 
 	dstPath := fmt.Sprintf("s3://%v/%v%v", dst.Bucket, dst.Path, dstFn)
 	dstUrl, _ := objurl.New(dstPath)
 	return command.makeJob(cmd, op.Copy, src, dstUrl)
+}
+
+func S3BatchDelete(command *Command, sources ...*objurl.ObjectURL) *Job {
+	return command.makeJob("batch-rm", op.BatchDeleteActual, nil, sources...)
 }

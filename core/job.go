@@ -186,32 +186,38 @@ func (j *Job) Run(wp WorkerParams) {
 	}
 }
 
-type wildCallback func(*storage.Object) *Job
+type makeJobFunc func(*storage.Object) *Job
 
 // wildOperation is the cornerstone of sub-job launching for S3.
 //
 // It will run storage.List() and creates jobs from produced items by
-// running callback function. Generated jobs will be pumped to subJobQueue
+// running makeJob function. Generated jobs will be send to subJobQueue
 // for sub-job launching.
 //
 // After all sub-jobs created and executed, it waits all jobs to finish.
-func wildOperation(client storage.Storage, url *objurl.ObjectURL, isRecursive bool, wp *WorkerParams, callback wildCallback) error {
+func wildOperation(
+	client storage.Storage,
+	url *objurl.ObjectURL,
+	isRecursive bool,
+	wp *WorkerParams,
+	makeJob makeJobFunc,
+) error {
 	var subJobCounter uint32
 	subjobStats := subjobStatsType{}
 
-	for item := range client.List(wp.ctx, url, isRecursive, storage.ListAllItems) {
-		if item.Err != nil {
-			verboseLog("wildOperation lister is done with error: %v", item.Err)
+	for object := range client.List(wp.ctx, url, isRecursive, storage.ListAllItems) {
+		if object.Err != nil {
+			verboseLog("wildcard: listing has error: %v", object.Err)
 			continue
 		}
 
-		j := callback(item)
-		if j != nil {
-			j.subJobData = &subjobStats
+		job := makeJob(object)
+		if job != nil {
+			job.subJobData = &subjobStats
 			subjobStats.Add(1)
 			subJobCounter++
 			select {
-			case *wp.subJobQueue <- j:
+			case *wp.subJobQueue <- job:
 			case <-wp.ctx.Done():
 				subjobStats.Done()
 				break

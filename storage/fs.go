@@ -59,11 +59,13 @@ func (f *Filesystem) expandGlob(ctx context.Context, url *objurl.ObjectURL, isRe
 
 		matchedFiles, err := filepath.Glob(url.Absolute())
 		if err != nil {
-			// TODO(ig): expose error
+			obj := &Object{Err: err}
+			sendObject(ctx, obj, ch)
 			return
 		}
 		if len(matchedFiles) == 0 {
-			// TODO(ig): expose "no match found" error
+			obj := &Object{Err: fmt.Errorf("no match found for %q", url)}
+			sendObject(ctx, obj, ch)
 			return
 		}
 

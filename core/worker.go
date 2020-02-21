@@ -41,6 +41,7 @@ type WorkerManager struct {
 	st          *stats.Stats
 	jobQueue    chan *Job
 	jobProducer *Producer
+	semaphore   chan bool
 }
 
 // WorkerParams is the params/state of a single worker.
@@ -69,7 +70,7 @@ func NewWorkerManager(ctx context.Context, params *WorkerManagerParams, st *stat
 	cancelFunc := ctx.Value(CancelFuncKey).(context.CancelFunc)
 
 	wg := &sync.WaitGroup{}
-	jobQueue := make(chan *Job, params.MaxWorkers)
+	jobQueue := make(chan *Job)
 
 	enqueueJob := func(job *Job) {
 		wg.Add(1)
@@ -85,6 +86,7 @@ func NewWorkerManager(ctx context.Context, params *WorkerManagerParams, st *stat
 		cancelFunc: cancelFunc,
 		st:         st,
 		jobQueue:   jobQueue,
+		semaphore:  make(chan bool, params.MaxWorkers),
 		jobProducer: &Producer{
 			client:     producerClient,
 			enqueueJob: enqueueJob,
@@ -92,6 +94,18 @@ func NewWorkerManager(ctx context.Context, params *WorkerManagerParams, st *stat
 	}
 
 	return w
+}
+
+// acquire acquires the semaphore and blocks until resources are available.
+// It also increments the WaitGroup counter by one.
+func (w *WorkerManager) acquire() {
+	w.semaphore <- true
+}
+
+// release decrements the WaitGroup counter by one and releases the semaphore.
+func (w *WorkerManager) release() {
+	w.wg.Done()
+	<-w.semaphore
 }
 
 func (w *WorkerManager) watchJobs() {
@@ -111,8 +125,9 @@ func (w *WorkerManager) watchJobs() {
 // runWorker creates new worker (goroutine) for the job.
 // Worker is closed after all jobs done.
 func (w *WorkerManager) runWorker(job *Job) {
+	w.acquire()
 	go func() {
-		defer w.wg.Done()
+		defer w.release()
 		wp := WorkerParams{
 			ctx:        w.ctx,
 			poolParams: w.params,

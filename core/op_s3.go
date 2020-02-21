@@ -1,47 +1,57 @@
 package core
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"strings"
 
 	"github.com/peak/s5cmd/opt"
-	"github.com/peak/s5cmd/stats"
 	"github.com/peak/s5cmd/storage"
 )
 
-func S3Copy(ctx context.Context, job *Job) *JobResponse {
+func S3Copy(job *Job, wp *WorkerParams) *JobResponse {
 	src, dst := job.src, job.dst
-	client := job.client
 
-	err := client.Copy(
-		ctx,
+	client, err := wp.newClient()
+	if err != nil {
+		return jobResponse(err)
+	}
+
+	err = client.Copy(
+		wp.ctx,
 		dst,
 		src,
 		job.cls,
 	)
 
 	if job.opts.Has(opt.DeleteSource) && err == nil {
-		err = client.Delete(ctx, src.Bucket, src)
+		err = client.Delete(wp.ctx, src.Bucket, src)
 	}
 
 	return jobResponse(err)
 }
 
-func S3Delete(ctx context.Context, job *Job) *JobResponse {
-	// TODO: FIX
+func S3Delete(job *Job, wp *WorkerParams) *JobResponse {
+	client, err := wp.newClient()
+	if err != nil {
+		return jobResponse(err)
+	}
+
 	src := job.src
-	err := job.client.Delete(ctx, src.Bucket, job.dst)
+	err = client.Delete(wp.ctx, src.Bucket, job.dst)
 	return jobResponse(err)
 }
 
-func S3Download(ctx context.Context, job *Job) *JobResponse {
+func S3Download(job *Job, wp *WorkerParams) *JobResponse {
 	src, dst := job.src, job.dst
+
+	client, err := wp.newClient()
+	if err != nil {
+		return jobResponse(err)
+	}
 
 	srcFn := src.Base()
 	destFn := dst.Absolute()
-	client := job.client
 
 	f, err := os.Create(destFn)
 	if err != nil {
@@ -50,17 +60,17 @@ func S3Download(ctx context.Context, job *Job) *JobResponse {
 	defer f.Close()
 
 	infoLog("Downloading %s...", srcFn)
-	err = client.Get(ctx, src, f)
+	err = client.Get(wp.ctx, src, f)
 	if err != nil {
 		os.Remove(destFn) // Remove partly downloaded file
 	} else if job.opts.Has(opt.DeleteSource) {
-		err = client.Delete(ctx, src.Bucket, src)
+		err = client.Delete(wp.ctx, src.Bucket, src)
 	}
 
 	return jobResponse(err)
 }
 
-func S3Upload(ctx context.Context, job *Job) *JobResponse {
+func S3Upload(job *Job, wp *WorkerParams) *JobResponse {
 	src, dst := job.src, job.dst
 	srcFn := src.Base()
 
@@ -70,10 +80,15 @@ func S3Upload(ctx context.Context, job *Job) *JobResponse {
 	}
 	defer f.Close()
 
+	client, err := wp.newClient()
+	if err != nil {
+		return jobResponse(err)
+	}
+
 	infoLog("Uploading %s...", srcFn)
 
-	err = job.client.Put(
-		ctx,
+	err = client.Put(
+		wp.ctx,
 		f,
 		dst,
 		job.cls,
@@ -82,8 +97,13 @@ func S3Upload(ctx context.Context, job *Job) *JobResponse {
 	return jobResponse(err)
 }
 
-func S3ListBuckets(ctx context.Context, job *Job) *JobResponse {
-	buckets, err := job.client.ListBuckets(ctx, "")
+func S3ListBuckets(_ *Job, wp *WorkerParams) *JobResponse {
+	client, err := wp.newClient()
+	if err != nil {
+		return jobResponse(err)
+	}
+
+	buckets, err := client.ListBuckets(wp.ctx, "")
 	if err != nil {
 		return jobResponse(err)
 	}
@@ -96,17 +116,19 @@ func S3ListBuckets(ctx context.Context, job *Job) *JobResponse {
 	return jobResponse(err, msg...)
 }
 
-func S3List(ctx context.Context, job *Job) *JobResponse {
-	const opType = stats.S3Op
-
+func S3List(job *Job, wp *WorkerParams) *JobResponse {
 	showETags := job.opts.Has(opt.ListETags)
 	humanize := job.opts.Has(opt.HumanReadable)
 
 	src := job.src
-	client := job.client
+
+	client, err := wp.newClient()
+	if err != nil {
+		return jobResponse(err)
+	}
 
 	var msg []string
-	for item := range client.List(ctx, src, storage.ListAllItems) {
+	for item := range client.List(wp.ctx, src, storage.ListAllItems) {
 		if item.IsMarkerObject() || item.Err != nil {
 			continue
 		}
@@ -154,16 +176,21 @@ func S3List(ctx context.Context, job *Job) *JobResponse {
 	return jobResponse(nil, msg...)
 }
 
-func S3Size(ctx context.Context, job *Job) *JobResponse {
+func S3Size(job *Job, wp *WorkerParams) *JobResponse {
 	type sizeAndCount struct {
 		size  int64
 		count int64
 	}
-
 	src := job.src
+
+	client, err := wp.newClient()
+	if err != nil {
+		return jobResponse(err)
+	}
+
 	totals := map[string]sizeAndCount{}
 
-	for item := range job.client.List(ctx, src, storage.ListAllItems) {
+	for item := range client.List(wp.ctx, src, storage.ListAllItems) {
 		if item.IsMarkerObject() || item.IsDirectory {
 			continue
 		}

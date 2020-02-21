@@ -76,6 +76,7 @@ func NewWorkerManager(ctx context.Context, params *WorkerManagerParams, st *stat
 		jobQueue <- job
 	}
 
+	producerClient, _ := newClient()
 	w := &WorkerManager{
 		ctx:        ctx,
 		params:     params,
@@ -85,8 +86,7 @@ func NewWorkerManager(ctx context.Context, params *WorkerManagerParams, st *stat
 		st:         st,
 		jobQueue:   jobQueue,
 		jobProducer: &Producer{
-			newClient:  newClient,
-			batchSize:  1,
+			client:     producerClient,
 			enqueueJob: enqueueJob,
 		},
 	}
@@ -97,7 +97,10 @@ func NewWorkerManager(ctx context.Context, params *WorkerManagerParams, st *stat
 func (w *WorkerManager) watchJobs() {
 	for {
 		select {
-		case j := <-w.jobQueue:
+		case j, ok := <-w.jobQueue:
+			if !ok {
+				return
+			}
 			w.runWorker(j)
 		case <-w.ctx.Done():
 			return
@@ -172,25 +175,26 @@ func (w *WorkerManager) Run(filename string) {
 		defer r.Close()
 	}
 
-	scanner := NewScanner(w.ctx, r)
+	go func() {
+		scanner := NewScanner(w.ctx, r)
 
-	for cmd := range scanner.Scan() {
-		command := w.parseCommand(cmd)
-		if command != nil {
-			err := w.jobProducer.Produce(w.ctx, command)
-			if err != nil {
-				fmt.Println(err)
+		for cmd := range scanner.Scan() {
+			command := w.parseCommand(cmd)
+			if command != nil {
+				err := w.jobProducer.Produce(w.ctx, command)
+				if err != nil {
+					fmt.Println(err)
+				}
 			}
 		}
-	}
 
-	if err := scanner.Err(); err != nil {
-		log.Printf("-ERR Error reading: %v\n", err)
-	}
+		if err := scanner.Err(); err != nil {
+			log.Printf("-ERR Error reading: %v\n", err)
+		}
 
-	go func() {
 		w.wg.Wait()
 		close(w.jobQueue)
 	}()
+
 	w.watchJobs()
 }

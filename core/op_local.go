@@ -1,14 +1,13 @@
 package core
 
 import (
-	"context"
 	"os"
 
 	"github.com/peak/s5cmd/opt"
 	"github.com/termie/go-shutil"
 )
 
-func LocalCopy(_ context.Context, job *Job) *JobResponse {
+func LocalCopy(job *Job, wp *WorkerParams) *JobResponse {
 	src, dst := job.src, job.dst
 	srcPath := src.Absolute()
 	dstPath := dst.Absolute()
@@ -23,7 +22,7 @@ func LocalCopy(_ context.Context, job *Job) *JobResponse {
 	return jobResponse(err)
 }
 
-func LocalDelete(_ context.Context, job *Job) *JobResponse {
+func LocalDelete(job *Job, wp *WorkerParams) *JobResponse {
 	srcPath := job.src.Absolute()
 	err := os.Remove(srcPath)
 	return jobResponse(err)

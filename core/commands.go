@@ -1,12 +1,10 @@
 package core
 
 import (
-	"context"
-
 	"github.com/peak/s5cmd/op"
 )
 
-type commandFunc func(context.Context, *Job) *JobResponse
+type commandFunc func(*Job, *WorkerParams) *JobResponse
 
 var globalCmdRegistry = map[op.Operation]commandFunc{
 	op.LocalCopy:   LocalCopy,

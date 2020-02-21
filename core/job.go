@@ -8,14 +8,12 @@ import (
 	"github.com/peak/s5cmd/op"
 	"github.com/peak/s5cmd/opt"
 	"github.com/peak/s5cmd/stats"
-	"github.com/peak/s5cmd/storage"
 )
 
 const dateFormat = "2006/01/02 15:04:05"
 
 // Job is the job type that is executed for each command.
 type Job struct {
-	client    storage.Storage
 	opts      opt.OptionList
 	operation op.Operation
 	src       *objurl.ObjectURL
@@ -82,7 +80,6 @@ func (j *Job) Log() {
 func (j *Job) run(wp *WorkerParams) *JobResponse {
 	cmdFunc, ok := globalCmdRegistry[j.operation]
 	if !ok {
-		fmt.Printf("unsupported op.... %s", j.operation)
 		return &JobResponse{
 			status: statusErr,
 			err:    fmt.Errorf("unhandled operation %v", j.operation),
@@ -90,7 +87,7 @@ func (j *Job) run(wp *WorkerParams) *JobResponse {
 	}
 
 	// runner will get cmdFunc
-	response := cmdFunc(wp.ctx, j)
+	response := cmdFunc(j, wp)
 	if response != nil {
 		j.response = response
 		j.Log()

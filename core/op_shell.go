@@ -1,16 +1,15 @@
 package core
 
 import (
-	"context"
 	"os"
 	"os/exec"
 	"strconv"
 )
 
-func ShellExec(ctx context.Context, job *Job) *JobResponse {
+func ShellExec(job *Job, wp *WorkerParams) *JobResponse {
 	// FIXME: SHELLEXEC
 	strArgs := make([]string, 0)
-	cmd := exec.CommandContext(ctx, job.src.Absolute(), strArgs...)
+	cmd := exec.CommandContext(wp.ctx, job.src.Absolute(), strArgs...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	err := cmd.Run()
@@ -18,7 +17,7 @@ func ShellExec(ctx context.Context, job *Job) *JobResponse {
 	return jobResponse(err)
 }
 
-func ShellAbort(ctx context.Context, job *Job) *JobResponse {
+func ShellAbort(job *Job, wp *WorkerParams) *JobResponse {
 	var (
 		exitCode int64 = -1
 		err      error
@@ -31,7 +30,7 @@ func ShellAbort(ctx context.Context, job *Job) *JobResponse {
 		}
 	}
 
-	exitFn := ctx.Value(ExitFuncKey).(func(int))
+	exitFn := wp.ctx.Value(ExitFuncKey).(func(int))
 	exitFn(int(exitCode))
 
 	return jobResponse(nil)

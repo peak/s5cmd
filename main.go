@@ -53,7 +53,7 @@ func main() {
 	var (
 		flagCommandFile         = flag.String("f", "", "Commands-file or - for stdin")
 		flagEndpointURL         = flag.String("endpoint-url", "", "Override default URL with the given one")
-		flagWorkerCount         = flag.Int("numworkers", defaultWorkerCount, fmt.Sprintf("Number of worker goroutines. Negative numbers mean multiples of the CPU core count."))
+		flagWorkerCount         = flag.Int("numworkers", defaultWorkerCount, "Number of worker goroutines. Negative numbers mean multiples of the CPU core count")
 		flagDownloadConcurrency = flag.Int("dw", defaultDownloadConcurrency, "Download concurrency for each file")
 		flagDownloadPartSize    = flag.Int("ds", 50, "Multipart chunk size in MB for downloads")
 		flagUploadConcurrency   = flag.Int("uw", defaultUploadConcurrency, "Upload concurrency for each file")

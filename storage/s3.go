@@ -101,33 +101,35 @@ func (s *S3) Stat(ctx context.Context, url *objurl.ObjectURL) (*Object, error) {
 // found or an error is encountered during this period, it sends these errors
 // to item channel.
 func (s *S3) List(ctx context.Context, url *objurl.ObjectURL, _ bool, maxKeys int64) <-chan *Object {
-	objCh := make(chan *Object)
-	inp := s3.ListObjectsV2Input{
+	listInput := s3.ListObjectsV2Input{
 		Bucket: aws.String(url.Bucket),
 		Prefix: aws.String(url.Prefix),
 	}
 
 	if url.Delimiter != "" {
-		inp.SetDelimiter(url.Delimiter)
+		listInput.SetDelimiter(url.Delimiter)
 	}
 
 	shouldPaginate := maxKeys < 0
 	if !shouldPaginate {
-		inp.SetMaxKeys(maxKeys)
+		listInput.SetMaxKeys(maxKeys)
 	}
+
+	objCh := make(chan *Object)
 
 	go func() {
 		defer close(objCh)
 		itemFound := false
 
-		err := s.api.ListObjectsV2PagesWithContext(ctx, &inp, func(p *s3.ListObjectsV2Output, lastPage bool) bool {
+		err := s.api.ListObjectsV2PagesWithContext(ctx, &listInput, func(p *s3.ListObjectsV2Output, lastPage bool) bool {
 			for _, c := range p.CommonPrefixes {
-				if !url.Match(aws.StringValue(c.Prefix)) {
+				prefix := aws.StringValue(c.Prefix)
+				if !url.Match(prefix) {
 					continue
 				}
 
 				newurl := url.Clone()
-				newurl.Path = aws.StringValue(c.Prefix)
+				newurl.Path = prefix
 				objCh <- &Object{
 					URL:  newurl,
 					Type: os.ModeDir,
@@ -137,12 +139,13 @@ func (s *S3) List(ctx context.Context, url *objurl.ObjectURL, _ bool, maxKeys in
 			}
 
 			for _, c := range p.Contents {
-				if !url.Match(aws.StringValue(c.Key)) {
+				key := aws.StringValue(c.Key)
+				if !url.Match(key) {
 					continue
 				}
 
 				var objtype os.FileMode
-				if strings.HasSuffix(aws.StringValue(c.Key), "/") {
+				if strings.HasSuffix(key, "/") {
 					objtype = os.ModeDir
 				}
 

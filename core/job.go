@@ -1,6 +1,8 @@
 package core
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"log"
 
@@ -8,6 +10,7 @@ import (
 	"github.com/peak/s5cmd/op"
 	"github.com/peak/s5cmd/opt"
 	"github.com/peak/s5cmd/stats"
+	"github.com/peak/s5cmd/storage"
 )
 
 const dateFormat = "2006/01/02 15:04:05"
@@ -62,6 +65,16 @@ func (j *Job) Log() {
 
 	errStr := ""
 	if err != nil {
+		if !Verbose {
+			if errors.Is(err, context.Canceled) {
+				return
+			}
+
+			if storage.IsCancelationError(err) {
+				return
+			}
+		}
+
 		errStr = CleanupError(err)
 	}
 

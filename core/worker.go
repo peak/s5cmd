@@ -7,13 +7,14 @@ import (
 	"os"
 	"sync"
 
+	"github.com/peak/s5cmd/objurl"
 	"github.com/peak/s5cmd/opt"
 	"github.com/peak/s5cmd/stats"
 	"github.com/peak/s5cmd/storage"
 )
 
 // ClientFunc is the function type to create new storage objects.
-type ClientFunc func() (storage.Storage, error)
+type ClientFunc func(*objurl.ObjectURL) (storage.Storage, error)
 
 // WorkerPoolParams is the common parameters of all worker pools.
 type WorkerManagerParams struct {
@@ -50,16 +51,20 @@ type WorkerParams struct {
 
 // NewWorkerManager creates a new WorkerManager.
 func NewWorkerManager(ctx context.Context, params *WorkerManagerParams, st *stats.Stats) *WorkerManager {
-	newClient := func() (storage.Storage, error) {
-		s3, err := storage.NewS3Storage(storage.S3Opts{
-			MaxRetries:           params.Retries,
-			EndpointURL:          params.EndpointURL,
-			Region:               "",
-			NoVerifySSL:          params.NoVerifySSL,
-			UploadChunkSizeBytes: params.UploadChunkSizeBytes,
-			UploadConcurrency:    params.UploadConcurrency,
-		})
-		return s3, err
+	newClient := func(url *objurl.ObjectURL) (storage.Storage, error) {
+		if url.IsRemote() {
+			s3, err := storage.NewS3Storage(storage.S3Opts{
+				MaxRetries:           params.Retries,
+				EndpointURL:          params.EndpointURL,
+				Region:               "",
+				NoVerifySSL:          params.NoVerifySSL,
+				UploadChunkSizeBytes: params.UploadChunkSizeBytes,
+				UploadConcurrency:    params.UploadConcurrency,
+			})
+			return s3, err
+		}
+
+		return storage.NewFilesystem(), nil
 	}
 
 	cancelFunc := ctx.Value(CancelFuncKey).(context.CancelFunc)
@@ -72,19 +77,17 @@ func NewWorkerManager(ctx context.Context, params *WorkerManagerParams, st *stat
 		jobQueue <- job
 	}
 
-	// TODO(os): handle error and move
-	producerClient, _ := newClient()
 	w := &WorkerManager{
 		ctx:        ctx,
 		params:     params,
 		wg:         wg,
-		newClient:  newClient,
 		cancelFunc: cancelFunc,
 		st:         st,
 		jobQueue:   jobQueue,
+		newClient:  newClient,
 		semaphore:  make(chan bool, params.MaxWorkers),
 		jobProducer: &Producer{
-			client:     producerClient,
+			newClient:  newClient,
 			enqueueJob: enqueueJob,
 		},
 	}

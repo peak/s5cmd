@@ -24,7 +24,7 @@ var producerRegistry = map[op.Operation]producerOp{
 }
 
 type Producer struct {
-	client     storage.Storage
+	newClient  ClientFunc
 	enqueueJob func(*Job)
 }
 
@@ -51,8 +51,11 @@ func (p *Producer) batchProduce(ctx context.Context, command *Command) {
 }
 
 func (p *Producer) fullScan(ctx context.Context, command *Command, fn producerFunc) {
+	// TODO(os): handle error
+	client, _ := p.newClient(command.dst)
+
 	var urls []*objurl.ObjectURL
-	for object := range p.client.List(ctx, command.src, storage.ListAllItems) {
+	for object := range client.List(ctx, command.src, true, storage.ListAllItems) {
 		// TODO(os): handle error
 		if object.Err != nil {
 			continue
@@ -66,9 +69,12 @@ func (p *Producer) fullScan(ctx context.Context, command *Command, fn producerFu
 }
 
 func (p *Producer) lookup(ctx context.Context, command *Command, fn producerFunc) {
-	for object := range p.client.List(ctx, command.src, storage.ListAllItems) {
+	// TODO(os): handle error
+	client, _ := p.newClient(command.dst)
+
+	for object := range client.List(ctx, command.src, true, storage.ListAllItems) {
 		// TODO(os): handle error
-		if object.Err != nil || object.IsMarkerObject() {
+		if object.Err != nil {
 			continue
 		}
 

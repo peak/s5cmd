@@ -7,9 +7,12 @@ import (
 )
 
 func ShellExec(job *Job, wp *WorkerParams) *JobResponse {
-	// FIXME: SHELLEXEC
 	strArgs := make([]string, 0)
-	cmd := exec.CommandContext(wp.ctx, job.src.Absolute(), strArgs...)
+
+	for _, src := range job.src {
+		strArgs = append(strArgs, src.Absolute())
+	}
+	cmd := exec.CommandContext(wp.ctx, job.dst.Absolute(), strArgs...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	err := cmd.Run()
@@ -21,10 +24,11 @@ func ShellAbort(job *Job, wp *WorkerParams) *JobResponse {
 	var (
 		exitCode int64 = -1
 		err      error
+		src      = job.src[0]
 	)
 
 	if job.src != nil {
-		exitCode, err = strconv.ParseInt(job.src.Absolute(), 10, 8)
+		exitCode, err = strconv.ParseInt(src.Absolute(), 10, 8)
 		if err != nil {
 			exitCode = 255
 		}

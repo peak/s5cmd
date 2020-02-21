@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/peak/s5cmd/objurl"
 	"github.com/peak/s5cmd/opt"
 	"github.com/peak/s5cmd/storage"
 )
@@ -12,7 +13,7 @@ import (
 func S3Copy(job *Job, wp *WorkerParams) *JobResponse {
 	src, dst := job.src[0], job.dst
 
-	client, err := wp.newClient()
+	client, err := wp.newClient(src)
 	if err != nil {
 		return jobResponse(err)
 	}
@@ -25,27 +26,28 @@ func S3Copy(job *Job, wp *WorkerParams) *JobResponse {
 	)
 
 	if job.opts.Has(opt.DeleteSource) && err == nil {
-		err = client.Delete(wp.ctx, src.Bucket, src)
+		err = client.Delete(wp.ctx, src)
 	}
 
 	return jobResponse(err)
 }
 
 func S3Delete(job *Job, wp *WorkerParams) *JobResponse {
-	client, err := wp.newClient()
+	src := job.src[0]
+
+	client, err := wp.newClient(src)
 	if err != nil {
 		return jobResponse(err)
 	}
 
-	src := job.src
-	err = client.Delete(wp.ctx, src.Bucket, job.dst)
+	err = client.Delete(wp.ctx, src)
 	return jobResponse(err)
 }
 
 func S3Download(job *Job, wp *WorkerParams) *JobResponse {
-	src, dst := job.src, job.dst
+	src, dst := job.src[0], job.dst
 
-	client, err := wp.newClient()
+	client, err := wp.newClient(src)
 	if err != nil {
 		return jobResponse(err)
 	}
@@ -64,14 +66,14 @@ func S3Download(job *Job, wp *WorkerParams) *JobResponse {
 	if err != nil {
 		os.Remove(destFn) // Remove partly downloaded file
 	} else if job.opts.Has(opt.DeleteSource) {
-		err = client.Delete(wp.ctx, src.Bucket, src)
+		err = client.Delete(wp.ctx, src)
 	}
 
 	return jobResponse(err)
 }
 
 func S3Upload(job *Job, wp *WorkerParams) *JobResponse {
-	src, dst := job.src, job.dst
+	src, dst := job.src[0], job.dst
 	srcFn := src.Base()
 
 	f, err := os.Open(src.Absolute())
@@ -80,7 +82,8 @@ func S3Upload(job *Job, wp *WorkerParams) *JobResponse {
 	}
 	defer f.Close()
 
-	client, err := wp.newClient()
+	// infer the client based on destination, which is a remote storage.
+	client, err := wp.newClient(dst)
 	if err != nil {
 		return jobResponse(err)
 	}
@@ -98,7 +101,9 @@ func S3Upload(job *Job, wp *WorkerParams) *JobResponse {
 }
 
 func S3ListBuckets(_ *Job, wp *WorkerParams) *JobResponse {
-	client, err := wp.newClient()
+	// set as remote storage
+	url := &objurl.ObjectURL{Type: 0}
+	client, err := wp.newClient(url)
 	if err != nil {
 		return jobResponse(err)
 	}
@@ -120,54 +125,54 @@ func S3List(job *Job, wp *WorkerParams) *JobResponse {
 	showETags := job.opts.Has(opt.ListETags)
 	humanize := job.opts.Has(opt.HumanReadable)
 
-	src := job.src
+	src := job.src[0]
 
-	client, err := wp.newClient()
+	client, err := wp.newClient(src)
 	if err != nil {
 		return jobResponse(err)
 	}
 
 	var msg []string
-	for item := range client.List(wp.ctx, src, storage.ListAllItems) {
-		if item.IsMarkerObject() || item.Err != nil {
+	for object := range client.List(wp.ctx, src, true, storage.ListAllItems) {
+		if object.Err != nil {
 			continue
 		}
 
-		if item.IsDirectory {
-			msg = append(msg, fmt.Sprintf("%19s %1s %-38s  %12s  %s", "", "", "", "DIR", item.URL.Relative()))
+		if object.Type.IsDir() {
+			msg = append(msg, fmt.Sprintf("%19s %1s %-38s  %12s  %s", "", "", "", "DIR", object.URL.Relative()))
 		} else {
 			var cls, etag, size string
 
-			switch item.StorageClass {
+			switch object.StorageClass {
 			case storage.ObjectStorageClassStandard:
 				cls = ""
 			case storage.ObjectStorageClassGlacier:
 				cls = "G"
 			case storage.ObjectStorageClassReducedRedundancy:
 				cls = "R"
-			case storage.TransitionStorageClassStandardIa:
+			case storage.TransitionStorageClassStandardIA:
 				cls = "I"
 			default:
 				cls = "?"
 			}
 
 			if showETags {
-				etag = strings.Trim(item.Etag, `"`)
+				etag = strings.Trim(object.Etag, `"`)
 			}
 			if humanize {
-				size = HumanizeBytes(item.Size)
+				size = HumanizeBytes(object.Size)
 			} else {
-				size = fmt.Sprintf("%d", item.Size)
+				size = fmt.Sprintf("%d", object.Size)
 			}
 
 			msg = append(
 				msg,
 				fmt.Sprintf("%s %1s %-38s %12s  %s",
-					item.LastModified.Format(dateFormat),
+					object.ModTime.Format(dateFormat),
 					cls,
 					etag,
 					size,
-					item.URL.Relative(),
+					object.URL.Relative(),
 				),
 			)
 		}
@@ -181,22 +186,22 @@ func S3Size(job *Job, wp *WorkerParams) *JobResponse {
 		size  int64
 		count int64
 	}
-	src := job.src
+	src := job.src[0]
 
-	client, err := wp.newClient()
+	client, err := wp.newClient(src)
 	if err != nil {
 		return jobResponse(err)
 	}
 
 	totals := map[string]sizeAndCount{}
 
-	for item := range client.List(wp.ctx, src, storage.ListAllItems) {
-		if item.IsMarkerObject() || item.IsDirectory {
+	for object := range client.List(wp.ctx, src, true, storage.ListAllItems) {
+		if object.Type.IsDir() {
 			continue
 		}
-		storageClass := item.StorageClass
+		storageClass := string(object.StorageClass)
 		s := totals[storageClass]
-		s.size += item.Size
+		s.size += object.Size
 		s.count++
 		totals[storageClass] = s
 	}
@@ -220,5 +225,5 @@ func S3Size(job *Job, wp *WorkerParams) *JobResponse {
 		}
 	}
 
-	return jobResponse(nil, msg...)
+	return jobResponse(err, msg...)
 }

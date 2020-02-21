@@ -65,6 +65,8 @@ github.com/johannesboyne/gofakes3/internal/goskipiter
 github.com/johannesboyne/gofakes3/internal/s3io
 # github.com/kardianos/osext v0.0.0-20170510131534-ae77be60afb1
 github.com/kardianos/osext
+# github.com/karrick/godirwalk v1.15.3
+github.com/karrick/godirwalk
 # github.com/pkg/errors v0.9.1
 github.com/pkg/errors
 # github.com/posener/complete v0.0.0-20171104095702-dc2bc5a81acc

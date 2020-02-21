@@ -31,11 +31,11 @@ func (c Command) String() string {
 func (c Command) getStorageClass() string {
 	var cls string
 	if c.opts.Has(opt.RR) {
-		cls = storage.ObjectStorageClassReducedRedundancy
+		cls = string(storage.ObjectStorageClassReducedRedundancy)
 	} else if c.opts.Has(opt.IA) {
-		cls = storage.TransitionStorageClassStandardIa
+		cls = string(storage.TransitionStorageClassStandardIA)
 	} else {
-		cls = storage.ObjectStorageClassStandard
+		cls = string(storage.ObjectStorageClassStandard)
 	}
 	return cls
 }

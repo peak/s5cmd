@@ -208,7 +208,10 @@ func parseSingleCommand(cmd string) (*Command, error) {
 			command.opts = c.Opts
 
 			// Parse options below, until endOptParse
-			fileArgsStartPosition := 1 // Position where the real file/s3 arguments start. Before this comes the options/flags.
+
+			// Position where the real file/s3 arguments start. Before this comes the
+			// options/flags.
+			fileArgsStartPosition := 1
 			acceptedOpts := c.Operation.GetAcceptedOpts()
 			for k := 1; k < len(parts); k++ {
 				if parts[k][0] != '-' { // If it doesn't look like an option, end option parsing
@@ -223,7 +226,9 @@ func parseSingleCommand(cmd string) (*Command, error) {
 						foundOpt = true
 					}
 				}
-				if !foundOpt { // End option parsing if it looks like an option but isn't/doesn't match the list
+				// End option parsing if it looks like an option but
+				// isn't/doesn't match the list
+				if !foundOpt {
 					fileArgsStartPosition = k
 					goto endOptParse
 				}
@@ -245,6 +250,7 @@ func parseSingleCommand(cmd string) (*Command, error) {
 			if minCount > 0 && (c.Params[minCount-1] == opt.OptionalDir || c.Params[minCount-1] == opt.OptionalFileOrDir) {
 				minCount-- // Optional params are optional
 			}
+
 			if suppliedParamCount < minCount || (maxCount > -1 && suppliedParamCount > maxCount) { // Check if param counts are acceptable
 				// If the number of parameters does not match, try another command
 				continue
@@ -280,7 +286,9 @@ func parseSingleCommand(cmd string) (*Command, error) {
 				maxI = i
 				lastType = t
 			}
-			if parseArgErr == nil && minCount != maxCount && maxCount == -1 { // If no error yet, and we have unlimited/repeating parameters...
+
+			// If no error yet, and we have unlimited/repeating parameters...
+			if parseArgErr == nil && minCount != maxCount && maxCount == -1 {
 				for i, p := range parts {
 					if i <= maxI+1 {
 						continue

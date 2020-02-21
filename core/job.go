@@ -1,6 +1,8 @@
 package core
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -85,6 +87,16 @@ func (j *Job) Log() {
 
 	errStr := ""
 	if err != nil {
+		if !Verbose {
+			if errors.Is(err, context.Canceled) {
+				return
+			}
+
+			if storage.IsCancelationError(err) {
+				return
+			}
+		}
+
 		errStr = CleanupError(err)
 	}
 

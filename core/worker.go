@@ -72,6 +72,7 @@ func NewWorkerManager(ctx context.Context, params *WorkerManagerParams, st *stat
 		jobQueue <- job
 	}
 
+	// TODO(os): handle error and move
 	producerClient, _ := newClient()
 	w := &WorkerManager{
 		ctx:        ctx,

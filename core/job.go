@@ -186,10 +186,7 @@ func (j *Job) Run(wp WorkerParams) {
 	}
 }
 
-type (
-	wildCallback func(*storage.Object) *Job
-	wildLister   func(chan<- interface{}) error
-)
+type wildCallback func(*storage.Object) *Job
 
 // wildOperation is the cornerstone of sub-job launching for S3.
 //

@@ -205,6 +205,7 @@ func S3Download(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
 	if err != nil {
 		return opType, jobResponse(err)
 	}
+	defer f.Close()
 
 	// infer the client based on the source argument, which is a remote
 	// storage.
@@ -214,12 +215,8 @@ func S3Download(job *Job, wp *WorkerParams) (stats.StatType, *JobResponse) {
 	}
 
 	infoLog("Downloading %s...", srcFn)
+
 	err = client.Get(wp.ctx, src.url, f)
-
-	// FIXME(ig): i don't see a reason for a race condition if this call is
-	// deferrred. Will check later.
-	f.Close() // Race: s3dl.Download or us?
-
 	if err != nil {
 		os.Remove(destFn) // Remove partly downloaded file
 	} else if job.opts.Has(opt.DeleteSource) {

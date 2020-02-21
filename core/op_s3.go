@@ -100,6 +100,33 @@ func S3Upload(job *Job, wp *WorkerParams) *JobResponse {
 	return jobResponse(err)
 }
 
+func S3BatchDeleteActual(job *Job, wp *WorkerParams) *JobResponse {
+	src := job.src
+
+	client, err := wp.newClient(src[0])
+	if err != nil {
+		return jobResponse(err)
+	}
+
+	err = client.Delete(wp.ctx, src...)
+	if err != nil {
+		return jobResponse(err)
+	}
+
+	st := client.Statistics()
+
+	var msg []string
+	for key, stat := range st.Keys() {
+		if stat.Success {
+			msg = append(msg, fmt.Sprintf("Batch-delete %v", key))
+		} else {
+			msg = append(msg, fmt.Sprintf(`Batch-delete %v: %s`, key, stat.Message))
+		}
+	}
+
+	return jobResponse(err, msg...)
+}
+
 func S3ListBuckets(_ *Job, wp *WorkerParams) *JobResponse {
 	// set as remote storage
 	url := &objurl.ObjectURL{Type: 0}

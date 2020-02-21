@@ -3,13 +3,11 @@ package core
 import (
 	"context"
 
-	"github.com/peak/s5cmd/objurl"
-
 	"github.com/peak/s5cmd/op"
 	"github.com/peak/s5cmd/storage"
 )
 
-type producerFunc func(command *Command, sources ...*objurl.ObjectURL) *Job
+type producerFunc func(command *Command, sources ...*storage.Object) *Job
 
 type producerOp struct {
 	fn       producerFunc
@@ -17,10 +15,12 @@ type producerOp struct {
 }
 
 var producerRegistry = map[op.Operation]producerOp{
-	op.BatchDownload: {S3BatchDownload, false},
-	op.AliasBatchGet: {S3BatchDownload, false},
-	op.BatchCopy:     {S3BatchCopy, false},
-	op.BatchDelete:   {S3BatchDelete, true},
+	op.BatchDownload:  {S3BatchDownload, false},
+	op.AliasBatchGet:  {S3BatchDownload, false},
+	op.BatchCopy:      {S3BatchCopy, false},
+	op.BatchDelete:    {S3BatchDelete, true},
+	op.BatchUpload:    {BatchLocalUpload, false},
+	op.BatchLocalCopy: {BatchLocalCopy, false},
 }
 
 type Producer struct {
@@ -52,25 +52,25 @@ func (p *Producer) batchProduce(ctx context.Context, command *Command) {
 
 func (p *Producer) fullScan(ctx context.Context, command *Command, fn producerFunc) {
 	// TODO(os): handle error
-	client, _ := p.newClient(command.dst)
+	client, _ := p.newClient(command.src)
 
-	var urls []*objurl.ObjectURL
+	var objects []*storage.Object
 	for object := range client.List(ctx, command.src, true, storage.ListAllItems) {
 		// TODO(os): handle error
 		if object.Err != nil {
 			continue
 		}
 
-		urls = append(urls, object.URL)
+		objects = append(objects, object)
 	}
 
-	job := fn(command, urls...)
+	job := fn(command, objects...)
 	p.enqueueJob(job)
 }
 
 func (p *Producer) lookup(ctx context.Context, command *Command, fn producerFunc) {
 	// TODO(os): handle error
-	client, _ := p.newClient(command.dst)
+	client, _ := p.newClient(command.src)
 
 	for object := range client.List(ctx, command.src, true, storage.ListAllItems) {
 		// TODO(os): handle error
@@ -78,7 +78,7 @@ func (p *Producer) lookup(ctx context.Context, command *Command, fn producerFunc
 			continue
 		}
 
-		job := fn(command, object.URL)
+		job := fn(command, object)
 		p.enqueueJob(job)
 	}
 }

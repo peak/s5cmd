@@ -213,6 +213,7 @@ func wildOperation(client storage.Storage, url *objurl.ObjectURL, isRecursive bo
 			select {
 			case *wp.subJobQueue <- j:
 			case <-wp.ctx.Done():
+				subjobStats.Done()
 				break
 			}
 		}

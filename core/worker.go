@@ -177,6 +177,7 @@ func (p *WorkerPool) pumpJobQueues() {
 				select {
 				case p.jobQueue <- j:
 				case <-p.ctx.Done():
+					j.subJobData.Done()
 					return
 				}
 			}

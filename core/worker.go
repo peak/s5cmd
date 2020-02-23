@@ -30,15 +30,13 @@ type WorkerManagerParams struct {
 
 // WorkerManager is the manager to run and manage workers.
 type WorkerManager struct {
-	ctx         context.Context
-	params      *WorkerManagerParams
-	wg          *sync.WaitGroup
-	newClient   ClientFunc
-	cancelFunc  context.CancelFunc
-	st          *stats.Stats
-	jobQueue    chan *Job
-	jobProducer *Producer
-	semaphore   chan bool
+	ctx        context.Context
+	params     *WorkerManagerParams
+	wg         *sync.WaitGroup
+	newClient  ClientFunc
+	cancelFunc context.CancelFunc
+	st         *stats.Stats
+	semaphore  chan bool
 }
 
 // WorkerParams is the params/state of a single worker.
@@ -69,27 +67,14 @@ func NewWorkerManager(ctx context.Context, params *WorkerManagerParams, st *stat
 
 	cancelFunc := ctx.Value(CancelFuncKey).(context.CancelFunc)
 
-	wg := &sync.WaitGroup{}
-	jobQueue := make(chan *Job)
-
-	enqueueJob := func(job *Job) {
-		wg.Add(1)
-		jobQueue <- job
-	}
-
 	w := &WorkerManager{
 		ctx:        ctx,
 		params:     params,
-		wg:         wg,
+		wg:         &sync.WaitGroup{},
 		cancelFunc: cancelFunc,
 		st:         st,
-		jobQueue:   jobQueue,
 		newClient:  newClient,
 		semaphore:  make(chan bool, params.MaxWorkers),
-		jobProducer: &Producer{
-			newClient:  newClient,
-			enqueueJob: enqueueJob,
-		},
 	}
 
 	return w
@@ -99,6 +84,7 @@ func NewWorkerManager(ctx context.Context, params *WorkerManagerParams, st *stat
 // It also increments the WaitGroup counter by one.
 func (w *WorkerManager) acquire() {
 	w.semaphore <- true
+	w.wg.Add(1)
 }
 
 // release decrements the WaitGroup counter by one and releases the semaphore.
@@ -107,24 +93,9 @@ func (w *WorkerManager) release() {
 	<-w.semaphore
 }
 
-// watchJobs listens for the jobs and starts new worker for produced jobs.
-func (w *WorkerManager) watchJobs() {
-	for {
-		select {
-		case j, ok := <-w.jobQueue:
-			if !ok {
-				return
-			}
-			w.runWorker(j)
-		case <-w.ctx.Done():
-			return
-		}
-	}
-}
-
-// runWorker acquires semaphore and creates new worker (goroutine) for the job.
-// Worker is closed after all jobs are done and releases the semaphore.
-func (w *WorkerManager) runWorker(job *Job) {
+// runJob acquires semaphore and creates new goroutine for the job.
+// It exits goroutine after all jobs are done and releases the semaphore.
+func (w *WorkerManager) runJob(job *Job) {
 	w.acquire()
 	go func() {
 		defer w.release()
@@ -141,6 +112,8 @@ func (w *WorkerManager) runWorker(job *Job) {
 // RunCmd will run a single command (and subsequent sub-commands) in the worker manager,
 // wait for it to finish, clean up and return.
 func (w *WorkerManager) RunCmd(cmd string) {
+	defer w.close()
+
 	command := w.parseCommand(cmd)
 	if command == nil {
 		return
@@ -151,12 +124,8 @@ func (w *WorkerManager) RunCmd(cmd string) {
 		return
 	}
 
-	go func() {
-		defer w.close()
-		w.jobProducer.Produce(w.ctx, command)
-	}()
-
-	w.watchJobs()
+	producer := &Producer{newClient: w.newClient, runJob: w.runJob}
+	producer.Run(w.ctx, command)
 }
 
 // parseCommand parses command.
@@ -173,12 +142,14 @@ func (w *WorkerManager) parseCommand(cmd string) *Command {
 // close waits all jobs to finish and closes jobQueue channel.
 func (w *WorkerManager) close() {
 	w.wg.Wait()
-	close(w.jobQueue)
+	close(w.semaphore)
 }
 
 // Run runs the commands in filename in the worker manager, on EOF
 // it will wait for all jobs to finish, clean up and return.
 func (w *WorkerManager) Run(filename string) {
+	defer w.close()
+
 	var r io.ReadCloser
 	var err error
 
@@ -192,25 +163,26 @@ func (w *WorkerManager) Run(filename string) {
 		defer r.Close()
 	}
 
-	go w.produceWithScanner(r)
-	w.watchJobs()
+	w.produceWithScanner(r)
 }
 
 // produceWithScanner reads content from io.ReadCloser and
 // produces jobs for valid commands.
 func (w *WorkerManager) produceWithScanner(r io.ReadCloser) {
-	defer w.close()
-
 	scanner := NewScanner(w.ctx, r)
+	producer := &Producer{newClient: w.newClient, runJob: w.runJob}
 
 	for cmd := range scanner.Scan() {
 		command := w.parseCommand(cmd)
 		if command != nil {
-			w.jobProducer.Produce(w.ctx, command)
+			producer.Run(w.ctx, command)
 		}
 	}
 
 	if err := scanner.Err(); err != nil {
-		log.Printf("-ERR Error reading: %v\n", err)
+		if err == context.Canceled {
+			return
+		}
+		log.Printf("-ERR Error reading: %v", err)
 	}
 }

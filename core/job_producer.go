@@ -25,18 +25,18 @@ var producerRegistry = map[op.Operation]producerOp{
 }
 
 type Producer struct {
-	newClient  ClientFunc
-	enqueueJob func(*Job)
+	newClient ClientFunc
+	runJob    func(*Job)
 }
 
-func (p *Producer) Produce(ctx context.Context, command *Command) {
+func (p *Producer) Run(ctx context.Context, command *Command) {
 	if command.IsBatch() {
 		p.batchProduce(ctx, command)
 		return
 	}
 
 	job := command.toJob()
-	p.enqueueJob(job)
+	p.runJob(job)
 }
 
 func (p *Producer) batchProduce(ctx context.Context, command *Command) {
@@ -65,7 +65,7 @@ func (p *Producer) fullScan(ctx context.Context, command *Command, fn producerFu
 	}
 
 	job := fn(command, urls...)
-	p.enqueueJob(job)
+	p.runJob(job)
 }
 
 func (p *Producer) lookup(ctx context.Context, command *Command, fn producerFunc) {
@@ -78,6 +78,6 @@ func (p *Producer) lookup(ctx context.Context, command *Command, fn producerFunc
 		}
 
 		job := fn(command, object.URL)
-		p.enqueueJob(job)
+		p.runJob(job)
 	}
 }

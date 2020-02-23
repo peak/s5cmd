@@ -3,11 +3,12 @@ package core
 import (
 	"context"
 
+	"github.com/peak/s5cmd/objurl"
 	"github.com/peak/s5cmd/op"
 	"github.com/peak/s5cmd/storage"
 )
 
-type producerFunc func(command *Command, sources ...*storage.Object) *Job
+type producerFunc func(*Command, ...*objurl.ObjectURL) *Job
 
 type producerOp struct {
 	fn       producerFunc
@@ -51,34 +52,32 @@ func (p *Producer) batchProduce(ctx context.Context, command *Command) {
 }
 
 func (p *Producer) fullScan(ctx context.Context, command *Command, fn producerFunc) {
-	// TODO(os): handle error
+	// TODO(os): handle errors
 	client, _ := p.newClient(command.src)
 
-	var objects []*storage.Object
+	var urls []*objurl.ObjectURL
 	for object := range client.List(ctx, command.src, true, storage.ListAllItems) {
-		// TODO(os): handle error
-		if object.Err != nil {
+		if object.Err != nil || object.Type.IsDir() {
 			continue
 		}
 
-		objects = append(objects, object)
+		urls = append(urls, object.URL)
 	}
 
-	job := fn(command, objects...)
+	job := fn(command, urls...)
 	p.enqueueJob(job)
 }
 
 func (p *Producer) lookup(ctx context.Context, command *Command, fn producerFunc) {
-	// TODO(os): handle error
+	// TODO(os): handle errors
 	client, _ := p.newClient(command.src)
 
 	for object := range client.List(ctx, command.src, true, storage.ListAllItems) {
-		// TODO(os): handle error
-		if object.Err != nil {
+		if object.Err != nil || object.Type.IsDir() {
 			continue
 		}
 
-		job := fn(command, object)
+		job := fn(command, object.URL)
 		p.enqueueJob(job)
 	}
 }

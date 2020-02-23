@@ -10,10 +10,9 @@ import (
 	"github.com/peak/s5cmd/objurl"
 	"github.com/peak/s5cmd/op"
 	"github.com/peak/s5cmd/opt"
-	"github.com/peak/s5cmd/storage"
 )
 
-func S3BatchDownload(command *Command, objects ...*storage.Object) *Job {
+func S3BatchDownload(command *Command, urls ...*objurl.ObjectURL) *Job {
 	cmd := "cp"
 	if command.operation == op.AliasBatchGet {
 		cmd = "get"
@@ -25,29 +24,22 @@ func S3BatchDownload(command *Command, objects ...*storage.Object) *Job {
 
 	cmd += command.opts.GetParams()
 	cmdDst := command.dst
-	obj := objects[0]
-	src := obj.URL
+	src := urls[0]
 
-	var dstFn string
+	var joinPath string
 	if command.opts.Has(opt.Parents) {
-		dstFn = src.Path
+		joinPath = src.Path
 	} else {
-		dstFn = src.Base()
+		joinPath = src.Base()
 	}
 
-	joinfn := filepath.Join
-	if cmdDst.IsRemote() {
-		joinfn = path.Join
-	}
-
-	dst := cmdDst.Clone()
-	dst.Path = joinfn(dst.Path, dstFn)
+	dst := cmdDst.Join(joinPath)
 	dir := filepath.Dir(dst.Absolute())
 	os.MkdirAll(dir, os.ModePerm)
 	return command.makeJob(cmd, op.Download, dst, src)
 }
 
-func S3BatchCopy(command *Command, objects ...*storage.Object) *Job {
+func S3BatchCopy(command *Command, urls ...*objurl.ObjectURL) *Job {
 	cmd := "cp"
 	if command.opts.Has(opt.DeleteSource) {
 		cmd = "mv"
@@ -55,8 +47,7 @@ func S3BatchCopy(command *Command, objects ...*storage.Object) *Job {
 	cmd += command.opts.GetParams()
 
 	dst := command.dst
-	obj := objects[0]
-	src := obj.URL
+	src := urls[0]
 
 	var dstFn string
 	if command.opts.Has(opt.Parents) {
@@ -70,33 +61,29 @@ func S3BatchCopy(command *Command, objects ...*storage.Object) *Job {
 	return command.makeJob(cmd, op.Copy, dstUrl, src)
 }
 
-func S3BatchDelete(command *Command, objects ...*storage.Object) *Job {
-	var src []*objurl.ObjectURL
-	for _, o := range objects {
-		src = append(src, o.URL)
-	}
-	return command.makeJob("batch-rm", op.BatchDeleteActual, nil, src...)
+func S3BatchDelete(command *Command, urls ...*objurl.ObjectURL) *Job {
+	return command.makeJob("batch-rm", op.BatchDeleteActual, nil, urls...)
 }
 
-func BatchLocalUpload(command *Command, objects ...*storage.Object) *Job {
+func BatchLocalCopy(command *Command, urls ...*objurl.ObjectURL) *Job {
+	return localCopy(command, op.LocalCopy, urls...)
+}
+
+func BatchLocalUpload(command *Command, urls ...*objurl.ObjectURL) *Job {
+	return localCopy(command, op.Upload, urls...)
+}
+
+func localCopy(command *Command, operation op.Operation, urls ...*objurl.ObjectURL) *Job {
 	cmd := "cp"
 	if command.opts.Has(opt.DeleteSource) {
 		cmd = "mv"
 	}
 	cmd += command.opts.GetParams()
 
-	obj := objects[0]
-	src, cmdDst := obj.URL, command.dst
+	cmdSrc, cmdDst := command.src, command.dst
+	src := urls[0]
 
-	walkMode := obj.Type.IsDir()
-	trimPrefix := src.Absolute()
-	if !walkMode {
-		loc := strings.IndexAny(trimPrefix, GlobCharacters)
-		if loc < 0 {
-			return nil
-		}
-		trimPrefix = trimPrefix[:loc]
-	}
+	trimPrefix := cmdSrc.Absolute()
 	trimPrefix = path.Dir(trimPrefix)
 	if trimPrefix == "." {
 		trimPrefix = ""
@@ -104,79 +91,16 @@ func BatchLocalUpload(command *Command, objects ...*storage.Object) *Job {
 		trimPrefix += string(filepath.Separator)
 	}
 
-	var dstFn string
+	var joinPath string
 	if command.opts.Has(opt.Parents) {
-		dstFn = src.Absolute()
-		if strings.Index(dstFn, trimPrefix) == 0 {
-			dstFn = dstFn[len(trimPrefix):]
-		}
+		joinPath = src.Absolute()
+		joinPath = strings.TrimPrefix(joinPath, trimPrefix)
 	} else {
-		dstFn = src.Base()
+		joinPath = src.Base()
 	}
 
-	joinfn := filepath.Join
-	if cmdDst.IsRemote() {
-		joinfn = path.Join
-	}
-
-	dst := cmdDst.Clone()
-	dst.Path = joinfn(dst.Path, dstFn)
+	dst := cmdDst.Join(joinPath)
 	dir := filepath.Dir(dst.Absolute())
 	os.MkdirAll(dir, os.ModePerm)
-	return command.makeJob(cmd, op.Upload, dst, src)
-}
-
-func BatchLocalCopy(command *Command, objects ...*storage.Object) *Job {
-	cmd := "cp"
-	if command.opts.Has(opt.DeleteSource) {
-		cmd = "mv"
-	}
-	cmd += command.opts.GetParams()
-
-	obj := objects[0]
-	src, cmdDst := obj.URL, command.dst
-
-	trimPrefix := src.Absolute()
-	globStart := src.Absolute()
-
-	walkMode := obj.Type.IsDir()
-	if !walkMode {
-		loc := strings.IndexAny(trimPrefix, GlobCharacters)
-		if loc < 0 {
-			return nil
-		}
-		trimPrefix = trimPrefix[:loc]
-	} else {
-		if !strings.HasSuffix(globStart, string(filepath.Separator)) {
-			globStart += string(filepath.Separator)
-		}
-		globStart = globStart + "*"
-	}
-	trimPrefix = path.Dir(trimPrefix)
-	if trimPrefix == "." {
-		trimPrefix = ""
-	} else {
-		trimPrefix += string(filepath.Separator)
-	}
-
-	var dstFn string
-	if command.opts.Has(opt.Parents) {
-		dstFn = src.Absolute()
-		if strings.Index(dstFn, trimPrefix) == 0 {
-			dstFn = dstFn[len(trimPrefix):]
-		}
-	} else {
-		dstFn = src.Base()
-	}
-
-	joinfn := filepath.Join
-	if cmdDst.IsRemote() {
-		joinfn = path.Join
-	}
-
-	dst := cmdDst.Clone()
-	dst.Path = joinfn(dst.Path, dstFn)
-	dir := filepath.Dir(dst.Absolute())
-	os.MkdirAll(dir, os.ModePerm)
-	return command.makeJob(cmd, op.LocalCopy, dst, src)
+	return command.makeJob(cmd, operation, dst, src)
 }

@@ -16,10 +16,10 @@ github.com/hashicorp/go-multierror v0.0.0-20171204182908-b7773ae21874 h1:em+tTnz
 github.com/hashicorp/go-multierror v0.0.0-20171204182908-b7773ae21874/go.mod h1:JMRHfdO9jKNzS/+BTlxCjKNQHg/jZAft8U7LloJvN7I=
 github.com/iancoleman/strcase v0.0.0-20191112232945-16388991a334 h1:VHgatEHNcBFEB7inlalqfNqw65aNkM1lGX2yt3NmbS8=
 github.com/iancoleman/strcase v0.0.0-20191112232945-16388991a334/go.mod h1:SK73tn/9oHe+/Y0h39VT4UCxmurVJkR5NA7kMEAOgSE=
+github.com/igungor/gofakes3 v0.0.3 h1:zdllSVfwex1lLN8ix+uDWy4G8HrNaBnEwqWecNwg+Jo=
+github.com/igungor/gofakes3 v0.0.3/go.mod h1:kIQfl+mYBOS4rhbMVyM14NzR6PcljS5Oc62BpsJ/xO8=
 github.com/jmespath/go-jmespath v0.0.0-20180206201540-c2b33e8439af h1:pmfjZENx5imkbgOkpRUYLnmbU7UEFbjtDA2hxJ1ichM=
 github.com/jmespath/go-jmespath v0.0.0-20180206201540-c2b33e8439af/go.mod h1:Nht3zPeWKUH0NzdCt2Blrr5ys8VGpn0CEB0cQHVjt7k=
-github.com/johannesboyne/gofakes3 v0.0.0-20191228161223-9aee1c78a252 h1:ZABLXRnnFNP5nkVzVBx2kQ/4GvSLUqcD2YUc+9Uc2Mo=
-github.com/johannesboyne/gofakes3 v0.0.0-20191228161223-9aee1c78a252/go.mod h1:cPDudDcSR9fls3ZmrXgt0GU2QpQGQRJc4JBNtKyNr1s=
 github.com/kardianos/osext v0.0.0-20170510131534-ae77be60afb1 h1:PJPDf8OUfOK1bb/NeTKd4f1QXZItOX389VN3B6qC8ro=
 github.com/kardianos/osext v0.0.0-20170510131534-ae77be60afb1/go.mod h1:1NbS8ALrpOvjt0rHPNLyCIeMtbizbir8U//inJ+zuB8=
 github.com/karrick/godirwalk v1.15.3 h1:0a2pXOgtB16CqIqXTiT7+K9L73f74n/aNQUnH6Ortew=

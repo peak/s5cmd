@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"fmt"
 	"path/filepath"
 	"testing"
 
@@ -205,15 +206,141 @@ func TestMoveMultipleFilesToS3(t *testing.T) {
 }
 
 func TestMoveSingleS3ObjectToS3(t *testing.T) {
-	t.Skip("TODO: skipped because gofakes3 fails on bucket-to-bucket copy operation")
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+
+	const (
+		filename = "testfile1.txt"
+		content  = "this is a file content"
+	)
+
+	src := fmt.Sprintf("s3://%v/%v", bucket, filename)
+	dst := fmt.Sprintf("s3://%v/dst/%v", bucket, filename)
+
+	putFile(t, s3client, bucket, filename, content)
+
+	cmd := s5cmd("mv", src, dst)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: suffix(` +OK "mv %v %v"`, src, dst),
+	})
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: suffix(`# Downloading testfile1.txt...`),
+	})
+
+	// expect no s3 source object
+	err := ensureS3Object(s3client, bucket, filename, content)
+	assertError(t, err, errS3NoSuchKey)
+
+	// assert s3 destination object
+	assert.Assert(t, ensureS3Object(s3client, bucket, "dst/"+filename, content))
 }
 
 func TestMoveSingleS3ObjectIntoAnotherBucket(t *testing.T) {
-	t.Skip("TODO: skipped because gofakes3 fails on bucket-to-bucket copy operation")
+	t.Parallel()
+
+	srcbucket := s3BucketFromTestName(t)
+	dstbucket := "copy-" + s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, srcbucket)
+	createBucket(t, s3client, dstbucket)
+
+	const (
+		filename = "testfile1.txt"
+		content  = "this is a file content"
+	)
+
+	putFile(t, s3client, srcbucket, filename, content)
+
+	src := fmt.Sprintf("s3://%v/%v", srcbucket, filename)
+	dst := fmt.Sprintf("s3://%v/%v", dstbucket, filename)
+
+	cmd := s5cmd("mv", src, dst)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: suffix(` +OK "mv %v %v"`, src, dst),
+	})
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: suffix(`# Downloading testfile1.txt...`),
+	})
+
+	// expect no s3 source object
+	err := ensureS3Object(s3client, srcbucket, filename, content)
+	assertError(t, err, errS3NoSuchKey)
+
+	// assert s3 destination object
+	assert.Assert(t, ensureS3Object(s3client, dstbucket, filename, content))
 }
 
 func TestMoveMultipleS3ObjectsToS3(t *testing.T) {
-	t.Skip("TODO: skipped because gofakes3 fails on bucket-to-bucket copy operation")
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+
+	filesToContent := map[string]string{
+		"testfile1.txt":          "this is a test file 1",
+		"readme.md":              "this is a readme file",
+		"filename-with-hypen.gz": "file has hypen in its name",
+		"another_test_file.txt":  "yet another txt file. yatf.",
+	}
+
+	for filename, content := range filesToContent {
+		putFile(t, s3client, bucket, filename, content)
+	}
+
+	src := fmt.Sprintf("s3://%v/*", bucket)
+	dst := fmt.Sprintf("s3://%v/dst/", bucket)
+
+	cmd := s5cmd("mv", src, dst)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: suffix(` +OK "mv %v %v"`, src, dst),
+		1: suffix(` # All workers idle, finishing up...`),
+	})
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(""),
+		1: contains(` + "mv s3://%v/another_test_file.txt %vanother_test_file.txt`, bucket, dst),
+		2: contains(` + "mv s3://%v/filename-with-hypen.gz %vfilename-with-hypen.gz"`, bucket, dst),
+		3: contains(` + "mv s3://%v/readme.md %vreadme.md"`, bucket, dst),
+		4: contains(` + "mv s3://%v/testfile1.txt %vtestfile1.txt"`, bucket, dst),
+	}, sortInput(true))
+
+	// expect no s3 source objects
+	for srcfile, content := range filesToContent {
+		err := ensureS3Object(s3client, bucket, srcfile, content)
+		assertError(t, err, errS3NoSuchKey)
+	}
+
+	// assert s3 destination objects
+	for filename, content := range filesToContent {
+		assert.Assert(t, ensureS3Object(s3client, bucket, "dst/"+filename, content))
+	}
 }
 
 func TestMoveSingleFileToLocal(t *testing.T) {

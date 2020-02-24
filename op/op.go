@@ -4,9 +4,8 @@ package op
 import (
 	"fmt"
 
-	"github.com/peak/s5cmd/stats"
-
 	"github.com/peak/s5cmd/opt"
+	"github.com/peak/s5cmd/stats"
 )
 
 // Operation is a type of our operations.
@@ -47,6 +46,7 @@ var batchOperations = []Operation{
 var localOperations = []Operation{LocalCopy, LocalDelete}
 var shellOperations = []Operation{ShellExec, Abort}
 
+// GetStat gets stat type for the operation.
 func (o Operation) GetStat() stats.StatType {
 	if o.isLocalOp() {
 		return stats.FileOp
@@ -59,6 +59,7 @@ func (o Operation) GetStat() stats.StatType {
 	return stats.S3Op
 }
 
+// isLocalOp checks if the operation is filesystem operation.
 func (o Operation) isLocalOp() bool {
 	for _, operation := range localOperations {
 		if o == operation {
@@ -68,6 +69,7 @@ func (o Operation) isLocalOp() bool {
 	return false
 }
 
+// isShellOp checks if the operation is shell operation.
 func (o Operation) isShellOp() bool {
 	for _, operation := range shellOperations {
 		if o == operation {
@@ -92,6 +94,7 @@ func (o Operation) IsInternal() bool {
 	return o == BatchDeleteActual
 }
 
+// String returns the string representation of the operation.
 func (o Operation) String() string {
 	switch o {
 	case Abort:

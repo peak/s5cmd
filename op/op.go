@@ -4,6 +4,8 @@ package op
 import (
 	"fmt"
 
+	"github.com/peak/s5cmd/stats"
+
 	"github.com/peak/s5cmd/opt"
 )
 
@@ -40,6 +42,39 @@ var batchOperations = []Operation{
 	BatchLocalCopy,
 	BatchCopy,
 	AliasBatchGet,
+}
+
+var localOperations = []Operation{LocalCopy, LocalDelete}
+var shellOperations = []Operation{ShellExec, Abort}
+
+func (o Operation) GetStat() stats.StatType {
+	if o.isLocalOp() {
+		return stats.FileOp
+	}
+
+	if o.isShellOp() {
+		return stats.ShellOp
+	}
+
+	return stats.S3Op
+}
+
+func (o Operation) isLocalOp() bool {
+	for _, operation := range localOperations {
+		if o == operation {
+			return true
+		}
+	}
+	return false
+}
+
+func (o Operation) isShellOp() bool {
+	for _, operation := range shellOperations {
+		if o == operation {
+			return true
+		}
+	}
+	return false
 }
 
 // IsBatch returns true if this operation creates sub-jobs

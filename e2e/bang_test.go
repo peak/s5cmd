@@ -17,12 +17,9 @@ func TestBangRunEcho(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(` +OK "! echo 'foo'"`),
-	})
-
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals("'foo'"),
+		1: suffix(`+ "! echo 'foo'"`),
 	})
 }
 

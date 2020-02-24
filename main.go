@@ -139,11 +139,6 @@ func main() {
 	*flagEndpointURL = strings.TrimSpace(*flagEndpointURL)
 
 	startTime := time.Now()
-
-	if !cmdMode {
-		log.Printf("# Using %d workers", *flagWorkerCount)
-	}
-
 	parentCtx, cancelFunc := context.WithCancel(context.Background())
 
 	exitCode := -1

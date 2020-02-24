@@ -54,6 +54,7 @@ func (c Command) makeJob(cmd string, operation op.Operation, dst *objurl.ObjectU
 		src:       src,
 		dst:       dst,
 		cls:       c.getStorageClass(),
+		statType:  operation.GetStat(),
 	}
 }
 
@@ -70,6 +71,7 @@ func (c Command) toJob() *Job {
 		src:       src,
 		dst:       c.dst,
 		cls:       c.getStorageClass(),
+		statType:  c.operation.GetStat(),
 	}
 }
 

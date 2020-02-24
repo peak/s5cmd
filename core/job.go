@@ -24,6 +24,7 @@ type Job struct {
 	cls       string
 	command   string
 	response  *JobResponse
+	statType  stats.StatType
 }
 
 // JobResponse is the response type.
@@ -106,6 +107,7 @@ func (j *Job) run(wp *WorkerParams) *JobResponse {
 	// runner will get cmdFunc
 	response := cmdFunc(j, wp)
 	if response != nil {
+		wp.st.IncrementIfSuccess(j.statType, response.err)
 		j.response = response
 		j.Log()
 	}

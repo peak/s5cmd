@@ -24,12 +24,15 @@ func NewFilesystem() *Filesystem {
 func (f *Filesystem) Stat(ctx context.Context, url *objurl.ObjectURL) (*Object, error) {
 	st, err := os.Stat(url.Absolute())
 	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, ErrGivenObjectNotFound
+		}
 		return nil, err
 	}
 
 	return &Object{
 		URL:     url,
-		Type:    st.Mode(),
+		Mode:    st.Mode(),
 		Size:    st.Size(),
 		ModTime: st.ModTime(),
 		Etag:    "",
@@ -38,7 +41,7 @@ func (f *Filesystem) Stat(ctx context.Context, url *objurl.ObjectURL) (*Object, 
 
 func (f *Filesystem) List(ctx context.Context, url *objurl.ObjectURL, isRecursive bool, _ int64) <-chan *Object {
 	obj, err := f.Stat(ctx, url)
-	isDir := err == nil && obj.Type.IsDir()
+	isDir := err == nil && obj.Mode.IsDir()
 
 	if isDir {
 		return f.walkDir(ctx, url, isRecursive)
@@ -74,7 +77,7 @@ func (f *Filesystem) expandGlob(ctx context.Context, url *objurl.ObjectURL, isRe
 			url, _ := objurl.New(filename)
 			obj, _ := f.Stat(ctx, url)
 
-			if !obj.Type.IsDir() {
+			if !obj.Mode.IsDir() {
 				sendObject(ctx, obj, ch)
 			}
 
@@ -97,7 +100,7 @@ func (f *Filesystem) expandGlob(ctx context.Context, url *objurl.ObjectURL, isRe
 
 					obj := &Object{
 						URL:  url,
-						Type: dirent.ModeType(),
+						Mode: dirent.ModeType(),
 					}
 
 					sendObject(ctx, obj, ch)
@@ -143,7 +146,7 @@ func (f *Filesystem) walkDir(ctx context.Context, url *objurl.ObjectURL, isRecur
 
 				obj := &Object{
 					URL:  url,
-					Type: dirent.ModeType(),
+					Mode: dirent.ModeType(),
 				}
 
 				sendObject(ctx, obj, ch)

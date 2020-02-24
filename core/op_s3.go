@@ -165,7 +165,7 @@ func S3List(job *Job, wp *WorkerParams) *JobResponse {
 			continue
 		}
 
-		if object.Type.IsDir() {
+		if object.Mode.IsDir() {
 			msg = append(msg, fmt.Sprintf("%19s %1s %-38s  %12s  %s", "", "", "", "DIR", object.URL.Relative()))
 		} else {
 			var cls, etag, size string
@@ -223,7 +223,7 @@ func S3Size(job *Job, wp *WorkerParams) *JobResponse {
 	totals := map[string]sizeAndCount{}
 
 	for object := range client.List(wp.ctx, src, true, storage.ListAllItems) {
-		if object.Type.IsDir() {
+		if object.Mode.IsDir() {
 			continue
 		}
 		storageClass := string(object.StorageClass)

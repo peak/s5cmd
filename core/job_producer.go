@@ -57,7 +57,7 @@ func (p *Producer) fullScan(ctx context.Context, command *Command, fn producerFu
 
 	var urls []*objurl.ObjectURL
 	for object := range client.List(ctx, command.src, true, storage.ListAllItems) {
-		if object.Err != nil || object.Type.IsDir() {
+		if object.Err != nil || object.Mode.IsDir() {
 			continue
 		}
 
@@ -73,7 +73,7 @@ func (p *Producer) lookup(ctx context.Context, command *Command, fn producerFunc
 	client, _ := p.newClient(command.src)
 
 	for object := range client.List(ctx, command.src, true, storage.ListAllItems) {
-		if object.Err != nil || object.Type.IsDir() {
+		if object.Err != nil || object.Mode.IsDir() {
 			continue
 		}
 

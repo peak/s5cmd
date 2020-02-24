@@ -89,6 +89,7 @@ func createFile(filename, contents string) error {
 		return err
 	}
 	defer f.Close()
+
 	f.WriteString(contents)
 	return nil
 }
@@ -128,6 +129,7 @@ func TestJobRunLocalDelete(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	err = createFile(filename, "contents")
 	if err != nil {
 		t.Fatal(err)

@@ -13,6 +13,14 @@ import (
 
 const dateFormat = "2006/01/02 15:04:05"
 
+var (
+	// ErrGivenObjectNotFound indicates a specified object is not found.
+	ErrGivenObjectNotFound = fmt.Errorf("given object not found")
+
+	// ErrNoObjectFound indicates there are no objects found from a given directory.
+	ErrNoObjectFound = fmt.Errorf("no object found")
+)
+
 // Storage is an interface for storage operations.
 type Storage interface {
 	Stat(context.Context, *objurl.ObjectURL) (*Object, error)
@@ -31,7 +39,7 @@ type Object struct {
 	URL          *objurl.ObjectURL
 	Etag         string
 	ModTime      time.Time
-	Type         os.FileMode
+	Mode         os.FileMode
 	Size         int64
 	StorageClass storageClass
 	Err          error

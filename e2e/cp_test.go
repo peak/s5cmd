@@ -578,7 +578,7 @@ func TestCopyMultipleS3ObjectsToS3(t *testing.T) {
 	}
 
 	src := fmt.Sprintf("s3://%v/*", bucket)
-	dst := fmt.Sprintf("s3://%v/dst", bucket)
+	dst := fmt.Sprintf("s3://%v/dst/", bucket)
 
 	cmd := s5cmd("cp", src, dst)
 	result := icmd.RunCmd(cmd)
@@ -586,20 +586,16 @@ func TestCopyMultipleS3ObjectsToS3(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(` +OK "cp s3://%v/* %v/"`, bucket, dst),
+		0: suffix(` +OK "cp %v %v"`, src, dst),
 		1: suffix(` # All workers idle, finishing up...`),
 	})
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(""),
-		1: suffix(`# Downloading another_test_file.txt...`),
-		2: suffix(`# Downloading filename-with-hypen.gz...`),
-		3: suffix(`# Downloading readme.md...`),
-		4: suffix(`# Downloading testfile1.txt...`),
-		5: contains(` + "cp s3://%v/another_test_file.txt %v/another_test_file.txt`, bucket, dst),
-		6: contains(` + "cp s3://%v/filename-with-hypen.gz %v/filename-with-hypen.gz"`, bucket, dst),
-		7: contains(` + "cp s3://%v/readme.md %v/readme.md"`, bucket, dst),
-		8: contains(` + "cp s3://%v/testfile1.txt %v/testfile1.txt"`, bucket, dst),
+		1: contains(` + "cp s3://%v/another_test_file.txt %vanother_test_file.txt`, bucket, dst),
+		2: contains(` + "cp s3://%v/filename-with-hypen.gz %vfilename-with-hypen.gz"`, bucket, dst),
+		3: contains(` + "cp s3://%v/readme.md %vreadme.md"`, bucket, dst),
+		4: contains(` + "cp s3://%v/testfile1.txt %vtestfile1.txt"`, bucket, dst),
 	}, sortInput(true))
 
 	// assert s3 source objects
@@ -609,7 +605,7 @@ func TestCopyMultipleS3ObjectsToS3(t *testing.T) {
 
 	// assert s3 destination objects
 	for filename, content := range filesToContent {
-		assert.Assert(t, ensureS3Object(s3client, bucket, filename, content))
+		assert.Assert(t, ensureS3Object(s3client, bucket, "dst/"+filename, content))
 	}
 }
 

@@ -12,7 +12,7 @@ import (
 	"github.com/peak/s5cmd/storage"
 )
 
-// Job is the job type that is executed for each command.
+// Command is the representation of the command.
 type Command struct {
 	sourceDesc string
 	keyword    string
@@ -22,7 +22,7 @@ type Command struct {
 	opts       opt.OptionList
 }
 
-// String formats the job using its command and arguments.
+// String is the representation of command.
 func (c Command) String() string {
 	return c.sourceDesc
 }
@@ -40,11 +40,12 @@ func (c Command) getStorageClass() string {
 	return cls
 }
 
-// IsBatch() checks if it is a batch operation.
+// IsBatch() checks if command is a batch operation.
 func (c Command) IsBatch() bool {
 	return c.operation.IsBatch()
 }
 
+// makeJob creates new Job from the command.
 func (c Command) makeJob(cmd string, operation op.Operation, dst *objurl.ObjectURL, src ...*objurl.ObjectURL) *Job {
 	return &Job{
 		command:   cmd,
@@ -56,6 +57,7 @@ func (c Command) makeJob(cmd string, operation op.Operation, dst *objurl.ObjectU
 	}
 }
 
+// toJob converts raw command to job.
 func (c Command) toJob() *Job {
 	return &Job{
 		command:   c.keyword,

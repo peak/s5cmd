@@ -157,7 +157,7 @@ func (s *S3) List(ctx context.Context, url *objurl.ObjectURL, _ bool, maxKeys in
 					ModTime:      aws.TimeValue(c.LastModified),
 					Mode:         objtype,
 					Size:         aws.Int64Value(c.Size),
-					StorageClass: storageClass(aws.StringValue(c.StorageClass)),
+					StorageClass: StorageClass(aws.StringValue(c.StorageClass)),
 				}
 
 				itemFound = true
@@ -213,12 +213,19 @@ func (s *S3) Get(ctx context.Context, from *objurl.ObjectURL, to io.WriterAt) er
 
 // Put is a multipart upload operation to upload resources, which implements
 // io.Reader interface, into S3 destination.
-func (s *S3) Put(ctx context.Context, reader io.Reader, to *objurl.ObjectURL, cls string) error {
+func (s *S3) Put(ctx context.Context, reader io.Reader, to *objurl.ObjectURL, metadata map[string]string) error {
+	storageClass := metadata["StorageClass"]
+	contentType := metadata["ContentType"]
+	if contentType == "" {
+		contentType = "application/octet-stream"
+	}
+
 	_, err := s.uploader.UploadWithContext(ctx, &s3manager.UploadInput{
 		Bucket:       aws.String(to.Bucket),
 		Key:          aws.String(to.Path),
 		Body:         reader,
-		StorageClass: aws.String(cls),
+		ContentType:  aws.String(contentType),
+		StorageClass: aws.String(storageClass),
 	}, func(u *s3manager.Uploader) {
 		u.PartSize = s.opts.UploadChunkSizeBytes
 		u.Concurrency = s.opts.UploadConcurrency

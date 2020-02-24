@@ -62,6 +62,5 @@ func getObject(url *objurl.ObjectURL, wp *WorkerParams) (*storage.Object, error)
 		return nil, err
 	}
 
-	obj, err := client.Stat(wp.ctx, url)
-	return obj, err
+	return client.Stat(wp.ctx, url)
 }

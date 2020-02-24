@@ -25,13 +25,6 @@ type Stats struct {
 	ops [4]uint64
 }
 
-// IncrementIfSuccess atomically increments the StatType's counter in Stats if err is nil
-func (s *Stats) IncrementIfSuccess(t StatType, err error) {
-	if err == nil {
-		s.Increment(t)
-	}
-}
-
 // Increment atomically increments the StatType's counter
 func (s *Stats) Increment(t StatType) {
 	atomic.AddUint64(&(s.ops[t]), 1)

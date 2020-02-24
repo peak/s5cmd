@@ -94,34 +94,23 @@ func (j *Job) Log() {
 	fmt.Println(status, m)
 }
 
-// Run runs the Job and returns error.
-func (j *Job) run(wp *WorkerParams) *JobResponse {
+// Run runs the Job, gets job response and logs the job status.
+func (j *Job) Run(wp *WorkerParams) {
 	cmdFunc, ok := globalCmdRegistry[j.operation]
 	if !ok {
-		return &JobResponse{
-			status: statusErr,
-			err:    fmt.Errorf("unhandled operation %v", j.operation),
-		}
+		log.Fatalf("unhandled operation %v", j.operation)
+		return
 	}
 
 	// runner will get cmdFunc
 	response := cmdFunc(j, wp)
 	if response != nil {
-		wp.st.IncrementIfSuccess(j.statType, response.err)
+		if response.status == statusErr {
+			wp.st.Increment(stats.Fail)
+		} else {
+			wp.st.Increment(j.statType)
+		}
 		j.response = response
 		j.Log()
-	}
-	return response
-}
-
-// Run runs the Job, logs the results and returns sub-job of parent job.
-func (j *Job) Run(wp WorkerParams) {
-	response := j.run(&wp)
-	switch response.status {
-	case statusSuccess, statusWarning:
-		return
-	case statusErr:
-		wp.st.Increment(stats.Fail)
-		return
 	}
 }

@@ -72,7 +72,7 @@ func benchmarkJobRun(b *testing.B, j *Job) {
 
 	for n := 0; n < b.N; n++ {
 		createFile("test-src", "")
-		_ = j.run(&wp)
+		j.Run(&wp)
 	}
 
 	deleteFile("test-dst")
@@ -149,10 +149,7 @@ func TestJobRunLocalDelete(t *testing.T) {
 	localDeleteJob.src = []*objurl.ObjectURL{newURL(filename)}
 
 	// execute
-	resp := localDeleteJob.run(&wp)
-	if resp.err != nil {
-		t.Error(resp.err)
-	}
+	localDeleteJob.Run(&wp)
 
 	// verify
 	if fileExists(filename) {
@@ -207,11 +204,7 @@ func testLocalCopyOrMove(t *testing.T, isMove bool) {
 	job.dst = newURL(dst)
 
 	// execute
-	resp := job.run(&wp)
-	if resp.err != nil {
-		t.Error(resp.err)
-		return
-	}
+	job.Run(&wp)
 
 	// verify
 	if isMove {

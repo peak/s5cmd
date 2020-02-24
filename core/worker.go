@@ -99,7 +99,7 @@ func (w *WorkerManager) runJob(job *Job) {
 	w.acquire()
 	go func() {
 		defer w.release()
-		wp := WorkerParams{
+		wp := &WorkerParams{
 			ctx:        w.ctx,
 			poolParams: w.params,
 			st:         w.st,

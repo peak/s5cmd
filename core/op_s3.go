@@ -13,6 +13,11 @@ import (
 func S3Copy(job *Job, wp *WorkerParams) *JobResponse {
 	src, dst := job.src[0], job.dst
 
+	response := CheckConditions(src, dst, wp, job.opts)
+	if response != nil {
+		return response
+	}
+
 	client, err := wp.newClient(src)
 	if err != nil {
 		return jobResponse(err)
@@ -47,6 +52,11 @@ func S3Delete(job *Job, wp *WorkerParams) *JobResponse {
 func S3Download(job *Job, wp *WorkerParams) *JobResponse {
 	src, dst := job.src[0], job.dst
 
+	response := CheckConditions(src, dst, wp, job.opts)
+	if response != nil {
+		return response
+	}
+
 	client, err := wp.newClient(src)
 	if err != nil {
 		return jobResponse(err)
@@ -74,7 +84,11 @@ func S3Download(job *Job, wp *WorkerParams) *JobResponse {
 
 func S3Upload(job *Job, wp *WorkerParams) *JobResponse {
 	src, dst := job.src[0], job.dst
-	srcFn := src.Base()
+
+	response := CheckConditions(src, dst, wp, job.opts)
+	if response != nil {
+		return response
+	}
 
 	f, err := os.Open(src.Absolute())
 	if err != nil {
@@ -88,6 +102,7 @@ func S3Upload(job *Job, wp *WorkerParams) *JobResponse {
 		return jobResponse(err)
 	}
 
+	srcFn := src.Base()
 	infoLog("Uploading %s...", srcFn)
 
 	err = client.Put(

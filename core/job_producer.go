@@ -3,6 +3,8 @@ package core
 import (
 	"context"
 
+	"github.com/peak/s5cmd/opt"
+
 	"github.com/peak/s5cmd/objurl"
 	"github.com/peak/s5cmd/op"
 	"github.com/peak/s5cmd/storage"
@@ -54,9 +56,10 @@ func (p *Producer) batchProduce(ctx context.Context, command *Command) {
 func (p *Producer) fullScan(ctx context.Context, command *Command, fn producerFunc) {
 	// TODO(os): handle errors
 	client, _ := p.newClient(command.src)
+	isRecursive := command.opts.Has(opt.Recursive)
 
 	var urls []*objurl.ObjectURL
-	for object := range client.List(ctx, command.src, true, storage.ListAllItems) {
+	for object := range client.List(ctx, command.src, isRecursive, storage.ListAllItems) {
 		if object.Err != nil || object.Mode.IsDir() {
 			continue
 		}
@@ -71,8 +74,9 @@ func (p *Producer) fullScan(ctx context.Context, command *Command, fn producerFu
 func (p *Producer) lookup(ctx context.Context, command *Command, fn producerFunc) {
 	// TODO(os): handle errors
 	client, _ := p.newClient(command.src)
+	isRecursive := command.opts.Has(opt.Recursive)
 
-	for object := range client.List(ctx, command.src, true, storage.ListAllItems) {
+	for object := range client.List(ctx, command.src, isRecursive, storage.ListAllItems) {
 		if object.Err != nil || object.Mode.IsDir() {
 			continue
 		}

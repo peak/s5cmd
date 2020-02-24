@@ -100,7 +100,9 @@ func localCopy(command *Command, operation op.Operation, urls ...*objurl.ObjectU
 	}
 
 	dst := cmdDst.Join(joinPath)
-	dir := filepath.Dir(dst.Absolute())
-	os.MkdirAll(dir, os.ModePerm)
+	if !dst.IsRemote() {
+		dir := filepath.Dir(dst.Absolute())
+		os.MkdirAll(dir, os.ModePerm)
+	}
 	return command.makeJob(cmd, operation, dst, src)
 }

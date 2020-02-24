@@ -30,12 +30,10 @@ func TestRemoveSingleS3Object(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(` +OK "rm s3://%v/testfile1.txt"`, bucket),
-	})
+	assertLines(t, result.Stderr(), map[int]compareFunc{})
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: suffix(`# Downloading testfile1.txt...`),
+		0: suffix(`+ "rm s3://%v/testfile1.txt"`, bucket),
 	})
 
 	// assert s3 object
@@ -69,17 +67,14 @@ func TestRemoveMultipleS3Objects(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(` +OK "rm s3://%v/*"`, bucket),
-		1: suffix(` # All workers idle, finishing up...`),
-	})
+	assertLines(t, result.Stderr(), map[int]compareFunc{})
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(""),
-		1: contains(` + Batch-delete s3://%v/another_test_file.txt`, bucket),
-		2: contains(` + Batch-delete s3://%v/filename-with-hypen.gz`, bucket),
-		3: contains(` + Batch-delete s3://%v/readme.md`, bucket),
-		4: contains(` + Batch-delete s3://%v/testfile1.txt`, bucket),
+		1: contains(`+ Batch-delete s3://%v/another_test_file.txt`, bucket),
+		2: contains(`+ Batch-delete s3://%v/filename-with-hypen.gz`, bucket),
+		3: contains(`+ Batch-delete s3://%v/readme.md`, bucket),
+		4: contains(`+ Batch-delete s3://%v/testfile1.txt`, bucket),
 	}, sortInput(true))
 
 	// assert s3 objects
@@ -108,11 +103,11 @@ func TestRemoveSingleLocalFile(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(` +OK "rm %v"`, filename),
-	})
+	assertLines(t, result.Stderr(), map[int]compareFunc{})
 
-	assertLines(t, result.Stdout(), map[int]compareFunc{})
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: suffix(`+ "rm %v"`, filename),
+	})
 
 	// assert local filesystem
 	expected := fs.Expected(t)
@@ -147,7 +142,7 @@ func TestRemoveMultipleLocalFilesShouldFail(t *testing.T) {
 	result.Assert(t, icmd.Expected{ExitCode: 127})
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(` -ERR "rm *.txt": invalid parameters to "rm": given argument "*.txt" is not a remote path`),
+		0: suffix(`-ERR "rm *.txt": invalid parameters to "rm": given argument "*.txt" is not a remote path`),
 	})
 
 	// assert local filesystem

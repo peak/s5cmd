@@ -7,12 +7,18 @@ import (
 )
 
 func ShellExec(job *Job, wp *WorkerParams) *JobResponse {
-	strArgs := make([]string, 0)
+	src := job.src[0]
+	var srcCmd, dstCmd string
 
-	for _, src := range job.src {
-		strArgs = append(strArgs, src.Absolute())
+	if src != nil {
+		srcCmd = src.Absolute()
 	}
-	cmd := exec.CommandContext(wp.ctx, job.dst.Absolute(), strArgs...)
+
+	if job.dst != nil {
+		dstCmd = job.dst.Absolute()
+	}
+
+	cmd := exec.CommandContext(wp.ctx, srcCmd, dstCmd)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	err := cmd.Run()

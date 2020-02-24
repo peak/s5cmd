@@ -159,14 +159,14 @@ func TestParseS3ObjOrDir(t *testing.T) {
 		inputKey := "path/to/obj"
 		input := "s3://" + inputBucket + "/" + inputKey
 
-		assertParse(t, typ, input, input, false, true, inputBucket, inputKey, &JobArgument{url: newURL("file")})
+		assertParse(t, typ, input, input, false, true, inputBucket, inputKey, newURL("file"))
 	})
 	t.Run("path/to/obj/+file", func(t *testing.T) {
 		inputBucket := "bucket"
 		inputKey := "path/to/obj/"
 		input := "s3://" + inputBucket + "/" + inputKey
 
-		assertParse(t, typ, input, input+"file", false, true, inputBucket, inputKey+"file", &JobArgument{url: newURL("file")})
+		assertParse(t, typ, input, input+"file", false, true, inputBucket, inputKey+"file", newURL("file"))
 	})
 	t.Run("missing-key", func(t *testing.T) {
 		inputBucket := "bucket"
@@ -178,13 +178,13 @@ func TestParseS3ObjOrDir(t *testing.T) {
 		inputBucket := "bucket"
 		input := "s3://" + inputBucket
 
-		assertParse(t, typ, input, input+"/file", false, true, inputBucket, "file", &JobArgument{url: newURL("file")})
+		assertParse(t, typ, input, input+"/file", false, true, inputBucket, "file", newURL("file"))
 	})
 	t.Run("missing-key-with-slash+file", func(t *testing.T) {
 		inputBucket := "bucket"
 		input := "s3://" + inputBucket + "/"
 
-		assertParse(t, typ, input, input+"file", false, true, inputBucket, "file", &JobArgument{url: newURL("file")})
+		assertParse(t, typ, input, input+"file", false, true, inputBucket, "file", newURL("file"))
 	})
 	t.Run("path/to/obj*: s3 key cannot contain glob characters", func(t *testing.T) {
 		inputBucket := "bucket"
@@ -315,10 +315,6 @@ func assertParse(
 	t.Helper()
 
 	a, err := parseArgumentByType(input, typ, fnObj)
-	if a == nil {
-		t.Fatal("Unexpected nil result")
-	}
-
 	if expectError {
 		if err == nil {
 			t.Fatal("Expected err")
@@ -328,21 +324,22 @@ func assertParse(
 			t.Fatalf("Unexpected err: %v", err)
 		}
 	}
+
 	if expectError {
 		return // Success
 	}
 
 	if a.Absolute() != expectedOutArg {
-		t.Errorf(`"Expected a.arg was "%s" but got "%s"`, expectedOutArg, a.url.Absolute())
+		t.Errorf(`"Expected a.arg was "%s" but got "%s"`, expectedOutArg, a.Absolute())
 	}
 
 	if expectRemoteURL {
 		if !a.IsRemote() {
-			t.Fatalf("Expected remote file, got local: %q", a.url)
+			t.Fatalf("Expected remote file, got local: %q", a.Path)
 		}
 	} else {
 		if a.IsRemote() {
-			t.Fatalf("Expected local file, got: %q", a.url)
+			t.Fatalf("Expected local file, got: %q", a.Path)
 		}
 	}
 
@@ -351,9 +348,9 @@ func assertParse(
 	}
 
 	if a.Bucket != expectedS3bucket {
-		t.Errorf(`"Expected a.s3.bucket was "%s" but got "%s"`, expectedS3bucket, a.url.Bucket)
+		t.Errorf(`"Expected a.s3.bucket was "%s" but got "%s"`, expectedS3bucket, a.Bucket)
 	}
 	if a.Path != expectedS3key {
-		t.Errorf(`"Expected a.s3.key was "%s" but got "%s"`, expectedS3key, a.url.Path)
+		t.Errorf(`"Expected a.s3.key was "%s" but got "%s"`, expectedS3key, a.Path)
 	}
 }

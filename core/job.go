@@ -44,6 +44,7 @@ func jobResponse(err error, msg ...string) *JobResponse {
 // String formats the job using its command and arguments.
 func (j Job) String() string {
 	s := j.command
+
 	for _, src := range j.src {
 		s += " " + src.Absolute()
 	}
@@ -76,6 +77,7 @@ func (j *Job) Log() {
 		}
 
 		errStr = CleanupError(err)
+		errStr = fmt.Sprintf(" (%s)", errStr)
 	}
 
 	if status == statusErr {
@@ -83,13 +85,12 @@ func (j *Job) Log() {
 		return
 	}
 
-	okStr := "OK"
-	if status == statusWarning {
-		errStr = fmt.Sprintf(" (%s)", errStr)
-		okStr = "OK?"
+	if j.operation.IsInternal() {
+		return
 	}
 
-	log.Printf(`+%s "%s"%s`, okStr, j, errStr)
+	m := fmt.Sprintf(`"%s"%s`, j, errStr)
+	fmt.Println(status, m)
 }
 
 // Run runs the Job and returns error.

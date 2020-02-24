@@ -132,7 +132,7 @@ func (w *WorkerManager) RunCmd(cmd string) {
 func (w *WorkerManager) parseCommand(cmd string) *Command {
 	command, err := ParseCommand(cmd)
 	if err != nil {
-		log.Println(`-ERR "`, cmd, `": `, err)
+		log.Printf(`-ERR "%s": %v`, cmd, err)
 		w.st.Increment(stats.Fail)
 		return nil
 	}

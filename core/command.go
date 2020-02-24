@@ -59,11 +59,15 @@ func (c Command) makeJob(cmd string, operation op.Operation, dst *objurl.ObjectU
 
 // toJob converts raw command to job.
 func (c Command) toJob() *Job {
+	var src []*objurl.ObjectURL
+	if c.src != nil {
+		src = append(src, c.src)
+	}
 	return &Job{
 		command:   c.keyword,
 		operation: c.operation,
 		opts:      c.opts,
-		src:       []*objurl.ObjectURL{c.src},
+		src:       src,
 		dst:       c.dst,
 		cls:       c.getStorageClass(),
 	}

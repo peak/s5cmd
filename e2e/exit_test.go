@@ -19,10 +19,8 @@ func TestExit(t *testing.T) {
 
 		result.Assert(t, icmd.Expected{ExitCode: code})
 
-		assertLines(t, result.Stderr(), map[int]compareFunc{
-			0: suffix(` +OK "exit %v"`, code),
+		assertLines(t, result.Stdout(), map[int]compareFunc{
+			0: suffix(`+ "exit %v"`, code),
 		})
-
-		assertLines(t, result.Stdout(), map[int]compareFunc{})
 	}
 }

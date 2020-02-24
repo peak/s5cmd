@@ -34,13 +34,22 @@ func CheckConditions(src, dst *objurl.ObjectURL, wp *WorkerParams, opts opt.Opti
 		res = &JobResponse{status: statusWarning, err: ErrObjectExists}
 	}
 
-	if sizeDiffers && srcObj.Size == dstObj.Size {
-		res = &JobResponse{status: statusWarning, err: ErrObjectSizesMatch}
+	if sizeDiffers {
+		if srcObj.Size == dstObj.Size {
+			res = &JobResponse{status: statusWarning, err: ErrObjectSizesMatch}
+		} else {
+			res = nil
+		}
 	}
 
-	srcMod, dstMod := srcObj.ModTime, dstObj.ModTime
-	if sourceNewer && !srcMod.After(dstMod) {
-		res = &JobResponse{status: statusWarning, err: ErrObjectIsNewer}
+	if sourceNewer {
+		srcMod, dstMod := srcObj.ModTime, dstObj.ModTime
+
+		if !srcMod.After(dstMod) {
+			res = &JobResponse{status: statusWarning, err: ErrObjectIsNewer}
+		} else {
+			res = nil
+		}
 	}
 
 	return res

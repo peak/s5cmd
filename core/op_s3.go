@@ -23,6 +23,9 @@ func S3Copy(job *Job, wp *WorkerParams) *JobResponse {
 		return jobResponse(err)
 	}
 
+	srcFn := src.Base()
+	infoLog("Copying %s...", srcFn)
+
 	err = client.Copy(
 		wp.ctx,
 		dst,
@@ -72,6 +75,7 @@ func S3Download(job *Job, wp *WorkerParams) *JobResponse {
 	defer f.Close()
 
 	infoLog("Downloading %s...", srcFn)
+
 	err = client.Get(wp.ctx, src, f)
 	if err != nil {
 		os.Remove(destFn) // Remove partly downloaded file
@@ -111,6 +115,10 @@ func S3Upload(job *Job, wp *WorkerParams) *JobResponse {
 		dst,
 		job.cls,
 	)
+
+	if job.opts.Has(opt.DeleteSource) && err == nil {
+		err = os.Remove(src.Absolute())
+	}
 
 	return jobResponse(err)
 }
@@ -238,7 +246,7 @@ func S3Size(job *Job, wp *WorkerParams) *JobResponse {
 	totals := map[string]sizeAndCount{}
 
 	for object := range client.List(wp.ctx, src, true, storage.ListAllItems) {
-		if object.Mode.IsDir() {
+		if object.Mode.IsDir() || object.Err != nil {
 			continue
 		}
 		storageClass := string(object.StorageClass)

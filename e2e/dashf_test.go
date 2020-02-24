@@ -68,21 +68,12 @@ func TestDashFFromFile(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: equals(""),
-		1: match(`# Exiting with code 0`),
-		2: match(`.* Stats: S3 1 \d+ ops/sec`),
-		3: match(`.* Stats: Shell 1 \d+ ops/sec$`),
-		4: match(`.* Stats: Total 2 \d+ ops/sec \d+\.\d+ms$`),
-		5: suffix(`# Using 256 workers`),
-		6: suffix(` +OK "! echo naber"`),
-		7: suffix(` +OK "ls s3://test-dash-f-from-file"`),
-	}, trimMatch(dateRe), sortInput(true))
-
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(""),
 		1: suffix("file.txt"),
-		2: equals("naber"),
+		2: suffix(`+ "! echo naber"`),
+		3: suffix(`+ "ls s3://test-dash-f-from-file"`),
+		4: equals("naber"),
 	}, sortInput(true))
 }
 
@@ -109,18 +100,16 @@ func TestDashFWildcardCountGreaterEqualThanWorkerCount(t *testing.T) {
 	cmd := s5cmd("-numworkers", "2", "-f", file.Path())
 	cmd.Timeout = time.Second
 	result := icmd.RunCmd(cmd)
+	result.Assert(t, icmd.Success)
 
-	// FIXME(ig): This is a bug (see #12). If wildcard expansion operations are
-	// greater than the number of workers, queues are blocked and we got a
-	// timeout.
-	//
-	// After the issue is resolved, change the assertion to success.
-	result.Assert(t, icmd.Expected{Timeout: true})
-
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: equals(""),
-		1: suffix(`# Using 2 workers`),
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: contains(""),
+		1: suffix(`# Downloading file.txt...`),
+		2: suffix(`# Downloading file.txt...`),
+		3: suffix(`# Downloading file.txt...`),
+		4: suffix(`+ "cp s3://test-dash-f-wildcard-count-greater-equal-than-worker-count/file.txt file.txt"`),
+		5: suffix(`+ "cp s3://test-dash-f-wildcard-count-greater-equal-than-worker-count/file.txt file.txt"`),
+		6: suffix(`+ "cp s3://test-dash-f-wildcard-count-greater-equal-than-worker-count/file.txt file.txt"`),
 	}, sortInput(true))
 
-	assertLines(t, result.Stdout(), map[int]compareFunc{})
 }

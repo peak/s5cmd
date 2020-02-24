@@ -6,13 +6,15 @@ import (
 	"os"
 	"testing"
 
+	"github.com/peak/s5cmd/storage"
+
 	"github.com/peak/s5cmd/objurl"
 	"github.com/peak/s5cmd/op"
 	"github.com/peak/s5cmd/opt"
 	"github.com/peak/s5cmd/stats"
 )
 
-func newJob(command string, operation op.Operation, opts opt.OptionList, src *objurl.ObjectURL, dst ...*objurl.ObjectURL) Job {
+func newJob(command string, operation op.Operation, opts opt.OptionList, dst *objurl.ObjectURL, src ...*objurl.ObjectURL) Job {
 	return Job{
 		command:   command,
 		operation: operation,
@@ -33,30 +35,36 @@ var (
 		ctx:        context.TODO(),
 		poolParams: nil,
 		st:         &st,
-		newClient:  nil,
-	}
+		newClient: func(url *objurl.ObjectURL) (storage.Storage, error) {
+			if url.IsRemote() {
+				panic("remote url is not expected")
+			}
+
+			return storage.NewFilesystem(), nil
+		}}
 
 	// These Jobs are used for benchmarks and also as skeletons for tests
 	localCopyJob = newJob(
 		"!cp-test",
 		op.LocalCopy,
 		opt.OptionList{},
-		newURL("test-src"),
 		newURL("test-dst"),
+		newURL("test-src"),
 	)
 
 	localMoveJob = newJob(
 		"!mv-test",
 		op.LocalCopy,
 		opt.OptionList{opt.DeleteSource},
-		newURL("test-src"),
 		newURL("test-dst"),
+		newURL("test-src"),
 	)
 
 	localDeleteJob = newJob(
 		"!rm-test",
 		op.LocalDelete,
 		opt.OptionList{},
+		nil,
 		newURL("test-src"),
 	)
 )
@@ -139,7 +147,7 @@ func TestJobRunLocalDelete(t *testing.T) {
 	oldSrc := localDeleteJob.src
 	oldDst := localDeleteJob.dst
 
-	localDeleteJob.src = newURL(filename)
+	localDeleteJob.src = []*objurl.ObjectURL{newURL(filename)}
 
 	// execute
 	resp := localDeleteJob.run(&wp)
@@ -196,8 +204,8 @@ func testLocalCopyOrMove(t *testing.T, isMove bool) {
 		return
 	}
 
-	job.src = newURL(src)
-	job.dst = []*objurl.ObjectURL{newURL(dst)}
+	job.src = []*objurl.ObjectURL{newURL(src)}
+	job.dst = newURL(dst)
 
 	// execute
 	resp := job.run(&wp)

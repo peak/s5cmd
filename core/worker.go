@@ -139,7 +139,7 @@ func (w *WorkerManager) parseCommand(cmd string) *Command {
 	return command
 }
 
-// close waits all jobs to finish and closes jobQueue channel.
+// close waits all jobs to finish and closes semaphore.
 func (w *WorkerManager) close() {
 	w.wg.Wait()
 	close(w.semaphore)

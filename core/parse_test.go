@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/peak/s5cmd/objurl"
-
 	"github.com/peak/s5cmd/opt"
 )
 

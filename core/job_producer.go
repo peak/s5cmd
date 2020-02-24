@@ -3,10 +3,9 @@ package core
 import (
 	"context"
 
-	"github.com/peak/s5cmd/opt"
-
 	"github.com/peak/s5cmd/objurl"
 	"github.com/peak/s5cmd/op"
+	"github.com/peak/s5cmd/opt"
 	"github.com/peak/s5cmd/storage"
 )
 

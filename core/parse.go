@@ -18,7 +18,7 @@ const (
 )
 
 // parseArgumentByType parses an input string according to the given
-// opt.ParamType and returns a CommandArgument (or error). fnObj is the
+// opt.ParamType and returns a ObjectURL (or error). fnObj is the
 // last/previous successfully parsed argument, used mainly to append the
 // basenames of the source files to destination directories.
 func parseArgumentByType(s string, t opt.ParamType, fnObj *objurl.ObjectURL) (*objurl.ObjectURL, error) {

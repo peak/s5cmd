@@ -82,7 +82,7 @@ func TestS3_List_success(t *testing.T) {
 		}
 
 		want := responses[index]
-		if diff := cmp.Diff(want.isDir, got.Type.IsDir()); diff != "" {
+		if diff := cmp.Diff(want.isDir, got.Mode.IsDir()); diff != "" {
 			t.Errorf("(-want +got):\n%v", diff)
 		}
 		if diff := cmp.Diff(want.url, got.URL.Absolute()); diff != "" {
@@ -153,8 +153,8 @@ func TestS3_List_no_item_found(t *testing.T) {
 	})
 
 	for got := range mockS3.List(context.Background(), url, true, ListAllItems) {
-		if got.Err != ErrNoItemFound {
-			t.Errorf("error got = %v, want %v", got.Err, ErrNoItemFound)
+		if got.Err != ErrNoObjectFound {
+			t.Errorf("error got = %v, want %v", got.Err, ErrNoObjectFound)
 		}
 	}
 }

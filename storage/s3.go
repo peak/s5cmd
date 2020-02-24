@@ -26,11 +26,6 @@ import (
 
 var _ Storage = (*S3)(nil)
 
-var (
-	// ErrNoItemFound is a error type for marking empty list results.
-	ErrNoItemFound = fmt.Errorf("s3: no item found")
-)
-
 const (
 	// ListAllItems is a type to paginate all S3 keys.
 	ListAllItems = -1
@@ -86,8 +81,10 @@ func (s *S3) Stat(ctx context.Context, url *objurl.ObjectURL) (*Object, error) {
 		Bucket: aws.String(url.Bucket),
 		Key:    aws.String(url.Path),
 	})
-
 	if err != nil {
+		if errHasCode(err, "NotFound") {
+			return nil, ErrGivenObjectNotFound
+		}
 		return nil, err
 	}
 
@@ -135,7 +132,7 @@ func (s *S3) List(ctx context.Context, url *objurl.ObjectURL, _ bool, maxKeys in
 				newurl.Path = prefix
 				objCh <- &Object{
 					URL:  newurl,
-					Type: os.ModeDir,
+					Mode: os.ModeDir,
 				}
 
 				itemFound = true
@@ -158,7 +155,7 @@ func (s *S3) List(ctx context.Context, url *objurl.ObjectURL, _ bool, maxKeys in
 					URL:          newurl,
 					Etag:         aws.StringValue(c.ETag),
 					ModTime:      aws.TimeValue(c.LastModified),
-					Type:         objtype,
+					Mode:         objtype,
 					Size:         aws.Int64Value(c.Size),
 					StorageClass: storageClass(aws.StringValue(c.StorageClass)),
 				}
@@ -179,7 +176,7 @@ func (s *S3) List(ctx context.Context, url *objurl.ObjectURL, _ bool, maxKeys in
 		}
 
 		if !itemFound {
-			objCh <- &Object{Err: ErrNoItemFound}
+			objCh <- &Object{Err: ErrNoObjectFound}
 		}
 	}()
 
@@ -382,15 +379,21 @@ func newAWSSession(opts S3Opts) (*session.Session, error) {
 	return ses, err
 }
 
-func IsCancelationError(err error) bool {
-	if err == nil {
+func errHasCode(err error, code string) bool {
+	if code == "" || err == nil {
 		return false
 	}
+
 	var awsErr awserr.Error
 	if errors.As(err, &awsErr) {
-		if awsErr.Code() == request.CanceledErrorCode {
+		if awsErr.Code() == code {
 			return true
 		}
 	}
 	return false
+
+}
+
+func IsCancelationError(err error) bool {
+	return errHasCode(err, request.CanceledErrorCode)
 }

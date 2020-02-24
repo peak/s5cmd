@@ -32,7 +32,6 @@ func ParseFlagsAndRun() (bool, error) {
 
 	completer := cmp.Command{
 		Flags: cmp.Flags{
-			"-f": cmp.PredictOr(cmp.PredictSet("-"), cmp.PredictFiles("*")),
 			"-numworkers": cmp.PredictFunc(func(a cmp.Args) []string {
 				// add some sensible defaults...
 				ret := []string{"-1", "-2", "-4"}
@@ -45,15 +44,18 @@ func ParseFlagsAndRun() (bool, error) {
 				}
 				return ret
 			}),
-			"-cs":            cmp.PredictSet("5", "16", "64", "128", "256"),
-			"-dlp":           cmp.PredictSet("5", "16", "64", "128", "256"),
-			"-dlw":           cmp.PredictSet("5", "8", "16", "32", "64"),
+			"-f":             cmp.PredictOr(cmp.PredictSet("-"), cmp.PredictFiles("*")),
+			"-ds":            cmp.PredictSet("5", "16", "64", "128", "256"),
+			"-dw":            cmp.PredictSet("5", "8", "16", "32", "64"),
+			"-us":            cmp.PredictSet("5", "16", "64", "128", "256"),
+			"-uw":            cmp.PredictSet("5", "8", "16", "32", "64"),
 			"-cmp-install":   cmp.PredictSet("assume-yes"),
 			"-cmp-uninstall": cmp.PredictSet("assume-yes"),
 			"-h":             cmp.PredictNothing,
 			"-r":             cmp.PredictSet("0", "1", "2", "10", "100"),
 			"-stats":         cmp.PredictNothing,
-			"-ulw":           cmp.PredictSet("5", "8", "16", "32", "64"),
+			"-endpoint-url":  cmp.PredictNothing,
+			"-no-verify-ssl": cmp.PredictNothing,
 			"-version":       cmp.PredictNothing,
 			"-gops":          cmp.PredictNothing,
 			"-vv":            cmp.PredictNothing,

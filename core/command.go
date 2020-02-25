@@ -31,16 +31,16 @@ func (c Command) String() string {
 func (c Command) getStorageClass() string {
 	var cls string
 	if c.opts.Has(opt.RR) {
-		cls = string(storage.ObjectStorageClassReducedRedundancy)
+		cls = string(storage.StorageReducedRedundancy)
 	} else if c.opts.Has(opt.IA) {
-		cls = string(storage.TransitionStorageClassStandardIA)
+		cls = string(storage.StorageStandardIA)
 	} else {
-		cls = string(storage.ObjectStorageClassStandard)
+		cls = string(storage.StorageStandard)
 	}
 	return cls
 }
 
-// IsBatch() checks if command is a batch operation.
+// IsBatch checks if command is a batch operation.
 func (c Command) IsBatch() bool {
 	return c.operation.IsBatch()
 }

@@ -109,11 +109,16 @@ func S3Upload(job *Job, wp *WorkerParams) *JobResponse {
 	srcFn := src.Base()
 	infoLog("Uploading %s...", srcFn)
 
+	metadata := map[string]string{
+		"StorageClass": job.cls,
+		"ContentType":  "", // guess the mimetype (see: #33)
+	}
+
 	err = client.Put(
 		wp.ctx,
 		f,
 		dst,
-		job.cls,
+		metadata,
 	)
 
 	if job.opts.Has(opt.DeleteSource) && err == nil {
@@ -194,13 +199,13 @@ func S3List(job *Job, wp *WorkerParams) *JobResponse {
 			var cls, etag, size string
 
 			switch object.StorageClass {
-			case storage.ObjectStorageClassStandard:
+			case storage.StorageStandard:
 				cls = ""
-			case storage.ObjectStorageClassGlacier:
+			case storage.StorageGlacier:
 				cls = "G"
-			case storage.ObjectStorageClassReducedRedundancy:
+			case storage.StorageReducedRedundancy:
 				cls = "R"
-			case storage.TransitionStorageClassStandardIA:
+			case storage.StorageStandardIA:
 				cls = "I"
 			default:
 				cls = "?"

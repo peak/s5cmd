@@ -27,7 +27,7 @@ type Storage interface {
 	List(context.Context, *objurl.ObjectURL, bool, int64) <-chan *Object
 	Copy(ctx context.Context, from, to *objurl.ObjectURL, class string) error
 	Get(context.Context, *objurl.ObjectURL, io.WriterAt) error
-	Put(context.Context, io.Reader, *objurl.ObjectURL, string) error
+	Put(context.Context, io.Reader, *objurl.ObjectURL, map[string]string) error
 	Delete(context.Context, ...*objurl.ObjectURL) error
 	ListBuckets(context.Context, string) ([]Bucket, error)
 	UpdateRegion(string) error
@@ -41,7 +41,7 @@ type Object struct {
 	ModTime      time.Time
 	Mode         os.FileMode
 	Size         int64
-	StorageClass storageClass
+	StorageClass StorageClass
 	Err          error
 }
 
@@ -61,26 +61,26 @@ func (b Bucket) String() string {
 	return fmt.Sprintf("%s  s3://%s", b.CreationDate.Format(dateFormat), b.Name)
 }
 
-type storageClass string
+type StorageClass string
 
 // IsGlacierObject checks if the storage class of object is glacier.
-func (s storageClass) IsGlacier() bool {
-	return s == ObjectStorageClassGlacier
+func (s StorageClass) IsGlacier() bool {
+	return s == StorageGlacier
 }
 
 const (
 	// ObjectStorageClassStandard is a standard storage class type.
-	ObjectStorageClassStandard storageClass = "STANDARD"
+	StorageStandard StorageClass = "STANDARD"
 
 	// ObjectStorageClassReducedRedundancy is a reduced redundancy storage class type.
-	ObjectStorageClassReducedRedundancy storageClass = "REDUCED_REDUNDANCY"
+	StorageReducedRedundancy StorageClass = "REDUCED_REDUNDANCY"
 
 	// ObjectStorageClassGlacier is a glacier storage class type.
-	ObjectStorageClassGlacier storageClass = "GLACIER"
+	StorageGlacier StorageClass = "GLACIER"
 
 	// TransitionStorageClassStandardIA is a Standard Infrequent-Access storage
 	// class type.
-	TransitionStorageClassStandardIA storageClass = "STANDARD_IA"
+	StorageStandardIA StorageClass = "STANDARD_IA"
 )
 
 type notImplemented struct {

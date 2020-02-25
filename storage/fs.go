@@ -195,7 +195,7 @@ func (f *Filesystem) Delete(ctx context.Context, urls ...*objurl.ObjectURL) erro
 	return nil
 }
 
-func (f *Filesystem) Put(ctx context.Context, body io.Reader, url *objurl.ObjectURL, _ string) error {
+func (f *Filesystem) Put(ctx context.Context, body io.Reader, url *objurl.ObjectURL, _ map[string]string) error {
 	return f.notimplemented("Put")
 }
 

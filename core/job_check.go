@@ -10,12 +10,12 @@ import (
 // It returns error-embedded JobResponse with status "warning" if none of the requirements are met.
 // It returns nil if any warning or error is encountered during this check.
 func CheckConditions(src, dst *objurl.ObjectURL, wp *WorkerParams, opts opt.OptionList) *JobResponse {
-	exists := opts.Has(opt.IfNotExists)
-	sizeDiffers := opts.Has(opt.IfSizeDiffers)
-	sourceNewer := opts.Has(opt.IfSourceNewer)
+	condIsExist := opts.Has(opt.IfNotExists)
+	condSizeDiffers := opts.Has(opt.IfSizeDiffers)
+	condSourceNewer := opts.Has(opt.IfSourceNewer)
 
 	// if has no flag, return nil
-	if !exists && !sizeDiffers && !sourceNewer {
+	if !condIsExist && !condSizeDiffers && !condSourceNewer {
 		return nil
 	}
 
@@ -29,12 +29,17 @@ func CheckConditions(src, dst *objurl.ObjectURL, wp *WorkerParams, opts opt.Opti
 		return jobResponse(err)
 	}
 
+	// if destination is not exists, no conditions apply.
+	if dstObj == nil {
+		return nil
+	}
+
 	var res *JobResponse
-	if exists {
+	if condIsExist {
 		res = &JobResponse{status: statusWarning, err: ErrObjectExists}
 	}
 
-	if sizeDiffers {
+	if condSizeDiffers {
 		if srcObj.Size == dstObj.Size {
 			res = &JobResponse{status: statusWarning, err: ErrObjectSizesMatch}
 		} else {
@@ -42,7 +47,7 @@ func CheckConditions(src, dst *objurl.ObjectURL, wp *WorkerParams, opts opt.Opti
 		}
 	}
 
-	if sourceNewer {
+	if condSourceNewer {
 		srcMod, dstMod := srcObj.ModTime, dstObj.ModTime
 
 		if !srcMod.After(dstMod) {
@@ -55,12 +60,18 @@ func CheckConditions(src, dst *objurl.ObjectURL, wp *WorkerParams, opts opt.Opti
 	return res
 }
 
-// getObjects creates new storage client and sends stat request.
+// getObjects checks if the object from given url exists. If no object is
+// found, error and returning object would be nil.
 func getObject(url *objurl.ObjectURL, wp *WorkerParams) (*storage.Object, error) {
 	client, err := wp.newClient(url)
 	if err != nil {
 		return nil, err
 	}
 
-	return client.Stat(wp.ctx, url)
+	obj, err := client.Stat(wp.ctx, url)
+	if err == storage.ErrGivenObjectNotFound {
+		return nil, nil
+	}
+
+	return obj, err
 }

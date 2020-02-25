@@ -1043,6 +1043,44 @@ func TestCopyLocalFileToS3WithSameFilenameWithNoClobber(t *testing.T) {
 	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content))
 }
 
+func TestCopyLocalFileToS3WithNoClobber(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	const (
+		filename   = "testfile1.txt"
+		content    = "this is the content"
+		newContent = content + "\n"
+	)
+
+	createBucket(t, s3client, bucket)
+
+	// the file to be uploaded is modified
+	workdir := fs.NewDir(t, t.Name(), fs.WithFile(filename, newContent))
+	defer workdir.Remove()
+
+	cmd := s5cmd("cp", "-n", filename, "s3://"+bucket)
+	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: contains(` # Uploading %v...`, filename),
+		1: suffix(`+ "cp %v s3://%v/%v"`, filename, bucket, filename),
+	})
+
+	// assert local filesystem
+	expected := fs.Expected(t, fs.WithFile(filename, newContent))
+	assert.Assert(t, fs.Equal(workdir.Path(), expected))
+
+	// expect s3 object is not overriden
+	assert.Assert(t, ensureS3Object(s3client, bucket, filename, newContent))
+}
+
 func TestCopyLocalFileToS3WithSameFilenameOverrideIfSizeDiffers(t *testing.T) {
 	t.Parallel()
 

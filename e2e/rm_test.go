@@ -106,7 +106,7 @@ func TestRemoveSingleLocalFile(t *testing.T) {
 	assertLines(t, result.Stderr(), map[int]compareFunc{})
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: suffix(`+ "rm %v"`, filename),
+		0: suffix(` # Deleting %v...`, filename),
 	})
 
 	// assert local filesystem

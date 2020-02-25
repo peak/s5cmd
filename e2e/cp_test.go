@@ -553,7 +553,7 @@ func TestCopySingleLocalFileToLocal(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		// TODO(ig): expect a stdout
+		0: equals(" # Copying testfile1.txt..."),
 	})
 
 	// assert local filesystem
@@ -594,7 +594,9 @@ func TestCopyMultipleLocalFlatFilesToLocal(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		// TODO(ig): expect output
+		0: equals(""),
+		1: equals(" # Copying another_test_file.txt..."),
+		2: equals(" # Copying testfile1.txt..."),
 	}, sortInput(true))
 
 	// assert local filesystem
@@ -661,7 +663,10 @@ func TestCopyMultipleLocalNestedFilesToLocal(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		// TODO(ig): expect output
+		0: equals(""),
+		1: equals(" # Copying file1.txt..."),
+		2: equals(" # Copying file2.txt..."),
+		3: equals(" # Copying readme.md..."),
 	}, sortInput(true))
 
 	newLayout := append(folderLayout, fs.WithDir(
@@ -725,7 +730,10 @@ func TestCopyMultipleLocalNestedFilesToLocalPreserveLayout(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		// TODO(ig): expect output
+		0: equals(""),
+		1: equals(" # Copying file1.txt..."),
+		2: equals(" # Copying file2.txt..."),
+		3: equals(" # Copying readme.md..."),
 	}, sortInput(true))
 
 	newLayout := append(folderLayout, fs.WithDir("dst", folderLayout...))

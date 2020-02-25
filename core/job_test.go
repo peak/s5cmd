@@ -31,7 +31,7 @@ func newURL(s string) *objurl.ObjectURL {
 var (
 	st = stats.Stats{}
 	wp = WorkerParams{
-		ctx:        context.TODO(),
+		ctx:        context.Background(),
 		poolParams: nil,
 		st:         &st,
 		newClient: func(url *objurl.ObjectURL) (storage.Storage, error) {

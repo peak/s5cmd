@@ -42,9 +42,7 @@ func TestDashFFromStdin(t *testing.T) {
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(""),
 		1: suffix("file.txt"),
-		2: suffix(`+ "! echo naber"`),
-		3: suffix(`+ "ls s3://test-dash-f-from-stdin"`),
-		4: equals("naber"),
+		2: equals("naber"),
 	}, sortInput(true))
 }
 
@@ -70,9 +68,7 @@ func TestDashFFromFile(t *testing.T) {
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(""),
 		1: suffix("file.txt"),
-		2: suffix(`+ "! echo naber"`),
-		3: suffix(`+ "ls s3://test-dash-f-from-file"`),
-		4: equals("naber"),
+		2: equals("naber"),
 	}, sortInput(true))
 }
 
@@ -106,9 +102,6 @@ func TestDashFWildcardCountGreaterEqualThanWorkerCount(t *testing.T) {
 		1: suffix(`# Downloading file.txt...`),
 		2: suffix(`# Downloading file.txt...`),
 		3: suffix(`# Downloading file.txt...`),
-		4: suffix(`+ "cp s3://test-dash-f-wildcard-count-greater-equal-than-worker-count/file.txt file.txt"`),
-		5: suffix(`+ "cp s3://test-dash-f-wildcard-count-greater-equal-than-worker-count/file.txt file.txt"`),
-		6: suffix(`+ "cp s3://test-dash-f-wildcard-count-greater-equal-than-worker-count/file.txt file.txt"`),
 	}, sortInput(true))
 
 }

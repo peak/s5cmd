@@ -91,7 +91,9 @@ func (j *Job) Log() {
 	}
 
 	m := fmt.Sprintf(`"%s"%s`, j, errStr)
-	fmt.Println(status, m)
+	if status != statusSuccess {
+		fmt.Println(status, m)
+	}
 }
 
 // Run runs the Job, gets job response and logs the job status.

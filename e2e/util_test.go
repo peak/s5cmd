@@ -49,7 +49,7 @@ func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
-func setup(t *testing.T) (*s3.S3, func(...string) icmd.Cmd, func()) {
+func setup(t *testing.T, s3backend ...string) (*s3.S3, func(...string) icmd.Cmd, func()) {
 	t.Helper()
 
 	testdir := fs.NewDir(t, t.Name(), fs.WithDir("workdir", fs.WithMode(0700)))
@@ -67,7 +67,11 @@ func setup(t *testing.T) (*s3.S3, func(...string) icmd.Cmd, func()) {
 		awsLogLevel = aws.LogDebug
 	}
 
-	endpoint, dbcleanup := s3ServerEndpoint(t, testdir, s3LogLevel)
+	backend := "bolt"
+	if len(s3backend) > 0 {
+		backend = s3backend[0]
+	}
+	endpoint, dbcleanup := s3ServerEndpoint(t, testdir, s3LogLevel, backend)
 
 	s3Config := aws.NewConfig().
 		WithEndpoint(endpoint).

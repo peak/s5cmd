@@ -146,22 +146,17 @@ func S3BatchDelete(job *Job, wp *WorkerParams) *JobResponse {
 		}
 	}()
 
-	errch := client.MultiDelete(wp.ctx, urlch)
+	resultch := client.MultiDelete(wp.ctx, urlch)
 
 	// closed errch indicates that MultiDelete operation is finished.
 	var merror error
-	for err := range errch {
-		merror = multierror.Append(merror, err)
-	}
-
-	st := client.Statistics()
-
 	var msg []string
-	for key, stat := range st.Keys() {
-		if stat.Success {
-			msg = append(msg, fmt.Sprintf("Batch-delete %v", key))
+	for obj := range resultch {
+		if obj.Err != nil {
+			merror = multierror.Append(merror, err)
+			msg = append(msg, fmt.Sprintf(`Batch-delete %v: %v`, obj.URL, err))
 		} else {
-			msg = append(msg, fmt.Sprintf(`Batch-delete %v: %s`, key, stat.Message))
+			msg = append(msg, fmt.Sprintf("Batch-delete %v", obj.URL))
 		}
 	}
 

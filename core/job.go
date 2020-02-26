@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/hashicorp/go-multierror"
 	"github.com/peak/s5cmd/objurl"
 	"github.com/peak/s5cmd/op"
 	"github.com/peak/s5cmd/opt"
@@ -67,14 +68,8 @@ func (j *Job) Log() {
 
 	errStr := ""
 	if err != nil {
-		if !Verbose {
-			if errors.Is(err, context.Canceled) {
-				return
-			}
-
-			if storage.IsCancelationError(err) {
-				return
-			}
+		if !Verbose && isCancelationError(err) {
+			return
 		}
 
 		errStr = CleanupError(err)
@@ -111,4 +106,27 @@ func (j *Job) Run(wp *WorkerParams) {
 		j.response = response
 		j.Log()
 	}
+}
+
+func isCancelationError(err error) bool {
+	if errors.Is(err, context.Canceled) {
+		return true
+	}
+
+	if storage.IsCancelationError(err) {
+		return true
+	}
+
+	merr, ok := err.(*multierror.Error)
+	if !ok {
+		return false
+	}
+
+	for _, err := range merr.Errors {
+		if isCancelationError(err) {
+			return true
+		}
+	}
+
+	return false
 }

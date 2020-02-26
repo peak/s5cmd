@@ -14,12 +14,10 @@ import (
 	"github.com/peak/s5cmd/objurl"
 )
 
-type Filesystem struct {
-	stats *Stats
-}
+type Filesystem struct{}
 
 func NewFilesystem() *Filesystem {
-	return &Filesystem{stats: &Stats{}}
+	return &Filesystem{}
 }
 
 func (f *Filesystem) Stat(ctx context.Context, url *objurl.ObjectURL) (*Object, error) {
@@ -181,22 +179,27 @@ func (f *Filesystem) Delete(ctx context.Context, url *objurl.ObjectURL) error {
 	fpath := url.Absolute()
 	err := os.Remove(fpath)
 	if err != nil {
-		f.stats.put(fpath, StatsResponse{
-			Success: false,
-			Message: err.Error(),
-		})
-	} else {
-		f.stats.put(fpath, StatsResponse{Success: true})
+		return err
 	}
 
 	return nil
 }
 
-func (f *Filesystem) MultiDelete(ctx context.Context, urlch <-chan *objurl.ObjectURL) <-chan error {
-	for url := range urlch {
-		f.Delete(ctx, url)
-	}
-	return nil
+func (f *Filesystem) MultiDelete(ctx context.Context, urlch <-chan *objurl.ObjectURL) <-chan *Object {
+	resultch := make(chan *Object)
+	go func() {
+		defer close(resultch)
+
+		for url := range urlch {
+			err := f.Delete(ctx, url)
+			obj := &Object{
+				URL: url,
+				Err: err,
+			}
+			resultch <- obj
+		}
+	}()
+	return resultch
 }
 
 func (f *Filesystem) Put(ctx context.Context, body io.Reader, url *objurl.ObjectURL, _ map[string]string) error {
@@ -213,10 +216,6 @@ func (f *Filesystem) ListBuckets(_ context.Context, _ string) ([]Bucket, error) 
 
 func (f *Filesystem) UpdateRegion(_ string) error {
 	return f.notimplemented("UpdateRegion")
-}
-
-func (f *Filesystem) Statistics() *Stats {
-	return f.stats
 }
 
 func (f *Filesystem) notimplemented(method string) error {

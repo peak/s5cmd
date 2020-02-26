@@ -42,7 +42,6 @@ type S3 struct {
 	downloader s3manageriface.DownloaderAPI
 	uploader   s3manageriface.UploaderAPI
 	opts       S3Opts
-	stats      *Stats
 }
 
 // S3Opts stores configuration for S3 storage.
@@ -69,7 +68,6 @@ func NewS3Storage(opts S3Opts) (*S3, error) {
 		downloader: s3manager.NewDownloader(awsSession),
 		uploader:   s3manager.NewUploader(awsSession),
 		opts:       opts,
-		stats:      &Stats{},
 	}, nil
 }
 
@@ -278,42 +276,52 @@ func (s *S3) Delete(ctx context.Context, url *objurl.ObjectURL) error {
 		},
 	}
 
-	return s.doDelete(ctx, chunk)
+	resultch := make(chan *Object, 1)
+	defer close(resultch)
+
+	s.doDelete(ctx, chunk, resultch)
+	obj := <-resultch
+	return obj.Err
 }
 
-func (s *S3) doDelete(ctx context.Context, chunk chunk) error {
+// doDelete deletes the given keys given by chunk. Results are piggybacked via
+// the Object container.
+func (s *S3) doDelete(ctx context.Context, chunk chunk, resultch chan *Object) {
 	bucket := chunk.Bucket
 	o, err := s.api.DeleteObjectsWithContext(ctx, &s3.DeleteObjectsInput{
 		Bucket: aws.String(bucket),
 		Delete: &s3.Delete{Objects: chunk.Keys},
 	})
 	if err != nil {
-		return err
+		resultch <- &Object{Err: err}
+		return
 	}
 
 	for _, d := range o.Deleted {
 		key := fmt.Sprintf("s3://%v/%v", bucket, aws.StringValue(d.Key))
-		s.stats.put(key, StatsResponse{Success: true})
+		url, _ := objurl.New(key)
+		resultch <- &Object{URL: url}
 	}
 
 	for _, e := range o.Errors {
 		key := fmt.Sprintf("s3://%v/%v", bucket, aws.StringValue(e.Key))
-		s.stats.put(key, StatsResponse{
-			Success: false,
-			Message: aws.StringValue(e.Message),
-		})
+		url, _ := objurl.New(key)
+		resultch <- &Object{
+			URL: url,
+			Err: fmt.Errorf(aws.StringValue(e.Message)),
+		}
 	}
-	return nil
 }
 
 // MultiDelete is a removal operation which removes multiple S3 objects from a
 // bucket using single HTTP request. It allows deleting objects up to 1000.
-func (s *S3) MultiDelete(ctx context.Context, urlch <-chan *objurl.ObjectURL) <-chan error {
-	errch := make(chan error)
+func (s *S3) MultiDelete(ctx context.Context, urlch <-chan *objurl.ObjectURL) <-chan *Object {
+	resultch := make(chan *Object)
 
 	go func() {
 		sem := make(chan bool, 10)
 		defer close(sem)
+		defer close(resultch)
 
 		chunks := s.calculateChunks(urlch)
 
@@ -326,19 +334,15 @@ func (s *S3) MultiDelete(ctx context.Context, urlch <-chan *objurl.ObjectURL) <-
 
 			go func() {
 				defer wg.Done()
-				err := s.doDelete(ctx, chunk)
-				if err != nil {
-					errch <- err
-				}
+				s.doDelete(ctx, chunk, resultch)
 				<-sem
 			}()
 		}
 
 		wg.Wait()
-		close(errch)
 	}()
 
-	return errch
+	return resultch
 }
 
 // ListBuckets is a blocking list-operation which gets bucket list and returns
@@ -394,11 +398,6 @@ func (s *S3) UpdateRegion(bucket string) error {
 
 	s.api = s3.New(ses)
 	return nil
-}
-
-// Statistics returns the stats of the storage.
-func (s *S3) Statistics() *Stats {
-	return s.stats
 }
 
 // NewAwsSession initializes a new AWS session with region fallback and custom

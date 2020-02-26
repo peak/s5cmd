@@ -86,10 +86,6 @@ func (j *Job) Log() {
 		return
 	}
 
-	if j.operation.IsInternal() {
-		return
-	}
-
 	m := fmt.Sprintf(`"%s"%s`, j, errStr)
 	if status != statusSuccess {
 		fmt.Println(status, m)

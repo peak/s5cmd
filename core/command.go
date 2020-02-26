@@ -40,6 +40,11 @@ func (c Command) getStorageClass() string {
 	return cls
 }
 
+// SupportsAggregation checks if command is supports aggregation, such as S3 batch deletes.
+func (c Command) SupportsAggregation() bool {
+	return c.opts.Has(opt.SupportsAggregation)
+}
+
 // IsBatch checks if command is a batch operation.
 func (c Command) IsBatch() bool {
 	return c.operation.IsBatch()
@@ -106,30 +111,32 @@ type CommandMap struct {
 	Opts opt.OptionList
 }
 
+var noOpts = opt.OptionList{}
+
 // Commands is a list of registered commands
 var Commands = []CommandMap{
-	{"exit", op.Abort, []opt.ParamType{}, opt.OptionList{}},
-	{"exit", op.Abort, []opt.ParamType{opt.Unchecked}, opt.OptionList{}},
+	{"exit", op.Abort, []opt.ParamType{}, noOpts},
+	{"exit", op.Abort, []opt.ParamType{opt.Unchecked}, noOpts},
 
 	// File to file
-	{"cp", op.LocalCopy, []opt.ParamType{opt.FileObj, opt.FileOrDir}, opt.OptionList{}},
-	{"cp", op.BatchLocalCopy, []opt.ParamType{opt.Glob, opt.Dir}, opt.OptionList{}},
-	{"cp", op.BatchLocalCopy, []opt.ParamType{opt.Dir, opt.Dir}, opt.OptionList{}},
+	{"cp", op.LocalCopy, []opt.ParamType{opt.FileObj, opt.FileOrDir}, noOpts},
+	{"cp", op.BatchLocalCopy, []opt.ParamType{opt.Glob, opt.Dir}, noOpts},
+	{"cp", op.BatchLocalCopy, []opt.ParamType{opt.Dir, opt.Dir}, noOpts},
 
 	// S3 to S3
-	{"cp", op.Copy, []opt.ParamType{opt.S3SimpleObj, opt.S3ObjOrDir}, opt.OptionList{}},
-	{"cp", op.BatchCopy, []opt.ParamType{opt.S3WildObj, opt.S3Dir}, opt.OptionList{}},
+	{"cp", op.Copy, []opt.ParamType{opt.S3SimpleObj, opt.S3ObjOrDir}, noOpts},
+	{"cp", op.BatchCopy, []opt.ParamType{opt.S3WildObj, opt.S3Dir}, noOpts},
 
 	// File to S3
-	{"cp", op.Upload, []opt.ParamType{opt.FileObj, opt.S3ObjOrDir}, opt.OptionList{}},
-	{"cp", op.BatchUpload, []opt.ParamType{opt.Glob, opt.S3Dir}, opt.OptionList{}},
-	{"cp", op.BatchUpload, []opt.ParamType{opt.Dir, opt.S3Dir}, opt.OptionList{}},
+	{"cp", op.Upload, []opt.ParamType{opt.FileObj, opt.S3ObjOrDir}, noOpts},
+	{"cp", op.BatchUpload, []opt.ParamType{opt.Glob, opt.S3Dir}, noOpts},
+	{"cp", op.BatchUpload, []opt.ParamType{opt.Dir, opt.S3Dir}, noOpts},
 
 	// S3 to file
-	{"cp", op.Download, []opt.ParamType{opt.S3SimpleObj, opt.FileOrDir}, opt.OptionList{}},
-	{"get", op.AliasGet, []opt.ParamType{opt.S3SimpleObj, opt.OptionalFileOrDir}, opt.OptionList{}},
-	{"cp", op.BatchDownload, []opt.ParamType{opt.S3WildObj, opt.Dir}, opt.OptionList{}},
-	{"get", op.AliasBatchGet, []opt.ParamType{opt.S3WildObj, opt.OptionalDir}, opt.OptionList{}},
+	{"cp", op.Download, []opt.ParamType{opt.S3SimpleObj, opt.FileOrDir}, noOpts},
+	{"get", op.AliasGet, []opt.ParamType{opt.S3SimpleObj, opt.OptionalFileOrDir}, noOpts},
+	{"cp", op.BatchDownload, []opt.ParamType{opt.S3WildObj, opt.Dir}, noOpts},
+	{"get", op.AliasBatchGet, []opt.ParamType{opt.S3WildObj, opt.OptionalDir}, noOpts},
 
 	// File to file
 	{"mv", op.LocalCopy, []opt.ParamType{opt.FileObj, opt.FileOrDir}, opt.OptionList{opt.DeleteSource}},
@@ -150,21 +157,21 @@ var Commands = []CommandMap{
 	{"mv", op.BatchDownload, []opt.ParamType{opt.S3WildObj, opt.Dir}, opt.OptionList{opt.DeleteSource}},
 
 	// File
-	{"rm", op.LocalDelete, []opt.ParamType{opt.FileObj}, opt.OptionList{}},
+	{"rm", op.LocalDelete, []opt.ParamType{opt.FileObj}, noOpts},
 
 	// S3
-	{"rm", op.Delete, []opt.ParamType{opt.S3SimpleObj}, opt.OptionList{}},
-	{"rm", op.BatchDelete, []opt.ParamType{opt.S3WildObj}, opt.OptionList{}},
-	{"batch-rm", op.BatchDeleteActual, []opt.ParamType{opt.S3Obj, opt.UncheckedOneOrMore}, opt.OptionList{}},
+	{"rm", op.Delete, []opt.ParamType{opt.S3SimpleObj}, noOpts},
+	{"rm", op.BatchDelete, []opt.ParamType{opt.S3WildObj}, opt.OptionList{opt.SupportsAggregation}},
+	{"batch-rm", op.BatchDelete, []opt.ParamType{opt.S3Obj, opt.UncheckedOneOrMore}, opt.OptionList{opt.SupportsAggregation}},
 
-	{"ls", op.ListBuckets, []opt.ParamType{}, opt.OptionList{}},
-	{"ls", op.List, []opt.ParamType{opt.S3ObjOrDir}, opt.OptionList{}},
-	{"ls", op.List, []opt.ParamType{opt.S3WildObj}, opt.OptionList{}},
+	{"ls", op.ListBuckets, []opt.ParamType{}, noOpts},
+	{"ls", op.List, []opt.ParamType{opt.S3ObjOrDir}, noOpts},
+	{"ls", op.List, []opt.ParamType{opt.S3WildObj}, noOpts},
 
-	{"du", op.Size, []opt.ParamType{opt.S3ObjOrDir}, opt.OptionList{}},
-	{"du", op.Size, []opt.ParamType{opt.S3WildObj}, opt.OptionList{}},
+	{"du", op.Size, []opt.ParamType{opt.S3ObjOrDir}, noOpts},
+	{"du", op.Size, []opt.ParamType{opt.S3WildObj}, noOpts},
 
-	{"!", op.ShellExec, []opt.ParamType{opt.UncheckedOneOrMore}, opt.OptionList{}},
+	{"!", op.ShellExec, []opt.ParamType{opt.UncheckedOneOrMore}, noOpts},
 }
 
 // String formats the CommandMap using its Operation and ParamTypes
@@ -205,9 +212,6 @@ func CommandHelps(filter string) (string, []opt.OptionType, int) {
 	var lastDesc string
 	var l []string
 	for _, c := range Commands {
-		if c.Operation.IsInternal() {
-			continue
-		}
 		if filter != "" && c.Keyword != filter {
 			continue
 		}
@@ -277,9 +281,6 @@ func CommandHelps(filter string) (string, []opt.OptionType, int) {
 func CommandList() []string {
 	l := make(map[string]struct{})
 	for _, c := range Commands {
-		if c.Operation.IsInternal() {
-			continue
-		}
 		l[c.Keyword] = struct{}{}
 	}
 

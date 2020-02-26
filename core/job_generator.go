@@ -12,7 +12,7 @@ import (
 	"github.com/peak/s5cmd/opt"
 )
 
-func S3BatchDownload(command *Command, urls ...*objurl.ObjectURL) *Job {
+func S3BatchDownload(command *Command, src *objurl.ObjectURL) *Job {
 	cmd := "cp"
 	if command.operation == op.AliasBatchGet {
 		cmd = "get"
@@ -24,7 +24,6 @@ func S3BatchDownload(command *Command, urls ...*objurl.ObjectURL) *Job {
 
 	cmd += command.opts.GetParams()
 	cmdDst := command.dst
-	src := urls[0]
 
 	var joinPath string
 	if command.opts.Has(opt.Parents) {
@@ -39,7 +38,7 @@ func S3BatchDownload(command *Command, urls ...*objurl.ObjectURL) *Job {
 	return command.makeJob(cmd, op.Download, dst, src)
 }
 
-func S3BatchCopy(command *Command, urls ...*objurl.ObjectURL) *Job {
+func S3BatchCopy(command *Command, src *objurl.ObjectURL) *Job {
 	cmd := "cp"
 	if command.opts.Has(opt.DeleteSource) {
 		cmd = "mv"
@@ -47,7 +46,6 @@ func S3BatchCopy(command *Command, urls ...*objurl.ObjectURL) *Job {
 	cmd += command.opts.GetParams()
 
 	dst := command.dst
-	src := urls[0]
 
 	var dstFn string
 	if command.opts.Has(opt.Parents) {
@@ -61,19 +59,15 @@ func S3BatchCopy(command *Command, urls ...*objurl.ObjectURL) *Job {
 	return command.makeJob(cmd, op.Copy, dstUrl, src)
 }
 
-func S3BatchDelete(command *Command, urls ...*objurl.ObjectURL) *Job {
-	return command.makeJob("batch-rm", op.BatchDeleteActual, nil, urls...)
+func BatchLocalCopy(command *Command, url *objurl.ObjectURL) *Job {
+	return localCopy(command, op.LocalCopy, url)
 }
 
-func BatchLocalCopy(command *Command, urls ...*objurl.ObjectURL) *Job {
-	return localCopy(command, op.LocalCopy, urls...)
+func BatchLocalUpload(command *Command, url *objurl.ObjectURL) *Job {
+	return localCopy(command, op.Upload, url)
 }
 
-func BatchLocalUpload(command *Command, urls ...*objurl.ObjectURL) *Job {
-	return localCopy(command, op.Upload, urls...)
-}
-
-func localCopy(command *Command, operation op.Operation, urls ...*objurl.ObjectURL) *Job {
+func localCopy(command *Command, operation op.Operation, src *objurl.ObjectURL) *Job {
 	cmd := "cp"
 	if command.opts.Has(opt.DeleteSource) {
 		cmd = "mv"
@@ -81,7 +75,6 @@ func localCopy(command *Command, operation op.Operation, urls ...*objurl.ObjectU
 	cmd += command.opts.GetParams()
 
 	cmdSrc, cmdDst := command.src, command.dst
-	src := urls[0]
 
 	trimPrefix := cmdSrc.Absolute()
 	trimPrefix = path.Dir(trimPrefix)

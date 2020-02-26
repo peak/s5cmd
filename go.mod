@@ -7,8 +7,7 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/google/go-cmp v0.4.0
 	github.com/google/gops v0.3.2
-	github.com/hashicorp/errwrap v0.0.0-20141028054710-7554cd9344ce // indirect
-	github.com/hashicorp/go-multierror v0.0.0-20171204182908-b7773ae21874 // indirect
+	github.com/hashicorp/go-multierror v1.0.0
 	github.com/iancoleman/strcase v0.0.0-20191112232945-16388991a334
 	github.com/johannesboyne/gofakes3 v0.0.0-20191228161223-9aee1c78a252
 	github.com/kardianos/osext v0.0.0-20170510131534-ae77be60afb1 // indirect

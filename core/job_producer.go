@@ -9,20 +9,14 @@ import (
 	"github.com/peak/s5cmd/storage"
 )
 
-type producerFunc func(*Command, ...*objurl.ObjectURL) *Job
+type producerFunc func(*Command, *objurl.ObjectURL) *Job
 
-type producerOp struct {
-	fn       producerFunc
-	fullScan bool
-}
-
-var producerRegistry = map[op.Operation]producerOp{
-	op.BatchDownload:  {S3BatchDownload, false},
-	op.AliasBatchGet:  {S3BatchDownload, false},
-	op.BatchCopy:      {S3BatchCopy, false},
-	op.BatchDelete:    {S3BatchDelete, true},
-	op.BatchUpload:    {BatchLocalUpload, false},
-	op.BatchLocalCopy: {BatchLocalCopy, false},
+var producerRegistry = map[op.Operation]producerFunc{
+	op.BatchDownload:  S3BatchDownload,
+	op.AliasBatchGet:  S3BatchDownload,
+	op.BatchCopy:      S3BatchCopy,
+	op.BatchUpload:    BatchLocalUpload,
+	op.BatchLocalCopy: BatchLocalCopy,
 }
 
 type Producer struct {
@@ -31,7 +25,7 @@ type Producer struct {
 }
 
 func (p *Producer) Run(ctx context.Context, command *Command) {
-	if command.IsBatch() {
+	if command.IsBatch() && !command.SupportsAggregation() {
 		p.batchProduce(ctx, command)
 		return
 	}
@@ -41,36 +35,11 @@ func (p *Producer) Run(ctx context.Context, command *Command) {
 }
 
 func (p *Producer) batchProduce(ctx context.Context, command *Command) {
-	producerOp, ok := producerRegistry[command.operation]
+	fn, ok := producerRegistry[command.operation]
 	if !ok {
 		return
 	}
-	if producerOp.fullScan {
-		p.fullScan(ctx, command, producerOp.fn)
-	} else {
-		p.lookup(ctx, command, producerOp.fn)
-	}
-}
 
-func (p *Producer) fullScan(ctx context.Context, command *Command, fn producerFunc) {
-	// TODO(os): handle errors
-	client, _ := p.newClient(command.src)
-	isRecursive := command.opts.Has(opt.Recursive)
-
-	var urls []*objurl.ObjectURL
-	for object := range client.List(ctx, command.src, isRecursive, storage.ListAllItems) {
-		if object.Err != nil || object.Mode.IsDir() {
-			continue
-		}
-
-		urls = append(urls, object.URL)
-	}
-
-	job := fn(command, urls...)
-	p.runJob(job)
-}
-
-func (p *Producer) lookup(ctx context.Context, command *Command, fn producerFunc) {
 	// TODO(os): handle errors
 	client, _ := p.newClient(command.src)
 	isRecursive := command.opts.Has(opt.Recursive)

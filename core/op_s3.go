@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/hashicorp/go-multierror"
 	"github.com/peak/s5cmd/objurl"
 	"github.com/peak/s5cmd/opt"
 	"github.com/peak/s5cmd/storage"
@@ -128,17 +129,29 @@ func S3Upload(job *Job, wp *WorkerParams) *JobResponse {
 	return jobResponse(err)
 }
 
-func S3BatchDeleteActual(job *Job, wp *WorkerParams) *JobResponse {
-	src := job.src
+func S3BatchDelete(job *Job, wp *WorkerParams) *JobResponse {
+	src := job.src[0]
 
-	client, err := wp.newClient(src[0])
+	client, err := wp.newClient(src)
 	if err != nil {
 		return jobResponse(err)
 	}
 
-	err = client.Delete(wp.ctx, src...)
-	if err != nil {
-		return jobResponse(err)
+	// do object->objurl transformation
+	urlch := make(chan *objurl.ObjectURL)
+	go func() {
+		defer close(urlch)
+		for obj := range client.List(wp.ctx, src, true, storage.ListAllItems) {
+			urlch <- obj.URL
+		}
+	}()
+
+	errch := client.MultiDelete(wp.ctx, urlch)
+
+	// closed errch indicates that MultiDelete operation is finished.
+	var merror error
+	for err := range errch {
+		merror = multierror.Append(merror, err)
 	}
 
 	st := client.Statistics()
@@ -152,7 +165,7 @@ func S3BatchDeleteActual(job *Job, wp *WorkerParams) *JobResponse {
 		}
 	}
 
-	return jobResponse(err, msg...)
+	return jobResponse(merror, msg...)
 }
 
 func S3ListBuckets(_ *Job, wp *WorkerParams) *JobResponse {

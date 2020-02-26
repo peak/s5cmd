@@ -177,18 +177,24 @@ func (f *Filesystem) Copy(ctx context.Context, src, dst *objurl.ObjectURL, _ str
 	return err
 }
 
-func (f *Filesystem) Delete(ctx context.Context, urls ...*objurl.ObjectURL) error {
-	for _, url := range urls {
-		fpath := url.Absolute()
-		err := os.Remove(fpath)
-		if err != nil {
-			f.stats.put(fpath, StatsResponse{
-				Success: false,
-				Message: err.Error(),
-			})
-		} else {
-			f.stats.put(fpath, StatsResponse{Success: true})
-		}
+func (f *Filesystem) Delete(ctx context.Context, url *objurl.ObjectURL) error {
+	fpath := url.Absolute()
+	err := os.Remove(fpath)
+	if err != nil {
+		f.stats.put(fpath, StatsResponse{
+			Success: false,
+			Message: err.Error(),
+		})
+	} else {
+		f.stats.put(fpath, StatsResponse{Success: true})
+	}
+
+	return nil
+}
+
+func (f *Filesystem) MultiDelete(ctx context.Context, urlch <-chan *objurl.ObjectURL) <-chan error {
+	for url := range urlch {
+		f.Delete(ctx, url)
 	}
 	return nil
 }

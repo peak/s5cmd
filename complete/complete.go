@@ -86,9 +86,6 @@ func getSubCommands() cmp.Commands {
 	argList := make(map[string]*map[opt.ParamType]struct{})
 
 	for _, c := range core.Commands {
-		if c.Operation.IsInternal() {
-			continue
-		}
 
 		// Do the flags
 		flagsForKeyword, ok := flagList[c.Keyword]

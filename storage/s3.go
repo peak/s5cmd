@@ -10,6 +10,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -227,31 +228,64 @@ func (s *S3) Put(ctx context.Context, reader io.Reader, to *objurl.ObjectURL, me
 	return err
 }
 
-// Delete is a removal operation which removes multiple S3 objects from a
-// bucket using single HTTP request. It allows deleting objects up to 1000.
-func (s *S3) Delete(ctx context.Context, urls ...*objurl.ObjectURL) error {
-	if len(urls) > DeleteItemsMax || len(urls) == 0 {
-		return fmt.Errorf(
-			"delete size should be between %d and %d, given: %d",
-			0,
-			DeleteItemsMax,
-			len(urls),
-		)
+type chunk struct {
+	Bucket string
+	Keys   []*s3.ObjectIdentifier
+}
+
+func (s *S3) calculateChunks(ch <-chan *objurl.ObjectURL) <-chan chunk {
+	chunkch := make(chan chunk)
+
+	go func() {
+		defer close(chunkch)
+
+		var keys []*s3.ObjectIdentifier
+		initKeys := func() {
+			keys = make([]*s3.ObjectIdentifier, 0)
+		}
+
+		var bucket string
+		for url := range ch {
+			bucket = url.Bucket
+
+			objid := &s3.ObjectIdentifier{Key: aws.String(url.Path)}
+			keys = append(keys, objid)
+			if len(keys) == DeleteItemsMax {
+				chunkch <- chunk{
+					Bucket: bucket,
+					Keys:   keys,
+				}
+				initKeys()
+			}
+		}
+
+		if len(keys) > 0 {
+			chunkch <- chunk{
+				Bucket: bucket,
+				Keys:   keys,
+			}
+		}
+	}()
+
+	return chunkch
+}
+
+func (s *S3) Delete(ctx context.Context, url *objurl.ObjectURL) error {
+	chunk := chunk{
+		Bucket: url.Bucket,
+		Keys: []*s3.ObjectIdentifier{
+			{Key: aws.String(url.Path)},
+		},
 	}
 
-	var objects []*s3.ObjectIdentifier
-	for _, url := range urls {
-		objects = append(
-			objects,
-			&s3.ObjectIdentifier{Key: aws.String(url.Path)},
-		)
-	}
+	return s.doDelete(ctx, chunk)
+}
 
-	bucket := urls[0].Bucket
-
+func (s *S3) doDelete(ctx context.Context, chunk chunk) error {
+	bucket := chunk.Bucket
 	o, err := s.api.DeleteObjectsWithContext(ctx, &s3.DeleteObjectsInput{
 		Bucket: aws.String(bucket),
-		Delete: &s3.Delete{Objects: objects},
+		Delete: &s3.Delete{Objects: chunk.Keys},
 	})
 	if err != nil {
 		return err
@@ -269,8 +303,42 @@ func (s *S3) Delete(ctx context.Context, urls ...*objurl.ObjectURL) error {
 			Message: aws.StringValue(e.Message),
 		})
 	}
-
 	return nil
+}
+
+// MultiDelete is a removal operation which removes multiple S3 objects from a
+// bucket using single HTTP request. It allows deleting objects up to 1000.
+func (s *S3) MultiDelete(ctx context.Context, urlch <-chan *objurl.ObjectURL) <-chan error {
+	errch := make(chan error)
+
+	go func() {
+		sem := make(chan bool, 10)
+		defer close(sem)
+
+		chunks := s.calculateChunks(urlch)
+
+		var wg sync.WaitGroup
+		for chunk := range chunks {
+			chunk := chunk
+
+			wg.Add(1)
+			sem <- true
+
+			go func() {
+				defer wg.Done()
+				err := s.doDelete(ctx, chunk)
+				if err != nil {
+					errch <- err
+				}
+				<-sem
+			}()
+		}
+
+		wg.Wait()
+		close(errch)
+	}()
+
+	return errch
 }
 
 // ListBuckets is a blocking list-operation which gets bucket list and returns

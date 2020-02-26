@@ -28,7 +28,8 @@ type Storage interface {
 	Copy(ctx context.Context, from, to *objurl.ObjectURL, class string) error
 	Get(context.Context, *objurl.ObjectURL, io.WriterAt) error
 	Put(context.Context, io.Reader, *objurl.ObjectURL, map[string]string) error
-	Delete(context.Context, ...*objurl.ObjectURL) error
+	Delete(context.Context, *objurl.ObjectURL) error
+	MultiDelete(context.Context, <-chan *objurl.ObjectURL) <-chan error
 	ListBuckets(context.Context, string) ([]Bucket, error)
 	UpdateRegion(string) error
 	Statistics() *Stats

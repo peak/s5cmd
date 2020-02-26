@@ -170,7 +170,7 @@ func (f *Filesystem) walkDir(ctx context.Context, url *objurl.ObjectURL, isRecur
 	}()
 	return ch
 }
-func (f *Filesystem) Copy(ctx context.Context, src, dst *objurl.ObjectURL, _ string) error {
+func (f *Filesystem) Copy(ctx context.Context, src, dst *objurl.ObjectURL, _ map[string]string) error {
 	_, err := shutil.Copy(src.Absolute(), dst.Absolute(), true)
 	return err
 }

@@ -25,7 +25,7 @@ var (
 type Storage interface {
 	Stat(context.Context, *objurl.ObjectURL) (*Object, error)
 	List(context.Context, *objurl.ObjectURL, bool, int64) <-chan *Object
-	Copy(ctx context.Context, from, to *objurl.ObjectURL, class string) error
+	Copy(ctx context.Context, from, to *objurl.ObjectURL, metadata map[string]string) error
 	Get(context.Context, *objurl.ObjectURL, io.WriterAt) error
 	Put(context.Context, io.Reader, *objurl.ObjectURL, map[string]string) error
 	Delete(context.Context, *objurl.ObjectURL) error

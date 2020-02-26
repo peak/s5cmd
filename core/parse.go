@@ -194,7 +194,7 @@ func parseSingleCommand(cmd string) (*Command, error) {
 
 	// Tokenize arguments
 	parts := strings.Split(cmd, " ")
-	command := &Command{sourceDesc: cmd}
+	command := &Command{original: cmd}
 
 	found := -1
 	var parseArgErr error

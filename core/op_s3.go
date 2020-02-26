@@ -27,11 +27,15 @@ func S3Copy(job *Job, wp *WorkerParams) *JobResponse {
 	srcFn := src.Base()
 	infoLog("Copying %s...", srcFn)
 
+	metadata := map[string]string{
+		"StorageClass": string(job.storageClass),
+	}
+
 	err = client.Copy(
 		wp.ctx,
 		dst,
 		src,
-		job.cls,
+		metadata,
 	)
 
 	if job.opts.Has(opt.DeleteSource) && err == nil {
@@ -111,8 +115,8 @@ func S3Upload(job *Job, wp *WorkerParams) *JobResponse {
 	infoLog("Uploading %s...", srcFn)
 
 	metadata := map[string]string{
-		"StorageClass": job.cls,
-		"ContentType":  "", // guess the mimetype (see: #33)
+		"StorageClass": string(job.storageClass),
+		"ContentType":  "", // TODO(ig): guess the mimetype (see: #33)
 	}
 
 	err = client.Put(

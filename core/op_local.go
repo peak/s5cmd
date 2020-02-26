@@ -18,11 +18,12 @@ func LocalCopy(job *Job, wp *WorkerParams) *JobResponse {
 	}
 
 	infoLog("Copying %s...", src.Base())
+
 	err = client.Copy(
 		wp.ctx,
 		src,
 		dst,
-		job.cls,
+		nil,
 	)
 
 	if job.opts.Has(opt.DeleteSource) && err == nil {

@@ -18,13 +18,13 @@ const dateFormat = "2006/01/02 15:04:05"
 
 // Job is the job type that is executed for each command.
 type Job struct {
-	opts      opt.OptionList
-	operation op.Operation
-	args      []*objurl.ObjectURL
-	cls       string
-	command   string
-	response  *JobResponse
-	statType  stats.StatType
+	opts         opt.OptionList
+	operation    op.Operation
+	args         []*objurl.ObjectURL
+	storageClass storage.StorageClass
+	command      string
+	response     *JobResponse
+	statType     stats.StatType
 }
 
 // JobResponse is the response type.

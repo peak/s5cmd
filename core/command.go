@@ -14,27 +14,28 @@ import (
 
 // Command is the representation of the command.
 type Command struct {
-	sourceDesc string
-	keyword    string
-	operation  op.Operation
-	args       []*objurl.ObjectURL
-	opts       opt.OptionList
+	// the original string received from user, such as "cp -h", or "cp -R foo bar"
+	original  string
+	keyword   string
+	operation op.Operation
+	args      []*objurl.ObjectURL
+	opts      opt.OptionList
 }
 
 // String is the representation of command.
 func (c Command) String() string {
-	return c.sourceDesc
+	return c.original
 }
 
 // getStorageClass gets storage class from option list.
-func (c Command) getStorageClass() string {
-	var cls string
+func (c Command) getStorageClass() storage.StorageClass {
+	var cls storage.StorageClass
 	if c.opts.Has(opt.RR) {
-		cls = string(storage.StorageReducedRedundancy)
+		cls = storage.StorageReducedRedundancy
 	} else if c.opts.Has(opt.IA) {
-		cls = string(storage.StorageStandardIA)
+		cls = storage.StorageStandardIA
 	} else {
-		cls = string(storage.StorageStandard)
+		cls = storage.StorageStandard
 	}
 	return cls
 }
@@ -52,24 +53,24 @@ func (c Command) IsBatch() bool {
 // makeJob creates new Job from the command.
 func (c Command) makeJob(cmd string, operation op.Operation, args ...*objurl.ObjectURL) *Job {
 	return &Job{
-		command:   cmd,
-		operation: operation,
-		opts:      c.opts,
-		args:      args,
-		cls:       c.getStorageClass(),
-		statType:  operation.GetStat(),
+		command:      cmd,
+		operation:    operation,
+		opts:         c.opts,
+		args:         args,
+		storageClass: c.getStorageClass(),
+		statType:     operation.GetStat(),
 	}
 }
 
 // toJob converts raw command to job.
 func (c Command) toJob() *Job {
 	return &Job{
-		command:   c.keyword,
-		operation: c.operation,
-		opts:      c.opts,
-		args:      c.args,
-		cls:       c.getStorageClass(),
-		statType:  c.operation.GetStat(),
+		command:      c.keyword,
+		operation:    c.operation,
+		opts:         c.opts,
+		args:         c.args,
+		storageClass: c.getStorageClass(),
+		statType:     c.operation.GetStat(),
 	}
 }
 
@@ -80,13 +81,13 @@ func (c Command) displayHelp() {
 	cl, opts, cnt := CommandHelps(c.keyword)
 
 	if ol := opt.OptionHelps(opts); ol != "" {
-		fmt.Fprintf(os.Stderr, "\"%v\" command options:\n", c.sourceDesc)
+		fmt.Fprintf(os.Stderr, "\"%v\" command options:\n", c)
 		fmt.Fprint(os.Stderr, ol)
 		fmt.Fprint(os.Stderr, "\n\n")
 	}
 
 	if cnt > 1 {
-		fmt.Fprintf(os.Stderr, "Help for \"%v\" commands:\n", c.sourceDesc)
+		fmt.Fprintf(os.Stderr, "Help for \"%v\" commands:\n", c)
 	}
 	fmt.Fprint(os.Stderr, cl)
 	fmt.Fprint(os.Stderr, "\nTo list available general options, run without arguments.\n")

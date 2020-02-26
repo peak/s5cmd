@@ -23,7 +23,7 @@ func S3BatchDownload(command *Command, src *objurl.ObjectURL) *Job {
 	}
 
 	cmd += command.opts.GetParams()
-	cmdDst := command.dst
+	cmdDst := command.args[1]
 
 	var joinPath string
 	if command.opts.Has(opt.Parents) {
@@ -35,7 +35,7 @@ func S3BatchDownload(command *Command, src *objurl.ObjectURL) *Job {
 	dst := cmdDst.Join(joinPath)
 	dir := filepath.Dir(dst.Absolute())
 	os.MkdirAll(dir, os.ModePerm)
-	return command.makeJob(cmd, op.Download, dst, src)
+	return command.makeJob(cmd, op.Download, src, dst)
 }
 
 func S3BatchCopy(command *Command, src *objurl.ObjectURL) *Job {
@@ -45,7 +45,7 @@ func S3BatchCopy(command *Command, src *objurl.ObjectURL) *Job {
 	}
 	cmd += command.opts.GetParams()
 
-	dst := command.dst
+	dst := command.args[1]
 
 	var dstFn string
 	if command.opts.Has(opt.Parents) {
@@ -56,7 +56,7 @@ func S3BatchCopy(command *Command, src *objurl.ObjectURL) *Job {
 
 	dstPath := fmt.Sprintf("s3://%v/%v%v", dst.Bucket, dst.Path, dstFn)
 	dstUrl, _ := objurl.New(dstPath)
-	return command.makeJob(cmd, op.Copy, dstUrl, src)
+	return command.makeJob(cmd, op.Copy, src, dstUrl)
 }
 
 func BatchLocalCopy(command *Command, url *objurl.ObjectURL) *Job {
@@ -74,7 +74,7 @@ func localCopy(command *Command, operation op.Operation, src *objurl.ObjectURL) 
 	}
 	cmd += command.opts.GetParams()
 
-	cmdSrc, cmdDst := command.src, command.dst
+	cmdSrc, cmdDst := command.args[0], command.args[1]
 
 	trimPrefix := cmdSrc.Absolute()
 	trimPrefix = path.Dir(trimPrefix)
@@ -97,5 +97,5 @@ func localCopy(command *Command, operation op.Operation, src *objurl.ObjectURL) 
 		dir := filepath.Dir(dst.Absolute())
 		os.MkdirAll(dir, os.ModePerm)
 	}
-	return command.makeJob(cmd, operation, dst, src)
+	return command.makeJob(cmd, operation, src, dst)
 }

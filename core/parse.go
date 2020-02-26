@@ -206,6 +206,7 @@ func parseSingleCommand(cmd string) (*Command, error) {
 			command.keyword = c.Keyword
 			command.operation = c.Operation
 			command.opts = c.Opts
+			command.args = make([]*objurl.ObjectURL, 0)
 
 			// Parse options below, until endOptParse
 
@@ -274,11 +275,7 @@ func parseSingleCommand(cmd string) (*Command, error) {
 				}
 				verboseLog("Parsed %s as %s", partVal, t.String())
 
-				if command.src == nil {
-					command.src = a
-				} else {
-					command.dst = a
-				}
+				command.args = append(command.args, a)
 
 				if (t == opt.S3Obj || t == opt.S3SimpleObj || t == opt.FileObj) && fnObj == nil {
 					fnObj = a
@@ -300,11 +297,7 @@ func parseSingleCommand(cmd string) (*Command, error) {
 					}
 					verboseLog("Parsed %s as %s", p, lastType.String())
 
-					if command.src == nil {
-						command.src = a
-					} else {
-						command.dst = a
-					}
+					command.args = append(command.args, a)
 				}
 			}
 			if parseArgErr != nil {

@@ -12,7 +12,7 @@ import (
 )
 
 func S3Copy(job *Job, wp *WorkerParams) *JobResponse {
-	src, dst := job.src[0], job.dst
+	src, dst := job.args[0], job.args[1]
 
 	response := CheckConditions(src, dst, wp, job.opts)
 	if response != nil {
@@ -42,7 +42,7 @@ func S3Copy(job *Job, wp *WorkerParams) *JobResponse {
 }
 
 func S3Delete(job *Job, wp *WorkerParams) *JobResponse {
-	src := job.src[0]
+	src := job.args[0]
 
 	client, err := wp.newClient(src)
 	if err != nil {
@@ -54,7 +54,7 @@ func S3Delete(job *Job, wp *WorkerParams) *JobResponse {
 }
 
 func S3Download(job *Job, wp *WorkerParams) *JobResponse {
-	src, dst := job.src[0], job.dst
+	src, dst := job.args[0], job.args[1]
 
 	response := CheckConditions(src, dst, wp, job.opts)
 	if response != nil {
@@ -88,7 +88,7 @@ func S3Download(job *Job, wp *WorkerParams) *JobResponse {
 }
 
 func S3Upload(job *Job, wp *WorkerParams) *JobResponse {
-	src, dst := job.src[0], job.dst
+	src, dst := job.args[0], job.args[1]
 
 	response := CheckConditions(src, dst, wp, job.opts)
 	if response != nil {
@@ -130,7 +130,7 @@ func S3Upload(job *Job, wp *WorkerParams) *JobResponse {
 }
 
 func S3BatchDelete(job *Job, wp *WorkerParams) *JobResponse {
-	src := job.src[0]
+	src := job.args[0]
 
 	client, err := wp.newClient(src)
 	if err != nil {
@@ -188,7 +188,7 @@ func S3List(job *Job, wp *WorkerParams) *JobResponse {
 	showETags := job.opts.Has(opt.ListETags)
 	humanize := job.opts.Has(opt.HumanReadable)
 
-	src := job.src[0]
+	src := job.args[0]
 
 	client, err := wp.newClient(src)
 	if err != nil {
@@ -249,7 +249,7 @@ func S3Size(job *Job, wp *WorkerParams) *JobResponse {
 		size  int64
 		count int64
 	}
-	src := job.src[0]
+	src := job.args[0]
 
 	client, err := wp.newClient(src)
 	if err != nil {

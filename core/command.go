@@ -17,8 +17,7 @@ type Command struct {
 	sourceDesc string
 	keyword    string
 	operation  op.Operation
-	src        *objurl.ObjectURL
-	dst        *objurl.ObjectURL
+	args       []*objurl.ObjectURL
 	opts       opt.OptionList
 }
 
@@ -51,13 +50,12 @@ func (c Command) IsBatch() bool {
 }
 
 // makeJob creates new Job from the command.
-func (c Command) makeJob(cmd string, operation op.Operation, dst *objurl.ObjectURL, src ...*objurl.ObjectURL) *Job {
+func (c Command) makeJob(cmd string, operation op.Operation, args ...*objurl.ObjectURL) *Job {
 	return &Job{
 		command:   cmd,
 		operation: operation,
 		opts:      c.opts,
-		src:       src,
-		dst:       dst,
+		args:      args,
 		cls:       c.getStorageClass(),
 		statType:  operation.GetStat(),
 	}
@@ -65,16 +63,11 @@ func (c Command) makeJob(cmd string, operation op.Operation, dst *objurl.ObjectU
 
 // toJob converts raw command to job.
 func (c Command) toJob() *Job {
-	var src []*objurl.ObjectURL
-	if c.src != nil {
-		src = append(src, c.src)
-	}
 	return &Job{
 		command:   c.keyword,
 		operation: c.operation,
 		opts:      c.opts,
-		src:       src,
-		dst:       c.dst,
+		args:      c.args,
 		cls:       c.getStorageClass(),
 		statType:  c.operation.GetStat(),
 	}

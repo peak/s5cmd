@@ -13,13 +13,12 @@ import (
 	"github.com/peak/s5cmd/storage"
 )
 
-func newJob(command string, operation op.Operation, opts opt.OptionList, dst *objurl.ObjectURL, src ...*objurl.ObjectURL) Job {
+func newJob(command string, operation op.Operation, opts opt.OptionList, args ...*objurl.ObjectURL) Job {
 	return Job{
 		command:   command,
 		operation: operation,
-		src:       src,
 		opts:      opts,
-		dst:       dst,
+		args:      args,
 	}
 }
 
@@ -143,10 +142,9 @@ func TestJobRunLocalDelete(t *testing.T) {
 	}
 	defer deleteFile(filename)
 
-	oldSrc := localDeleteJob.src
-	oldDst := localDeleteJob.dst
+	oldArgs := localDeleteJob.args
 
-	localDeleteJob.src = []*objurl.ObjectURL{newURL(filename)}
+	localDeleteJob.args = []*objurl.ObjectURL{newURL(filename)}
 
 	// execute
 	localDeleteJob.Run(&wp)
@@ -156,8 +154,7 @@ func TestJobRunLocalDelete(t *testing.T) {
 		t.Error("File should not exist after delete")
 	}
 
-	localDeleteJob.src = oldSrc
-	localDeleteJob.dst = oldDst
+	localDeleteJob.args = oldArgs
 }
 
 func testLocalCopyOrMove(t *testing.T, isMove bool) {
@@ -179,8 +176,7 @@ func testLocalCopyOrMove(t *testing.T, isMove bool) {
 		job = &localCopyJob
 	}
 
-	oldSrc := job.src
-	oldDst := job.dst
+	oldArgs := job.args
 	dst := ""
 
 	// teardown
@@ -190,8 +186,7 @@ func testLocalCopyOrMove(t *testing.T, isMove bool) {
 			deleteFile(dst)
 		}
 
-		job.src = oldSrc
-		job.dst = oldDst
+		job.args = oldArgs
 	}()
 
 	dst, err = tempFile("dst")
@@ -200,8 +195,7 @@ func testLocalCopyOrMove(t *testing.T, isMove bool) {
 		return
 	}
 
-	job.src = []*objurl.ObjectURL{newURL(src)}
-	job.dst = newURL(dst)
+	job.args = []*objurl.ObjectURL{newURL(src), newURL(dst)}
 
 	// execute
 	job.Run(&wp)

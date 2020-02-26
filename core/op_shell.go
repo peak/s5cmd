@@ -7,18 +7,15 @@ import (
 )
 
 func ShellExec(job *Job, wp *WorkerParams) *JobResponse {
-	src := job.src[0]
-	var srcCmd, dstCmd string
+	strArgs := make([]string, 0)
 
-	if src != nil {
-		srcCmd = src.Absolute()
+	for i, a := range job.args {
+		if i == 0 {
+			continue
+		}
+		strArgs = append(strArgs, a.Absolute())
 	}
-
-	if job.dst != nil {
-		dstCmd = job.dst.Absolute()
-	}
-
-	cmd := exec.CommandContext(wp.ctx, srcCmd, dstCmd)
+	cmd := exec.CommandContext(wp.ctx, job.args[0].Absolute(), strArgs...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	err := cmd.Run()
@@ -30,11 +27,10 @@ func ShellAbort(job *Job, wp *WorkerParams) *JobResponse {
 	var (
 		exitCode int64 = -1
 		err      error
-		src      = job.src[0]
 	)
 
-	if job.src != nil {
-		exitCode, err = strconv.ParseInt(src.Absolute(), 10, 8)
+	if len(job.args) > 0 {
+		exitCode, err = strconv.ParseInt(job.args[0].Absolute(), 10, 8)
 		if err != nil {
 			exitCode = 255
 		}

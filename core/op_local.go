@@ -5,7 +5,7 @@ import (
 )
 
 func LocalCopy(job *Job, wp *WorkerParams) *JobResponse {
-	src, dst := job.src[0], job.dst
+	src, dst := job.args[0], job.args[1]
 
 	response := CheckConditions(src, dst, wp, job.opts)
 	if response != nil {
@@ -33,7 +33,7 @@ func LocalCopy(job *Job, wp *WorkerParams) *JobResponse {
 }
 
 func LocalDelete(job *Job, wp *WorkerParams) *JobResponse {
-	src := job.src[0]
+	src := job.args[0]
 
 	client, err := wp.newClient(src)
 	if err != nil {

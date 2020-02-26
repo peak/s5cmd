@@ -49,8 +49,28 @@ func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
-func setup(t *testing.T) (*s3.S3, func(...string) icmd.Cmd, func()) {
+type setupOpts struct {
+	s3backend string
+}
+
+type option func(*setupOpts)
+
+func withS3Backend(backend string) option {
+	return func(opts *setupOpts) {
+		opts.s3backend = backend
+	}
+}
+
+func setup(t *testing.T, options ...option) (*s3.S3, func(...string) icmd.Cmd, func()) {
 	t.Helper()
+
+	opts := &setupOpts{
+		s3backend: "bolt",
+	}
+
+	for _, option := range options {
+		option(opts)
+	}
 
 	testdir := fs.NewDir(t, t.Name(), fs.WithDir("workdir", fs.WithMode(0700)))
 	workdir := testdir.Join("workdir")
@@ -67,7 +87,7 @@ func setup(t *testing.T) (*s3.S3, func(...string) icmd.Cmd, func()) {
 		awsLogLevel = aws.LogDebug
 	}
 
-	endpoint, dbcleanup := s3ServerEndpoint(t, testdir, s3LogLevel)
+	endpoint, dbcleanup := s3ServerEndpoint(t, testdir, s3LogLevel, opts.s3backend)
 
 	s3Config := aws.NewConfig().
 		WithEndpoint(endpoint).

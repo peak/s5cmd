@@ -86,9 +86,6 @@ func getSubCommands() cmp.Commands {
 	argList := make(map[string]*map[opt.ParamType]struct{})
 
 	for _, c := range core.Commands {
-		if c.Operation.IsInternal() {
-			continue
-		}
 
 		// Do the flags
 		flagsForKeyword, ok := flagList[c.Keyword]
@@ -249,7 +246,8 @@ func s3predictor(a cmp.Args) []string {
 		url.Prefix = s3key
 
 		for object := range client.List(ctx, url, true, s3MaxKeys) {
-			if object.IsMarker() {
+			// TODO(ig): handle error
+			if object.Err != nil {
 				continue
 			}
 

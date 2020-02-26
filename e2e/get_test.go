@@ -31,10 +31,6 @@ func TestGetSingleS3Object(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(` +OK "get s3://%v/testfile1.txt ./testfile1.txt"`, bucket),
-	})
-
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: suffix(`# Downloading testfile1.txt...`),
 	})
@@ -73,21 +69,12 @@ func TestGetMultipleFlatS3Objects(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(` +OK "get s3://%v/* ./"`, bucket),
-		1: suffix(` # All workers idle, finishing up...`),
-	})
-
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(""),
 		1: suffix(`# Downloading another_test_file.txt...`),
 		2: suffix(`# Downloading filename-with-hypen.gz...`),
 		3: suffix(`# Downloading readme.md...`),
 		4: suffix(`# Downloading testfile1.txt...`),
-		5: contains(` + "get s3://%v/a/another_test_file.txt another_test_file.txt`, bucket),
-		6: contains(` + "get s3://%v/a/test_b/filename-with-hypen.gz filename-with-hypen.gz"`, bucket),
-		7: contains(` + "get s3://%v/a/test_b/readme.md readme.md"`, bucket),
-		8: contains(` + "get s3://%v/a/test_b/testfile1.txt testfile1.txt"`, bucket),
 	}, sortInput(true))
 
 	// assert local filesystem
@@ -134,21 +121,12 @@ func TestGetMultipleS3ObjectsToGivenDirectory(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(` +OK "get s3://%v/* %v/"`, bucket, dst),
-		1: suffix(` # All workers idle, finishing up...`),
-	})
-
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(""),
 		1: suffix(`# Downloading another_test_file.txt...`),
 		2: suffix(`# Downloading filename-with-hypen.gz...`),
 		3: suffix(`# Downloading readme.md...`),
 		4: suffix(`# Downloading testfile1.txt...`),
-		5: contains(` + "get s3://%v/another_test_file.txt %v/another_test_file.txt`, bucket, dst),
-		6: contains(` + "get s3://%v/filename-with-hypen.gz %v/filename-with-hypen.gz"`, bucket, dst),
-		7: contains(` + "get s3://%v/readme.md %v/readme.md"`, bucket, dst),
-		8: contains(` + "get s3://%v/testfile1.txt %v/testfile1.txt"`, bucket, dst),
 	}, sortInput(true))
 
 	// assert local filesystem

@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"fmt"
 	"testing"
 
 	"gotest.tools/v3/assert"
@@ -30,12 +31,10 @@ func TestRemoveSingleS3Object(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(` +OK "rm s3://%v/testfile1.txt"`, bucket),
-	})
+	assertLines(t, result.Stderr(), map[int]compareFunc{})
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: suffix(`# Downloading testfile1.txt...`),
+		0: suffix(`+ "rm s3://%v/testfile1.txt"`, bucket),
 	})
 
 	// assert s3 object
@@ -69,18 +68,65 @@ func TestRemoveMultipleS3Objects(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(` +OK "rm s3://%v/*"`, bucket),
-		1: suffix(` # All workers idle, finishing up...`),
-	})
+	assertLines(t, result.Stderr(), map[int]compareFunc{})
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(""),
-		1: contains(` + Batch-delete s3://%v/another_test_file.txt`, bucket),
-		2: contains(` + Batch-delete s3://%v/filename-with-hypen.gz`, bucket),
-		3: contains(` + Batch-delete s3://%v/readme.md`, bucket),
-		4: contains(` + Batch-delete s3://%v/testfile1.txt`, bucket),
+		1: contains(`+ Batch-delete s3://%v/another_test_file.txt`, bucket),
+		2: contains(`+ Batch-delete s3://%v/filename-with-hypen.gz`, bucket),
+		3: contains(`+ Batch-delete s3://%v/readme.md`, bucket),
+		4: contains(`+ Batch-delete s3://%v/testfile1.txt`, bucket),
 	}, sortInput(true))
+
+	// assert s3 objects
+	for filename, content := range filesToContent {
+		err := ensureS3Object(s3client, bucket, filename, content)
+		assertError(t, err, errS3NoSuchKey)
+	}
+}
+
+func TestRemoveTenThousandS3Objects(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	// ten thousand s3 objects are created for this test. by default, s3 backend is
+	// bolt but we need speed for this test, hence use in-memory storage.
+	s3client, s5cmd, cleanup := setup(t, withS3Backend("mem"))
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+
+	filesToContent := map[string]string{
+		"testfile1.txt":          "this is a test file 1",
+		"readme.md":              "this is a readme file",
+		"filename-with-hypen.gz": "file has hypen in its name",
+		"another_test_file.txt":  "yet another txt file. yatf.",
+	}
+
+	const (
+		filecount = 10_000
+		content   = "file body"
+	)
+
+	for i := 0; i < filecount; i++ {
+		filename := fmt.Sprintf("file_%06d", i)
+		putFile(t, s3client, bucket, filename, content)
+	}
+
+	cmd := s5cmd("rm", "s3://"+bucket+"/*")
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{})
+
+	expected := make(map[int]compareFunc)
+	expected[0] = equals("")
+	for i := 0; i < filecount; i++ {
+		expected[i+1] = contains(`+ Batch-delete s3://%v/file_%06d`, bucket, i)
+	}
+	assertLines(t, result.Stdout(), expected, sortInput(true))
 
 	// assert s3 objects
 	for filename, content := range filesToContent {
@@ -108,11 +154,11 @@ func TestRemoveSingleLocalFile(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(` +OK "rm %v"`, filename),
-	})
+	assertLines(t, result.Stderr(), map[int]compareFunc{})
 
-	assertLines(t, result.Stdout(), map[int]compareFunc{})
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: suffix(` # Deleting %v...`, filename),
+	})
 
 	// assert local filesystem
 	expected := fs.Expected(t)
@@ -147,7 +193,7 @@ func TestRemoveMultipleLocalFilesShouldFail(t *testing.T) {
 	result.Assert(t, icmd.Expected{ExitCode: 127})
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(` -ERR "rm *.txt": invalid parameters to "rm": given argument "*.txt" is not a remote path`),
+		0: suffix(`-ERR "rm *.txt": invalid parameters to "rm": given argument "*.txt" is not a remote path`),
 	})
 
 	// assert local filesystem

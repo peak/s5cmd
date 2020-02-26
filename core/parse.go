@@ -18,19 +18,18 @@ const (
 )
 
 // parseArgumentByType parses an input string according to the given
-// opt.ParamType and returns a JobArgument (or error). fnObj is the
+// opt.ParamType and returns a ObjectURL (or error). fnObj is the
 // last/previous successfully parsed argument, used mainly to append the
 // basenames of the source files to destination directories.
-func parseArgumentByType(s string, t opt.ParamType, fnObj *JobArgument) (*JobArgument, error) {
+func parseArgumentByType(s string, t opt.ParamType, fnObj *objurl.ObjectURL) (*objurl.ObjectURL, error) {
 	fnBase := ""
 	if (t == opt.S3ObjOrDir || t == opt.FileOrDir || t == opt.OptionalFileOrDir) && fnObj != nil {
-		fnBase = fnObj.url.Base()
+		fnBase = fnObj.Base()
 	}
 
 	switch t {
 	case opt.Unchecked, opt.UncheckedOneOrMore:
-		url, _ := objurl.New(s)
-		return NewJobArgument(url), nil
+		return objurl.New(s)
 
 	case opt.S3Obj, opt.S3ObjOrDir, opt.S3WildObj, opt.S3Dir, opt.S3SimpleObj:
 		url, err := objurl.New(s)
@@ -80,9 +79,7 @@ func parseArgumentByType(s string, t opt.ParamType, fnObj *JobArgument) (*JobArg
 			s += "/" + fnBase
 		}
 
-		url, _ = objurl.New(s)
-
-		return NewJobArgument(url), nil
+		return objurl.New(s)
 
 	case opt.OptionalFileOrDir, opt.OptionalDir:
 		if s == "" {
@@ -145,8 +142,7 @@ func parseArgumentByType(s string, t opt.ParamType, fnObj *JobArgument) (*JobArg
 			s += string(filepath.Separator)
 		}
 
-		url, _ = objurl.New(s)
-		return NewJobArgument(url), nil
+		return objurl.New(s)
 
 	case opt.Glob:
 		url, _ := objurl.New(s)
@@ -163,48 +159,35 @@ func parseArgumentByType(s string, t opt.ParamType, fnObj *JobArgument) (*JobArg
 			return nil, err
 		}
 
-		return NewJobArgument(url), nil
+		return url, nil
 
 	}
 
 	return nil, errors.New("unhandled parseArgumentByType")
 }
 
-// ParseJob parses a job description and returns a *Job type, possibly with
-// other *Job types in successCommand/failCommand.
-func ParseJob(jobdesc string) (*Job, error) {
-	jobdesc = strings.Split(jobdesc, " #")[0] // Get rid of comments
-	jobdesc = strings.TrimSpace(jobdesc)
+// ParseCommand parses a command description and returns a Command type.
+func ParseCommand(cmd string) (*Command, error) {
+	cmd = strings.Split(cmd, " #")[0] // Get rid of comments
+	cmd = strings.TrimSpace(cmd)
 	// Get rid of double or more spaces
-	jobdesc = strings.Replace(jobdesc, "  ", " ", -1)
-	jobdesc = strings.Replace(jobdesc, "  ", " ", -1)
-	jobdesc = strings.Replace(jobdesc, "  ", " ", -1)
+	cmd = strings.Replace(cmd, "  ", " ", -1)
+	cmd = strings.Replace(cmd, "  ", " ", -1)
+	cmd = strings.Replace(cmd, "  ", " ", -1)
 
-	return parseSingleJob(jobdesc)
+	return parseSingleCommand(cmd)
 }
 
-// parseSingleJob attempts to parse a single job description to a standalone
-// Job struct. It will loop through each accepted command-signature, trying to
-// find the first one that fits.
-func parseSingleJob(jobdesc string) (*Job, error) {
-	if jobdesc == "" || jobdesc[0] == '#' {
+// parseSingleCommand attempts to parse a single command description to a standalone Command struct.
+// It will loop through each accepted command-signature, trying to find the first one that fits.
+func parseSingleCommand(cmd string) (*Command, error) {
+	if cmd == "" || cmd[0] == '#' {
 		return nil, nil
 	}
 
-	if strings.Contains(jobdesc, "&&") {
-		return nil, errors.New("nested commands are not supported")
-	}
-	if strings.Contains(jobdesc, "||") {
-		return nil, errors.New("nested commands are not supported")
-	}
-
 	// Tokenize arguments
-	parts := strings.Split(jobdesc, " ")
-
-	// Create a skeleton Job
-	ourJob := &Job{
-		sourceDesc: jobdesc,
-	}
+	parts := strings.Split(cmd, " ")
+	command := &Command{original: cmd}
 
 	found := -1
 	var parseArgErr error
@@ -212,12 +195,10 @@ func parseSingleJob(jobdesc string) (*Job, error) {
 		if parts[0] == c.Keyword { // The first token is the name of our command, "cp", "mv" etc.
 			found = i // Save the id of the last matching command, we will use this in our error message if needed
 
-			// Enrich our skeleton Job with default values for this specific
-			// command
-			ourJob.command = c.Keyword
-			ourJob.operation = c.Operation
-			ourJob.args = []*JobArgument{}
-			ourJob.opts = c.Opts
+			command.keyword = c.Keyword
+			command.operation = c.Operation
+			command.opts = c.Opts
+			command.args = make([]*objurl.ObjectURL, 0)
 
 			// Parse options below, until endOptParse
 
@@ -234,7 +215,7 @@ func parseSingleJob(jobdesc string) (*Job, error) {
 				for _, p := range *acceptedOpts {
 					s := p.GetParam()
 					if parts[k] == s {
-						ourJob.opts = append(ourJob.opts, p)
+						command.opts = append(command.opts, p)
 						foundOpt = true
 					}
 				}
@@ -248,8 +229,8 @@ func parseSingleJob(jobdesc string) (*Job, error) {
 		endOptParse:
 
 			// Don't parse args if we have the help option
-			if ourJob.opts.Has(opt.Help) {
-				return ourJob, nil
+			if command.opts.Has(opt.Help) {
+				return command, nil
 			}
 
 			// Check number of arguments
@@ -269,7 +250,7 @@ func parseSingleJob(jobdesc string) (*Job, error) {
 			}
 
 			// Parse arguments into JobArguments
-			var a, fnObj *JobArgument
+			var a, fnObj *objurl.ObjectURL
 
 			parseArgErr = nil
 			lastType := opt.UncheckedOneOrMore
@@ -286,7 +267,7 @@ func parseSingleJob(jobdesc string) (*Job, error) {
 				}
 				verboseLog("Parsed %s as %s", partVal, t.String())
 
-				ourJob.args = append(ourJob.args, a)
+				command.args = append(command.args, a)
 
 				if (t == opt.S3Obj || t == opt.S3SimpleObj || t == opt.FileObj) && fnObj == nil {
 					fnObj = a
@@ -307,7 +288,8 @@ func parseSingleJob(jobdesc string) (*Job, error) {
 						break
 					}
 					verboseLog("Parsed %s as %s", p, lastType.String())
-					ourJob.args = append(ourJob.args, a)
+
+					command.args = append(command.args, a)
 				}
 			}
 			if parseArgErr != nil {
@@ -315,9 +297,9 @@ func parseSingleJob(jobdesc string) (*Job, error) {
 				continue // Not our command, try another
 			}
 
-			verboseLog("Our command looks to be a %s", c.String(ourJob.opts...))
+			verboseLog("Our command looks to be a %s", c.String(command.opts...))
 
-			return ourJob, nil
+			return command, nil
 		}
 	}
 

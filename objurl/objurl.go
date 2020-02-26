@@ -124,6 +124,18 @@ func (o *ObjectURL) Base() string {
 	return basefn(o.Path)
 }
 
+// Join joins string and returns new ObjectURL.
+func (o *ObjectURL) Join(s string) *ObjectURL {
+	joinfn := filepath.Join
+	if o.IsRemote() {
+		joinfn = path.Join
+	}
+
+	clone := o.Clone()
+	clone.Path = joinfn(clone.Path, s)
+	return clone
+}
+
 func (o *ObjectURL) remoteURL() string {
 	s := o.Scheme + "://"
 	if o.Bucket != "" {

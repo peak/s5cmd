@@ -139,11 +139,6 @@ func main() {
 	*flagEndpointURL = strings.TrimSpace(*flagEndpointURL)
 
 	startTime := time.Now()
-
-	if !cmdMode {
-		log.Printf("# Using %d workers", *flagWorkerCount)
-	}
-
 	parentCtx, cancelFunc := context.WithCancel(context.Background())
 
 	exitCode := -1
@@ -174,9 +169,9 @@ func main() {
 
 	core.Verbose = *flagVerbose
 
-	wp := core.NewWorkerPool(ctx,
-		&core.WorkerPoolParams{
-			NumWorkers:             *flagWorkerCount,
+	wp := core.NewWorkerManager(ctx,
+		&core.WorkerManagerParams{
+			MaxWorkers:             *flagWorkerCount,
 			UploadChunkSizeBytes:   ulPartSizeBytes,
 			UploadConcurrency:      *flagUploadConcurrency,
 			DownloadChunkSizeBytes: dlPartSizeBytes,

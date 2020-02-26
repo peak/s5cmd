@@ -19,11 +19,11 @@ func (s JobStatus) String() string {
 	case statusSuccess:
 		return "+"
 	case statusErr:
-		return "-"
+		return "ERROR"
 	case statusWarning:
-		return "+?"
+		return "WARNING"
 	default:
-		return "?"
+		return "UNKNOWN"
 	}
 }
 

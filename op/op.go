@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/peak/s5cmd/opt"
+	"github.com/peak/s5cmd/stats"
 )
 
 // Operation is a type of our operations.
@@ -12,37 +13,82 @@ type Operation int
 
 // List of Operations
 const (
-	Abort             Operation = iota // Abort program
-	Download                           // Download from S3 to local
-	BatchDownload                      // Batch download from S3 to local
-	Upload                             // Upload from local to S3
-	BatchUpload                        // Batch upload from local to S3
-	Copy                               // Copy from S3 to S3
-	BatchCopy                          // Batch copy from S3 to S3
-	Delete                             // Delete from S3
-	Size                               // List S3 and get object sizes
-	BatchDelete                        // "ls" and submit batched multi-delete operations
-	BatchDeleteActual                  // AWS deleteObjects call
-	List                               // List S3 objects
-	ListBuckets                        // List S3 buckets
-	LocalCopy                          // Copy from local to local
-	BatchLocalCopy                     // Batch copy from local to local
-	LocalDelete                        // Delete local file
-	ShellExec                          // Execute shell command
-	AliasGet                           // Alias for Download
-	AliasBatchGet                      // Alias for BatchDownload
+	Abort          Operation = iota // Abort program
+	Download                        // Download from S3 to local
+	Upload                          // Upload from local to S3
+	Copy                            // Copy from S3 to S3
+	Delete                          // Delete from S3
+	Size                            // List S3 and get object sizes
+	BatchDelete                     // "ls" and submit batched multi-delete operations
+	BatchCopy                       // Batch copy from S3 to S3
+	BatchDownload                   // Batch download from S3 to local
+	BatchUpload                     // Batch upload from local to S3
+	BatchLocalCopy                  // Batch copy from local to local
+	AliasBatchGet                   // Alias for BatchDownload
+	List                            // List S3 objects
+	ListBuckets                     // List S3 buckets
+	LocalCopy                       // Copy from local to local
+	LocalDelete                     // Delete local file
+	ShellExec                       // Execute shell command
+	AliasGet                        // Alias for Download
 )
+
+var batchOperations = []Operation{
+	BatchDownload,
+	BatchUpload,
+	BatchDelete,
+	BatchLocalCopy,
+	BatchCopy,
+	AliasBatchGet,
+}
+
+var localOperations = []Operation{LocalCopy, LocalDelete}
+var shellOperations = []Operation{ShellExec, Abort}
+
+// GetStat gets stat type for the operation.
+func (o Operation) GetStat() stats.StatType {
+	if o.isLocalOp() {
+		return stats.FileOp
+	}
+
+	if o.isShellOp() {
+		return stats.ShellOp
+	}
+
+	return stats.S3Op
+}
+
+// isLocalOp checks if the operation is filesystem operation.
+func (o Operation) isLocalOp() bool {
+	for _, operation := range localOperations {
+		if o == operation {
+			return true
+		}
+	}
+	return false
+}
+
+// isShellOp checks if the operation is shell operation.
+func (o Operation) isShellOp() bool {
+	for _, operation := range shellOperations {
+		if o == operation {
+			return true
+		}
+	}
+	return false
+}
 
 // IsBatch returns true if this operation creates sub-jobs
 func (o Operation) IsBatch() bool {
-	return o == BatchDownload || o == BatchUpload || o == BatchDelete || o == BatchLocalCopy || o == BatchCopy || o == AliasBatchGet
+	for _, operation := range batchOperations {
+		if o == operation {
+			return true
+		}
+	}
+	return false
 }
 
-// IsInternal returns true if this operation is considered internal. Internal operations are not shown in +OK messages
-func (o Operation) IsInternal() bool {
-	return o == BatchDeleteActual
-}
-
+// String returns the string representation of the operation.
 func (o Operation) String() string {
 	switch o {
 	case Abort:
@@ -63,8 +109,6 @@ func (o Operation) String() string {
 		return "delete"
 	case BatchDelete:
 		return "batch-delete"
-	case BatchDeleteActual:
-		return "batch-delete-actual"
 	case ListBuckets:
 		return "ls-buckets"
 	case List:

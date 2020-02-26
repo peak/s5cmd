@@ -77,10 +77,6 @@ func TestS3_List_success(t *testing.T) {
 			t.Errorf("unexpected error: %v", got.Err)
 		}
 
-		if got.IsMarker() {
-			continue
-		}
-
 		want := responses[index]
 		if diff := cmp.Diff(want.isDir, got.Mode.IsDir()); diff != "" {
 			t.Errorf("(-want +got):\n%v", diff)

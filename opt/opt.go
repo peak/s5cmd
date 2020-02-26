@@ -26,6 +26,10 @@ const (
 	IfSizeDiffers                       // Run only if size differs (or file non-existent on destination)
 	IfSourceNewer                       // Run only if source file is newer
 	Help                                // Show help
+	// TODO(ig): workaround to support BatchDelete operation. s5cmd expands
+	// glob and operates on each key in a separate worker. S3 Delete operations
+	// can be aggregated up to 1000 keys.
+	SupportsAggregation
 )
 
 var optionsHelpOrder = [...]OptionType{

@@ -32,10 +32,6 @@ func TestMoveSingleS3ObjectToLocal(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(` +OK "mv s3://%v/testfile1.txt ./testfile1.txt"`, bucket),
-	})
-
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: suffix(`# Downloading testfile1.txt...`),
 	})
@@ -75,21 +71,12 @@ func TestMoveMultipleFlatS3ObjectsToLocal(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(` +OK "mv s3://%v/* ./"`, bucket),
-		1: suffix(` # All workers idle, finishing up...`),
-	})
-
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(""),
 		1: suffix(`# Downloading another_test_file.txt...`),
 		2: suffix(`# Downloading filename-with-hypen.gz...`),
 		3: suffix(`# Downloading readme.md...`),
 		4: suffix(`# Downloading testfile1.txt...`),
-		5: contains(` + "mv s3://%v/another_test_file.txt another_test_file.txt`, bucket),
-		6: contains(` + "mv s3://%v/filename-with-hypen.gz filename-with-hypen.gz"`, bucket),
-		7: contains(` + "mv s3://%v/readme.md readme.md"`, bucket),
-		8: contains(` + "mv s3://%v/testfile1.txt testfile1.txt"`, bucket),
 	}, sortInput(true))
 
 	// assert local filesystem
@@ -131,12 +118,8 @@ func TestMoveSingleFileToS3(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(` +OK "mv %v s3://%v/%v"`, fpath, bucket, filename),
-	})
-
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(` # Uploading %v... (%v bytes)`, filename, len(content)),
+		0: equals(` # Uploading %v...`, filename),
 	})
 
 	// expect no files on filesystem
@@ -178,21 +161,12 @@ func TestMoveMultipleFilesToS3(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(` +OK "mv %v/* s3://%v"`, workdir.Path(), bucket),
-		1: suffix(` # All workers idle, finishing up...`),
-	})
-
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(""),
 		1: contains(` # Uploading another_test_file.txt...`),
 		2: contains(` # Uploading filename-with-hypen.gz...`),
 		3: contains(` # Uploading readme.md...`),
 		4: contains(` # Uploading testfile1.txt...`),
-		5: contains(` + "mv %v/another_test_file.txt s3://%v/another_test_file.txt"`, workdir.Path(), bucket),
-		6: contains(` + "mv %v/filename-with-hypen.gz s3://%v/filename-with-hypen.gz"`, workdir.Path(), bucket),
-		7: contains(` + "mv %v/readme.md s3://%v/readme.md`, workdir.Path(), bucket),
-		8: contains(` + "mv %v/testfile1.txt s3://%v/testfile1.txt"`, workdir.Path(), bucket),
 	}, sortInput(true))
 
 	// expect no files on filesystem
@@ -230,12 +204,8 @@ func TestMoveSingleS3ObjectToS3(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(` +OK "mv %v %v"`, src, dst),
-	})
-
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: suffix(`# Downloading testfile1.txt...`),
+		0: suffix(`# Copying testfile1.txt...`),
 	})
 
 	// expect no s3 source object
@@ -273,12 +243,8 @@ func TestMoveSingleS3ObjectIntoAnotherBucket(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(` +OK "mv %v %v"`, src, dst),
-	})
-
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: suffix(`# Downloading testfile1.txt...`),
+		0: suffix(`# Copying testfile1.txt...`),
 	})
 
 	// expect no s3 source object
@@ -318,17 +284,12 @@ func TestMoveMultipleS3ObjectsToS3(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(` +OK "mv %v %v"`, src, dst),
-		1: suffix(` # All workers idle, finishing up...`),
-	})
-
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(""),
-		1: contains(` + "mv s3://%v/another_test_file.txt %vanother_test_file.txt`, bucket, dst),
-		2: contains(` + "mv s3://%v/filename-with-hypen.gz %vfilename-with-hypen.gz"`, bucket, dst),
-		3: contains(` + "mv s3://%v/readme.md %vreadme.md"`, bucket, dst),
-		4: contains(` + "mv s3://%v/testfile1.txt %vtestfile1.txt"`, bucket, dst),
+		0: contains(""),
+		1: suffix("# Copying another_test_file.txt..."),
+		2: suffix("# Copying filename-with-hypen.gz..."),
+		3: suffix("# Copying readme.md..."),
+		4: suffix("# Copying testfile1.txt..."),
 	}, sortInput(true))
 
 	// expect no s3 source objects
@@ -363,11 +324,9 @@ func TestMoveSingleFileToLocal(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(` +OK "mv %v %v"`, filename, newFilename),
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: suffix("# Copying testfile1.txt..."),
 	})
-
-	assertLines(t, result.Stdout(), map[int]compareFunc{})
 
 	// assert local filesystem
 	expected := fs.Expected(t, fs.WithFile(newFilename, content))
@@ -401,15 +360,12 @@ func TestMoveMultipleFilesToLocal(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(` +OK "mv *.txt another-directory/"`),
-		1: suffix(` # All workers idle, finishing up...`),
-	})
+	assertLines(t, result.Stderr(), map[int]compareFunc{})
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(""),
-		1: suffix(` + "mv another_test_file.txt another-directory/another_test_file.txt"`),
-		2: suffix(` + "mv testfile1.txt another-directory/testfile1.txt"`),
+		1: suffix("# Copying another_test_file.txt..."),
+		2: suffix("# Copying testfile1.txt..."),
 	}, sortInput(true))
 
 	// assert local filesystem

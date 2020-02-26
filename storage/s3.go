@@ -10,6 +10,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -34,9 +35,6 @@ const (
 	DeleteItemsMax = 1000
 )
 
-// SequenceEndMarker is a marker that is dispatched on end of each sequence.
-var SequenceEndMarker = &Object{}
-
 // S3 is a storage type which interacts with S3API, DownloaderAPI and
 // UploaderAPI.
 type S3 struct {
@@ -44,7 +42,6 @@ type S3 struct {
 	downloader s3manageriface.DownloaderAPI
 	uploader   s3manageriface.UploaderAPI
 	opts       S3Opts
-	stats      *Stats
 }
 
 // S3Opts stores configuration for S3 storage.
@@ -71,7 +68,6 @@ func NewS3Storage(opts S3Opts) (*S3, error) {
 		downloader: s3manager.NewDownloader(awsSession),
 		uploader:   s3manager.NewUploader(awsSession),
 		opts:       opts,
-		stats:      &Stats{},
 	}, nil
 }
 
@@ -163,10 +159,6 @@ func (s *S3) List(ctx context.Context, url *objurl.ObjectURL, _ bool, maxKeys in
 				itemFound = true
 			}
 
-			if itemFound && lastPage {
-				objCh <- SequenceEndMarker
-			}
-
 			return shouldPaginate && !lastPage
 		})
 
@@ -185,15 +177,17 @@ func (s *S3) List(ctx context.Context, url *objurl.ObjectURL, _ bool, maxKeys in
 
 // Copy is a single-object copy operation which copies objects to S3
 // destination from another S3 source.
-func (s *S3) Copy(ctx context.Context, from, to *objurl.ObjectURL, cls string) error {
+func (s *S3) Copy(ctx context.Context, from, to *objurl.ObjectURL, metadata map[string]string) error {
 	// SDK expects CopySource like "bucket[/key]"
 	copySource := strings.TrimPrefix(to.String(), "s3://")
+
+	storageClass := metadata["StorageClass"]
 
 	_, err := s.api.CopyObject(&s3.CopyObjectInput{
 		Bucket:       aws.String(from.Bucket),
 		Key:          aws.String(from.Path),
 		CopySource:   aws.String(copySource),
-		StorageClass: aws.String(cls),
+		StorageClass: aws.String(storageClass),
 	})
 	return err
 }
@@ -234,50 +228,123 @@ func (s *S3) Put(ctx context.Context, reader io.Reader, to *objurl.ObjectURL, me
 	return err
 }
 
-// Delete is a removal operation which removes multiple S3 objects from a
-// bucket using single HTTP request. It allows deleting objects up to 1000.
-func (s *S3) Delete(ctx context.Context, urls ...*objurl.ObjectURL) error {
-	if len(urls) > DeleteItemsMax || len(urls) == 0 {
-		return fmt.Errorf(
-			"delete size should be between %d and %d, given: %d",
-			0,
-			DeleteItemsMax,
-			len(urls),
-		)
+type chunk struct {
+	Bucket string
+	Keys   []*s3.ObjectIdentifier
+}
+
+func (s *S3) calculateChunks(ch <-chan *objurl.ObjectURL) <-chan chunk {
+	chunkch := make(chan chunk)
+
+	go func() {
+		defer close(chunkch)
+
+		var keys []*s3.ObjectIdentifier
+		initKeys := func() {
+			keys = make([]*s3.ObjectIdentifier, 0)
+		}
+
+		var bucket string
+		for url := range ch {
+			bucket = url.Bucket
+
+			objid := &s3.ObjectIdentifier{Key: aws.String(url.Path)}
+			keys = append(keys, objid)
+			if len(keys) == DeleteItemsMax {
+				chunkch <- chunk{
+					Bucket: bucket,
+					Keys:   keys,
+				}
+				initKeys()
+			}
+		}
+
+		if len(keys) > 0 {
+			chunkch <- chunk{
+				Bucket: bucket,
+				Keys:   keys,
+			}
+		}
+	}()
+
+	return chunkch
+}
+
+func (s *S3) Delete(ctx context.Context, url *objurl.ObjectURL) error {
+	chunk := chunk{
+		Bucket: url.Bucket,
+		Keys: []*s3.ObjectIdentifier{
+			{Key: aws.String(url.Path)},
+		},
 	}
 
-	var objects []*s3.ObjectIdentifier
-	for _, url := range urls {
-		objects = append(
-			objects,
-			&s3.ObjectIdentifier{Key: aws.String(url.Path)},
-		)
-	}
+	resultch := make(chan *Object, 1)
+	defer close(resultch)
 
-	bucket := urls[0].Bucket
+	s.doDelete(ctx, chunk, resultch)
+	obj := <-resultch
+	return obj.Err
+}
 
+// doDelete deletes the given keys given by chunk. Results are piggybacked via
+// the Object container.
+func (s *S3) doDelete(ctx context.Context, chunk chunk, resultch chan *Object) {
+	bucket := chunk.Bucket
 	o, err := s.api.DeleteObjectsWithContext(ctx, &s3.DeleteObjectsInput{
 		Bucket: aws.String(bucket),
-		Delete: &s3.Delete{Objects: objects},
+		Delete: &s3.Delete{Objects: chunk.Keys},
 	})
 	if err != nil {
-		return err
+		resultch <- &Object{Err: err}
+		return
 	}
 
 	for _, d := range o.Deleted {
 		key := fmt.Sprintf("s3://%v/%v", bucket, aws.StringValue(d.Key))
-		s.stats.put(key, StatsResponse{Success: true})
+		url, _ := objurl.New(key)
+		resultch <- &Object{URL: url}
 	}
 
 	for _, e := range o.Errors {
 		key := fmt.Sprintf("s3://%v/%v", bucket, aws.StringValue(e.Key))
-		s.stats.put(key, StatsResponse{
-			Success: false,
-			Message: aws.StringValue(e.Message),
-		})
+		url, _ := objurl.New(key)
+		resultch <- &Object{
+			URL: url,
+			Err: fmt.Errorf(aws.StringValue(e.Message)),
+		}
 	}
+}
 
-	return nil
+// MultiDelete is a removal operation which removes multiple S3 objects from a
+// bucket using single HTTP request. It allows deleting objects up to 1000.
+func (s *S3) MultiDelete(ctx context.Context, urlch <-chan *objurl.ObjectURL) <-chan *Object {
+	resultch := make(chan *Object)
+
+	go func() {
+		sem := make(chan bool, 10)
+		defer close(sem)
+		defer close(resultch)
+
+		chunks := s.calculateChunks(urlch)
+
+		var wg sync.WaitGroup
+		for chunk := range chunks {
+			chunk := chunk
+
+			wg.Add(1)
+			sem <- true
+
+			go func() {
+				defer wg.Done()
+				s.doDelete(ctx, chunk, resultch)
+				<-sem
+			}()
+		}
+
+		wg.Wait()
+	}()
+
+	return resultch
 }
 
 // ListBuckets is a blocking list-operation which gets bucket list and returns
@@ -333,11 +400,6 @@ func (s *S3) UpdateRegion(bucket string) error {
 
 	s.api = s3.New(ses)
 	return nil
-}
-
-// Statistics returns the stats of the storage.
-func (s *S3) Statistics() *Stats {
-	return s.stats
 }
 
 // NewAwsSession initializes a new AWS session with region fallback and custom

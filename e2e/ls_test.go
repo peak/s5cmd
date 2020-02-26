@@ -24,7 +24,6 @@ func TestListBuckets(t *testing.T) {
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Success)
-	result.Assert(t, icmd.Expected{Err: `+OK "ls"`})
 
 	// expect ordered list
 	assertLines(t, result.Stdout(), map[int]compareFunc{
@@ -54,10 +53,6 @@ func TestListSingleS3Object(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(`+OK "ls s3://%v/testfile1.txt"`, bucket),
-	}, strictLineCheck(false))
-
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: suffix("317 testfile1.txt"),
 	})
@@ -80,10 +75,6 @@ func TestListSingleWildcardS3Object(t *testing.T) {
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Success)
-
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(`+OK "ls s3://%v/*.txt"`, bucket),
-	}, strictLineCheck(false))
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: suffix("317 testfile1.txt"),
@@ -117,10 +108,6 @@ func TestListMultipleWildcardS3Object(t *testing.T) {
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Success)
-
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(`+OK "ls s3://%v/*/testfile*.txt"`, bucket),
-	}, strictLineCheck(false))
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: suffix("304 a/testfile1.txt"),
@@ -158,10 +145,6 @@ func TestListMultipleWildcardS3ObjectWithPrefix(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(`+OK "ls s3://%v/a/testfile*.txt"`, bucket),
-	}, strictLineCheck(false))
-
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: suffix("304 testfile1.txt"),
 		1: suffix("304 testfile2.txt"),
@@ -193,10 +176,6 @@ func TestListS3ObjectsAndFolders(t *testing.T) {
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Success)
-
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(` +OK "ls s3://%v"`, bucket),
-	}, strictLineCheck(false))
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: suffix("+ DIR a/"),
@@ -230,10 +209,6 @@ func TestListS3ObjectsAndFoldersWithPrefix(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(` +OK "ls s3://%v/t"`, bucket),
-	}, strictLineCheck(false))
-
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: suffix("+ DIR t/"),
 		1: suffix("? 302 testfile1.txt"),
@@ -257,9 +232,7 @@ func TestListNonexistingS3Object(t *testing.T) {
 	// s5cmd returns 0 even if it can't find the given object.
 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(`+OK "ls s3://%v/*/testfile*.txt"`, bucket),
-	}, strictLineCheck(false))
+	assertLines(t, result.Stdout(), map[int]compareFunc{}, strictLineCheck(false))
 
 	result.Assert(t, icmd.Expected{
 		Out:      "",
@@ -285,10 +258,6 @@ func TestListS3ObjectsWithDashE(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(` +OK "ls s3://%v"`, bucket),
-	}, strictLineCheck(false))
-
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: match(`^ \+ \? \w+ \d+ testfile1.txt$`),
 		1: match(`^ \+ \? \w+ \d+ testfile2.txt$`),
@@ -312,10 +281,6 @@ func TestListS3ObjectsWithDashH(t *testing.T) {
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Success)
-
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(` +OK "ls s3://%v"`, bucket),
-	}, strictLineCheck(false))
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: match(`^ \+ \? 215.1K testfile1.txt$`),

@@ -90,7 +90,7 @@ func TestRemoveTenThousandS3Objects(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t, "mem")
+	s3client, s5cmd, cleanup := setup(t, withS3Backend("mem"))
 	defer cleanup()
 
 	createBucket(t, s3client, bucket)

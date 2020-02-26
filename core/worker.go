@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log"
 	"os"
@@ -109,8 +110,8 @@ func (w *WorkerManager) runJob(job *Job) {
 	}()
 }
 
-// RunCmd will run a single command (and subsequent sub-commands) in the worker manager,
-// wait for it to finish, clean up and return.
+// RunCmd will run a single command in the worker manager, wait for it to
+// finish, clean up and return.
 func (w *WorkerManager) RunCmd(cmd string) {
 	defer w.close()
 
@@ -180,7 +181,7 @@ func (w *WorkerManager) produceWithScanner(r io.ReadCloser) {
 	}
 
 	if err := scanner.Err(); err != nil {
-		if err == context.Canceled {
+		if errors.Is(err, context.Canceled) {
 			return
 		}
 		log.Printf("-ERR Error reading: %v", err)

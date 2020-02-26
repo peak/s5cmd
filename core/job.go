@@ -91,7 +91,6 @@ func (j *Job) Run(wp *WorkerParams) {
 		return
 	}
 
-	// runner will get cmdFunc
 	response := cmdFunc(j, wp)
 	if response != nil {
 		if response.status == statusErr {

@@ -47,14 +47,14 @@ func S3BatchCopy(command *Command, src *objurl.ObjectURL) *Job {
 
 	dst := command.args[1]
 
-	var dstFn string
+	var dstFilename string
 	if command.opts.Has(opt.Parents) {
-		dstFn = src.Path
+		dstFilename = src.Path
 	} else {
-		dstFn = src.Base()
+		dstFilename = src.Base()
 	}
 
-	dstPath := fmt.Sprintf("s3://%v/%v%v", dst.Bucket, dst.Path, dstFn)
+	dstPath := fmt.Sprintf("s3://%v/%v%v", dst.Bucket, dst.Path, dstFilename)
 	dstUrl, _ := objurl.New(dstPath)
 	return command.makeJob(cmd, op.Copy, src, dstUrl)
 }

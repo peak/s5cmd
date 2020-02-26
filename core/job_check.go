@@ -60,7 +60,7 @@ func CheckConditions(src, dst *objurl.ObjectURL, wp *WorkerParams, opts opt.Opti
 	return res
 }
 
-// getObjects checks if the object from given url exists. If no object is
+// getObject checks if the object from given url exists. If no object is
 // found, error and returning object would be nil.
 func getObject(url *objurl.ObjectURL, wp *WorkerParams) (*storage.Object, error) {
 	client, err := wp.newClient(url)

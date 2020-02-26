@@ -24,8 +24,8 @@ func S3Copy(job *Job, wp *WorkerParams) *JobResponse {
 		return jobResponse(err)
 	}
 
-	srcFn := src.Base()
-	infoLog("Copying %s...", srcFn)
+	srcFilename := src.Base()
+	infoLog("Copying %s...", srcFilename)
 
 	metadata := map[string]string{
 		"StorageClass": string(job.storageClass),
@@ -70,20 +70,20 @@ func S3Download(job *Job, wp *WorkerParams) *JobResponse {
 		return jobResponse(err)
 	}
 
-	srcFn := src.Base()
-	destFn := dst.Absolute()
+	srcFilename := src.Base()
+	destFilename := dst.Absolute()
 
-	f, err := os.Create(destFn)
+	f, err := os.Create(destFilename)
 	if err != nil {
 		return jobResponse(err)
 	}
 	defer f.Close()
 
-	infoLog("Downloading %s...", srcFn)
+	infoLog("Downloading %s...", srcFilename)
 
 	err = client.Get(wp.ctx, src, f)
 	if err != nil {
-		os.Remove(destFn) // Remove partly downloaded file
+		os.Remove(destFilename)
 	} else if job.opts.Has(opt.DeleteSource) {
 		err = client.Delete(wp.ctx, src)
 	}
@@ -111,8 +111,8 @@ func S3Upload(job *Job, wp *WorkerParams) *JobResponse {
 		return jobResponse(err)
 	}
 
-	srcFn := src.Base()
-	infoLog("Uploading %s...", srcFn)
+	srcFilename := src.Base()
+	infoLog("Uploading %s...", srcFilename)
 
 	metadata := map[string]string{
 		"StorageClass": string(job.storageClass),

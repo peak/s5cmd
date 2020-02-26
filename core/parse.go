@@ -185,13 +185,6 @@ func parseSingleCommand(cmd string) (*Command, error) {
 		return nil, nil
 	}
 
-	if strings.Contains(cmd, "&&") {
-		return nil, errors.New("nested commands are not supported")
-	}
-	if strings.Contains(cmd, "||") {
-		return nil, errors.New("nested commands are not supported")
-	}
-
 	// Tokenize arguments
 	parts := strings.Split(cmd, " ")
 	command := &Command{original: cmd}
@@ -202,7 +195,6 @@ func parseSingleCommand(cmd string) (*Command, error) {
 		if parts[0] == c.Keyword { // The first token is the name of our command, "cp", "mv" etc.
 			found = i // Save the id of the last matching command, we will use this in our error message if needed
 
-			// Enrich our skeleton Job with default values for this specific command
 			command.keyword = c.Keyword
 			command.operation = c.Operation
 			command.opts = c.Opts

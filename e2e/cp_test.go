@@ -319,20 +319,16 @@ func TestCopyDirToS3(t *testing.T) {
 
 	createBucket(t, s3client, bucket)
 
-	filesToContent := map[string]string{
-		"testfile1.txt":          "this is a test file 1",
-		"readme.md":              "this is a readme file",
-		"filename-with-hypen.gz": "file has hypen in its name",
-		"another_test_file.txt":  "yet another txt file. yatf.",
+	folderLayout := []fs.PathOp{
+		fs.WithFile("file1.txt", "this is the first test file"),
+		fs.WithFile("readme.md", "this is a readme file"),
+		fs.WithDir(
+			"c",
+			fs.WithFile("file2.txt", "this is the second test file"),
+		),
 	}
 
-	var files []fs.PathOp
-	for filename, content := range filesToContent {
-		op := fs.WithFile(filename, content)
-		files = append(files, op)
-	}
-
-	workdir := fs.NewDir(t, "somedir", files...)
+	workdir := fs.NewDir(t, t.Name(), folderLayout...)
 	defer workdir.Remove()
 
 	// this command ('s5cmd cp dir/ s3://bucket/') will run in 'walk' mode,
@@ -344,20 +340,19 @@ func TestCopyDirToS3(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(""),
-		1: contains(` # Uploading another_test_file.txt...`),
-		2: contains(` # Uploading filename-with-hypen.gz...`),
+		1: contains(` # Uploading file1.txt...`),
+		2: contains(` # Uploading file2.txt...`),
 		3: contains(` # Uploading readme.md...`),
-		4: contains(` # Uploading testfile1.txt...`),
 	}, sortInput(true))
 
 	// assert local filesystem
-	expected := fs.Expected(t, files...)
+	expected := fs.Expected(t, folderLayout...)
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 
 	// assert s3
-	for filename, content := range filesToContent {
-		assert.Assert(t, ensureS3Object(s3client, bucket, filename, content))
-	}
+	assert.Assert(t, ensureS3Object(s3client, bucket, "file1.txt", "this is the first test file"))
+	assert.Assert(t, ensureS3Object(s3client, bucket, "readme.md", "this is a readme file"))
+	assert.Assert(t, ensureS3Object(s3client, bucket, "file2.txt", "this is the second test file"))
 }
 
 func TestCopyMultipleFilesToS3(t *testing.T) {

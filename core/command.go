@@ -129,8 +129,8 @@ var Commands = []CommandMap{
 
 	// File to S3
 	{"cp", op.Upload, []opt.ParamType{opt.FileObj, opt.S3ObjOrDir}, noOpts},
-	{"cp", op.BatchUpload, []opt.ParamType{opt.Glob, opt.S3Dir}, noOpts},
-	{"cp", op.BatchUpload, []opt.ParamType{opt.Dir, opt.S3Dir}, noOpts},
+	{"cp", op.BatchUpload, []opt.ParamType{opt.Glob, opt.S3Dir}, opt.OptionList{opt.Recursive}},
+	{"cp", op.BatchUpload, []opt.ParamType{opt.Dir, opt.S3Dir}, opt.OptionList{opt.Recursive}},
 
 	// S3 to file
 	{"cp", op.Download, []opt.ParamType{opt.S3SimpleObj, opt.FileOrDir}, noOpts},

@@ -12,9 +12,10 @@ const (
 	defaultWorkerCount         = 256
 	defaultUploadConcurrency   = 5
 	defaultDownloadConcurrency = 5
-	bytesInMb                  = 1024 * 1024
 	minNumWorkers              = 2
-	minUploadPartSize          = 5 * bytesInMb
+	minUploadPartSize          = 5 * megabytes
+
+	megabytes = 1024 * 1024
 )
 
 var (
@@ -41,18 +42,19 @@ func Parse() {
 }
 
 func Validate() error {
-	*UploadPartSize = *UploadPartSize * bytesInMb
+	*UploadPartSize = *UploadPartSize * megabytes
 	if *UploadPartSize < int64(minUploadPartSize) {
-		return fmt.Errorf("-ERR Multipart chunk size should be greater than %d", int(math.Ceil(minUploadPartSize/float64(bytesInMb))))
+		minValue := int(math.Ceil(minUploadPartSize / float64(megabytes)))
+		return fmt.Errorf("multipart chunk size should be greater than %v", minValue)
 	}
 
-	*DownloadPartSize = *DownloadPartSize * bytesInMb
-	if *DownloadPartSize < 5*bytesInMb {
-		return fmt.Errorf("-ERR Download part size should be greater than 5")
+	*DownloadPartSize = *DownloadPartSize * megabytes
+	if *DownloadPartSize < 5*megabytes {
+		return fmt.Errorf("download part size should be greater than 5")
 	}
 
 	if *DownloadConcurrency < 1 || *UploadConcurrency < 1 {
-		return fmt.Errorf("-ERR Download/Upload concurrency should be greater than 1")
+		return fmt.Errorf("download/upload concurrency should be greater than 1")
 	}
 
 	if flag.Arg(0) == "" && *CommandFile == "" {

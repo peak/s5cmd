@@ -43,7 +43,6 @@ func newS3Factory() func() (*S3, error) {
 	)
 
 	return func() (*S3, error) {
-
 		mu.RLock()
 		if cached != nil {
 			mu.RUnlock()

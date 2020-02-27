@@ -38,17 +38,18 @@ const (
 
 func newS3Factory() func() (*S3, error) {
 	var (
-		mu     sync.Mutex
+		mu     sync.RWMutex
 		cached *S3
 	)
 
 	return func() (*S3, error) {
-		mu.Lock()
-		defer mu.Unlock()
 
+		mu.RLock()
 		if cached != nil {
+			mu.RUnlock()
 			return cached, nil
 		}
+		mu.RUnlock()
 
 		opts := S3Opts{
 			DownloadConcurrency:    *flags.DownloadConcurrency,
@@ -64,7 +65,10 @@ func newS3Factory() func() (*S3, error) {
 		if err != nil {
 			return nil, err
 		}
+
+		mu.Lock()
 		cached = s3
+		mu.Unlock()
 		return s3, nil
 	}
 }

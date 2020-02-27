@@ -1,12 +1,13 @@
 package core
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"strconv"
 )
 
-func ShellExec(job *Job, wp *WorkerParams) *JobResponse {
+func ShellExec(ctx context.Context, job *Job) *JobResponse {
 	strArgs := make([]string, 0)
 
 	for i, a := range job.args {
@@ -15,7 +16,7 @@ func ShellExec(job *Job, wp *WorkerParams) *JobResponse {
 		}
 		strArgs = append(strArgs, a.Absolute())
 	}
-	cmd := exec.CommandContext(wp.ctx, job.args[0].Absolute(), strArgs...)
+	cmd := exec.CommandContext(ctx, job.args[0].Absolute(), strArgs...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	err := cmd.Run()
@@ -23,7 +24,7 @@ func ShellExec(job *Job, wp *WorkerParams) *JobResponse {
 	return jobResponse(err)
 }
 
-func ShellAbort(job *Job, wp *WorkerParams) *JobResponse {
+func ShellAbort(ctx context.Context, job *Job) *JobResponse {
 	var (
 		exitCode int64 = -1
 		err      error
@@ -36,7 +37,7 @@ func ShellAbort(job *Job, wp *WorkerParams) *JobResponse {
 		}
 	}
 
-	exitFn := wp.ctx.Value(ExitFuncKey).(func(int))
+	exitFn := ctx.Value(ExitFuncKey).(func(int))
 	exitFn(int(exitCode))
 
 	return jobResponse(nil)

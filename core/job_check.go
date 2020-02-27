@@ -1,6 +1,8 @@
 package core
 
 import (
+	"context"
+
 	"github.com/peak/s5cmd/objurl"
 	"github.com/peak/s5cmd/opt"
 	"github.com/peak/s5cmd/storage"
@@ -9,7 +11,7 @@ import (
 // CheckConditions checks if the job satisfies the conditions if the job has -n, -s and -u flags.
 // It returns error-embedded JobResponse with status "warning" if none of the requirements are met.
 // It returns nil if any warning or error is encountered during this check.
-func CheckConditions(src, dst *objurl.ObjectURL, wp *WorkerParams, opts opt.OptionList) *JobResponse {
+func CheckConditions(ctx context.Context, src, dst *objurl.ObjectURL, opts opt.OptionList) *JobResponse {
 	condIsExist := opts.Has(opt.IfNotExists)
 	condSizeDiffers := opts.Has(opt.IfSizeDiffers)
 	condSourceNewer := opts.Has(opt.IfSourceNewer)
@@ -19,12 +21,12 @@ func CheckConditions(src, dst *objurl.ObjectURL, wp *WorkerParams, opts opt.Opti
 		return nil
 	}
 
-	srcObj, err := getObject(src, wp)
+	srcObj, err := getObject(ctx, src)
 	if err != nil {
 		return jobResponse(err)
 	}
 
-	dstObj, err := getObject(dst, wp)
+	dstObj, err := getObject(ctx, dst)
 	if err != nil {
 		return jobResponse(err)
 	}
@@ -62,13 +64,13 @@ func CheckConditions(src, dst *objurl.ObjectURL, wp *WorkerParams, opts opt.Opti
 
 // getObject checks if the object from given url exists. If no object is
 // found, error and returning object would be nil.
-func getObject(url *objurl.ObjectURL, wp *WorkerParams) (*storage.Object, error) {
-	client, err := wp.newClient(url)
+func getObject(ctx context.Context, url *objurl.ObjectURL) (*storage.Object, error) {
+	client, err := storage.NewClient(url)
 	if err != nil {
 		return nil, err
 	}
 
-	obj, err := client.Stat(wp.ctx, url)
+	obj, err := client.Stat(ctx, url)
 	if err == storage.ErrGivenObjectNotFound {
 		return nil, nil
 	}

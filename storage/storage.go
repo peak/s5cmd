@@ -8,6 +8,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/peak/s5cmd/flags"
 	"github.com/peak/s5cmd/objurl"
 )
 
@@ -32,6 +33,23 @@ type Storage interface {
 	MultiDelete(context.Context, <-chan *objurl.ObjectURL) <-chan *Object
 	ListBuckets(context.Context, string) ([]Bucket, error)
 	UpdateRegion(string) error
+}
+
+func NewClient(url *objurl.ObjectURL) (Storage, error) {
+	if url.IsRemote() {
+		opts := S3Opts{
+			DownloadConcurrency:    *flags.DownloadConcurrency,
+			DownloadChunkSizeBytes: *flags.DownloadPartSize,
+			EndpointURL:            *flags.EndpointURL,
+			MaxRetries:             *flags.RetryCount,
+			NoVerifySSL:            *flags.NoVerifySSL,
+			UploadChunkSizeBytes:   *flags.UploadPartSize,
+			UploadConcurrency:      *flags.UploadConcurrency,
+		}
+		return NewS3Storage(opts)
+	}
+
+	return NewFilesystem(), nil
 }
 
 // Object is a generic type which contains metadata for storage items.

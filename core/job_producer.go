@@ -20,8 +20,7 @@ var producerRegistry = map[op.Operation]producerFunc{
 }
 
 type Producer struct {
-	newClient ClientFunc
-	runJob    func(*Job)
+	runJob func(context.Context, *Job)
 }
 
 func (p *Producer) Run(ctx context.Context, command *Command) {
@@ -31,7 +30,7 @@ func (p *Producer) Run(ctx context.Context, command *Command) {
 	}
 
 	job := command.toJob()
-	p.runJob(job)
+	p.runJob(ctx, job)
 }
 
 func (p *Producer) batchProduce(ctx context.Context, command *Command) {
@@ -43,7 +42,7 @@ func (p *Producer) batchProduce(ctx context.Context, command *Command) {
 	src := command.args[0]
 
 	// TODO(os): handle errors
-	client, _ := p.newClient(src)
+	client, _ := storage.NewClient(src)
 	isRecursive := command.opts.Has(opt.Recursive)
 
 	for object := range client.List(ctx, src, isRecursive, storage.ListAllItems) {
@@ -53,6 +52,6 @@ func (p *Producer) batchProduce(ctx context.Context, command *Command) {
 		}
 
 		job := fn(command, object.URL)
-		p.runJob(job)
+		p.runJob(ctx, job)
 	}
 }

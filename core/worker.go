@@ -17,23 +17,16 @@ import (
 type WorkerManager struct {
 	wg         *sync.WaitGroup
 	cancelFunc context.CancelFunc
-	st         *stats.Stats
 	semaphore  chan bool
 }
 
-// WorkerParams is the params/state of a single worker.
-type WorkerParams struct {
-	st *stats.Stats
-}
-
 // NewWorkerManager creates a new WorkerManager.
-func NewWorkerManager(ctx context.Context, st *stats.Stats) *WorkerManager {
+func NewWorkerManager(ctx context.Context) *WorkerManager {
 	cancelFunc := ctx.Value(CancelFuncKey).(context.CancelFunc)
 
 	w := &WorkerManager{
 		wg:         &sync.WaitGroup{},
 		cancelFunc: cancelFunc,
-		st:         st,
 		semaphore:  make(chan bool, *flags.WorkerCount),
 	}
 
@@ -59,16 +52,15 @@ func (w *WorkerManager) runJob(ctx context.Context, job *Job) {
 	w.acquire()
 	go func() {
 		defer w.release()
-		wp := &WorkerParams{
-			st: w.st,
-		}
-		job.Run(ctx, wp)
+		job.Run(ctx)
 	}()
 }
 
 // RunCmd will run a single command in the worker manager, wait for it to
 // finish, clean up and return.
 func (w *WorkerManager) RunCmd(ctx context.Context, cmd string) {
+	stats.StartTimer()
+
 	defer w.close()
 
 	command := w.parseCommand(cmd)
@@ -90,7 +82,7 @@ func (w *WorkerManager) parseCommand(cmd string) *Command {
 	command, err := ParseCommand(cmd)
 	if err != nil {
 		log.Printf(`-ERR "%s": %v`, cmd, err)
-		w.st.Increment(stats.Fail)
+		stats.Increment(stats.Fail)
 		return nil
 	}
 	return command
@@ -105,6 +97,8 @@ func (w *WorkerManager) close() {
 // Run runs the commands in filename in the worker manager, on EOF
 // it will wait for all jobs to finish, clean up and return.
 func (w *WorkerManager) Run(ctx context.Context, filename string) {
+	stats.StartTimer()
+
 	defer w.close()
 
 	var r io.ReadCloser

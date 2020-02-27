@@ -9,7 +9,6 @@ import (
 	"github.com/peak/s5cmd/objurl"
 	"github.com/peak/s5cmd/op"
 	"github.com/peak/s5cmd/opt"
-	"github.com/peak/s5cmd/stats"
 )
 
 func newJob(command string, operation op.Operation, opts opt.OptionList, args ...*objurl.ObjectURL) Job {
@@ -27,11 +26,6 @@ func newURL(s string) *objurl.ObjectURL {
 }
 
 var (
-	st = stats.Stats{}
-	wp = WorkerParams{
-		st: &st,
-	}
-
 	// These Jobs are used for benchmarks and also as skeletons for tests
 	localCopyJob = newJob(
 		"!cp-test",
@@ -62,7 +56,7 @@ func benchmarkJobRun(b *testing.B, j *Job) {
 	ctx := context.Background()
 	for n := 0; n < b.N; n++ {
 		createFile("test-src", "")
-		j.Run(ctx, &wp)
+		j.Run(ctx)
 	}
 
 	deleteFile("test-dst")
@@ -139,7 +133,7 @@ func TestJobRunLocalDelete(t *testing.T) {
 
 	// execute
 	ctx := context.Background()
-	localDeleteJob.Run(ctx, &wp)
+	localDeleteJob.Run(ctx)
 
 	// verify
 	if fileExists(filename) {
@@ -191,7 +185,7 @@ func testLocalCopyOrMove(t *testing.T, isMove bool) {
 
 	// execute
 	ctx := context.Background()
-	job.Run(ctx, &wp)
+	job.Run(ctx)
 
 	// verify
 	if isMove {

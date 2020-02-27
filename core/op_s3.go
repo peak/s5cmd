@@ -135,19 +135,39 @@ func S3Upload(ctx context.Context, job *Job) *JobResponse {
 }
 
 func S3BatchDelete(ctx context.Context, job *Job) *JobResponse {
-	src := job.args[0]
+	sources := job.args
 
-	client, err := storage.NewClient(src)
+	client, err := storage.NewClient(sources[0])
 	if err != nil {
 		return jobResponse(err)
 	}
 
 	// do object->objurl transformation
 	urlch := make(chan *objurl.ObjectURL)
+
 	go func() {
 		defer close(urlch)
-		for obj := range client.List(ctx, src, true, storage.ListAllItems) {
-			urlch <- obj.URL
+
+		// there are multiple source files which are received from batch-rm
+		// command.
+		if len(sources) > 1 {
+			for _, url := range sources {
+				select {
+				case <-ctx.Done():
+					return
+				case urlch <- url:
+				}
+			}
+		} else {
+			// src is a glob
+			src := sources[0]
+			for obj := range client.List(ctx, src, true, storage.ListAllItems) {
+				if obj.Err != nil {
+					// TODO(ig): add proper logging
+					continue
+				}
+				urlch <- obj.URL
+			}
 		}
 	}()
 

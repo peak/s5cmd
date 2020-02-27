@@ -53,15 +53,18 @@ func main() {
 		fmt.Fprintf(os.Stderr, "\nTo get help on a specific command, run \"%v <command> -h\"\n", os.Args[0])
 	}
 
-	if err := flags.Parse(); err != nil {
-		log.Print(err)
-		os.Exit(2)
-	}
+	flags.Parse()
 
 	if done, err := complete.ParseFlagsAndRun(); err != nil {
 		log.Fatal("-ERR " + err.Error())
 	} else if done {
 		os.Exit(0)
+	}
+
+	// validation must be done after the completion
+	if err := flags.Validate(); err != nil {
+		log.Print(err)
+		os.Exit(2)
 	}
 
 	if *flags.EnableGops || os.Getenv("S5CMD_GOPS") != "" {
@@ -79,25 +82,13 @@ func main() {
 		os.Exit(0)
 	}
 
-	if flag.Arg(0) == "" && *flags.CommandFile == "" {
-		flag.Usage()
-		os.Exit(2)
-	}
-
 	cmd := strings.Join(flag.Args(), " ")
-	if cmd != "" && *flags.CommandFile != "" {
-		log.Fatal("-ERR Only specify -f or command, not both")
-	}
-	if (cmd == "" && *flags.CommandFile == "") || *flags.WorkerCount == 0 || *flags.UploadPartSize < 1 || *flags.RetryCount < 0 {
-		log.Fatal("-ERR Please specify all arguments.")
-	}
 
 	var cmdMode bool
 	if cmd != "" {
 		cmdMode = true
 	}
 
-	startTime := time.Now()
 	parentCtx, cancelFunc := context.WithCancel(context.Background())
 
 	exitCode := -1
@@ -124,18 +115,14 @@ func main() {
 		cancelFunc()
 	}()
 
-	s := stats.Stats{}
-
-	wp := core.NewWorkerManager(ctx, &s)
+	wp := core.NewWorkerManager(ctx)
 	if cmdMode {
 		wp.RunCmd(ctx, cmd)
 	} else {
 		wp.Run(ctx, *flags.CommandFile)
 	}
 
-	elapsed := time.Since(startTime)
-
-	failops := s.Get(stats.Fail)
+	failops := stats.Get(stats.Fail)
 
 	// if exitCode is -1 (default) and if we have at least one absolute-fail,
 	// exit with code 127
@@ -152,14 +139,16 @@ func main() {
 	}
 
 	if !cmdMode || *flags.PrintStats {
-		s3ops := s.Get(stats.S3Op)
-		fileops := s.Get(stats.FileOp)
-		shellops := s.Get(stats.ShellOp)
+		elapsed := stats.Elapsed()
+
+		s3ops := stats.Get(stats.S3Op)
+		fileops := stats.Get(stats.FileOp)
+		shellops := stats.Get(stats.ShellOp)
+
 		printOps("S3", s3ops, elapsed, "")
 		printOps("File", fileops, elapsed, "")
 		printOps("Shell", shellops, elapsed, "")
 		printOps("Failed", failops, elapsed, "")
-
 		printOps("Total", s3ops+fileops+shellops+failops, elapsed, fmt.Sprintf(" %v", elapsed))
 	}
 

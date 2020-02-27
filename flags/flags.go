@@ -36,9 +36,11 @@ var (
 	UninstallCompletion = flag.Bool("cmp-uninstall", false, "Uninstall shell completion")
 )
 
-func Parse() error {
+func Parse() {
 	flag.Parse()
+}
 
+func Validate() error {
 	*UploadPartSize = *UploadPartSize * bytesInMb
 	if *UploadPartSize < int64(minUploadPartSize) {
 		return fmt.Errorf("-ERR Multipart chunk size should be greater than %d", int(math.Ceil(minUploadPartSize/float64(bytesInMb))))
@@ -51,6 +53,28 @@ func Parse() error {
 
 	if *DownloadConcurrency < 1 || *UploadConcurrency < 1 {
 		return fmt.Errorf("-ERR Download/Upload concurrency should be greater than 1")
+	}
+
+	if flag.Arg(0) == "" && *CommandFile == "" {
+		flag.Usage()
+		return fmt.Errorf("no command file nor a command specified")
+	}
+
+	cmd := strings.Join(flag.Args(), " ")
+	if cmd != "" && *CommandFile != "" {
+		return fmt.Errorf("either specify -f or command, not both")
+	}
+
+	if *UploadPartSize < 1 {
+		return fmt.Errorf("multipart chunk size for uploads must be a positive value")
+	}
+
+	if *DownloadPartSize < 1 {
+		return fmt.Errorf("multipart chunk size for downloads must be a positive value")
+	}
+
+	if *RetryCount < 1 {
+		return fmt.Errorf("retry count must be a positive value")
 	}
 
 	if *WorkerCount < 0 {

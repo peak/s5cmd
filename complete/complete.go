@@ -11,13 +11,13 @@ import (
 	"strings"
 	"time"
 
+	cmp "github.com/posener/complete"
+
 	"github.com/peak/s5cmd/core"
 	"github.com/peak/s5cmd/flags"
 	"github.com/peak/s5cmd/objurl"
 	"github.com/peak/s5cmd/opt"
 	"github.com/peak/s5cmd/storage"
-
-	cmp "github.com/posener/complete"
 )
 
 const (

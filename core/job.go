@@ -7,6 +7,7 @@ import (
 	"log"
 
 	"github.com/hashicorp/go-multierror"
+	"github.com/peak/s5cmd/flags"
 	"github.com/peak/s5cmd/objurl"
 	"github.com/peak/s5cmd/op"
 	"github.com/peak/s5cmd/opt"
@@ -64,7 +65,7 @@ func (j *Job) Log() {
 
 	errStr := ""
 	if err != nil {
-		if !Verbose && isCancelationError(err) {
+		if !*flags.Verbose && isCancelationError(err) {
 			return
 		}
 

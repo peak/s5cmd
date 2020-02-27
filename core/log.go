@@ -1,12 +1,13 @@
 package core
 
-import "fmt"
+import (
+	"fmt"
 
-// Verbose is an ugly global variable for verbose output, mainly for debugging
-var Verbose bool
+	"github.com/peak/s5cmd/flags"
+)
 
 func verboseLog(format string, a ...interface{}) {
-	if Verbose {
+	if *flags.Verbose {
 		fmt.Printf("VERBOSE: "+format+"\n", a...)
 	}
 }

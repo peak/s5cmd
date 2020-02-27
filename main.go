@@ -126,13 +126,11 @@ func main() {
 
 	s := stats.Stats{}
 
-	core.Verbose = *flags.Verbose
-
 	wp := core.NewWorkerManager(ctx, &s)
 	if cmdMode {
-		wp.RunCmd(cmd)
+		wp.RunCmd(ctx, cmd)
 	} else {
-		wp.Run(*flags.CommandFile)
+		wp.Run(ctx, *flags.CommandFile)
 	}
 
 	elapsed := time.Since(startTime)

@@ -53,7 +53,10 @@ func main() {
 		fmt.Fprintf(os.Stderr, "\nTo get help on a specific command, run \"%v <command> -h\"\n", os.Args[0])
 	}
 
-	flags.Parse()
+	if err := flags.Parse(); err != nil {
+		log.Print(err)
+		os.Exit(2)
+	}
 
 	if done, err := complete.ParseFlagsAndRun(); err != nil {
 		log.Fatal("-ERR " + err.Error())

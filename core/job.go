@@ -7,6 +7,7 @@ import (
 	"log"
 
 	"github.com/hashicorp/go-multierror"
+	"github.com/peak/s5cmd/flags"
 	"github.com/peak/s5cmd/objurl"
 	"github.com/peak/s5cmd/op"
 	"github.com/peak/s5cmd/opt"
@@ -64,7 +65,7 @@ func (j *Job) Log() {
 
 	errStr := ""
 	if err != nil {
-		if !Verbose && isCancelationError(err) {
+		if !*flags.Verbose && isCancelationError(err) {
 			return
 		}
 
@@ -84,19 +85,19 @@ func (j *Job) Log() {
 }
 
 // Run runs the Job, gets job response and logs the job status.
-func (j *Job) Run(wp *WorkerParams) {
+func (j *Job) Run(ctx context.Context) {
 	cmdFunc, ok := globalCmdRegistry[j.operation]
 	if !ok {
 		log.Fatalf("unhandled operation %v", j.operation)
 		return
 	}
 
-	response := cmdFunc(j, wp)
+	response := cmdFunc(ctx, j)
 	if response != nil {
 		if response.status == statusErr {
-			wp.st.Increment(stats.Fail)
+			stats.Increment(stats.Fail)
 		} else {
-			wp.st.Increment(j.statType)
+			stats.Increment(j.statType)
 		}
 		j.response = response
 		j.Log()

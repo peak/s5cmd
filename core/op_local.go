@@ -1,18 +1,21 @@
 package core
 
 import (
+	"context"
+
 	"github.com/peak/s5cmd/opt"
+	"github.com/peak/s5cmd/storage"
 )
 
-func LocalCopy(job *Job, wp *WorkerParams) *JobResponse {
+func LocalCopy(ctx context.Context, job *Job) *JobResponse {
 	src, dst := job.args[0], job.args[1]
 
-	response := CheckConditions(src, dst, wp, job.opts)
+	response := CheckConditions(ctx, src, dst, job.opts)
 	if response != nil {
 		return response
 	}
 
-	client, err := wp.newClient(src)
+	client, err := storage.NewClient(src)
 	if err != nil {
 		return jobResponse(err)
 	}
@@ -20,29 +23,29 @@ func LocalCopy(job *Job, wp *WorkerParams) *JobResponse {
 	infoLog("Copying %s...", src.Base())
 
 	err = client.Copy(
-		wp.ctx,
+		ctx,
 		src,
 		dst,
 		nil,
 	)
 
 	if job.opts.Has(opt.DeleteSource) && err == nil {
-		err = client.Delete(wp.ctx, src)
+		err = client.Delete(ctx, src)
 	}
 
 	return jobResponse(err)
 }
 
-func LocalDelete(job *Job, wp *WorkerParams) *JobResponse {
+func LocalDelete(ctx context.Context, job *Job) *JobResponse {
 	src := job.args[0]
 
-	client, err := wp.newClient(src)
+	client, err := storage.NewClient(src)
 	if err != nil {
 		return jobResponse(err)
 	}
 
 	infoLog("Deleting %s...", src.Base())
 
-	err = client.Delete(wp.ctx, src)
+	err = client.Delete(ctx, src)
 	return jobResponse(err)
 }

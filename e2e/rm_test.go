@@ -200,3 +200,53 @@ func TestRemoveMultipleLocalFilesShouldFail(t *testing.T) {
 	expected := fs.Expected(t, files...)
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 }
+
+func TestBatchRemove(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	filesToContent := map[string]string{
+		"file1.txt": "file1 content",
+		"file2.txt": "file2 content",
+		"file3.txt": "file3 content",
+	}
+
+	for filename, content := range filesToContent {
+		putFile(t, s3client, bucket, filename, content)
+	}
+
+	// file4.txt is non-existent. s5cmd sends DeleteObjects request but S3
+	// doesn't report whether if the given object is exists, hence reported as
+	// deleted. We want to keep this behaviour.
+	cmd := s5cmd(
+		"batch-rm",
+		"s3://"+bucket+"/file1.txt",
+		"s3://"+bucket+"/file2.txt",
+		"s3://"+bucket+"/file3.txt",
+		"s3://"+bucket+"/file4.txt",
+	)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{})
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(""),
+		1: contains(`+ Batch-delete s3://%v/file1.txt`, bucket),
+		2: contains(`+ Batch-delete s3://%v/file2.txt`, bucket),
+		3: contains(`+ Batch-delete s3://%v/file3.txt`, bucket),
+		4: contains(`+ Batch-delete s3://%v/file4.txt`, bucket),
+	}, sortInput(true))
+
+	// assert s3 objects
+	for filename, content := range filesToContent {
+		err := ensureS3Object(s3client, bucket, filename, content)
+		assertError(t, err, errS3NoSuchKey)
+	}
+}

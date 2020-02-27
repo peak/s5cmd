@@ -9,8 +9,6 @@ import (
 	"github.com/peak/s5cmd/objurl"
 	"github.com/peak/s5cmd/op"
 	"github.com/peak/s5cmd/opt"
-	"github.com/peak/s5cmd/stats"
-	"github.com/peak/s5cmd/storage"
 )
 
 func newJob(command string, operation op.Operation, opts opt.OptionList, args ...*objurl.ObjectURL) Job {
@@ -28,19 +26,6 @@ func newURL(s string) *objurl.ObjectURL {
 }
 
 var (
-	st = stats.Stats{}
-	wp = WorkerParams{
-		ctx:        context.Background(),
-		poolParams: nil,
-		st:         &st,
-		newClient: func(url *objurl.ObjectURL) (storage.Storage, error) {
-			if url.IsRemote() {
-				panic("remote url is not expected")
-			}
-
-			return storage.NewFilesystem(), nil
-		}}
-
 	// These Jobs are used for benchmarks and also as skeletons for tests
 	localCopyJob = newJob(
 		"!cp-test",
@@ -68,10 +53,10 @@ var (
 )
 
 func benchmarkJobRun(b *testing.B, j *Job) {
-
+	ctx := context.Background()
 	for n := 0; n < b.N; n++ {
 		createFile("test-src", "")
-		j.Run(&wp)
+		j.Run(ctx)
 	}
 
 	deleteFile("test-dst")
@@ -147,7 +132,8 @@ func TestJobRunLocalDelete(t *testing.T) {
 	localDeleteJob.args = []*objurl.ObjectURL{newURL(filename)}
 
 	// execute
-	localDeleteJob.Run(&wp)
+	ctx := context.Background()
+	localDeleteJob.Run(ctx)
 
 	// verify
 	if fileExists(filename) {
@@ -198,7 +184,8 @@ func testLocalCopyOrMove(t *testing.T, isMove bool) {
 	job.args = []*objurl.ObjectURL{newURL(src), newURL(dst)}
 
 	// execute
-	job.Run(&wp)
+	ctx := context.Background()
+	job.Run(ctx)
 
 	// verify
 	if isMove {

@@ -27,13 +27,14 @@ func S3BatchDownload(command *Command, src *objurl.ObjectURL) *Job {
 
 	var joinPath string
 	if command.opts.Has(opt.Parents) {
-		joinPath = src.Path
+		joinPath = src.Relative()
 	} else {
 		joinPath = src.Base()
 	}
 
 	dst := cmdDst.Join(joinPath)
 	dir := filepath.Dir(dst.Absolute())
+
 	os.MkdirAll(dir, os.ModePerm)
 	return command.makeJob(cmd, op.Download, src, dst)
 }
@@ -49,7 +50,7 @@ func S3BatchCopy(command *Command, src *objurl.ObjectURL) *Job {
 
 	var dstFilename string
 	if command.opts.Has(opt.Parents) {
-		dstFilename = src.Path
+		dstFilename = src.Relative()
 	} else {
 		dstFilename = src.Base()
 	}

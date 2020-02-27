@@ -78,6 +78,23 @@ func (s StorageClass) IsGlacier() bool {
 	return s == StorageGlacier
 }
 
+func (s StorageClass) ShortCode() string {
+	var code string
+	switch s {
+	case StorageStandard:
+		code = ""
+	case StorageGlacier:
+		code = "G"
+	case StorageReducedRedundancy:
+		code = "R"
+	case StorageStandardIA:
+		code = "I"
+	default:
+		code = "?"
+	}
+	return code
+}
+
 const (
 	// ObjectStorageClassStandard is a standard storage class type.
 	StorageStandard StorageClass = "STANDARD"

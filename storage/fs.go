@@ -176,13 +176,7 @@ func (f *Filesystem) Copy(ctx context.Context, src, dst *objurl.ObjectURL, _ map
 }
 
 func (f *Filesystem) Delete(ctx context.Context, url *objurl.ObjectURL) error {
-	fpath := url.Absolute()
-	err := os.Remove(fpath)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return os.Remove(url.Absolute())
 }
 
 func (f *Filesystem) MultiDelete(ctx context.Context, urlch <-chan *objurl.ObjectURL) <-chan *Object {

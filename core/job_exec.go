@@ -67,7 +67,12 @@ func Download(ctx context.Context, job *Job) *JobResponse {
 		return response
 	}
 
-	client, err := storage.NewClient(src)
+	srcClient, err := storage.NewClient(src)
+	if err != nil {
+		return jobResponse(err)
+	}
+
+	dstClient, err := storage.NewClient(dst)
 	if err != nil {
 		return jobResponse(err)
 	}
@@ -75,6 +80,7 @@ func Download(ctx context.Context, job *Job) *JobResponse {
 	srcFilename := src.Base()
 	destFilename := dst.Absolute()
 
+	// TODO(ig): use storage abstraction
 	f, err := os.Create(destFilename)
 	if err != nil {
 		return jobResponse(err)
@@ -83,11 +89,11 @@ func Download(ctx context.Context, job *Job) *JobResponse {
 
 	infoLog("Downloading %s...", srcFilename)
 
-	err = client.Get(ctx, src, f)
+	err = srcClient.Get(ctx, src, f)
 	if err != nil {
-		os.Remove(destFilename)
+		err = dstClient.Delete(ctx, dst)
 	} else if job.opts.Has(opt.DeleteSource) {
-		err = client.Delete(ctx, src)
+		err = srcClient.Delete(ctx, src)
 	}
 
 	return jobResponse(err)
@@ -101,14 +107,19 @@ func Upload(ctx context.Context, job *Job) *JobResponse {
 		return response
 	}
 
+	// TODO(ig): use storage abstraction
 	f, err := os.Open(src.Absolute())
 	if err != nil {
 		return jobResponse(err)
 	}
 	defer f.Close()
 
-	// infer the client based on destination, which is a remote storage.
-	client, err := storage.NewClient(dst)
+	dstClient, err := storage.NewClient(dst)
+	if err != nil {
+		return jobResponse(err)
+	}
+
+	srcClient, err := storage.NewClient(src)
 	if err != nil {
 		return jobResponse(err)
 	}
@@ -121,7 +132,7 @@ func Upload(ctx context.Context, job *Job) *JobResponse {
 		"ContentType":  "", // TODO(ig): guess the mimetype (see: #33)
 	}
 
-	err = client.Put(
+	err = dstClient.Put(
 		ctx,
 		f,
 		dst,
@@ -129,7 +140,7 @@ func Upload(ctx context.Context, job *Job) *JobResponse {
 	)
 
 	if job.opts.Has(opt.DeleteSource) && err == nil {
-		err = os.Remove(src.Absolute())
+		err = srcClient.Delete(ctx, src)
 	}
 
 	return jobResponse(err)

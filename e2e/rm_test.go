@@ -31,12 +31,13 @@ func TestRemoveSingleS3Object(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stderr(), map[int]compareFunc{})
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: equals(""),
+	})
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: suffix("# Deleting testfile1.txt..."),
-		1: suffix(`+ "rm s3://%v/testfile1.txt"`, bucket),
-		2: equals(""),
+		0: suffix(" # Deleting testfile1.txt..."),
+		1: equals(""),
 	})
 
 	// assert s3 object
@@ -70,7 +71,9 @@ func TestRemoveMultipleS3Objects(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stderr(), map[int]compareFunc{})
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: equals(""),
+	})
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(""),

@@ -330,7 +330,7 @@ func TestMoveSingleFileToLocal(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: suffix("# Copying testfile1.txt..."),
-		1: suffix("# Deleting testfile1.txt..."),
+		1: equals(""),
 	})
 
 	// assert local filesystem
@@ -365,7 +365,9 @@ func TestMoveMultipleFilesToLocal(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stderr(), map[int]compareFunc{})
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: equals(""),
+	})
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(""),

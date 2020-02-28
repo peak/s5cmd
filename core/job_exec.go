@@ -59,7 +59,7 @@ func Delete(ctx context.Context, job *Job) *JobResponse {
 	return jobResponse(err)
 }
 
-func S3Download(ctx context.Context, job *Job) *JobResponse {
+func Download(ctx context.Context, job *Job) *JobResponse {
 	src, dst := job.args[0], job.args[1]
 
 	response := CheckConditions(ctx, src, dst, job.opts)
@@ -93,7 +93,7 @@ func S3Download(ctx context.Context, job *Job) *JobResponse {
 	return jobResponse(err)
 }
 
-func S3Upload(ctx context.Context, job *Job) *JobResponse {
+func Upload(ctx context.Context, job *Job) *JobResponse {
 	src, dst := job.args[0], job.args[1]
 
 	response := CheckConditions(ctx, src, dst, job.opts)
@@ -135,7 +135,7 @@ func S3Upload(ctx context.Context, job *Job) *JobResponse {
 	return jobResponse(err)
 }
 
-func S3BatchDelete(ctx context.Context, job *Job) *JobResponse {
+func BatchDelete(ctx context.Context, job *Job) *JobResponse {
 	sources := job.args
 
 	client, err := storage.NewClient(sources[0])
@@ -189,7 +189,7 @@ func S3BatchDelete(ctx context.Context, job *Job) *JobResponse {
 	return jobResponse(merror, msg...)
 }
 
-func S3ListBuckets(ctx context.Context, _ *Job) *JobResponse {
+func ListBuckets(ctx context.Context, _ *Job) *JobResponse {
 	// set as remote storage
 	url := &objurl.ObjectURL{Type: 0}
 	client, err := storage.NewClient(url)
@@ -210,7 +210,7 @@ func S3ListBuckets(ctx context.Context, _ *Job) *JobResponse {
 	return jobResponse(err, msg...)
 }
 
-func S3List(ctx context.Context, job *Job) *JobResponse {
+func List(ctx context.Context, job *Job) *JobResponse {
 	showETags := job.opts.Has(opt.ListETags)
 	humanize := job.opts.Has(opt.HumanReadable)
 
@@ -259,7 +259,7 @@ func S3List(ctx context.Context, job *Job) *JobResponse {
 	return jobResponse(nil, msg...)
 }
 
-func S3Size(ctx context.Context, job *Job) *JobResponse {
+func Size(ctx context.Context, job *Job) *JobResponse {
 	type sizeAndCount struct {
 		size  int64
 		count int64

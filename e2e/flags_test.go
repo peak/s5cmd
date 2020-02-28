@@ -12,7 +12,7 @@ func TestFlagVersion(t *testing.T) {
 	_, s5cmd, cleanup := setup(t)
 	defer cleanup()
 
-	cmd := s5cmd("cp", "-version")
+	cmd := s5cmd("-version")
 	result := icmd.RunCmd(cmd)
 
 	// make sure that -version flag works as expected:

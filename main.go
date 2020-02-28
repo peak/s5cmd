@@ -1,3 +1,5 @@
+//go:generate go run version/cmd/generate.go
+
 package main
 
 import (
@@ -18,12 +20,6 @@ import (
 	"github.com/peak/s5cmd/flags"
 	"github.com/peak/s5cmd/stats"
 	"github.com/peak/s5cmd/version"
-)
-
-//go:generate go run version/cmd/generate.go
-var (
-	GitSummary = version.GitSummary
-	GitBranch  = version.GitBranch
 )
 
 func printOps(name string, counter uint64, elapsed time.Duration, extra string) {
@@ -61,10 +57,9 @@ func main() {
 		os.Exit(0)
 	}
 
-	// validation must be done after the completion
-	if err := flags.Validate(); err != nil {
-		log.Print(err)
-		os.Exit(2)
+	if *flags.ShowVersion {
+		fmt.Println(version.GetHumanVersion())
+		os.Exit(0)
 	}
 
 	if *flags.EnableGops || os.Getenv("S5CMD_GOPS") != "" {
@@ -73,13 +68,10 @@ func main() {
 		}
 	}
 
-	if *flags.ShowVersion {
-		fmt.Printf("s5cmd version %s", GitSummary)
-		if GitBranch != "" {
-			fmt.Printf(" (from branch %s)", GitBranch)
-		}
-		fmt.Print("\n")
-		os.Exit(0)
+	// validation must be done after the completion
+	if err := flags.Validate(); err != nil {
+		log.Print(err)
+		os.Exit(2)
 	}
 
 	cmd := strings.Join(flag.Args(), " ")

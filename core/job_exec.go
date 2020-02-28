@@ -187,20 +187,29 @@ func BatchDelete(ctx context.Context, job *Job) *JobResponse {
 
 	// closed errch indicates that MultiDelete operation is finished.
 	var merror error
-	var msg []string
 	for obj := range resultch {
 		if obj.Err != nil {
 			merror = multierror.Append(merror, err)
-			msg = append(msg, fmt.Sprintf(`Batch-delete %v: %v`, obj.URL, err))
-		} else {
-			msg = append(msg, fmt.Sprintf("Batch-delete %v", obj.URL))
+			msg := message{
+				status: statusErr,
+				err:    fmt.Errorf(`batch-delete %v: %v`, obj.URL, err),
+				job:    job.String(),
+			}
+			sendMessage(ctx, msg)
+			continue
 		}
+
+		msg := message{
+			job: job.String(),
+			s:   fmt.Sprintf(`Batch-delete %v`, obj.URL),
+		}
+		sendMessage(ctx, msg)
 	}
 
-	return jobResponse(merror, msg...)
+	return jobResponse(merror)
 }
 
-func ListBuckets(ctx context.Context, _ *Job) *JobResponse {
+func ListBuckets(ctx context.Context, job *Job) *JobResponse {
 	// set as remote storage
 	url := &objurl.ObjectURL{Type: 0}
 	client, err := storage.NewClient(url)
@@ -213,12 +222,15 @@ func ListBuckets(ctx context.Context, _ *Job) *JobResponse {
 		return jobResponse(err)
 	}
 
-	var msg []string
 	for _, b := range buckets {
-		msg = append(msg, b.String())
+		msg := message{
+			s:   b.String(),
+			job: job.String(),
+		}
+		sendMessage(ctx, msg)
 	}
 
-	return jobResponse(err, msg...)
+	return jobResponse(err)
 }
 
 func List(ctx context.Context, job *Job) *JobResponse {
@@ -232,7 +244,6 @@ func List(ctx context.Context, job *Job) *JobResponse {
 		return jobResponse(err)
 	}
 
-	var msg []string
 	for object := range client.List(ctx, src, true, storage.ListAllItems) {
 		if object.Err != nil {
 			// TODO(ig): expose or log the error
@@ -240,7 +251,19 @@ func List(ctx context.Context, job *Job) *JobResponse {
 		}
 
 		if object.Mode.IsDir() {
-			msg = append(msg, fmt.Sprintf("%19s %1s %-38s  %12s  %s", "", "", "", "DIR", object.URL.Relative()))
+			msg := message{
+				job:    job.String(),
+				status: statusSuccess,
+				s: fmt.Sprintf(
+					"%19s %1s %-38s  %12s  %s",
+					"",
+					"",
+					"",
+					"DIR",
+					object.URL.Relative(),
+				),
+			}
+			sendMessage(ctx, msg)
 			continue
 		}
 
@@ -255,19 +278,22 @@ func List(ctx context.Context, job *Job) *JobResponse {
 			size = fmt.Sprintf("%d", object.Size)
 		}
 
-		msg = append(
-			msg,
-			fmt.Sprintf("%s %1s %-38s %12s  %s",
+		msg := message{
+			job:    job.String(),
+			status: statusSuccess,
+			s: fmt.Sprintf(
+				"%19s %1s %-38s  %12s  %s",
 				object.ModTime.Format(dateFormat),
 				object.StorageClass.ShortCode(),
 				etag,
 				size,
 				object.URL.Relative(),
 			),
-		)
+		}
+		sendMessage(ctx, msg)
 	}
 
-	return jobResponse(nil, msg...)
+	return jobResponse(nil)
 }
 
 func Size(ctx context.Context, job *Job) *JobResponse {
@@ -306,14 +332,17 @@ func Size(ctx context.Context, job *Job) *JobResponse {
 		totals["Total"] = sz
 	}
 
-	var msg []string
 	for k, v := range totals {
+		var msg string
 		if job.opts.Has(opt.HumanReadable) {
-			msg = append(msg, fmt.Sprintf("%s bytes in %d objects: %s [%s]", HumanizeBytes(v.size), v.count, src, k))
+			msg = fmt.Sprintf("%s bytes in %d objects: %s [%s]", HumanizeBytes(v.size), v.count, src, k)
 		} else {
-			msg = append(msg, fmt.Sprintf("%d bytes in %d objects: %s [%s]", v.size, v.count, src, k))
+			msg = fmt.Sprintf("%d bytes in %d objects: %s [%s]", v.size, v.count, src, k)
 		}
+
+		m := message{s: msg, job: job.String()}
+		sendMessage(ctx, m)
 	}
 
-	return jobResponse(err, msg...)
+	return jobResponse(err)
 }

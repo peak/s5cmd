@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -19,6 +20,7 @@ type WorkerManager struct {
 	wg         *sync.WaitGroup
 	cancelFunc context.CancelFunc
 	semaphore  chan bool
+	donech     chan bool
 }
 
 // NewWorkerManager creates a new WorkerManager.
@@ -29,9 +31,20 @@ func NewWorkerManager(ctx context.Context) *WorkerManager {
 		wg:         &sync.WaitGroup{},
 		cancelFunc: cancelFunc,
 		semaphore:  make(chan bool, *flags.WorkerCount),
+		donech:     make(chan bool),
 	}
 
+	go w.stdout()
+
 	return w
+}
+
+func (w *WorkerManager) stdout() {
+	defer close(w.donech)
+
+	for msg := range Stdout {
+		fmt.Println("                   ", msg.status, msg.s)
+	}
 }
 
 // acquire acquires the semaphore and blocks until resources are available.
@@ -92,7 +105,9 @@ func (w *WorkerManager) parseCommand(cmd string) *Command {
 // close waits all jobs to finish and closes semaphore.
 func (w *WorkerManager) close() {
 	w.wg.Wait()
+	close(Stdout)
 	close(w.semaphore)
+	<-w.donech
 }
 
 // Run runs the commands in filename in the worker manager, on EOF

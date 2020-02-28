@@ -7,6 +7,7 @@ import (
 	"log"
 
 	"github.com/hashicorp/go-multierror"
+
 	"github.com/peak/s5cmd/flags"
 	"github.com/peak/s5cmd/objurl"
 	"github.com/peak/s5cmd/op"
@@ -14,6 +15,8 @@ import (
 	"github.com/peak/s5cmd/stats"
 	"github.com/peak/s5cmd/storage"
 )
+
+var Stdout = make(chan message, 10000)
 
 const dateFormat = "2006/01/02 15:04:05"
 
@@ -39,6 +42,56 @@ type JobResponse struct {
 	err     error
 }
 
+type message struct {
+	job    string
+	status JobStatus
+	s      string
+	err    error
+}
+
+func (m message) String() string {
+	if m.status == statusSuccess {
+		return fmt.Sprint("                   ", m.status, m.s)
+	}
+
+	errStr := ""
+	if m.err != nil {
+		if !*flags.Verbose && isCancelationError(m.err) {
+			return ""
+		}
+
+		errStr = CleanupError(m.err)
+		errStr = fmt.Sprintf(" (%s)", errStr)
+	}
+
+	if m.status == statusErr {
+		return fmt.Sprintf(`-ERR "%s": %s`, m.job, errStr)
+	}
+
+	return fmt.Sprintf(`"%v%s"%s`, m.status, m.job, errStr)
+}
+
+func sendMessage(ctx context.Context, msg message) {
+	select {
+	case <-ctx.Done():
+	case Stdout <- msg:
+	}
+}
+
+func newMessage(date, storageclass, etag, size, url string) message {
+	return message{
+		status: statusSuccess,
+		s: fmt.Sprintf(
+			"%19s %1s %-38s  %12s  %s",
+			date,
+			storageclass,
+			etag,
+			size,
+			url,
+		),
+	}
+}
+
 // jobResponse creates a new JobResponse by setting job status, message and error.
 func jobResponse(err error, msg ...string) *JobResponse {
 	if err == nil {
@@ -58,36 +111,6 @@ func (j Job) String() string {
 	return s
 }
 
-// Log prints the results of jobs.
-func (j *Job) Log() {
-	status := j.response.status
-	err := j.response.err
-
-	for _, m := range j.response.message {
-		fmt.Println("                   ", status, m)
-	}
-
-	errStr := ""
-	if err != nil {
-		if !*flags.Verbose && isCancelationError(err) {
-			return
-		}
-
-		errStr = CleanupError(err)
-		errStr = fmt.Sprintf(" (%s)", errStr)
-	}
-
-	if status == statusErr {
-		log.Printf(`-ERR "%s": %s`, j, errStr)
-		return
-	}
-
-	m := fmt.Sprintf(`"%s"%s`, j, errStr)
-	if status != statusSuccess {
-		fmt.Println(status, m)
-	}
-}
-
 // Run runs the Job, gets job response and logs the job status.
 func (j *Job) Run(ctx context.Context) {
 	cmdFunc, ok := globalCmdRegistry[j.operation]
@@ -104,7 +127,6 @@ func (j *Job) Run(ctx context.Context) {
 			stats.Increment(j.statType)
 		}
 		j.response = response
-		j.Log()
 	}
 }
 

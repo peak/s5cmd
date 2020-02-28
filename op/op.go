@@ -13,8 +13,7 @@ type Operation int
 
 // List of Operations
 const (
-	Abort          Operation = iota // Abort program
-	Download                        // Download from S3 to local
+	Download       Operation = iota // Download from S3 to local
 	Upload                          // Upload from local to S3
 	Copy                            // Copy from S3 to S3
 	Delete                          // Delete from S3
@@ -29,7 +28,6 @@ const (
 	ListBuckets                     // List S3 buckets
 	LocalCopy                       // Copy from local to local
 	LocalDelete                     // Delete local file
-	ShellExec                       // Execute shell command
 	AliasGet                        // Alias for Download
 )
 
@@ -43,16 +41,11 @@ var batchOperations = []Operation{
 }
 
 var localOperations = []Operation{LocalCopy, LocalDelete}
-var shellOperations = []Operation{ShellExec, Abort}
 
 // GetStat gets stat type for the operation.
 func (o Operation) GetStat() stats.StatType {
 	if o.isLocalOp() {
 		return stats.FileOp
-	}
-
-	if o.isShellOp() {
-		return stats.ShellOp
 	}
 
 	return stats.S3Op
@@ -61,16 +54,6 @@ func (o Operation) GetStat() stats.StatType {
 // isLocalOp checks if the operation is filesystem operation.
 func (o Operation) isLocalOp() bool {
 	for _, operation := range localOperations {
-		if o == operation {
-			return true
-		}
-	}
-	return false
-}
-
-// isShellOp checks if the operation is shell operation.
-func (o Operation) isShellOp() bool {
-	for _, operation := range shellOperations {
 		if o == operation {
 			return true
 		}
@@ -91,8 +74,6 @@ func (o Operation) IsBatch() bool {
 // String returns the string representation of the operation.
 func (o Operation) String() string {
 	switch o {
-	case Abort:
-		return "abort"
 	case Download:
 		return "download"
 	case BatchDownload:
@@ -121,8 +102,6 @@ func (o Operation) String() string {
 		return "batch-local-copy"
 	case LocalDelete:
 		return "local-delete"
-	case ShellExec:
-		return "shell-exec"
 	case AliasGet:
 		return "get"
 	case AliasBatchGet:
@@ -135,8 +114,6 @@ func (o Operation) String() string {
 // Describe returns string description of the Operation given a specific OptionList
 func (o Operation) Describe(l opt.OptionList) string {
 	switch o {
-	case Abort:
-		return "Exit program"
 	case Download, AliasGet:
 		if l.Has(opt.DeleteSource) {
 			return "Download from S3 and delete source objects"
@@ -189,8 +166,6 @@ func (o Operation) Describe(l opt.OptionList) string {
 		return "Batch copy local files"
 	case LocalDelete:
 		return "Delete local files"
-	case ShellExec:
-		return "Arbitrary shell-execute"
 	}
 
 	return fmt.Sprintf("Unknown:%d", o)

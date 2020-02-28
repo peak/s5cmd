@@ -20,6 +20,4 @@ var globalCmdRegistry = map[op.Operation]commandFunc{
 	op.Copy:        S3Copy,
 	op.Delete:      S3Delete,
 	op.BatchDelete: S3BatchDelete,
-	op.ShellExec:   ShellExec,
-	op.Abort:       ShellAbort,
 }

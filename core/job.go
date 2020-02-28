@@ -69,14 +69,26 @@ func (j *Job) Run(ctx context.Context) {
 		return
 	}
 
-	if response.status == statusErr {
+	switch response.status {
+	case statusErr:
 		stats.Increment(stats.Fail)
-	} else {
+		msg := message{
+			job:   j.String(),
+			err:   response.err,
+			level: levelError,
+		}
+		sendMessage(ctx, msg)
+	case statusWarning:
+		msg := message{
+			job:   j.String(),
+			err:   response.err,
+			level: levelWarning,
+		}
+		sendMessage(ctx, msg)
+		fallthrough
+	default:
 		stats.Increment(j.statType)
 	}
-
-	msg := message{}
-	sendMessage(ctx, msg)
 }
 
 func isCancelationError(err error) bool {

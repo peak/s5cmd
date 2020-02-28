@@ -41,7 +41,7 @@ func (w *WorkerManager) stdout() {
 	defer close(w.donech)
 
 	for msg := range Stdout {
-		fmt.Println("                   ", msg.level, msg.s)
+		fmt.Println(msg)
 	}
 }
 

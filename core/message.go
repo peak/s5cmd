@@ -28,7 +28,7 @@ func (l logLevel) String() string {
 	case levelWarning:
 		return "WARNING"
 	case levelInfo:
-		return "# "
+		return "#"
 	case levelVerbose:
 		return "VERBOSE"
 	default:
@@ -44,8 +44,8 @@ type message struct {
 }
 
 func (m message) String() string {
-	if m.level == levelSuccess {
-		return fmt.Sprint("                   ", m.level, m.s)
+	if m.level == levelSuccess || m.level == levelInfo {
+		return fmt.Sprintf("                   %s %s", m.level, m.s)
 	}
 
 	errStr := ""
@@ -62,7 +62,7 @@ func (m message) String() string {
 		return fmt.Sprintf(`-ERR "%s": %s`, m.job, errStr)
 	}
 
-	return fmt.Sprintf(`"%v%s"%s`, m.level, m.job, errStr)
+	return fmt.Sprintf(`%s "%s"%s`, m.level, m.job, errStr)
 }
 
 func sendMessage(ctx context.Context, msg message) {

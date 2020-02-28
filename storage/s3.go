@@ -22,6 +22,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager/s3manageriface"
 
+	"github.com/peak/s5cmd/flags"
 	"github.com/peak/s5cmd/objurl"
 )
 
@@ -34,6 +35,46 @@ const (
 	// DeleteItemsMax is the max allowed items to be deleted on single HTTP request.
 	DeleteItemsMax = 1000
 )
+
+func newS3Factory() func() (*S3, error) {
+	var (
+		mu     sync.RWMutex
+		cached *S3
+	)
+
+	return func() (*S3, error) {
+		mu.RLock()
+		if cached != nil {
+			mu.RUnlock()
+			return cached, nil
+		}
+		mu.RUnlock()
+
+		opts := S3Opts{
+			DownloadConcurrency:    *flags.DownloadConcurrency,
+			DownloadChunkSizeBytes: *flags.DownloadPartSize,
+			EndpointURL:            *flags.EndpointURL,
+			MaxRetries:             *flags.RetryCount,
+			NoVerifySSL:            *flags.NoVerifySSL,
+			UploadChunkSizeBytes:   *flags.UploadPartSize,
+			UploadConcurrency:      *flags.UploadConcurrency,
+		}
+
+		s3, err := NewS3Storage(opts)
+		if err != nil {
+			return nil, err
+		}
+
+		mu.Lock()
+		cached = s3
+		mu.Unlock()
+		return s3, nil
+	}
+}
+
+// newCachedS3 function returns a cached S3 storage with a re-used session if
+// available. Re-used AWS sessions dramatically improve performance.
+var newCachedS3 = newS3Factory()
 
 // S3 is a storage type which interacts with S3API, DownloaderAPI and
 // UploaderAPI.

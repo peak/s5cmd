@@ -223,47 +223,36 @@ func S3List(ctx context.Context, job *Job) *JobResponse {
 	var msg []string
 	for object := range client.List(ctx, src, true, storage.ListAllItems) {
 		if object.Err != nil {
+			// TODO(ig): expose or log the error
 			continue
 		}
 
 		if object.Mode.IsDir() {
 			msg = append(msg, fmt.Sprintf("%19s %1s %-38s  %12s  %s", "", "", "", "DIR", object.URL.Relative()))
-		} else {
-			var cls, etag, size string
-
-			switch object.StorageClass {
-			case storage.StorageStandard:
-				cls = ""
-			case storage.StorageGlacier:
-				cls = "G"
-			case storage.StorageReducedRedundancy:
-				cls = "R"
-			case storage.StorageStandardIA:
-				cls = "I"
-			default:
-				cls = "?"
-			}
-
-			if showETags {
-				etag = strings.Trim(object.Etag, `"`)
-			}
-			if humanize {
-				size = HumanizeBytes(object.Size)
-			} else {
-				size = fmt.Sprintf("%d", object.Size)
-			}
-
-			msg = append(
-				msg,
-				fmt.Sprintf("%s %1s %-38s %12s  %s",
-					object.ModTime.Format(dateFormat),
-					cls,
-					etag,
-					size,
-					object.URL.Relative(),
-				),
-			)
+			continue
 		}
+
+		var etag, size string
+
+		if showETags {
+			etag = strings.Trim(object.Etag, `"`)
+		}
+		if humanize {
+			size = HumanizeBytes(object.Size)
+		} else {
+			size = fmt.Sprintf("%d", object.Size)
+		}
+
+		msg = append(
+			msg,
+			fmt.Sprintf("%s %1s %-38s %12s  %s",
+				object.ModTime.Format(dateFormat),
+				object.StorageClass.ShortCode(),
+				etag,
+				size,
+				object.URL.Relative(),
+			),
+		)
 	}
 
 	return jobResponse(nil, msg...)
@@ -285,6 +274,7 @@ func S3Size(ctx context.Context, job *Job) *JobResponse {
 
 	for object := range client.List(ctx, src, true, storage.ListAllItems) {
 		if object.Mode.IsDir() || object.Err != nil {
+			// TODO(ig): expose or log the error
 			continue
 		}
 		storageClass := string(object.StorageClass)

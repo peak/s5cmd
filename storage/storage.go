@@ -8,7 +8,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/peak/s5cmd/flags"
 	"github.com/peak/s5cmd/objurl"
 )
 
@@ -35,18 +34,11 @@ type Storage interface {
 	UpdateRegion(string) error
 }
 
+// NewClient returns new Storage client from given url. Storage implementation
+// is infered from the url.
 func NewClient(url *objurl.ObjectURL) (Storage, error) {
 	if url.IsRemote() {
-		opts := S3Opts{
-			DownloadConcurrency:    *flags.DownloadConcurrency,
-			DownloadChunkSizeBytes: *flags.DownloadPartSize,
-			EndpointURL:            *flags.EndpointURL,
-			MaxRetries:             *flags.RetryCount,
-			NoVerifySSL:            *flags.NoVerifySSL,
-			UploadChunkSizeBytes:   *flags.UploadPartSize,
-			UploadConcurrency:      *flags.UploadConcurrency,
-		}
-		return NewS3Storage(opts)
+		return newCachedS3()
 	}
 
 	return NewFilesystem(), nil
@@ -84,6 +76,23 @@ type StorageClass string
 // IsGlacierObject checks if the storage class of object is glacier.
 func (s StorageClass) IsGlacier() bool {
 	return s == StorageGlacier
+}
+
+func (s StorageClass) ShortCode() string {
+	var code string
+	switch s {
+	case StorageStandard:
+		code = ""
+	case StorageGlacier:
+		code = "G"
+	case StorageReducedRedundancy:
+		code = "R"
+	case StorageStandardIA:
+		code = "I"
+	default:
+		code = "?"
+	}
+	return code
 }
 
 const (

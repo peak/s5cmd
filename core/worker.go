@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/peak/s5cmd/flags"
+
 	"github.com/peak/s5cmd/opt"
 	"github.com/peak/s5cmd/stats"
 )
@@ -48,7 +49,7 @@ func (w *WorkerManager) release() {
 
 // runJob acquires semaphore and creates new goroutine for the job.
 // It exits goroutine after all jobs are done and releases the semaphore.
-func (w *WorkerManager) runJob(ctx context.Context, job *Job) {
+func (w *WorkerManager) runJob(ctx context.Context, job Runnable) {
 	w.acquire()
 	go func() {
 		defer w.release()

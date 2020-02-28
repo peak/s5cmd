@@ -334,13 +334,6 @@ func assertLines(t *testing.T, actual string, expectedlines map[int]compareFunc,
 		// trim consecutive spaces
 		line = replaceMatchWithSpace(line, `\s+`)
 
-		// trim last excessive new line. this one does not affect the output
-		// testing since it's the last newline character to make the shell
-		// prompt look nice.
-		if i == len(lines)-1 && line == "" {
-			continue
-		}
-
 		cmp, ok := expectedlines[i]
 		if !ok {
 			if opts.strict {

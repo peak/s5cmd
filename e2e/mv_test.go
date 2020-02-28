@@ -34,6 +34,7 @@ func TestMoveSingleS3ObjectToLocal(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: suffix(`# Downloading testfile1.txt...`),
+		1: equals(""),
 	})
 
 	// assert local filesystem
@@ -120,6 +121,7 @@ func TestMoveSingleFileToS3(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(` # Uploading %v...`, filename),
+		1: equals(""),
 	})
 
 	// expect no files on filesystem
@@ -206,6 +208,7 @@ func TestMoveSingleS3ObjectToS3(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: suffix(`# Copying testfile1.txt...`),
+		1: equals(""),
 	})
 
 	// expect no s3 source object
@@ -245,6 +248,7 @@ func TestMoveSingleS3ObjectIntoAnotherBucket(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: suffix(`# Copying testfile1.txt...`),
+		1: equals(""),
 	})
 
 	// expect no s3 source object

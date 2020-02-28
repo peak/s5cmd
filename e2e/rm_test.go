@@ -36,6 +36,7 @@ func TestRemoveSingleS3Object(t *testing.T) {
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: suffix("# Deleting testfile1.txt..."),
 		1: suffix(`+ "rm s3://%v/testfile1.txt"`, bucket),
+		2: equals(""),
 	})
 
 	// assert s3 object
@@ -120,13 +121,16 @@ func TestRemoveTenThousandS3Objects(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stderr(), map[int]compareFunc{})
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: equals(""),
+	})
 
 	expected := make(map[int]compareFunc)
 	expected[0] = equals("")
 	for i := 0; i < filecount; i++ {
 		expected[i+1] = contains(`+ Batch-delete s3://%v/file_%06d`, bucket, i)
 	}
+
 	assertLines(t, result.Stdout(), expected, sortInput(true))
 
 	// assert s3 objects
@@ -155,10 +159,13 @@ func TestRemoveSingleLocalFile(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stderr(), map[int]compareFunc{})
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: equals(""),
+	})
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: suffix(` # Deleting %v...`, filename),
+		1: equals(""),
 	})
 
 	// assert local filesystem
@@ -195,6 +202,7 @@ func TestRemoveMultipleLocalFilesShouldFail(t *testing.T) {
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: suffix(`-ERR "rm *.txt": invalid parameters to "rm": given argument "*.txt" is not a remote path`),
+		1: equals(""),
 	})
 
 	// assert local filesystem
@@ -235,7 +243,9 @@ func TestBatchRemove(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stderr(), map[int]compareFunc{})
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: equals(""),
+	})
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(""),

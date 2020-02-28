@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -18,12 +19,13 @@ func TestDashFFromStdin(t *testing.T) {
 	defer cleanup()
 
 	createBucket(t, s3client, bucket)
-	putFile(t, s3client, bucket, "file.txt", "content")
+	putFile(t, s3client, bucket, "file1.txt", "content")
+	putFile(t, s3client, bucket, "file2.txt", "content")
 
 	input := strings.NewReader(
 		strings.Join([]string{
-			"ls s3://" + bucket,
-			"! echo naber",
+			fmt.Sprintf("ls s3://%v/file1.txt", bucket),
+			fmt.Sprintf("ls s3://%v/file2.txt", bucket),
 		}, "\n"),
 	)
 	cmd := s5cmd("-f", "-")
@@ -34,15 +36,14 @@ func TestDashFFromStdin(t *testing.T) {
 	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: equals(""),
 		1: match(`# Exiting with code 0`),
-		2: match(`# Stats: S3 1 \d+ ops/sec`),
-		3: match(`# Stats: Shell 1 \d+ ops/sec$`),
-		4: match(`# Stats: Total 2 \d+ ops/sec \d+\.\d+ms$`),
+		2: match(`# Stats: S3 2 \d+ ops/sec`),
+		3: match(`# Stats: Total 2 \d+ ops/sec \d+\.\d+ms$`),
 	}, trimMatch(dateRe), sortInput(true))
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(""),
-		1: suffix("file.txt"),
-		2: equals("naber"),
+		1: suffix("file1.txt"),
+		2: suffix("file2.txt"),
 	}, sortInput(true))
 }
 
@@ -55,9 +56,15 @@ func TestDashFFromFile(t *testing.T) {
 	defer cleanup()
 
 	createBucket(t, s3client, bucket)
-	putFile(t, s3client, bucket, "file.txt", "content")
+	putFile(t, s3client, bucket, "file1.txt", "content")
+	putFile(t, s3client, bucket, "file2.txt", "content")
 
-	file := fs.NewFile(t, "prefix", fs.WithContent("ls s3://"+bucket+"\n! echo naber"))
+	filecontent := strings.Join([]string{
+		fmt.Sprintf("ls s3://%v/file1.txt", bucket),
+		fmt.Sprintf("ls s3://%v/file2.txt", bucket),
+	}, "\n")
+
+	file := fs.NewFile(t, "prefix", fs.WithContent(filecontent))
 	defer file.Remove()
 
 	cmd := s5cmd("-f", file.Path())
@@ -67,8 +74,8 @@ func TestDashFFromFile(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(""),
-		1: suffix("file.txt"),
-		2: equals("naber"),
+		1: suffix("file1.txt"),
+		2: suffix("file2.txt"),
 	}, sortInput(true))
 }
 

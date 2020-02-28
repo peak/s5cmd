@@ -109,9 +109,6 @@ var noOpts = opt.OptionList{}
 
 // Commands is a list of registered commands
 var Commands = []CommandMap{
-	{"exit", op.Abort, []opt.ParamType{}, noOpts},
-	{"exit", op.Abort, []opt.ParamType{opt.Unchecked}, noOpts},
-
 	// File to file
 	{"cp", op.LocalCopy, []opt.ParamType{opt.FileObj, opt.FileOrDir}, noOpts},
 	{"cp", op.BatchLocalCopy, []opt.ParamType{opt.Glob, opt.Dir}, noOpts},
@@ -164,8 +161,6 @@ var Commands = []CommandMap{
 
 	{"du", op.Size, []opt.ParamType{opt.S3ObjOrDir}, noOpts},
 	{"du", op.Size, []opt.ParamType{opt.S3WildObj}, noOpts},
-
-	{"!", op.ShellExec, []opt.ParamType{opt.UncheckedOneOrMore}, noOpts},
 }
 
 // String formats the CommandMap using its Operation and ParamTypes
@@ -196,11 +191,6 @@ func (c *CommandMap) String(optsOverride ...opt.OptionType) (s string) {
 // CommandHelps returns a text of accepted Commands with their options and arguments, list of accepted options, and a count of command alternates
 func CommandHelps(filter string) (string, []opt.OptionType, int) {
 	list := make(map[string][]string)
-	overrides := map[op.Operation]string{
-		op.Abort:     "exit [exit code]",
-		op.ShellExec: "! command [parameters...]",
-	}
-
 	optsList := make(map[opt.OptionType]struct{})
 
 	var lastDesc string
@@ -217,13 +207,6 @@ func CommandHelps(filter string) (string, []opt.OptionType, int) {
 			}
 			l = nil
 			lastDesc = desc
-		}
-
-		if override, ok := overrides[c.Operation]; ok {
-			list[desc] = []string{override}
-			lastDesc = ""
-			l = nil
-			continue
 		}
 
 		s := c.Keyword

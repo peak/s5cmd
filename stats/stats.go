@@ -20,14 +20,11 @@ const (
 
 	// FileOp is successful File operations
 	FileOp
-
-	// ShellOp is successful shell invocations
-	ShellOp
 )
 
 // Stats contain the number of operations of each StatType.
 type stats struct {
-	ops       [4]uint64
+	ops       [3]uint64
 	startedAt time.Time
 }
 

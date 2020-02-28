@@ -83,18 +83,8 @@ func main() {
 
 	parentCtx, cancelFunc := context.WithCancel(context.Background())
 
-	exitCode := -1
-	exitFunc := func(code int) {
-		exitCode = code
-		cancelFunc()
-	}
-
 	ctx := context.WithValue(
-		context.WithValue(
-			parentCtx,
-			core.ExitFuncKey,
-			exitFunc,
-		),
+		parentCtx,
 		core.CancelFuncKey,
 		cancelFunc,
 	)
@@ -116,14 +106,10 @@ func main() {
 
 	failops := stats.Get(stats.Fail)
 
-	// if exitCode is -1 (default) and if we have at least one absolute-fail,
-	// exit with code 127
-	if exitCode == -1 {
-		if failops > 0 {
-			exitCode = 127
-		} else {
-			exitCode = 0
-		}
+	exitCode := 0
+	if failops > 0 {
+		// TODO(ig): should return 1 for errors.
+		exitCode = 127
 	}
 
 	if !cmdMode {
@@ -135,13 +121,11 @@ func main() {
 
 		s3ops := stats.Get(stats.S3Op)
 		fileops := stats.Get(stats.FileOp)
-		shellops := stats.Get(stats.ShellOp)
 
 		printOps("S3", s3ops, elapsed, "")
 		printOps("File", fileops, elapsed, "")
-		printOps("Shell", shellops, elapsed, "")
 		printOps("Failed", failops, elapsed, "")
-		printOps("Total", s3ops+fileops+shellops+failops, elapsed, fmt.Sprintf(" %v", elapsed))
+		printOps("Total", s3ops+fileops+failops, elapsed, fmt.Sprintf(" %v", elapsed))
 	}
 
 	os.Exit(exitCode)

@@ -106,7 +106,7 @@ Options:
   -y	Don't prompt user for typing 'yes'
 
 Commands:
-    !, cp, du, exit, get, ls, mv, rm
+    !, cp, du, get, ls, mv, rm
 
 To get help on a specific command, run "s5cmd <command> -h"
 ```
@@ -138,8 +138,6 @@ urls, S3 wildcards, local file/directory references or local glob patterns.
       `--parents` to preserve the dir structure
 - Delete: `rm [src]`
 - Count objects and determine total size: `du [src]`
-- Arbitrary shell-execute - `! commands...`
-- Exit - `exit [exitcode]` (see [Exit Code](#exit-code))
 
 ### Command options ###
 
@@ -243,20 +241,12 @@ The general output is in the format:
 DATE TIME Short-Msg Detailed-Msg
 ```
 
- - Trivial messages start with `#`, like number of workers or exit code and statistics
+ - Trivial messages start with `#`, like number of workers and statistics
  - `+OK` for successful operations: `+OK "! touch touch-this-file"`
  - `-ERR` for failed operations: `-ERR "! touche": executable file not found in $PATH`
  - `?ErrorCode` for AWS-related errors, which will be retried (`?SlowDown`, `?InternalError`, etc)
 
 Item output (used in `ls`) is slightly different: `DATE TIME` fields are omitted, and the short-msg is a single `+` character.
-
-Shell output (used in `!`) does not modify the executed command's output. Both `stdout` and `stderr` are mirrored.
-
-### Exit Code ###
-
-If failed jobs are present, process exits with code `127`. This can be
-overridden with the command `exit`, though in that case finishing the job list
-is not guaranteed.
 
 ## Environment Variables ##
 

@@ -25,7 +25,11 @@ func Copy(ctx context.Context, job *Job) *JobResponse {
 		return jobResponse(err)
 	}
 
-	infoLog("Copying %v...", src.Base())
+	msg := message{
+		s:     fmt.Sprintf("Copying %v...", src.Base()),
+		level: levelInfo,
+	}
+	sendMessage(ctx, msg)
 
 	metadata := map[string]string{
 		"StorageClass": string(job.storageClass),
@@ -53,7 +57,11 @@ func Delete(ctx context.Context, job *Job) *JobResponse {
 		return jobResponse(err)
 	}
 
-	infoLog("Deleting %v...", src.Base())
+	msg := message{
+		s:     fmt.Sprintf("Deleting %v...", src.Base()),
+		level: levelInfo,
+	}
+	sendMessage(ctx, msg)
 
 	err = client.Delete(ctx, src)
 	return jobResponse(err)
@@ -77,7 +85,6 @@ func Download(ctx context.Context, job *Job) *JobResponse {
 		return jobResponse(err)
 	}
 
-	srcFilename := src.Base()
 	destFilename := dst.Absolute()
 
 	// TODO(ig): use storage abstraction
@@ -87,7 +94,11 @@ func Download(ctx context.Context, job *Job) *JobResponse {
 	}
 	defer f.Close()
 
-	infoLog("Downloading %s...", srcFilename)
+	msg := message{
+		s:     fmt.Sprintf("Downloading %v...", src.Base()),
+		level: levelInfo,
+	}
+	sendMessage(ctx, msg)
 
 	err = srcClient.Get(ctx, src, f)
 	if err != nil {
@@ -124,8 +135,11 @@ func Upload(ctx context.Context, job *Job) *JobResponse {
 		return jobResponse(err)
 	}
 
-	srcFilename := src.Base()
-	infoLog("Uploading %s...", srcFilename)
+	msg := message{
+		s:     fmt.Sprintf("Uploading %v...", src.Base()),
+		level: levelInfo,
+	}
+	sendMessage(ctx, msg)
 
 	metadata := map[string]string{
 		"StorageClass": string(job.storageClass),
@@ -191,17 +205,18 @@ func BatchDelete(ctx context.Context, job *Job) *JobResponse {
 		if obj.Err != nil {
 			merror = multierror.Append(merror, err)
 			msg := message{
-				status: statusErr,
-				err:    fmt.Errorf(`batch-delete %v: %v`, obj.URL, err),
-				job:    job.String(),
+				level: levelError,
+				err:   fmt.Errorf(`batch-delete %v: %v`, obj.URL, err),
+				job:   job.String(),
 			}
 			sendMessage(ctx, msg)
 			continue
 		}
 
 		msg := message{
-			job: job.String(),
-			s:   fmt.Sprintf(`Batch-delete %v`, obj.URL),
+			level: levelSuccess,
+			job:   job.String(),
+			s:     fmt.Sprintf(`Batch-delete %v`, obj.URL),
 		}
 		sendMessage(ctx, msg)
 	}
@@ -224,8 +239,9 @@ func ListBuckets(ctx context.Context, job *Job) *JobResponse {
 
 	for _, b := range buckets {
 		msg := message{
-			s:   b.String(),
-			job: job.String(),
+			s:     b.String(),
+			job:   job.String(),
+			level: levelSuccess,
 		}
 		sendMessage(ctx, msg)
 	}
@@ -252,8 +268,8 @@ func List(ctx context.Context, job *Job) *JobResponse {
 
 		if object.Mode.IsDir() {
 			msg := message{
-				job:    job.String(),
-				status: statusSuccess,
+				job:   job.String(),
+				level: levelSuccess,
 				s: fmt.Sprintf(
 					"%19s %1s %-38s  %12s  %s",
 					"",
@@ -279,8 +295,8 @@ func List(ctx context.Context, job *Job) *JobResponse {
 		}
 
 		msg := message{
-			job:    job.String(),
-			status: statusSuccess,
+			job:   job.String(),
+			level: levelSuccess,
 			s: fmt.Sprintf(
 				"%19s %1s %-38s  %12s  %s",
 				object.ModTime.Format(dateFormat),
@@ -340,7 +356,7 @@ func Size(ctx context.Context, job *Job) *JobResponse {
 			msg = fmt.Sprintf("%d bytes in %d objects: %s [%s]", v.size, v.count, src, k)
 		}
 
-		m := message{s: msg, job: job.String()}
+		m := message{s: msg, job: job.String(), level: levelSuccess}
 		sendMessage(ctx, m)
 	}
 

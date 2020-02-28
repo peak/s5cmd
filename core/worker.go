@@ -24,9 +24,7 @@ type WorkerManager struct {
 }
 
 // NewWorkerManager creates a new WorkerManager.
-func NewWorkerManager(ctx context.Context) *WorkerManager {
-	cancelFunc := ctx.Value(CancelFuncKey).(context.CancelFunc)
-
+func NewWorkerManager(cancelFunc context.CancelFunc) *WorkerManager {
 	w := &WorkerManager{
 		wg:         &sync.WaitGroup{},
 		cancelFunc: cancelFunc,
@@ -43,7 +41,7 @@ func (w *WorkerManager) stdout() {
 	defer close(w.donech)
 
 	for msg := range Stdout {
-		fmt.Println("                   ", msg.status, msg.s)
+		fmt.Println("                   ", msg.level, msg.s)
 	}
 }
 

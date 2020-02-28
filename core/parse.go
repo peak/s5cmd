@@ -293,11 +293,8 @@ func parseSingleCommand(cmd string) (*Command, error) {
 				}
 			}
 			if parseArgErr != nil {
-				verboseLog("Our command doesn't look to be a %s", c.String())
 				continue // Not our command, try another
 			}
-
-			verboseLog("Our command looks to be a %s", c.String(command.opts...))
 
 			return command, nil
 		}

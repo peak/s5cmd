@@ -31,6 +31,7 @@ func TestListBuckets(t *testing.T) {
 		1: suffix("s3://%v-2", bucketPrefix),
 		2: suffix("s3://%v-3", bucketPrefix),
 		3: suffix("s3://%v-4", bucketPrefix),
+		4: equals(""),
 	})
 }
 
@@ -55,6 +56,7 @@ func TestListSingleS3Object(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: suffix("317 testfile1.txt"),
+		1: equals(""),
 	})
 }
 
@@ -80,6 +82,7 @@ func TestListSingleWildcardS3Object(t *testing.T) {
 		0: suffix("317 testfile1.txt"),
 		1: suffix("322 testfile2.txt"),
 		2: suffix("330 testfile3.txt"),
+		3: equals(""),
 	})
 }
 
@@ -116,6 +119,7 @@ func TestListMultipleWildcardS3Object(t *testing.T) {
 		3: suffix("304 b/testfile4.txt"),
 		4: suffix("312 d/foo/bar/testfile8.txt"),
 		5: suffix("309 f/txt/testfile10.txt"),
+		6: equals(""),
 	})
 }
 
@@ -149,6 +153,7 @@ func TestListMultipleWildcardS3ObjectWithPrefix(t *testing.T) {
 		0: suffix("304 testfile1.txt"),
 		1: suffix("304 testfile2.txt"),
 		2: suffix("304 testfile3.txt"),
+		3: equals(""),
 	})
 }
 
@@ -186,6 +191,7 @@ func TestListS3ObjectsAndFolders(t *testing.T) {
 		5: suffix("+ DIR f/"),
 		6: suffix("? 298 report.gz"),
 		7: suffix("? 302 testfile1.txt"),
+		8: equals(""),
 	})
 }
 
@@ -212,6 +218,7 @@ func TestListS3ObjectsAndFoldersWithPrefix(t *testing.T) {
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: suffix("+ DIR t/"),
 		1: suffix("? 302 testfile1.txt"),
+		2: equals(""),
 	})
 }
 
@@ -232,7 +239,9 @@ func TestListNonexistingS3Object(t *testing.T) {
 	// s5cmd returns 0 even if it can't find the given object.
 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stdout(), map[int]compareFunc{}, strictLineCheck(false))
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(""),
+	}, strictLineCheck(false))
 
 	result.Assert(t, icmd.Expected{
 		Out:      "",
@@ -261,6 +270,7 @@ func TestListS3ObjectsWithDashE(t *testing.T) {
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: match(`^ \+ \? \w+ \d+ testfile1.txt$`),
 		1: match(`^ \+ \? \w+ \d+ testfile2.txt$`),
+		2: equals(""),
 	}, trimMatch(dateRe))
 }
 
@@ -285,5 +295,6 @@ func TestListS3ObjectsWithDashH(t *testing.T) {
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: match(`^ \+ \? 215.1K testfile1.txt$`),
 		1: match(`^ \+ \? 264.0K testfile2.txt$`),
+		2: equals(""),
 	}, trimMatch(dateRe))
 }

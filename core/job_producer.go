@@ -20,7 +20,7 @@ var producerRegistry = map[op.Operation]producerFunc{
 }
 
 type Producer struct {
-	runJob func(context.Context, *Job)
+	runJob func(context.Context, Runnable)
 }
 
 func (p *Producer) Run(ctx context.Context, command *Command) {

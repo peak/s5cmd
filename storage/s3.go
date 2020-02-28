@@ -220,13 +220,13 @@ func (s *S3) List(ctx context.Context, url *objurl.ObjectURL, _ bool, maxKeys in
 // destination from another S3 source.
 func (s *S3) Copy(ctx context.Context, from, to *objurl.ObjectURL, metadata map[string]string) error {
 	// SDK expects CopySource like "bucket[/key]"
-	copySource := strings.TrimPrefix(to.String(), "s3://")
+	copySource := strings.TrimPrefix(from.String(), "s3://")
 
 	storageClass := metadata["StorageClass"]
 
 	_, err := s.api.CopyObject(&s3.CopyObjectInput{
-		Bucket:       aws.String(from.Bucket),
-		Key:          aws.String(from.Path),
+		Bucket:       aws.String(to.Bucket),
+		Key:          aws.String(to.Path),
 		CopySource:   aws.String(copySource),
 		StorageClass: aws.String(storageClass),
 	})

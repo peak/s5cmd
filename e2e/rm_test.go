@@ -34,7 +34,8 @@ func TestRemoveSingleS3Object(t *testing.T) {
 	assertLines(t, result.Stderr(), map[int]compareFunc{})
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: suffix(`+ "rm s3://%v/testfile1.txt"`, bucket),
+		0: suffix("# Deleting testfile1.txt..."),
+		1: suffix(`+ "rm s3://%v/testfile1.txt"`, bucket),
 	})
 
 	// assert s3 object

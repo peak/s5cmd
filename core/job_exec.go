@@ -12,7 +12,7 @@ import (
 	"github.com/peak/s5cmd/storage"
 )
 
-func S3Copy(ctx context.Context, job *Job) *JobResponse {
+func Copy(ctx context.Context, job *Job) *JobResponse {
 	src, dst := job.args[0], job.args[1]
 
 	response := CheckConditions(ctx, src, dst, job.opts)
@@ -25,8 +25,7 @@ func S3Copy(ctx context.Context, job *Job) *JobResponse {
 		return jobResponse(err)
 	}
 
-	srcFilename := src.Base()
-	infoLog("Copying %s...", srcFilename)
+	infoLog("Copying %v...", src.Base())
 
 	metadata := map[string]string{
 		"StorageClass": string(job.storageClass),
@@ -34,8 +33,8 @@ func S3Copy(ctx context.Context, job *Job) *JobResponse {
 
 	err = client.Copy(
 		ctx,
-		dst,
 		src,
+		dst,
 		metadata,
 	)
 
@@ -46,13 +45,15 @@ func S3Copy(ctx context.Context, job *Job) *JobResponse {
 	return jobResponse(err)
 }
 
-func S3Delete(ctx context.Context, job *Job) *JobResponse {
+func Delete(ctx context.Context, job *Job) *JobResponse {
 	src := job.args[0]
 
 	client, err := storage.NewClient(src)
 	if err != nil {
 		return jobResponse(err)
 	}
+
+	infoLog("Deleting %v...", src.Base())
 
 	err = client.Delete(ctx, src)
 	return jobResponse(err)

@@ -35,6 +35,7 @@ func TestCopySingleS3ObjectToLocal(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: suffix(`# Downloading testfile1.txt...`),
+		1: equals(""),
 	})
 
 	// assert local filesystem
@@ -299,6 +300,7 @@ func TestCopySingleFileToS3(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(` # Uploading %v...`, filename),
+		1: equals(""),
 	})
 
 	// assert local filesystem
@@ -432,6 +434,7 @@ func TestCopySingleS3ObjectToS3(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: suffix(`# Copying testfile1.txt...`),
+		1: equals(""),
 	})
 
 	// assert s3 source object
@@ -470,6 +473,7 @@ func TestCopySingleS3ObjectIntoAnotherBucket(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: suffix(`# Copying testfile1.txt...`),
+		1: equals(""),
 	})
 
 	// assert s3 source object
@@ -509,7 +513,7 @@ func TestCopyMultipleS3ObjectsToS3(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: contains(""),
+		0: equals(""),
 		1: suffix(`# Copying another_test_file.txt...`),
 		2: suffix(`# Copying filename-with-hypen.gz...`),
 		3: suffix(`# Copying readme.md...`),
@@ -555,7 +559,7 @@ func TestCopyMultipleS3ObjectsToS3_Issue70(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: contains(""),
+		0: equals(""),
 		1: suffix(`# Copying file1.txt...`),
 		2: suffix(`# Copying file2.txt...`),
 	}, sortInput(true))
@@ -592,6 +596,7 @@ func TestCopySingleLocalFileToLocal(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(" # Copying testfile1.txt..."),
+		1: equals(""),
 	})
 
 	// assert local filesystem
@@ -808,6 +813,7 @@ func TestCopyS3ObjectToLocalWithTheSameFilename(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(" # Downloading %v...", filename),
+		1: equals(""),
 	})
 
 	expected := fs.Expected(t, fs.WithFile(filename, expectedContent))
@@ -841,6 +847,7 @@ func TestCopyS3ToLocalWithSameFilenameWithNoClobber(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: suffix(`WARNING "cp s3://%v/%v ./%v" (object already exists)`, bucket, filename, filename),
+		1: equals(""),
 	})
 
 	expected := fs.Expected(t, fs.WithFile(filename, content))
@@ -877,6 +884,7 @@ func TestCopyS3ToLocalWithSameFilenameOverrideIfSizeDiffers(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(` # Downloading %v...`, filename),
+		1: equals(""),
 	})
 
 	expected := fs.Expected(t, fs.WithFile(filename, expectedContent))
@@ -919,6 +927,7 @@ func TestCopyS3ToLocalWithSameFilenameOverrideIfSourceIsNewer(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(` # Downloading %v...`, filename),
+		1: equals(""),
 	})
 
 	expected := fs.Expected(t, fs.WithFile(filename, expectedContent))
@@ -961,6 +970,7 @@ func TestCopyS3ToLocalWithSameFilenameDontOverrideIfS3ObjectIsOlder(t *testing.T
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: suffix(`WARNING "cp s3://%v/%v ./%v" (object is newer or same age)`, bucket, filename, filename),
+		1: equals(""),
 	})
 
 	expected := fs.Expected(t, fs.WithFile(filename, content))
@@ -1051,6 +1061,7 @@ func TestCopyLocalFileToS3WithTheSameFilename(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: suffix(` # Uploading %v...`, filename),
+		1: equals(""),
 	})
 
 	// assert local filesystem
@@ -1089,6 +1100,7 @@ func TestCopyLocalFileToS3WithSameFilenameWithNoClobber(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: suffix(`WARNING "cp %v s3://%v/%v" (object already exists)`, filename, bucket, filename),
+		1: equals(""),
 	})
 
 	// assert local filesystem
@@ -1126,6 +1138,7 @@ func TestCopyLocalFileToS3WithNoClobber(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: contains(` # Uploading %v...`, filename),
+		1: equals(""),
 	})
 
 	// assert local filesystem
@@ -1166,6 +1179,7 @@ func TestCopyLocalFileToS3WithSameFilenameOverrideIfSizeDiffers(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: suffix(` # Uploading %v...`, filename),
+		1: equals(""),
 	})
 
 	assert.NilError(t, ensureS3Object(s3client, bucket, filename, expectedContent))
@@ -1207,6 +1221,7 @@ func TestCopyLocalFileToS3WithSameFilenameOverrideIfSourceIsNewer(t *testing.T) 
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: suffix(` # Uploading %v...`, filename),
+		1: equals(""),
 	})
 
 	assert.NilError(t, ensureS3Object(s3client, bucket, filename, expectedContent))
@@ -1248,6 +1263,7 @@ func TestCopyLocalFileToS3WithSameFilenameDontOverrideIfS3ObjectIsOlder(t *testi
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: suffix(`WARNING "cp %v s3://%v/%v" (object is newer or same age)`, filename, bucket, filename),
+		1: equals(""),
 	})
 
 	assert.NilError(t, ensureS3Object(s3client, bucket, filename, content))

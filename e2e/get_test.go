@@ -33,6 +33,7 @@ func TestGetSingleS3Object(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: suffix(`# Downloading testfile1.txt...`),
+		1: equals(""),
 	})
 
 	// assert local filesystem

@@ -12,7 +12,7 @@ import (
 	"github.com/peak/s5cmd/storage"
 )
 
-func S3Copy(ctx context.Context, job *Job) *JobResponse {
+func Copy(ctx context.Context, job *Job) *JobResponse {
 	src, dst := job.args[0], job.args[1]
 
 	response := CheckConditions(ctx, src, dst, job.opts)
@@ -25,8 +25,7 @@ func S3Copy(ctx context.Context, job *Job) *JobResponse {
 		return jobResponse(err)
 	}
 
-	srcFilename := src.Base()
-	infoLog("Copying %s...", srcFilename)
+	infoLog("Copying %v...", src.Base())
 
 	metadata := map[string]string{
 		"StorageClass": string(job.storageClass),
@@ -34,8 +33,8 @@ func S3Copy(ctx context.Context, job *Job) *JobResponse {
 
 	err = client.Copy(
 		ctx,
-		dst,
 		src,
+		dst,
 		metadata,
 	)
 
@@ -46,7 +45,7 @@ func S3Copy(ctx context.Context, job *Job) *JobResponse {
 	return jobResponse(err)
 }
 
-func S3Delete(ctx context.Context, job *Job) *JobResponse {
+func Delete(ctx context.Context, job *Job) *JobResponse {
 	src := job.args[0]
 
 	client, err := storage.NewClient(src)
@@ -54,11 +53,13 @@ func S3Delete(ctx context.Context, job *Job) *JobResponse {
 		return jobResponse(err)
 	}
 
+	infoLog("Deleting %v...", src.Base())
+
 	err = client.Delete(ctx, src)
 	return jobResponse(err)
 }
 
-func S3Download(ctx context.Context, job *Job) *JobResponse {
+func Download(ctx context.Context, job *Job) *JobResponse {
 	src, dst := job.args[0], job.args[1]
 
 	response := CheckConditions(ctx, src, dst, job.opts)
@@ -66,7 +67,12 @@ func S3Download(ctx context.Context, job *Job) *JobResponse {
 		return response
 	}
 
-	client, err := storage.NewClient(src)
+	srcClient, err := storage.NewClient(src)
+	if err != nil {
+		return jobResponse(err)
+	}
+
+	dstClient, err := storage.NewClient(dst)
 	if err != nil {
 		return jobResponse(err)
 	}
@@ -74,6 +80,7 @@ func S3Download(ctx context.Context, job *Job) *JobResponse {
 	srcFilename := src.Base()
 	destFilename := dst.Absolute()
 
+	// TODO(ig): use storage abstraction
 	f, err := os.Create(destFilename)
 	if err != nil {
 		return jobResponse(err)
@@ -82,17 +89,17 @@ func S3Download(ctx context.Context, job *Job) *JobResponse {
 
 	infoLog("Downloading %s...", srcFilename)
 
-	err = client.Get(ctx, src, f)
+	err = srcClient.Get(ctx, src, f)
 	if err != nil {
-		os.Remove(destFilename)
+		err = dstClient.Delete(ctx, dst)
 	} else if job.opts.Has(opt.DeleteSource) {
-		err = client.Delete(ctx, src)
+		err = srcClient.Delete(ctx, src)
 	}
 
 	return jobResponse(err)
 }
 
-func S3Upload(ctx context.Context, job *Job) *JobResponse {
+func Upload(ctx context.Context, job *Job) *JobResponse {
 	src, dst := job.args[0], job.args[1]
 
 	response := CheckConditions(ctx, src, dst, job.opts)
@@ -100,14 +107,19 @@ func S3Upload(ctx context.Context, job *Job) *JobResponse {
 		return response
 	}
 
+	// TODO(ig): use storage abstraction
 	f, err := os.Open(src.Absolute())
 	if err != nil {
 		return jobResponse(err)
 	}
 	defer f.Close()
 
-	// infer the client based on destination, which is a remote storage.
-	client, err := storage.NewClient(dst)
+	dstClient, err := storage.NewClient(dst)
+	if err != nil {
+		return jobResponse(err)
+	}
+
+	srcClient, err := storage.NewClient(src)
 	if err != nil {
 		return jobResponse(err)
 	}
@@ -120,7 +132,7 @@ func S3Upload(ctx context.Context, job *Job) *JobResponse {
 		"ContentType":  "", // TODO(ig): guess the mimetype (see: #33)
 	}
 
-	err = client.Put(
+	err = dstClient.Put(
 		ctx,
 		f,
 		dst,
@@ -128,13 +140,13 @@ func S3Upload(ctx context.Context, job *Job) *JobResponse {
 	)
 
 	if job.opts.Has(opt.DeleteSource) && err == nil {
-		err = os.Remove(src.Absolute())
+		err = srcClient.Delete(ctx, src)
 	}
 
 	return jobResponse(err)
 }
 
-func S3BatchDelete(ctx context.Context, job *Job) *JobResponse {
+func BatchDelete(ctx context.Context, job *Job) *JobResponse {
 	sources := job.args
 
 	client, err := storage.NewClient(sources[0])
@@ -188,7 +200,7 @@ func S3BatchDelete(ctx context.Context, job *Job) *JobResponse {
 	return jobResponse(merror, msg...)
 }
 
-func S3ListBuckets(ctx context.Context, _ *Job) *JobResponse {
+func ListBuckets(ctx context.Context, _ *Job) *JobResponse {
 	// set as remote storage
 	url := &objurl.ObjectURL{Type: 0}
 	client, err := storage.NewClient(url)
@@ -209,7 +221,7 @@ func S3ListBuckets(ctx context.Context, _ *Job) *JobResponse {
 	return jobResponse(err, msg...)
 }
 
-func S3List(ctx context.Context, job *Job) *JobResponse {
+func List(ctx context.Context, job *Job) *JobResponse {
 	showETags := job.opts.Has(opt.ListETags)
 	humanize := job.opts.Has(opt.HumanReadable)
 
@@ -258,7 +270,7 @@ func S3List(ctx context.Context, job *Job) *JobResponse {
 	return jobResponse(nil, msg...)
 }
 
-func S3Size(ctx context.Context, job *Job) *JobResponse {
+func Size(ctx context.Context, job *Job) *JobResponse {
 	type sizeAndCount struct {
 		size  int64
 		count int64

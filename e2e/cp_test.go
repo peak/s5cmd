@@ -291,9 +291,10 @@ func TestCopySingleFileToS3(t *testing.T) {
 	workdir := fs.NewDir(t, bucket, fs.WithFile(filename, content))
 	defer workdir.Remove()
 
-	fpath := workdir.Join(filename)
+	srcpath := workdir.Join(filename)
+	dstpath := fmt.Sprintf("s3://%v/", bucket)
 
-	cmd := s5cmd("cp", fpath, "s3://"+bucket+"/")
+	cmd := s5cmd("cp", srcpath, dstpath)
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Success)

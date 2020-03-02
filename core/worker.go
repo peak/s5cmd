@@ -3,14 +3,14 @@ package core
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io"
-	"log"
+	stdlog "log"
 	"os"
 	"sync"
 
 	"github.com/peak/s5cmd/flags"
 
+	"github.com/peak/s5cmd/log"
 	"github.com/peak/s5cmd/opt"
 	"github.com/peak/s5cmd/stats"
 )
@@ -25,23 +25,11 @@ type WorkerManager struct {
 
 // NewWorkerManager creates a new WorkerManager.
 func NewWorkerManager(cancelFunc context.CancelFunc) *WorkerManager {
-	w := &WorkerManager{
+	return &WorkerManager{
 		wg:         &sync.WaitGroup{},
 		cancelFunc: cancelFunc,
 		semaphore:  make(chan bool, *flags.WorkerCount),
 		donech:     make(chan bool),
-	}
-
-	go w.stdout()
-
-	return w
-}
-
-func (w *WorkerManager) stdout() {
-	defer close(w.donech)
-
-	for msg := range Stdout {
-		fmt.Println(msg)
 	}
 }
 
@@ -93,7 +81,7 @@ func (w *WorkerManager) RunCmd(ctx context.Context, cmd string) {
 func (w *WorkerManager) parseCommand(cmd string) *Command {
 	command, err := ParseCommand(cmd)
 	if err != nil {
-		log.Printf(`-ERR "%s": %v`, cmd, err)
+		stdlog.Printf(`-ERR "%s": %v`, cmd, err)
 		stats.Increment(stats.Fail)
 		return nil
 	}
@@ -103,9 +91,9 @@ func (w *WorkerManager) parseCommand(cmd string) *Command {
 // close waits all jobs to finish and closes semaphore.
 func (w *WorkerManager) close() {
 	w.wg.Wait()
-	close(Stdout)
+	// TODO(ig): what should we do with logger
 	close(w.semaphore)
-	<-w.donech
+	log.Logger.Close()
 }
 
 // Run runs the commands in filename in the worker manager, on EOF
@@ -123,7 +111,7 @@ func (w *WorkerManager) Run(ctx context.Context, filename string) {
 	} else {
 		r, err = os.Open(filename)
 		if err != nil {
-			log.Fatal(err)
+			stdlog.Fatal(err)
 		}
 		defer r.Close()
 	}
@@ -148,6 +136,6 @@ func (w *WorkerManager) produceWithScanner(ctx context.Context, r io.ReadCloser)
 		if errors.Is(err, context.Canceled) {
 			return
 		}
-		log.Printf("-ERR Error reading: %v", err)
+		stdlog.Printf("-ERR Error reading: %v", err)
 	}
 }

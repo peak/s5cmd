@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
+	"github.com/peak/s5cmd/log"
 	"github.com/peak/s5cmd/objurl"
 	"github.com/peak/s5cmd/opt"
 	"github.com/peak/s5cmd/storage"
@@ -25,11 +26,7 @@ func Copy(ctx context.Context, job *Job) *JobResponse {
 		return jobResponse(err)
 	}
 
-	msg := message{
-		s:     fmt.Sprintf("Copying %v...", src.Base()),
-		level: levelInfo,
-	}
-	sendMessage(ctx, msg)
+	log.Logger.Info("Copying %v...", src.Base())
 
 	metadata := map[string]string{
 		"StorageClass": string(job.storageClass),
@@ -57,11 +54,7 @@ func Delete(ctx context.Context, job *Job) *JobResponse {
 		return jobResponse(err)
 	}
 
-	msg := message{
-		s:     fmt.Sprintf("Deleting %v...", src.Base()),
-		level: levelInfo,
-	}
-	sendMessage(ctx, msg)
+	log.Logger.Info("Deleting %v...", src.Base())
 
 	err = client.Delete(ctx, src)
 	return jobResponse(err)
@@ -94,11 +87,7 @@ func Download(ctx context.Context, job *Job) *JobResponse {
 	}
 	defer f.Close()
 
-	msg := message{
-		s:     fmt.Sprintf("Downloading %v...", src.Base()),
-		level: levelInfo,
-	}
-	sendMessage(ctx, msg)
+	log.Logger.Info("Downloading %v...", src.Base())
 
 	err = srcClient.Get(ctx, src, f)
 	if err != nil {
@@ -135,11 +124,7 @@ func Upload(ctx context.Context, job *Job) *JobResponse {
 		return jobResponse(err)
 	}
 
-	msg := message{
-		s:     fmt.Sprintf("Uploading %v...", src.Base()),
-		level: levelInfo,
-	}
-	sendMessage(ctx, msg)
+	log.Logger.Info("Uploading %v...", src.Base())
 
 	metadata := map[string]string{
 		"StorageClass": string(job.storageClass),
@@ -204,21 +189,12 @@ func BatchDelete(ctx context.Context, job *Job) *JobResponse {
 	for obj := range resultch {
 		if obj.Err != nil {
 			merror = multierror.Append(merror, err)
-			msg := message{
-				level: levelError,
-				err:   fmt.Errorf(`batch-delete %v: %v`, obj.URL, err),
-				job:   job.String(),
-			}
-			sendMessage(ctx, msg)
+
+			log.Logger.Error("%q: %v", job, err)
 			continue
 		}
 
-		msg := message{
-			level: levelSuccess,
-			job:   job.String(),
-			s:     fmt.Sprintf(`Batch-delete %v`, obj.URL),
-		}
-		sendMessage(ctx, msg)
+		log.Logger.Success("Batch-delete %v", obj.URL)
 	}
 
 	return jobResponse(merror)
@@ -238,12 +214,7 @@ func ListBuckets(ctx context.Context, job *Job) *JobResponse {
 	}
 
 	for _, b := range buckets {
-		msg := message{
-			s:     b.String(),
-			job:   job.String(),
-			level: levelSuccess,
-		}
-		sendMessage(ctx, msg)
+		log.Logger.Success(b.String())
 	}
 
 	return jobResponse(err)
@@ -267,19 +238,15 @@ func List(ctx context.Context, job *Job) *JobResponse {
 		}
 
 		if object.Mode.IsDir() {
-			msg := message{
-				job:   job.String(),
-				level: levelSuccess,
-				s: fmt.Sprintf(
-					"%19s %1s %-38s  %12s  %s",
-					"",
-					"",
-					"",
-					"DIR",
-					object.URL.Relative(),
-				),
-			}
-			sendMessage(ctx, msg)
+			s := fmt.Sprintf(
+				"%19s %1s %-38s  %12s  %s",
+				"",
+				"",
+				"",
+				"DIR",
+				object.URL.Relative(),
+			)
+			log.Logger.Success(s)
 			continue
 		}
 
@@ -294,19 +261,15 @@ func List(ctx context.Context, job *Job) *JobResponse {
 			size = fmt.Sprintf("%d", object.Size)
 		}
 
-		msg := message{
-			job:   job.String(),
-			level: levelSuccess,
-			s: fmt.Sprintf(
-				"%19s %1s %-38s  %12s  %s",
-				object.ModTime.Format(dateFormat),
-				object.StorageClass.ShortCode(),
-				etag,
-				size,
-				object.URL.Relative(),
-			),
-		}
-		sendMessage(ctx, msg)
+		s := fmt.Sprintf(
+			"%19s %1s %-38s  %12s  %s",
+			object.ModTime.Format(dateFormat),
+			object.StorageClass.ShortCode(),
+			etag,
+			size,
+			object.URL.Relative(),
+		)
+		log.Logger.Success(s)
 	}
 
 	return jobResponse(nil)
@@ -356,8 +319,7 @@ func Size(ctx context.Context, job *Job) *JobResponse {
 			msg = fmt.Sprintf("%d bytes in %d objects: %s [%s]", v.size, v.count, src, k)
 		}
 
-		m := message{s: msg, job: job.String(), level: levelSuccess}
-		sendMessage(ctx, m)
+		log.Logger.Success(msg)
 	}
 
 	return jobResponse(err)

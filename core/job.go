@@ -3,10 +3,11 @@ package core
 import (
 	"context"
 	"errors"
-	"log"
+	stdlog "log"
 
 	"github.com/hashicorp/go-multierror"
 
+	"github.com/peak/s5cmd/log"
 	"github.com/peak/s5cmd/objurl"
 	"github.com/peak/s5cmd/op"
 	"github.com/peak/s5cmd/opt"
@@ -60,7 +61,7 @@ func (j *Job) Run(ctx context.Context) {
 	cmdFunc, ok := globalCmdRegistry[j.operation]
 	if !ok {
 		// TODO(ig): log and continue
-		log.Fatalf("unhandled operation %v", j.operation)
+		stdlog.Fatalf("unhandled operation %v", j.operation)
 		return
 	}
 
@@ -72,19 +73,9 @@ func (j *Job) Run(ctx context.Context) {
 	switch response.status {
 	case statusErr:
 		stats.Increment(stats.Fail)
-		msg := message{
-			job:   j.String(),
-			err:   response.err,
-			level: levelError,
-		}
-		sendMessage(ctx, msg)
+		log.Logger.Error("%q: %v", j, response.err)
 	case statusWarning:
-		msg := message{
-			job:   j.String(),
-			err:   response.err,
-			level: levelWarning,
-		}
-		sendMessage(ctx, msg)
+		log.Logger.Warning("%q (%v)", j, response.err)
 		fallthrough
 	default:
 		stats.Increment(j.statType)

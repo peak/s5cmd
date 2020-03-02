@@ -1,47 +1,12 @@
 package core
 
+/*
 import (
 	"context"
 	"fmt"
 
 	"github.com/peak/s5cmd/flags"
 )
-
-var Stdout = make(chan message, 10000)
-
-type logLevel int
-
-const (
-	levelVerbose logLevel = iota
-	levelInfo
-	levelSuccess
-	levelWarning
-	levelError
-)
-
-func (l logLevel) String() string {
-	switch l {
-	case levelSuccess:
-		return "+"
-	case levelError:
-		return "ERROR"
-	case levelWarning:
-		return "WARNING"
-	case levelInfo:
-		return "#"
-	case levelVerbose:
-		return "VERBOSE"
-	default:
-		return "UNKNOWN"
-	}
-}
-
-type message struct {
-	job   string
-	level logLevel
-	s     string
-	err   error
-}
 
 func (m message) String() string {
 	if m.level == levelSuccess || m.level == levelInfo {
@@ -85,3 +50,4 @@ func newMessage(date, storageclass, etag, size, url string) message {
 		),
 	}
 }
+*/

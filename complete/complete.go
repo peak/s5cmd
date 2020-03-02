@@ -196,8 +196,8 @@ func s3predictor(a cmp.Args) []string {
 		endsInSlash = a.Last[len(a.Last)-1] == '/'
 	}
 
-	// Quickly create a new session with defaults
-	client, err := storage.NewS3Storage(storage.S3Opts{})
+	placeholder, _ := objurl.New("s3://my-bucket/my-key")
+	client, err := storage.NewClient(placeholder)
 	if err != nil {
 		return nil
 	}

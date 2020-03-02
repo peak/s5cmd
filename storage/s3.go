@@ -451,13 +451,13 @@ func (s *S3) UpdateRegion(bucket string) error {
 func newSession(opts S3Opts) (*session.Session, error) {
 	awsCfg := aws.NewConfig()
 
-	var endpoint *url.URL
+	var endpoint url.URL
 	if opts.EndpointURL != "" {
-		var err error
-		endpoint, err = url.Parse(opts.EndpointURL)
+		u, err := url.Parse(opts.EndpointURL)
 		if err != nil {
 			return nil, fmt.Errorf("parse endpoint %q: %v", opts.EndpointURL, err)
 		}
+		endpoint = *u
 	}
 
 	// use virtual-host style everywhere except localhost. e2e testing becomes
@@ -467,9 +467,13 @@ func newSession(opts S3Opts) (*session.Session, error) {
 		forcePathStyle = true
 	}
 
-	// should support Transfer Acceleration:
-	// https://docs.aws.amazon.com/AmazonS3/latest/dev/transfer-acceleration.html
 	useAccelerate := supportsTransferAcceleration(endpoint)
+	// AWS SDK handles transfer acceleration automatically. Setting the
+	// Endpoint to a transfer acceleration endpoint would cause bucket
+	// operations fail.
+	if useAccelerate {
+		endpoint = url.URL{}
+	}
 
 	region := endpoints.UsEast1RegionID
 	if opts.Region != "" {
@@ -515,11 +519,11 @@ var insecureHTTPClient = &http.Client{
 	},
 }
 
-func supportsTransferAcceleration(endpoint *url.URL) bool {
+func supportsTransferAcceleration(endpoint url.URL) bool {
 	return endpoint.Hostname() == transferAccelEndpoint
 }
 
-func isLocalhost(endpoint *url.URL) bool {
+func isLocalhost(endpoint url.URL) bool {
 	return endpoint.Hostname() == "127.0.0.1"
 }
 

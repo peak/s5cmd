@@ -95,7 +95,6 @@ func (l *logger) Warning(format string, args ...interface{}) {
 func (l *logger) Error(format string, args ...interface{}) {
 	raw := fmt.Sprintf(format, args...)
 	raw = cleanupSpaces(raw)
-
 	l.printf(levelError, raw)
 }
 

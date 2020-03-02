@@ -91,7 +91,6 @@ func (w *WorkerManager) parseCommand(cmd string) *Command {
 // close waits all jobs to finish and closes semaphore.
 func (w *WorkerManager) close() {
 	w.wg.Wait()
-	// TODO(ig): what should we do with logger
 	close(w.semaphore)
 	log.Logger.Close()
 }

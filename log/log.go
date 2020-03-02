@@ -2,6 +2,8 @@ package log
 
 import (
 	"fmt"
+	"log"
+	"os"
 	"strings"
 
 	"github.com/peak/s5cmd/flags"
@@ -42,18 +44,19 @@ func (l logLevel) String() string {
 
 type logger struct {
 	donech chan struct{}
+	impl   *log.Logger
 }
 
 func New() *logger {
-	logger := &logger{donech: make(chan struct{})}
+	logger := &logger{
+		donech: make(chan struct{}),
+		impl:   log.New(os.Stdout, "", 0),
+	}
 	go logger.stdout()
 	return logger
 }
 
 func (l *logger) printf(level logLevel, format string, args ...interface{}) {
-	// TODO(ig): message handling
-	// TODO(ig): json formatting
-
 	raw := fmt.Sprintf(format, args...)
 	var msg string
 
@@ -100,8 +103,7 @@ func (l *logger) stdout() {
 	defer close(l.donech)
 
 	for msg := range stdoutCh {
-		// FIXME(ig): use proper logger
-		fmt.Println(msg)
+		l.impl.Println(msg)
 	}
 }
 

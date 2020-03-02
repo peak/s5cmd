@@ -92,6 +92,8 @@ func (w *WorkerManager) parseCommand(cmd string) *Command {
 func (w *WorkerManager) close() {
 	w.wg.Wait()
 	close(w.semaphore)
+	// Workermanager is responsible for logging, hence we run the close routine
+	// here.
 	log.Logger.Close()
 }
 

@@ -3,6 +3,8 @@ package log
 import (
 	"fmt"
 	"strings"
+
+	"github.com/peak/s5cmd/flags"
 )
 
 // stdoutCh is used to synchronize writes to standard output. Multi-line
@@ -68,7 +70,9 @@ func (l *logger) printf(level logLevel, format string, args ...interface{}) {
 }
 
 func (l *logger) Debug(format string, args ...interface{}) {
-	l.printf(levelDebug, format, args...)
+	if *flags.Verbose {
+		l.printf(levelDebug, format, args...)
+	}
 }
 
 func (l *logger) Info(format string, args ...interface{}) {

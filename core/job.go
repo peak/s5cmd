@@ -3,11 +3,11 @@ package core
 import (
 	"context"
 	"errors"
-	"fmt"
-	"log"
+	stdlog "log"
 
 	"github.com/hashicorp/go-multierror"
-	"github.com/peak/s5cmd/flags"
+
+	"github.com/peak/s5cmd/log"
 	"github.com/peak/s5cmd/objurl"
 	"github.com/peak/s5cmd/op"
 	"github.com/peak/s5cmd/opt"
@@ -28,23 +28,21 @@ type Job struct {
 	args         []*objurl.ObjectURL
 	storageClass storage.StorageClass
 	command      string
-	response     *JobResponse
 	statType     stats.StatType
 }
 
 // JobResponse is the response type.
 type JobResponse struct {
-	status  JobStatus
-	message []string
-	err     error
+	status JobStatus
+	err    error
 }
 
 // jobResponse creates a new JobResponse by setting job status, message and error.
-func jobResponse(err error, msg ...string) *JobResponse {
+func jobResponse(err error) *JobResponse {
 	if err == nil {
-		return &JobResponse{status: statusSuccess, message: msg}
+		return &JobResponse{status: statusSuccess}
 	}
-	return &JobResponse{status: statusErr, err: err, message: msg}
+	return &JobResponse{status: statusErr, err: err}
 }
 
 // String formats the job using its command and arguments.
@@ -58,53 +56,29 @@ func (j Job) String() string {
 	return s
 }
 
-// Log prints the results of jobs.
-func (j *Job) Log() {
-	status := j.response.status
-	err := j.response.err
-
-	for _, m := range j.response.message {
-		fmt.Println("                   ", status, m)
-	}
-
-	errStr := ""
-	if err != nil {
-		if !*flags.Verbose && isCancelationError(err) {
-			return
-		}
-
-		errStr = CleanupError(err)
-		errStr = fmt.Sprintf(" (%s)", errStr)
-	}
-
-	if status == statusErr {
-		log.Printf(`-ERR "%s": %s`, j, errStr)
-		return
-	}
-
-	m := fmt.Sprintf(`"%s"%s`, j, errStr)
-	if status != statusSuccess {
-		fmt.Println(status, m)
-	}
-}
-
 // Run runs the Job, gets job response and logs the job status.
 func (j *Job) Run(ctx context.Context) {
 	cmdFunc, ok := globalCmdRegistry[j.operation]
 	if !ok {
-		log.Fatalf("unhandled operation %v", j.operation)
+		// TODO(ig): log and continue
+		stdlog.Fatalf("unhandled operation %v", j.operation)
 		return
 	}
 
 	response := cmdFunc(ctx, j)
-	if response != nil {
-		if response.status == statusErr {
-			stats.Increment(stats.Fail)
-		} else {
-			stats.Increment(j.statType)
-		}
-		j.response = response
-		j.Log()
+	if response == nil {
+		return
+	}
+
+	switch response.status {
+	case statusErr:
+		stats.Increment(stats.Fail)
+		log.Logger.Error("%q: %v", j, response.err)
+	case statusWarning:
+		log.Logger.Warning("%q (%v)", j, response.err)
+		fallthrough
+	default:
+		stats.Increment(j.statType)
 	}
 }
 

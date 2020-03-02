@@ -81,23 +81,17 @@ func main() {
 		cmdMode = true
 	}
 
-	parentCtx, cancelFunc := context.WithCancel(context.Background())
-
-	ctx := context.WithValue(
-		parentCtx,
-		core.CancelFuncKey,
-		cancelFunc,
-	)
+	ctx, cancel := context.WithCancel(context.Background())
 
 	go func() {
 		ch := make(chan os.Signal, 1)
 		signal.Notify(ch, os.Interrupt, syscall.SIGTERM)
 		<-ch
 		log.Print("# Got signal, cleaning up...")
-		cancelFunc()
+		cancel()
 	}()
 
-	wp := core.NewWorkerManager(ctx)
+	wp := core.NewWorkerManager(cancel)
 	if cmdMode {
 		wp.RunCmd(ctx, cmd)
 	} else {

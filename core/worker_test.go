@@ -7,9 +7,8 @@ import (
 )
 
 func TestWorkerManager_semaphore(t *testing.T) {
-	parentCtx, cancelFunc := context.WithCancel(context.Background())
-	ctx := context.WithValue(parentCtx, CancelFuncKey, cancelFunc)
-	wm := NewWorkerManager(ctx)
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	wm := NewWorkerManager(cancelFunc)
 
 	var numJobs uint64 = 1000000
 	var counter uint64 = 0

@@ -3,8 +3,7 @@ SRCDIR ?= .
 default: all
 
 .PHONY: all
-all: clean build test vet staticcheck check-fmt
-
+all: clean build test check
 .PHONY: dist
 dist: generate all
 
@@ -23,6 +22,9 @@ build:
 .PHONY: test
 test:
 	@go test -mod=vendor ./...
+
+.PHONY: check
+check: vet staticcheck check-fmt
 
 .PHONY: staticcheck
 staticcheck:

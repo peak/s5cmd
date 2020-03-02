@@ -13,20 +13,6 @@ const (
 	statusWarning
 )
 
-// String returns the string representation of JobStatus.
-func (s JobStatus) String() string {
-	switch s {
-	case statusSuccess:
-		return "+"
-	case statusErr:
-		return "ERROR"
-	case statusWarning:
-		return "WARNING"
-	default:
-		return "UNKNOWN"
-	}
-}
-
 //  OK-to-have error types (warnings) that is used when the job status is warning.
 var (
 	ErrObjectExists     = fmt.Errorf("object already exists")

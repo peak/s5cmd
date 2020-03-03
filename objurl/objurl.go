@@ -243,7 +243,10 @@ func (o *ObjectURL) String() string {
 }
 
 func (o *ObjectURL) MarshalJSON() ([]byte, error) {
-	return json.Marshal(o.String())
+	if o.IsRemote() {
+		return json.Marshal(o.Absolute())
+	}
+	return json.Marshal(o.Base())
 }
 
 // parseBatch parses keys for wildcard operations.

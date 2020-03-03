@@ -76,6 +76,13 @@ func Delete(ctx context.Context, job *Job) *JobResponse {
 	log.Logger.Info(msg)
 
 	err = client.Delete(ctx, src)
+
+	log.Logger.JSON(message.JSON{
+		Operation: "delete",
+		Error:     err,
+		Source:    src,
+	})
+
 	return jobResponse(err)
 }
 

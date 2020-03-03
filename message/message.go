@@ -26,8 +26,12 @@ func (d Delete) String() string {
 }
 
 func (d Delete) JSON() string {
-	bytes, _ := json.Marshal(d)
-	return string(bytes)
+	json := JSON{
+		Operation: "batch-delete",
+		Success:   true,
+		Source:    d.URL,
+	}
+	return json.JSON()
 }
 
 type List struct {
@@ -122,7 +126,7 @@ type JSON struct {
 	Operation   string            `json:"operation"`
 	Success     bool              `json:"success"`
 	Source      *objurl.ObjectURL `json:"source"`
-	Destination *objurl.ObjectURL `json:"destination"`
+	Destination *objurl.ObjectURL `json:"destination,omitempty"`
 	Object      *storage.Object   `json:"object,omitempty"`
 	Error       error             `json:"-"`
 	ErrorMsg    string            `json:"error,omitempty"`

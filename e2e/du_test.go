@@ -32,6 +32,37 @@ func TestDiskUsageSingleS3Object(t *testing.T) {
 	})
 }
 
+func TestDiskUsageSingleS3ObjectJSON(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+
+	// create 2 files, expect 1.
+	putFile(t, s3client, bucket, "testfile1.txt", "this is a file content")
+	putFile(t, s3client, bucket, "testfile2.txt", "this is also a file content")
+
+	cmd := s5cmd("-json", "du", "s3://"+bucket+"/testfile1.txt")
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: json(`
+			{
+				"source": "s3://test-disk-usage-single-s-3-object-json/testfile1.txt",
+				"count":1,
+				"size":317
+			}
+		`),
+		1: equals(""),
+	})
+}
+
 func TestDiskUsageMultipleS3Objects(t *testing.T) {
 	t.Parallel()
 

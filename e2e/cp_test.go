@@ -46,6 +46,54 @@ func TestCopySingleS3ObjectToLocal(t *testing.T) {
 	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content))
 }
 
+func TestCopySingleS3ObjectToLocalJSON(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+
+	const (
+		filename = "testfile1.txt"
+		content  = "this is a file content"
+	)
+
+	putFile(t, s3client, bucket, filename, content)
+
+	cmd := s5cmd("-json", "cp", "s3://"+bucket+"/"+filename, ".")
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	jsonText := `
+		{
+			"operation":"download",
+			"success":true,
+			"source":"s3://%v/testfile1.txt",
+			"destination":"testfile1.txt",
+			"object":{
+				"type":"file",
+				"size":22
+			}
+		}
+	`
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: json(jsonText, bucket),
+		1: equals(""),
+	})
+
+	// assert local filesystem
+	expected := fs.Expected(t, fs.WithFile(filename, content, fs.WithMode(0644)))
+	assert.Assert(t, fs.Equal(cmd.Dir, expected))
+
+	// assert s3 object
+	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content))
+}
+
 func TestCopyMultipleFlatS3ObjectsToLocal(t *testing.T) {
 	t.Parallel()
 
@@ -78,6 +126,99 @@ func TestCopyMultipleFlatS3ObjectsToLocal(t *testing.T) {
 		2: suffix(`# Downloading filename-with-hypen.gz...`),
 		3: suffix(`# Downloading readme.md...`),
 		4: suffix(`# Downloading testfile1.txt...`),
+	}, sortInput(true))
+
+	// assert local filesystem
+	var expectedFiles []fs.PathOp
+	for filename, content := range filesToContent {
+		pathop := fs.WithFile(filename, content, fs.WithMode(0644))
+		expectedFiles = append(expectedFiles, pathop)
+	}
+	expected := fs.Expected(t, expectedFiles...)
+	assert.Assert(t, fs.Equal(cmd.Dir, expected))
+
+	// assert s3 objects
+	for filename, content := range filesToContent {
+		assert.Assert(t, ensureS3Object(s3client, bucket, filename, content))
+	}
+}
+
+func TestCopyMultipleFlatS3ObjectsToLocalJSON(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+
+	filesToContent := map[string]string{
+		"testfile1.txt":          "this is a test file 1",
+		"readme.md":              "this is a readme file",
+		"filename-with-hypen.gz": "file has hypen in its name",
+		"another_test_file.txt":  "yet another txt file. yatf.",
+	}
+
+	for filename, content := range filesToContent {
+		putFile(t, s3client, bucket, filename, content)
+	}
+
+	cmd := s5cmd("-json", "cp", "s3://"+bucket+"/*", ".")
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(""),
+		1: json(`
+			{
+				"operation": "download",
+				"success": true,
+				"source": "s3://test-copy-multiple-flat-s-3-objects-to-local-json/another_test_file.txt",
+				"destination": "another_test_file.txt",
+				"object":{
+					"type": "file",
+					"size": 27
+				}
+			}
+		`),
+		2: json(`
+			{
+				"operation": "download",
+				"success": true,
+				"source": "s3://test-copy-multiple-flat-s-3-objects-to-local-json/filename-with-hypen.gz",
+				"destination": "filename-with-hypen.gz",
+				"object": {
+					"type": "file",
+					"size": 26
+				}
+			}
+		`),
+		3: json(`
+			{
+				"operation": "download",
+				"success": true,
+				"source": "s3://test-copy-multiple-flat-s-3-objects-to-local-json/readme.md",
+				"destination": "readme.md",
+				"object": {
+					"type": "file",
+					"size": 21
+				}
+			}
+		`),
+		4: json(`
+			{
+				"operation": "download",
+				"success": true,
+				"source": "s3://test-copy-multiple-flat-s-3-objects-to-local-json/testfile1.txt",
+				"destination": "testfile1.txt",
+				"object": {
+					"type": "file",
+					"size": 21
+				}
+			}
+		`),
 	}, sortInput(true))
 
 	// assert local filesystem
@@ -311,6 +452,56 @@ func TestCopySingleFileToS3(t *testing.T) {
 	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content))
 }
 
+func TestCopySingleFileToS3JSON(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+
+	const (
+		filename = "testfile1.txt"
+		content  = "this is a test file"
+	)
+
+	workdir := fs.NewDir(t, bucket, fs.WithFile(filename, content))
+	defer workdir.Remove()
+
+	fpath := workdir.Join(filename)
+
+	cmd := s5cmd("-json", "cp", fpath, "s3://"+bucket+"/")
+	result := icmd.RunCmd(cmd)
+
+	jsonText := `
+		{
+			"operation": "upload",
+			"success": true,
+			"source": "testfile1.txt",
+			"destination": "s3://test-copy-single-file-to-s-3-json/testfile1.txt",
+			"object": {
+				"type": "file",
+				"size":19
+			}
+		}
+	`
+
+	result.Assert(t, icmd.Success)
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: json(jsonText),
+		1: equals(""),
+	})
+
+	// assert local filesystem
+	expected := fs.Expected(t, fs.WithFile(filename, content))
+	assert.Assert(t, fs.Equal(workdir.Path(), expected))
+
+	// assert S3
+	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content))
+}
+
 func TestCopyDirToS3(t *testing.T) {
 	t.Parallel()
 
@@ -444,6 +635,56 @@ func TestCopySingleS3ObjectToS3(t *testing.T) {
 	assert.Assert(t, ensureS3Object(s3client, bucket, dstfilename, content))
 }
 
+func TestCopySingleS3ObjectToS3JSON(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+
+	const (
+		filename    = "testfile1.txt"
+		dstfilename = "copy_" + filename
+		content     = "this is a file content"
+	)
+
+	putFile(t, s3client, bucket, filename, content)
+
+	src := fmt.Sprintf("s3://%v/%v", bucket, filename)
+	dst := fmt.Sprintf("s3://%v/%v", bucket, dstfilename)
+
+	cmd := s5cmd("-json", "cp", src, dst)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	jsonText := `
+		{
+			"operation":"copy",
+			"success":true,
+			"source":"s3://test-copy-single-s-3-object-to-s-3-json/testfile1.txt",
+			"destination":"s3://test-copy-single-s-3-object-to-s-3-json/copy_testfile1.txt",
+			"object":{"key":"s3://test-copy-single-s-3-object-to-s-3-json/copy_testfile1.txt",
+			"type":"file",
+			"storage_class":"STANDARD"
+		}
+	}`
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: json(jsonText),
+		1: equals(""),
+	})
+
+	// assert s3 source object
+	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content))
+
+	// assert s3 destination object
+	assert.Assert(t, ensureS3Object(s3client, bucket, dstfilename, content))
+}
+
 func TestCopySingleS3ObjectIntoAnotherBucket(t *testing.T) {
 	t.Parallel()
 
@@ -518,6 +759,74 @@ func TestCopyMultipleS3ObjectsToS3(t *testing.T) {
 		2: suffix(`# Copying filename-with-hypen.gz...`),
 		3: suffix(`# Copying readme.md...`),
 		4: suffix(`# Copying testfile1.txt...`),
+	}, sortInput(true))
+
+	// assert s3 source objects
+	for filename, content := range filesToContent {
+		assert.Assert(t, ensureS3Object(s3client, bucket, filename, content))
+	}
+
+	// assert s3 destination objects
+	for filename, content := range filesToContent {
+		assert.Assert(t, ensureS3Object(s3client, bucket, "dst/"+filename, content))
+	}
+}
+
+func TestCopyMultipleS3ObjectsToS3JSON(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+
+	filesToContent := map[string]string{
+		"testfile1.txt": "this is a test file 1",
+		"readme.md":     "this is a readme file",
+	}
+
+	for filename, content := range filesToContent {
+		putFile(t, s3client, bucket, filename, content)
+	}
+
+	src := fmt.Sprintf("s3://%v/*", bucket)
+	dst := fmt.Sprintf("s3://%v/dst/", bucket)
+
+	cmd := s5cmd("-json", "cp", src, dst)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(""),
+		1: json(`
+			{
+				"operation": "copy",
+				"success": true,
+				"source": "s3://test-copy-multiple-s-3-objects-to-s-3-json/readme.md",
+				"destination": "s3://test-copy-multiple-s-3-objects-to-s-3-json/dst/readme.md",
+				"object": {
+					"key": "s3://test-copy-multiple-s-3-objects-to-s-3-json/dst/readme.md",
+					"type": "file",
+					"storage_class":"STANDARD"
+				}
+			}
+		`),
+		2: json(`
+			{
+				"operation": "copy",
+				"success": true,
+				"source": "s3://test-copy-multiple-s-3-objects-to-s-3-json/testfile1.txt",
+				"destination": "s3://test-copy-multiple-s-3-objects-to-s-3-json/dst/testfile1.txt",
+				"object": {
+					"key": "s3://test-copy-multiple-s-3-objects-to-s-3-json/dst/testfile1.txt",
+					"type":"file",
+					"storage_class":"STANDARD"
+				}
+			}
+		`),
 	}, sortInput(true))
 
 	// assert s3 source objects

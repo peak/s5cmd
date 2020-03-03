@@ -374,6 +374,27 @@ func equals(format string, args ...interface{}) compareFunc {
 	}
 }
 
+func json(format string, args ...interface{}) compareFunc {
+	expected := fmt.Sprintf(format, args...)
+	// escape multiline characters
+	{
+		expected = strings.Replace(expected, "\n", "", -1)
+		expected = strings.Replace(expected, "\t", "", -1)
+		expected = strings.Replace(expected, "\b", "", -1)
+		expected = strings.Replace(expected, " ", "", -1)
+		expected = strings.TrimSpace(expected)
+	}
+
+	return func(actual string) error {
+		if expected == actual {
+			return nil
+		}
+
+		diff := cmp.Diff(expected, actual)
+		return fmt.Errorf("equals: (-want +got):\n%v", diff)
+	}
+}
+
 func prefix(format string, args ...interface{}) compareFunc {
 	expected := fmt.Sprintf(format, args...)
 	return func(actual string) error {

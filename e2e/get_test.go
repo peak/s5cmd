@@ -44,6 +44,52 @@ func TestGetSingleS3Object(t *testing.T) {
 	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content))
 }
 
+func TestGetSingleS3ObjectJSON(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+
+	const (
+		filename = "testfile1.txt"
+		content  = "this is a file content"
+	)
+
+	putFile(t, s3client, bucket, filename, content)
+
+	cmd := s5cmd("-json", "get", "s3://"+bucket+"/"+filename, ".")
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: json(`
+			{	
+				"operation": "download",
+				"success": true,
+				"source": "s3://test-get-single-s-3-object-json/testfile1.txt",
+				"destination": "testfile1.txt",
+				"object": {
+					"type": "file",
+					"size":22
+				}
+			}
+		`),
+		1: equals(""),
+	})
+
+	// assert local filesystem
+	expected := fs.Expected(t, fs.WithFile(filename, content, fs.WithMode(0644)))
+	assert.Assert(t, fs.Equal(cmd.Dir, expected))
+
+	// assert s3 object
+	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content))
+}
+
 func TestGetMultipleFlatS3Objects(t *testing.T) {
 	t.Parallel()
 

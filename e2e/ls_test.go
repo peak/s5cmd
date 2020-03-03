@@ -35,6 +35,34 @@ func TestListBuckets(t *testing.T) {
 	})
 }
 
+func TestListBucketsJSON(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	// alphabetically unordered list of buckets
+	bucketPrefix := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucketPrefix+"-1")
+	createBucket(t, s3client, bucketPrefix+"-2")
+	createBucket(t, s3client, bucketPrefix+"-4")
+	createBucket(t, s3client, bucketPrefix+"-3")
+
+	cmd := s5cmd("-json", "ls")
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	// expect ordered list
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: suffix(`"name":"%v-1"}`, bucketPrefix),
+		1: suffix(`"name":"%v-2"}`, bucketPrefix),
+		2: suffix(`"name":"%v-3"}`, bucketPrefix),
+		3: suffix(`"name":"%v-4"}`, bucketPrefix),
+		4: equals(""),
+	})
+}
+
 func TestListSingleS3Object(t *testing.T) {
 	t.Parallel()
 
@@ -56,6 +84,31 @@ func TestListSingleS3Object(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: suffix("317 testfile1.txt"),
+		1: equals(""),
+	})
+}
+
+func TestListSingleS3ObjectJSON(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+
+	// create 2 files, expect 1.
+	putFile(t, s3client, bucket, "testfile1.txt", "this is a file content")
+	putFile(t, s3client, bucket, "testfile2.txt", "this is also a file content")
+
+	cmd := s5cmd("-json", "ls", "s3://"+bucket+"/testfile1.txt")
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: prefix(`{"key":"s3://test-list-single-s-3-object-json/testfile1.txt",`),
 		1: equals(""),
 	})
 }

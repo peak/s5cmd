@@ -45,6 +45,48 @@ func TestRemoveSingleS3Object(t *testing.T) {
 	assertError(t, err, errS3NoSuchKey)
 }
 
+func TestRemoveSingleS3ObjectJSON(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+
+	const (
+		filename = "testfile1.txt"
+		content  = "this is a file content"
+	)
+
+	putFile(t, s3client, bucket, filename, content)
+
+	cmd := s5cmd("-json", "rm", "s3://"+bucket+"/"+filename)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: equals(""),
+	})
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: json(`
+			{
+				"operation": "delete",
+				"success": true,
+				"source": "s3://test-remove-single-s-3-object-json/testfile1.txt"
+			}
+		`),
+		1: equals(""),
+	})
+
+	// assert s3 object
+	err := ensureS3Object(s3client, bucket, filename, content)
+	assertError(t, err, errS3NoSuchKey)
+}
+
 func TestRemoveMultipleS3Objects(t *testing.T) {
 	t.Parallel()
 
@@ -88,6 +130,76 @@ func TestRemoveMultipleS3Objects(t *testing.T) {
 		err := ensureS3Object(s3client, bucket, filename, content)
 		assertError(t, err, errS3NoSuchKey)
 	}
+}
+
+func TestRemoveMultipleS3ObjectsJSON(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+
+	filesToContent := map[string]string{
+		"testfile1.txt":          "this is a test file 1",
+		"readme.md":              "this is a readme file",
+		"filename-with-hypen.gz": "file has hypen in its name",
+		"another_test_file.txt":  "yet another txt file. yatf.",
+	}
+
+	for filename, content := range filesToContent {
+		putFile(t, s3client, bucket, filename, content)
+	}
+
+	cmd := s5cmd("-json", "rm", "s3://"+bucket+"/*")
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: equals(""),
+	})
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(""),
+		1: json(`
+			{
+				"operation": "batch-delete",
+				"success": true,
+				"source": "s3://%v/another_test_file.txt"
+			}
+		`, bucket),
+		2: json(`
+			{
+				"operation": "batch-delete",
+				"success": true,
+				"source": "s3://%v/filename-with-hypen.gz"
+			}
+		`, bucket),
+		3: json(`
+			{
+				"operation": "batch-delete",
+				"success": true,
+				"source": "s3://%v/readme.md"
+			}
+		`, bucket),
+		4: json(`
+			{
+				"operation": "batch-delete",
+				"success": true,
+				"source": "s3://%v/testfile1.txt"
+			}
+		`, bucket),
+	}, sortInput(true))
+
+	// assert s3 objects
+	for filename, content := range filesToContent {
+		err := ensureS3Object(s3client, bucket, filename, content)
+		assertError(t, err, errS3NoSuchKey)
+	}
+
 }
 
 func TestRemoveTenThousandS3Objects(t *testing.T) {

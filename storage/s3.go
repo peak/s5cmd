@@ -126,10 +126,11 @@ func (s *S3) Stat(ctx context.Context, url *objurl.ObjectURL) (*Object, error) {
 	}
 
 	etag := aws.StringValue(output.ETag)
+	mod := aws.TimeValue(output.LastModified)
 	return &Object{
 		URL:     url,
 		Etag:    strings.Trim(etag, `"`),
-		ModTime: aws.TimeValue(output.LastModified),
+		ModTime: &mod,
 		Size:    aws.Int64Value(output.ContentLength),
 	}, nil
 }
@@ -190,10 +191,11 @@ func (s *S3) List(ctx context.Context, url *objurl.ObjectURL, _ bool, maxKeys in
 				newurl := url.Clone()
 				newurl.Path = aws.StringValue(c.Key)
 				etag := aws.StringValue(c.ETag)
+				mod := aws.TimeValue(c.LastModified)
 				objCh <- &Object{
 					URL:          newurl,
 					Etag:         strings.Trim(etag, `"`),
-					ModTime:      aws.TimeValue(c.LastModified),
+					ModTime:      &mod,
 					Type:         ObjectType{objtype},
 					Size:         aws.Int64Value(c.Size),
 					StorageClass: StorageClass(aws.StringValue(c.StorageClass)),
@@ -237,15 +239,16 @@ func (s *S3) Copy(ctx context.Context, from, to *objurl.ObjectURL, metadata map[
 
 // Get is a multipart download operation which downloads S3 objects into any
 // destination that implements io.WriterAt interface.
-func (s *S3) Get(ctx context.Context, from *objurl.ObjectURL, to io.WriterAt) error {
-	_, err := s.downloader.DownloadWithContext(ctx, to, &s3.GetObjectInput{
+func (s *S3) Get(ctx context.Context, from *objurl.ObjectURL, to io.WriterAt) (int64, error) {
+	n, err := s.downloader.DownloadWithContext(ctx, to, &s3.GetObjectInput{
 		Bucket: aws.String(from.Bucket),
 		Key:    aws.String(from.Path),
 	}, func(u *s3manager.Downloader) {
 		u.PartSize = s.opts.DownloadChunkSizeBytes
 		u.Concurrency = s.opts.DownloadConcurrency
 	})
-	return err
+
+	return n, err
 }
 
 // Put is a multipart upload operation to upload resources, which implements

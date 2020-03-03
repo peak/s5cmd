@@ -27,7 +27,7 @@ type Storage interface {
 	Stat(context.Context, *objurl.ObjectURL) (*Object, error)
 	List(context.Context, *objurl.ObjectURL, bool, int64) <-chan *Object
 	Copy(ctx context.Context, from, to *objurl.ObjectURL, metadata map[string]string) error
-	Get(context.Context, *objurl.ObjectURL, io.WriterAt) error
+	Get(context.Context, *objurl.ObjectURL, io.WriterAt) (int64, error)
 	Put(context.Context, io.Reader, *objurl.ObjectURL, map[string]string) error
 	Delete(context.Context, *objurl.ObjectURL) error
 	MultiDelete(context.Context, <-chan *objurl.ObjectURL) <-chan *Object
@@ -47,9 +47,9 @@ func NewClient(url *objurl.ObjectURL) (Storage, error) {
 
 // Object is a generic type which contains metadata for storage items.
 type Object struct {
-	URL          *objurl.ObjectURL `json:"source,omitempty"`
+	URL          *objurl.ObjectURL `json:"key,omitempty"`
 	Etag         string            `json:"etag,omitempty"`
-	ModTime      time.Time         `json:"last_modified,omitempty"`
+	ModTime      *time.Time        `json:"last_modified,omitempty"`
 	Type         ObjectType        `json:"type,omitempty"`
 	Size         int64             `json:"size,omitempty"`
 	StorageClass StorageClass      `json:"storage_class,omitempty"`

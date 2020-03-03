@@ -29,11 +29,12 @@ func (f *Filesystem) Stat(ctx context.Context, url *objurl.ObjectURL) (*Object, 
 		return nil, err
 	}
 
+	mod := st.ModTime()
 	return &Object{
 		URL:     url,
 		Type:    ObjectType{st.Mode()},
 		Size:    st.Size(),
-		ModTime: st.ModTime(),
+		ModTime: &mod,
 		Etag:    "",
 	}, nil
 }
@@ -122,9 +123,10 @@ func (f *Filesystem) readDir(ctx context.Context, url *objurl.ObjectURL, ch chan
 	}
 
 	for _, fi := range fis {
+		mod := fi.ModTime()
 		obj := &Object{
 			URL:     url.Join(fi.Name()),
-			ModTime: fi.ModTime(),
+			ModTime: &mod,
 			Type:    ObjectType{fi.Mode()},
 			Size:    fi.Size(),
 		}
@@ -200,8 +202,8 @@ func (f *Filesystem) Put(ctx context.Context, body io.Reader, url *objurl.Object
 	return f.notimplemented("Put")
 }
 
-func (f *Filesystem) Get(_ context.Context, _ *objurl.ObjectURL, _ io.WriterAt) error {
-	return f.notimplemented("Get")
+func (f *Filesystem) Get(_ context.Context, _ *objurl.ObjectURL, _ io.WriterAt) (int64, error) {
+	return 0, f.notimplemented("Get")
 }
 
 func (f *Filesystem) ListBuckets(_ context.Context, _ string) ([]Bucket, error) {

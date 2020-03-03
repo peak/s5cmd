@@ -111,7 +111,16 @@ func (l *logger) Debug(msg message.Message) {
 }
 
 func (l *logger) Info(msg message.Message) {
+	if *flags.JSON {
+		return
+	}
 	l.printf(levelInfo, msg)
+}
+
+func (l *logger) JSON(msg message.Message) {
+	if *flags.JSON {
+		stdoutCh <- msg.JSON()
+	}
 }
 
 func (l *logger) Success(msg message.Message) {
@@ -124,12 +133,6 @@ func (l *logger) Warning(msg message.Message) {
 
 func (l *logger) Error(msg message.Message) {
 	l.printf(levelError, msg)
-}
-
-func (l *logger) JSON(msg message.Message) {
-	if *flags.JSON {
-		stdoutCh <- msg.JSON()
-	}
 }
 
 func (l *logger) stdout() {

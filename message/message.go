@@ -119,10 +119,13 @@ func (s Size) JSON() string {
 }
 
 type JSON struct {
+	Operation   string            `json:"operation"`
+	Success     bool              `json:"success"`
 	Source      *objurl.ObjectURL `json:"source"`
 	Destination *objurl.ObjectURL `json:"destination"`
 	Object      *storage.Object   `json:"object,omitempty"`
-	Error       error             `json:"error,omitempty"`
+	Error       error             `json:"-"`
+	ErrorMsg    string            `json:"error,omitempty"`
 }
 
 func (u JSON) String() string {
@@ -130,6 +133,13 @@ func (u JSON) String() string {
 }
 
 func (u JSON) JSON() string {
+	u.Success = true
+
+	if u.Error != nil {
+		u.ErrorMsg = u.Error.Error()
+		u.Success = false
+	}
+
 	bytes, _ := json.Marshal(u)
 	return string(bytes)
 }

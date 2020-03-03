@@ -48,6 +48,7 @@ func Copy(ctx context.Context, job *Job) *JobResponse {
 	}
 
 	log.Logger.JSON(message.JSON{
+		Operation:   "copy",
 		Error:       err,
 		Source:      src,
 		Destination: dst,
@@ -112,18 +113,19 @@ func Download(ctx context.Context, job *Job) *JobResponse {
 	log.Logger.Info(msg)
 
 	size, err := srcClient.Get(ctx, src, f)
-	if err != nil {
-		err = dstClient.Delete(ctx, dst)
-	} else if job.opts.Has(opt.DeleteSource) {
-		err = srcClient.Delete(ctx, src)
-	}
-
 	log.Logger.JSON(message.JSON{
+		Operation:   "download",
 		Error:       err,
 		Source:      src,
 		Destination: dst,
 		Object:      &storage.Object{Size: size},
 	})
+
+	if err != nil {
+		err = dstClient.Delete(ctx, dst)
+	} else if job.opts.Has(opt.DeleteSource) {
+		err = srcClient.Delete(ctx, src)
+	}
 
 	return jobResponse(err)
 }
@@ -172,6 +174,7 @@ func Upload(ctx context.Context, job *Job) *JobResponse {
 
 	obj, _ := srcClient.Stat(ctx, src)
 	log.Logger.JSON(message.JSON{
+		Operation:   "upload",
 		Error:       err,
 		Source:      src,
 		Destination: dst,

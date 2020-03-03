@@ -47,6 +47,16 @@ func Copy(ctx context.Context, job *Job) *JobResponse {
 		err = client.Delete(ctx, src)
 	}
 
+	log.Logger.JSON(message.JSON{
+		Error:       err,
+		Source:      src,
+		Destination: dst,
+		Object: &storage.Object{
+			URL:          dst,
+			StorageClass: job.storageClass,
+		},
+	})
+
 	return jobResponse(err)
 }
 
@@ -101,12 +111,19 @@ func Download(ctx context.Context, job *Job) *JobResponse {
 	}
 	log.Logger.Info(msg)
 
-	err = srcClient.Get(ctx, src, f)
+	size, err := srcClient.Get(ctx, src, f)
 	if err != nil {
 		err = dstClient.Delete(ctx, dst)
 	} else if job.opts.Has(opt.DeleteSource) {
 		err = srcClient.Delete(ctx, src)
 	}
+
+	log.Logger.JSON(message.JSON{
+		Error:       err,
+		Source:      src,
+		Destination: dst,
+		Object:      &storage.Object{Size: size},
+	})
 
 	return jobResponse(err)
 }
@@ -141,11 +158,10 @@ func Upload(ctx context.Context, job *Job) *JobResponse {
 		"ContentType":  "", // TODO(ig): guess the mimetype (see: #33)
 	}
 
-	msg := message.Info{
+	log.Logger.Info(message.Info{
 		Operation: "Uploading",
 		Target:    src.Base(),
-	}
-	log.Logger.Info(msg)
+	})
 
 	err = dstClient.Put(
 		ctx,
@@ -157,6 +173,14 @@ func Upload(ctx context.Context, job *Job) *JobResponse {
 	if job.opts.Has(opt.DeleteSource) && err == nil {
 		err = srcClient.Delete(ctx, src)
 	}
+
+	obj, _ := srcClient.Stat(ctx, src)
+	log.Logger.JSON(message.JSON{
+		Error:       err,
+		Source:      src,
+		Destination: dst,
+		Object:      &storage.Object{Size: obj.Size},
+	})
 
 	return jobResponse(err)
 }

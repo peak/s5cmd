@@ -70,13 +70,13 @@ func TestCopySingleS3ObjectToLocalJSON(t *testing.T) {
 
 	jsonText := `
 		{
-			"operation":"download",
-			"success":true,
-			"source":"s3://%v/testfile1.txt",
-			"destination":"testfile1.txt",
-			"object":{
-				"type":"file",
-				"size":22
+			"operation": "download",
+			"success": true,
+			"source": "s3://%v/testfile1.txt",
+			"destination": "testfile1.txt",
+			"object": {
+				"type": "file",
+				"size": 22
 			}
 		}
 	`
@@ -667,11 +667,13 @@ func TestCopySingleS3ObjectToS3JSON(t *testing.T) {
 			"success":true,
 			"source":"s3://test-copy-single-s-3-object-to-s-3-json/testfile1.txt",
 			"destination":"s3://test-copy-single-s-3-object-to-s-3-json/copy_testfile1.txt",
-			"object":{"key":"s3://test-copy-single-s-3-object-to-s-3-json/copy_testfile1.txt",
-			"type":"file",
-			"storage_class":"STANDARD"
+			"object": {
+				"key": "s3://test-copy-single-s-3-object-to-s-3-json/copy_testfile1.txt",
+				"type":"file",
+				"storage_class":"STANDARD"
+			}
 		}
-	}`
+	`
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: json(jsonText),
@@ -810,7 +812,7 @@ func TestCopyMultipleS3ObjectsToS3JSON(t *testing.T) {
 				"object": {
 					"key": "s3://test-copy-multiple-s-3-objects-to-s-3-json/dst/readme.md",
 					"type": "file",
-					"storage_class":"STANDARD"
+					"storage_class": "STANDARD"
 				}
 			}
 		`),
@@ -822,8 +824,8 @@ func TestCopyMultipleS3ObjectsToS3JSON(t *testing.T) {
 				"destination": "s3://test-copy-multiple-s-3-objects-to-s-3-json/dst/testfile1.txt",
 				"object": {
 					"key": "s3://test-copy-multiple-s-3-objects-to-s-3-json/dst/testfile1.txt",
-					"type":"file",
-					"storage_class":"STANDARD"
+					"type": "file",
+					"storage_class": "STANDARD"
 				}
 			}
 		`),

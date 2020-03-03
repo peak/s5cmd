@@ -31,10 +31,19 @@ func (d Delete) JSON() string {
 }
 
 type List struct {
-	Object         *storage.Object `json:"raw,omitempty"`
-	ShowEtag       bool            `json:"-"`
-	ShowHumanized  bool            `json:"-"`
-	HumanizedBytes string          `json:"bytes,omitempty"`
+	Object        *storage.Object `json:"object"`
+	ShowEtag      bool            `json:"-"`
+	ShowHumanized bool            `json:"-"`
+}
+
+func (l List) humanize() string {
+	var size string
+	if l.ShowHumanized {
+		size = humanizeBytes(l.Object.Size)
+	} else {
+		size = fmt.Sprintf("%d", l.Object.Size)
+	}
+	return size
 }
 
 func (l List) String() string {
@@ -50,16 +59,9 @@ func (l List) String() string {
 		return s
 	}
 
-	var etag, size string
-
+	var etag string
 	if l.ShowEtag {
 		etag = l.Object.Etag
-	}
-
-	if l.ShowHumanized {
-		size = humanizeBytes(l.Object.Size)
-	} else {
-		size = fmt.Sprintf("%d", l.Object.Size)
 	}
 
 	s := fmt.Sprintf(
@@ -67,18 +69,14 @@ func (l List) String() string {
 		l.Object.ModTime.Format(dateFormat),
 		l.Object.StorageClass.ShortCode(),
 		etag,
-		size,
+		l.humanize(),
 		l.Object.URL.Relative(),
 	)
 	return s
 }
 
 func (l List) JSON() string {
-	if l.ShowHumanized {
-		l.HumanizedBytes = humanizeBytes(l.Object.Size)
-	}
-
-	b, _ := json.Marshal(l)
+	b, _ := json.Marshal(l.Object)
 	return string(b)
 }
 
@@ -118,6 +116,22 @@ func (s Size) JSON() string {
 	return string(bytes)
 }
 
+type JSON struct {
+	Source      *objurl.ObjectURL `json:"source"`
+	Destination *objurl.ObjectURL `json:"destination"`
+	Object      *storage.Object   `json:"object,omitempty"`
+	Error       error             `json:"error,omitempty"`
+}
+
+func (u JSON) String() string {
+	return ""
+}
+
+func (u JSON) JSON() string {
+	bytes, _ := json.Marshal(u)
+	return string(bytes)
+}
+
 type Info struct {
 	Operation string `json:"operation"`
 	Target    string `json:"target"`
@@ -128,8 +142,7 @@ func (i Info) String() string {
 }
 
 func (i Info) JSON() string {
-	b, _ := json.Marshal(i)
-	return string(b)
+	return ""
 }
 
 type Error struct {

@@ -126,6 +126,12 @@ func (l *logger) Error(msg message.Message) {
 	l.printf(levelError, msg)
 }
 
+func (l *logger) JSON(msg message.Message) {
+	if *flags.JSON {
+		stdoutCh <- msg.JSON()
+	}
+}
+
 func (l *logger) stdout() {
 	defer close(l.donech)
 

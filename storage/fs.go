@@ -208,6 +208,10 @@ func (f *Filesystem) ListBuckets(_ context.Context, _ string) ([]Bucket, error) 
 	return nil, f.notimplemented("ListBuckets")
 }
 
+func (f *Filesystem) MakeBucket(_ context.Context, _ string) error {
+	return f.notimplemented("MakeBucket")
+}
+
 func (f *Filesystem) UpdateRegion(_ string) error {
 	return f.notimplemented("UpdateRegion")
 }

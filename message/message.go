@@ -82,12 +82,11 @@ func (l List) JSON() string {
 
 type Size struct {
 	Source       string `json:"source"`
-	StorageClass string `json:"storage_class"`
+	StorageClass string `json:"storage_class,omitempty"`
 	Count        int64  `json:"count"`
-	Bytes        string `json:"size"`
+	Size         int64  `json:"size"`
 
-	Size          int64 `json:"-"`
-	ShowHumanized bool  `json:"-"`
+	ShowHumanized bool `json:"-"`
 }
 
 func (s Size) humanize() string {
@@ -101,17 +100,20 @@ func (s Size) humanize() string {
 }
 
 func (s Size) String() string {
+	storageCls := ""
+	if s.StorageClass != "" {
+		storageCls = fmt.Sprintf(" [%s]", s.StorageClass)
+	}
 	return fmt.Sprintf(
-		"%s bytes in %d objects: %s [%s]",
+		"%s bytes in %d objects: %s%s",
 		s.humanize(),
 		s.Count,
 		s.Source,
-		s.StorageClass,
+		storageCls,
 	)
 }
 
 func (s Size) JSON() string {
-	s.Bytes = s.humanize()
 	bytes, _ := json.Marshal(s)
 	return string(bytes)
 }

@@ -294,11 +294,17 @@ func List(ctx context.Context, job *Job) *JobResponse {
 	return jobResponse(nil)
 }
 
+type sizeAndCount struct {
+	size  int64
+	count int64
+}
+
+func (s *sizeAndCount) addObject(obj *storage.Object) {
+	s.size += obj.Size
+	s.count++
+}
+
 func Size(ctx context.Context, job *Job) *JobResponse {
-	type sizeAndCount struct {
-		size  int64
-		count int64
-	}
 	src := job.args[0]
 
 	client, err := storage.NewClient(src)
@@ -306,7 +312,8 @@ func Size(ctx context.Context, job *Job) *JobResponse {
 		return jobResponse(err)
 	}
 
-	totals := map[string]sizeAndCount{}
+	storageTotal := map[string]sizeAndCount{}
+	total := sizeAndCount{}
 
 	for object := range client.List(ctx, src, true, storage.ListAllItems) {
 		if object.Type.IsDir() || object.Err != nil {
@@ -314,23 +321,25 @@ func Size(ctx context.Context, job *Job) *JobResponse {
 			continue
 		}
 		storageClass := string(object.StorageClass)
-		s := totals[storageClass]
-		s.size += object.Size
-		s.count++
-		totals[storageClass] = s
+		s := storageTotal[storageClass]
+		s.addObject(object)
+		storageTotal[storageClass] = s
+
+		total.addObject(object)
 	}
 
-	sz := sizeAndCount{}
 	if !job.opts.Has(opt.GroupByClass) {
-		for k, v := range totals {
-			sz.size += v.size
-			sz.count += v.count
-			delete(totals, k)
+		m := message.Size{
+			Source:        src.String(),
+			Count:         total.count,
+			Size:          total.size,
+			ShowHumanized: job.opts.Has(opt.HumanReadable),
 		}
-		totals["Total"] = sz
+		log.Logger.Success(m)
+		return jobResponse(err)
 	}
 
-	for k, v := range totals {
+	for k, v := range storageTotal {
 		m := message.Size{
 			Source:        src.String(),
 			StorageClass:  k,

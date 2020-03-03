@@ -170,10 +170,6 @@ func Upload(ctx context.Context, job *Job) *JobResponse {
 		metadata,
 	)
 
-	if job.opts.Has(opt.DeleteSource) && err == nil {
-		err = srcClient.Delete(ctx, src)
-	}
-
 	obj, _ := srcClient.Stat(ctx, src)
 	log.Logger.JSON(message.JSON{
 		Error:       err,
@@ -181,6 +177,10 @@ func Upload(ctx context.Context, job *Job) *JobResponse {
 		Destination: dst,
 		Object:      &storage.Object{Size: obj.Size},
 	})
+
+	if job.opts.Has(opt.DeleteSource) && err == nil {
+		err = srcClient.Delete(ctx, src)
+	}
 
 	return jobResponse(err)
 }

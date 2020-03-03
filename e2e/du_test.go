@@ -52,7 +52,7 @@ func TestDiskUsageMultipleS3Objects(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: suffix(` + 639 bytes in 2 objects: s3://%v [Total]`, bucket),
+		0: suffix(` + 639 bytes in 2 objects: s3://%v`, bucket),
 		1: equals(""),
 	})
 }

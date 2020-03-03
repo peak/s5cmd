@@ -160,7 +160,7 @@ type ParamType int
 const (
 	Unchecked          ParamType = iota // Arbitrary single parameter
 	UncheckedOneOrMore                  // One or more arbitrary parameters (special case)
-	S3Bucket                            //Bucket
+	S3Bucket                            // Bucket
 	S3Obj                               // Bucket or bucket + key
 	S3Dir                               // Bucket or bucket + key + "/" (prefix)
 	S3ObjOrDir                          // Bucket or bucket + key [+ "/"]

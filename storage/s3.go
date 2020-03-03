@@ -411,13 +411,12 @@ func (s *S3) ListBuckets(ctx context.Context, prefix string) ([]Bucket, error) {
 
 // MakeBucket creates an S3 bucket with the given name.
 func (s *S3) MakeBucket(ctx context.Context, name string) error {
-	o, err := s.api.CreateBucketWithContext(ctx, &s3.CreateBucketInput{
+	_, err := s.api.CreateBucketWithContext(ctx, &s3.CreateBucketInput{
 		Bucket: aws.String(name),
 	})
 	if err != nil {
 		return err
 	}
-	fmt.Printf("make bucket output %v\n", o)
 	return nil
 }
 

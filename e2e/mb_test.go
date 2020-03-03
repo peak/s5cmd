@@ -2,10 +2,11 @@ package e2e
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"gotest.tools/v3/icmd"
-	"testing"
 )
 
 func Test_MakeBucket_success(t *testing.T) {

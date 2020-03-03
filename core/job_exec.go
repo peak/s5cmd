@@ -337,6 +337,6 @@ func MakeBucket(ctx context.Context, job *Job) *JobResponse {
 	if err != nil {
 		return jobResponse(err)
 	}
-	log.Logger.Success(fmt.Sprintf("Bucket '%s' created successfully.", bucket))
+	log.Logger.Success("Successfully created bucket %s.", bucket)
 	return jobResponse(nil)
 }

@@ -65,7 +65,7 @@ func (j *Job) Run(ctx context.Context) {
 	}
 
 	response := cmdFunc(ctx, j)
-	if response == nil {
+	if response == nil || isCancelationError(response.err) {
 		return
 	}
 
@@ -90,6 +90,10 @@ func (j *Job) Run(ctx context.Context) {
 }
 
 func isCancelationError(err error) bool {
+	if err == nil {
+		return false
+	}
+
 	if errors.Is(err, context.Canceled) {
 		return true
 	}

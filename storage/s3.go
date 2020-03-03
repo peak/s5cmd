@@ -125,9 +125,10 @@ func (s *S3) Stat(ctx context.Context, url *objurl.ObjectURL) (*Object, error) {
 		return nil, err
 	}
 
+	etag := aws.StringValue(output.ETag)
 	return &Object{
 		URL:     url,
-		Etag:    aws.StringValue(output.ETag),
+		Etag:    strings.Trim(etag, `"`),
 		ModTime: aws.TimeValue(output.LastModified),
 		Size:    aws.Int64Value(output.ContentLength),
 	}, nil
@@ -169,7 +170,7 @@ func (s *S3) List(ctx context.Context, url *objurl.ObjectURL, _ bool, maxKeys in
 				newurl.Path = prefix
 				objCh <- &Object{
 					URL:  newurl,
-					Mode: os.ModeDir,
+					Type: ObjectType{os.ModeDir},
 				}
 
 				itemFound = true
@@ -188,11 +189,12 @@ func (s *S3) List(ctx context.Context, url *objurl.ObjectURL, _ bool, maxKeys in
 
 				newurl := url.Clone()
 				newurl.Path = aws.StringValue(c.Key)
+				etag := aws.StringValue(c.ETag)
 				objCh <- &Object{
 					URL:          newurl,
-					Etag:         aws.StringValue(c.ETag),
+					Etag:         strings.Trim(etag, `"`),
 					ModTime:      aws.TimeValue(c.LastModified),
-					Mode:         objtype,
+					Type:         ObjectType{objtype},
 					Size:         aws.Int64Value(c.Size),
 					StorageClass: StorageClass(aws.StringValue(c.StorageClass)),
 				}

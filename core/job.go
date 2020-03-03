@@ -8,14 +8,13 @@ import (
 	"github.com/hashicorp/go-multierror"
 
 	"github.com/peak/s5cmd/log"
+	"github.com/peak/s5cmd/message"
 	"github.com/peak/s5cmd/objurl"
 	"github.com/peak/s5cmd/op"
 	"github.com/peak/s5cmd/opt"
 	"github.com/peak/s5cmd/stats"
 	"github.com/peak/s5cmd/storage"
 )
-
-const dateFormat = "2006/01/02 15:04:05"
 
 type Runnable interface {
 	Run(ctx context.Context)
@@ -73,9 +72,17 @@ func (j *Job) Run(ctx context.Context) {
 	switch response.status {
 	case statusErr:
 		stats.Increment(stats.Fail)
-		log.Logger.Error("%q: %v", j, response.err)
+		msg := message.Error{
+			Job: j.String(),
+			Err: response.err.Error(),
+		}
+		log.Logger.Error(msg)
 	case statusWarning:
-		log.Logger.Warning("%q (%v)", j, response.err)
+		msg := message.Warning{
+			Job: j.String(),
+			Err: response.err.Error(),
+		}
+		log.Logger.Warning(msg)
 		fallthrough
 	default:
 		stats.Increment(j.statType)

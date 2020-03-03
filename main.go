@@ -6,7 +6,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"log"
+	stdlog "log"
 	"math"
 	"os"
 	"os/signal"
@@ -18,6 +18,7 @@ import (
 	"github.com/peak/s5cmd/complete"
 	"github.com/peak/s5cmd/core"
 	"github.com/peak/s5cmd/flags"
+	"github.com/peak/s5cmd/log"
 	"github.com/peak/s5cmd/stats"
 	"github.com/peak/s5cmd/version"
 )
@@ -33,7 +34,7 @@ func printOps(name string, counter uint64, elapsed time.Duration, extra string) 
 	}
 
 	ops := uint64(math.Floor((float64(counter) / secs) + 0.5))
-	log.Printf("# Stats: %-7s %10d %4d ops/sec%s", name, counter, ops, extra)
+	stdlog.Printf("# Stats: %-7s %10d %4d ops/sec%s", name, counter, ops, extra)
 }
 
 func main() {
@@ -52,10 +53,12 @@ func main() {
 	flags.Parse()
 
 	if done, err := complete.ParseFlagsAndRun(); err != nil {
-		log.Fatal("-ERR " + err.Error())
+		stdlog.Fatal("-ERR " + err.Error())
 	} else if done {
 		os.Exit(0)
 	}
+
+	log.Init()
 
 	if *flags.ShowVersion {
 		fmt.Println(version.GetHumanVersion())
@@ -64,13 +67,13 @@ func main() {
 
 	if *flags.EnableGops || os.Getenv("S5CMD_GOPS") != "" {
 		if err := agent.Listen(&agent.Options{NoShutdownCleanup: true}); err != nil {
-			log.Fatal("-ERR", err)
+			stdlog.Fatal("-ERR", err)
 		}
 	}
 
 	// validation must be done after the completion
 	if err := flags.Validate(); err != nil {
-		log.Print(err)
+		stdlog.Print(err)
 		os.Exit(2)
 	}
 
@@ -87,7 +90,7 @@ func main() {
 		ch := make(chan os.Signal, 1)
 		signal.Notify(ch, os.Interrupt, syscall.SIGTERM)
 		<-ch
-		log.Print("# Got signal, cleaning up...")
+		stdlog.Print("# Got signal, cleaning up...")
 		cancel()
 	}()
 
@@ -107,7 +110,7 @@ func main() {
 	}
 
 	if !cmdMode {
-		log.Printf("# Exiting with code %d", exitCode)
+		stdlog.Printf("# Exiting with code %d", exitCode)
 	}
 
 	if !cmdMode || *flags.PrintStats {

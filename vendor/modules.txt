@@ -81,7 +81,7 @@ github.com/ryszard/goskiplist/skiplist
 github.com/shabbyrobe/gocovmerge
 # github.com/termie/go-shutil v0.0.0-20140729215957-bcacb06fecae
 github.com/termie/go-shutil
-# golang.org/x/sys v0.0.0-20190310054646-10058d7d4faa
+# golang.org/x/sys v0.0.0-20190422165155-953cdadca894
 golang.org/x/sys/unix
 # golang.org/x/tools v0.0.0-20190624222133-a101b041ded4
 golang.org/x/tools/cover

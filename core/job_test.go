@@ -6,6 +6,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/peak/s5cmd/log"
 	"github.com/peak/s5cmd/objurl"
 	"github.com/peak/s5cmd/op"
 	"github.com/peak/s5cmd/opt"
@@ -51,6 +52,10 @@ var (
 		newURL("test-src"),
 	)
 )
+
+func init() {
+	log.Init()
+}
 
 func benchmarkJobRun(b *testing.B, j *Job) {
 	ctx := context.Background()

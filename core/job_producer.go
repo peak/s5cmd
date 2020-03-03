@@ -47,7 +47,7 @@ func (p *Producer) batchProduce(ctx context.Context, command *Command) {
 
 	for object := range client.List(ctx, src, isRecursive, storage.ListAllItems) {
 		// TODO(ig): log error
-		if object.Err != nil || object.Mode.IsDir() {
+		if object.Err != nil || object.Type.IsDir() {
 			continue
 		}
 

@@ -2,12 +2,12 @@ package core
 
 import (
 	"context"
-	"fmt"
 	"os"
-	"strings"
 
 	"github.com/hashicorp/go-multierror"
+
 	"github.com/peak/s5cmd/log"
+	"github.com/peak/s5cmd/message"
 	"github.com/peak/s5cmd/objurl"
 	"github.com/peak/s5cmd/opt"
 	"github.com/peak/s5cmd/storage"
@@ -26,7 +26,11 @@ func Copy(ctx context.Context, job *Job) *JobResponse {
 		return jobResponse(err)
 	}
 
-	log.Logger.Info("Copying %v...", src.Base())
+	msg := message.Info{
+		Operation: "Copying",
+		Target:    src.Base(),
+	}
+	log.Logger.Info(msg)
 
 	metadata := map[string]string{
 		"StorageClass": string(job.storageClass),
@@ -54,7 +58,11 @@ func Delete(ctx context.Context, job *Job) *JobResponse {
 		return jobResponse(err)
 	}
 
-	log.Logger.Info("Deleting %v...", src.Base())
+	msg := message.Info{
+		Operation: "Deleting",
+		Target:    src.Base(),
+	}
+	log.Logger.Info(msg)
 
 	err = client.Delete(ctx, src)
 	return jobResponse(err)
@@ -87,7 +95,11 @@ func Download(ctx context.Context, job *Job) *JobResponse {
 	}
 	defer f.Close()
 
-	log.Logger.Info("Downloading %v...", src.Base())
+	msg := message.Info{
+		Operation: "Downloading",
+		Target:    src.Base(),
+	}
+	log.Logger.Info(msg)
 
 	err = srcClient.Get(ctx, src, f)
 	if err != nil {
@@ -124,12 +136,16 @@ func Upload(ctx context.Context, job *Job) *JobResponse {
 		return jobResponse(err)
 	}
 
-	log.Logger.Info("Uploading %v...", src.Base())
-
 	metadata := map[string]string{
 		"StorageClass": string(job.storageClass),
 		"ContentType":  "", // TODO(ig): guess the mimetype (see: #33)
 	}
+
+	msg := message.Info{
+		Operation: "Uploading",
+		Target:    src.Base(),
+	}
+	log.Logger.Info(msg)
 
 	err = dstClient.Put(
 		ctx,
@@ -188,13 +204,22 @@ func BatchDelete(ctx context.Context, job *Job) *JobResponse {
 	var merror error
 	for obj := range resultch {
 		if obj.Err != nil {
-			merror = multierror.Append(merror, err)
+			merror = multierror.Append(merror, obj.Err)
+			err := message.Error{
+				Job: job.String(),
+				Err: obj.Err.Error(),
+			}
 
-			log.Logger.Error("%q: %v", job, err)
+			log.Logger.Error(err)
 			continue
 		}
 
-		log.Logger.Success("Batch-delete %v", obj.URL)
+		msg := message.Delete{
+			URL:  obj.URL,
+			Size: obj.Size,
+		}
+
+		log.Logger.Success(msg)
 	}
 
 	return jobResponse(merror)
@@ -214,16 +239,13 @@ func ListBuckets(ctx context.Context, job *Job) *JobResponse {
 	}
 
 	for _, b := range buckets {
-		log.Logger.Success(b.String())
+		log.Logger.Success(b)
 	}
 
 	return jobResponse(err)
 }
 
 func List(ctx context.Context, job *Job) *JobResponse {
-	showETags := job.opts.Has(opt.ListETags)
-	humanize := job.opts.Has(opt.HumanReadable)
-
 	src := job.args[0]
 
 	client, err := storage.NewClient(src)
@@ -237,39 +259,12 @@ func List(ctx context.Context, job *Job) *JobResponse {
 			continue
 		}
 
-		if object.Mode.IsDir() {
-			s := fmt.Sprintf(
-				"%19s %1s %-38s  %12s  %s",
-				"",
-				"",
-				"",
-				"DIR",
-				object.URL.Relative(),
-			)
-			log.Logger.Success(s)
-			continue
+		res := message.List{
+			Object:        object,
+			ShowEtag:      job.opts.Has(opt.ListETags),
+			ShowHumanized: job.opts.Has(opt.HumanReadable),
 		}
-
-		var etag, size string
-
-		if showETags {
-			etag = strings.Trim(object.Etag, `"`)
-		}
-		if humanize {
-			size = HumanizeBytes(object.Size)
-		} else {
-			size = fmt.Sprintf("%d", object.Size)
-		}
-
-		s := fmt.Sprintf(
-			"%19s %1s %-38s  %12s  %s",
-			object.ModTime.Format(dateFormat),
-			object.StorageClass.ShortCode(),
-			etag,
-			size,
-			object.URL.Relative(),
-		)
-		log.Logger.Success(s)
+		log.Logger.Success(res)
 	}
 
 	return jobResponse(nil)
@@ -290,7 +285,7 @@ func Size(ctx context.Context, job *Job) *JobResponse {
 	totals := map[string]sizeAndCount{}
 
 	for object := range client.List(ctx, src, true, storage.ListAllItems) {
-		if object.Mode.IsDir() || object.Err != nil {
+		if object.Type.IsDir() || object.Err != nil {
 			// TODO(ig): expose or log the error
 			continue
 		}
@@ -312,14 +307,14 @@ func Size(ctx context.Context, job *Job) *JobResponse {
 	}
 
 	for k, v := range totals {
-		var msg string
-		if job.opts.Has(opt.HumanReadable) {
-			msg = fmt.Sprintf("%s bytes in %d objects: %s [%s]", HumanizeBytes(v.size), v.count, src, k)
-		} else {
-			msg = fmt.Sprintf("%d bytes in %d objects: %s [%s]", v.size, v.count, src, k)
+		m := message.Size{
+			Source:        src.String(),
+			StorageClass:  k,
+			Count:         v.count,
+			Size:          v.size,
+			ShowHumanized: job.opts.Has(opt.HumanReadable),
 		}
-
-		log.Logger.Success(msg)
+		log.Logger.Success(m)
 	}
 
 	return jobResponse(err)

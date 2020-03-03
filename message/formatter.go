@@ -1,4 +1,4 @@
-package core
+package message
 
 import (
 	"fmt"
@@ -16,7 +16,7 @@ var humanDivisors = [...]struct {
 }
 
 // HumanizeBytes takes a byte-size and returns a human-readable string
-func HumanizeBytes(b int64) string {
+func humanizeBytes(b int64) string {
 	var (
 		suffix string
 		div    int64

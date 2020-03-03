@@ -31,7 +31,7 @@ func (f *Filesystem) Stat(ctx context.Context, url *objurl.ObjectURL) (*Object, 
 
 	return &Object{
 		URL:     url,
-		Mode:    st.Mode(),
+		Type:    ObjectType{st.Mode()},
 		Size:    st.Size(),
 		ModTime: st.ModTime(),
 		Etag:    "",
@@ -40,7 +40,7 @@ func (f *Filesystem) Stat(ctx context.Context, url *objurl.ObjectURL) (*Object, 
 
 func (f *Filesystem) List(ctx context.Context, url *objurl.ObjectURL, isRecursive bool, _ int64) <-chan *Object {
 	obj, err := f.Stat(ctx, url)
-	isDir := err == nil && obj.Mode.IsDir()
+	isDir := err == nil && obj.Type.IsDir()
 
 	if isDir {
 		return f.walkDir(ctx, url, isRecursive)
@@ -75,7 +75,7 @@ func (f *Filesystem) expandGlob(ctx context.Context, url *objurl.ObjectURL, isRe
 			url, _ := objurl.New(filename)
 			obj, _ := f.Stat(ctx, url)
 
-			if !obj.Mode.IsDir() {
+			if !obj.Type.IsDir() {
 				sendObject(ctx, obj, ch)
 			}
 
@@ -98,7 +98,7 @@ func (f *Filesystem) expandGlob(ctx context.Context, url *objurl.ObjectURL, isRe
 
 					obj := &Object{
 						URL:  url,
-						Mode: dirent.ModeType(),
+						Type: ObjectType{dirent.ModeType()},
 					}
 
 					sendObject(ctx, obj, ch)
@@ -125,7 +125,7 @@ func (f *Filesystem) readDir(ctx context.Context, url *objurl.ObjectURL, ch chan
 		obj := &Object{
 			URL:     url.Join(fi.Name()),
 			ModTime: fi.ModTime(),
-			Mode:    fi.Mode(),
+			Type:    ObjectType{fi.Mode()},
 			Size:    fi.Size(),
 		}
 		sendObject(ctx, obj, ch)
@@ -156,7 +156,7 @@ func (f *Filesystem) walkDir(ctx context.Context, url *objurl.ObjectURL, isRecur
 
 				obj := &Object{
 					URL:  url,
-					Mode: dirent.ModeType(),
+					Type: ObjectType{dirent.ModeType()},
 				}
 
 				sendObject(ctx, obj, ch)

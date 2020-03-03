@@ -2,6 +2,7 @@
 package objurl
 
 import (
+	"encoding/json"
 	"fmt"
 	"path"
 	"path/filepath"
@@ -239,6 +240,10 @@ func (o *ObjectURL) Match(key string) bool {
 
 func (o *ObjectURL) String() string {
 	return o.Absolute()
+}
+
+func (o *ObjectURL) MarshalJSON() ([]byte, error) {
+	return json.Marshal(o.String())
 }
 
 // parseBatch parses keys for wildcard operations.

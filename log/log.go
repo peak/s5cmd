@@ -22,7 +22,6 @@ const (
 	levelInfo
 	levelWarning
 	levelError
-	levelSuccess
 )
 
 func Init() {
@@ -31,14 +30,12 @@ func Init() {
 
 func (l logLevel) String() string {
 	switch l {
-	case levelSuccess:
-		return "+"
+	case levelInfo:
+		return ""
 	case levelError:
 		return "ERROR"
 	case levelWarning:
 		return "WARNING"
-	case levelInfo:
-		return "#"
 	case levelDebug:
 		return "DEBUG"
 	default:
@@ -83,7 +80,7 @@ func (l *logger) text(level logLevel, message message.Message) string {
 	switch level {
 	case levelError, levelWarning:
 		msg = fmt.Sprintf("%v %v", level, message.String())
-	case levelSuccess, levelInfo:
+	case levelInfo:
 		msg = fmt.Sprintf("                   %v %v", level, message.String())
 	}
 	return msg
@@ -111,20 +108,7 @@ func (l *logger) Debug(msg message.Message) {
 }
 
 func (l *logger) Info(msg message.Message) {
-	if *flags.JSON {
-		return
-	}
 	l.printf(levelInfo, msg)
-}
-
-func (l *logger) JSON(msg message.Message) {
-	if *flags.JSON {
-		stdoutCh <- msg.JSON()
-	}
-}
-
-func (l *logger) Success(msg message.Message) {
-	l.printf(levelSuccess, msg)
 }
 
 func (l *logger) Warning(msg message.Message) {

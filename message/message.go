@@ -16,24 +16,6 @@ type Message interface {
 	JSON() string
 }
 
-type Delete struct {
-	URL  *objurl.ObjectURL `json:"source"`
-	Size int64             `json:"size"`
-}
-
-func (d Delete) String() string {
-	return fmt.Sprintf("Batch-delete %v", d.URL)
-}
-
-func (d Delete) JSON() string {
-	json := JSON{
-		Operation: "batch-delete",
-		Success:   true,
-		Source:    d.URL,
-	}
-	return json.JSON()
-}
-
 type List struct {
 	Object        *storage.Object `json:"object"`
 	ShowEtag      bool            `json:"-"`
@@ -122,48 +104,28 @@ func (s Size) JSON() string {
 	return string(bytes)
 }
 
-type JSON struct {
+type Info struct {
 	Operation   string            `json:"operation"`
 	Success     bool              `json:"success"`
 	Source      *objurl.ObjectURL `json:"source"`
 	Destination *objurl.ObjectURL `json:"destination,omitempty"`
 	Object      *storage.Object   `json:"object,omitempty"`
-	Error       error             `json:"-"`
-	ErrorMsg    string            `json:"error,omitempty"`
 }
 
-func (u JSON) String() string {
-	return ""
+func (u Info) String() string {
+	return fmt.Sprintf("%v %v", u.Operation, u.Source)
 }
 
-func (u JSON) JSON() string {
+func (u Info) JSON() string {
 	u.Success = true
-
-	if u.Error != nil {
-		u.ErrorMsg = u.Error.Error()
-		u.Success = false
-	}
-
 	bytes, _ := json.Marshal(u)
 	return string(bytes)
 }
 
-type Info struct {
-	Operation string `json:"operation"`
-	Target    string `json:"target"`
-}
-
-func (i Info) String() string {
-	return fmt.Sprintf("%s %s...", i.Operation, i.Target)
-}
-
-func (i Info) JSON() string {
-	return ""
-}
-
 type Error struct {
-	Job string `json:"job"`
-	Err string `json:"error,omitempty"`
+	Operation string `json:"operation"`
+	Job       string `json:"job"`
+	Err       string `json:"error"`
 }
 
 func (e Error) String() string {
@@ -178,8 +140,9 @@ func (e Error) JSON() string {
 }
 
 type Warning struct {
-	Job string `json:"job"`
-	Err string `json:"error,omitempty"`
+	Operation string `json:"operation"`
+	Job       string `json:"job"`
+	Err       string `json:"error"`
 }
 
 func (w Warning) String() string {

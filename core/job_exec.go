@@ -26,12 +26,6 @@ func Copy(ctx context.Context, job *Job) *JobResponse {
 		return jobResponse(err)
 	}
 
-	msg := message.Info{
-		Operation: "Copying",
-		Target:    src.Base(),
-	}
-	log.Logger.Info(msg)
-
 	metadata := map[string]string{
 		"StorageClass": string(job.storageClass),
 	}
@@ -47,9 +41,12 @@ func Copy(ctx context.Context, job *Job) *JobResponse {
 		err = client.Delete(ctx, src)
 	}
 
-	log.Logger.JSON(message.JSON{
-		Operation:   "copy",
-		Error:       err,
+	if err != nil {
+		return jobResponse(err)
+	}
+
+	log.Logger.Info(message.Info{
+		Operation:   job.operation.String(),
 		Source:      src,
 		Destination: dst,
 		Object: &storage.Object{
@@ -58,7 +55,7 @@ func Copy(ctx context.Context, job *Job) *JobResponse {
 		},
 	})
 
-	return jobResponse(err)
+	return jobResponse(nil)
 }
 
 func Delete(ctx context.Context, job *Job) *JobResponse {
@@ -69,21 +66,17 @@ func Delete(ctx context.Context, job *Job) *JobResponse {
 		return jobResponse(err)
 	}
 
-	msg := message.Info{
-		Operation: "Deleting",
-		Target:    src.Base(),
-	}
-	log.Logger.Info(msg)
-
 	err = client.Delete(ctx, src)
+	if err != nil {
+		return jobResponse(err)
+	}
 
-	log.Logger.JSON(message.JSON{
-		Operation: "delete",
-		Error:     err,
+	log.Logger.Info(message.Info{
+		Operation: job.operation.String(),
 		Source:    src,
 	})
 
-	return jobResponse(err)
+	return jobResponse(nil)
 }
 
 func Download(ctx context.Context, job *Job) *JobResponse {
@@ -113,26 +106,24 @@ func Download(ctx context.Context, job *Job) *JobResponse {
 	}
 	defer f.Close()
 
-	msg := message.Info{
-		Operation: "Downloading",
-		Target:    src.Base(),
-	}
-	log.Logger.Info(msg)
-
 	size, err := srcClient.Get(ctx, src, f)
-	log.Logger.JSON(message.JSON{
-		Operation:   "download",
-		Error:       err,
-		Source:      src,
-		Destination: dst,
-		Object:      &storage.Object{Size: size},
-	})
 
 	if err != nil {
 		err = dstClient.Delete(ctx, dst)
 	} else if job.opts.Has(opt.DeleteSource) {
 		err = srcClient.Delete(ctx, src)
 	}
+
+	if err != nil {
+		return jobResponse(err)
+	}
+
+	log.Logger.Info(message.Info{
+		Operation:   job.operation.String(),
+		Source:      src,
+		Destination: dst,
+		Object:      &storage.Object{Size: size},
+	})
 
 	return jobResponse(err)
 }
@@ -167,11 +158,6 @@ func Upload(ctx context.Context, job *Job) *JobResponse {
 		"ContentType":  "", // TODO(ig): guess the mimetype (see: #33)
 	}
 
-	log.Logger.Info(message.Info{
-		Operation: "Uploading",
-		Target:    src.Base(),
-	})
-
 	err = dstClient.Put(
 		ctx,
 		f,
@@ -180,19 +166,24 @@ func Upload(ctx context.Context, job *Job) *JobResponse {
 	)
 
 	obj, _ := srcClient.Stat(ctx, src)
-	log.Logger.JSON(message.JSON{
-		Operation:   "upload",
-		Error:       err,
-		Source:      src,
-		Destination: dst,
-		Object:      &storage.Object{Size: obj.Size},
-	})
+	size := obj.Size
 
 	if job.opts.Has(opt.DeleteSource) && err == nil {
 		err = srcClient.Delete(ctx, src)
 	}
 
-	return jobResponse(err)
+	if err != nil {
+		return jobResponse(err)
+	}
+
+	log.Logger.Info(message.Info{
+		Operation:   job.operation.String(),
+		Source:      src,
+		Destination: dst,
+		Object:      &storage.Object{Size: size},
+	})
+
+	return jobResponse(nil)
 }
 
 func BatchDelete(ctx context.Context, job *Job) *JobResponse {
@@ -248,12 +239,10 @@ func BatchDelete(ctx context.Context, job *Job) *JobResponse {
 			continue
 		}
 
-		msg := message.Delete{
-			URL:  obj.URL,
-			Size: obj.Size,
-		}
-
-		log.Logger.Success(msg)
+		log.Logger.Info(message.Info{
+			Operation: job.operation.String(),
+			Source:    obj.URL,
+		})
 	}
 
 	return jobResponse(merror)
@@ -273,7 +262,7 @@ func ListBuckets(ctx context.Context, job *Job) *JobResponse {
 	}
 
 	for _, b := range buckets {
-		log.Logger.Success(b)
+		log.Logger.Info(b)
 	}
 
 	return jobResponse(err)
@@ -298,7 +287,7 @@ func List(ctx context.Context, job *Job) *JobResponse {
 			ShowEtag:      job.opts.Has(opt.ListETags),
 			ShowHumanized: job.opts.Has(opt.HumanReadable),
 		}
-		log.Logger.Success(res)
+		log.Logger.Info(res)
 	}
 
 	return jobResponse(nil)
@@ -345,7 +334,7 @@ func Size(ctx context.Context, job *Job) *JobResponse {
 			Size:          total.size,
 			ShowHumanized: job.opts.Has(opt.HumanReadable),
 		}
-		log.Logger.Success(m)
+		log.Logger.Info(m)
 		return jobResponse(err)
 	}
 
@@ -357,7 +346,7 @@ func Size(ctx context.Context, job *Job) *JobResponse {
 			Size:          v.size,
 			ShowHumanized: job.opts.Has(opt.HumanReadable),
 		}
-		log.Logger.Success(m)
+		log.Logger.Info(m)
 	}
 
 	return jobResponse(err)
@@ -375,6 +364,11 @@ func MakeBucket(ctx context.Context, job *Job) *JobResponse {
 	if err != nil {
 		return jobResponse(err)
 	}
-	log.Logger.Success("Successfully created bucket %s.", bucket)
+
+	log.Logger.Info(message.Info{
+		Operation: job.operation.String(),
+		Source:    bucket,
+	})
+
 	return jobResponse(nil)
 }

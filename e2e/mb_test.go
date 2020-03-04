@@ -15,10 +15,17 @@ func Test_MakeBucket_success(t *testing.T) {
 	defer cleanup()
 
 	bucketName := "test-bucket"
-	cmd := s5cmd(fmt.Sprintf("mb s3://%s", bucketName))
+	src := fmt.Sprintf("s3://%s", bucketName)
+
+	cmd := s5cmd("mb", src)
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: suffix(`make-bucket %v`, src),
+		1: equals(""),
+	})
 
 	_, err := s3client.HeadBucket(&s3.HeadBucketInput{Bucket: aws.String(bucketName)})
 	if err != nil {
@@ -32,8 +39,15 @@ func Test_MakeBucket_failure(t *testing.T) {
 	defer cleanup()
 
 	bucketName := "invalid/bucket/name"
-	cmd := s5cmd(fmt.Sprintf("mb s3://%s", bucketName))
+	src := fmt.Sprintf("s3://%s", bucketName)
+	cmd := s5cmd("mb", src)
+
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Expected{ExitCode: 127})
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: suffix(`-ERR "mb %v": invalid parameters to "mb": invalid s3 bucket`, src),
+		1: equals(""),
+	})
 }

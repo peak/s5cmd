@@ -73,14 +73,16 @@ func (j *Job) Run(ctx context.Context) {
 	case statusErr:
 		stats.Increment(stats.Fail)
 		msg := message.Error{
-			Job: j.String(),
-			Err: response.err.Error(),
+			Operation: j.operation.String(),
+			Job:       j.String(),
+			Err:       response.err.Error(),
 		}
 		log.Logger.Error(msg)
 	case statusWarning:
 		msg := message.Warning{
-			Job: j.String(),
-			Err: response.err.Error(),
+			Operation: j.operation.String(),
+			Job:       j.String(),
+			Err:       response.err.Error(),
 		}
 		log.Logger.Warning(msg)
 		fallthrough

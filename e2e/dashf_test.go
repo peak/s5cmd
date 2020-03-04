@@ -177,9 +177,9 @@ func TestDashFWildcardCountGreaterEqualThanWorkerCount(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: contains(""),
-		1: suffix(`# Downloading file.txt...`),
-		2: suffix(`# Downloading file.txt...`),
-		3: suffix(`# Downloading file.txt...`),
+		1: suffix(`download s3://%v/file.txt`, bucket),
+		2: suffix(`download s3://%v/file.txt`, bucket),
+		3: suffix(`download s3://%v/file.txt`, bucket),
 	}, sortInput(true))
 
 }

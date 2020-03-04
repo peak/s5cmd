@@ -244,14 +244,14 @@ func (o *ObjectURL) Match(key string) bool {
 }
 
 func (o *ObjectURL) String() string {
-	return o.Absolute()
+	if o.IsRemote() {
+		return o.Absolute()
+	}
+	return o.Base()
 }
 
 func (o *ObjectURL) MarshalJSON() ([]byte, error) {
-	if o.IsRemote() {
-		return json.Marshal(o.Absolute())
-	}
-	return json.Marshal(o.Base())
+	return json.Marshal(o.String())
 }
 
 // parseBatch parses keys for wildcard operations.

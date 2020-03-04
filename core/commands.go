@@ -20,4 +20,5 @@ var globalCmdRegistry = map[op.Operation]commandFunc{
 	op.List:        List,
 	op.ListBuckets: ListBuckets,
 	op.Size:        Size,
+	op.MakeBucket:  MakeBucket,
 }

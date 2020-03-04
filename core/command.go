@@ -161,6 +161,8 @@ var Commands = []CommandMap{
 
 	{"du", op.Size, []opt.ParamType{opt.S3ObjOrDir}, noOpts},
 	{"du", op.Size, []opt.ParamType{opt.S3WildObj}, noOpts},
+
+	{"mb", op.MakeBucket, []opt.ParamType{opt.S3Bucket}, noOpts},
 }
 
 // String formats the CommandMap using its Operation and ParamTypes

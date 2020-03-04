@@ -324,3 +324,19 @@ func Size(ctx context.Context, job *Job) *JobResponse {
 
 	return jobResponse(err)
 }
+
+func MakeBucket(ctx context.Context, job *Job) *JobResponse {
+	bucket := job.args[0]
+
+	client, err := storage.NewClient(bucket)
+	if err != nil {
+		return jobResponse(err)
+	}
+
+	err = client.MakeBucket(ctx, bucket.Bucket)
+	if err != nil {
+		return jobResponse(err)
+	}
+	log.Logger.Success("Successfully created bucket %s.", bucket)
+	return jobResponse(nil)
+}

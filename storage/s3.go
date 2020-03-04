@@ -412,6 +412,14 @@ func (s *S3) ListBuckets(ctx context.Context, prefix string) ([]Bucket, error) {
 	return buckets, nil
 }
 
+// MakeBucket creates an S3 bucket with the given name.
+func (s *S3) MakeBucket(ctx context.Context, name string) error {
+	_, err := s.api.CreateBucketWithContext(ctx, &s3.CreateBucketInput{
+		Bucket: aws.String(name),
+	})
+	return err
+}
+
 // UpdateRegion overrides AWS session with the region of given bucket.
 func (s *S3) UpdateRegion(bucket string) error {
 	o, err := s.api.GetBucketLocation(&s3.GetBucketLocationInput{

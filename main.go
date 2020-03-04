@@ -7,12 +7,10 @@ import (
 	"flag"
 	"fmt"
 	stdlog "log"
-	"math"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
-	"time"
 
 	"github.com/google/gops/agent"
 	"github.com/peak/s5cmd/complete"
@@ -22,20 +20,6 @@ import (
 	"github.com/peak/s5cmd/stats"
 	"github.com/peak/s5cmd/version"
 )
-
-func printOps(name string, counter uint64, elapsed time.Duration, extra string) {
-	if counter == 0 {
-		return
-	}
-
-	secs := elapsed.Seconds()
-	if secs == 0 {
-		secs = 1
-	}
-
-	ops := uint64(math.Floor((float64(counter) / secs) + 0.5))
-	stdlog.Printf("# Stats: %-7s %10d %4d ops/sec%s", name, counter, ops, extra)
-}
 
 func main() {
 	flag.Usage = func() {
@@ -57,8 +41,6 @@ func main() {
 	} else if done {
 		os.Exit(0)
 	}
-
-	log.Init()
 
 	if *flags.ShowVersion {
 		fmt.Println(version.GetHumanVersion())
@@ -94,6 +76,8 @@ func main() {
 		cancel()
 	}()
 
+	log.Init()
+
 	wp := core.NewWorkerManager(cancel)
 	if cmdMode {
 		wp.RunCmd(ctx, cmd)
@@ -101,28 +85,10 @@ func main() {
 		wp.Run(ctx, *flags.CommandFile)
 	}
 
-	failops := stats.Get(stats.Fail)
-
 	exitCode := 0
-	if failops > 0 {
+	if stats.HasFailed() {
 		// TODO(ig): should return 1 for errors.
 		exitCode = 127
-	}
-
-	if !cmdMode {
-		stdlog.Printf("# Exiting with code %d", exitCode)
-	}
-
-	if !cmdMode || *flags.PrintStats {
-		elapsed := stats.Elapsed()
-
-		s3ops := stats.Get(stats.S3Op)
-		fileops := stats.Get(stats.FileOp)
-
-		printOps("S3", s3ops, elapsed, "")
-		printOps("File", fileops, elapsed, "")
-		printOps("Failed", failops, elapsed, "")
-		printOps("Total", s3ops+fileops+failops, elapsed, fmt.Sprintf(" %v", elapsed))
 	}
 
 	os.Exit(exitCode)

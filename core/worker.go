@@ -61,6 +61,7 @@ func (w *WorkerManager) runJob(ctx context.Context, job Runnable) {
 func (w *WorkerManager) RunCmd(ctx context.Context, cmd string) {
 	stats.StartTimer()
 
+	defer w.closeStdout(false)
 	defer w.close()
 
 	command := w.parseCommand(cmd)
@@ -92,8 +93,14 @@ func (w *WorkerManager) parseCommand(cmd string) *Command {
 func (w *WorkerManager) close() {
 	w.wg.Wait()
 	close(w.semaphore)
+}
+
+// closeStdout prints stats message if it is enabled
+// and closes stdout channel.
+func (w *WorkerManager) closeStdout(force bool) {
 	// Workermanager is responsible for logging, hence we run the close routine
 	// here.
+	stats.Print(force)
 	log.Logger.Close()
 }
 
@@ -102,6 +109,7 @@ func (w *WorkerManager) close() {
 func (w *WorkerManager) Run(ctx context.Context, filename string) {
 	stats.StartTimer()
 
+	defer w.closeStdout(true)
 	defer w.close()
 
 	var r io.ReadCloser

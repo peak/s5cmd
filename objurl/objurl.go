@@ -101,6 +101,11 @@ func (o *ObjectURL) IsRemote() bool {
 	return o.Type == remoteObject
 }
 
+// IsBucket returns true if the object url contains only bucket name
+func (o *ObjectURL) IsBucket() bool {
+	return o.IsRemote() && o.Path == ""
+}
+
 // Absolute returns the absolute URL format of the object.
 func (o *ObjectURL) Absolute() string {
 	if !o.IsRemote() {

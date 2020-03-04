@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -34,6 +35,8 @@ const (
 
 	// DeleteItemsMax is the max allowed items to be deleted on single HTTP request.
 	DeleteItemsMax = 1000
+
+	transferAccelEndpoint = "s3-accelerate.amazonaws.com"
 )
 
 func newS3Factory() func() (*S3, error) {
@@ -99,7 +102,7 @@ type S3Opts struct {
 
 // NewS3Storage creates new S3 session.
 func NewS3Storage(opts S3Opts) (*S3, error) {
-	awsSession, err := newAWSSession(opts)
+	awsSession, err := newSession(opts)
 	if err != nil {
 		return nil, err
 	}
@@ -414,6 +417,14 @@ func (s *S3) ListBuckets(ctx context.Context, prefix string) ([]Bucket, error) {
 	return buckets, nil
 }
 
+// MakeBucket creates an S3 bucket with the given name.
+func (s *S3) MakeBucket(ctx context.Context, name string) error {
+	_, err := s.api.CreateBucketWithContext(ctx, &s3.CreateBucketInput{
+		Bucket: aws.String(name),
+	})
+	return err
+}
+
 // UpdateRegion overrides AWS session with the region of given bucket.
 func (s *S3) UpdateRegion(bucket string) error {
 	o, err := s.api.GetBucketLocation(&s3.GetBucketLocationInput{
@@ -429,7 +440,7 @@ func (s *S3) UpdateRegion(bucket string) error {
 		return nil
 	}
 
-	ses, err := newAWSSession(S3Opts{
+	ses, err := newSession(S3Opts{
 		MaxRetries:             s.opts.MaxRetries,
 		EndpointURL:            s.opts.EndpointURL,
 		Region:                 aws.StringValue(o.LocationConstraint),
@@ -450,48 +461,83 @@ func (s *S3) UpdateRegion(bucket string) error {
 
 // NewAwsSession initializes a new AWS session with region fallback and custom
 // options.
-func newAWSSession(opts S3Opts) (*session.Session, error) {
-	newSession := func(c *aws.Config) (*session.Session, error) {
-		useSharedConfig := session.SharedConfigEnable
+func newSession(opts S3Opts) (*session.Session, error) {
+	awsCfg := aws.NewConfig()
 
-		// Reverse of what the SDK does: if AWS_SDK_LOAD_CONFIG is 0 (or a falsy value) disable shared configs
+	var endpoint url.URL
+	if opts.EndpointURL != "" {
+		u, err := url.Parse(opts.EndpointURL)
+		if err != nil {
+			return nil, fmt.Errorf("parse endpoint %q: %v", opts.EndpointURL, err)
+		}
+		endpoint = *u
+	}
+
+	// use virtual-host style everywhere except localhost. e2e testing becomes
+	// harder if virtual-host style (subdomains) is used.
+	forcePathStyle := false
+	if isLocalhost(endpoint) {
+		forcePathStyle = true
+	}
+
+	useAccelerate := supportsTransferAcceleration(endpoint)
+	// AWS SDK handles transfer acceleration automatically. Setting the
+	// Endpoint to a transfer acceleration endpoint would cause bucket
+	// operations fail.
+	if useAccelerate {
+		endpoint = url.URL{}
+	}
+
+	region := endpoints.UsEast1RegionID
+	if opts.Region != "" {
+		region = opts.Region
+	}
+
+	var httpClient *http.Client
+	if opts.NoVerifySSL {
+		httpClient = insecureHTTPClient
+	}
+
+	awsCfg = awsCfg.
+		WithEndpoint(endpoint.String()).
+		WithRegion(region).
+		WithS3ForcePathStyle(forcePathStyle).
+		WithS3UseAccelerate(useAccelerate).
+		WithHTTPClient(httpClient).
+		WithMaxRetries(opts.MaxRetries)
+
+	useSharedConfig := session.SharedConfigEnable
+	{
+		// Reverse of what the SDK does: if AWS_SDK_LOAD_CONFIG is 0 (or a
+		// falsy value) disable shared configs
 		loadCfg := os.Getenv("AWS_SDK_LOAD_CONFIG")
 		if loadCfg != "" {
 			if enable, _ := strconv.ParseBool(loadCfg); !enable {
 				useSharedConfig = session.SharedConfigDisable
 			}
 		}
-		return session.NewSessionWithOptions(session.Options{Config: *c, SharedConfigState: useSharedConfig})
 	}
 
-	awsCfg := aws.NewConfig().WithMaxRetries(opts.MaxRetries)
+	return session.NewSessionWithOptions(
+		session.Options{
+			Config:            *awsCfg,
+			SharedConfigState: useSharedConfig,
+		},
+	)
+}
 
-	if opts.EndpointURL != "" {
-		awsCfg = awsCfg.WithEndpoint(opts.EndpointURL).WithS3ForcePathStyle(true)
-	}
+var insecureHTTPClient = &http.Client{
+	Transport: &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	},
+}
 
-	if opts.NoVerifySSL {
-		awsCfg = awsCfg.WithHTTPClient(&http.Client{Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		}})
-	}
+func supportsTransferAcceleration(endpoint url.URL) bool {
+	return endpoint.Hostname() == transferAccelEndpoint
+}
 
-	if opts.Region != "" {
-		awsCfg = awsCfg.WithRegion(opts.Region)
-		return newSession(awsCfg)
-	}
-
-	ses, err := newSession(awsCfg)
-	if err != nil {
-		return nil, err
-	}
-	if (*ses).Config.Region == nil || *(*ses).Config.Region == "" {
-		// No region specified in env or config, fallback to us-east-1
-		awsCfg = awsCfg.WithRegion(endpoints.UsEast1RegionID)
-		ses, err = newSession(awsCfg)
-	}
-
-	return ses, err
+func isLocalhost(endpoint url.URL) bool {
+	return endpoint.Hostname() == "127.0.0.1"
 }
 
 func errHasCode(err error, code string) bool {

@@ -28,7 +28,7 @@ func parseArgumentByType(s string, t opt.ParamType, fnObj *objurl.ObjectURL) (*o
 	case opt.Unchecked, opt.UncheckedOneOrMore:
 		return objurl.New(s)
 
-	case opt.S3Obj, opt.S3ObjOrDir, opt.S3WildObj, opt.S3Dir, opt.S3SimpleObj:
+	case opt.S3Bucket, opt.S3Obj, opt.S3ObjOrDir, opt.S3WildObj, opt.S3Dir, opt.S3SimpleObj:
 		url, err := objurl.New(s)
 		if err != nil {
 			return nil, err
@@ -39,6 +39,10 @@ func parseArgumentByType(s string, t opt.ParamType, fnObj *objurl.ObjectURL) (*o
 		}
 
 		s = url.Absolute()
+
+		if t == opt.S3Bucket && !url.IsBucket() {
+			return nil, errors.New("invalid s3 bucket")
+		}
 
 		if (t == opt.S3Obj || t == opt.S3ObjOrDir || t == opt.S3SimpleObj) && objurl.HasGlobCharacter(url.Path) {
 			return nil, errors.New("s3 key cannot contain wildcards")

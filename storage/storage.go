@@ -32,6 +32,7 @@ type Storage interface {
 	Delete(context.Context, *objurl.ObjectURL) error
 	MultiDelete(context.Context, <-chan *objurl.ObjectURL) <-chan *Object
 	ListBuckets(context.Context, string) ([]Bucket, error)
+	MakeBucket(context.Context, string) error
 	UpdateRegion(string) error
 }
 

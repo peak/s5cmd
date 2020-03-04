@@ -3,7 +3,7 @@ module github.com/peak/s5cmd
 go 1.13
 
 require (
-	github.com/aws/aws-sdk-go v1.17.4
+	github.com/aws/aws-sdk-go v1.29.14
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/google/go-cmp v0.4.0
 	github.com/google/gops v0.3.2
@@ -13,9 +13,7 @@ require (
 	github.com/kardianos/osext v0.0.0-20170510131534-ae77be60afb1 // indirect
 	github.com/karrick/godirwalk v1.15.3
 	github.com/kr/pretty v0.1.0 // indirect
-	github.com/pkg/errors v0.9.1 // indirect
 	github.com/posener/complete v0.0.0-20171104095702-dc2bc5a81acc
-	github.com/stretchr/testify v1.4.0 // indirect
 	github.com/termie/go-shutil v0.0.0-20140729215957-bcacb06fecae
 	golang.org/x/sys v0.0.0-20190422165155-953cdadca894 // indirect
 	golang.org/x/text v0.3.2 // indirect

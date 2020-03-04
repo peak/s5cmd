@@ -71,14 +71,14 @@ func TestGetSingleS3ObjectJSON(t *testing.T) {
 			{	
 				"operation": "download",
 				"success": true,
-				"source": "s3://test-get-single-s-3-object-json/testfile1.txt",
+				"source": "s3://%v/testfile1.txt",
 				"destination": "testfile1.txt",
 				"object": {
 					"type": "file",
 					"size":22
 				}
 			}
-		`),
+		`, bucket),
 		1: equals(""),
 	})
 

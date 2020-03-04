@@ -76,9 +76,9 @@ func TestRemoveSingleS3ObjectJSON(t *testing.T) {
 			{
 				"operation": "delete",
 				"success": true,
-				"source": "s3://test-remove-single-s-3-object-json/testfile1.txt"
+				"source": "s3://%v/%v"
 			}
-		`),
+		`, bucket, filename),
 		1: equals(""),
 	})
 

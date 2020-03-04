@@ -80,8 +80,8 @@ func TestDashFFromStdinJSON(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(""),
-		1: contains(`{"key":"s3://test-dash-f-from-stdin-json/file1.txt",`),
-		2: contains(`{"key":"s3://test-dash-f-from-stdin-json/file2.txt",`),
+		1: prefix(`{"key":"s3://%v/file1.txt",`, bucket),
+		2: prefix(`{"key":"s3://%v/file2.txt",`, bucket),
 	}, sortInput(true))
 }
 
@@ -144,8 +144,8 @@ func TestDashFFromFileJSON(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(""),
-		1: contains(`{"key":"s3://test-dash-f-from-file-json/file1.txt",`),
-		2: contains(`{"key":"s3://test-dash-f-from-file-json/file2.txt",`),
+		1: prefix(`{"key":"s3://%v/file1.txt",`, bucket),
+		2: prefix(`{"key":"s3://%v/file2.txt",`, bucket),
 	}, sortInput(true))
 
 }

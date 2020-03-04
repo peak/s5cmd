@@ -108,7 +108,7 @@ func TestListSingleS3ObjectJSON(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: prefix(`{"key":"s3://test-list-single-s-3-object-json/testfile1.txt",`),
+		0: prefix(`{"key":"s3://%v/testfile1.txt",`, bucket),
 		1: equals(""),
 	})
 }

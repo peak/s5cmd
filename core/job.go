@@ -7,8 +7,6 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
-	"github.com/peak/s5cmd/log"
-	"github.com/peak/s5cmd/message"
 	"github.com/peak/s5cmd/objurl"
 	"github.com/peak/s5cmd/op"
 	"github.com/peak/s5cmd/opt"
@@ -72,19 +70,9 @@ func (j *Job) Run(ctx context.Context) {
 	switch response.status {
 	case statusErr:
 		stats.Increment(stats.Fail)
-		msg := message.Error{
-			Operation: j.operation.String(),
-			Job:       j.String(),
-			Err:       response.err.Error(),
-		}
-		log.Logger.Error(msg)
+		errorMessage(j, response.err)
 	case statusWarning:
-		msg := message.Warning{
-			Operation: j.operation.String(),
-			Job:       j.String(),
-			Err:       response.err.Error(),
-		}
-		log.Logger.Warning(msg)
+		warningMessage(j, response.err)
 		fallthrough
 	default:
 		stats.Increment(j.statType)

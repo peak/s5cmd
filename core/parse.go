@@ -8,8 +8,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/peak/s5cmd/log"
-	"github.com/peak/s5cmd/message"
 	"github.com/peak/s5cmd/objurl"
 	"github.com/peak/s5cmd/opt"
 )
@@ -263,14 +261,10 @@ func parseSingleCommand(cmd string) (*Command, error) {
 				}
 				a, parseArgErr = parseArgumentByType(partVal, t, fnObj)
 				if parseArgErr != nil {
-					msg := message.Debug{
-						Content: fmt.Sprintf("Error parsing %s as %s: %s", partVal, t.String(), parseArgErr.Error()),
-					}
-					log.Logger.Debug(msg)
+					debug("Error parsing %s as %s: %s", partVal, t.String(), parseArgErr.Error())
 					break
 				}
-				msg := message.Debug{Content: fmt.Sprintf("Parsed %s as %s", partVal, t.String())}
-				log.Logger.Debug(msg)
+				debug("Parsed %s as %s", partVal, t.String())
 
 				command.args = append(command.args, a)
 
@@ -289,17 +283,10 @@ func parseSingleCommand(cmd string) (*Command, error) {
 					}
 					a, parseArgErr = parseArgumentByType(p, lastType, fnObj)
 					if parseArgErr != nil {
-						msg := message.Debug{
-							Content: fmt.Sprintf("Error parsing %s as %s: %s", p, lastType.String(), parseArgErr.Error()),
-						}
-						log.Logger.Debug(msg)
+						debug("Error parsing %s as %s: %s", p, lastType.String(), parseArgErr.Error())
 						break
 					}
-					msg := message.Debug{
-						Content: fmt.Sprintf("Parsed %s as %s", p, lastType.String()),
-					}
-					log.Logger.Debug(msg)
-
+					debug("Parsed %s as %s", p, lastType.String())
 					command.args = append(command.args, a)
 				}
 			}

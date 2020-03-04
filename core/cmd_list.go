@@ -28,7 +28,7 @@ func ListBuckets(ctx context.Context, job *Job) *JobResponse {
 		log.Logger.Info(b)
 	}
 
-	return jobResponse(err)
+	return jobResponse(nil)
 }
 
 func List(ctx context.Context, job *Job) *JobResponse {

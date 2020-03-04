@@ -55,5 +55,5 @@ func Download(ctx context.Context, job *Job) *JobResponse {
 		Object:      &storage.Object{Size: size},
 	})
 
-	return jobResponse(err)
+	return jobResponse(nil)
 }

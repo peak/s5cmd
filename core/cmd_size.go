@@ -66,7 +66,7 @@ func Size(ctx context.Context, job *Job) *JobResponse {
 		log.Logger.Info(m)
 	}
 
-	return jobResponse(err)
+	return jobResponse(nil)
 }
 
 // SizeMessage is the structure for logging disk usage.

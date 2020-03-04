@@ -75,31 +75,17 @@ func New() *logger {
 	return logger
 }
 
-func (l *logger) text(level logLevel, message message.Message) string {
-	var msg string
-	switch level {
-	case levelError, levelWarning:
-		msg = fmt.Sprintf("%v %v", level, message.String())
-	case levelInfo:
-		msg = fmt.Sprintf("                   %v %v", level, message.String())
-	}
-	return msg
-}
-
-func (l *logger) json(_ logLevel, message message.Message) string {
-	// TODO: print log level
-	return message.JSON()
-}
-
 func (l *logger) printf(level logLevel, message message.Message) {
 	if level < l.level {
 		return
 	}
 
 	if *flags.JSON {
-		stdoutCh <- l.json(level, message)
+		msg := message.JSON()
+		stdoutCh <- msg
 	} else {
-		stdoutCh <- l.text(level, message)
+		msg := fmt.Sprintf("%v %v", level, message.String())
+		stdoutCh <- msg
 	}
 }
 

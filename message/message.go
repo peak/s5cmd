@@ -10,6 +10,7 @@ import (
 )
 
 const dateFormat = "2006/01/02 15:04:05"
+const listFormat = "%19s %1s %-6s %12s %s"
 
 type Message interface {
 	fmt.Stringer
@@ -35,7 +36,7 @@ func (l List) humanize() string {
 func (l List) String() string {
 	if l.Object.Type.IsDir() {
 		s := fmt.Sprintf(
-			"%19s %1s %-38s  %12s  %s",
+			listFormat,
 			"",
 			"",
 			"",
@@ -51,7 +52,7 @@ func (l List) String() string {
 	}
 
 	s := fmt.Sprintf(
-		"%19s %1s %-38s  %12s  %s",
+		listFormat,
 		l.Object.ModTime.Format(dateFormat),
 		l.Object.StorageClass.ShortCode(),
 		etag,

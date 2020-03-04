@@ -83,12 +83,14 @@ func (s stats) JSON() string {
 		} `json:"success"`
 		Fail        uint64        `json:"fail_count"`
 		ElapsedTime time.Duration `json:"elapsed_time"`
+		TimeUnit    string        `json:"time_unit"`
 	}
 
 	statsJson.Op = "stats"
 	statsJson.Success.File = get(FileOp)
 	statsJson.Success.S3 = get(S3Op)
 	statsJson.ElapsedTime = elapsed()
+	statsJson.TimeUnit = "nanosecond"
 
 	r, _ := json.Marshal(statsJson)
 	return string(r)

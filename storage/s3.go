@@ -414,10 +414,7 @@ func (s *S3) MakeBucket(ctx context.Context, name string) error {
 	_, err := s.api.CreateBucketWithContext(ctx, &s3.CreateBucketInput{
 		Bucket: aws.String(name),
 	})
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 // UpdateRegion overrides AWS session with the region of given bucket.

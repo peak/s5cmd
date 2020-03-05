@@ -42,13 +42,11 @@ type ErrorMessage struct {
 
 // String is the string representation of ErrorMessage.
 func (e ErrorMessage) String() string {
-	err := cleanupSpaces(e.Err)
-	return fmt.Sprintf(e.format, e.Job, err)
+	return fmt.Sprintf(e.format, e.Job, e.Err)
 }
 
 // JSON is the JSON representation of ErrorMessage.
 func (e ErrorMessage) JSON() string {
-	e.Err = cleanupSpaces(e.Err)
 	b, _ := json.Marshal(e)
 	return string(b)
 }
@@ -63,7 +61,7 @@ func newErrorMessage(job *Job, err error, format string) ErrorMessage {
 	return ErrorMessage{
 		Operation: job.operation.String(),
 		Job:       job.String(),
-		Err:       errStr,
+		Err:       cleanupSpaces(errStr),
 		format:    format,
 	}
 }

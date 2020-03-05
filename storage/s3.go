@@ -373,7 +373,7 @@ func (s *S3) doDelete(ctx context.Context, chunk chunk, resultch chan *Object) {
 
 // MultiDelete is a asynchronous removal operation for multiple objects.
 // It reads given url channel, creates multiple chunks and run these
-// chunks by parallel. Each chunk may have at most 1000 objects since DeleteObjects
+// chunks in parallel. Each chunk may have at most 1000 objects since DeleteObjects
 // API has a limitation.
 // See: https://docs.aws.amazon.com/AmazonS3/latest/API/API_DeleteObjects.html.
 func (s *S3) MultiDelete(ctx context.Context, urlch <-chan *objurl.ObjectURL) <-chan *Object {

@@ -85,7 +85,7 @@ func (w *WorkerManager) parseCommand(cmd string) *Command {
 		log.Logger.Error(ErrorMessage{
 			Job:    cmd,
 			Err:    err.Error(),
-			Format: `"%s": %v`,
+			format: `"%s": %v`,
 		})
 		stats.Increment(stats.Fail)
 		return nil

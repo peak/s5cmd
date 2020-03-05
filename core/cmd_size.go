@@ -46,10 +46,10 @@ func Size(ctx context.Context, job *Job) *JobResponse {
 
 	if !job.opts.Has(opt.GroupByClass) {
 		m := SizeMessage{
-			Source:        src.String(),
-			Count:         total.count,
-			Size:          total.size,
-			ShowHumanized: job.opts.Has(opt.HumanReadable),
+			Source:       src.String(),
+			Count:        total.count,
+			Size:         total.size,
+			shoHumanized: job.opts.Has(opt.HumanReadable),
 		}
 		log.Logger.Info(m)
 		return jobResponse(err)
@@ -57,11 +57,11 @@ func Size(ctx context.Context, job *Job) *JobResponse {
 
 	for k, v := range storageTotal {
 		m := SizeMessage{
-			Source:        src.String(),
-			StorageClass:  k,
-			Count:         v.count,
-			Size:          v.size,
-			ShowHumanized: job.opts.Has(opt.HumanReadable),
+			Source:       src.String(),
+			StorageClass: k,
+			Count:        v.count,
+			Size:         v.size,
+			shoHumanized: job.opts.Has(opt.HumanReadable),
 		}
 		log.Logger.Info(m)
 	}
@@ -76,13 +76,13 @@ type SizeMessage struct {
 	Count        int64  `json:"count"`
 	Size         int64  `json:"size"`
 
-	ShowHumanized bool `json:"-"`
+	shoHumanized bool
 }
 
 // humanize is a helper function to humanize bytes.
 func (s SizeMessage) humanize() string {
 	var size string
-	if s.ShowHumanized {
+	if s.shoHumanized {
 		size = humanizeBytes(s.Size)
 	} else {
 		size = fmt.Sprintf("%d", s.Size)

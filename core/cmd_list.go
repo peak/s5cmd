@@ -47,8 +47,8 @@ func List(ctx context.Context, job *Job) *JobResponse {
 
 		res := ListMessage{
 			Object:        object,
-			ShowEtag:      job.opts.Has(opt.ListETags),
-			ShowHumanized: job.opts.Has(opt.HumanReadable),
+			showEtag:      job.opts.Has(opt.ListETags),
+			showHumanized: job.opts.Has(opt.HumanReadable),
 		}
 		log.Logger.Info(res)
 	}
@@ -58,15 +58,16 @@ func List(ctx context.Context, job *Job) *JobResponse {
 
 // ListMessage is a structure for logging ls results.
 type ListMessage struct {
-	Object        *storage.Object `json:"object"`
-	ShowEtag      bool            `json:"-"`
-	ShowHumanized bool            `json:"-"`
+	Object *storage.Object `json:"object"`
+
+	showEtag      bool
+	showHumanized bool
 }
 
 // humanize is a helper function to humanize bytes.
 func (l ListMessage) humanize() string {
 	var size string
-	if l.ShowHumanized {
+	if l.showHumanized {
 		size = humanizeBytes(l.Object.Size)
 	} else {
 		size = fmt.Sprintf("%d", l.Object.Size)
@@ -94,7 +95,7 @@ func (l ListMessage) String() string {
 	}
 
 	var etag string
-	if l.ShowEtag {
+	if l.showEtag {
 		etag = l.Object.Etag
 	}
 

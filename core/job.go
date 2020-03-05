@@ -70,9 +70,9 @@ func (j *Job) Run(ctx context.Context) {
 	switch response.status {
 	case statusErr:
 		stats.Increment(stats.Fail)
-		errorMessage(j, response.err)
+		printError(j, response.err)
 	case statusWarning:
-		warningMessage(j, response.err)
+		printWarning(j, response.err)
 		fallthrough
 	default:
 		stats.Increment(j.statType)

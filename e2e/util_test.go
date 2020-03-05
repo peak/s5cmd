@@ -4,7 +4,7 @@ package e2e
 
 import (
 	"bytes"
-	jsonencode "encoding/json"
+	jsonpkg "encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -380,8 +380,8 @@ func match(expected string) compareFunc {
 }
 
 func isJSON(str string) bool {
-	var js jsonencode.RawMessage
-	return jsonencode.Unmarshal([]byte(str), &js) == nil
+	var js jsonpkg.RawMessage
+	return jsonpkg.Unmarshal([]byte(str), &js) == nil
 }
 
 func equals(format string, args ...interface{}) compareFunc {

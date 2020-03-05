@@ -32,7 +32,7 @@ var (
 	EnableGops          = flag.Bool("gops", false, "Initialize gops agent")
 	NoVerifySSL         = flag.Bool("no-verify-ssl", false, "Don't verify SSL certificates")
 	JSON                = flag.Bool("json", false, "JSON formatted output")
-	LogLevel            = flag.String("log-level", "info", "Log level (possible values: 'debug', 'info', 'warning', error'")
+	LogLevel            = flag.String("log", "info", "Log level (possible values: 'debug', 'info', 'warning', error'")
 
 	InstallCompletion   = flag.Bool("cmp-install", false, "Install shell completion")
 	UninstallCompletion = flag.Bool("cmp-uninstall", false, "Uninstall shell completion")

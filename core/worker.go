@@ -47,7 +47,7 @@ func (w *WorkerManager) release() {
 }
 
 // runJob acquires semaphore and creates new goroutine for the job.
-// It exits goroutine after all jobs are done and releases the semaphore.
+// It exits goroutine after the job is done and releases the semaphore.
 func (w *WorkerManager) runJob(ctx context.Context, job Runnable) {
 	w.acquire()
 	go func() {
@@ -102,7 +102,7 @@ func (w *WorkerManager) close() {
 // closeStdout prints stats message if it is enabled
 // and closes stdout channel.
 func (w *WorkerManager) closeStdout(force bool) {
-	// Workermanager is responsible for logging, hence we run the close routine
+	// WorkerManager is responsible for logging, hence we run the close routine
 	// here.
 	stats.Print(force)
 	log.Logger.Close()

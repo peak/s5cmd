@@ -12,8 +12,6 @@ import (
 	"github.com/peak/s5cmd/objurl"
 )
 
-const dateFormat = "2006/01/02 15:04:05"
-
 var (
 	// ErrGivenObjectNotFound indicates a specified object is not found.
 	ErrGivenObjectNotFound = fmt.Errorf("given object not found")
@@ -37,7 +35,7 @@ type Storage interface {
 }
 
 // NewClient returns new Storage client from given url. Storage implementation
-// is infered from the url.
+// is inferred from the url.
 func NewClient(url *objurl.ObjectURL) (Storage, error) {
 	if url.IsRemote() {
 		return newCachedS3()
@@ -96,6 +94,9 @@ func (o ObjectType) IsDir() bool {
 	return o.mode.IsDir()
 }
 
+// dateFormat is a constant time template for the bucket.
+const dateFormat = "2006/01/02 15:04:05"
+
 // Bucket is a container for storage objects.
 type Bucket struct {
 	CreationDate time.Time `json:"created_at"`
@@ -120,6 +121,7 @@ func (s StorageClass) IsGlacier() bool {
 	return s == StorageGlacier
 }
 
+// ShortCode returns the short code of Storage Class.
 func (s StorageClass) ShortCode() string {
 	var code string
 	switch s {
@@ -152,11 +154,13 @@ const (
 	StorageStandardIA StorageClass = "STANDARD_IA"
 )
 
+// notImplemented is a structure which is used on the unsupported operations.
 type notImplemented struct {
 	apiType string
 	method  string
 }
 
+// Error returns the string representation of Error for notImplemented.
 func (e notImplemented) Error() string {
 	return fmt.Sprintf("%q is not supported on %q storage", e.method, e.apiType)
 }

@@ -82,7 +82,11 @@ func (w *WorkerManager) RunCmd(ctx context.Context, cmd string) {
 func (w *WorkerManager) parseCommand(cmd string) *Command {
 	command, err := ParseCommand(cmd)
 	if err != nil {
-		stdlog.Printf(`-ERR "%s": %v`, cmd, err)
+		log.Logger.Error(ErrorMessage{
+			Job:    cmd,
+			Err:    err.Error(),
+			Format: `"%s": %v`,
+		})
 		stats.Increment(stats.Fail)
 		return nil
 	}

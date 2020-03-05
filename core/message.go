@@ -33,7 +33,7 @@ func (u InfoMessage) JSON() string {
 
 // ErrorMessage is a generic message structure for unsuccessful operations.
 type ErrorMessage struct {
-	Operation string `json:"operation"`
+	Operation string `json:"operation,omitempty"`
 	Job       string `json:"job"`
 	Err       string `json:"error"`
 	Format    string `json:"-"`

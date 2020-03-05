@@ -346,7 +346,7 @@ func assertLines(t *testing.T, actual string, expectedlines map[int]compareFunc,
 		// check if each line is json if flag is set
 		// multiple structured logs in output should be prevented.
 		if opts.json {
-			if line != "" && !IsJSON(line) {
+			if line != "" && !isJSON(line) {
 				t.Errorf("expected a json string for line %q (lineno: %v)", line, i)
 			}
 		}
@@ -379,7 +379,7 @@ func match(expected string) compareFunc {
 	}
 }
 
-func IsJSON(str string) bool {
+func isJSON(str string) bool {
 	var js jsonencode.RawMessage
 	return jsonencode.Unmarshal([]byte(str), &js) == nil
 }

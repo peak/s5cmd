@@ -78,8 +78,7 @@ func Test_MakeBucket_failure(t *testing.T) {
 
 	result.Assert(t, icmd.Expected{ExitCode: 127})
 
-	// FIXME(os): errors should be written into stderr
-	assertLines(t, result.Stdout(), map[int]compareFunc{
+	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: suffix(`ERROR "mb %v": invalid parameters to "mb": invalid s3 bucket`, src),
 		1: equals(""),
 	})
@@ -98,8 +97,7 @@ func Test_MakeBucket_failure_json(t *testing.T) {
 
 	result.Assert(t, icmd.Expected{ExitCode: 127})
 
-	// FIXME(os): errors should be written into stderr
-	assertLines(t, result.Stdout(), map[int]compareFunc{
+	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: equals(`{"job":"mb %v","error":"invalid parameters to \"mb\": invalid s3 bucket"}`, src),
 		1: equals(""),
 	}, jsonCheck(true))

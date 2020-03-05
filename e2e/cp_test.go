@@ -1156,7 +1156,7 @@ func TestCopyS3ToLocalWithSameFilenameWithNoClobber(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stdout(), map[int]compareFunc{
+	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: suffix(`WARNING "cp s3://%v/%v ./%v" (object already exists)`, bucket, filename, filename),
 		1: equals(""),
 	})
@@ -1279,7 +1279,7 @@ func TestCopyS3ToLocalWithSameFilenameDontOverrideIfS3ObjectIsOlder(t *testing.T
 	// size differs.
 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stdout(), map[int]compareFunc{
+	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: suffix(`WARNING "cp s3://%v/%v ./%v" (object is newer or same age)`, bucket, filename, filename),
 		1: equals(""),
 	})
@@ -1409,7 +1409,7 @@ func TestCopyLocalFileToS3WithSameFilenameWithNoClobber(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stdout(), map[int]compareFunc{
+	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: suffix(`WARNING "cp %v s3://%v/%v" (object already exists)`, filename, bucket, filename),
 		1: equals(""),
 	})
@@ -1572,7 +1572,7 @@ func TestCopyLocalFileToS3WithSameFilenameDontOverrideIfS3ObjectIsOlder(t *testi
 	// modtime differs.
 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stdout(), map[int]compareFunc{
+	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: suffix(`WARNING "cp %v s3://%v/%v" (object is newer or same age)`, filename, bucket, filename),
 		1: equals(""),
 	})

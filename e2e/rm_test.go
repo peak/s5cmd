@@ -315,8 +315,9 @@ func TestRemoveMultipleLocalFilesShouldFail(t *testing.T) {
 
 	result.Assert(t, icmd.Expected{ExitCode: 127})
 
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(`-ERR "rm *.txt": invalid parameters to "rm": given argument "*.txt" is not a remote path`),
+	// FIXME: errors should be written into stderr
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: suffix(`ERROR "rm *.txt": invalid parameters to "rm": given argument "*.txt" is not a remote path`),
 		1: equals(""),
 	})
 

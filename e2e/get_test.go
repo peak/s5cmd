@@ -80,7 +80,7 @@ func TestGetSingleS3ObjectJSON(t *testing.T) {
 			}
 		`, bucket),
 		1: equals(""),
-	})
+	}, jsonCheck(true))
 
 	// assert local filesystem
 	expected := fs.Expected(t, fs.WithFile(filename, content, fs.WithMode(0644)))

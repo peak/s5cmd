@@ -60,7 +60,7 @@ func TestListBucketsJSON(t *testing.T) {
 		2: suffix(`"name":"%v-3"}`, bucketPrefix),
 		3: suffix(`"name":"%v-4"}`, bucketPrefix),
 		4: equals(""),
-	})
+	}, jsonCheck(true))
 }
 
 func TestListSingleS3Object(t *testing.T) {
@@ -110,7 +110,7 @@ func TestListSingleS3ObjectJSON(t *testing.T) {
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: prefix(`{"key":"s3://%v/testfile1.txt",`, bucket),
 		1: equals(""),
-	})
+	}, jsonCheck(true))
 }
 
 func TestListSingleWildcardS3Object(t *testing.T) {

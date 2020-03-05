@@ -70,7 +70,7 @@ func TestDashFFromStdinJSON(t *testing.T) {
 		1: prefix(`{"key":"s3://%v/file1.txt",`, bucket),
 		2: prefix(`{"key":"s3://%v/file2.txt",`, bucket),
 		3: prefix(`{"type":"stats","success":{"s3":2,"file":0},"fail_count":0,`),
-	}, sortInput(true))
+	}, sortInput(true), jsonCheck(true))
 }
 
 func TestDashFFromFile(t *testing.T) {
@@ -137,7 +137,7 @@ func TestDashFFromFileJSON(t *testing.T) {
 		1: prefix(`{"key":"s3://%v/file1.txt",`, bucket),
 		2: prefix(`{"key":"s3://%v/file2.txt",`, bucket),
 		3: prefix(`{"type":"stats","success":{"s3":2,"file":0},"fail_count":0,`),
-	}, sortInput(true))
+	}, sortInput(true), jsonCheck(true))
 
 }
 

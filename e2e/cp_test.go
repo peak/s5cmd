@@ -84,7 +84,7 @@ func TestCopySingleS3ObjectToLocalJSON(t *testing.T) {
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: json(jsonText, bucket),
 		1: equals(""),
-	})
+	}, jsonCheck(true))
 
 	// assert local filesystem
 	expected := fs.Expected(t, fs.WithFile(filename, content, fs.WithMode(0644)))
@@ -219,7 +219,7 @@ func TestCopyMultipleFlatS3ObjectsToLocalJSON(t *testing.T) {
 				}
 			}
 		`, bucket),
-	}, sortInput(true))
+	}, sortInput(true), jsonCheck(true))
 
 	// assert local filesystem
 	var expectedFiles []fs.PathOp
@@ -492,7 +492,7 @@ func TestCopySingleFileToS3JSON(t *testing.T) {
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: json(jsonText, bucket),
 		1: equals(""),
-	})
+	}, jsonCheck(true))
 
 	// assert local filesystem
 	expected := fs.Expected(t, fs.WithFile(filename, content))
@@ -678,7 +678,7 @@ func TestCopySingleS3ObjectToS3JSON(t *testing.T) {
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: json(jsonText),
 		1: equals(""),
-	})
+	}, jsonCheck(true))
 
 	// assert s3 source object
 	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content))
@@ -829,7 +829,7 @@ func TestCopyMultipleS3ObjectsToS3JSON(t *testing.T) {
 				}
 			}
 		`, bucket, bucket, bucket),
-	}, sortInput(true))
+	}, sortInput(true), jsonCheck(true))
 
 	// assert s3 source objects
 	for filename, content := range filesToContent {

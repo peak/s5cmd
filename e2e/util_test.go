@@ -4,6 +4,7 @@ package e2e
 
 import (
 	"bytes"
+	jsonencode "encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -268,6 +269,7 @@ type compareFunc func(string) error
 type assertOpts struct {
 	strict      bool
 	sort        bool
+	json        bool
 	trimRegexes []*regexp.Regexp
 }
 
@@ -282,6 +284,12 @@ func sortInput(v bool) func(*assertOpts) {
 func strictLineCheck(v bool) func(*assertOpts) {
 	return func(opts *assertOpts) {
 		opts.strict = v
+	}
+}
+
+func jsonCheck(v bool) func(*assertOpts) {
+	return func(opts *assertOpts) {
+		opts.json = v
 	}
 }
 
@@ -306,6 +314,7 @@ func assertLines(t *testing.T, actual string, expectedlines map[int]compareFunc,
 	opts := assertOpts{
 		strict:      true,
 		sort:        false,
+		json:        false,
 		trimRegexes: nil,
 	}
 
@@ -334,6 +343,14 @@ func assertLines(t *testing.T, actual string, expectedlines map[int]compareFunc,
 		// trim consecutive spaces
 		line = replaceMatchWithSpace(line, `\s+`)
 
+		// check if each line is json if flag is set
+		// multiple structured logs in output should be prevented.
+		if opts.json {
+			if line != "" && !IsJSON(line) {
+				t.Errorf("expected a json string for line %q (lineno: %v)", line, i)
+			}
+		}
+
 		cmp, ok := expectedlines[i]
 		if !ok {
 			if opts.strict {
@@ -360,6 +377,11 @@ func match(expected string) compareFunc {
 		}
 		return fmt.Errorf("match: given %q regex doesn't match with %q", expected, actual)
 	}
+}
+
+func IsJSON(str string) bool {
+	var js jsonencode.RawMessage
+	return jsonencode.Unmarshal([]byte(str), &js) == nil
 }
 
 func equals(format string, args ...interface{}) compareFunc {

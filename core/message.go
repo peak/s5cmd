@@ -20,15 +20,14 @@ type InfoMessage struct {
 }
 
 // String is the string representation of InfoMessage.
-func (u InfoMessage) String() string {
-	return fmt.Sprintf("%v %v", u.Operation, u.Source)
+func (i InfoMessage) String() string {
+	return fmt.Sprintf("%v %v", i.Operation, i.Source)
 }
 
 // JSON is the JSON representation of InfoMessage.
-func (u InfoMessage) JSON() string {
-	u.Success = true
-	bytes, _ := json.Marshal(u)
-	return string(bytes)
+func (i InfoMessage) JSON() string {
+	i.Success = true
+	return jsonMarshal(i)
 }
 
 // ErrorMessage is a generic message structure for unsuccessful operations.
@@ -47,8 +46,7 @@ func (e ErrorMessage) String() string {
 
 // JSON is the JSON representation of ErrorMessage.
 func (e ErrorMessage) JSON() string {
-	b, _ := json.Marshal(e)
-	return string(b)
+	return jsonMarshal(e)
 }
 
 // newErrorMessage creates new ErrorMessage.
@@ -92,8 +90,7 @@ func (d DebugMessage) String() string {
 
 // JSON is the JSON representation of DebugMessage.
 func (d DebugMessage) JSON() string {
-	b, _ := json.Marshal(d)
-	return string(b)
+	return jsonMarshal(d)
 }
 
 // printDebug is the helper function to log debug messages.
@@ -111,4 +108,10 @@ func cleanupSpaces(s string) string {
 	s = strings.Replace(s, "  ", " ", -1)
 	s = strings.TrimSpace(s)
 	return s
+}
+
+// jsonMarshall is a helper function for creating JSON-encoded strings.
+func jsonMarshal(v interface{}) string {
+	bytes, _ := json.Marshal(v)
+	return string(bytes)
 }

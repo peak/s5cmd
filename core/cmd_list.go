@@ -2,7 +2,6 @@ package core
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/peak/s5cmd/log"
@@ -112,6 +111,5 @@ func (l ListMessage) String() string {
 
 // JSON returns the JSON representation of ListMessage.
 func (l ListMessage) JSON() string {
-	b, _ := json.Marshal(l.Object)
-	return string(b)
+	return jsonMarshal(l.Object)
 }

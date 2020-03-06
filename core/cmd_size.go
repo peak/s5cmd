@@ -2,7 +2,6 @@ package core
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/peak/s5cmd/log"
@@ -107,6 +106,5 @@ func (s SizeMessage) String() string {
 
 // JSON returns the JSON representation of SizeMessage.
 func (s SizeMessage) JSON() string {
-	bytes, _ := json.Marshal(s)
-	return string(bytes)
+	return jsonMarshal(s)
 }

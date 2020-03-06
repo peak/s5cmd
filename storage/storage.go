@@ -62,8 +62,7 @@ func (o *Object) String() string {
 
 // JSON returns the JSON representation of Object.
 func (o *Object) JSON() string {
-	bytes, _ := json.Marshal(o)
-	return string(bytes)
+	return jsonMarshal(o)
 }
 
 // ObjectType is the type of Object.
@@ -110,8 +109,7 @@ func (b Bucket) String() string {
 
 // String returns the JSON representation of Bucket.
 func (b Bucket) JSON() string {
-	bytes, _ := json.Marshal(b)
-	return string(bytes)
+	return jsonMarshal(b)
 }
 
 type StorageClass string
@@ -163,4 +161,10 @@ type notImplemented struct {
 // Error returns the string representation of Error for notImplemented.
 func (e notImplemented) Error() string {
 	return fmt.Sprintf("%q is not supported on %q storage", e.method, e.apiType)
+}
+
+// jsonMarshall is a helper function for creating JSON-encoded strings.
+func jsonMarshal(v interface{}) string {
+	bytes, _ := json.Marshal(v)
+	return string(bytes)
 }

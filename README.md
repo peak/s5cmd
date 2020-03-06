@@ -105,7 +105,7 @@ Options:
 Commands:
     cp, du, get, ls, mb, mv, rm
 
-To get help on a specific command, run "./s5cmd <command> -h"
+To get help on a specific command, run "s5cmd <command> -h"
 ```
 
 ## Commands File ##

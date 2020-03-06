@@ -31,8 +31,12 @@ func Size(ctx context.Context, job *Job) *JobResponse {
 	total := sizeAndCount{}
 
 	for object := range client.List(ctx, src, true, storage.ListAllItems) {
-		if object.Type.IsDir() || object.Err != nil {
-			// TODO(ig): expose or log the error
+		if object.Type.IsDir() || isCancelationError(object.Err) {
+			continue
+		}
+
+		if err := object.Err; err != nil {
+			printError(job, err)
 			continue
 		}
 		storageClass := string(object.StorageClass)

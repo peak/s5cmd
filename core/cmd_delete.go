@@ -56,6 +56,10 @@ func BatchDelete(ctx context.Context, job *Job) *JobResponse {
 	var merror error
 	for obj := range resultch {
 		if err := obj.Err; err != nil {
+			if isCancelationError(obj.Err) {
+				continue
+			}
+
 			merror = multierror.Append(merror, obj.Err)
 			printError(job, err)
 			continue

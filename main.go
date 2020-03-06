@@ -64,7 +64,8 @@ func main() {
 			printJSON := c.Bool("json")
 			logLevel := c.String("log")
 
-			validate := func() error {
+			// validation
+			{
 				if uploadChunkSize < 5 {
 					return fmt.Errorf("upload chunk size should be greater than 5 MB")
 				}
@@ -80,12 +81,6 @@ func main() {
 				if retryCount < 1 {
 					return fmt.Errorf("retry count must be a positive value")
 				}
-
-				return nil
-			}
-
-			if err := validate(); err != nil {
-				return err
 			}
 
 			if workerCount < 0 {
@@ -130,8 +125,7 @@ func main() {
 		core.VersionCommand,
 	}
 
-	err := app.RunContext(ctx, os.Args)
-	if err != nil {
+	if err := app.RunContext(ctx, os.Args); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}

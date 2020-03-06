@@ -35,6 +35,34 @@ func TestListBuckets(t *testing.T) {
 	})
 }
 
+func TestListBucketsJSON(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	// alphabetically unordered list of buckets
+	bucketPrefix := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucketPrefix+"-1")
+	createBucket(t, s3client, bucketPrefix+"-2")
+	createBucket(t, s3client, bucketPrefix+"-4")
+	createBucket(t, s3client, bucketPrefix+"-3")
+
+	cmd := s5cmd("-json", "ls")
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	// expect ordered list
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: suffix(`"name":"%v-1"}`, bucketPrefix),
+		1: suffix(`"name":"%v-2"}`, bucketPrefix),
+		2: suffix(`"name":"%v-3"}`, bucketPrefix),
+		3: suffix(`"name":"%v-4"}`, bucketPrefix),
+		4: equals(""),
+	}, jsonCheck(true))
+}
+
 func TestListSingleS3Object(t *testing.T) {
 	t.Parallel()
 
@@ -58,6 +86,31 @@ func TestListSingleS3Object(t *testing.T) {
 		0: suffix("317 testfile1.txt"),
 		1: equals(""),
 	})
+}
+
+func TestListSingleS3ObjectJSON(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+
+	// create 2 files, expect 1.
+	putFile(t, s3client, bucket, "testfile1.txt", "this is a file content")
+	putFile(t, s3client, bucket, "testfile2.txt", "this is also a file content")
+
+	cmd := s5cmd("-json", "ls", "s3://"+bucket+"/testfile1.txt")
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: prefix(`{"key":"s3://%v/testfile1.txt",`, bucket),
+		1: equals(""),
+	}, jsonCheck(true))
 }
 
 func TestListSingleWildcardS3Object(t *testing.T) {
@@ -183,12 +236,12 @@ func TestListS3ObjectsAndFolders(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: suffix("+ DIR a/"),
-		1: suffix("+ DIR b/"),
-		2: suffix("+ DIR c/"),
-		3: suffix("+ DIR d/"),
-		4: suffix("+ DIR e/"),
-		5: suffix("+ DIR f/"),
+		0: suffix("DIR a/"),
+		1: suffix("DIR b/"),
+		2: suffix("DIR c/"),
+		3: suffix("DIR d/"),
+		4: suffix("DIR e/"),
+		5: suffix("DIR f/"),
 		6: suffix("? 298 report.gz"),
 		7: suffix("? 302 testfile1.txt"),
 		8: equals(""),
@@ -216,7 +269,7 @@ func TestListS3ObjectsAndFoldersWithPrefix(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: suffix("+ DIR t/"),
+		0: suffix("DIR t/"),
 		1: suffix("? 302 testfile1.txt"),
 		2: equals(""),
 	})
@@ -268,8 +321,8 @@ func TestListS3ObjectsWithDashE(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: match(`^ \+ \? \w+ \d+ testfile1.txt$`),
-		1: match(`^ \+ \? \w+ \d+ testfile2.txt$`),
+		0: match(`^ \? \w+ \d+ testfile1.txt$`),
+		1: match(`^ \? \w+ \d+ testfile2.txt$`),
 		2: equals(""),
 	}, trimMatch(dateRe))
 }
@@ -293,8 +346,8 @@ func TestListS3ObjectsWithDashH(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: match(`^ \+ \? 215.1K testfile1.txt$`),
-		1: match(`^ \+ \? 264.0K testfile2.txt$`),
+		0: match(`^ \? 215.1K testfile1.txt$`),
+		1: match(`^ \? 264.0K testfile2.txt$`),
 		2: equals(""),
 	}, trimMatch(dateRe))
 }

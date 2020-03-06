@@ -8,14 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/peak/s5cmd/log"
 	"github.com/peak/s5cmd/objurl"
 	"github.com/peak/s5cmd/opt"
-)
-
-const (
-	// GlobCharacters is valid glob characters for local files
-	GlobCharacters string = "?*["
 )
 
 // parseArgumentByType parses an input string according to the given
@@ -32,7 +26,7 @@ func parseArgumentByType(s string, t opt.ParamType, fnObj *objurl.ObjectURL) (*o
 	case opt.Unchecked, opt.UncheckedOneOrMore:
 		return objurl.New(s)
 
-	case opt.S3Obj, opt.S3ObjOrDir, opt.S3WildObj, opt.S3Dir, opt.S3SimpleObj:
+	case opt.S3Bucket, opt.S3Obj, opt.S3ObjOrDir, opt.S3WildObj, opt.S3Dir, opt.S3SimpleObj:
 		url, err := objurl.New(s)
 		if err != nil {
 			return nil, err
@@ -43,6 +37,10 @@ func parseArgumentByType(s string, t opt.ParamType, fnObj *objurl.ObjectURL) (*o
 		}
 
 		s = url.Absolute()
+
+		if t == opt.S3Bucket && !url.IsBucket() {
+			return nil, errors.New("invalid s3 bucket")
+		}
 
 		if (t == opt.S3Obj || t == opt.S3ObjOrDir || t == opt.S3SimpleObj) && objurl.HasGlobCharacter(url.Path) {
 			return nil, errors.New("s3 key cannot contain wildcards")
@@ -263,10 +261,10 @@ func parseSingleCommand(cmd string) (*Command, error) {
 				}
 				a, parseArgErr = parseArgumentByType(partVal, t, fnObj)
 				if parseArgErr != nil {
-					log.Logger.Debug("Error parsing %s as %s: %s", partVal, t.String(), parseArgErr.Error())
+					printDebug("Error parsing %s as %s: %s", partVal, t.String(), parseArgErr.Error())
 					break
 				}
-				log.Logger.Debug("Parsed %s as %s", partVal, t.String())
+				printDebug("Parsed %s as %s", partVal, t.String())
 
 				command.args = append(command.args, a)
 
@@ -285,11 +283,10 @@ func parseSingleCommand(cmd string) (*Command, error) {
 					}
 					a, parseArgErr = parseArgumentByType(p, lastType, fnObj)
 					if parseArgErr != nil {
-						log.Logger.Debug("Error parsing %s as %s: %s", p, lastType.String(), parseArgErr.Error())
+						printDebug("Error parsing %s as %s: %s", p, lastType.String(), parseArgErr.Error())
 						break
 					}
-					log.Logger.Debug("Parsed %s as %s", p, lastType.String())
-
+					printDebug("Parsed %s as %s", p, lastType.String())
 					command.args = append(command.args, a)
 				}
 			}

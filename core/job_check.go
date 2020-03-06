@@ -52,7 +52,7 @@ func CheckConditions(ctx context.Context, src, dst *objurl.ObjectURL, opts opt.O
 	if condSourceNewer {
 		srcMod, dstMod := srcObj.ModTime, dstObj.ModTime
 
-		if !srcMod.After(dstMod) {
+		if !srcMod.After(*dstMod) {
 			res = &JobResponse{status: statusWarning, err: ErrObjectIsNewer}
 		} else {
 			res = nil

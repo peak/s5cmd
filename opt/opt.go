@@ -160,6 +160,7 @@ type ParamType int
 const (
 	Unchecked          ParamType = iota // Arbitrary single parameter
 	UncheckedOneOrMore                  // One or more arbitrary parameters (special case)
+	S3Bucket                            // Bucket
 	S3Obj                               // Bucket or bucket + key
 	S3Dir                               // Bucket or bucket + key + "/" (prefix)
 	S3ObjOrDir                          // Bucket or bucket + key [+ "/"]
@@ -181,6 +182,8 @@ func (p ParamType) String() string {
 		return "param"
 	case UncheckedOneOrMore:
 		return "param..."
+	case S3Bucket:
+		return "s3://bucket"
 	case S3Obj:
 		return "s3://bucket[/object]"
 	case S3SimpleObj:

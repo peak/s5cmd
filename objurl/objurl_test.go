@@ -364,3 +364,35 @@ func Test_parseNonBatch(t *testing.T) {
 		})
 	}
 }
+
+func TestObjectURL_IsBucket(t *testing.T) {
+	tests := []struct {
+		input      string
+		want       bool
+		want_error bool
+	}{
+		{"s3://bucket", true, false},
+		{"s3://bucket/file", false, false},
+		{"bucket", false, false},
+		{"s3://", false, true},
+	}
+	for _, tc := range tests {
+		url, err := New(tc.input)
+		if tc.want_error && err != nil {
+			continue
+		}
+
+		if tc.want_error && err == nil {
+			t.Errorf("expecting error for input %s", tc.input)
+		}
+
+		if err != nil {
+			t.Errorf("unexpected error: %v for input %s", err, tc.input)
+			continue
+		}
+
+		if url.IsBucket() != tc.want {
+			t.Errorf("isBucket should return %v for  %s", tc.want, tc.input)
+		}
+	}
+}

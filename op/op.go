@@ -3,7 +3,6 @@ package op
 
 import (
 	"fmt"
-
 	"github.com/peak/s5cmd/opt"
 	"github.com/peak/s5cmd/stats"
 )
@@ -29,6 +28,7 @@ const (
 	LocalCopy                       // Copy from local to local
 	LocalDelete                     // Delete local file
 	AliasGet                        // Alias for Download
+	MakeBucket                      // Make Bucket
 )
 
 var batchOperations = []Operation{
@@ -106,6 +106,8 @@ func (o Operation) String() string {
 		return "get"
 	case AliasBatchGet:
 		return "batch-get"
+	case MakeBucket:
+		return "make-bucket"
 	}
 
 	return fmt.Sprintf("Unknown:%d", o)
@@ -166,6 +168,8 @@ func (o Operation) Describe(l opt.OptionList) string {
 		return "Batch copy local files"
 	case LocalDelete:
 		return "Delete local files"
+	case MakeBucket:
+		return "Creates an S3 bucket"
 	}
 
 	return fmt.Sprintf("Unknown:%d", o)

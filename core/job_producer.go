@@ -41,13 +41,21 @@ func (p *Producer) batchProduce(ctx context.Context, command *Command) {
 
 	src := command.args[0]
 
-	// TODO(os): handle errors
-	client, _ := storage.NewClient(src)
+	client, err := storage.NewClient(src)
+	if err != nil {
+		printError(nil, err)
+		return
+	}
+
 	isRecursive := command.opts.Has(opt.Recursive)
 
 	for object := range client.List(ctx, src, isRecursive, storage.ListAllItems) {
-		// TODO(ig): log error
-		if object.Err != nil || object.Mode.IsDir() {
+		if object.Type.IsDir() || isCancelationError(object.Err) {
+			continue
+		}
+
+		if err := object.Err; err != nil {
+			printError(nil, err)
 			continue
 		}
 

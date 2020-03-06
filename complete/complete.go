@@ -241,7 +241,6 @@ func s3predictor(a cmp.Args) []string {
 		url.Prefix = s3key
 
 		for object := range client.List(ctx, url, true, s3MaxKeys) {
-			// TODO(ig): handle error
 			if object.Err != nil {
 				continue
 			}

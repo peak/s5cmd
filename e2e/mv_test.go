@@ -32,8 +32,10 @@ func TestMoveSingleS3ObjectToLocal(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
+	// TODO(os): When we implement command smth like 'move',
+	// 			 this assertion needs to be updated.
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: suffix(`# Downloading testfile1.txt...`),
+		0: equals(`download s3://%v/%v`, bucket, filename),
 		1: equals(""),
 	})
 
@@ -74,10 +76,10 @@ func TestMoveMultipleFlatS3ObjectsToLocal(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(""),
-		1: suffix(`# Downloading another_test_file.txt...`),
-		2: suffix(`# Downloading filename-with-hypen.gz...`),
-		3: suffix(`# Downloading readme.md...`),
-		4: suffix(`# Downloading testfile1.txt...`),
+		1: equals(`download s3://%v/another_test_file.txt`, bucket),
+		2: equals(`download s3://%v/filename-with-hypen.gz`, bucket),
+		3: equals(`download s3://%v/readme.md`, bucket),
+		4: equals(`download s3://%v/testfile1.txt`, bucket),
 	}, sortInput(true))
 
 	// assert local filesystem
@@ -120,7 +122,7 @@ func TestMoveSingleFileToS3(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(` # Uploading %v...`, filename),
+		0: equals(`upload %v`, filename),
 		1: equals(""),
 	})
 
@@ -165,10 +167,10 @@ func TestMoveMultipleFilesToS3(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(""),
-		1: contains(` # Uploading another_test_file.txt...`),
-		2: contains(` # Uploading filename-with-hypen.gz...`),
-		3: contains(` # Uploading readme.md...`),
-		4: contains(` # Uploading testfile1.txt...`),
+		1: equals(`upload another_test_file.txt`),
+		2: equals(`upload filename-with-hypen.gz`),
+		3: equals(`upload readme.md`),
+		4: equals(`upload testfile1.txt`),
 	}, sortInput(true))
 
 	// expect no files on filesystem
@@ -207,7 +209,7 @@ func TestMoveSingleS3ObjectToS3(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: suffix(`# Copying testfile1.txt...`),
+		0: equals(`copy s3://%v/testfile1.txt`, bucket),
 		1: equals(""),
 	})
 
@@ -247,7 +249,7 @@ func TestMoveSingleS3ObjectIntoAnotherBucket(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: suffix(`# Copying testfile1.txt...`),
+		0: equals(`copy s3://%v/testfile1.txt`, srcbucket),
 		1: equals(""),
 	})
 
@@ -290,10 +292,10 @@ func TestMoveMultipleS3ObjectsToS3(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: contains(""),
-		1: suffix("# Copying another_test_file.txt..."),
-		2: suffix("# Copying filename-with-hypen.gz..."),
-		3: suffix("# Copying readme.md..."),
-		4: suffix("# Copying testfile1.txt..."),
+		1: equals("copy s3://%v/another_test_file.txt", bucket),
+		2: equals("copy s3://%v/filename-with-hypen.gz", bucket),
+		3: equals("copy s3://%v/readme.md", bucket),
+		4: equals("copy s3://%v/testfile1.txt", bucket),
 	}, sortInput(true))
 
 	// expect no s3 source objects
@@ -329,7 +331,7 @@ func TestMoveSingleFileToLocal(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: suffix("# Copying testfile1.txt..."),
+		0: equals("local-copy testfile1.txt"),
 		1: equals(""),
 	})
 
@@ -371,8 +373,8 @@ func TestMoveMultipleFilesToLocal(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(""),
-		1: suffix("# Copying another_test_file.txt..."),
-		2: suffix("# Copying testfile1.txt..."),
+		1: equals("local-copy another_test_file.txt"),
+		2: equals("local-copy testfile1.txt"),
 	}, sortInput(true))
 
 	// assert local filesystem

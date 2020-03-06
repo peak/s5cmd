@@ -30,8 +30,9 @@ var (
 	PrintStats          = flag.Bool("stats", false, "Always print stats")
 	ShowVersion         = flag.Bool("version", false, "Prints current version")
 	EnableGops          = flag.Bool("gops", false, "Initialize gops agent")
-	Verbose             = flag.Bool("vv", false, "Verbose output")
 	NoVerifySSL         = flag.Bool("no-verify-ssl", false, "Don't verify SSL certificates")
+	JSON                = flag.Bool("json", false, "JSON formatted output")
+	LogLevel            = flag.String("log", "info", "Log level (possible values: 'debug', 'info', 'warning', error'")
 
 	InstallCompletion   = flag.Bool("cmp-install", false, "Install shell completion")
 	UninstallCompletion = flag.Bool("cmp-uninstall", false, "Uninstall shell completion")

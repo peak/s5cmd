@@ -2,6 +2,7 @@
 package objurl
 
 import (
+	"encoding/json"
 	"fmt"
 	"path"
 	"path/filepath"
@@ -98,6 +99,11 @@ func New(s string) (*ObjectURL, error) {
 // IsRemote reports whether the object is stored on a remote storage system.
 func (o *ObjectURL) IsRemote() bool {
 	return o.Type == remoteObject
+}
+
+// IsBucket returns true if the object url contains only bucket name
+func (o *ObjectURL) IsBucket() bool {
+	return o.IsRemote() && o.Path == ""
 }
 
 // Absolute returns the absolute URL format of the object.
@@ -238,7 +244,14 @@ func (o *ObjectURL) Match(key string) bool {
 }
 
 func (o *ObjectURL) String() string {
-	return o.Absolute()
+	if o.IsRemote() {
+		return o.Absolute()
+	}
+	return o.Base()
+}
+
+func (o *ObjectURL) MarshalJSON() ([]byte, error) {
+	return json.Marshal(o.String())
 }
 
 // parseBatch parses keys for wildcard operations.

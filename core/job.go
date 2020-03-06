@@ -7,15 +7,12 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
-	"github.com/peak/s5cmd/log"
 	"github.com/peak/s5cmd/objurl"
 	"github.com/peak/s5cmd/op"
 	"github.com/peak/s5cmd/opt"
 	"github.com/peak/s5cmd/stats"
 	"github.com/peak/s5cmd/storage"
 )
-
-const dateFormat = "2006/01/02 15:04:05"
 
 type Runnable interface {
 	Run(ctx context.Context)
@@ -66,16 +63,16 @@ func (j *Job) Run(ctx context.Context) {
 	}
 
 	response := cmdFunc(ctx, j)
-	if response == nil {
+	if response == nil || isCancelationError(response.err) {
 		return
 	}
 
 	switch response.status {
 	case statusErr:
 		stats.Increment(stats.Fail)
-		log.Logger.Error("%q: %v", j, response.err)
+		printError(j, response.err)
 	case statusWarning:
-		log.Logger.Warning("%q (%v)", j, response.err)
+		printWarning(j, response.err)
 		fallthrough
 	default:
 		stats.Increment(j.statType)
@@ -83,6 +80,10 @@ func (j *Job) Run(ctx context.Context) {
 }
 
 func isCancelationError(err error) bool {
+	if err == nil {
+		return false
+	}
+
 	if errors.Is(err, context.Canceled) {
 		return true
 	}

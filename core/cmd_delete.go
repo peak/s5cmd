@@ -36,12 +36,16 @@ func BatchDelete(ctx context.Context, job *Job) *JobResponse {
 		} else {
 			// src is a glob
 			src := sources[0]
-			for obj := range client.List(ctx, src, true, storage.ListAllItems) {
-				if obj.Err != nil {
-					// TODO(ig): add proper logging
+			for object := range client.List(ctx, src, true, storage.ListAllItems) {
+				if object.Type.IsDir() || isCancelationError(object.Err) {
 					continue
 				}
-				urlch <- obj.URL
+
+				if err := object.Err; err != nil {
+					printError(job, err)
+					continue
+				}
+				urlch <- object.URL
 			}
 		}
 	}()
@@ -51,14 +55,13 @@ func BatchDelete(ctx context.Context, job *Job) *JobResponse {
 	// closed errch indicates that MultiDelete operation is finished.
 	var merror error
 	for obj := range resultch {
-		if obj.Err != nil {
-			merror = multierror.Append(merror, obj.Err)
-			err := ErrorMessage{
-				Job: job.String(),
-				Err: obj.Err.Error(),
+		if err := obj.Err; err != nil {
+			if isCancelationError(obj.Err) {
+				continue
 			}
 
-			log.Logger.Error(err)
+			merror = multierror.Append(merror, obj.Err)
+			printError(job, err)
 			continue
 		}
 

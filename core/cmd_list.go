@@ -39,8 +39,12 @@ func List(ctx context.Context, job *Job) *JobResponse {
 	}
 
 	for object := range client.List(ctx, src, true, storage.ListAllItems) {
-		if object.Err != nil {
-			// TODO(ig): expose or log the error
+		if isCancelationError(object.Err) {
+			continue
+		}
+
+		if err := object.Err; err != nil {
+			printError(job, err)
 			continue
 		}
 

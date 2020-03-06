@@ -245,7 +245,7 @@ s5cmd supports both text and json output.
     ```
     [ERROR|WARNING] [message]
 
-    # example: ERROR "! touche": executable file not found in $PATH
+    # example: WARNING "cp s3://somebucket/file.txt file.txt" (object already exists)
     ```
 
 * json format

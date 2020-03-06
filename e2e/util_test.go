@@ -183,7 +183,30 @@ func createBucket(t *testing.T, client *s3.S3, bucket string) {
 
 var errS3NoSuchKey = fmt.Errorf("s3: no such key")
 
-func ensureS3Object(client *s3.S3, bucket string, key string, expectedContent string) error {
+type ensureOpts struct {
+	contentType *string
+}
+
+type ensureOption func(*ensureOpts)
+
+func ensureContentType(contentType string) ensureOption {
+	return func(opts *ensureOpts) {
+		opts.contentType = &contentType
+	}
+}
+
+func ensureS3Object(
+	client *s3.S3,
+	bucket string,
+	key string,
+	content string,
+	fns ...ensureOption,
+) error {
+	opts := &ensureOpts{}
+	for _, fn := range fns {
+		fn(opts)
+	}
+
 	output, err := client.GetObject(&s3.GetObjectInput{
 		Bucket: aws.String(bucket),
 		Key:    aws.String(key),
@@ -206,8 +229,14 @@ func ensureS3Object(client *s3.S3, bucket string, key string, expectedContent st
 	}
 	defer output.Body.Close()
 
-	if diff := cmp.Diff(expectedContent, body.String()); diff != "" {
+	if diff := cmp.Diff(content, body.String()); diff != "" {
 		return fmt.Errorf("s3 %v/%v: (-want +got):\n%v", bucket, key, diff)
+	}
+
+	if opts.contentType != nil {
+		if diff := cmp.Diff(opts.contentType, output.ContentType); diff != "" {
+			return fmt.Errorf("s3 %v/%v: (-want +got):\n%v", bucket, key, diff)
+		}
 	}
 
 	return nil

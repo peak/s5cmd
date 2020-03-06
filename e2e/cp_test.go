@@ -425,16 +425,32 @@ func TestCopySingleFileToS3(t *testing.T) {
 	createBucket(t, s3client, bucket)
 
 	const (
-		filename = "testfile1.txt"
-		content  = "this is a test file"
+		// make sure that Put reads the file header, not the extension
+		filename = "index.txt"
+		content  = `
+<html lang="en">
+	<head>
+	<meta charset="utf-8">
+	<body>
+		<div id="foo">
+			<div class="bar"></div>
+		</div>
+		<div id="baz">
+			<style data-hey="naber"></style>
+		</div>
+	</body>
+</html>
+`
+		expectedContentType = "text/html; charset=utf-8"
 	)
 
 	workdir := fs.NewDir(t, bucket, fs.WithFile(filename, content))
 	defer workdir.Remove()
 
-	fpath := workdir.Join(filename)
+	srcpath := workdir.Join(filename)
+	dstpath := fmt.Sprintf("s3://%v/", bucket)
 
-	cmd := s5cmd("cp", fpath, "s3://"+bucket+"/")
+	cmd := s5cmd("cp", srcpath, dstpath)
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Success)
@@ -449,7 +465,7 @@ func TestCopySingleFileToS3(t *testing.T) {
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 
 	// assert S3
-	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content))
+	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content, ensureContentType(expectedContentType)))
 }
 
 func TestCopySingleFileToS3JSON(t *testing.T) {

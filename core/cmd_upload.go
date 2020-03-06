@@ -2,6 +2,9 @@ package core
 
 import (
 	"context"
+	"io"
+	"io/ioutil"
+	"net/http"
 	"os"
 
 	"github.com/peak/s5cmd/log"
@@ -36,7 +39,7 @@ func Upload(ctx context.Context, job *Job) *JobResponse {
 
 	metadata := map[string]string{
 		"StorageClass": string(job.storageClass),
-		"ContentType":  "", // TODO(ig): guess the mimetype (see: #33)
+		"ContentType":  guessContentType(f),
 	}
 
 	err = dstClient.Put(
@@ -65,4 +68,16 @@ func Upload(ctx context.Context, job *Job) *JobResponse {
 	})
 
 	return jobResponse(nil)
+}
+
+func guessContentType(rs io.ReadSeeker) string {
+	defer rs.Seek(0, io.SeekStart)
+
+	const bufsize = 512
+	buf, err := ioutil.ReadAll(io.LimitReader(rs, bufsize))
+	if err != nil {
+		return ""
+	}
+
+	return http.DetectContentType(buf)
 }

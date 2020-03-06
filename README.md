@@ -70,37 +70,37 @@ Usage: s5cmd [OPTION]... [COMMAND [PARAMS...]]
 
 Options:
   -cmp-install
-    	Install shell completion
+        Install shell completion
   -cmp-uninstall
-    	Uninstall shell completion
+        Uninstall shell completion
   -ds int
-    	Multipart chunk size in MB for downloads (default 50)
+        Multipart chunk size in MB for downloads (default 50)
   -dw int
-    	Download concurrency for each file (default 5)
+        Download concurrency for each file (default 5)
   -endpoint-url string
-    	Override default URL with the given one
+        Override default URL with the given one
   -f string
-    	Commands-file or - for stdin
+        Commands-file or - for stdin
   -gops
-    	Initialize gops agent
+        Initialize gops agent
   -json
-    	JSON formatted output
+        JSON formatted output
   -log string
-    	Log level (possible values: 'debug', 'info', 'warning', error' (default "info")
+        Log level (possible values: 'debug', 'info', 'warning', error' (default "info")
   -no-verify-ssl
-    	Don't verify SSL certificates
+        Don't verify SSL certificates
   -numworkers int
-    	Number of worker goroutines. Negative numbers mean multiples of the CPU core count (default 256)
+        Number of worker goroutines. Negative numbers mean multiples of the CPU core count (default 256)
   -r int
-    	Retry S3 operations N times before failing (default 10)
+        Retry S3 operations N times before failing (default 10)
   -stats
-    	Always print stats
+        Always print stats
   -us int
-    	Multipart chunk size in MB for uploads (default 50)
+        Multipart chunk size in MB for uploads (default 50)
   -uw int
-    	Upload concurrency for each file (default 5)
+        Upload concurrency for each file (default 5)
   -version
-    	Prints current version
+        Prints current version
 
 Commands:
     cp, du, get, ls, mb, mv, rm

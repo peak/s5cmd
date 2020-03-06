@@ -413,7 +413,7 @@ func json(format string, args ...interface{}) compareFunc {
 		}
 
 		diff := cmp.Diff(expected, actual)
-		return fmt.Errorf("equals: (-want +got):\n%v", diff)
+		return fmt.Errorf("json: (-want +got):\n%v", diff)
 	}
 }
 

@@ -41,13 +41,13 @@ func (l logLevel) String() string {
 	case levelInfo:
 		return ""
 	case levelError:
-		return "ERROR"
+		return "ERROR "
 	case levelWarning:
-		return "WARNING"
+		return "WARNING "
 	case levelDebug:
-		return "DEBUG"
+		return "DEBUG "
 	default:
-		return "UNKNOWN"
+		return "UNKNOWN "
 	}
 }
 
@@ -104,7 +104,7 @@ func (l *logger) printf(level logLevel, message Message, std *os.File) {
 		}
 	} else {
 		outputCh <- output{
-			message: fmt.Sprintf("%v %v", level, message.String()),
+			message: fmt.Sprintf("%v%v", level, message.String()),
 			std:     std,
 		}
 	}

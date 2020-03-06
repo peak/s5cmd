@@ -167,12 +167,12 @@ func TestDashFWildcardCountGreaterEqualThanWorkerCount(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: contains(""),
+		0: equals(""),
 		1: match(`# Stats: S3 3 \d+ ops/sec`),
 		2: match(`# Stats: Total 3 \d+ ops/sec \d+\.\d+ms$`),
-		3: suffix(`download s3://%v/file.txt`, bucket),
-		4: suffix(`download s3://%v/file.txt`, bucket),
-		5: suffix(`download s3://%v/file.txt`, bucket),
+		3: equals(`download s3://%v/file.txt`, bucket),
+		4: equals(`download s3://%v/file.txt`, bucket),
+		5: equals(`download s3://%v/file.txt`, bucket),
 	}, sortInput(true))
 
 }

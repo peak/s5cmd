@@ -23,7 +23,7 @@ func Test_MakeBucket_success(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: suffix(`make-bucket %v`, src),
+		0: equals(`make-bucket %v`, src),
 		1: equals(""),
 	})
 
@@ -79,7 +79,7 @@ func Test_MakeBucket_failure(t *testing.T) {
 	result.Assert(t, icmd.Expected{ExitCode: 127})
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: suffix(`ERROR "mb %v": invalid parameters to "mb": invalid s3 bucket`, src),
+		0: equals(`ERROR "mb %v": invalid parameters to "mb": invalid s3 bucket`, src),
 		1: equals(""),
 	})
 }

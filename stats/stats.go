@@ -61,7 +61,7 @@ func (s stats) String() string {
 	output = appendIfExists(output, "File", fileops, elapsed, "")
 	output = appendIfExists(output, "Failed", failops, elapsed, "")
 	output = appendIfExists(output, "Total", total, elapsed, extra)
-	return strings.Join(output, "\n ")
+	return strings.Join(output, "\n")
 }
 
 // appendIfExists appends formatted output if the counter is bigger than 0.

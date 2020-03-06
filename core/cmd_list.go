@@ -4,59 +4,102 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/urfave/cli/v2"
+
 	"github.com/peak/s5cmd/log"
 	"github.com/peak/s5cmd/objurl"
-	"github.com/peak/s5cmd/opt"
 	"github.com/peak/s5cmd/storage"
 )
 
-func ListBuckets(ctx context.Context, job *Job) *JobResponse {
+var ListCommand = &cli.Command{
+	Name:     "ls",
+	HelpName: "list",
+	Usage:    "TODO",
+	Flags: []cli.Flag{
+		&cli.BoolFlag{Name: "etag", Aliases: []string{"e"}},
+		&cli.BoolFlag{Name: "humanize", Aliases: []string{"H"}},
+	},
+	Before: func(c *cli.Context) error {
+		if c.Args().Len() > 1 {
+			return fmt.Errorf("expected only 1 argument")
+		}
+		return nil
+	},
+	Action: func(c *cli.Context) error {
+		fmt.Println("** fullname", c.Args().Slice())
+
+		if c.Args().Len() == 0 {
+			return ListBuckets(c.Context)
+		}
+
+		showEtag := c.Bool("etag")
+		humanize := c.Bool("humanize")
+
+		return List(
+			c.Context,
+			c.Args().First(),
+			showEtag,
+			humanize,
+		)
+	},
+}
+
+func ListBuckets(ctx context.Context) error {
 	// set as remote storage
 	url := &objurl.ObjectURL{Type: 0}
 	client, err := storage.NewClient(url)
 	if err != nil {
-		return jobResponse(err)
+		return err
 	}
 
 	buckets, err := client.ListBuckets(ctx, "")
 	if err != nil {
-		return jobResponse(err)
+		return err
 	}
 
 	for _, b := range buckets {
-		log.Logger.Info(b)
+		log.Info(b)
 	}
 
-	return jobResponse(nil)
+	return nil
 }
 
-func List(ctx context.Context, job *Job) *JobResponse {
-	src := job.args[0]
-
-	client, err := storage.NewClient(src)
+func List(
+	ctx context.Context,
+	src string,
+	showEtag bool,
+	humanize bool,
+) error {
+	srcurl, err := objurl.New(src)
 	if err != nil {
-		return jobResponse(err)
+		return err
 	}
 
-	for object := range client.List(ctx, src, true, storage.ListAllItems) {
+	client, err := storage.NewClient(srcurl)
+	if err != nil {
+		return err
+	}
+
+	for object := range client.List(ctx, srcurl, true, storage.ListAllItems) {
 		if isCancelationError(object.Err) {
 			continue
 		}
 
 		if err := object.Err; err != nil {
-			printError(job, err)
+			// FIXME(ig):
+			fmt.Println("ERR:", err)
 			continue
 		}
 
 		res := ListMessage{
 			Object:        object,
-			showEtag:      job.opts.Has(opt.ListETags),
-			showHumanized: job.opts.Has(opt.HumanReadable),
+			showEtag:      showEtag,
+			showHumanized: humanize,
 		}
-		log.Logger.Info(res)
+		fmt.Println(res.String())
 	}
 
-	return jobResponse(nil)
+	return nil
 }
 
 // ListMessage is a structure for logging ls results.

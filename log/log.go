@@ -3,8 +3,6 @@ package log
 import (
 	"fmt"
 	"os"
-
-	"github.com/peak/s5cmd/flags"
 )
 
 // output is a structure for std logs.
@@ -13,16 +11,15 @@ type output struct {
 	message string
 }
 
-// outCh is used to synchronize writes to standard output. Multi-line
+// outputCh is used to synchronize writes to standard output. Multi-line
 // logging is not possible if all workers print logs at the same time.
 var outputCh = make(chan output, 10000)
 
-// Logger is the global logger.
-var Logger *logger
+var globalLogger *logger
 
 // Init inits global logger.
-func Init() {
-	Logger = New()
+func Init(level string, json bool) {
+	globalLogger = newLogger(level, json)
 }
 
 // logLevel is the level of Logger.
@@ -77,15 +74,17 @@ type Message interface {
 // logger is a structure for logging messages.
 type logger struct {
 	donech chan struct{}
+	json   bool
 	level  logLevel
 }
 
 // New creates new logger.
-func New() *logger {
-	level := levelFromString(*flags.LogLevel)
+func newLogger(level string, json bool) *logger {
+	logLevel := levelFromString(level)
 	logger := &logger{
 		donech: make(chan struct{}),
-		level:  level,
+		json:   json,
+		level:  logLevel,
 	}
 	go logger.out()
 	return logger
@@ -97,7 +96,7 @@ func (l *logger) printf(level logLevel, message Message, std *os.File) {
 		return
 	}
 
-	if *flags.JSON {
+	if l.json {
 		outputCh <- output{
 			message: message.JSON(),
 			std:     std,
@@ -111,23 +110,23 @@ func (l *logger) printf(level logLevel, message Message, std *os.File) {
 }
 
 // Debug prints message in debug mode.
-func (l *logger) Debug(msg Message) {
-	l.printf(levelDebug, msg, os.Stdout)
+func Debug(msg Message) {
+	globalLogger.printf(levelDebug, msg, os.Stdout)
 }
 
 // Info prints message in info mode.
-func (l *logger) Info(msg Message) {
-	l.printf(levelInfo, msg, os.Stdout)
+func Info(msg Message) {
+	globalLogger.printf(levelInfo, msg, os.Stdout)
 }
 
 // Warning prints message in warning mode.
-func (l *logger) Warning(msg Message) {
-	l.printf(levelWarning, msg, os.Stderr)
+func Warning(msg Message) {
+	globalLogger.printf(levelWarning, msg, os.Stderr)
 }
 
 // Error prints message in error mode.
-func (l *logger) Error(msg Message) {
-	l.printf(levelError, msg, os.Stderr)
+func Error(msg Message) {
+	globalLogger.printf(levelError, msg, os.Stderr)
 }
 
 // out listens for outputCh and logs messages.
@@ -140,7 +139,7 @@ func (l *logger) out() {
 }
 
 // Close closes logger and its channel.
-func (l *logger) Close() {
+func Close() {
 	close(outputCh)
-	<-l.donech
+	<-globalLogger.donech
 }

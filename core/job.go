@@ -1,5 +1,7 @@
 package core
 
+/*
+
 import (
 	"context"
 	"errors"
@@ -105,3 +107,4 @@ func isCancelationError(err error) bool {
 
 	return false
 }
+*/

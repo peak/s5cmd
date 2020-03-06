@@ -1,5 +1,7 @@
 package core
 
+/*
+
 import (
 	"context"
 
@@ -63,3 +65,4 @@ func (p *Producer) batchProduce(ctx context.Context, command *Command) {
 		p.runJob(ctx, job)
 	}
 }
+*/

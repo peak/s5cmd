@@ -1,5 +1,7 @@
 package core
 
+/*
+
 import (
 	"context"
 	"errors"
@@ -7,8 +9,6 @@ import (
 	stdlog "log"
 	"os"
 	"sync"
-
-	"github.com/peak/s5cmd/flags"
 
 	"github.com/peak/s5cmd/log"
 	"github.com/peak/s5cmd/opt"
@@ -28,7 +28,7 @@ func NewWorkerManager(cancelFunc context.CancelFunc) *WorkerManager {
 	return &WorkerManager{
 		wg:         &sync.WaitGroup{},
 		cancelFunc: cancelFunc,
-		semaphore:  make(chan bool, *flags.WorkerCount),
+		semaphore:  make(chan bool, 100), // FIXME(ig): use workercount
 		donech:     make(chan bool),
 	}
 }
@@ -82,7 +82,7 @@ func (w *WorkerManager) RunCmd(ctx context.Context, cmd string) {
 func (w *WorkerManager) parseCommand(cmd string) *Command {
 	command, err := ParseCommand(cmd)
 	if err != nil {
-		log.Logger.Error(ErrorMessage{
+		log.Error(ErrorMessage{
 			Job:    cmd,
 			Err:    err.Error(),
 			format: `"%s": %v`,
@@ -105,7 +105,7 @@ func (w *WorkerManager) closeStdout(force bool) {
 	// WorkerManager is responsible for logging, hence we run the close routine
 	// here.
 	stats.Print(force)
-	log.Logger.Close()
+	log.Close()
 }
 
 // Run runs the commands in filename in the worker manager, on EOF
@@ -152,3 +152,4 @@ func (w *WorkerManager) produceWithScanner(ctx context.Context, r io.ReadCloser)
 		stdlog.Printf("-ERR Error reading: %v", err)
 	}
 }
+*/

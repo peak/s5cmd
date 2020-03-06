@@ -1,5 +1,7 @@
 package core
 
+/*
+
 import (
 	"fmt"
 	"os"
@@ -277,3 +279,4 @@ func CommandList() []string {
 func UsageLine() string {
 	return fmt.Sprintf("Usage: %s [OPTION]... [COMMAND [PARAMS...]]", os.Args[0])
 }
+*/

@@ -52,7 +52,19 @@ func (f *Filesystem) List(ctx context.Context, url *objurl.ObjectURL, isRecursiv
 		return f.expandGlob(ctx, url, isRecursive)
 	}
 
-	panic(fmt.Sprintf("unexpected visit for %q", url.Absolute()))
+	return f.listSingleObject(ctx, url)
+}
+
+func (f *Filesystem) listSingleObject(ctx context.Context, url *objurl.ObjectURL) <-chan *Object {
+	ch := make(chan *Object, 1)
+	defer close(ch)
+
+	object, err := f.Stat(ctx, url)
+	if err != nil {
+		object.Err = err
+	}
+	ch <- object
+	return ch
 }
 
 func (f *Filesystem) expandGlob(ctx context.Context, url *objurl.ObjectURL, isRecursive bool) <-chan *Object {

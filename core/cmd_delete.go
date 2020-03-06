@@ -2,19 +2,41 @@ package core
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/peak/s5cmd/log"
 	"github.com/peak/s5cmd/objurl"
 	"github.com/peak/s5cmd/storage"
+	"github.com/urfave/cli/v2"
 )
 
-func BatchDelete(ctx context.Context, job *Job) *JobResponse {
-	sources := job.args
+var DeleteCommand = &cli.Command{
+	Name:     "rm",
+	HelpName: "delete",
+	Usage:    "TODO",
+	Before: func(c *cli.Context) error {
+		// TODO(ig): do url validation
+		if c.Args().Len() == 0 {
+			return fmt.Errorf("expected at least 1 object to remove")
+		}
+		return nil
+	},
+	Action: func(c *cli.Context) error {
+		return Delete(c.Context, c.Args().Slice()...)
+	},
+}
+
+func Delete(ctx context.Context, args ...string) error {
+	sources := make([]*objurl.ObjectURL, len(args))
+	for i, arg := range args {
+		url, _ := objurl.New(arg)
+		sources[i] = url
+	}
 
 	client, err := storage.NewClient(sources[0])
 	if err != nil {
-		return jobResponse(err)
+		return err
 	}
 
 	// do object->objurl transformation
@@ -42,7 +64,8 @@ func BatchDelete(ctx context.Context, job *Job) *JobResponse {
 				}
 
 				if err := object.Err; err != nil {
-					printError(job, err)
+					// printError(job, err)
+					fmt.Println("ERR:", err)
 					continue
 				}
 				urlch <- object.URL
@@ -61,36 +84,16 @@ func BatchDelete(ctx context.Context, job *Job) *JobResponse {
 			}
 
 			merror = multierror.Append(merror, obj.Err)
-			printError(job, err)
+			// printError(job, err)
+			fmt.Println("ERR:", err)
 			continue
 		}
 
-		log.Logger.Info(InfoMessage{
-			Operation: job.operation.String(),
+		log.Info(InfoMessage{
+			Operation: "delete",
 			Source:    obj.URL,
 		})
 	}
 
-	return jobResponse(merror)
-}
-
-func Delete(ctx context.Context, job *Job) *JobResponse {
-	src := job.args[0]
-
-	client, err := storage.NewClient(src)
-	if err != nil {
-		return jobResponse(err)
-	}
-
-	err = client.Delete(ctx, src)
-	if err != nil {
-		return jobResponse(err)
-	}
-
-	log.Logger.Info(InfoMessage{
-		Operation: job.operation.String(),
-		Source:    src,
-	})
-
-	return jobResponse(nil)
+	return merror
 }

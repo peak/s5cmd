@@ -1,6 +1,8 @@
 // Package complete provides shell completion generators.
 package complete
 
+/*
+
 import (
 	"context"
 	"errors"
@@ -263,3 +265,4 @@ func s3predictor(a cmp.Args) []string {
 
 	return nil
 }
+*/

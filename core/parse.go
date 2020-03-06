@@ -1,6 +1,8 @@
 // Package core is the core package for s5cmd.
 package core
 
+/*
+
 import (
 	"errors"
 	"fmt"
@@ -306,3 +308,4 @@ func parseSingleCommand(cmd string) (*Command, error) {
 	}
 	return nil, fmt.Errorf("unknown command %q", parts[0])
 }
+*/

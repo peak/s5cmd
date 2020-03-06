@@ -4,8 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/peak/s5cmd/log"
-	"github.com/peak/s5cmd/opt"
+	"github.com/urfave/cli/v2"
+
+	"github.com/peak/s5cmd/objurl"
 	"github.com/peak/s5cmd/storage"
 )
 
@@ -19,24 +20,59 @@ func (s *sizeAndCount) addObject(obj *storage.Object) {
 	s.count++
 }
 
-func Size(ctx context.Context, job *Job) *JobResponse {
-	src := job.args[0]
+var SizeCommand = &cli.Command{
+	Name:     "du",
+	HelpName: "disk-usage",
+	Usage:    "TODO",
+	Flags: []cli.Flag{
+		&cli.BoolFlag{Name: "humanize", Aliases: []string{"H"}},
+		&cli.BoolFlag{Name: "group", Aliases: []string{"g"}},
+	},
+	Before: func(c *cli.Context) error {
+		if c.Args().Len() != 1 {
+			return fmt.Errorf("expected only 1 argument")
+		}
+		return nil
+	},
+	Action: func(c *cli.Context) error {
+		groupByClass := c.Bool("group")
+		humanize := c.Bool("humanize")
 
-	client, err := storage.NewClient(src)
+		return Size(
+			c.Context,
+			c.Args().First(),
+			groupByClass,
+			humanize,
+		)
+	},
+}
+
+func Size(
+	ctx context.Context,
+	src string,
+	groupByClass bool,
+	humanize bool,
+) error {
+	srcurl, err := objurl.New(src)
 	if err != nil {
-		return jobResponse(err)
+		return err
+	}
+
+	client, err := storage.NewClient(srcurl)
+	if err != nil {
+		return err
 	}
 
 	storageTotal := map[string]sizeAndCount{}
 	total := sizeAndCount{}
 
-	for object := range client.List(ctx, src, true, storage.ListAllItems) {
+	for object := range client.List(ctx, srcurl, true, storage.ListAllItems) {
 		if object.Type.IsDir() || isCancelationError(object.Err) {
 			continue
 		}
 
 		if err := object.Err; err != nil {
-			printError(job, err)
+			fmt.Println("ERR:", err)
 			continue
 		}
 		storageClass := string(object.StorageClass)
@@ -47,29 +83,29 @@ func Size(ctx context.Context, job *Job) *JobResponse {
 		total.addObject(object)
 	}
 
-	if !job.opts.Has(opt.GroupByClass) {
+	if !groupByClass {
 		m := SizeMessage{
-			Source:        src.String(),
+			Source:        srcurl.String(),
 			Count:         total.count,
 			Size:          total.size,
-			showHumanized: job.opts.Has(opt.HumanReadable),
+			showHumanized: humanize,
 		}
-		log.Logger.Info(m)
-		return jobResponse(err)
+		fmt.Println(m.String())
+		return nil
 	}
 
 	for k, v := range storageTotal {
 		m := SizeMessage{
-			Source:        src.String(),
+			Source:        srcurl.String(),
 			StorageClass:  k,
 			Count:         v.count,
 			Size:          v.size,
-			showHumanized: job.opts.Has(opt.HumanReadable),
+			showHumanized: humanize,
 		}
-		log.Logger.Info(m)
+		fmt.Println(m.String())
 	}
 
-	return jobResponse(nil)
+	return nil
 }
 
 // SizeMessage is the structure for logging disk usage.

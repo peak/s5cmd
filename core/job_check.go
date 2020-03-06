@@ -4,31 +4,32 @@ import (
 	"context"
 
 	"github.com/peak/s5cmd/objurl"
-	"github.com/peak/s5cmd/opt"
 	"github.com/peak/s5cmd/storage"
 )
 
 // CheckConditions checks if the job satisfies the conditions if the job has -n, -s and -u flags.
 // It returns error-embedded JobResponse with status "warning" if none of the requirements are met.
 // It returns nil if any warning or error is encountered during this check.
-func CheckConditions(ctx context.Context, src, dst *objurl.ObjectURL, opts opt.OptionList) *JobResponse {
-	condIsExist := opts.Has(opt.IfNotExists)
-	condSizeDiffers := opts.Has(opt.IfSizeDiffers)
-	condSourceNewer := opts.Has(opt.IfSourceNewer)
-
+func CheckConditions(
+	ctx context.Context,
+	src, dst *objurl.ObjectURL,
+	noClobber bool,
+	ifSizeDiffer bool,
+	ifSourceNewer bool,
+) error {
 	// if has no flag, return nil
-	if !condIsExist && !condSizeDiffers && !condSourceNewer {
+	if !noClobber && !ifSizeDiffer && !ifSourceNewer {
 		return nil
 	}
 
 	srcObj, err := getObject(ctx, src)
 	if err != nil {
-		return jobResponse(err)
+		return err
 	}
 
 	dstObj, err := getObject(ctx, dst)
 	if err != nil {
-		return jobResponse(err)
+		return err
 	}
 
 	// if destination is not exists, no conditions apply.
@@ -36,30 +37,30 @@ func CheckConditions(ctx context.Context, src, dst *objurl.ObjectURL, opts opt.O
 		return nil
 	}
 
-	var res *JobResponse
-	if condIsExist {
-		res = &JobResponse{status: statusWarning, err: ErrObjectExists}
+	var stickyErr error
+	if noClobber {
+		stickyErr = ErrObjectExists
 	}
 
-	if condSizeDiffers {
+	if ifSizeDiffer {
 		if srcObj.Size == dstObj.Size {
-			res = &JobResponse{status: statusWarning, err: ErrObjectSizesMatch}
+			stickyErr = ErrObjectSizesMatch
 		} else {
-			res = nil
+			stickyErr = nil
 		}
 	}
 
-	if condSourceNewer {
+	if ifSourceNewer {
 		srcMod, dstMod := srcObj.ModTime, dstObj.ModTime
 
 		if !srcMod.After(*dstMod) {
-			res = &JobResponse{status: statusWarning, err: ErrObjectIsNewer}
+			stickyErr = ErrObjectIsNewer
 		} else {
-			res = nil
+			stickyErr = nil
 		}
 	}
 
-	return res
+	return stickyErr
 }
 
 // getObject checks if the object from given url exists. If no object is

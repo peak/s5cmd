@@ -19,3 +19,12 @@ var (
 	ErrObjectIsNewer    = fmt.Errorf("object is newer or same age")
 	ErrObjectSizesMatch = fmt.Errorf("object size matches")
 )
+
+func isWarning(err error) bool {
+	switch err {
+	case ErrObjectExists, ErrObjectIsNewer, ErrObjectSizesMatch:
+		return true
+	}
+
+	return false
+}

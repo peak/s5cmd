@@ -9,7 +9,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/peak/s5cmd/flags"
 	"github.com/peak/s5cmd/log"
 )
 
@@ -125,7 +124,7 @@ func HasFailed() bool {
 
 // Print sends stats message to the logger.
 func Print(force bool) {
-	if force || *flags.PrintStats {
-		log.Logger.Info(global)
+	if force || true { // FIXME(ig): use printStats global flag
+		log.Info(global)
 	}
 }

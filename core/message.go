@@ -1,10 +1,13 @@
 package core
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
+	"github.com/hashicorp/go-multierror"
 	"github.com/peak/s5cmd/log"
 	"github.com/peak/s5cmd/objurl"
 	"github.com/peak/s5cmd/storage"
@@ -53,42 +56,32 @@ func (e ErrorMessage) JSON() string {
 }
 
 // newErrorMessage creates new ErrorMessage.
-func newErrorMessage(job *Job, err error, format string) ErrorMessage {
+func newErrorMessage(job, operation string, err error, format string) ErrorMessage {
 	errStr := ""
 	if err != nil {
 		errStr = err.Error()
 	}
 
-	var (
-		operation string
-		jobString string
-	)
-
-	if job != nil {
-		operation = job.operation.String()
-		jobString = job.String()
-	}
-
 	return ErrorMessage{
 		Operation: operation,
-		Job:       jobString,
+		Job:       job,
 		Err:       cleanupSpaces(errStr),
 		format:    format,
 	}
 }
 
 // printWarning is the helper function to log warning messages.
-func printWarning(job *Job, err error) {
+func printWarning(job, operation string, err error) {
 	format := "%q (%v)"
-	msg := newErrorMessage(job, err, format)
-	log.Logger.Warning(msg)
+	msg := newErrorMessage(job, operation, err, format)
+	log.Warning(msg)
 }
 
 // printError is the helper function to log error messages.
-func printError(job *Job, err error) {
+func printError(job, operation string, err error) {
 	format := "%q %v"
-	msg := newErrorMessage(job, err, format)
-	log.Logger.Error(msg)
+	msg := newErrorMessage(job, operation, err, format)
+	log.Error(msg)
 }
 
 // DebugMessage is a generic message structure for debugging logs.
@@ -110,7 +103,7 @@ func (d DebugMessage) JSON() string {
 func printDebug(format string, args ...interface{}) {
 	content := fmt.Sprintf(format, args...)
 	msg := DebugMessage{Content: content}
-	log.Logger.Debug(msg)
+	log.Debug(msg)
 }
 
 // cleanupSpaces converts multiline messages into
@@ -127,4 +120,32 @@ func cleanupSpaces(s string) string {
 func jsonMarshal(v interface{}) string {
 	bytes, _ := json.Marshal(v)
 	return string(bytes)
+}
+
+// FIXME(ig): move to a proper place
+func isCancelationError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	if errors.Is(err, context.Canceled) {
+		return true
+	}
+
+	if storage.IsCancelationError(err) {
+		return true
+	}
+
+	merr, ok := err.(*multierror.Error)
+	if !ok {
+		return false
+	}
+
+	for _, err := range merr.Errors {
+		if isCancelationError(err) {
+			return true
+		}
+	}
+
+	return false
 }

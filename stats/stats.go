@@ -89,6 +89,7 @@ func (s stats) JSON() string {
 	statsJson.Op = "stats"
 	statsJson.Success.File = get(FileOp)
 	statsJson.Success.S3 = get(S3Op)
+	statsJson.Fail = get(Fail)
 	statsJson.ElapsedTime = elapsed()
 	statsJson.TimeUnit = "nanosecond"
 

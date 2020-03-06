@@ -27,7 +27,38 @@ func TestDiskUsageSingleS3Object(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: suffix(` + 317 bytes in 1 objects: s3://%v/testfile1.txt [Total]`, bucket),
+		0: suffix(`317 bytes in 1 objects: s3://%v/testfile1.txt`, bucket),
+		1: equals(""),
+	})
+}
+
+func TestDiskUsageSingleS3ObjectJSON(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+
+	// create 2 files, expect 1.
+	putFile(t, s3client, bucket, "testfile1.txt", "this is a file content")
+	putFile(t, s3client, bucket, "testfile2.txt", "this is also a file content")
+
+	cmd := s5cmd("-json", "du", "s3://"+bucket+"/testfile1.txt")
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: json(`
+			{
+				"source": "s3://test-disk-usage-single-s-3-object-json/testfile1.txt",
+				"count":1,
+				"size":317
+			}
+		`),
 		1: equals(""),
 	})
 }
@@ -52,7 +83,7 @@ func TestDiskUsageMultipleS3Objects(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: suffix(` + 639 bytes in 2 objects: s3://%v [Total]`, bucket),
+		0: suffix(`639 bytes in 2 objects: s3://%v`, bucket),
 		1: equals(""),
 	})
 }
@@ -77,7 +108,7 @@ func TestDiskUsageWildcard(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: suffix(` + 973 bytes in 3 objects: s3://%v/*.txt [Total]`, bucket),
+		0: suffix(`973 bytes in 3 objects: s3://%v/*.txt`, bucket),
 		1: equals(""),
 	})
 }
@@ -108,7 +139,7 @@ func TestDiskUsageS3ObjectsAndFolders(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: suffix(` + 600 bytes in 2 objects: s3://%v [Total]`, bucket),
+		0: suffix(`600 bytes in 2 objects: s3://%v`, bucket),
 		1: equals(""),
 	})
 }
@@ -133,7 +164,7 @@ func TestDiskUsageWildcardS3ObjectsWithDashH(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: suffix(` + 241.8K bytes in 2 objects: s3://%v [Total]`, bucket),
+		0: suffix(`241.8K bytes in 2 objects: s3://%v`, bucket),
 		1: equals(""),
 	})
 }
@@ -155,7 +186,7 @@ func TestDiskUsageMissingObject(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: suffix(` + 0 bytes in 0 objects: s3://%v/non-existent-file [Total]`, bucket),
+		0: suffix(`0 bytes in 0 objects: s3://%v/non-existent-file`, bucket),
 		1: equals(""),
 	})
 }

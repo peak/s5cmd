@@ -4,6 +4,7 @@ package e2e
 
 import (
 	"bytes"
+	jsonpkg "encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -268,6 +269,7 @@ type compareFunc func(string) error
 type assertOpts struct {
 	strict      bool
 	sort        bool
+	json        bool
 	trimRegexes []*regexp.Regexp
 }
 
@@ -282,6 +284,12 @@ func sortInput(v bool) func(*assertOpts) {
 func strictLineCheck(v bool) func(*assertOpts) {
 	return func(opts *assertOpts) {
 		opts.strict = v
+	}
+}
+
+func jsonCheck(v bool) func(*assertOpts) {
+	return func(opts *assertOpts) {
+		opts.json = v
 	}
 }
 
@@ -306,6 +314,7 @@ func assertLines(t *testing.T, actual string, expectedlines map[int]compareFunc,
 	opts := assertOpts{
 		strict:      true,
 		sort:        false,
+		json:        false,
 		trimRegexes: nil,
 	}
 
@@ -333,6 +342,14 @@ func assertLines(t *testing.T, actual string, expectedlines map[int]compareFunc,
 	for i, line := range lines {
 		// trim consecutive spaces
 		line = replaceMatchWithSpace(line, `\s+`)
+
+		// check if each line is json if flag is set
+		// multiple structured logs in output should be prevented.
+		if opts.json {
+			if line != "" && !isJSON(line) {
+				t.Errorf("expected a json string for line %q (lineno: %v)", line, i)
+			}
+		}
 
 		cmp, ok := expectedlines[i]
 		if !ok {
@@ -362,6 +379,11 @@ func match(expected string) compareFunc {
 	}
 }
 
+func isJSON(str string) bool {
+	var js jsonpkg.RawMessage
+	return jsonpkg.Unmarshal([]byte(str), &js) == nil
+}
+
 func equals(format string, args ...interface{}) compareFunc {
 	expected := fmt.Sprintf(format, args...)
 	return func(actual string) error {
@@ -371,6 +393,27 @@ func equals(format string, args ...interface{}) compareFunc {
 
 		diff := cmp.Diff(expected, actual)
 		return fmt.Errorf("equals: (-want +got):\n%v", diff)
+	}
+}
+
+func json(format string, args ...interface{}) compareFunc {
+	expected := fmt.Sprintf(format, args...)
+	// escape multiline characters
+	{
+		expected = strings.Replace(expected, "\n", "", -1)
+		expected = strings.Replace(expected, "\t", "", -1)
+		expected = strings.Replace(expected, "\b", "", -1)
+		expected = strings.Replace(expected, " ", "", -1)
+		expected = strings.TrimSpace(expected)
+	}
+
+	return func(actual string) error {
+		if expected == actual {
+			return nil
+		}
+
+		diff := cmp.Diff(expected, actual)
+		return fmt.Errorf("json: (-want +got):\n%v", diff)
 	}
 }
 

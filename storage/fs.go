@@ -29,18 +29,19 @@ func (f *Filesystem) Stat(ctx context.Context, url *objurl.ObjectURL) (*Object, 
 		return nil, err
 	}
 
+	mod := st.ModTime()
 	return &Object{
 		URL:     url,
-		Mode:    st.Mode(),
+		Type:    ObjectType{st.Mode()},
 		Size:    st.Size(),
-		ModTime: st.ModTime(),
+		ModTime: &mod,
 		Etag:    "",
 	}, nil
 }
 
 func (f *Filesystem) List(ctx context.Context, url *objurl.ObjectURL, isRecursive bool, _ int64) <-chan *Object {
 	obj, err := f.Stat(ctx, url)
-	isDir := err == nil && obj.Mode.IsDir()
+	isDir := err == nil && obj.Type.IsDir()
 
 	if isDir {
 		return f.walkDir(ctx, url, isRecursive)
@@ -75,7 +76,7 @@ func (f *Filesystem) expandGlob(ctx context.Context, url *objurl.ObjectURL, isRe
 			url, _ := objurl.New(filename)
 			obj, _ := f.Stat(ctx, url)
 
-			if !obj.Mode.IsDir() {
+			if !obj.Type.IsDir() {
 				sendObject(ctx, obj, ch)
 			}
 
@@ -98,7 +99,7 @@ func (f *Filesystem) expandGlob(ctx context.Context, url *objurl.ObjectURL, isRe
 
 					obj := &Object{
 						URL:  url,
-						Mode: dirent.ModeType(),
+						Type: ObjectType{dirent.ModeType()},
 					}
 
 					sendObject(ctx, obj, ch)
@@ -122,10 +123,11 @@ func (f *Filesystem) readDir(ctx context.Context, url *objurl.ObjectURL, ch chan
 	}
 
 	for _, fi := range fis {
+		mod := fi.ModTime()
 		obj := &Object{
 			URL:     url.Join(fi.Name()),
-			ModTime: fi.ModTime(),
-			Mode:    fi.Mode(),
+			ModTime: &mod,
+			Type:    ObjectType{fi.Mode()},
 			Size:    fi.Size(),
 		}
 		sendObject(ctx, obj, ch)
@@ -156,7 +158,7 @@ func (f *Filesystem) walkDir(ctx context.Context, url *objurl.ObjectURL, isRecur
 
 				obj := &Object{
 					URL:  url,
-					Mode: dirent.ModeType(),
+					Type: ObjectType{dirent.ModeType()},
 				}
 
 				sendObject(ctx, obj, ch)
@@ -200,8 +202,8 @@ func (f *Filesystem) Put(ctx context.Context, body io.Reader, url *objurl.Object
 	return f.notimplemented("Put")
 }
 
-func (f *Filesystem) Get(_ context.Context, _ *objurl.ObjectURL, _ io.WriterAt) error {
-	return f.notimplemented("Get")
+func (f *Filesystem) Get(_ context.Context, _ *objurl.ObjectURL, _ io.WriterAt) (int64, error) {
+	return 0, f.notimplemented("Get")
 }
 
 func (f *Filesystem) ListBuckets(_ context.Context, _ string) ([]Bucket, error) {

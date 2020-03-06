@@ -76,37 +76,34 @@ Options:
   -ds int
     	Multipart chunk size in MB for downloads (default 50)
   -dw int
-    	Download concurrency (single file) (default 5)
+    	Download concurrency for each file (default 5)
   -endpoint-url string
     	Override default URL with the given one
   -f string
     	Commands-file or - for stdin
   -gops
     	Initialize gops agent
-  -install
-    	Install completion for s5cmd command
+  -json
+    	JSON formatted output
+  -log string
+    	Log level (possible values: 'debug', 'info', 'warning', error' (default "info")
   -no-verify-ssl
     	Don't verify SSL certificates
   -numworkers int
-    	Number of worker goroutines. Negative numbers mean multiples of the CPU core count. (default 256)
+    	Number of worker goroutines. Negative numbers mean multiples of the CPU core count (default 256)
   -r int
     	Retry S3 operations N times before failing (default 10)
   -stats
     	Always print stats
-  -uninstall
-    	Uninstall completion for s5cmd command
   -us int
     	Multipart chunk size in MB for uploads (default 50)
   -uw int
-    	Upload concurrency (single file) (default 5)
+    	Upload concurrency for each file (default 5)
   -version
     	Prints current version
-  -vv
-    	Verbose output
-  -y	Don't prompt user for typing 'yes'
 
 Commands:
-    !, cp, du, get, ls, mv, rm
+    cp, du, get, ls, mb, mv, rm
 
 To get help on a specific command, run "s5cmd <command> -h"
 ```
@@ -203,9 +200,6 @@ rm s3://from-bucket/prefix/*/file*gz # Wild-delete S3 objects (Batch-API)
 - Empty lines are also ok
 - `-numworkers -1` means use `runtime.NumCPU` goroutines. `-2` means
   `2*runtime.NumCPU` and so on.
-- The S3 throttling error `SlowDown` is exponentially retried. "Retryable
-  operations" as specified by the AWS SDK (currently `RequestError` and
-  `RequestError`) are retried by the SDK.
 
 ### S3 Credentials ###
 
@@ -236,17 +230,45 @@ To use a different profile, set the `AWS_PROFILE` env var. For more options, see
 
 ## Output ##
 
-The general output is in the format:
-```
-DATE TIME Short-Msg Detailed-Msg
-```
+s5cmd supports both text and json output.
+* text format
 
- - Trivial messages start with `#`, like number of workers and statistics
- - `+OK` for successful operations: `+OK "! touch touch-this-file"`
- - `-ERR` for failed operations: `-ERR "! touche": executable file not found in $PATH`
- - `?ErrorCode` for AWS-related errors, which will be retried (`?SlowDown`, `?InternalError`, etc)
+    * success
 
-Item output (used in `ls`) is slightly different: `DATE TIME` fields are omitted, and the short-msg is a single `+` character.
+    ```
+    [operation] [source]
+
+    # example: download s3://bucket/key
+    ```
+    * failure
+
+    ```
+    [ERROR|WARNING] [job] [message]
+
+    # example: WARNING "cp s3://somebucket/file.txt file.txt" (object already exists)
+    ```
+
+* json format
+    * success
+
+    ```json
+    {
+      "operation": "[operation]",
+      "success": true,
+      "source": "[source]",
+      "destination": "[destination]",
+      "object": "[object]"
+    }
+    ```
+    * failure
+
+    ```json
+    {
+      "operation": "[operation]",
+      "job": "[job]",
+      "error": "[error]"
+    }
+    ```
 
 ## Environment Variables ##
 

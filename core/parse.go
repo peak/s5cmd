@@ -8,14 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/peak/s5cmd/log"
 	"github.com/peak/s5cmd/objurl"
 	"github.com/peak/s5cmd/opt"
-)
-
-const (
-	// GlobCharacters is valid glob characters for local files
-	GlobCharacters string = "?*["
 )
 
 // parseArgumentByType parses an input string according to the given
@@ -267,10 +261,10 @@ func parseSingleCommand(cmd string) (*Command, error) {
 				}
 				a, parseArgErr = parseArgumentByType(partVal, t, fnObj)
 				if parseArgErr != nil {
-					log.Logger.Debug("Error parsing %s as %s: %s", partVal, t.String(), parseArgErr.Error())
+					printDebug("Error parsing %s as %s: %s", partVal, t.String(), parseArgErr.Error())
 					break
 				}
-				log.Logger.Debug("Parsed %s as %s", partVal, t.String())
+				printDebug("Parsed %s as %s", partVal, t.String())
 
 				command.args = append(command.args, a)
 
@@ -289,11 +283,10 @@ func parseSingleCommand(cmd string) (*Command, error) {
 					}
 					a, parseArgErr = parseArgumentByType(p, lastType, fnObj)
 					if parseArgErr != nil {
-						log.Logger.Debug("Error parsing %s as %s: %s", p, lastType.String(), parseArgErr.Error())
+						printDebug("Error parsing %s as %s: %s", p, lastType.String(), parseArgErr.Error())
 						break
 					}
-					log.Logger.Debug("Parsed %s as %s", p, lastType.String())
-
+					printDebug("Parsed %s as %s", p, lastType.String())
 					command.args = append(command.args, a)
 				}
 			}

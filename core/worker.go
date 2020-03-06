@@ -47,7 +47,7 @@ func (w *WorkerManager) release() {
 }
 
 // runJob acquires semaphore and creates new goroutine for the job.
-// It exits goroutine after all jobs are done and releases the semaphore.
+// It exits goroutine after the job is done and releases the semaphore.
 func (w *WorkerManager) runJob(ctx context.Context, job Runnable) {
 	w.acquire()
 	go func() {
@@ -61,6 +61,7 @@ func (w *WorkerManager) runJob(ctx context.Context, job Runnable) {
 func (w *WorkerManager) RunCmd(ctx context.Context, cmd string) {
 	stats.StartTimer()
 
+	defer w.closeStdout(false)
 	defer w.close()
 
 	command := w.parseCommand(cmd)
@@ -81,7 +82,11 @@ func (w *WorkerManager) RunCmd(ctx context.Context, cmd string) {
 func (w *WorkerManager) parseCommand(cmd string) *Command {
 	command, err := ParseCommand(cmd)
 	if err != nil {
-		stdlog.Printf(`-ERR "%s": %v`, cmd, err)
+		log.Logger.Error(ErrorMessage{
+			Job:    cmd,
+			Err:    err.Error(),
+			format: `"%s": %v`,
+		})
 		stats.Increment(stats.Fail)
 		return nil
 	}
@@ -92,8 +97,14 @@ func (w *WorkerManager) parseCommand(cmd string) *Command {
 func (w *WorkerManager) close() {
 	w.wg.Wait()
 	close(w.semaphore)
-	// Workermanager is responsible for logging, hence we run the close routine
+}
+
+// closeStdout prints stats message if it is enabled
+// and closes stdout channel.
+func (w *WorkerManager) closeStdout(force bool) {
+	// WorkerManager is responsible for logging, hence we run the close routine
 	// here.
+	stats.Print(force)
 	log.Logger.Close()
 }
 
@@ -102,6 +113,7 @@ func (w *WorkerManager) close() {
 func (w *WorkerManager) Run(ctx context.Context, filename string) {
 	stats.StartTimer()
 
+	defer w.closeStdout(true)
 	defer w.close()
 
 	var r io.ReadCloser

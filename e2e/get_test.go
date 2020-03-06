@@ -32,9 +32,55 @@ func TestGetSingleS3Object(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: suffix(`# Downloading testfile1.txt...`),
+		0: suffix(`get s3://%v/testfile1.txt`, bucket),
 		1: equals(""),
 	})
+
+	// assert local filesystem
+	expected := fs.Expected(t, fs.WithFile(filename, content, fs.WithMode(0644)))
+	assert.Assert(t, fs.Equal(cmd.Dir, expected))
+
+	// assert s3 object
+	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content))
+}
+
+func TestGetSingleS3ObjectJSON(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+
+	const (
+		filename = "testfile1.txt"
+		content  = "this is a file content"
+	)
+
+	putFile(t, s3client, bucket, filename, content)
+
+	cmd := s5cmd("-json", "get", "s3://"+bucket+"/"+filename, ".")
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: json(`
+			{	
+				"operation": "get",
+				"success": true,
+				"source": "s3://%v/testfile1.txt",
+				"destination": "testfile1.txt",
+				"object": {
+					"type": "file",
+					"size":22
+				}
+			}
+		`, bucket),
+		1: equals(""),
+	}, jsonCheck(true))
 
 	// assert local filesystem
 	expected := fs.Expected(t, fs.WithFile(filename, content, fs.WithMode(0644)))
@@ -72,10 +118,10 @@ func TestGetMultipleFlatS3Objects(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(""),
-		1: suffix(`# Downloading another_test_file.txt...`),
-		2: suffix(`# Downloading filename-with-hypen.gz...`),
-		3: suffix(`# Downloading readme.md...`),
-		4: suffix(`# Downloading testfile1.txt...`),
+		1: equals(`download s3://%v/a/another_test_file.txt`, bucket),
+		2: equals(`download s3://%v/a/test_b/filename-with-hypen.gz`, bucket),
+		3: equals(`download s3://%v/a/test_b/readme.md`, bucket),
+		4: equals(`download s3://%v/a/test_b/testfile1.txt`, bucket),
 	}, sortInput(true))
 
 	// assert local filesystem
@@ -124,10 +170,10 @@ func TestGetMultipleS3ObjectsToGivenDirectory(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(""),
-		1: suffix(`# Downloading another_test_file.txt...`),
-		2: suffix(`# Downloading filename-with-hypen.gz...`),
-		3: suffix(`# Downloading readme.md...`),
-		4: suffix(`# Downloading testfile1.txt...`),
+		1: equals(`download s3://%v/another_test_file.txt`, bucket),
+		2: equals(`download s3://%v/filename-with-hypen.gz`, bucket),
+		3: equals(`download s3://%v/readme.md`, bucket),
+		4: equals(`download s3://%v/testfile1.txt`, bucket),
 	}, sortInput(true))
 
 	// assert local filesystem

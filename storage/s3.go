@@ -33,12 +33,14 @@ const (
 	// ListAllItems is a type to paginate all S3 keys.
 	ListAllItems = -1
 
-	// DeleteItemsMax is the max allowed items to be deleted on single HTTP request.
-	DeleteItemsMax = 1000
+	// deleteObjectsMax is the max allowed objects to be deleted on single HTTP request.
+	deleteObjectsMax = 1000
 
 	transferAccelEndpoint = "s3-accelerate.amazonaws.com"
 )
 
+// newS3Factory creates a new factory for
+// creating reusable sessions.
 func newS3Factory() func() (*S3, error) {
 	var (
 		mu     sync.RWMutex
@@ -128,18 +130,19 @@ func (s *S3) Stat(ctx context.Context, url *objurl.ObjectURL) (*Object, error) {
 		return nil, err
 	}
 
+	etag := aws.StringValue(output.ETag)
+	mod := aws.TimeValue(output.LastModified)
 	return &Object{
 		URL:     url,
-		Etag:    aws.StringValue(output.ETag),
-		ModTime: aws.TimeValue(output.LastModified),
+		Etag:    strings.Trim(etag, `"`),
+		ModTime: &mod,
 		Size:    aws.Int64Value(output.ContentLength),
 	}, nil
 }
 
 // List is a non-blocking S3 list operation which paginates and filters S3
-// keys. It sends SequenceEndMarker at the end of each pagination. If no item
-// found or an error is encountered during this period, it sends these errors
-// to item channel.
+// keys. If no object found or an error is encountered during this period,
+// it sends these errors to object channel.
 func (s *S3) List(ctx context.Context, url *objurl.ObjectURL, _ bool, maxKeys int64) <-chan *Object {
 	listInput := s3.ListObjectsV2Input{
 		Bucket: aws.String(url.Bucket),
@@ -159,7 +162,7 @@ func (s *S3) List(ctx context.Context, url *objurl.ObjectURL, _ bool, maxKeys in
 
 	go func() {
 		defer close(objCh)
-		itemFound := false
+		objectFound := false
 
 		err := s.api.ListObjectsV2PagesWithContext(ctx, &listInput, func(p *s3.ListObjectsV2Output, lastPage bool) bool {
 			for _, c := range p.CommonPrefixes {
@@ -172,10 +175,10 @@ func (s *S3) List(ctx context.Context, url *objurl.ObjectURL, _ bool, maxKeys in
 				newurl.Path = prefix
 				objCh <- &Object{
 					URL:  newurl,
-					Mode: os.ModeDir,
+					Type: ObjectType{os.ModeDir},
 				}
 
-				itemFound = true
+				objectFound = true
 			}
 
 			for _, c := range p.Contents {
@@ -191,16 +194,18 @@ func (s *S3) List(ctx context.Context, url *objurl.ObjectURL, _ bool, maxKeys in
 
 				newurl := url.Clone()
 				newurl.Path = aws.StringValue(c.Key)
+				etag := aws.StringValue(c.ETag)
+				mod := aws.TimeValue(c.LastModified)
 				objCh <- &Object{
 					URL:          newurl,
-					Etag:         aws.StringValue(c.ETag),
-					ModTime:      aws.TimeValue(c.LastModified),
-					Mode:         objtype,
+					Etag:         strings.Trim(etag, `"`),
+					ModTime:      &mod,
+					Type:         ObjectType{objtype},
 					Size:         aws.Int64Value(c.Size),
 					StorageClass: StorageClass(aws.StringValue(c.StorageClass)),
 				}
 
-				itemFound = true
+				objectFound = true
 			}
 
 			return shouldPaginate && !lastPage
@@ -211,7 +216,7 @@ func (s *S3) List(ctx context.Context, url *objurl.ObjectURL, _ bool, maxKeys in
 			return
 		}
 
-		if !itemFound {
+		if !objectFound {
 			objCh <- &Object{Err: ErrNoObjectFound}
 		}
 	}()
@@ -238,15 +243,16 @@ func (s *S3) Copy(ctx context.Context, from, to *objurl.ObjectURL, metadata map[
 
 // Get is a multipart download operation which downloads S3 objects into any
 // destination that implements io.WriterAt interface.
-func (s *S3) Get(ctx context.Context, from *objurl.ObjectURL, to io.WriterAt) error {
-	_, err := s.downloader.DownloadWithContext(ctx, to, &s3.GetObjectInput{
+func (s *S3) Get(ctx context.Context, from *objurl.ObjectURL, to io.WriterAt) (int64, error) {
+	n, err := s.downloader.DownloadWithContext(ctx, to, &s3.GetObjectInput{
 		Bucket: aws.String(from.Bucket),
 		Key:    aws.String(from.Path),
 	}, func(u *s3manager.Downloader) {
 		u.PartSize = s.opts.DownloadChunkSizeBytes
 		u.Concurrency = s.opts.DownloadConcurrency
 	})
-	return err
+
+	return n, err
 }
 
 // Put is a multipart upload operation to upload resources, which implements
@@ -272,11 +278,16 @@ func (s *S3) Put(ctx context.Context, reader io.Reader, to *objurl.ObjectURL, me
 	return err
 }
 
+// chunk is an object identifier container which is used on MultiDelete
+// operations. Since DeleteObjects API allows deleting objects up to 1000,
+// splitting keys into multiple chunks is required.
 type chunk struct {
 	Bucket string
 	Keys   []*s3.ObjectIdentifier
 }
 
+// calculateChunks calculates chunks for given objectURL channel and returns
+// read-only chunk channel.
 func (s *S3) calculateChunks(ch <-chan *objurl.ObjectURL) <-chan chunk {
 	chunkch := make(chan chunk)
 
@@ -294,7 +305,7 @@ func (s *S3) calculateChunks(ch <-chan *objurl.ObjectURL) <-chan chunk {
 
 			objid := &s3.ObjectIdentifier{Key: aws.String(url.Path)}
 			keys = append(keys, objid)
-			if len(keys) == DeleteItemsMax {
+			if len(keys) == deleteObjectsMax {
 				chunkch <- chunk{
 					Bucket: bucket,
 					Keys:   keys,
@@ -314,6 +325,7 @@ func (s *S3) calculateChunks(ch <-chan *objurl.ObjectURL) <-chan chunk {
 	return chunkch
 }
 
+// Delete is a single object delete operation.
 func (s *S3) Delete(ctx context.Context, url *objurl.ObjectURL) error {
 	chunk := chunk{
 		Bucket: url.Bucket,
@@ -359,8 +371,11 @@ func (s *S3) doDelete(ctx context.Context, chunk chunk, resultch chan *Object) {
 	}
 }
 
-// MultiDelete is a removal operation which removes multiple S3 objects from a
-// bucket using single HTTP request. It allows deleting objects up to 1000.
+// MultiDelete is a asynchronous removal operation for multiple objects.
+// It reads given url channel, creates multiple chunks and run these
+// chunks in parallel. Each chunk may have at most 1000 objects since DeleteObjects
+// API has a limitation.
+// See: https://docs.aws.amazon.com/AmazonS3/latest/API/API_DeleteObjects.html.
 func (s *S3) MultiDelete(ctx context.Context, urlch <-chan *objurl.ObjectURL) <-chan *Object {
 	resultch := make(chan *Object)
 

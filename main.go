@@ -6,35 +6,20 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"log"
-	"math"
+	stdlog "log"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
-	"time"
 
 	"github.com/google/gops/agent"
 	"github.com/peak/s5cmd/complete"
 	"github.com/peak/s5cmd/core"
 	"github.com/peak/s5cmd/flags"
+	"github.com/peak/s5cmd/log"
 	"github.com/peak/s5cmd/stats"
 	"github.com/peak/s5cmd/version"
 )
-
-func printOps(name string, counter uint64, elapsed time.Duration, extra string) {
-	if counter == 0 {
-		return
-	}
-
-	secs := elapsed.Seconds()
-	if secs == 0 {
-		secs = 1
-	}
-
-	ops := uint64(math.Floor((float64(counter) / secs) + 0.5))
-	log.Printf("# Stats: %-7s %10d %4d ops/sec%s", name, counter, ops, extra)
-}
 
 func main() {
 	flag.Usage = func() {
@@ -52,7 +37,7 @@ func main() {
 	flags.Parse()
 
 	if done, err := complete.ParseFlagsAndRun(); err != nil {
-		log.Fatal("-ERR " + err.Error())
+		stdlog.Fatal("-ERR " + err.Error())
 	} else if done {
 		os.Exit(0)
 	}
@@ -64,13 +49,13 @@ func main() {
 
 	if *flags.EnableGops || os.Getenv("S5CMD_GOPS") != "" {
 		if err := agent.Listen(&agent.Options{NoShutdownCleanup: true}); err != nil {
-			log.Fatal("-ERR", err)
+			stdlog.Fatal("-ERR", err)
 		}
 	}
 
 	// validation must be done after the completion
 	if err := flags.Validate(); err != nil {
-		log.Print(err)
+		stdlog.Print(err)
 		os.Exit(2)
 	}
 
@@ -87,9 +72,10 @@ func main() {
 		ch := make(chan os.Signal, 1)
 		signal.Notify(ch, os.Interrupt, syscall.SIGTERM)
 		<-ch
-		log.Print("# Got signal, cleaning up...")
 		cancel()
 	}()
+
+	log.Init()
 
 	wp := core.NewWorkerManager(cancel)
 	if cmdMode {
@@ -98,28 +84,10 @@ func main() {
 		wp.Run(ctx, *flags.CommandFile)
 	}
 
-	failops := stats.Get(stats.Fail)
-
 	exitCode := 0
-	if failops > 0 {
+	if stats.HasFailed() {
 		// TODO(ig): should return 1 for errors.
 		exitCode = 127
-	}
-
-	if !cmdMode {
-		log.Printf("# Exiting with code %d", exitCode)
-	}
-
-	if !cmdMode || *flags.PrintStats {
-		elapsed := stats.Elapsed()
-
-		s3ops := stats.Get(stats.S3Op)
-		fileops := stats.Get(stats.FileOp)
-
-		printOps("S3", s3ops, elapsed, "")
-		printOps("File", fileops, elapsed, "")
-		printOps("Failed", failops, elapsed, "")
-		printOps("Total", s3ops+fileops+failops, elapsed, fmt.Sprintf(" %v", elapsed))
 	}
 
 	os.Exit(exitCode)

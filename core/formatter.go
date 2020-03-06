@@ -15,8 +15,8 @@ var humanDivisors = [...]struct {
 	{"T", 1 << 40},
 }
 
-// HumanizeBytes takes a byte-size and returns a human-readable string
-func HumanizeBytes(b int64) string {
+// humanizeBytes takes a byte-size and returns a human-readable string
+func humanizeBytes(b int64) string {
 	var (
 		suffix string
 		div    int64

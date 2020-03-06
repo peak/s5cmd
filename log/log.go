@@ -130,7 +130,7 @@ func (l *logger) Error(msg Message) {
 	l.printf(levelError, msg, os.Stderr)
 }
 
-// out listens for stdoutCh and logs messages.
+// out listens for outputCh and logs messages.
 func (l *logger) out() {
 	defer close(l.donech)
 

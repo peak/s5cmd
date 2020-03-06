@@ -243,7 +243,7 @@ s5cmd supports both text and json output.
     * failure
 
     ```
-    [ERROR|WARNING] [message]
+    [ERROR|WARNING] [job] [message]
 
     # example: WARNING "cp s3://somebucket/file.txt file.txt" (object already exists)
     ```

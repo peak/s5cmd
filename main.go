@@ -105,10 +105,14 @@ func main() {
 
 			log.Init(logLevel, printJSON)
 
+			core.InitWorker(c.Int("numworkers"))
+
 			return nil
 		},
 		After: func(c *cli.Context) error {
-			defer log.Close()
+			core.CloseWorker()
+			log.Close()
+
 			return nil
 		},
 		Action: func(c *cli.Context) error {
@@ -122,6 +126,8 @@ func main() {
 		core.MakeBucketCommand,
 		core.DeleteCommand,
 		core.CopyCommand,
+		core.MoveCommand,
+		core.GetCommand,
 		core.VersionCommand,
 	}
 

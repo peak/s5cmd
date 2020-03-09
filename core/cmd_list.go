@@ -25,10 +25,18 @@ var ListCommand = &cli.Command{
 		}
 		return nil
 	},
+	OnUsageError: func(c *cli.Context, err error, isSubcommand bool) error {
+		op := "list"
+		if !c.Args().Present() {
+			op = "list-bucket"
+		}
+		if err != nil {
+			printError(givenCommand(c), op, err)
+		}
+		return err
+	},
 	Action: func(c *cli.Context) error {
-		fmt.Println("** fullname", c.Args().Slice())
-
-		if c.Args().Len() == 0 {
+		if !c.Args().Present() {
 			return ListBuckets(c.Context)
 		}
 
@@ -38,9 +46,11 @@ var ListCommand = &cli.Command{
 		return List(
 			c.Context,
 			c.Args().First(),
+			givenCommand(c),
 			showEtag,
 			humanize,
 		)
+
 	},
 }
 
@@ -66,6 +76,7 @@ func ListBuckets(ctx context.Context) error {
 
 func List(
 	ctx context.Context,
+	fullCommand string,
 	src string,
 	showEtag bool,
 	humanize bool,
@@ -86,17 +97,17 @@ func List(
 		}
 
 		if err := object.Err; err != nil {
-			// FIXME(ig):
-			fmt.Println("ERR:", err)
+			printError(fullCommand, "list", err)
 			continue
 		}
 
-		res := ListMessage{
+		msg := ListMessage{
 			Object:        object,
 			showEtag:      showEtag,
 			showHumanized: humanize,
 		}
-		fmt.Println(res.String())
+
+		log.Info(msg)
 	}
 
 	return nil

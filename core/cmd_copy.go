@@ -7,12 +7,26 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/peak/s5cmd/log"
 	"github.com/peak/s5cmd/objurl"
 	"github.com/peak/s5cmd/storage"
 	"github.com/urfave/cli/v2"
 )
+
+func validateArguments(c *cli.Context) error {
+	if c.Args().Len() != 2 {
+		return fmt.Errorf("expected source and destination arguments")
+	}
+	return nil
+}
+
+// FIXME(ig): move
+func givenCommand(c *cli.Context) string {
+	return fmt.Sprintf("%v %v", c.Command.FullName(), strings.Join(c.Args().Slice(), " "))
+}
 
 var CopyCommand = &cli.Command{
 	Name:     "cp",
@@ -27,10 +41,13 @@ var CopyCommand = &cli.Command{
 		&cli.StringFlag{Name: "storage-class"},
 	},
 	Before: func(c *cli.Context) error {
-		if c.Args().Len() != 2 {
-			return fmt.Errorf("expected source and destination arguments")
+		return validateArguments(c)
+	},
+	OnUsageError: func(c *cli.Context, err error, isSubcommand bool) error {
+		if err != nil {
+			printError(givenCommand(c), "copy", err)
 		}
-		return nil
+		return err
 	},
 	Action: func(c *cli.Context) error {
 		noClobber := c.Bool("no-clobber")
@@ -88,6 +105,7 @@ func Copy(
 		return err
 	}
 
+	// local->local or remote->remote
 	if srcurl.Type == dsturl.Type {
 		return doCopy(
 			ctx,
@@ -103,6 +121,7 @@ func Copy(
 		)
 	}
 
+	// remote->local
 	if srcurl.IsRemote() {
 		return doDownload(
 			ctx,
@@ -117,6 +136,7 @@ func Copy(
 		)
 	}
 
+	// local->remote
 	return doUpload(
 		ctx,
 		srcurl,
@@ -131,6 +151,7 @@ func Copy(
 	)
 }
 
+// doDownload is used to fetch a remote object and save as a local object.
 func doDownload(
 	ctx context.Context,
 	src *objurl.ObjectURL,
@@ -153,33 +174,48 @@ func doDownload(
 		return err
 	}
 
-	destFilename := dst.Absolute()
+	for object := range srcClient.List(ctx, src, recursive, storage.ListAllItems) {
+		do := func() error {
+			src := object.URL
 
-	// TODO(ig): use storage abstraction
-	f, err := os.Create(destFilename)
-	if err != nil {
-		return err
+			joinpath := src.Base()
+			if parents {
+				joinpath = src.Relative()
+			}
+
+			localdst := dst.Join(joinpath)
+			dir := filepath.Dir(localdst.Absolute())
+			os.MkdirAll(dir, os.ModePerm)
+
+			// TODO(ig): use storage abstraction
+			f, err := os.Create(localdst.Absolute())
+			if err != nil {
+				return err
+			}
+			defer f.Close()
+
+			size, err := srcClient.Get(ctx, object.URL, f)
+			if err != nil {
+				err = dstClient.Delete(ctx, localdst)
+			} else if deleteSource {
+				err = srcClient.Delete(ctx, src)
+			}
+
+			if err != nil {
+				return err
+			}
+
+			log.Info(InfoMessage{
+				Operation:   "download",
+				Source:      src,
+				Destination: localdst,
+				Object:      &storage.Object{Size: size},
+			})
+			return nil
+		}
+
+		RunFunc(do)
 	}
-	defer f.Close()
-
-	size, err := srcClient.Get(ctx, src, f)
-
-	if err != nil {
-		err = dstClient.Delete(ctx, dst)
-	} else if deleteSource {
-		err = srcClient.Delete(ctx, src)
-	}
-
-	if err != nil {
-		return err
-	}
-
-	log.Info(InfoMessage{
-		Operation:   "download",
-		Source:      src,
-		Destination: dst,
-		Object:      &storage.Object{Size: size},
-	})
 
 	return nil
 }
@@ -310,7 +346,7 @@ func doCopy(
 			StorageClass: storage.StorageClass(storageClass),
 		},
 	}
-	fmt.Println(msg)
+	log.Info(msg)
 
 	return nil
 }

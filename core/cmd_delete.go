@@ -5,10 +5,11 @@ import (
 	"fmt"
 
 	"github.com/hashicorp/go-multierror"
+	"github.com/urfave/cli/v2"
+
 	"github.com/peak/s5cmd/log"
 	"github.com/peak/s5cmd/objurl"
 	"github.com/peak/s5cmd/storage"
-	"github.com/urfave/cli/v2"
 )
 
 var DeleteCommand = &cli.Command{
@@ -16,18 +17,27 @@ var DeleteCommand = &cli.Command{
 	HelpName: "delete",
 	Usage:    "TODO",
 	Before: func(c *cli.Context) error {
-		// TODO(ig): do url validation
-		if c.Args().Len() == 0 {
+		if !c.Args().Present() {
 			return fmt.Errorf("expected at least 1 object to remove")
 		}
 		return nil
 	},
+	OnUsageError: func(c *cli.Context, err error, isSubcommand bool) error {
+		if err != nil {
+			printError(givenCommand(c), "delete", err)
+		}
+		return err
+	},
 	Action: func(c *cli.Context) error {
-		return Delete(c.Context, c.Args().Slice()...)
+		return Delete(
+			c.Context,
+			givenCommand(c),
+			c.Args().Slice()...,
+		)
 	},
 }
 
-func Delete(ctx context.Context, args ...string) error {
+func Delete(ctx context.Context, fullCommand string, args ...string) error {
 	sources := make([]*objurl.ObjectURL, len(args))
 	for i, arg := range args {
 		url, _ := objurl.New(arg)
@@ -64,8 +74,7 @@ func Delete(ctx context.Context, args ...string) error {
 				}
 
 				if err := object.Err; err != nil {
-					// printError(job, err)
-					fmt.Println("ERR:", err)
+					printError(fullCommand, "delete", err)
 					continue
 				}
 				urlch <- object.URL
@@ -84,8 +93,7 @@ func Delete(ctx context.Context, args ...string) error {
 			}
 
 			merror = multierror.Append(merror, obj.Err)
-			// printError(job, err)
-			fmt.Println("ERR:", err)
+			printError(fullCommand, "delete", err)
 			continue
 		}
 

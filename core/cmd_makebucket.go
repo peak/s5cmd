@@ -21,19 +21,24 @@ var MakeBucketCommand = &cli.Command{
 		}
 		return nil
 	},
-
+	OnUsageError: func(c *cli.Context, err error, isSubcommand bool) error {
+		if err != nil {
+			printError(givenCommand(c), "make-bucket", err)
+		}
+		return err
+	},
 	Action: func(c *cli.Context) error {
 		return MakeBucket(
 			c.Context,
+			givenCommand(c),
 			c.Args().First(),
 		)
 	},
 }
 
-func MakeBucket(ctx context.Context, src string) error {
+func MakeBucket(ctx context.Context, fullCommand string, src string) error {
 	bucket, err := objurl.New(src)
 	if err != nil {
-		fmt.Println("ERR:", err)
 		return err
 	}
 

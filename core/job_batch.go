@@ -102,4 +102,5 @@ func localCopy(command *Command, operation op.Operation, src *objurl.ObjectURL) 
 	}
 	return command.makeJob(cmd, operation, src, dst)
 }
+
 */

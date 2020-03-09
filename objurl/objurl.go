@@ -79,7 +79,7 @@ func New(s string) (*ObjectURL, error) {
 		return nil, fmt.Errorf("s3 url should have a bucket")
 	}
 
-	if HasGlobCharacter(bucket) {
+	if hasGlobCharacter(bucket) {
 		return nil, fmt.Errorf("bucket name cannot contain wildcards")
 	}
 
@@ -254,6 +254,11 @@ func (o *ObjectURL) MarshalJSON() ([]byte, error) {
 	return json.Marshal(o.String())
 }
 
+// HasGlob checks if a string contains any wildcard chars.
+func (o *ObjectURL) HasGlob() bool {
+	return hasGlobCharacter(o.Path)
+}
+
 // parseBatch parses keys for wildcard operations.
 // It cuts the key starting from first directory before the
 // wildcard part (filter)
@@ -304,7 +309,7 @@ func parseNonBatch(prefix string, key string) string {
 	return trimmedKey
 }
 
-// HasGlobCharacter checks if a string contains any wildcard chars.
-func HasGlobCharacter(s string) bool {
+// hasGlobCharacter checks if a string contains any wildcard chars.
+func hasGlobCharacter(s string) bool {
 	return strings.ContainsAny(s, globCharacters)
 }

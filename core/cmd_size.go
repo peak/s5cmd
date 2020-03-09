@@ -6,6 +6,7 @@ import (
 
 	"github.com/urfave/cli/v2"
 
+	"github.com/peak/s5cmd/log"
 	"github.com/peak/s5cmd/objurl"
 	"github.com/peak/s5cmd/storage"
 )
@@ -34,12 +35,19 @@ var SizeCommand = &cli.Command{
 		}
 		return nil
 	},
+	OnUsageError: func(c *cli.Context, err error, isSubcommand bool) error {
+		if err != nil {
+			printError(givenCommand(c), "size", err)
+		}
+		return err
+	},
 	Action: func(c *cli.Context) error {
 		groupByClass := c.Bool("group")
 		humanize := c.Bool("humanize")
 
 		return Size(
 			c.Context,
+			givenCommand(c),
 			c.Args().First(),
 			groupByClass,
 			humanize,
@@ -49,6 +57,7 @@ var SizeCommand = &cli.Command{
 
 func Size(
 	ctx context.Context,
+	fullCommand string,
 	src string,
 	groupByClass bool,
 	humanize bool,
@@ -72,7 +81,7 @@ func Size(
 		}
 
 		if err := object.Err; err != nil {
-			fmt.Println("ERR:", err)
+			printError(fullCommand, "list", err)
 			continue
 		}
 		storageClass := string(object.StorageClass)
@@ -84,25 +93,25 @@ func Size(
 	}
 
 	if !groupByClass {
-		m := SizeMessage{
+		msg := SizeMessage{
 			Source:        srcurl.String(),
 			Count:         total.count,
 			Size:          total.size,
 			showHumanized: humanize,
 		}
-		fmt.Println(m.String())
+		log.Info(msg)
 		return nil
 	}
 
 	for k, v := range storageTotal {
-		m := SizeMessage{
+		msg := SizeMessage{
 			Source:        srcurl.String(),
 			StorageClass:  k,
 			Count:         v.count,
 			Size:          v.size,
 			showHumanized: humanize,
 		}
-		fmt.Println(m.String())
+		log.Info(msg)
 	}
 
 	return nil

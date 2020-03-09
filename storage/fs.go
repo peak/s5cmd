@@ -47,8 +47,7 @@ func (f *Filesystem) List(ctx context.Context, url *objurl.ObjectURL, isRecursiv
 		return f.walkDir(ctx, url, isRecursive)
 	}
 
-	hasGlob := objurl.HasGlobCharacter(url.Absolute())
-	if hasGlob {
+	if url.HasGlob() {
 		return f.expandGlob(ctx, url, isRecursive)
 	}
 

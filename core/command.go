@@ -127,8 +127,9 @@ var Commands = []CommandMap{
 
 	// S3 to file
 	{"cp", op.Download, []opt.ParamType{opt.S3SimpleObj, opt.FileOrDir}, noOpts},
-	{"get", op.AliasGet, []opt.ParamType{opt.S3SimpleObj, opt.OptionalFileOrDir}, noOpts},
 	{"cp", op.BatchDownload, []opt.ParamType{opt.S3WildObj, opt.Dir}, noOpts},
+
+	{"get", op.AliasGet, []opt.ParamType{opt.S3SimpleObj, opt.OptionalFileOrDir}, noOpts},
 	{"get", op.AliasBatchGet, []opt.ParamType{opt.S3WildObj, opt.OptionalDir}, noOpts},
 
 	// File to file

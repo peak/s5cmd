@@ -1,5 +1,7 @@
 package core
 
+/*
+
 import (
 	"context"
 	"sync/atomic"
@@ -29,3 +31,4 @@ type incrementJob struct {
 func (i *incrementJob) Run(ctx context.Context) {
 	atomic.AddUint64(i.counter, 1)
 }
+*/

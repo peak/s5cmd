@@ -191,8 +191,6 @@ func (f *Filesystem) walkDir(ctx context.Context, url *objurl.ObjectURL, isRecur
 	return ch
 }
 func (f *Filesystem) Copy(ctx context.Context, src, dst *objurl.ObjectURL, _ map[string]string) error {
-	fmt.Println("** path", dst.Path)
-	fmt.Println("** dir", dst.Dir())
 	if err := os.MkdirAll(dst.Dir(), os.ModePerm); err != nil {
 		return err
 	}

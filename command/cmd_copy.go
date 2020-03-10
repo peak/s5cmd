@@ -61,7 +61,6 @@ var CopyCommand = &cli.Command{
 			c.Context,
 			c.Args().Get(0),
 			c.Args().Get(1),
-			givenCommand(c),
 			// flags
 			noClobber,
 			ifSizeDiffer,
@@ -77,7 +76,6 @@ func Copy(
 	ctx context.Context,
 	src string,
 	dst string,
-	givenCommand string,
 	// flags
 	noClobber bool,
 	ifSizeDiffer bool,
@@ -126,7 +124,6 @@ func Copy(
 				ctx,
 				src,
 				dsturl,
-				givenCommand,
 				// flags
 				false, // dont delete source
 				noClobber,
@@ -140,7 +137,6 @@ func Copy(
 				ctx,
 				src,
 				dsturl,
-				givenCommand,
 				// flags
 				false, // dont delete source
 				noClobber,
@@ -153,7 +149,6 @@ func Copy(
 				ctx,
 				src,
 				dsturl,
-				givenCommand,
 				// flags
 				false, // dont delete source
 				noClobber,
@@ -177,7 +172,6 @@ func doDownload(
 	ctx context.Context,
 	src *objurl.ObjectURL,
 	dst *objurl.ObjectURL,
-	givenCommand string,
 	// flags
 	deleteSource bool,
 	noClobber bool,
@@ -261,7 +255,6 @@ func doUpload(
 	ctx context.Context,
 	src *objurl.ObjectURL,
 	dst *objurl.ObjectURL,
-	givenCommand string,
 	// flags
 	deleteSource bool,
 	noClobber bool,
@@ -358,7 +351,6 @@ func doCopy(
 	ctx context.Context,
 	src *objurl.ObjectURL,
 	dst *objurl.ObjectURL,
-	givenCommand string,
 	// flags
 	deleteSource bool,
 	noClobber bool,

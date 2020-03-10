@@ -157,8 +157,8 @@ func Copy(
 				dsturl,
 				op,
 				deleteSource,
-				// flags
 				checkFunc,
+				// flags
 				parents,
 			)
 		case dsturl.IsRemote(): // local->remote

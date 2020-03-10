@@ -93,19 +93,12 @@ var app = &cli.App{
 
 		return nil
 	},
-	After: func(c *cli.Context) error {
-		parallel.Close()
-		log.Close()
-
-		return nil
-	},
 	Action: func(c *cli.Context) error {
 		return cli.ShowAppHelp(c)
 	},
 }
 
 func Main(ctx context.Context, args []string) error {
-
 	app.Commands = []*cli.Command{
 		ListCommand,
 		SizeCommand,
@@ -114,8 +107,12 @@ func Main(ctx context.Context, args []string) error {
 		CopyCommand,
 		MoveCommand,
 		GetCommand,
+		RunCommand,
 		VersionCommand,
 	}
+
+	defer log.Close()
+	defer parallel.Close()
 
 	return app.RunContext(ctx, args)
 }

@@ -5,6 +5,7 @@ import (
 
 	"github.com/urfave/cli/v2"
 
+	"github.com/peak/s5cmd/parallel"
 	"github.com/peak/s5cmd/storage"
 )
 
@@ -15,8 +16,11 @@ var GetCommand = &cli.Command{
 	Flags:    copyCommandFlags,
 	Before: func(c *cli.Context) error {
 		arglen := c.Args().Len()
-		if arglen == 0 || arglen > 2 {
-			return fmt.Errorf("source and an optional destination path is required")
+		if arglen == 0 {
+			return fmt.Errorf("source is required")
+		}
+		if arglen > 2 {
+			return fmt.Errorf("too many arguments: expecting source and destination path")
 		}
 		return nil
 	},
@@ -39,19 +43,23 @@ var GetCommand = &cli.Command{
 			dst = c.Args().Get(1)
 		}
 
-		return Copy(
-			c.Context,
-			c.Args().Get(0),
-			dst,
-			c.Command.Name,
-			false, // don't delete source
-			// flags
-			noClobber,
-			ifSizeDiffer,
-			ifSourceNewer,
-			recursive,
-			parents,
-			storageClass,
-		)
+		fn := func() error {
+			return Copy(
+				c.Context,
+				c.Args().Get(0),
+				dst,
+				c.Command.Name,
+				false, // don't delete source
+				// flags
+				noClobber,
+				ifSizeDiffer,
+				ifSourceNewer,
+				recursive,
+				parents,
+				storageClass,
+			)
+		}
+		parallel.Run(fn)
+		return nil
 	},
 }

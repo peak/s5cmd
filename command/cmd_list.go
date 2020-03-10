@@ -8,6 +8,7 @@ import (
 
 	"github.com/peak/s5cmd/log"
 	"github.com/peak/s5cmd/objurl"
+	"github.com/peak/s5cmd/parallel"
 	"github.com/peak/s5cmd/storage"
 	"github.com/peak/s5cmd/strutil"
 )
@@ -44,14 +45,17 @@ var ListCommand = &cli.Command{
 		showEtag := c.Bool("etag")
 		humanize := c.Bool("humanize")
 
-		return List(
-			c.Context,
-			c.Args().First(),
-			givenCommand(c),
-			showEtag,
-			humanize,
-		)
-
+		fn := func() error {
+			return List(
+				c.Context,
+				c.Args().First(),
+				givenCommand(c),
+				showEtag,
+				humanize,
+			)
+		}
+		parallel.Run(fn)
+		return nil
 	},
 }
 

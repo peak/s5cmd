@@ -8,6 +8,7 @@ import (
 
 	"github.com/peak/s5cmd/log"
 	"github.com/peak/s5cmd/objurl"
+	"github.com/peak/s5cmd/parallel"
 	"github.com/peak/s5cmd/storage"
 	"github.com/peak/s5cmd/strutil"
 )
@@ -46,13 +47,17 @@ var SizeCommand = &cli.Command{
 		groupByClass := c.Bool("group")
 		humanize := c.Bool("humanize")
 
-		return Size(
-			c.Context,
-			givenCommand(c),
-			c.Args().First(),
-			groupByClass,
-			humanize,
-		)
+		fn := func() error {
+			return Size(
+				c.Context,
+				givenCommand(c),
+				c.Args().First(),
+				groupByClass,
+				humanize,
+			)
+		}
+		parallel.Run(fn)
+		return nil
 	},
 }
 

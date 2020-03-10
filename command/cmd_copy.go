@@ -61,20 +61,24 @@ var CopyCommand = &cli.Command{
 		parents := c.Bool("parents")
 		storageClass := storage.LookupClass(c.String("storage-class"))
 
-		return Copy(
-			c.Context,
-			c.Args().Get(0),
-			c.Args().Get(1),
-			c.Command.Name,
-			false, // don't delete source
-			// flags
-			noClobber,
-			ifSizeDiffer,
-			ifSourceNewer,
-			recursive,
-			parents,
-			storageClass,
-		)
+		fn := func() error {
+			return Copy(
+				c.Context,
+				c.Args().Get(0),
+				c.Args().Get(1),
+				c.Command.Name,
+				false, // don't delete source
+				// flags
+				noClobber,
+				ifSizeDiffer,
+				ifSourceNewer,
+				recursive,
+				parents,
+				storageClass,
+			)
+		}
+		parallel.Run(fn)
+		return nil
 	},
 }
 

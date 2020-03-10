@@ -1,6 +1,7 @@
 package command
 
 import (
+	"github.com/peak/s5cmd/parallel"
 	"github.com/peak/s5cmd/storage"
 	"github.com/urfave/cli/v2"
 )
@@ -28,19 +29,24 @@ var MoveCommand = &cli.Command{
 		parents := c.Bool("parents")
 		storageClass := storage.LookupClass(c.String("storage-class"))
 
-		return Copy(
-			c.Context,
-			c.Args().Get(0),
-			c.Args().Get(1),
-			c.Command.Name,
-			true, // delete source
-			// flags
-			noClobber,
-			ifSizeDiffer,
-			ifSourceNewer,
-			recursive,
-			parents,
-			storageClass,
-		)
+		fn := func() error {
+			return Copy(
+				c.Context,
+				c.Args().Get(0),
+				c.Args().Get(1),
+				c.Command.Name,
+				true, // delete source
+				// flags
+				noClobber,
+				ifSizeDiffer,
+				ifSourceNewer,
+				recursive,
+				parents,
+				storageClass,
+			)
+		}
+
+		parallel.Run(fn)
+		return nil
 	},
 }

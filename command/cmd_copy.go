@@ -101,7 +101,6 @@ func Copy(
 	}
 
 	for object := range srcClient.List(ctx, srcurl, recursive, storage.ListAllItems) {
-		fmt.Println("*** obj:", object)
 		if err := object.Err; err != nil {
 			// FIXME(ig):
 			fmt.Println("ERR", err)

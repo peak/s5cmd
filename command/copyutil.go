@@ -25,7 +25,6 @@ func checkConditions(
 	}
 
 	srcObj, err := getObject(ctx, src)
-	fmt.Println("hata?", src, srcObj, err)
 	if err != nil {
 		return err
 	}
@@ -44,9 +43,6 @@ func checkConditions(
 	if noClobber {
 		stickyErr = ErrObjectExists
 	}
-
-	fmt.Println(" srcobj", srcObj)
-	fmt.Println(" dstobj", dstObj)
 
 	if ifSizeDiffer {
 		if srcObj.Size == dstObj.Size {

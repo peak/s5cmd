@@ -28,6 +28,8 @@ func givenCommand(c *cli.Context) string {
 	return fmt.Sprintf("%v %v", c.Command.FullName(), strings.Join(c.Args().Slice(), " "))
 }
 
+type checkFunc func(*objurl.ObjectURL) error
+
 var CopyCommand = &cli.Command{
 	Name:     "cp",
 	HelpName: "copy",
@@ -116,6 +118,17 @@ func Copy(
 
 		src := object.URL
 
+		checkFunc := func(dst *objurl.ObjectURL) error {
+			return checkConditions(
+				ctx,
+				src,
+				dst,
+				noClobber,
+				ifSizeDiffer,
+				ifSourceNewer,
+			)
+		}
+
 		var task func() error
 
 		switch {
@@ -126,9 +139,7 @@ func Copy(
 				dsturl,
 				// flags
 				false, // dont delete source
-				noClobber,
-				ifSizeDiffer,
-				ifSourceNewer,
+				checkFunc,
 				parents,
 				storageClass,
 			)
@@ -139,9 +150,7 @@ func Copy(
 				dsturl,
 				// flags
 				false, // dont delete source
-				noClobber,
-				ifSizeDiffer,
-				ifSourceNewer,
+				checkFunc,
 				parents,
 			)
 		case dsturl.IsRemote(): // local->remote
@@ -151,9 +160,7 @@ func Copy(
 				dsturl,
 				// flags
 				false, // dont delete source
-				noClobber,
-				ifSizeDiffer,
-				ifSourceNewer,
+				checkFunc,
 				parents,
 				storageClass,
 			)
@@ -174,9 +181,7 @@ func doDownload(
 	dst *objurl.ObjectURL,
 	// flags
 	deleteSource bool,
-	noClobber bool,
-	ifSizeDiffer bool,
-	ifSourceNewer bool,
+	checkFunc checkFunc,
 	parents bool,
 ) func() error {
 	return func() error {
@@ -197,14 +202,7 @@ func doDownload(
 
 		dst = dst.Join(objname)
 
-		err = checkConditions(
-			ctx,
-			src,
-			dst,
-			noClobber,
-			ifSizeDiffer,
-			ifSourceNewer,
-		)
+		err = checkFunc(dst)
 		if err != nil {
 			if isWarning(err) {
 				msg := log.WarningMessage{
@@ -257,9 +255,7 @@ func doUpload(
 	dst *objurl.ObjectURL,
 	// flags
 	deleteSource bool,
-	noClobber bool,
-	ifSizeDiffer bool,
-	ifSourceNewer bool,
+	checkFunc checkFunc,
 	parents bool,
 	storageClass storage.StorageClass,
 ) func() error {
@@ -283,14 +279,7 @@ func doUpload(
 
 		dst = dst.Join(objname)
 
-		err = checkConditions(
-			ctx,
-			src,
-			dst,
-			noClobber,
-			ifSizeDiffer,
-			ifSourceNewer,
-		)
+		err = checkFunc(dst)
 		if err != nil {
 			if isWarning(err) {
 				msg := log.WarningMessage{
@@ -353,14 +342,17 @@ func doCopy(
 	dst *objurl.ObjectURL,
 	// flags
 	deleteSource bool,
-	noClobber bool,
-	ifSizeDiffer bool,
-	ifSourceNewer bool,
+	checkFunc checkFunc,
 	parents bool,
 	storageClass storage.StorageClass,
 ) func() error {
 	return func() error {
-		client, err := storage.NewClient(src)
+		srcClient, err := storage.NewClient(src)
+		if err != nil {
+			return err
+		}
+
+		dstClient, err := storage.NewClient(dst)
 		if err != nil {
 			return err
 		}
@@ -374,16 +366,19 @@ func doCopy(
 			objname = src.Relative()
 		}
 
-		dst = dst.Join(objname)
+		// FIXME(ig):
+		if !dst.IsRemote() {
+			dstObj, _ := dstClient.Stat(ctx, dst)
+			if dstObj != nil && dstObj.Type.IsDir() {
+				dst = dst.Join(objname)
+			}
+		} else {
+			dstPath := fmt.Sprintf("s3://%v/%v%v", dst.Bucket, dst.Path, objname)
+			dst, _ = objurl.New(dstPath)
 
-		err = checkConditions(
-			ctx,
-			src,
-			dst,
-			noClobber,
-			ifSizeDiffer,
-			ifSourceNewer,
-		)
+		}
+
+		err = checkFunc(dst)
 		if err != nil {
 			if isWarning(err) {
 				msg := log.WarningMessage{
@@ -397,7 +392,7 @@ func doCopy(
 			return err
 		}
 
-		err = client.Copy(
+		err = srcClient.Copy(
 			ctx,
 			src,
 			dst,
@@ -405,7 +400,7 @@ func doCopy(
 		)
 
 		if deleteSource && err == nil {
-			err = client.Delete(ctx, src)
+			err = srcClient.Delete(ctx, src)
 		}
 
 		if err != nil {

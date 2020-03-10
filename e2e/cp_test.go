@@ -1174,7 +1174,7 @@ func TestCopyS3ToLocalWithSameFilenameWithNoClobber(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: equals(`WARNING "cp s3://%v/%v ./%v" (object already exists)`, bucket, filename, filename),
+		0: equals(`WARNING "cp s3://%v/%v %v" (object already exists)`, bucket, filename, filename),
 		1: equals(""),
 	})
 
@@ -1297,7 +1297,7 @@ func TestCopyS3ToLocalWithSameFilenameDontOverrideIfS3ObjectIsOlder(t *testing.T
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: equals(`WARNING "cp s3://%v/%v ./%v" (object is newer or same age)`, bucket, filename, filename),
+		0: equals(`WARNING "cp s3://%v/%v %v" (object is newer or same age)`, bucket, filename, filename),
 		1: equals(""),
 	})
 

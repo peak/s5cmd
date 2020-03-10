@@ -30,18 +30,20 @@ func givenCommand(c *cli.Context) string {
 
 type checkFunc func(*objurl.ObjectURL) error
 
+var copyCommandFlags = []cli.Flag{
+	&cli.BoolFlag{Name: "no-clobber", Aliases: []string{"n"}},
+	&cli.BoolFlag{Name: "if-size-differ", Aliases: []string{"s"}},
+	&cli.BoolFlag{Name: "if-source-newer", Aliases: []string{"u"}},
+	&cli.BoolFlag{Name: "parents"},
+	&cli.BoolFlag{Name: "recursive", Aliases: []string{"R"}},
+	&cli.StringFlag{Name: "storage-class"},
+}
+
 var CopyCommand = &cli.Command{
 	Name:     "cp",
 	HelpName: "copy",
 	Usage:    "TODO",
-	Flags: []cli.Flag{
-		&cli.BoolFlag{Name: "no-clobber", Aliases: []string{"n"}},
-		&cli.BoolFlag{Name: "if-size-differ", Aliases: []string{"s"}},
-		&cli.BoolFlag{Name: "if-source-newer", Aliases: []string{"u"}},
-		&cli.BoolFlag{Name: "parents"},
-		&cli.BoolFlag{Name: "recursive", Aliases: []string{"R"}},
-		&cli.StringFlag{Name: "storage-class"},
-	},
+	Flags:    copyCommandFlags,
 	Before: func(c *cli.Context) error {
 		return validateArguments(c)
 	},
@@ -63,6 +65,8 @@ var CopyCommand = &cli.Command{
 			c.Context,
 			c.Args().Get(0),
 			c.Args().Get(1),
+			c.Command.Name,
+			false, // don't delete source
 			// flags
 			noClobber,
 			ifSizeDiffer,
@@ -78,6 +82,8 @@ func Copy(
 	ctx context.Context,
 	src string,
 	dst string,
+	op string,
+	deleteSource bool,
 	// flags
 	noClobber bool,
 	ifSizeDiffer bool,
@@ -137,9 +143,10 @@ func Copy(
 				ctx,
 				src,
 				dsturl,
-				// flags
-				false, // dont delete source
+				op,
+				deleteSource,
 				checkFunc,
+				// flags
 				parents,
 				storageClass,
 			)
@@ -148,8 +155,9 @@ func Copy(
 				ctx,
 				src,
 				dsturl,
+				op,
+				deleteSource,
 				// flags
-				false, // dont delete source
 				checkFunc,
 				parents,
 			)
@@ -158,9 +166,10 @@ func Copy(
 				ctx,
 				src,
 				dsturl,
-				// flags
-				false, // dont delete source
+				op,
+				deleteSource,
 				checkFunc,
+				// flags
 				parents,
 				storageClass,
 			)
@@ -179,9 +188,10 @@ func doDownload(
 	ctx context.Context,
 	src *objurl.ObjectURL,
 	dst *objurl.ObjectURL,
-	// flags
+	op string,
 	deleteSource bool,
 	checkFunc checkFunc,
+	// flags
 	parents bool,
 ) func() error {
 	return func() error {
@@ -206,8 +216,8 @@ func doDownload(
 		if err != nil {
 			if isWarning(err) {
 				msg := log.WarningMessage{
-					Job:       fmt.Sprintf("cp %v %v", src, dst),
-					Operation: "copy",
+					Command:   fullCommand(op, src, dst),
+					Operation: op,
 					Err:       err.Error(),
 				}
 				log.Warning(msg)
@@ -236,7 +246,7 @@ func doDownload(
 		}
 
 		msg := log.InfoMessage{
-			Operation:   "download",
+			Operation:   op,
 			Source:      src,
 			Destination: dst,
 			Object: &storage.Object{
@@ -253,9 +263,10 @@ func doUpload(
 	ctx context.Context,
 	src *objurl.ObjectURL,
 	dst *objurl.ObjectURL,
-	// flags
+	op string,
 	deleteSource bool,
 	checkFunc checkFunc,
+	// flags
 	parents bool,
 	storageClass storage.StorageClass,
 ) func() error {
@@ -283,8 +294,8 @@ func doUpload(
 		if err != nil {
 			if isWarning(err) {
 				msg := log.WarningMessage{
-					Job:       fmt.Sprintf("cp %v %v", src, dst),
-					Operation: "copy",
+					Command:   fullCommand(op, src, dst),
+					Operation: op,
 					Err:       err.Error(),
 				}
 				log.Warning(msg)
@@ -322,7 +333,7 @@ func doUpload(
 		}
 
 		msg := log.InfoMessage{
-			Operation:   "upload",
+			Operation:   op,
 			Source:      src,
 			Destination: dst,
 			Object: &storage.Object{
@@ -340,9 +351,10 @@ func doCopy(
 	ctx context.Context,
 	src *objurl.ObjectURL,
 	dst *objurl.ObjectURL,
-	// flags
+	op string,
 	deleteSource bool,
 	checkFunc checkFunc,
+	// flags
 	parents bool,
 	storageClass storage.StorageClass,
 ) func() error {
@@ -382,8 +394,8 @@ func doCopy(
 		if err != nil {
 			if isWarning(err) {
 				msg := log.WarningMessage{
-					Job:       fmt.Sprintf("cp %v %v", src, dst),
-					Operation: "copy",
+					Command:   fullCommand(op, src, dst),
+					Operation: op,
 					Err:       err.Error(),
 				}
 				log.Warning(msg)
@@ -407,11 +419,6 @@ func doCopy(
 			return err
 		}
 
-		// TODO(ig):
-		op := "copy"
-		if deleteSource {
-			op = "move"
-		}
 		msg := log.InfoMessage{
 			Operation:   op,
 			Source:      src,
@@ -437,4 +444,8 @@ func guessContentType(rs io.ReadSeeker) string {
 	}
 
 	return http.DetectContentType(buf)
+}
+
+func fullCommand(op string, src, dst *objurl.ObjectURL) string {
+	return fmt.Sprintf("%v %v %v", op, src, dst)
 }

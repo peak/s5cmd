@@ -39,10 +39,10 @@ func isCancelationError(err error) bool {
 }
 
 // printError is the helper function to log error messages.
-func printError(job, operation string, err error) {
+func printError(command, operation string, err error) {
 	msg := log.ErrorMessage{
 		Err:       cleanupError(err),
-		Job:       job,
+		Command:   command,
 		Operation: operation,
 	}
 	log.Error(msg)

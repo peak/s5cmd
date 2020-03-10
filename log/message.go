@@ -40,7 +40,7 @@ func (i InfoMessage) JSON() string {
 // ErrorMessage is a generic message structure for unsuccessful operations.
 type ErrorMessage struct {
 	Operation string `json:"operation,omitempty"`
-	Job       string `json:"job,omitempty"`
+	Command   string `json:"command,omitempty"`
 	Err       string `json:"error"`
 
 	format string
@@ -48,10 +48,10 @@ type ErrorMessage struct {
 
 // String is the string representation of ErrorMessage.
 func (e ErrorMessage) String() string {
-	if e.Job == "" {
+	if e.Command == "" {
 		return fmt.Sprintf(e.format, e.Err)
 	}
-	return fmt.Sprintf(e.format, e.Job, e.Err)
+	return fmt.Sprintf(e.format, e.Command, e.Err)
 }
 
 // JSON is the JSON representation of ErrorMessage.
@@ -62,16 +62,16 @@ func (e ErrorMessage) JSON() string {
 // ErrorMessage is a generic message structure for unsuccessful operations.
 type WarningMessage struct {
 	Operation string `json:"operation,omitempty"`
-	Job       string `json:"job,omitempty"`
+	Command   string `json:"job,omitempty"`
 	Err       string `json:"error"`
 }
 
 // String is the string representation of ErrorMessage.
 func (w WarningMessage) String() string {
-	if w.Job == "" {
+	if w.Command == "" {
 		return w.Err
 	}
-	return fmt.Sprintf("%q (%v)", w.Job, w.Err)
+	return fmt.Sprintf("%q (%v)", w.Command, w.Err)
 }
 
 // JSON is the JSON representation of ErrorMessage.

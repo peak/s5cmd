@@ -118,10 +118,10 @@ func TestGetMultipleFlatS3Objects(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(""),
-		1: equals(`download s3://%v/a/another_test_file.txt`, bucket),
-		2: equals(`download s3://%v/a/test_b/filename-with-hypen.gz`, bucket),
-		3: equals(`download s3://%v/a/test_b/readme.md`, bucket),
-		4: equals(`download s3://%v/a/test_b/testfile1.txt`, bucket),
+		1: equals(`get s3://%v/a/another_test_file.txt`, bucket),
+		2: equals(`get s3://%v/a/test_b/filename-with-hypen.gz`, bucket),
+		3: equals(`get s3://%v/a/test_b/readme.md`, bucket),
+		4: equals(`get s3://%v/a/test_b/testfile1.txt`, bucket),
 	}, sortInput(true))
 
 	// assert local filesystem
@@ -170,10 +170,10 @@ func TestGetMultipleS3ObjectsToGivenDirectory(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(""),
-		1: equals(`download s3://%v/another_test_file.txt`, bucket),
-		2: equals(`download s3://%v/filename-with-hypen.gz`, bucket),
-		3: equals(`download s3://%v/readme.md`, bucket),
-		4: equals(`download s3://%v/testfile1.txt`, bucket),
+		1: equals(`get s3://%v/another_test_file.txt`, bucket),
+		2: equals(`get s3://%v/filename-with-hypen.gz`, bucket),
+		3: equals(`get s3://%v/readme.md`, bucket),
+		4: equals(`get s3://%v/testfile1.txt`, bucket),
 	}, sortInput(true))
 
 	// assert local filesystem

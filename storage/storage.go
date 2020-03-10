@@ -138,6 +138,21 @@ func (s StorageClass) ShortCode() string {
 	return code
 }
 
+func LookupClass(s string) StorageClass {
+	switch s {
+	case "STANDARD":
+		return StorageStandard
+	case "REDUCED_REDUNDANCY":
+		return StorageReducedRedundancy
+	case "GLACIER":
+		return StorageGlacier
+	case "STANDARD_IA":
+		return StorageStandardIA
+	default:
+		return StorageStandard
+	}
+}
+
 const (
 	// ObjectStorageClassStandard is a standard storage class type.
 	StorageStandard StorageClass = "STANDARD"

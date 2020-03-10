@@ -68,6 +68,7 @@ func (f *Filesystem) listSingleObject(ctx context.Context, url *objurl.ObjectURL
 
 func (f *Filesystem) expandGlob(ctx context.Context, url *objurl.ObjectURL, isRecursive bool) <-chan *Object {
 	ch := make(chan *Object)
+
 	go func() {
 		defer close(ch)
 
@@ -84,14 +85,15 @@ func (f *Filesystem) expandGlob(ctx context.Context, url *objurl.ObjectURL, isRe
 
 		for _, filename := range matchedFiles {
 			filename := filename
-			// expanding 'tmp/*' returns 'tmp/a, tmp/b'. we expect 'a' and 'b'.
-			filename, _ = filepath.Rel(url.Dir(), filename)
 
-			url, _ := objurl.New(filename)
-			obj, _ := f.Stat(ctx, url)
+			fileurl, _ := objurl.New(filename)
+			fileurl.SetRelative(url.Absolute())
+
+			obj, _ := f.Stat(ctx, fileurl)
 
 			if !obj.Type.IsDir() {
 				sendObject(ctx, obj, ch)
+				continue
 			}
 
 			// don't walk the directory if not asked
@@ -99,20 +101,22 @@ func (f *Filesystem) expandGlob(ctx context.Context, url *objurl.ObjectURL, isRe
 				continue
 			}
 
-			godirwalk.Walk(url.Absolute(), &godirwalk.Options{
+			godirwalk.Walk(fileurl.Absolute(), &godirwalk.Options{
 				Callback: func(pathname string, dirent *godirwalk.Dirent) error {
 					// we're interested in files
 					if dirent.IsDir() {
 						return nil
 					}
 
-					url, err := objurl.New(pathname)
+					fileurl, err := objurl.New(pathname)
 					if err != nil {
 						return err
 					}
 
+					fileurl.SetRelative(url.Absolute())
+
 					obj := &Object{
-						URL:  url,
+						URL:  fileurl,
 						Type: ObjectType{dirent.ModeType()},
 					}
 
@@ -187,6 +191,11 @@ func (f *Filesystem) walkDir(ctx context.Context, url *objurl.ObjectURL, isRecur
 	return ch
 }
 func (f *Filesystem) Copy(ctx context.Context, src, dst *objurl.ObjectURL, _ map[string]string) error {
+	fmt.Println("** path", dst.Path)
+	fmt.Println("** dir", dst.Dir())
+	if err := os.MkdirAll(dst.Dir(), os.ModePerm); err != nil {
+		return err
+	}
 	_, err := shutil.Copy(src.Absolute(), dst.Absolute(), true)
 	return err
 }

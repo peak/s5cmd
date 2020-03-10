@@ -36,10 +36,11 @@ var MoveCommand = &cli.Command{
 		parents := c.Bool("parents")
 		storageClass := c.String("storage-class")
 
-		return Copy(
+		return Move(
 			c.Context,
 			c.Args().Get(0),
 			c.Args().Get(1),
+			givenCommand(c),
 			// flags
 			noClobber,
 			ifSizeDiffer,
@@ -55,6 +56,7 @@ func Move(
 	ctx context.Context,
 	src string,
 	dst string,
+	givenCommand string,
 	// flags
 	noClobber bool,
 	ifSizeDiffer bool,

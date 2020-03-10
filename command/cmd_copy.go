@@ -7,7 +7,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/peak/s5cmd/log"
@@ -56,12 +55,13 @@ var CopyCommand = &cli.Command{
 		ifSourceNewer := c.Bool("if-source-newer")
 		recursive := c.Bool("recursive")
 		parents := c.Bool("parents")
-		storageClass := c.String("storage-class")
+		storageClass := storage.LookupClass(c.String("storage-class"))
 
 		return Copy(
 			c.Context,
 			c.Args().Get(0),
 			c.Args().Get(1),
+			givenCommand(c),
 			// flags
 			noClobber,
 			ifSizeDiffer,
@@ -77,13 +77,14 @@ func Copy(
 	ctx context.Context,
 	src string,
 	dst string,
+	givenCommand string,
 	// flags
 	noClobber bool,
 	ifSizeDiffer bool,
 	ifSourceNewer bool,
 	recursive bool,
 	parents bool,
-	storageClass string,
+	storageClass storage.StorageClass,
 ) error {
 	srcurl, err := objurl.New(src)
 	if err != nil {
@@ -100,6 +101,10 @@ func Copy(
 		return err
 	}
 
+	// set recursive=true for local->remote copy operations. this
+	// is required for backwards compatibility.
+	recursive = recursive || (!srcurl.IsRemote() && dsturl.IsRemote())
+
 	for object := range srcClient.List(ctx, srcurl, recursive, storage.ListAllItems) {
 		if err := object.Err; err != nil {
 			// FIXME(ig):
@@ -107,17 +112,11 @@ func Copy(
 			continue
 		}
 
-		src := object.URL
-		if err := checkConditions(
-			ctx,
-			src,
-			dsturl,
-			noClobber,
-			ifSizeDiffer,
-			ifSourceNewer,
-		); err != nil {
-			return err
+		if object.Type.IsDir() {
+			continue
 		}
+
+		src := object.URL
 
 		var task func() error
 
@@ -127,11 +126,12 @@ func Copy(
 				ctx,
 				src,
 				dsturl,
+				givenCommand,
+				// flags
 				false, // dont delete source
 				noClobber,
 				ifSizeDiffer,
 				ifSourceNewer,
-				recursive,
 				parents,
 				storageClass,
 			)
@@ -140,11 +140,12 @@ func Copy(
 				ctx,
 				src,
 				dsturl,
+				givenCommand,
+				// flags
 				false, // dont delete source
 				noClobber,
 				ifSizeDiffer,
 				ifSourceNewer,
-				recursive,
 				parents,
 			)
 		case dsturl.IsRemote(): // local->remote
@@ -152,11 +153,12 @@ func Copy(
 				ctx,
 				src,
 				dsturl,
+				givenCommand,
+				// flags
 				false, // dont delete source
 				noClobber,
 				ifSizeDiffer,
 				ifSourceNewer,
-				recursive,
 				parents,
 				storageClass,
 			)
@@ -175,12 +177,12 @@ func doDownload(
 	ctx context.Context,
 	src *objurl.ObjectURL,
 	dst *objurl.ObjectURL,
+	givenCommand string,
 	// flags
 	deleteSource bool,
 	noClobber bool,
 	ifSizeDiffer bool,
 	ifSourceNewer bool,
-	recursive bool,
 	parents bool,
 ) func() error {
 	return func() error {
@@ -194,17 +196,37 @@ func doDownload(
 			return err
 		}
 
-		joinpath := src.Base()
+		objname := src.Base()
 		if parents {
-			joinpath = src.Relative()
+			objname = src.Relative()
 		}
 
-		localdst := dst.Join(joinpath)
-		dir := filepath.Dir(localdst.Absolute())
-		os.MkdirAll(dir, os.ModePerm)
+		dst = dst.Join(objname)
+
+		err = checkConditions(
+			ctx,
+			src,
+			dst,
+			noClobber,
+			ifSizeDiffer,
+			ifSourceNewer,
+		)
+		if err != nil {
+			if isWarning(err) {
+				msg := log.WarningMessage{
+					Job:       fmt.Sprintf("cp %v %v", src, dst),
+					Operation: "copy",
+					Err:       err.Error(),
+				}
+				log.Warning(msg)
+				return nil
+			}
+			return err
+		}
 
 		// TODO(ig): use storage abstraction
-		f, err := os.Create(localdst.Absolute())
+		os.MkdirAll(dst.Dir(), os.ModePerm)
+		f, err := os.Create(dst.Absolute())
 		if err != nil {
 			return err
 		}
@@ -212,7 +234,7 @@ func doDownload(
 
 		size, err := srcClient.Get(ctx, src, f)
 		if err != nil {
-			err = dstClient.Delete(ctx, localdst)
+			err = dstClient.Delete(ctx, dst)
 		} else if deleteSource {
 			err = srcClient.Delete(ctx, src)
 		}
@@ -224,8 +246,10 @@ func doDownload(
 		msg := log.InfoMessage{
 			Operation:   "download",
 			Source:      src,
-			Destination: localdst,
-			Object:      &storage.Object{Size: size},
+			Destination: dst,
+			Object: &storage.Object{
+				Size: size,
+			},
 		}
 
 		log.Info(msg)
@@ -237,14 +261,14 @@ func doUpload(
 	ctx context.Context,
 	src *objurl.ObjectURL,
 	dst *objurl.ObjectURL,
+	givenCommand string,
 	// flags
 	deleteSource bool,
 	noClobber bool,
 	ifSizeDiffer bool,
 	ifSourceNewer bool,
-	recursive bool,
 	parents bool,
-	storageClass string,
+	storageClass storage.StorageClass,
 ) func() error {
 	return func() error {
 		srcClient, err := storage.NewClient(src)
@@ -259,14 +283,6 @@ func doUpload(
 		}
 		defer f.Close()
 
-		trimPrefix := src.Absolute()
-		trimPrefix = filepath.Dir(trimPrefix)
-		if trimPrefix == "." {
-			trimPrefix = ""
-		} else {
-			trimPrefix += string(filepath.Separator)
-		}
-
 		objname := src.Base()
 		if parents {
 			objname = src.Relative()
@@ -274,13 +290,34 @@ func doUpload(
 
 		dst = dst.Join(objname)
 
+		err = checkConditions(
+			ctx,
+			src,
+			dst,
+			noClobber,
+			ifSizeDiffer,
+			ifSourceNewer,
+		)
+		if err != nil {
+			if isWarning(err) {
+				msg := log.WarningMessage{
+					Job:       fmt.Sprintf("cp %v %v", src, dst),
+					Operation: "copy",
+					Err:       err.Error(),
+				}
+				log.Warning(msg)
+				return nil
+			}
+			return err
+		}
+
 		dstClient, err := storage.NewClient(dst)
 		if err != nil {
 			return err
 		}
 
 		metadata := map[string]string{
-			"StorageClass": storageClass,
+			"StorageClass": string(storageClass),
 			"ContentType":  guessContentType(f),
 		}
 
@@ -306,7 +343,10 @@ func doUpload(
 			Operation:   "upload",
 			Source:      src,
 			Destination: dst,
-			Object:      &storage.Object{Size: size},
+			Object: &storage.Object{
+				Size:         size,
+				StorageClass: storageClass,
+			},
 		}
 		log.Info(msg)
 
@@ -318,14 +358,14 @@ func doCopy(
 	ctx context.Context,
 	src *objurl.ObjectURL,
 	dst *objurl.ObjectURL,
+	givenCommand string,
 	// flags
 	deleteSource bool,
 	noClobber bool,
 	ifSizeDiffer bool,
 	ifSourceNewer bool,
-	recursive bool,
 	parents bool,
-	storageClass string,
+	storageClass storage.StorageClass,
 ) func() error {
 	return func() error {
 		client, err := storage.NewClient(src)
@@ -334,7 +374,35 @@ func doCopy(
 		}
 
 		metadata := map[string]string{
-			"StorageClass": storageClass,
+			"StorageClass": string(storageClass),
+		}
+
+		objname := src.Base()
+		if parents {
+			objname = src.Relative()
+		}
+
+		dst = dst.Join(objname)
+
+		err = checkConditions(
+			ctx,
+			src,
+			dst,
+			noClobber,
+			ifSizeDiffer,
+			ifSourceNewer,
+		)
+		if err != nil {
+			if isWarning(err) {
+				msg := log.WarningMessage{
+					Job:       fmt.Sprintf("cp %v %v", src, dst),
+					Operation: "copy",
+					Err:       err.Error(),
+				}
+				log.Warning(msg)
+				return nil
+			}
+			return err
 		}
 
 		err = client.Copy(

@@ -71,7 +71,7 @@ func (w WarningMessage) String() string {
 	if w.Job == "" {
 		return w.Err
 	}
-	return fmt.Sprintf("%q %v", w.Job, w.Err)
+	return fmt.Sprintf("%q (%v)", w.Job, w.Err)
 }
 
 // JSON is the JSON representation of ErrorMessage.

@@ -50,11 +50,16 @@ func New(s string) (*ObjectURL, error) {
 	split := strings.Split(s, "://")
 
 	if len(split) == 1 {
-		return &ObjectURL{
+		url := &ObjectURL{
 			Type:   localObject,
 			Scheme: "",
 			Path:   s,
-		}, nil
+		}
+		if err := url.setPrefixAndFilter(); err != nil {
+			return nil, err
+		}
+
+		return url, nil
 	}
 
 	if len(split) != 2 {
@@ -117,12 +122,7 @@ func (o *ObjectURL) Absolute() string {
 
 // Relative returns a URI reference based on the calculated prefix.
 func (o *ObjectURL) Relative() string {
-	// relativePath is calculated for remote objects
-	if o.IsRemote() {
-		return o.relativePath
-	}
-	// o.Path is already a relative path for local objects
-	return o.Path
+	return o.relativePath
 }
 
 // Base returns the last element of object path.
@@ -239,6 +239,11 @@ func (o *ObjectURL) Clone() *ObjectURL {
 		filter:       o.filter,
 		filterRegex:  o.filterRegex,
 	}
+}
+
+func (o *ObjectURL) SetRelative(base string) {
+	dir := filepath.Dir(base)
+	o.relativePath, _ = filepath.Rel(dir, o.Absolute())
 }
 
 // Match checks if given key matches with the object.

@@ -499,7 +499,8 @@ func TestCopySingleFileToS3JSON(t *testing.T) {
 			"destination": "s3://%v/testfile1.txt",
 			"object": {
 				"type": "file",
-				"size":19
+				"size":19,
+				"storage_class": "STANDARD"
 			}
 		}
 	`
@@ -922,7 +923,7 @@ func TestCopySingleLocalFileToLocal(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: suffix("local-copy %v", filename),
+		0: suffix("copy %v", filename),
 		1: equals(""),
 	})
 
@@ -965,8 +966,8 @@ func TestCopyMultipleLocalFlatFilesToLocal(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(""),
-		1: suffix("local-copy another_test_file.txt"),
-		2: suffix("local-copy testfile1.txt"),
+		1: suffix("copy another_test_file.txt"),
+		2: suffix("copy testfile1.txt"),
 	}, sortInput(true))
 
 	// assert local filesystem
@@ -1034,9 +1035,9 @@ func TestCopyMultipleLocalNestedFilesToLocal(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(""),
-		1: suffix("local-copy file1.txt"),
-		2: suffix("local-copy file2.txt"),
-		3: suffix("local-copy readme.md"),
+		1: suffix("copy file1.txt"),
+		2: suffix("copy file2.txt"),
+		3: suffix("copy readme.md"),
 	}, sortInput(true))
 
 	newLayout := append(folderLayout, fs.WithDir(
@@ -1101,9 +1102,9 @@ func TestCopyMultipleLocalNestedFilesToLocalPreserveLayout(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(""),
-		1: equals("local-copy file1.txt"),
-		2: equals("local-copy file2.txt"),
-		3: equals("local-copy readme.md"),
+		1: equals("copy file1.txt"),
+		2: equals("copy file2.txt"),
+		3: equals("copy readme.md"),
 	}, sortInput(true))
 
 	newLayout := append(folderLayout, fs.WithDir("dst", folderLayout...))

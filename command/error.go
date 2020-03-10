@@ -38,20 +38,8 @@ func isCancelationError(err error) bool {
 	return false
 }
 
-// printWarning is the helper function to log warning messages.
-func printWarning(job, operation string, err error) {
-	const format = "%q (%v)"
-	msg := log.WarningMessage{
-		Err:       cleanupError(err),
-		Job:       job,
-		Operation: operation,
-	}
-	log.Warning(msg)
-}
-
 // printError is the helper function to log error messages.
 func printError(job, operation string, err error) {
-	const format = "%q %v"
 	msg := log.ErrorMessage{
 		Err:       cleanupError(err),
 		Job:       job,

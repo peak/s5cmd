@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/peak/s5cmd/objurl"
+	"github.com/peak/s5cmd/strutil"
 )
 
 var (
@@ -62,7 +63,7 @@ func (o *Object) String() string {
 
 // JSON returns the JSON representation of Object.
 func (o *Object) JSON() string {
-	return jsonMarshal(o)
+	return strutil.JSON(o)
 }
 
 // ObjectType is the type of Object.
@@ -109,7 +110,7 @@ func (b Bucket) String() string {
 
 // String returns the JSON representation of Bucket.
 func (b Bucket) JSON() string {
-	return jsonMarshal(b)
+	return strutil.JSON(b)
 }
 
 type StorageClass string
@@ -161,10 +162,4 @@ type notImplemented struct {
 // Error returns the string representation of Error for notImplemented.
 func (e notImplemented) Error() string {
 	return fmt.Sprintf("%q is not supported on %q storage", e.method, e.apiType)
-}
-
-// jsonMarshall is a helper function for creating JSON-encoded strings.
-func jsonMarshal(v interface{}) string {
-	bytes, _ := json.Marshal(v)
-	return string(bytes)
 }

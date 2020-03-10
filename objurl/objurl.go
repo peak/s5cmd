@@ -117,7 +117,12 @@ func (o *ObjectURL) Absolute() string {
 
 // Relative returns a URI reference based on the calculated prefix.
 func (o *ObjectURL) Relative() string {
-	return o.relativePath
+	// relativePath is calculated for remote objects
+	if o.IsRemote() {
+		return o.relativePath
+	}
+	// o.Path is already a relative path for local objects
+	return o.Path
 }
 
 // Base returns the last element of object path.
@@ -125,6 +130,17 @@ func (o *ObjectURL) Base() string {
 	basefn := filepath.Base
 	if o.IsRemote() {
 		basefn = path.Base
+	}
+
+	return basefn(o.Path)
+}
+
+// Dir returns all but the last element of path, typically the path's
+// directory.
+func (o *ObjectURL) Dir() string {
+	basefn := filepath.Dir
+	if o.IsRemote() {
+		basefn = path.Dir
 	}
 
 	return basefn(o.Path)

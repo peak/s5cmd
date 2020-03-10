@@ -84,6 +84,9 @@ func (f *Filesystem) expandGlob(ctx context.Context, url *objurl.ObjectURL, isRe
 
 		for _, filename := range matchedFiles {
 			filename := filename
+			// expanding 'tmp/*' returns 'tmp/a, tmp/b'. we expect 'a' and 'b'.
+			filename, _ = filepath.Rel(url.Dir(), filename)
+
 			url, _ := objurl.New(filename)
 			obj, _ := f.Stat(ctx, url)
 

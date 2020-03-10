@@ -1,4 +1,4 @@
-package core
+package command
 
 import (
 	"context"
@@ -73,7 +73,7 @@ func Get(
 		return err
 	}
 
-	if err := CheckConditions(
+	if err := checkConditions(
 		ctx,
 		srcurl,
 		dsturl,

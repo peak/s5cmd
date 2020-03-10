@@ -65,12 +65,6 @@ func levelFromString(s string) logLevel {
 	}
 }
 
-// Message is an interface to print structured logs.
-type Message interface {
-	fmt.Stringer
-	JSON() string
-}
-
 // logger is a structure for logging messages.
 type logger struct {
 	donech chan struct{}

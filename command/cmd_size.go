@@ -1,4 +1,4 @@
-package core
+package command
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 	"github.com/peak/s5cmd/log"
 	"github.com/peak/s5cmd/objurl"
 	"github.com/peak/s5cmd/storage"
+	"github.com/peak/s5cmd/strutil"
 )
 
 type sizeAndCount struct {
@@ -155,5 +156,5 @@ func (s SizeMessage) String() string {
 
 // JSON returns the JSON representation of SizeMessage.
 func (s SizeMessage) JSON() string {
-	return jsonMarshal(s)
+	return strutil.JSON(s)
 }

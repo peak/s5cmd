@@ -1,4 +1,4 @@
-package core
+package command
 
 import (
 	"context"
@@ -97,10 +97,11 @@ func Delete(ctx context.Context, fullCommand string, args ...string) error {
 			continue
 		}
 
-		log.Info(InfoMessage{
+		msg := log.InfoMessage{
 			Operation: "delete",
 			Source:    obj.URL,
-		})
+		}
+		log.Info(msg)
 	}
 
 	return merror

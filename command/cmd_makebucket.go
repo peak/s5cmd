@@ -1,4 +1,4 @@
-package core
+package command
 
 import (
 	"context"
@@ -52,10 +52,11 @@ func MakeBucket(ctx context.Context, fullCommand string, src string) error {
 		return err
 	}
 
-	log.Info(InfoMessage{
+	msg := log.InfoMessage{
 		Operation: "make-bucket",
 		Source:    bucket,
-	})
+	}
+	log.Info(msg)
 
 	return nil
 }

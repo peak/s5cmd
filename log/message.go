@@ -1,17 +1,21 @@
-package core
+package log
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/hashicorp/go-multierror"
-	"github.com/peak/s5cmd/log"
 	"github.com/peak/s5cmd/objurl"
 	"github.com/peak/s5cmd/storage"
+	"github.com/peak/s5cmd/strutil"
 )
+
+// Message is an interface to print structured logs.
+type Message interface {
+	fmt.Stringer
+	JSON() string
+}
 
 // InfoMessage is a generic message structure for successful operations.
 type InfoMessage struct {
@@ -30,7 +34,7 @@ func (i InfoMessage) String() string {
 // JSON is the JSON representation of InfoMessage.
 func (i InfoMessage) JSON() string {
 	i.Success = true
-	return jsonMarshal(i)
+	return strutil.JSON(i)
 }
 
 // ErrorMessage is a generic message structure for unsuccessful operations.
@@ -52,36 +56,27 @@ func (e ErrorMessage) String() string {
 
 // JSON is the JSON representation of ErrorMessage.
 func (e ErrorMessage) JSON() string {
-	return jsonMarshal(e)
+	return strutil.JSON(e)
 }
 
-// newErrorMessage creates new ErrorMessage.
-func newErrorMessage(job, operation string, err error, format string) ErrorMessage {
-	errStr := ""
-	if err != nil {
-		errStr = err.Error()
+// ErrorMessage is a generic message structure for unsuccessful operations.
+type WarningMessage struct {
+	Operation string `json:"operation,omitempty"`
+	Job       string `json:"job,omitempty"`
+	Err       string `json:"error"`
+}
+
+// String is the string representation of ErrorMessage.
+func (w WarningMessage) String() string {
+	if w.Job == "" {
+		return w.Err
 	}
-
-	return ErrorMessage{
-		Operation: operation,
-		Job:       job,
-		Err:       cleanupSpaces(errStr),
-		format:    format,
-	}
+	return fmt.Sprintf("%q %v", w.Job, w.Err)
 }
 
-// printWarning is the helper function to log warning messages.
-func printWarning(job, operation string, err error) {
-	format := "%q (%v)"
-	msg := newErrorMessage(job, operation, err, format)
-	log.Warning(msg)
-}
-
-// printError is the helper function to log error messages.
-func printError(job, operation string, err error) {
-	format := "%q %v"
-	msg := newErrorMessage(job, operation, err, format)
-	log.Error(msg)
+// JSON is the JSON representation of ErrorMessage.
+func (w WarningMessage) JSON() string {
+	return strutil.JSON(w)
 }
 
 // DebugMessage is a generic message structure for debugging logs.
@@ -96,33 +91,16 @@ func (d DebugMessage) String() string {
 
 // JSON is the JSON representation of DebugMessage.
 func (d DebugMessage) JSON() string {
-	return jsonMarshal(d)
+	return strutil.JSON(d)
 }
 
 // printDebug is the helper function to log debug messages.
 func printDebug(format string, args ...interface{}) {
 	content := fmt.Sprintf(format, args...)
 	msg := DebugMessage{Content: content}
-	log.Debug(msg)
+	Debug(msg)
 }
 
-// cleanupSpaces converts multiline messages into
-// a single line.
-func cleanupSpaces(s string) string {
-	s = strings.Replace(s, "\n", " ", -1)
-	s = strings.Replace(s, "\t", " ", -1)
-	s = strings.Replace(s, "  ", " ", -1)
-	s = strings.TrimSpace(s)
-	return s
-}
-
-// jsonMarshall is a helper function for creating JSON-encoded strings.
-func jsonMarshal(v interface{}) string {
-	bytes, _ := json.Marshal(v)
-	return string(bytes)
-}
-
-// FIXME(ig): move to a proper place
 func isCancelationError(err error) bool {
 	if err == nil {
 		return false

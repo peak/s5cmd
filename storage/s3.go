@@ -253,6 +253,10 @@ func (s *S3) Get(ctx context.Context, from *objurl.ObjectURL, to io.WriterAt) (i
 // io.Reader interface, into S3 destination.
 func (s *S3) Put(ctx context.Context, reader io.Reader, to *objurl.ObjectURL, metadata map[string]string) error {
 	storageClass := metadata["StorageClass"]
+	if storageClass == "" {
+		storageClass = string(StorageStandard)
+	}
+
 	contentType := metadata["ContentType"]
 	if contentType == "" {
 		contentType = "application/octet-stream"

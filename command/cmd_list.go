@@ -1,4 +1,4 @@
-package core
+package command
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 	"github.com/peak/s5cmd/log"
 	"github.com/peak/s5cmd/objurl"
 	"github.com/peak/s5cmd/storage"
+	"github.com/peak/s5cmd/strutil"
 )
 
 var ListCommand = &cli.Command{
@@ -169,5 +170,5 @@ func (l ListMessage) String() string {
 
 // JSON returns the JSON representation of ListMessage.
 func (l ListMessage) JSON() string {
-	return jsonMarshal(l.Object)
+	return strutil.JSON(l.Object)
 }

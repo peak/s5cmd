@@ -2,7 +2,6 @@
 package stats
 
 import (
-	"encoding/json"
 	"fmt"
 	"math"
 	"strings"
@@ -10,6 +9,7 @@ import (
 	"time"
 
 	"github.com/peak/s5cmd/log"
+	"github.com/peak/s5cmd/strutil"
 )
 
 var global = &stats{}
@@ -92,8 +92,7 @@ func (s stats) JSON() string {
 	statsJson.ElapsedTime = elapsed()
 	statsJson.TimeUnit = "nanosecond"
 
-	r, _ := json.Marshal(statsJson)
-	return string(r)
+	return strutil.JSON(statsJson)
 }
 
 // Increment atomically increments the StatType's counter.

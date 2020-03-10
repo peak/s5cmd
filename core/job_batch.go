@@ -79,16 +79,16 @@ func localCopy(command *Command, operation op.Operation, src *objurl.ObjectURL) 
 
 	cmdSrc, cmdDst := command.args[0], command.args[1]
 
-	trimPrefix := cmdSrc.Absolute()
-	trimPrefix = path.Dir(trimPrefix)
-	if trimPrefix == "." {
-		trimPrefix = ""
-	} else {
-		trimPrefix += string(filepath.Separator)
-	}
 
 	var joinPath string
 	if command.opts.Has(opt.Parents) {
+		trimPrefix := cmdSrc.Absolute()
+		trimPrefix = path.Dir(trimPrefix)
+		if trimPrefix == "." {
+			trimPrefix = ""
+		} else {
+			trimPrefix += string(filepath.Separator)
+		}
 		joinPath = src.Absolute()
 		joinPath = strings.TrimPrefix(joinPath, trimPrefix)
 	} else {
@@ -96,10 +96,7 @@ func localCopy(command *Command, operation op.Operation, src *objurl.ObjectURL) 
 	}
 
 	dst := cmdDst.Join(joinPath)
-	if !dst.IsRemote() {
-		dir := filepath.Dir(dst.Absolute())
-		os.MkdirAll(dir, os.ModePerm)
-	}
+
 	return command.makeJob(cmd, operation, src, dst)
 }
 

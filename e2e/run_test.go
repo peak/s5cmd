@@ -10,7 +10,7 @@ import (
 	"gotest.tools/v3/icmd"
 )
 
-func TestDashFFromStdin(t *testing.T) {
+func TestRunFromStdin(t *testing.T) {
 	t.Parallel()
 
 	bucket := s3BucketFromTestName(t)
@@ -42,7 +42,7 @@ func TestDashFFromStdin(t *testing.T) {
 	}, sortInput(true))
 }
 
-func TestDashFFromStdinJSON(t *testing.T) {
+func TestRunFromStdinJSON(t *testing.T) {
 	t.Parallel()
 
 	bucket := s3BucketFromTestName(t)
@@ -73,7 +73,7 @@ func TestDashFFromStdinJSON(t *testing.T) {
 	}, sortInput(true), jsonCheck(true))
 }
 
-func TestDashFFromFile(t *testing.T) {
+func TestRunFromFile(t *testing.T) {
 	t.Parallel()
 
 	bucket := s3BucketFromTestName(t)
@@ -107,7 +107,7 @@ func TestDashFFromFile(t *testing.T) {
 	}, sortInput(true))
 }
 
-func TestDashFFromFileJSON(t *testing.T) {
+func TestRunFromFileJSON(t *testing.T) {
 	t.Parallel()
 
 	bucket := s3BucketFromTestName(t)
@@ -141,7 +141,7 @@ func TestDashFFromFileJSON(t *testing.T) {
 
 }
 
-func TestDashFWildcardCountGreaterEqualThanWorkerCount(t *testing.T) {
+func TestRunWildcardCountGreaterEqualThanWorkerCount(t *testing.T) {
 	t.Parallel()
 
 	bucket := s3BucketFromTestName(t)

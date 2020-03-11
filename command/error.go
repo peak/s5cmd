@@ -8,6 +8,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 
 	"github.com/peak/s5cmd/log"
+	"github.com/peak/s5cmd/parallel"
 	"github.com/peak/s5cmd/storage"
 )
 
@@ -39,11 +40,53 @@ func isCancelationError(err error) bool {
 }
 
 // printError is the helper function to log error messages.
-func printError(command, operation string, err error) {
+func printError(command, op string, err error) {
+	// check if we have our own error type
+	{
+		cerr, ok := err.(*parallel.Error)
+		if ok {
+			msg := log.ErrorMessage{
+				Err:       cleanupError(cerr.Original),
+				Command:   cerr.FullCommand(),
+				Operation: cerr.Op,
+			}
+			log.Error(msg)
+			return
+		}
+	}
+
+	// check if errors are aggregated
+	{
+		merr, ok := err.(*multierror.Error)
+		if ok {
+			for _, err := range merr.Errors {
+				customErr, ok := err.(*parallel.Error)
+				if ok {
+					msg := log.ErrorMessage{
+						Err:       cleanupError(customErr.Original),
+						Command:   customErr.FullCommand(),
+						Operation: customErr.Op,
+					}
+					log.Error(msg)
+					continue
+				}
+
+				msg := log.ErrorMessage{
+					Err:       cleanupError(err),
+					Command:   command,
+					Operation: op,
+				}
+				log.Error(msg)
+			}
+			return
+		}
+	}
+
+	// we don't know the exact error type. log the error as is.
 	msg := log.ErrorMessage{
 		Err:       cleanupError(err),
 		Command:   command,
-		Operation: operation,
+		Operation: op,
 	}
 	log.Error(msg)
 }

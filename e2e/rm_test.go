@@ -119,10 +119,10 @@ func TestRemoveMultipleS3Objects(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(""),
-		1: equals(`batch-delete s3://%v/another_test_file.txt`, bucket),
-		2: equals(`batch-delete s3://%v/filename-with-hypen.gz`, bucket),
-		3: equals(`batch-delete s3://%v/readme.md`, bucket),
-		4: equals(`batch-delete s3://%v/testfile1.txt`, bucket),
+		1: equals(`delete s3://%v/another_test_file.txt`, bucket),
+		2: equals(`delete s3://%v/filename-with-hypen.gz`, bucket),
+		3: equals(`delete s3://%v/readme.md`, bucket),
+		4: equals(`delete s3://%v/testfile1.txt`, bucket),
 	}, sortInput(true))
 
 	// assert s3 objects
@@ -166,28 +166,28 @@ func TestRemoveMultipleS3ObjectsJSON(t *testing.T) {
 		0: equals(""),
 		1: json(`
 			{
-				"operation": "batch-delete",
+				"operation": "delete",
 				"success": true,
 				"source": "s3://%v/another_test_file.txt"
 			}
 		`, bucket),
 		2: json(`
 			{
-				"operation": "batch-delete",
+				"operation": "delete",
 				"success": true,
 				"source": "s3://%v/filename-with-hypen.gz"
 			}
 		`, bucket),
 		3: json(`
 			{
-				"operation": "batch-delete",
+				"operation": "delete",
 				"success": true,
 				"source": "s3://%v/readme.md"
 			}
 		`, bucket),
 		4: json(`
 			{
-				"operation": "batch-delete",
+				"operation": "delete",
 				"success": true,
 				"source": "s3://%v/testfile1.txt"
 			}
@@ -243,7 +243,7 @@ func TestRemoveTenThousandS3Objects(t *testing.T) {
 	expected := make(map[int]compareFunc)
 	expected[0] = equals("")
 	for i := 0; i < filecount; i++ {
-		expected[i+1] = contains(`batch-delete s3://%v/file_%06d`, bucket, i)
+		expected[i+1] = contains(`delete s3://%v/file_%06d`, bucket, i)
 	}
 
 	assertLines(t, result.Stdout(), expected, sortInput(true))
@@ -364,10 +364,10 @@ func TestBatchRemove(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(""),
-		1: equals(`batch-delete s3://%v/file1.txt`, bucket),
-		2: equals(`batch-delete s3://%v/file2.txt`, bucket),
-		3: equals(`batch-delete s3://%v/file3.txt`, bucket),
-		4: equals(`batch-delete s3://%v/file4.txt`, bucket),
+		1: equals(`delete s3://%v/file1.txt`, bucket),
+		2: equals(`delete s3://%v/file2.txt`, bucket),
+		3: equals(`delete s3://%v/file3.txt`, bucket),
+		4: equals(`delete s3://%v/file4.txt`, bucket),
 	}, sortInput(true))
 
 	// assert s3 objects

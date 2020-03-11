@@ -8,7 +8,6 @@ import (
 
 	"github.com/peak/s5cmd/log"
 	"github.com/peak/s5cmd/objurl"
-	"github.com/peak/s5cmd/parallel"
 	"github.com/peak/s5cmd/storage"
 	"github.com/peak/s5cmd/strutil"
 )
@@ -27,34 +26,32 @@ var ListCommand = &cli.Command{
 		}
 		return nil
 	},
-	OnUsageError: func(c *cli.Context, err error, isSubcommand bool) error {
-		op := "list"
-		if !c.Args().Present() {
-			op = "list-bucket"
-		}
-		if err != nil {
-			printError(givenCommand(c), op, err)
-		}
-		return err
-	},
 	Action: func(c *cli.Context) error {
 		if !c.Args().Present() {
-			return ListBuckets(c.Context)
+			err := ListBuckets(c.Context)
+			if err != nil {
+				printError(givenCommand(c), c.Command.Name, err)
+				return err
+			}
+
+			return nil
 		}
 
 		showEtag := c.Bool("etag")
 		humanize := c.Bool("humanize")
 
-		fn := func() error {
-			return List(
-				c.Context,
-				c.Args().First(),
-				givenCommand(c),
-				showEtag,
-				humanize,
-			)
+		err := List(
+			c.Context,
+			c.Args().First(),
+			givenCommand(c),
+			showEtag,
+			humanize,
+		)
+		if err != nil {
+			printError(givenCommand(c), c.Command.Name, err)
+			return err
 		}
-		parallel.Run(fn)
+
 		return nil
 	},
 }

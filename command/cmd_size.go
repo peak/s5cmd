@@ -8,7 +8,6 @@ import (
 
 	"github.com/peak/s5cmd/log"
 	"github.com/peak/s5cmd/objurl"
-	"github.com/peak/s5cmd/parallel"
 	"github.com/peak/s5cmd/storage"
 	"github.com/peak/s5cmd/strutil"
 )
@@ -37,26 +36,22 @@ var SizeCommand = &cli.Command{
 		}
 		return nil
 	},
-	OnUsageError: func(c *cli.Context, err error, isSubcommand bool) error {
-		if err != nil {
-			printError(givenCommand(c), "size", err)
-		}
-		return err
-	},
 	Action: func(c *cli.Context) error {
 		groupByClass := c.Bool("group")
 		humanize := c.Bool("humanize")
 
-		fn := func() error {
-			return Size(
-				c.Context,
-				givenCommand(c),
-				c.Args().First(),
-				groupByClass,
-				humanize,
-			)
+		err := Size(
+			c.Context,
+			givenCommand(c),
+			c.Args().First(),
+			groupByClass,
+			humanize,
+		)
+		if err != nil {
+			printError(givenCommand(c), c.Command.Name, err)
+			return err
 		}
-		parallel.Run(fn)
+
 		return nil
 	},
 }

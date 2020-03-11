@@ -9,11 +9,13 @@ import (
 	"os"
 	"strings"
 
+	"github.com/hashicorp/go-multierror"
+	"github.com/urfave/cli/v2"
+
 	"github.com/peak/s5cmd/log"
 	"github.com/peak/s5cmd/objurl"
 	"github.com/peak/s5cmd/parallel"
 	"github.com/peak/s5cmd/storage"
-	"github.com/urfave/cli/v2"
 )
 
 func validateArguments(c *cli.Context) error {
@@ -47,12 +49,6 @@ var CopyCommand = &cli.Command{
 	Before: func(c *cli.Context) error {
 		return validateArguments(c)
 	},
-	OnUsageError: func(c *cli.Context, err error, isSubcommand bool) error {
-		if err != nil {
-			printError(givenCommand(c), "copy", err)
-		}
-		return err
-	},
 	Action: func(c *cli.Context) error {
 		noClobber := c.Bool("no-clobber")
 		ifSizeDiffer := c.Bool("if-size-differ")
@@ -61,23 +57,25 @@ var CopyCommand = &cli.Command{
 		parents := c.Bool("parents")
 		storageClass := storage.LookupClass(c.String("storage-class"))
 
-		fn := func() error {
-			return Copy(
-				c.Context,
-				c.Args().Get(0),
-				c.Args().Get(1),
-				c.Command.Name,
-				false, // don't delete source
-				// flags
-				noClobber,
-				ifSizeDiffer,
-				ifSourceNewer,
-				recursive,
-				parents,
-				storageClass,
-			)
+		err := Copy(
+			c.Context,
+			c.Args().Get(0),
+			c.Args().Get(1),
+			c.Command.Name,
+			false, // don't delete source
+			// flags
+			noClobber,
+			ifSizeDiffer,
+			ifSourceNewer,
+			recursive,
+			parents,
+			storageClass,
+		)
+		if err != nil {
+			printError(givenCommand(c), c.Command.Name, err)
+			return err
 		}
-		parallel.Run(fn)
+
 		return nil
 	},
 }
@@ -115,6 +113,15 @@ func Copy(
 	// is required for backwards compatibility.
 	recursive = recursive || (!srcurl.IsRemote() && dsturl.IsRemote())
 
+	waiter := parallel.NewWaiter()
+
+	var merror error
+	go func() {
+		for err := range waiter.Err() {
+			merror = multierror.Append(merror, err)
+		}
+	}()
+
 	for object := range srcClient.List(ctx, srcurl, recursive, storage.ListAllItems) {
 		if err := object.Err; err != nil {
 			// FIXME(ig):
@@ -129,6 +136,7 @@ func Copy(
 		src := object.URL
 
 		checkFunc := func(dst *objurl.ObjectURL) error {
+			// FIXME(ig): shouldOverrideDestination
 			return checkConditions(
 				ctx,
 				src,
@@ -139,52 +147,78 @@ func Copy(
 			)
 		}
 
-		var task func() error
+		var task parallel.Task
 
 		switch {
 		case srcurl.Type == dsturl.Type: // local->local or remote->remote
-			task = doCopy(
-				ctx,
-				src,
-				dsturl,
-				op,
-				deleteSource,
-				checkFunc,
-				// flags
-				parents,
-				storageClass,
-			)
+			task = func() error {
+				err := doCopy(
+					ctx,
+					src,
+					dsturl,
+					op,
+					deleteSource,
+					checkFunc,
+					// flags
+					parents,
+					storageClass,
+				)
+				return &parallel.Error{
+					Op:       op,
+					Src:      src,
+					Dst:      dsturl,
+					Original: err,
+				}
+			}
 		case srcurl.IsRemote(): // remote->local
-			task = doDownload(
-				ctx,
-				src,
-				dsturl,
-				op,
-				deleteSource,
-				checkFunc,
-				// flags
-				parents,
-			)
+			task = func() error {
+				err := doDownload(
+					ctx,
+					src,
+					dsturl,
+					op,
+					deleteSource,
+					checkFunc,
+					// flags
+					parents,
+				)
+				return &parallel.Error{
+					Op:       op,
+					Src:      src,
+					Dst:      dsturl,
+					Original: err,
+				}
+			}
 		case dsturl.IsRemote(): // local->remote
-			task = doUpload(
-				ctx,
-				src,
-				dsturl,
-				op,
-				deleteSource,
-				checkFunc,
-				// flags
-				parents,
-				storageClass,
-			)
+			task = func() error {
+				err := doUpload(
+					ctx,
+					src,
+					dsturl,
+					op,
+					deleteSource,
+					checkFunc,
+					// flags
+					parents,
+					storageClass,
+				)
+				return &parallel.Error{
+					Op:       op,
+					Src:      src,
+					Dst:      dsturl,
+					Original: err,
+				}
+			}
 		default:
 			panic("unexpected src-dst pair")
 		}
 
-		parallel.Run(task)
+		parallel.Run(task, waiter)
 	}
 
-	return nil
+	waiter.Wait()
+
+	return merror
 }
 
 // doDownload is used to fetch a remote object and save as a local object.
@@ -197,58 +231,55 @@ func doDownload(
 	checkFunc checkFunc,
 	// flags
 	parents bool,
-) func() error {
-	return func() error {
-		srcClient, err := storage.NewClient(src)
-		if err != nil {
-			return err
-		}
+) error {
+	srcClient, err := storage.NewClient(src)
+	if err != nil {
+		return err
+	}
 
-		dstClient, err := storage.NewClient(dst)
-		if err != nil {
-			return err
-		}
+	dstClient, err := storage.NewClient(dst)
+	if err != nil {
+		return err
+	}
 
-		objname := src.Base()
-		if parents {
-			objname = src.Relative()
-		}
+	objname := src.Base()
+	if parents {
+		objname = src.Relative()
+	}
 
-		dst = dst.Join(objname)
+	dst = dst.Join(objname)
 
-		err = checkFunc(dst)
-		if err != nil {
-			if isWarning(err) {
-				msg := log.WarningMessage{
-					Command:   fullCommand(op, src, dst),
-					Operation: op,
-					Err:       err.Error(),
-				}
-				log.Warning(msg)
-				return nil
+	err = checkFunc(dst)
+	if err != nil {
+		if isWarning(err) {
+			msg := log.WarningMessage{
+				Command:   fullCommand(op, src, dst),
+				Operation: op,
+				Err:       err.Error(),
 			}
-			return err
+			log.Warning(msg)
+			return nil
 		}
+		return err
+	}
 
-		// TODO(ig): use storage abstraction
-		os.MkdirAll(dst.Dir(), os.ModePerm)
-		f, err := os.Create(dst.Absolute())
-		if err != nil {
-			return err
-		}
-		defer f.Close()
+	// TODO(ig): use storage abstraction
+	os.MkdirAll(dst.Dir(), os.ModePerm)
+	f, err := os.Create(dst.Absolute())
+	if err != nil {
+		return err
+	}
+	defer f.Close()
 
-		size, err := srcClient.Get(ctx, src, f)
-		if err != nil {
-			err = dstClient.Delete(ctx, dst)
-		} else if deleteSource {
-			err = srcClient.Delete(ctx, src)
-		}
+	size, err := srcClient.Get(ctx, src, f)
+	if err != nil {
+		err = dstClient.Delete(ctx, dst)
+	} else if deleteSource {
+		err = srcClient.Delete(ctx, src)
+	}
 
-		if err != nil {
-			return err
-		}
-
+	if err == nil {
+		// FIXME(ig): move this to parallel.Result
 		msg := log.InfoMessage{
 			Operation:   op,
 			Source:      src,
@@ -257,10 +288,11 @@ func doDownload(
 				Size: size,
 			},
 		}
-
 		log.Info(msg)
 		return nil
 	}
+
+	return err
 }
 
 func doUpload(
@@ -273,69 +305,65 @@ func doUpload(
 	// flags
 	parents bool,
 	storageClass storage.StorageClass,
-) func() error {
-	return func() error {
-		srcClient, err := storage.NewClient(src)
-		if err != nil {
-			return err
-		}
+) error {
+	srcClient, err := storage.NewClient(src)
+	if err != nil {
+		return err
+	}
 
-		// TODO(ig): use storage abstraction
-		f, err := os.Open(src.Absolute())
-		if err != nil {
-			return err
-		}
-		defer f.Close()
+	// TODO(ig): use storage abstraction
+	f, err := os.Open(src.Absolute())
+	if err != nil {
+		return err
+	}
+	defer f.Close()
 
-		objname := src.Base()
-		if parents {
-			objname = src.Relative()
-		}
+	objname := src.Base()
+	if parents {
+		objname = src.Relative()
+	}
 
-		dst = dst.Join(objname)
+	dst = dst.Join(objname)
 
-		err = checkFunc(dst)
-		if err != nil {
-			if isWarning(err) {
-				msg := log.WarningMessage{
-					Command:   fullCommand(op, src, dst),
-					Operation: op,
-					Err:       err.Error(),
-				}
-				log.Warning(msg)
-				return nil
+	err = checkFunc(dst)
+	if err != nil {
+		if isWarning(err) {
+			msg := log.WarningMessage{
+				Command:   fullCommand(op, src, dst),
+				Operation: op,
+				Err:       err.Error(),
 			}
-			return err
+			log.Warning(msg)
+			return nil
 		}
+		return err
+	}
 
-		dstClient, err := storage.NewClient(dst)
-		if err != nil {
-			return err
-		}
+	dstClient, err := storage.NewClient(dst)
+	if err != nil {
+		return err
+	}
 
-		metadata := map[string]string{
-			"StorageClass": string(storageClass),
-			"ContentType":  guessContentType(f),
-		}
+	metadata := map[string]string{
+		"StorageClass": string(storageClass),
+		"ContentType":  guessContentType(f),
+	}
 
-		err = dstClient.Put(
-			ctx,
-			f,
-			dst,
-			metadata,
-		)
+	err = dstClient.Put(
+		ctx,
+		f,
+		dst,
+		metadata,
+	)
 
-		obj, _ := srcClient.Stat(ctx, src)
-		size := obj.Size
+	obj, _ := srcClient.Stat(ctx, src)
+	size := obj.Size
 
-		if deleteSource && err == nil {
-			err = srcClient.Delete(ctx, src)
-		}
+	if deleteSource && err == nil {
+		err = srcClient.Delete(ctx, src)
+	}
 
-		if err != nil {
-			return err
-		}
-
+	if err == nil {
 		msg := log.InfoMessage{
 			Operation:   op,
 			Source:      src,
@@ -346,9 +374,10 @@ func doUpload(
 			},
 		}
 		log.Info(msg)
-
 		return nil
 	}
+
+	return err
 }
 
 func doCopy(
@@ -361,68 +390,64 @@ func doCopy(
 	// flags
 	parents bool,
 	storageClass storage.StorageClass,
-) func() error {
-	return func() error {
-		srcClient, err := storage.NewClient(src)
-		if err != nil {
-			return err
-		}
+) error {
+	srcClient, err := storage.NewClient(src)
+	if err != nil {
+		return err
+	}
 
-		dstClient, err := storage.NewClient(dst)
-		if err != nil {
-			return err
-		}
+	dstClient, err := storage.NewClient(dst)
+	if err != nil {
+		return err
+	}
 
-		metadata := map[string]string{
-			"StorageClass": string(storageClass),
-		}
+	metadata := map[string]string{
+		"StorageClass": string(storageClass),
+	}
 
-		objname := src.Base()
-		if parents {
-			objname = src.Relative()
-		}
+	objname := src.Base()
+	if parents {
+		objname = src.Relative()
+	}
 
-		// FIXME(ig):
-		if !dst.IsRemote() {
-			dstObj, _ := dstClient.Stat(ctx, dst)
-			if dstObj != nil && dstObj.Type.IsDir() {
-				dst = dst.Join(objname)
+	// FIXME(ig):
+	if !dst.IsRemote() {
+		dstObj, _ := dstClient.Stat(ctx, dst)
+		if dstObj != nil && dstObj.Type.IsDir() {
+			dst = dst.Join(objname)
+		}
+	} else {
+		dstPath := fmt.Sprintf("s3://%v/%v%v", dst.Bucket, dst.Path, objname)
+		dst, _ = objurl.New(dstPath)
+
+	}
+
+	err = checkFunc(dst)
+	if err != nil {
+		if isWarning(err) {
+			msg := log.WarningMessage{
+				Command:   fullCommand(op, src, dst),
+				Operation: op,
+				Err:       err.Error(),
 			}
-		} else {
-			dstPath := fmt.Sprintf("s3://%v/%v%v", dst.Bucket, dst.Path, objname)
-			dst, _ = objurl.New(dstPath)
-
+			log.Warning(msg)
+			return nil
 		}
+		return err
+	}
 
-		err = checkFunc(dst)
-		if err != nil {
-			if isWarning(err) {
-				msg := log.WarningMessage{
-					Command:   fullCommand(op, src, dst),
-					Operation: op,
-					Err:       err.Error(),
-				}
-				log.Warning(msg)
-				return nil
-			}
-			return err
-		}
+	err = srcClient.Copy(
+		ctx,
+		src,
+		dst,
+		metadata,
+	)
 
-		err = srcClient.Copy(
-			ctx,
-			src,
-			dst,
-			metadata,
-		)
+	if deleteSource && err == nil {
+		err = srcClient.Delete(ctx, src)
+	}
 
-		if deleteSource && err == nil {
-			err = srcClient.Delete(ctx, src)
-		}
-
-		if err != nil {
-			return err
-		}
-
+	if err == nil {
 		msg := log.InfoMessage{
 			Operation:   op,
 			Source:      src,
@@ -433,9 +458,10 @@ func doCopy(
 			},
 		}
 		log.Info(msg)
-
 		return nil
 	}
+
+	return err
 }
 
 func guessContentType(rs io.ReadSeeker) string {

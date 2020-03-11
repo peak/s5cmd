@@ -9,7 +9,6 @@ import (
 
 	"github.com/peak/s5cmd/log"
 	"github.com/peak/s5cmd/objurl"
-	"github.com/peak/s5cmd/parallel"
 	"github.com/peak/s5cmd/storage"
 )
 
@@ -23,21 +22,17 @@ var DeleteCommand = &cli.Command{
 		}
 		return nil
 	},
-	OnUsageError: func(c *cli.Context, err error, isSubcommand bool) error {
-		if err != nil {
-			printError(givenCommand(c), "delete", err)
-		}
-		return err
-	},
 	Action: func(c *cli.Context) error {
-		doDelete := func() error {
-			return Delete(
-				c.Context,
-				givenCommand(c),
-				c.Args().Slice()...,
-			)
+		err := Delete(
+			c.Context,
+			givenCommand(c),
+			c.Args().Slice()...,
+		)
+		if err != nil {
+			printError(givenCommand(c), c.Command.Name, err)
+			return err
 		}
-		parallel.Run(doDelete)
+
 		return nil
 	},
 }

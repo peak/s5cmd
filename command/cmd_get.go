@@ -5,7 +5,6 @@ import (
 
 	"github.com/urfave/cli/v2"
 
-	"github.com/peak/s5cmd/parallel"
 	"github.com/peak/s5cmd/storage"
 )
 
@@ -24,12 +23,6 @@ var GetCommand = &cli.Command{
 		}
 		return nil
 	},
-	OnUsageError: func(c *cli.Context, err error, isSubcommand bool) error {
-		if err != nil {
-			printError(givenCommand(c), "get", err)
-		}
-		return err
-	},
 	Action: func(c *cli.Context) error {
 		noClobber := c.Bool("no-clobber")
 		ifSizeDiffer := c.Bool("if-size-differ")
@@ -43,23 +36,25 @@ var GetCommand = &cli.Command{
 			dst = c.Args().Get(1)
 		}
 
-		fn := func() error {
-			return Copy(
-				c.Context,
-				c.Args().Get(0),
-				dst,
-				c.Command.Name,
-				false, // don't delete source
-				// flags
-				noClobber,
-				ifSizeDiffer,
-				ifSourceNewer,
-				recursive,
-				parents,
-				storageClass,
-			)
+		err := Copy(
+			c.Context,
+			c.Args().Get(0),
+			dst,
+			c.Command.Name,
+			false, // don't delete source
+			// flags
+			noClobber,
+			ifSizeDiffer,
+			ifSourceNewer,
+			recursive,
+			parents,
+			storageClass,
+		)
+		if err != nil {
+			printError(givenCommand(c), c.Command.Name, err)
+			return err
 		}
-		parallel.Run(fn)
+
 		return nil
 	},
 }

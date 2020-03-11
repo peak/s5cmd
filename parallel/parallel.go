@@ -3,38 +3,46 @@ package parallel
 import (
 	"fmt"
 	"sync"
+
+	"github.com/peak/s5cmd/objurl"
 )
+
+var global *Manager
 
 type Task func() error
 
-func Run(task Task) {
-	global.Run(task)
+type Error struct {
+	Op       string
+	Src      *objurl.ObjectURL
+	Dst      *objurl.ObjectURL
+	Original error
 }
 
-// TODO(ig):
-var global *parallelManager
+func (e *Error) FullCommand() string {
+	return fmt.Sprintf("%v %v %v", e.Op, e.Src, e.Dst)
+}
+
+func (e *Error) Error() string {
+	return e.Original.Error()
+}
 
 func Init(workercount int) {
-	global = newParallelManager(workercount)
+	global = New(workercount)
 }
 
-func Close() {
-	global.close()
-}
+func Close() { global.Close() }
 
-func RunFunc(fn Task) {
-	global.Run(fn)
-}
+func Run(task Task, waiter *Waiter) { global.Run(task, waiter) }
 
-// parallelManager is the manager to run and manage workers.
-type parallelManager struct {
+// parallel is the manager to run and manage workers.
+type Manager struct {
 	wg        *sync.WaitGroup
 	semaphore chan bool
 }
 
-// newParallelManager creates a new parallelManager.
-func newParallelManager(workercount int) *parallelManager {
-	return &parallelManager{
+// New creates a new parallel manager.
+func New(workercount int) *Manager {
+	return &Manager{
 		wg:        &sync.WaitGroup{},
 		semaphore: make(chan bool, workercount),
 	}
@@ -42,34 +50,54 @@ func newParallelManager(workercount int) *parallelManager {
 
 // acquire acquires the semaphore and blocks until resources are available.
 // It also increments the WaitGroup counter by one.
-func (p *parallelManager) acquire() {
+func (p *Manager) acquire() {
 	p.semaphore <- true
 	p.wg.Add(1)
 }
 
 // release decrements the WaitGroup counter by one and releases the semaphore.
-func (p *parallelManager) release() {
+func (p *Manager) release() {
 	p.wg.Done()
 	<-p.semaphore
 }
 
 // runJob acquires semaphore and creates new goroutine for the job.
 // It exits goroutine after the job is done and releases the semaphore.
-func (p *parallelManager) Run(fn Task) {
+func (p *Manager) Run(fn Task, waiter *Waiter) {
+	waiter.wg.Add(1)
 	p.acquire()
 	go func() {
+		defer waiter.wg.Done()
 		defer p.release()
-		err := fn()
-		if err != nil {
-			// FIXME(ig): don't log here
-			fmt.Println(err)
-			return
+
+		if err := fn(); err != nil {
+			waiter.errch <- fn()
 		}
 	}()
 }
 
-// close waits all jobs to finish and closes semaphore.
-func (p *parallelManager) close() {
+// Close waits all jobs to finish and closes semaphore.
+func (p *Manager) Close() {
 	p.wg.Wait()
 	close(p.semaphore)
+}
+
+type Waiter struct {
+	wg    sync.WaitGroup
+	errch chan error
+}
+
+func NewWaiter() *Waiter {
+	return &Waiter{
+		errch: make(chan error),
+	}
+}
+
+func (w *Waiter) Wait() {
+	w.wg.Wait()
+	close(w.errch)
+}
+
+func (w *Waiter) Err() <-chan error {
+	return w.errch
 }

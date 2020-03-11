@@ -8,7 +8,6 @@ import (
 
 	"github.com/peak/s5cmd/log"
 	"github.com/peak/s5cmd/objurl"
-	"github.com/peak/s5cmd/parallel"
 	"github.com/peak/s5cmd/storage"
 )
 
@@ -22,21 +21,16 @@ var MakeBucketCommand = &cli.Command{
 		}
 		return nil
 	},
-	OnUsageError: func(c *cli.Context, err error, isSubcommand bool) error {
-		if err != nil {
-			printError(givenCommand(c), "make-bucket", err)
-		}
-		return err
-	},
 	Action: func(c *cli.Context) error {
-		fn := func() error {
-			return MakeBucket(
-				c.Context,
-				givenCommand(c),
-				c.Args().First(),
-			)
+		if err := MakeBucket(
+			c.Context,
+			givenCommand(c),
+			c.Args().First(),
+		); err != nil {
+			printError(givenCommand(c), c.Command.Name, err)
+			return err
 		}
-		parallel.Run(fn)
+
 		return nil
 	},
 }

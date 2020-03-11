@@ -8,7 +8,10 @@ import (
 	"os"
 	"strings"
 
+	"github.com/hashicorp/go-multierror"
 	"github.com/urfave/cli/v2"
+
+	"github.com/peak/s5cmd/parallel"
 )
 
 var RunCommand = &cli.Command{
@@ -27,6 +30,18 @@ var RunCommand = &cli.Command{
 			reader = f
 		}
 
+		pm := parallel.New(c.Int("numworkers"))
+		defer pm.Close()
+
+		waiter := parallel.NewWaiter()
+
+		var merror error
+		go func() {
+			for err := range waiter.Err() {
+				merror = multierror.Append(merror, err)
+			}
+		}()
+
 		scanner := NewScanner(c.Context, reader)
 		for line := range scanner.Scan() {
 			fields := strings.Fields(line)
@@ -43,12 +58,19 @@ var RunCommand = &cli.Command{
 
 			fields = append([]string{"s5cmd"}, fields...)
 
-			if err := app.Run(fields); err != nil {
-				fmt.Println("ERR:", err)
+			fn := func() error {
+				return app.RunContext(c.Context, fields)
 			}
+			pm.Run(fn, waiter)
 		}
 
-		return scanner.Err()
+		waiter.Wait()
+
+		if err := scanner.Err(); err != nil {
+			return err
+		}
+
+		return merror
 	},
 }
 

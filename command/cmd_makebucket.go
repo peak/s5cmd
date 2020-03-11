@@ -19,14 +19,25 @@ var MakeBucketCommand = &cli.Command{
 		if c.Args().Len() != 1 {
 			return fmt.Errorf("expected only 1 argument")
 		}
+
+		src := c.Args().First()
+		bucket, err := objurl.New(src)
+		if err != nil {
+			return err
+		}
+		if !bucket.IsBucket() {
+			return fmt.Errorf("invalid s3 bucket %q", src)
+		}
+
 		return nil
 	},
 	Action: func(c *cli.Context) error {
-		if err := MakeBucket(
+		err := MakeBucket(
 			c.Context,
-			givenCommand(c),
+			c.Command.Name,
 			c.Args().First(),
-		); err != nil {
+		)
+		if err != nil {
 			printError(givenCommand(c), c.Command.Name, err)
 			return err
 		}
@@ -35,7 +46,11 @@ var MakeBucketCommand = &cli.Command{
 	},
 }
 
-func MakeBucket(ctx context.Context, fullCommand string, src string) error {
+func MakeBucket(
+	ctx context.Context,
+	op string,
+	src string,
+) error {
 	bucket, err := objurl.New(src)
 	if err != nil {
 		return err
@@ -52,7 +67,7 @@ func MakeBucket(ctx context.Context, fullCommand string, src string) error {
 	}
 
 	msg := log.InfoMessage{
-		Operation: "make-bucket",
+		Operation: op,
 		Source:    bucket,
 	}
 	log.Info(msg)

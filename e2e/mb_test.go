@@ -9,7 +9,7 @@ import (
 	"gotest.tools/v3/icmd"
 )
 
-func Test_MakeBucket_success(t *testing.T) {
+func TestMakeBucket_success(t *testing.T) {
 	t.Parallel()
 	s3client, s5cmd, cleanup := setup(t)
 	defer cleanup()
@@ -23,7 +23,7 @@ func Test_MakeBucket_success(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(`make-bucket %v`, src),
+		0: equals(`mb %v`, src),
 		1: equals(""),
 	})
 
@@ -33,7 +33,7 @@ func Test_MakeBucket_success(t *testing.T) {
 	}
 }
 
-func Test_MakeBucket_success_json(t *testing.T) {
+func TestMakeBucket_success_json(t *testing.T) {
 	t.Parallel()
 	s3client, s5cmd, cleanup := setup(t)
 	defer cleanup()
@@ -41,14 +41,14 @@ func Test_MakeBucket_success_json(t *testing.T) {
 	bucketName := "test-bucket"
 	src := fmt.Sprintf("s3://%s", bucketName)
 
-	cmd := s5cmd("-json", "mb", src)
+	cmd := s5cmd("--json", "mb", src)
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Success)
 
 	jsonText := `
 		{
-			"operation": "make-bucket",
+			"operation": "mb",
 			"success": true,
 			"source": "%v"
 		}
@@ -65,7 +65,7 @@ func Test_MakeBucket_success_json(t *testing.T) {
 	}
 }
 
-func Test_MakeBucket_failure(t *testing.T) {
+func TestMakeBucket_failure(t *testing.T) {
 	t.Parallel()
 	_, s5cmd, cleanup := setup(t)
 	defer cleanup()
@@ -76,7 +76,7 @@ func Test_MakeBucket_failure(t *testing.T) {
 
 	result := icmd.RunCmd(cmd)
 
-	result.Assert(t, icmd.Expected{ExitCode: 127})
+	result.Assert(t, icmd.Expected{ExitCode: 1})
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: equals(`ERROR "mb %v": invalid parameters to "mb": invalid s3 bucket`, src),
@@ -84,18 +84,18 @@ func Test_MakeBucket_failure(t *testing.T) {
 	})
 }
 
-func Test_MakeBucket_failure_json(t *testing.T) {
+func TestMakeBucket_failure_json(t *testing.T) {
 	t.Parallel()
 	_, s5cmd, cleanup := setup(t)
 	defer cleanup()
 
 	bucketName := "invalid/bucket/name"
 	src := fmt.Sprintf("s3://%s", bucketName)
-	cmd := s5cmd("-json", "mb", src)
+	cmd := s5cmd("--json", "mb", src)
 
 	result := icmd.RunCmd(cmd)
 
-	result.Assert(t, icmd.Expected{ExitCode: 127})
+	result.Assert(t, icmd.Expected{ExitCode: 1})
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: equals(`{"job":"mb %v","error":"invalid parameters to \"mb\": invalid s3 bucket"}`, src),

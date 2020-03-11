@@ -28,7 +28,7 @@ func TestDashFFromStdin(t *testing.T) {
 			fmt.Sprintf("ls s3://%v/file2.txt", bucket),
 		}, "\n"),
 	)
-	cmd := s5cmd("-f", "-")
+	cmd := s5cmd("run")
 	result := icmd.RunCmd(cmd, icmd.WithStdin(input))
 
 	result.Assert(t, icmd.Success)
@@ -60,7 +60,7 @@ func TestDashFFromStdinJSON(t *testing.T) {
 			fmt.Sprintf("ls s3://%v/file2.txt", bucket),
 		}, "\n"),
 	)
-	cmd := s5cmd("-json", "-f", "-")
+	cmd := s5cmd("--json", "run")
 	result := icmd.RunCmd(cmd, icmd.WithStdin(input))
 
 	result.Assert(t, icmd.Success)
@@ -93,7 +93,7 @@ func TestDashFFromFile(t *testing.T) {
 	file := fs.NewFile(t, "prefix", fs.WithContent(filecontent))
 	defer file.Remove()
 
-	cmd := s5cmd("-f", file.Path())
+	cmd := s5cmd("run", file.Path())
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Success)
@@ -127,7 +127,7 @@ func TestDashFFromFileJSON(t *testing.T) {
 	file := fs.NewFile(t, "prefix", fs.WithContent(filecontent))
 	defer file.Remove()
 
-	cmd := s5cmd("-json", "-f", file.Path())
+	cmd := s5cmd("--json", "run", file.Path())
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Success)
@@ -161,7 +161,7 @@ func TestDashFWildcardCountGreaterEqualThanWorkerCount(t *testing.T) {
 	defer file.Remove()
 
 	// worker count < len(wildcards)
-	cmd := s5cmd("-numworkers", "2", "-f", file.Path())
+	cmd := s5cmd("--numworkers", "2", "run", file.Path())
 	cmd.Timeout = time.Second
 	result := icmd.RunCmd(cmd)
 	result.Assert(t, icmd.Success)

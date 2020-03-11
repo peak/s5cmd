@@ -71,7 +71,7 @@ func (p *Manager) Run(fn Task, waiter *Waiter) {
 		defer p.release()
 
 		if err := fn(); err != nil {
-			waiter.errch <- fn()
+			waiter.errch <- err
 		}
 	}()
 }

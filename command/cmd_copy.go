@@ -163,12 +163,15 @@ func Copy(
 					parents,
 					storageClass,
 				)
-				return &parallel.Error{
-					Op:       op,
-					Src:      src,
-					Dst:      dsturl,
-					Original: err,
+				if err != nil {
+					return &parallel.Error{
+						Op:       op,
+						Src:      src,
+						Dst:      dsturl,
+						Original: err,
+					}
 				}
+				return nil
 			}
 		case srcurl.IsRemote(): // remote->local
 			task = func() error {
@@ -182,12 +185,15 @@ func Copy(
 					// flags
 					parents,
 				)
-				return &parallel.Error{
-					Op:       op,
-					Src:      src,
-					Dst:      dsturl,
-					Original: err,
+				if err != nil {
+					return &parallel.Error{
+						Op:       op,
+						Src:      src,
+						Dst:      dsturl,
+						Original: err,
+					}
 				}
+				return nil
 			}
 		case dsturl.IsRemote(): // local->remote
 			task = func() error {
@@ -202,12 +208,15 @@ func Copy(
 					parents,
 					storageClass,
 				)
-				return &parallel.Error{
-					Op:       op,
-					Src:      src,
-					Dst:      dsturl,
-					Original: err,
+				if err != nil {
+					return &parallel.Error{
+						Op:       op,
+						Src:      src,
+						Dst:      dsturl,
+						Original: err,
+					}
 				}
+				return nil
 			}
 		default:
 			panic("unexpected src-dst pair")

@@ -7,6 +7,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/urfave/cli/v2"
 
+	errorpkg "github.com/peak/s5cmd/error"
 	"github.com/peak/s5cmd/log"
 	"github.com/peak/s5cmd/objurl"
 	"github.com/peak/s5cmd/storage"
@@ -17,14 +18,22 @@ var DeleteCommand = &cli.Command{
 	HelpName: "delete",
 	Usage:    "TODO",
 	Before: func(c *cli.Context) error {
-		if !c.Args().Present() {
-			return fmt.Errorf("expected at least 1 object to remove")
+		validate := func() error {
+			if !c.Args().Present() {
+				return fmt.Errorf("expected at least 1 object to remove")
+			}
+			return nil
+		}
+		if err := validate(); err != nil {
+			printError(givenCommand(c), c.Command.Name, err)
+			return err
 		}
 		return nil
 	},
 	Action: func(c *cli.Context) error {
 		err := Delete(
 			c.Context,
+			c.Command.Name,
 			givenCommand(c),
 			c.Args().Slice()...,
 		)
@@ -37,7 +46,12 @@ var DeleteCommand = &cli.Command{
 	},
 }
 
-func Delete(ctx context.Context, fullCommand string, args ...string) error {
+func Delete(
+	ctx context.Context,
+	op string,
+	fullCommand string,
+	args ...string,
+) error {
 	sources := make([]*objurl.ObjectURL, len(args))
 	for i, arg := range args {
 		url, _ := objurl.New(arg)
@@ -69,12 +83,12 @@ func Delete(ctx context.Context, fullCommand string, args ...string) error {
 			// src is a glob
 			src := sources[0]
 			for object := range client.List(ctx, src, true, storage.ListAllItems) {
-				if object.Type.IsDir() || isCancelationError(object.Err) {
+				if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) {
 					continue
 				}
 
 				if err := object.Err; err != nil {
-					printError(fullCommand, "delete", err)
+					printError(fullCommand, op, err)
 					continue
 				}
 				urlch <- object.URL
@@ -88,17 +102,17 @@ func Delete(ctx context.Context, fullCommand string, args ...string) error {
 	var merror error
 	for obj := range resultch {
 		if err := obj.Err; err != nil {
-			if isCancelationError(obj.Err) {
+			if errorpkg.IsCancelation(obj.Err) {
 				continue
 			}
 
 			merror = multierror.Append(merror, obj.Err)
-			printError(fullCommand, "delete", err)
+			printError(fullCommand, op, err)
 			continue
 		}
 
 		msg := log.InfoMessage{
-			Operation: "delete",
+			Operation: op,
 			Source:    obj.URL,
 		}
 		log.Info(msg)

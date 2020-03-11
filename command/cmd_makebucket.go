@@ -16,19 +16,26 @@ var MakeBucketCommand = &cli.Command{
 	HelpName: "make-bucket",
 	Usage:    "TODO",
 	Before: func(c *cli.Context) error {
-		if c.Args().Len() != 1 {
-			return fmt.Errorf("expected only 1 argument")
-		}
+		validate := func() error {
+			if c.Args().Len() != 1 {
+				return fmt.Errorf("expected only 1 argument")
+			}
 
-		src := c.Args().First()
-		bucket, err := objurl.New(src)
-		if err != nil {
+			src := c.Args().First()
+			bucket, err := objurl.New(src)
+			if err != nil {
+				return err
+			}
+			if !bucket.IsBucket() {
+				return fmt.Errorf("invalid s3 bucket")
+			}
+
+			return nil
+		}
+		if err := validate(); err != nil {
+			printError(givenCommand(c), c.Command.Name, err)
 			return err
 		}
-		if !bucket.IsBucket() {
-			return fmt.Errorf("invalid s3 bucket %q", src)
-		}
-
 		return nil
 	},
 	Action: func(c *cli.Context) error {

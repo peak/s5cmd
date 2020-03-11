@@ -36,7 +36,7 @@ func TestRemoveSingleS3Object(t *testing.T) {
 	})
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals("delete s3://%v/testfile1.txt", bucket),
+		0: equals("rm s3://%v/testfile1.txt", bucket),
 		1: equals(""),
 	})
 
@@ -74,7 +74,7 @@ func TestRemoveSingleS3ObjectJSON(t *testing.T) {
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: json(`
 			{
-				"operation": "delete",
+				"operation": "rm",
 				"success": true,
 				"source": "s3://%v/%v"
 			}
@@ -119,10 +119,10 @@ func TestRemoveMultipleS3Objects(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(""),
-		1: equals(`delete s3://%v/another_test_file.txt`, bucket),
-		2: equals(`delete s3://%v/filename-with-hypen.gz`, bucket),
-		3: equals(`delete s3://%v/readme.md`, bucket),
-		4: equals(`delete s3://%v/testfile1.txt`, bucket),
+		1: equals(`rm s3://%v/another_test_file.txt`, bucket),
+		2: equals(`rm s3://%v/filename-with-hypen.gz`, bucket),
+		3: equals(`rm s3://%v/readme.md`, bucket),
+		4: equals(`rm s3://%v/testfile1.txt`, bucket),
 	}, sortInput(true))
 
 	// assert s3 objects
@@ -166,28 +166,28 @@ func TestRemoveMultipleS3ObjectsJSON(t *testing.T) {
 		0: equals(""),
 		1: json(`
 			{
-				"operation": "delete",
+				"operation": "rm",
 				"success": true,
 				"source": "s3://%v/another_test_file.txt"
 			}
 		`, bucket),
 		2: json(`
 			{
-				"operation": "delete",
+				"operation": "rm",
 				"success": true,
 				"source": "s3://%v/filename-with-hypen.gz"
 			}
 		`, bucket),
 		3: json(`
 			{
-				"operation": "delete",
+				"operation": "rm",
 				"success": true,
 				"source": "s3://%v/readme.md"
 			}
 		`, bucket),
 		4: json(`
 			{
-				"operation": "delete",
+				"operation": "rm",
 				"success": true,
 				"source": "s3://%v/testfile1.txt"
 			}
@@ -243,7 +243,7 @@ func TestRemoveTenThousandS3Objects(t *testing.T) {
 	expected := make(map[int]compareFunc)
 	expected[0] = equals("")
 	for i := 0; i < filecount; i++ {
-		expected[i+1] = contains(`delete s3://%v/file_%06d`, bucket, i)
+		expected[i+1] = contains(`rm s3://%v/file_%06d`, bucket, i)
 	}
 
 	assertLines(t, result.Stdout(), expected, sortInput(true))
@@ -279,7 +279,7 @@ func TestRemoveSingleLocalFile(t *testing.T) {
 	})
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(`local-delete %v`, filename),
+		0: equals(`rm %v`, filename),
 		1: equals(""),
 	})
 
@@ -288,7 +288,7 @@ func TestRemoveSingleLocalFile(t *testing.T) {
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 }
 
-func TestRemoveMultipleLocalFilesShouldFail(t *testing.T) {
+func TestRemoveMultipleLocalFilesShouldNotFail(t *testing.T) {
 	t.Parallel()
 
 	_, s5cmd, cleanup := setup(t)
@@ -313,15 +313,24 @@ func TestRemoveMultipleLocalFilesShouldFail(t *testing.T) {
 	cmd := s5cmd("rm", "*.txt")
 	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
 
-	result.Assert(t, icmd.Expected{ExitCode: 127})
+	result.Assert(t, icmd.Expected{ExitCode: 0})
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(""),
+		1: equals("rm another_test_file.txt"),
+		2: equals("rm testfile1.txt"),
+	}, strictLineCheck(true), sortInput(true))
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: equals(`ERROR "rm *.txt": invalid parameters to "rm": given argument "*.txt" is not a remote path`),
-		1: equals(""),
+		0: equals(""),
 	})
 
 	// assert local filesystem
-	expected := fs.Expected(t, files...)
+	expectedFiles := []fs.PathOp{
+		fs.WithFile("readme.md", "this is a readme file"),
+		fs.WithFile("filename-with-hypen.gz", "file has hypen in its name"),
+	}
+	expected := fs.Expected(t, expectedFiles...)
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 }
 
@@ -348,7 +357,7 @@ func TestBatchRemove(t *testing.T) {
 	// doesn't report whether if the given object is exists, hence reported as
 	// deleted. We want to keep this behaviour.
 	cmd := s5cmd(
-		"batch-rm",
+		"rm",
 		"s3://"+bucket+"/file1.txt",
 		"s3://"+bucket+"/file2.txt",
 		"s3://"+bucket+"/file3.txt",
@@ -364,10 +373,10 @@ func TestBatchRemove(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(""),
-		1: equals(`delete s3://%v/file1.txt`, bucket),
-		2: equals(`delete s3://%v/file2.txt`, bucket),
-		3: equals(`delete s3://%v/file3.txt`, bucket),
-		4: equals(`delete s3://%v/file4.txt`, bucket),
+		1: equals(`rm s3://%v/file1.txt`, bucket),
+		2: equals(`rm s3://%v/file2.txt`, bucket),
+		3: equals(`rm s3://%v/file3.txt`, bucket),
+		4: equals(`rm s3://%v/file4.txt`, bucket),
 	}, sortInput(true))
 
 	// assert s3 objects

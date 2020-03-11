@@ -1168,15 +1168,19 @@ func TestCopyS3ToLocalWithSameFilenameWithNoClobber(t *testing.T) {
 	// upload a modified version of the file
 	putFile(t, s3client, bucket, filename, content+"\n")
 
-	cmd := s5cmd("cp", "-n", "s3://"+bucket+"/"+filename, ".")
+	cmd := s5cmd("-log=debug", "cp", "-n", "s3://"+bucket+"/"+filename, ".")
 	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
 
 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: equals(`WARNING "cp s3://%v/%v %v" (object already exists)`, bucket, filename, filename),
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`DEBUG "cp s3://%v/%v %v": object already exists`, bucket, filename, filename),
 		1: equals(""),
 	})
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: equals(""),
+	}, strictLineCheck(true))
 
 	expected := fs.Expected(t, fs.WithFile(filename, content))
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
@@ -1289,17 +1293,21 @@ func TestCopyS3ToLocalWithSameFilenameDontOverrideIfS3ObjectIsOlder(t *testing.T
 	workdir := fs.NewDir(t, t.Name(), fs.WithFile(filename, content, timestamp))
 	defer workdir.Remove()
 
-	cmd := s5cmd("cp", "-n", "-u", "s3://"+bucket+"/"+filename, ".")
+	cmd := s5cmd("-log=debug", "cp", "-n", "-u", "s3://"+bucket+"/"+filename, ".")
 	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
 
 	// '-n' prevents overriding the file, but '-s' overrides '-n' if the file
 	// size differs.
 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: equals(`WARNING "cp s3://%v/%v %v" (object is newer or same age)`, bucket, filename, filename),
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`DEBUG "cp s3://%v/%v %v": object is newer or same age`, bucket, filename, filename),
 		1: equals(""),
 	})
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: equals(""),
+	}, strictLineCheck(true))
 
 	expected := fs.Expected(t, fs.WithFile(filename, content))
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
@@ -1421,15 +1429,19 @@ func TestCopyLocalFileToS3WithSameFilenameWithNoClobber(t *testing.T) {
 	workdir := fs.NewDir(t, t.Name(), fs.WithFile(filename, newContent))
 	defer workdir.Remove()
 
-	cmd := s5cmd("cp", "-n", filename, "s3://"+bucket)
+	cmd := s5cmd("-log=debug", "cp", "-n", filename, "s3://"+bucket)
 	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
 
 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: equals(`WARNING "cp %v s3://%v/%v" (object already exists)`, filename, bucket, filename),
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`DEBUG "cp %v s3://%v/%v": object already exists`, filename, bucket, filename),
 		1: equals(""),
 	})
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: equals(""),
+	}, strictLineCheck(true))
 
 	// assert local filesystem
 	expected := fs.Expected(t, fs.WithFile(filename, newContent))
@@ -1468,6 +1480,10 @@ func TestCopyLocalFileToS3WithNoClobber(t *testing.T) {
 		0: equals(`cp %v`, filename),
 		1: equals(""),
 	})
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: equals(""),
+	}, strictLineCheck(true))
 
 	// assert local filesystem
 	expected := fs.Expected(t, fs.WithFile(filename, newContent))
@@ -1509,6 +1525,10 @@ func TestCopyLocalFileToS3WithSameFilenameOverrideIfSizeDiffers(t *testing.T) {
 		0: equals(`cp %v`, filename),
 		1: equals(""),
 	})
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: equals(""),
+	}, strictLineCheck(true))
 
 	assert.NilError(t, ensureS3Object(s3client, bucket, filename, expectedContent))
 }
@@ -1552,6 +1572,10 @@ func TestCopyLocalFileToS3WithSameFilenameOverrideIfSourceIsNewer(t *testing.T) 
 		1: equals(""),
 	})
 
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: equals(""),
+	}, strictLineCheck(true))
+
 	assert.NilError(t, ensureS3Object(s3client, bucket, filename, expectedContent))
 }
 
@@ -1582,17 +1606,21 @@ func TestCopyLocalFileToS3WithSameFilenameDontOverrideIfS3ObjectIsOlder(t *testi
 	workdir := fs.NewDir(t, t.Name(), fs.WithFile(filename, expectedContent, timestamp))
 	defer workdir.Remove()
 
-	cmd := s5cmd("cp", "-n", "-u", filename, "s3://"+bucket)
+	cmd := s5cmd("-log=debug", "cp", "-n", "-u", filename, "s3://"+bucket)
 	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
 
 	// '-n' prevents overriding the file, but '-u' overrides '-n' if the file
 	// modtime differs.
 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: equals(`WARNING "cp %v s3://%v/%v" (object is newer or same age)`, filename, bucket, filename),
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`DEBUG "cp %v s3://%v/%v": object is newer or same age`, filename, bucket, filename),
 		1: equals(""),
 	})
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: equals(""),
+	}, strictLineCheck(true))
 
 	assert.NilError(t, ensureS3Object(s3client, bucket, filename, content))
 }

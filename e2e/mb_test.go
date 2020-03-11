@@ -79,7 +79,7 @@ func TestMakeBucket_failure(t *testing.T) {
 	result.Assert(t, icmd.Expected{ExitCode: 1})
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: equals(`ERROR "mb %v": invalid parameters to "mb": invalid s3 bucket`, src),
+		0: equals(`ERROR "mb %v": invalid s3 bucket`, src),
 		1: equals(""),
 	})
 }
@@ -98,7 +98,7 @@ func TestMakeBucket_failure_json(t *testing.T) {
 	result.Assert(t, icmd.Expected{ExitCode: 1})
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: equals(`{"job":"mb %v","error":"invalid parameters to \"mb\": invalid s3 bucket"}`, src),
+		0: equals(`{"operation":"mb","command":"mb %v","error":"invalid s3 bucket"}`, src),
 		1: equals(""),
 	}, jsonCheck(true))
 }

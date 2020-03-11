@@ -51,7 +51,7 @@ func (e ErrorMessage) String() string {
 	if e.Command == "" {
 		return fmt.Sprint(e.Err)
 	}
-	return fmt.Sprintf("%q %v", e.Command, e.Err)
+	return fmt.Sprintf("%q: %v", e.Command, e.Err)
 }
 
 // JSON is the JSON representation of ErrorMessage.
@@ -59,46 +59,24 @@ func (e ErrorMessage) JSON() string {
 	return strutil.JSON(e)
 }
 
-// ErrorMessage is a generic message structure for unsuccessful operations.
-type WarningMessage struct {
+// DebugMessage is a generic message structure for unsuccessful operations.
+type DebugMessage struct {
 	Operation string `json:"operation,omitempty"`
 	Command   string `json:"job,omitempty"`
 	Err       string `json:"error"`
 }
 
 // String is the string representation of ErrorMessage.
-func (w WarningMessage) String() string {
-	if w.Command == "" {
-		return w.Err
+func (d DebugMessage) String() string {
+	if d.Command == "" {
+		return d.Err
 	}
-	return fmt.Sprintf("%q (%v)", w.Command, w.Err)
+	return fmt.Sprintf("%q: %v", d.Command, d.Err)
 }
 
 // JSON is the JSON representation of ErrorMessage.
-func (w WarningMessage) JSON() string {
-	return strutil.JSON(w)
-}
-
-// DebugMessage is a generic message structure for debugging logs.
-type DebugMessage struct {
-	Content string `json:"content"`
-}
-
-// String is the string representation of DebugMessage.
-func (d DebugMessage) String() string {
-	return d.Content
-}
-
-// JSON is the JSON representation of DebugMessage.
 func (d DebugMessage) JSON() string {
 	return strutil.JSON(d)
-}
-
-// printDebug is the helper function to log debug messages.
-func printDebug(format string, args ...interface{}) {
-	content := fmt.Sprintf(format, args...)
-	msg := DebugMessage{Content: content}
-	Debug(msg)
 }
 
 func isCancelationError(err error) bool {

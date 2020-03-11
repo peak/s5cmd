@@ -7,6 +7,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/urfave/cli/v2"
 
+	errorpkg "github.com/peak/s5cmd/error"
 	"github.com/peak/s5cmd/log"
 	"github.com/peak/s5cmd/objurl"
 	"github.com/peak/s5cmd/storage"
@@ -22,8 +23,15 @@ var ListCommand = &cli.Command{
 		&cli.BoolFlag{Name: "humanize", Aliases: []string{"H"}},
 	},
 	Before: func(c *cli.Context) error {
-		if c.Args().Len() > 1 {
-			return fmt.Errorf("expected only 1 argument")
+		validate := func() error {
+			if c.Args().Len() > 1 {
+				return fmt.Errorf("expected only 1 argument")
+			}
+			return nil
+		}
+		if err := validate(); err != nil {
+			printError(givenCommand(c), c.Command.Name, err)
+			return err
 		}
 		return nil
 	},
@@ -96,7 +104,7 @@ func List(
 	var merror error
 
 	for object := range client.List(ctx, srcurl, true, storage.ListAllItems) {
-		if isCancelationError(object.Err) {
+		if errorpkg.IsCancelation(object.Err) {
 			continue
 		}
 

@@ -14,12 +14,19 @@ var GetCommand = &cli.Command{
 	Usage:    "TODO",
 	Flags:    copyCommandFlags,
 	Before: func(c *cli.Context) error {
-		arglen := c.Args().Len()
-		if arglen == 0 {
-			return fmt.Errorf("source is required")
+		validate := func() error {
+			arglen := c.Args().Len()
+			if arglen == 0 {
+				return fmt.Errorf("source is required")
+			}
+			if arglen > 2 {
+				return fmt.Errorf("too many arguments: expecting source and destination path")
+			}
+			return nil
 		}
-		if arglen > 2 {
-			return fmt.Errorf("too many arguments: expecting source and destination path")
+
+		if err := validate(); err != nil {
+			printError(givenCommand(c), c.Command.Name, err)
 		}
 		return nil
 	},

@@ -113,11 +113,6 @@ func Info(msg Message) {
 	globalLogger.printf(levelInfo, msg, os.Stdout)
 }
 
-// Warning prints message in warning mode.
-func Warning(msg Message) {
-	globalLogger.printf(levelWarning, msg, os.Stderr)
-}
-
 // Error prints message in error mode.
 func Error(msg Message) {
 	globalLogger.printf(levelError, msg, os.Stderr)

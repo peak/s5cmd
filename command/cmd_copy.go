@@ -12,18 +12,12 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/urfave/cli/v2"
 
+	errorpkg "github.com/peak/s5cmd/error"
 	"github.com/peak/s5cmd/log"
 	"github.com/peak/s5cmd/objurl"
 	"github.com/peak/s5cmd/parallel"
 	"github.com/peak/s5cmd/storage"
 )
-
-func validateArguments(c *cli.Context) error {
-	if c.Args().Len() != 2 {
-		return fmt.Errorf("expected source and destination arguments")
-	}
-	return nil
-}
 
 // FIXME(ig): move
 func givenCommand(c *cli.Context) string {
@@ -47,7 +41,17 @@ var CopyCommand = &cli.Command{
 	Usage:    "TODO",
 	Flags:    copyCommandFlags,
 	Before: func(c *cli.Context) error {
-		return validateArguments(c)
+		validate := func() error {
+			if c.Args().Len() != 2 {
+				return fmt.Errorf("expected source and destination arguments")
+			}
+			return nil
+		}
+		if err := validate(); err != nil {
+			printError(givenCommand(c), c.Command.Name, err)
+			return err
+		}
+		return nil
 	},
 	Action: func(c *cli.Context) error {
 		noClobber := c.Bool("no-clobber")
@@ -164,7 +168,7 @@ func Copy(
 					storageClass,
 				)
 				if err != nil {
-					return &parallel.Error{
+					return &errorpkg.Error{
 						Op:       op,
 						Src:      src,
 						Dst:      dsturl,
@@ -186,7 +190,7 @@ func Copy(
 					parents,
 				)
 				if err != nil {
-					return &parallel.Error{
+					return &errorpkg.Error{
 						Op:       op,
 						Src:      src,
 						Dst:      dsturl,
@@ -209,7 +213,7 @@ func Copy(
 					storageClass,
 				)
 				if err != nil {
-					return &parallel.Error{
+					return &errorpkg.Error{
 						Op:       op,
 						Src:      src,
 						Dst:      dsturl,
@@ -260,13 +264,9 @@ func doDownload(
 
 	err = checkFunc(dst)
 	if err != nil {
+		// FIXME(ig): rename
 		if isWarning(err) {
-			msg := log.WarningMessage{
-				Command:   fullCommand(op, src, dst),
-				Operation: op,
-				Err:       err.Error(),
-			}
-			log.Warning(msg)
+			printDebug(fullCommand(op, src, dst), op, err)
 			return nil
 		}
 		return err
@@ -337,12 +337,7 @@ func doUpload(
 	err = checkFunc(dst)
 	if err != nil {
 		if isWarning(err) {
-			msg := log.WarningMessage{
-				Command:   fullCommand(op, src, dst),
-				Operation: op,
-				Err:       err.Error(),
-			}
-			log.Warning(msg)
+			printDebug(fullCommand(op, src, dst), op, err)
 			return nil
 		}
 		return err
@@ -434,12 +429,7 @@ func doCopy(
 	err = checkFunc(dst)
 	if err != nil {
 		if isWarning(err) {
-			msg := log.WarningMessage{
-				Command:   fullCommand(op, src, dst),
-				Operation: op,
-				Err:       err.Error(),
-			}
-			log.Warning(msg)
+			printDebug(fullCommand(op, src, dst), op, err)
 			return nil
 		}
 		return err

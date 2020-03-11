@@ -296,7 +296,7 @@ func TestListNonexistingS3ObjectInGivenPrefix(t *testing.T) {
 	}, strictLineCheck(false))
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: equals(`ERROR "ls s3://test-list-nonexisting-s-3-object-in-given-prefix/*/testfile*.txt" no object found`),
+		0: equals(`ERROR "ls s3://test-list-nonexisting-s-3-object-in-given-prefix/*/testfile*.txt": no object found`),
 	}, strictLineCheck(false))
 }
 
@@ -320,7 +320,7 @@ func TestListNonexistingS3Object(t *testing.T) {
 	}, strictLineCheck(false))
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: equals(`ERROR "ls s3://test-list-nonexisting-s-3-object/nosuchobject" no object found`),
+		0: equals(`ERROR "ls s3://test-list-nonexisting-s-3-object/nosuchobject": no object found`),
 	}, strictLineCheck(false))
 }
 

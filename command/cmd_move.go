@@ -1,6 +1,8 @@
 package command
 
 import (
+	"fmt"
+
 	"github.com/peak/s5cmd/storage"
 	"github.com/urfave/cli/v2"
 )
@@ -11,7 +13,17 @@ var MoveCommand = &cli.Command{
 	Usage:    "TODO",
 	Flags:    copyCommandFlags, // move and copy commands share the same flags
 	Before: func(c *cli.Context) error {
-		return validateArguments(c)
+		validate := func() error {
+			if c.Args().Len() != 2 {
+				return fmt.Errorf("expected source and destination arguments")
+			}
+			return nil
+		}
+		if err := validate(); err != nil {
+			printError(givenCommand(c), c.Command.Name, err)
+			return err
+		}
+		return nil
 	},
 	Action: func(c *cli.Context) error {
 		noClobber := c.Bool("no-clobber")

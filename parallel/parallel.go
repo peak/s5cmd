@@ -1,30 +1,12 @@
 package parallel
 
 import (
-	"fmt"
 	"sync"
-
-	"github.com/peak/s5cmd/objurl"
 )
 
 var global *Manager
 
 type Task func() error
-
-type Error struct {
-	Op       string
-	Src      *objurl.ObjectURL
-	Dst      *objurl.ObjectURL
-	Original error
-}
-
-func (e *Error) FullCommand() string {
-	return fmt.Sprintf("%v %v %v", e.Op, e.Src, e.Dst)
-}
-
-func (e *Error) Error() string {
-	return e.Original.Error()
-}
 
 func Init(workercount int) {
 	global = New(workercount)

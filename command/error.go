@@ -1,49 +1,28 @@
 package command
 
 import (
-	"context"
-	"errors"
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
 
+	errorpkg "github.com/peak/s5cmd/error"
 	"github.com/peak/s5cmd/log"
-	"github.com/peak/s5cmd/parallel"
-	"github.com/peak/s5cmd/storage"
 )
 
-func isCancelationError(err error) bool {
-	if err == nil {
-		return false
+func printDebug(command, op string, err error) {
+	msg := log.DebugMessage{
+		Command:   command,
+		Operation: op,
+		Err:       cleanupError(err),
 	}
-
-	if errors.Is(err, context.Canceled) {
-		return true
-	}
-
-	if storage.IsCancelationError(err) {
-		return true
-	}
-
-	merr, ok := err.(*multierror.Error)
-	if !ok {
-		return false
-	}
-
-	for _, err := range merr.Errors {
-		if isCancelationError(err) {
-			return true
-		}
-	}
-
-	return false
+	log.Debug(msg)
 }
 
 // printError is the helper function to log error messages.
 func printError(command, op string, err error) {
 	// check if we have our own error type
 	{
-		cerr, ok := err.(*parallel.Error)
+		cerr, ok := err.(*errorpkg.Error)
 		if ok {
 			msg := log.ErrorMessage{
 				Err:       cleanupError(cerr.Original),
@@ -60,7 +39,7 @@ func printError(command, op string, err error) {
 		merr, ok := err.(*multierror.Error)
 		if ok {
 			for _, err := range merr.Errors {
-				customErr, ok := err.(*parallel.Error)
+				customErr, ok := err.(*errorpkg.Error)
 				if ok {
 					msg := log.ErrorMessage{
 						Err:       cleanupError(customErr.Original),

@@ -18,6 +18,19 @@ var RunCommand = &cli.Command{
 	Name:     "run",
 	HelpName: "run",
 	Usage:    "TODO",
+	Before: func(c *cli.Context) error {
+		validate := func() error {
+			if c.Args().Len() > 1 {
+				return fmt.Errorf("expected only 1 file")
+			}
+			return nil
+		}
+		if err := validate(); err != nil {
+			printError(givenCommand(c), c.Command.Name, err)
+			return err
+		}
+		return nil
+	},
 	Action: func(c *cli.Context) error {
 		reader := os.Stdin
 		if c.Args().Len() == 1 {

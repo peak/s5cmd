@@ -84,6 +84,20 @@ var CopyCommand = &cli.Command{
 	},
 }
 
+func expandSource(ctx context.Context, src *objurl.ObjectURL, isRecursive bool) <-chan *storage.Object {
+	if src.HasGlob() {
+		// FIXME(ig):
+		client, _ := storage.NewClient(src)
+
+		return client.List(ctx, src, isRecursive, storage.ListAllItems)
+	}
+
+	ch := make(chan *storage.Object, 1)
+	ch <- &storage.Object{URL: src}
+	close(ch)
+	return ch
+}
+
 func Copy(
 	ctx context.Context,
 	src string,
@@ -108,11 +122,6 @@ func Copy(
 		return err
 	}
 
-	srcClient, err := storage.NewClient(srcurl)
-	if err != nil {
-		return err
-	}
-
 	// set recursive=true for local->remote copy operations. this
 	// is required for backwards compatibility.
 	recursive = recursive || (!srcurl.IsRemote() && dsturl.IsRemote())
@@ -126,7 +135,7 @@ func Copy(
 		}
 	}()
 
-	for object := range srcClient.List(ctx, srcurl, recursive, storage.ListAllItems) {
+	for object := range expandSource(ctx, srcurl, recursive) {
 		if err := object.Err; err != nil {
 			// FIXME(ig):
 			fmt.Println("ERR", err)

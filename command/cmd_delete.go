@@ -19,8 +19,9 @@ var DeleteCommand = &cli.Command{
 	Usage:    "TODO",
 	Before: func(c *cli.Context) error {
 		validate := func() error {
-			if !c.Args().Present() {
-				return fmt.Errorf("expected at least 1 object to remove")
+			// TODO(ig): support variadic args
+			if c.Args().Len() != 1 {
+				return fmt.Errorf("expected 1 object to remove")
 			}
 			return nil
 		}
@@ -35,7 +36,7 @@ var DeleteCommand = &cli.Command{
 			c.Context,
 			c.Command.Name,
 			givenCommand(c),
-			c.Args().Slice()...,
+			c.Args().First(),
 		)
 		if err != nil {
 			printError(givenCommand(c), c.Command.Name, err)
@@ -50,15 +51,14 @@ func Delete(
 	ctx context.Context,
 	op string,
 	fullCommand string,
-	args ...string,
+	src string,
 ) error {
-	sources := make([]*objurl.ObjectURL, len(args))
-	for i, arg := range args {
-		url, _ := objurl.New(arg)
-		sources[i] = url
+	srcurl, err := objurl.New(src)
+	if err != nil {
+		return err
 	}
 
-	client, err := storage.NewClient(sources[0])
+	client, err := storage.NewClient(srcurl)
 	if err != nil {
 		return err
 	}
@@ -69,30 +69,16 @@ func Delete(
 	go func() {
 		defer close(urlch)
 
-		// there are multiple source files which are received from batch-rm
-		// command.
-		if len(sources) > 1 {
-			for _, url := range sources {
-				select {
-				case <-ctx.Done():
-					return
-				case urlch <- url:
-				}
+		for object := range client.List(ctx, srcurl, true, storage.ListAllItems) {
+			if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) {
+				continue
 			}
-		} else {
-			// src is a glob
-			src := sources[0]
-			for object := range client.List(ctx, src, true, storage.ListAllItems) {
-				if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) {
-					continue
-				}
 
-				if err := object.Err; err != nil {
-					printError(fullCommand, op, err)
-					continue
-				}
-				urlch <- object.URL
+			if err := object.Err; err != nil {
+				printError(fullCommand, op, err)
+				continue
 			}
+			urlch <- object.URL
 		}
 	}()
 

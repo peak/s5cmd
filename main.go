@@ -4,7 +4,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -23,7 +22,6 @@ func main() {
 	}()
 
 	if err := command.Main(ctx, os.Args); err != nil {
-		fmt.Println(err)
 		os.Exit(1)
 	}
 }

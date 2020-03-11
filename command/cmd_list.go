@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/hashicorp/go-multierror"
 	"github.com/urfave/cli/v2"
 
 	"github.com/peak/s5cmd/log"
@@ -43,7 +44,6 @@ var ListCommand = &cli.Command{
 		err := List(
 			c.Context,
 			c.Args().First(),
-			givenCommand(c),
 			showEtag,
 			humanize,
 		)
@@ -78,8 +78,8 @@ func ListBuckets(ctx context.Context) error {
 
 func List(
 	ctx context.Context,
-	fullCommand string,
 	src string,
+	// flags
 	showEtag bool,
 	humanize bool,
 ) error {
@@ -93,13 +93,15 @@ func List(
 		return err
 	}
 
+	var merror error
+
 	for object := range client.List(ctx, srcurl, true, storage.ListAllItems) {
 		if isCancelationError(object.Err) {
 			continue
 		}
 
 		if err := object.Err; err != nil {
-			printError(fullCommand, "list", err)
+			merror = multierror.Append(merror, err)
 			continue
 		}
 
@@ -112,7 +114,7 @@ func List(
 		log.Info(msg)
 	}
 
-	return nil
+	return merror
 }
 
 // ListMessage is a structure for logging ls results.

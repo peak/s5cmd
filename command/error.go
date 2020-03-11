@@ -76,6 +76,7 @@ func printError(command, op string, err error) {
 					Command:   command,
 					Operation: op,
 				}
+
 				log.Error(msg)
 			}
 			return

@@ -49,9 +49,9 @@ type ErrorMessage struct {
 // String is the string representation of ErrorMessage.
 func (e ErrorMessage) String() string {
 	if e.Command == "" {
-		return fmt.Sprintf(e.format, e.Err)
+		return fmt.Sprint(e.Err)
 	}
-	return fmt.Sprintf(e.format, e.Command, e.Err)
+	return fmt.Sprintf("%q %v", e.Command, e.Err)
 }
 
 // JSON is the JSON representation of ErrorMessage.

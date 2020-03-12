@@ -71,7 +71,7 @@ type Waiter struct {
 
 func NewWaiter() *Waiter {
 	return &Waiter{
-		errch: make(chan error),
+		errch: make(chan error, 1),
 	}
 }
 

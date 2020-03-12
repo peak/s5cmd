@@ -45,6 +45,16 @@ var CopyCommand = &cli.Command{
 			if c.Args().Len() != 2 {
 				return fmt.Errorf("expected source and destination arguments")
 			}
+
+			dst, err := objurl.New(c.Args().Get(1))
+			if err != nil {
+				return err
+			}
+
+			if dst.HasGlob() {
+				return fmt.Errorf("target %q can not contain glob characters", dst)
+			}
+
 			return nil
 		}
 		if err := validate(); err != nil {
@@ -264,12 +274,30 @@ func doDownload(
 		return err
 	}
 
-	objname := src.Base()
-	if parents {
-		objname = src.Relative()
-	}
+	// prepare dst url
+	{
+		obj, err := dstClient.Stat(ctx, dst)
+		if err != nil && err != storage.ErrGivenObjectNotFound {
+			return err
+		}
 
-	dst = dst.Join(objname)
+		objname := src.Base()
+		if parents {
+			objname = src.Relative()
+		}
+
+		if err == storage.ErrGivenObjectNotFound {
+			// TODO(ig): use storage abstraction
+			os.MkdirAll(dst.Dir(), os.ModePerm)
+			if strings.HasSuffix(dst.Absolute(), "/") {
+				dst = dst.Join(objname)
+			}
+		} else {
+			if obj.Type.IsDir() {
+				dst = obj.URL.Join(objname)
+			}
+		}
+	}
 
 	err = checkFunc(dst)
 	if err != nil {
@@ -281,8 +309,6 @@ func doDownload(
 		return err
 	}
 
-	// TODO(ig): use storage abstraction
-	os.MkdirAll(dst.Dir(), os.ModePerm)
 	f, err := os.Create(dst.Absolute())
 	if err != nil {
 		return err

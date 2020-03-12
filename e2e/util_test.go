@@ -103,7 +103,7 @@ func setup(t *testing.T, options ...option) (*s3.S3, func(...string) icmd.Cmd, f
 	assert.NilError(t, err)
 
 	s5cmd := func(args ...string) icmd.Cmd {
-		endpoint := []string{"-endpoint-url", endpoint}
+		endpoint := []string{"--endpoint-url", endpoint}
 		args = append(endpoint, args...)
 
 		cmd := icmd.Command(s5cmdPath, args...)

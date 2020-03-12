@@ -69,6 +69,12 @@ var RunCommand = &cli.Command{
 				continue
 			}
 
+			var flags []string
+			for _, flag := range c.FlagNames() {
+				flags = append(flags, fmt.Sprintf("--%v=%v", flag, c.Generic(flag)))
+			}
+
+			fields = append(flags, fields...)
 			fields = append([]string{"s5cmd"}, fields...)
 
 			fn := func() error {

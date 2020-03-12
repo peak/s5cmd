@@ -35,10 +35,8 @@ func TestRunFromStdin(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(""),
-		1: match(`# Stats: S3 2 \d+ ops/sec`),
-		2: match(`# Stats: Total 2 \d+ ops/sec \d+\.\d+ms$`),
-		3: suffix("file1.txt"),
-		4: suffix("file2.txt"),
+		1: suffix("file1.txt"),
+		2: suffix("file2.txt"),
 	}, sortInput(true))
 }
 
@@ -69,7 +67,6 @@ func TestRunFromStdinJSON(t *testing.T) {
 		0: equals(""),
 		1: prefix(`{"key":"s3://%v/file1.txt",`, bucket),
 		2: prefix(`{"key":"s3://%v/file2.txt",`, bucket),
-		3: prefix(`{"type":"stats","success":{"s3":2,"file":0},"fail_count":0,`),
 	}, sortInput(true), jsonCheck(true))
 }
 
@@ -100,10 +97,8 @@ func TestRunFromFile(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(""),
-		1: match(`# Stats: S3 2 \d+ ops/sec`),
-		2: match(`# Stats: Total 2 \d+ ops/sec \d+\.\d+ms$`),
-		3: suffix("file1.txt"),
-		4: suffix("file2.txt"),
+		1: suffix("file1.txt"),
+		2: suffix("file2.txt"),
 	}, sortInput(true))
 }
 
@@ -136,7 +131,6 @@ func TestRunFromFileJSON(t *testing.T) {
 		0: equals(""),
 		1: prefix(`{"key":"s3://%v/file1.txt",`, bucket),
 		2: prefix(`{"key":"s3://%v/file2.txt",`, bucket),
-		3: prefix(`{"type":"stats","success":{"s3":2,"file":0},"fail_count":0,`),
 	}, sortInput(true), jsonCheck(true))
 
 }
@@ -168,11 +162,9 @@ func TestRunWildcardCountGreaterEqualThanWorkerCount(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(""),
-		1: match(`# Stats: S3 3 \d+ ops/sec`),
-		2: match(`# Stats: Total 3 \d+ ops/sec \d+\.\d+ms$`),
-		3: equals(`download s3://%v/file.txt`, bucket),
-		4: equals(`download s3://%v/file.txt`, bucket),
-		5: equals(`download s3://%v/file.txt`, bucket),
+		1: equals(`cp s3://%v/file.txt`, bucket),
+		2: equals(`cp s3://%v/file.txt`, bucket),
+		3: equals(`cp s3://%v/file.txt`, bucket),
 	}, sortInput(true))
 
 }

@@ -95,10 +95,16 @@ var CopyCommand = &cli.Command{
 }
 
 func expandSource(ctx context.Context, src *objurl.ObjectURL, isRecursive bool) <-chan *storage.Object {
-	if src.HasGlob() {
-		// FIXME(ig):
-		client, _ := storage.NewClient(src)
+	// FIXME: handle errors
+	client, _ := storage.NewClient(src)
+	isDir := false
 
+	if !src.HasGlob() && !src.IsRemote() {
+		obj, _ := client.Stat(ctx, src)
+		isDir = obj.Type.IsDir()
+	}
+
+	if src.HasGlob() || isDir {
 		return client.List(ctx, src, isRecursive, storage.ListAllItems)
 	}
 
@@ -108,7 +114,7 @@ func expandSource(ctx context.Context, src *objurl.ObjectURL, isRecursive bool) 
 	return ch
 }
 
-func prepareDestinationURL(
+func prepareDownloadDestination(
 	ctx context.Context,
 	originalSrc *objurl.ObjectURL,
 	src *objurl.ObjectURL,
@@ -136,7 +142,6 @@ func prepareDestinationURL(
 		}
 		objname = src.Relative()
 		dst = dst.Join(objname)
-		// FIXME: dont use filepath
 		os.MkdirAll(dst.Dir(), os.ModePerm)
 	}
 
@@ -149,6 +154,45 @@ func prepareDestinationURL(
 	} else {
 		if obj.Type.IsDir() {
 			dst = obj.URL.Join(objname)
+		}
+	}
+
+	return dst, nil
+}
+
+func prepareCopyDestination(
+	ctx context.Context,
+	originalSrc *objurl.ObjectURL,
+	src *objurl.ObjectURL,
+	dst *objurl.ObjectURL,
+	parents bool,
+) (*objurl.ObjectURL, error) {
+	dstClient, err := storage.NewClient(dst)
+	if err != nil {
+		return nil, err
+	}
+
+	objname := src.Base()
+	if parents {
+		objname = src.Relative()
+	}
+
+	// FIXME(ig):
+	if !dst.IsRemote() {
+		obj, err := dstClient.Stat(ctx, dst)
+		if err != nil && err != storage.ErrGivenObjectNotFound {
+			return nil, err
+		}
+		if originalSrc.HasGlob() {
+			if obj != nil && !obj.Type.IsDir() {
+				return nil, fmt.Errorf("destination argument is expected to be a directory")
+			}
+			dst = dst.Join(objname)
+			os.MkdirAll(dst.Dir(), os.ModePerm)
+		}
+	} else {
+		if strings.HasSuffix(dst.Path, "/") {
+			dst = dst.Join(objname)
 		}
 	}
 
@@ -222,7 +266,12 @@ func Copy(
 		switch {
 		case srcurl.Type == dsturl.Type: // local->local or remote->remote
 			task = func() error {
-				err := doCopy(
+				dsturl, err := prepareCopyDestination(ctx, srcurl, src, dsturl, parents)
+				if err != nil {
+					return err
+				}
+
+				err = doCopy(
 					ctx,
 					src,
 					dsturl,
@@ -245,7 +294,7 @@ func Copy(
 			}
 		case srcurl.IsRemote(): // remote->local
 			task = func() error {
-				dsturl, err := prepareDestinationURL(ctx, srcurl, src, dsturl, parents)
+				dsturl, err := prepareDownloadDestination(ctx, srcurl, src, dsturl, parents)
 				if err != nil {
 					return err
 				}
@@ -378,11 +427,6 @@ func doUpload(
 	parents bool,
 	storageClass storage.StorageClass,
 ) error {
-	srcClient, err := storage.NewClient(src)
-	if err != nil {
-		return err
-	}
-
 	// TODO(ig): use storage abstraction
 	f, err := os.Open(src.Absolute())
 	if err != nil {
@@ -423,6 +467,14 @@ func doUpload(
 		metadata,
 	)
 
+	if err != nil {
+		return err
+	}
+
+	srcClient, err := storage.NewClient(src)
+	if err != nil {
+		return err
+	}
 	obj, _ := srcClient.Stat(ctx, src)
 	size := obj.Size
 
@@ -463,30 +515,8 @@ func doCopy(
 		return err
 	}
 
-	dstClient, err := storage.NewClient(dst)
-	if err != nil {
-		return err
-	}
-
 	metadata := map[string]string{
 		"StorageClass": string(storageClass),
-	}
-
-	objname := src.Base()
-	if parents {
-		objname = src.Relative()
-	}
-
-	// FIXME(ig):
-	if !dst.IsRemote() {
-		dstObj, _ := dstClient.Stat(ctx, dst)
-		if dstObj != nil && dstObj.Type.IsDir() {
-			dst = dst.Join(objname)
-		}
-	} else {
-		dstPath := fmt.Sprintf("s3://%v/%v%v", dst.Bucket, dst.Path, objname)
-		dst, _ = objurl.New(dstPath)
-
 	}
 
 	err = checkFunc(dst)

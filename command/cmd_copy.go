@@ -108,6 +108,53 @@ func expandSource(ctx context.Context, src *objurl.ObjectURL, isRecursive bool) 
 	return ch
 }
 
+func prepareDestinationURL(
+	ctx context.Context,
+	originalSrc *objurl.ObjectURL,
+	src *objurl.ObjectURL,
+	dst *objurl.ObjectURL,
+	parents bool,
+) (*objurl.ObjectURL, error) {
+	dstClient, err := storage.NewClient(dst)
+	if err != nil {
+		return nil, err
+	}
+
+	if originalSrc.HasGlob() {
+		os.MkdirAll(dst.Absolute(), os.ModePerm)
+	}
+
+	obj, err := dstClient.Stat(ctx, dst)
+	if err != nil && err != storage.ErrGivenObjectNotFound {
+		return nil, err
+	}
+
+	objname := src.Base()
+	if parents {
+		if obj != nil && !obj.Type.IsDir() {
+			return nil, fmt.Errorf("destination argument is expected to be a directory")
+		}
+		objname = src.Relative()
+		dst = dst.Join(objname)
+		// FIXME: dont use filepath
+		os.MkdirAll(dst.Dir(), os.ModePerm)
+	}
+
+	if err == storage.ErrGivenObjectNotFound {
+		// TODO(ig): use storage abstraction
+		os.MkdirAll(dst.Dir(), os.ModePerm)
+		if strings.HasSuffix(dst.Absolute(), "/") {
+			dst = dst.Join(objname)
+		}
+	} else {
+		if obj.Type.IsDir() {
+			dst = obj.URL.Join(objname)
+		}
+	}
+
+	return dst, nil
+}
+
 func Copy(
 	ctx context.Context,
 	src string,
@@ -198,7 +245,12 @@ func Copy(
 			}
 		case srcurl.IsRemote(): // remote->local
 			task = func() error {
-				err := doDownload(
+				dsturl, err := prepareDestinationURL(ctx, srcurl, src, dsturl, parents)
+				if err != nil {
+					return err
+				}
+
+				err = doDownload(
 					ctx,
 					src,
 					dsturl,
@@ -208,6 +260,7 @@ func Copy(
 					// flags
 					parents,
 				)
+
 				if err != nil {
 					return &errorpkg.Error{
 						Op:       op,
@@ -272,31 +325,6 @@ func doDownload(
 	dstClient, err := storage.NewClient(dst)
 	if err != nil {
 		return err
-	}
-
-	// prepare dst url
-	{
-		obj, err := dstClient.Stat(ctx, dst)
-		if err != nil && err != storage.ErrGivenObjectNotFound {
-			return err
-		}
-
-		objname := src.Base()
-		if parents {
-			objname = src.Relative()
-		}
-
-		if err == storage.ErrGivenObjectNotFound {
-			// TODO(ig): use storage abstraction
-			os.MkdirAll(dst.Dir(), os.ModePerm)
-			if strings.HasSuffix(dst.Absolute(), "/") {
-				dst = dst.Join(objname)
-			}
-		} else {
-			if obj.Type.IsDir() {
-				dst = obj.URL.Join(objname)
-			}
-		}
 	}
 
 	err = checkFunc(dst)

@@ -31,6 +31,7 @@ var MoveCommand = &cli.Command{
 			c.Args().Get(0),
 			c.Args().Get(1),
 			c.Command.Name,
+			givenCommand(c),
 			true, // delete source
 			// flags
 			noClobber,

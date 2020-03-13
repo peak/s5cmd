@@ -32,8 +32,6 @@ func TestMoveSingleS3ObjectToLocal(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	// TODO(os): When we implement command smth like 'move',
-	// 			 this assertion needs to be updated.
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(`mv s3://%v/%v`, bucket, filename),
 		1: equals(""),

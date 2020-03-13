@@ -41,6 +41,7 @@ var GetCommand = &cli.Command{
 			c.Args().Get(0),
 			dst,
 			c.Command.Name,
+			givenCommand(c),
 			false, // don't delete source
 			// flags
 			noClobber,

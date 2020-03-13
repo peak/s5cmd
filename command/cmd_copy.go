@@ -65,6 +65,7 @@ var CopyCommand = &cli.Command{
 			c.Args().Get(0),
 			c.Args().Get(1),
 			c.Command.Name,
+			givenCommand(c),
 			false, // don't delete source
 			// flags
 			noClobber,
@@ -77,9 +78,12 @@ var CopyCommand = &cli.Command{
 	},
 }
 
-func expandSource(ctx context.Context, src *objurl.ObjectURL, isRecursive bool) <-chan *storage.Object {
-	// FIXME: handle errors
-	client, _ := storage.NewClient(src)
+func expandSource(ctx context.Context, src *objurl.ObjectURL, isRecursive bool) (<-chan *storage.Object, error) {
+	client, err := storage.NewClient(src)
+	if err != nil {
+		return nil, err
+	}
+
 	isDir := false
 
 	if !src.HasGlob() && !src.IsRemote() {
@@ -88,13 +92,13 @@ func expandSource(ctx context.Context, src *objurl.ObjectURL, isRecursive bool) 
 	}
 
 	if src.HasGlob() || isDir {
-		return client.List(ctx, src, isRecursive, storage.ListAllItems)
+		return client.List(ctx, src, isRecursive, storage.ListAllItems), nil
 	}
 
 	ch := make(chan *storage.Object, 1)
 	ch <- &storage.Object{URL: src}
 	close(ch)
-	return ch
+	return ch, nil
 }
 
 func Copy(
@@ -102,6 +106,7 @@ func Copy(
 	src string,
 	dst string,
 	op string,
+	fullCommand string,
 	deleteSource bool,
 	// flags
 	noClobber bool,
@@ -125,6 +130,11 @@ func Copy(
 	// is required for backwards compatibility.
 	recursive = recursive || (!srcurl.IsRemote() && dsturl.IsRemote())
 
+	objch, err := expandSource(ctx, srcurl, recursive)
+	if err != nil {
+		return err
+	}
+
 	waiter := parallel.NewWaiter()
 
 	var merror error
@@ -134,10 +144,9 @@ func Copy(
 		}
 	}()
 
-	for object := range expandSource(ctx, srcurl, recursive) {
+	for object := range objch {
 		if err := object.Err; err != nil {
-			// FIXME(ig):
-			fmt.Println("ERR", err)
+			printError(fullCommand, op, err)
 			continue
 		}
 

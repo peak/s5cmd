@@ -24,7 +24,12 @@ func givenCommand(c *cli.Context) string {
 	return fmt.Sprintf("%v %v", c.Command.FullName(), strings.Join(c.Args().Slice(), " "))
 }
 
-type checkFunc func(*objurl.ObjectURL) error
+// shouldOverrideDst is a closure to check if the destination should be
+// overriden if the source-destination pair and given copy flags conform to the
+// override criteria. For example; "cp -n -s <src> <dst>" should not override
+// the <dst> if <src> and <dst> filenames are the same, except if the size
+// differs.
+type shouldOverrideDst func(dst *objurl.ObjectURL) error
 
 var copyCommandFlags = []cli.Flag{
 	&cli.BoolFlag{Name: "no-clobber", Aliases: []string{"n"}},
@@ -249,7 +254,7 @@ func Copy(
 
 		src := object.URL
 
-		checkFunc := func(dst *objurl.ObjectURL) error {
+		shouldOverride := func(dst *objurl.ObjectURL) error {
 			// FIXME(ig): shouldOverrideDestination
 			return checkConditions(
 				ctx,
@@ -277,7 +282,7 @@ func Copy(
 					dsturl,
 					op,
 					deleteSource,
-					checkFunc,
+					shouldOverride,
 					// flags
 					parents,
 					storageClass,
@@ -305,7 +310,7 @@ func Copy(
 					dsturl,
 					op,
 					deleteSource,
-					checkFunc,
+					shouldOverride,
 					// flags
 					parents,
 				)
@@ -328,7 +333,7 @@ func Copy(
 					dsturl,
 					op,
 					deleteSource,
-					checkFunc,
+					shouldOverride,
 					// flags
 					parents,
 					storageClass,
@@ -362,7 +367,7 @@ func doDownload(
 	dst *objurl.ObjectURL,
 	op string,
 	deleteSource bool,
-	checkFunc checkFunc,
+	shouldOverride shouldOverrideDst,
 	// flags
 	parents bool,
 ) error {
@@ -376,7 +381,7 @@ func doDownload(
 		return err
 	}
 
-	err = checkFunc(dst)
+	err = shouldOverride(dst)
 	if err != nil {
 		// FIXME(ig): rename
 		if isWarning(err) {
@@ -422,7 +427,7 @@ func doUpload(
 	dst *objurl.ObjectURL,
 	op string,
 	deleteSource bool,
-	checkFunc checkFunc,
+	shouldOverride shouldOverrideDst,
 	// flags
 	parents bool,
 	storageClass storage.StorageClass,
@@ -441,7 +446,7 @@ func doUpload(
 
 	dst = dst.Join(objname)
 
-	err = checkFunc(dst)
+	err = shouldOverride(dst)
 	if err != nil {
 		if isWarning(err) {
 			printDebug(fullCommand(op, src, dst), op, err)
@@ -505,7 +510,7 @@ func doCopy(
 	dst *objurl.ObjectURL,
 	op string,
 	deleteSource bool,
-	checkFunc checkFunc,
+	shouldOverride shouldOverrideDst,
 	// flags
 	parents bool,
 	storageClass storage.StorageClass,
@@ -519,7 +524,7 @@ func doCopy(
 		"StorageClass": string(storageClass),
 	}
 
-	err = checkFunc(dst)
+	err = shouldOverride(dst)
 	if err != nil {
 		if isWarning(err) {
 			printDebug(fullCommand(op, src, dst), op, err)

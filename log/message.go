@@ -1,11 +1,8 @@
 package log
 
 import (
-	"context"
-	"errors"
 	"fmt"
 
-	"github.com/hashicorp/go-multierror"
 	"github.com/peak/s5cmd/objurl"
 	"github.com/peak/s5cmd/storage"
 	"github.com/peak/s5cmd/strutil"
@@ -77,31 +74,4 @@ func (d DebugMessage) String() string {
 // JSON is the JSON representation of ErrorMessage.
 func (d DebugMessage) JSON() string {
 	return strutil.JSON(d)
-}
-
-func isCancelationError(err error) bool {
-	if err == nil {
-		return false
-	}
-
-	if errors.Is(err, context.Canceled) {
-		return true
-	}
-
-	if storage.IsCancelationError(err) {
-		return true
-	}
-
-	merr, ok := err.(*multierror.Error)
-	if !ok {
-		return false
-	}
-
-	for _, err := range merr.Errors {
-		if isCancelationError(err) {
-			return true
-		}
-	}
-
-	return false
 }

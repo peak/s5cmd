@@ -59,6 +59,7 @@ func newS3Factory() func() (*S3, error) {
 			DownloadConcurrency:    *flags.DownloadConcurrency,
 			DownloadChunkSizeBytes: *flags.DownloadPartSize,
 			EndpointURL:            *flags.EndpointURL,
+			ForcePathStyle:         *flags.ForcePathStyle,
 			MaxRetries:             *flags.RetryCount,
 			NoVerifySSL:            *flags.NoVerifySSL,
 			UploadChunkSizeBytes:   *flags.UploadPartSize,
@@ -94,6 +95,7 @@ type S3 struct {
 type S3Opts struct {
 	MaxRetries             int
 	EndpointURL            string
+	ForcePathStyle         bool
 	Region                 string
 	NoVerifySSL            bool
 	UploadChunkSizeBytes   int64
@@ -453,6 +455,7 @@ func (s *S3) UpdateRegion(bucket string) error {
 	ses, err := newSession(S3Opts{
 		MaxRetries:             s.opts.MaxRetries,
 		EndpointURL:            s.opts.EndpointURL,
+		ForcePathStyle:         s.opts.ForcePathStyle,
 		Region:                 aws.StringValue(o.LocationConstraint),
 		NoVerifySSL:            s.opts.NoVerifySSL,
 		DownloadConcurrency:    s.opts.DownloadConcurrency,
@@ -485,7 +488,7 @@ func newSession(opts S3Opts) (*session.Session, error) {
 
 	// use virtual-host style everywhere except localhost. e2e testing becomes
 	// harder if virtual-host style (subdomains) is used.
-	forcePathStyle := false
+	forcePathStyle := opts.ForcePathStyle
 	if isLocalhost(endpoint) {
 		forcePathStyle = true
 	}

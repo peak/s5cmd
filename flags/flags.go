@@ -21,6 +21,7 @@ const (
 var (
 	CommandFile         = flag.String("f", "", "Commands-file or - for stdin")
 	EndpointURL         = flag.String("endpoint-url", "", "Override default URL with the given one")
+	ForcePathStyle      = flag.Bool("force-path-style", false, "Use path-style addressing")
 	WorkerCount         = flag.Int("numworkers", defaultWorkerCount, "Number of worker goroutines. Negative numbers mean multiples of the CPU core count")
 	DownloadConcurrency = flag.Int("dw", defaultDownloadConcurrency, "Download concurrency for each file")
 	DownloadPartSize    = flag.Int64("ds", 50, "Multipart chunk size in MB for downloads")

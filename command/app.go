@@ -93,13 +93,18 @@ var app = &cli.App{
 
 		return nil
 	},
+	Action: func(c *cli.Context) error {
+		return cli.ShowAppHelp(c)
+	},
 	After: func(c *cli.Context) error {
 		parallel.Close()
 		log.Close()
 		return nil
 	},
-	Action: func(c *cli.Context) error {
-		return cli.ShowAppHelp(c)
+	ExitErrHandler: func(c *cli.Context, err error) {
+		if err != nil {
+			printError(givenCommand(c), c.Command.Name, err)
+		}
 	},
 }
 

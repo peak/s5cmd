@@ -32,15 +32,8 @@ var SizeCommand = &cli.Command{
 		&cli.BoolFlag{Name: "group", Aliases: []string{"g"}},
 	},
 	Before: func(c *cli.Context) error {
-		validate := func() error {
-			if c.Args().Len() != 1 {
-				return fmt.Errorf("expected only 1 argument")
-			}
-			return nil
-		}
-		if err := validate(); err != nil {
-			printError(givenCommand(c), c.Command.Name, err)
-			return err
+		if c.Args().Len() != 1 {
+			return fmt.Errorf("expected only 1 argument")
 		}
 		return nil
 	},
@@ -48,19 +41,13 @@ var SizeCommand = &cli.Command{
 		groupByClass := c.Bool("group")
 		humanize := c.Bool("humanize")
 
-		err := Size(
+		return Size(
 			c.Context,
 			givenCommand(c),
 			c.Args().First(),
 			groupByClass,
 			humanize,
 		)
-		if err != nil {
-			printError(givenCommand(c), c.Command.Name, err)
-			return err
-		}
-
-		return nil
 	},
 }
 

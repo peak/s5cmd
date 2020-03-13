@@ -14,19 +14,12 @@ var GetCommand = &cli.Command{
 	Usage:    "TODO",
 	Flags:    copyCommandFlags,
 	Before: func(c *cli.Context) error {
-		validate := func() error {
-			arglen := c.Args().Len()
-			if arglen == 0 {
-				return fmt.Errorf("source is required")
-			}
-			if arglen > 2 {
-				return fmt.Errorf("too many arguments: expecting source and destination path")
-			}
-			return nil
+		arglen := c.Args().Len()
+		if arglen == 0 {
+			return fmt.Errorf("source is required")
 		}
-
-		if err := validate(); err != nil {
-			printError(givenCommand(c), c.Command.Name, err)
+		if arglen > 2 {
+			return fmt.Errorf("too many arguments: expecting source and destination path")
 		}
 		return nil
 	},
@@ -43,7 +36,7 @@ var GetCommand = &cli.Command{
 			dst = c.Args().Get(1)
 		}
 
-		err := Copy(
+		return Copy(
 			c.Context,
 			c.Args().Get(0),
 			dst,
@@ -57,11 +50,5 @@ var GetCommand = &cli.Command{
 			parents,
 			storageClass,
 		)
-		if err != nil {
-			printError(givenCommand(c), c.Command.Name, err)
-			return err
-		}
-
-		return nil
 	},
 }

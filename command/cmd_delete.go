@@ -32,18 +32,12 @@ var DeleteCommand = &cli.Command{
 		return nil
 	},
 	Action: func(c *cli.Context) error {
-		err := Delete(
+		return Delete(
 			c.Context,
 			c.Command.Name,
 			givenCommand(c),
 			c.Args().First(),
 		)
-		if err != nil {
-			printError(givenCommand(c), c.Command.Name, err)
-			return err
-		}
-
-		return nil
 	},
 }
 
@@ -65,7 +59,6 @@ func Delete(
 
 	// do object->objurl transformation
 	urlch := make(chan *objurl.ObjectURL)
-
 	go func() {
 		defer close(urlch)
 
@@ -84,7 +77,7 @@ func Delete(
 
 	resultch := client.MultiDelete(ctx, urlch)
 
-	// closed errch indicates that MultiDelete operation is finished.
+	// a closed errch indicates that MultiDelete operation is finished.
 	var merror error
 	for obj := range resultch {
 		if err := obj.Err; err != nil {

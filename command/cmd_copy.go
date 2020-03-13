@@ -19,11 +19,6 @@ import (
 	"github.com/peak/s5cmd/storage"
 )
 
-// FIXME(ig): move
-func givenCommand(c *cli.Context) string {
-	return fmt.Sprintf("%v %v", c.Command.FullName(), strings.Join(c.Args().Slice(), " "))
-}
-
 // shouldOverrideDst is a closure to check if the destination should be
 // overriden if the source-destination pair and given copy flags conform to the
 // override criteria. For example; "cp -n -s <src> <dst>" should not override
@@ -46,26 +41,19 @@ var CopyCommand = &cli.Command{
 	Usage:    "TODO",
 	Flags:    copyCommandFlags,
 	Before: func(c *cli.Context) error {
-		validate := func() error {
-			if c.Args().Len() != 2 {
-				return fmt.Errorf("expected source and destination arguments")
-			}
-
-			dst, err := objurl.New(c.Args().Get(1))
-			if err != nil {
-				return err
-			}
-
-			if dst.HasGlob() {
-				return fmt.Errorf("target %q can not contain glob characters", dst)
-			}
-
-			return nil
+		if c.Args().Len() != 2 {
+			return fmt.Errorf("expected source and destination arguments")
 		}
-		if err := validate(); err != nil {
-			printError(givenCommand(c), c.Command.Name, err)
+
+		dst, err := objurl.New(c.Args().Get(1))
+		if err != nil {
 			return err
 		}
+
+		if dst.HasGlob() {
+			return fmt.Errorf("target %q can not contain glob characters", dst)
+		}
+
 		return nil
 	},
 	Action: func(c *cli.Context) error {
@@ -76,7 +64,7 @@ var CopyCommand = &cli.Command{
 		parents := c.Bool("parents")
 		storageClass := storage.LookupClass(c.String("storage-class"))
 
-		err := Copy(
+		return Copy(
 			c.Context,
 			c.Args().Get(0),
 			c.Args().Get(1),
@@ -90,12 +78,6 @@ var CopyCommand = &cli.Command{
 			parents,
 			storageClass,
 		)
-		if err != nil {
-			printError(givenCommand(c), c.Command.Name, err)
-			return err
-		}
-
-		return nil
 	},
 }
 
@@ -117,91 +99,6 @@ func expandSource(ctx context.Context, src *objurl.ObjectURL, isRecursive bool) 
 	ch <- &storage.Object{URL: src}
 	close(ch)
 	return ch
-}
-
-func prepareDownloadDestination(
-	ctx context.Context,
-	originalSrc *objurl.ObjectURL,
-	src *objurl.ObjectURL,
-	dst *objurl.ObjectURL,
-	parents bool,
-) (*objurl.ObjectURL, error) {
-	dstClient, err := storage.NewClient(dst)
-	if err != nil {
-		return nil, err
-	}
-
-	if originalSrc.HasGlob() {
-		os.MkdirAll(dst.Absolute(), os.ModePerm)
-	}
-
-	obj, err := dstClient.Stat(ctx, dst)
-	if err != nil && err != storage.ErrGivenObjectNotFound {
-		return nil, err
-	}
-
-	objname := src.Base()
-	if parents {
-		if obj != nil && !obj.Type.IsDir() {
-			return nil, fmt.Errorf("destination argument is expected to be a directory")
-		}
-		objname = src.Relative()
-		dst = dst.Join(objname)
-		os.MkdirAll(dst.Dir(), os.ModePerm)
-	}
-
-	if err == storage.ErrGivenObjectNotFound {
-		// TODO(ig): use storage abstraction
-		os.MkdirAll(dst.Dir(), os.ModePerm)
-		if strings.HasSuffix(dst.Absolute(), "/") {
-			dst = dst.Join(objname)
-		}
-	} else {
-		if obj.Type.IsDir() {
-			dst = obj.URL.Join(objname)
-		}
-	}
-
-	return dst, nil
-}
-
-func prepareCopyDestination(
-	ctx context.Context,
-	originalSrc *objurl.ObjectURL,
-	src *objurl.ObjectURL,
-	dst *objurl.ObjectURL,
-	parents bool,
-) (*objurl.ObjectURL, error) {
-	dstClient, err := storage.NewClient(dst)
-	if err != nil {
-		return nil, err
-	}
-
-	objname := src.Base()
-	if parents {
-		objname = src.Relative()
-	}
-
-	// FIXME(ig):
-	if !dst.IsRemote() {
-		obj, err := dstClient.Stat(ctx, dst)
-		if err != nil && err != storage.ErrGivenObjectNotFound {
-			return nil, err
-		}
-		if originalSrc.HasGlob() {
-			if obj != nil && !obj.Type.IsDir() {
-				return nil, fmt.Errorf("destination argument is expected to be a directory")
-			}
-			dst = dst.Join(objname)
-			os.MkdirAll(dst.Dir(), os.ModePerm)
-		}
-	} else {
-		if strings.HasSuffix(dst.Path, "/") {
-			dst = dst.Join(objname)
-		}
-	}
-
-	return dst, nil
 }
 
 func Copy(
@@ -385,7 +282,7 @@ func doDownload(
 	if err != nil {
 		// FIXME(ig): rename
 		if isWarning(err) {
-			printDebug(fullCommand(op, src, dst), op, err)
+			printDebug(op, src, dst, err)
 			return nil
 		}
 		return err
@@ -449,7 +346,7 @@ func doUpload(
 	err = shouldOverride(dst)
 	if err != nil {
 		if isWarning(err) {
-			printDebug(fullCommand(op, src, dst), op, err)
+			printDebug(op, src, dst, err)
 			return nil
 		}
 		return err
@@ -527,7 +424,7 @@ func doCopy(
 	err = shouldOverride(dst)
 	if err != nil {
 		if isWarning(err) {
-			printDebug(fullCommand(op, src, dst), op, err)
+			printDebug(op, src, dst, err)
 			return nil
 		}
 		return err
@@ -573,6 +470,104 @@ func guessContentType(rs io.ReadSeeker) string {
 	return http.DetectContentType(buf)
 }
 
-func fullCommand(op string, src, dst *objurl.ObjectURL) string {
-	return fmt.Sprintf("%v %v %v", op, src, dst)
+func givenCommand(c *cli.Context) string {
+	return fmt.Sprintf("%v %v", c.Command.FullName(), strings.Join(c.Args().Slice(), " "))
+}
+
+// prepareCopyDestination will return a new destination URL for local->local
+// and remote->remote copy operations.
+func prepareCopyDestination(
+	ctx context.Context,
+	originalSrc *objurl.ObjectURL,
+	src *objurl.ObjectURL,
+	dst *objurl.ObjectURL,
+	parents bool,
+) (*objurl.ObjectURL, error) {
+	objname := src.Base()
+	if parents {
+		objname = src.Relative()
+	}
+
+	// For remote->remote copy operations, treat <dst> as folder if it has "/"
+	// suffix.
+	if dst.IsRemote() {
+		if strings.HasSuffix(dst.Path, "/") {
+			dst = dst.Join(objname)
+		}
+		return dst, nil
+	}
+
+	client, err := storage.NewClient(dst)
+	if err != nil {
+		return nil, err
+	}
+
+	// For local->local copy operations, we can safely stat <dst> to see if
+	// it's a file or a directory.
+	obj, err := client.Stat(ctx, dst)
+	if err != nil && err != storage.ErrGivenObjectNotFound {
+		return nil, err
+	}
+
+	// Absolute <src> path is given. Use given <dst> and local copy operation
+	// will create missing directories if <dst> has one.
+	if !originalSrc.HasGlob() {
+		return dst, nil
+	}
+
+	// For local->local copy operations, if <src> has glob, <dst> is expected
+	// to be a directory. As always, local copy operation will create missing
+	// directories if <dst> has one.
+	if obj != nil && !obj.Type.IsDir() {
+		return nil, fmt.Errorf("destination argument is expected to be a directory")
+	}
+
+	return dst.Join(objname), nil
+}
+
+// prepareDownloadDestination will return a new destination URL for
+// remote->local and remote->remote copy operations.
+func prepareDownloadDestination(
+	ctx context.Context,
+	originalSrc *objurl.ObjectURL,
+	src *objurl.ObjectURL,
+	dst *objurl.ObjectURL,
+	parents bool,
+) (*objurl.ObjectURL, error) {
+	if originalSrc.HasGlob() {
+		os.MkdirAll(dst.Absolute(), os.ModePerm)
+	}
+
+	client, err := storage.NewClient(dst)
+	if err != nil {
+		return nil, err
+	}
+
+	obj, err := client.Stat(ctx, dst)
+	if err != nil && err != storage.ErrGivenObjectNotFound {
+		return nil, err
+	}
+
+	objname := src.Base()
+	if parents {
+		if obj != nil && !obj.Type.IsDir() {
+			return nil, fmt.Errorf("destination argument is expected to be a directory")
+		}
+		objname = src.Relative()
+		dst = dst.Join(objname)
+		os.MkdirAll(dst.Dir(), os.ModePerm)
+	}
+
+	if err == storage.ErrGivenObjectNotFound {
+		os.MkdirAll(dst.Dir(), os.ModePerm)
+		if strings.HasSuffix(dst.Absolute(), "/") {
+			dst = dst.Join(objname)
+		}
+	} else {
+		if obj.Type.IsDir() {
+			dst = obj.URL.Join(objname)
+		}
+	}
+
+	return dst, nil
 }

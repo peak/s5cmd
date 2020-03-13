@@ -37,30 +37,18 @@ var ListCommand = &cli.Command{
 	},
 	Action: func(c *cli.Context) error {
 		if !c.Args().Present() {
-			err := ListBuckets(c.Context)
-			if err != nil {
-				printError(givenCommand(c), c.Command.Name, err)
-				return err
-			}
-
-			return nil
+			return ListBuckets(c.Context)
 		}
 
 		showEtag := c.Bool("etag")
 		humanize := c.Bool("humanize")
 
-		err := List(
+		return List(
 			c.Context,
 			c.Args().First(),
 			showEtag,
 			humanize,
 		)
-		if err != nil {
-			printError(givenCommand(c), c.Command.Name, err)
-			return err
-		}
-
-		return nil
 	},
 }
 
@@ -77,8 +65,8 @@ func ListBuckets(ctx context.Context) error {
 		return err
 	}
 
-	for _, b := range buckets {
-		log.Info(b)
+	for _, bucket := range buckets {
+		log.Info(bucket)
 	}
 
 	return nil

@@ -13,15 +13,8 @@ var MoveCommand = &cli.Command{
 	Usage:    "TODO",
 	Flags:    copyCommandFlags, // move and copy commands share the same flags
 	Before: func(c *cli.Context) error {
-		validate := func() error {
-			if c.Args().Len() != 2 {
-				return fmt.Errorf("expected source and destination arguments")
-			}
-			return nil
-		}
-		if err := validate(); err != nil {
-			printError(givenCommand(c), c.Command.Name, err)
-			return err
+		if c.Args().Len() != 2 {
+			return fmt.Errorf("expected source and destination arguments")
 		}
 		return nil
 	},
@@ -33,7 +26,7 @@ var MoveCommand = &cli.Command{
 		parents := c.Bool("parents")
 		storageClass := storage.LookupClass(c.String("storage-class"))
 
-		err := Copy(
+		return Copy(
 			c.Context,
 			c.Args().Get(0),
 			c.Args().Get(1),
@@ -47,11 +40,5 @@ var MoveCommand = &cli.Command{
 			parents,
 			storageClass,
 		)
-		if err != nil {
-			printError(givenCommand(c), c.Command.Name, err)
-			return err
-		}
-
-		return nil
 	},
 }

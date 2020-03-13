@@ -20,15 +20,8 @@ var RunCommand = &cli.Command{
 	HelpName: "run",
 	Usage:    "TODO",
 	Before: func(c *cli.Context) error {
-		validate := func() error {
-			if c.Args().Len() > 1 {
-				return fmt.Errorf("expected only 1 file")
-			}
-			return nil
-		}
-		if err := validate(); err != nil {
-			printError(givenCommand(c), c.Command.Name, err)
-			return err
+		if c.Args().Len() > 1 {
+			return fmt.Errorf("expected only 1 file")
 		}
 		return nil
 	},
@@ -61,11 +54,13 @@ var RunCommand = &cli.Command{
 			fields := strings.Fields(line)
 
 			if len(fields) == 0 {
+				// FIXME(ig):
 				fmt.Println("ERR: invalid command")
 				continue
 			}
 
 			if fields[0] == "run" {
+				// FIXME(ig):
 				fmt.Println("ERR: no sir!")
 				continue
 			}
@@ -79,8 +74,12 @@ var RunCommand = &cli.Command{
 				}
 
 				cmd := app.Command(subcmd)
-				cmdctx := cli.NewContext(app, flagset, c)
-				return cmd.Run(cmdctx)
+				if cmd == nil {
+					return fmt.Errorf("no %q command found", subcmd)
+				}
+
+				ctx := cli.NewContext(app, flagset, c)
+				return cmd.Run(ctx)
 			}
 			pm.Run(fn, waiter)
 		}

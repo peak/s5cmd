@@ -1,17 +1,19 @@
 package command
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
 
 	errorpkg "github.com/peak/s5cmd/error"
 	"github.com/peak/s5cmd/log"
+	"github.com/peak/s5cmd/objurl"
 )
 
-func printDebug(command, op string, err error) {
+func printDebug(op string, src, dst *objurl.ObjectURL, err error) {
 	msg := log.DebugMessage{
-		Command:   command,
+		Command:   fmt.Sprintf("%v %v %v", op, src, dst),
 		Operation: op,
 		Err:       cleanupError(err),
 	}

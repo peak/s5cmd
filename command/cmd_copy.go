@@ -19,12 +19,8 @@ import (
 	"github.com/peak/s5cmd/storage"
 )
 
-// shouldOverrideDst is a closure to check if the destination should be
-// overriden if the source-destination pair and given copy flags conform to the
-// override criteria. For example; "cp -n -s <src> <dst>" should not override
-// the <dst> if <src> and <dst> filenames are the same, except if the size
-// differs.
-type shouldOverrideDst func(dst *objurl.ObjectURL) error
+// shouldOverrideFunc is a helper closure for shouldOverride function.
+type shouldOverrideFunc func(dst *objurl.ObjectURL) error
 
 var copyCommandFlags = []cli.Flag{
 	&cli.BoolFlag{Name: "no-clobber", Aliases: []string{"n"}},
@@ -151,9 +147,8 @@ func Copy(
 
 		src := object.URL
 
-		shouldOverride := func(dst *objurl.ObjectURL) error {
-			// FIXME(ig): shouldOverrideDestination
-			return checkConditions(
+		shouldOverrideFunc := func(dst *objurl.ObjectURL) error {
+			return shouldOverride(
 				ctx,
 				src,
 				dst,
@@ -179,7 +174,7 @@ func Copy(
 					dsturl,
 					op,
 					deleteSource,
-					shouldOverride,
+					shouldOverrideFunc,
 					// flags
 					parents,
 					storageClass,
@@ -207,7 +202,7 @@ func Copy(
 					dsturl,
 					op,
 					deleteSource,
-					shouldOverride,
+					shouldOverrideFunc,
 					// flags
 					parents,
 				)
@@ -230,7 +225,7 @@ func Copy(
 					dsturl,
 					op,
 					deleteSource,
-					shouldOverride,
+					shouldOverrideFunc,
 					// flags
 					parents,
 					storageClass,
@@ -264,7 +259,7 @@ func doDownload(
 	dst *objurl.ObjectURL,
 	op string,
 	deleteSource bool,
-	shouldOverride shouldOverrideDst,
+	shouldOverride shouldOverrideFunc,
 	// flags
 	parents bool,
 ) error {
@@ -301,21 +296,21 @@ func doDownload(
 		err = srcClient.Delete(ctx, src)
 	}
 
-	if err == nil {
-		// FIXME(ig): move this to parallel.Result
-		msg := log.InfoMessage{
-			Operation:   op,
-			Source:      src,
-			Destination: dst,
-			Object: &storage.Object{
-				Size: size,
-			},
-		}
-		log.Info(msg)
-		return nil
+	if err != nil {
+		return err
 	}
 
-	return err
+	msg := log.InfoMessage{
+		Operation:   op,
+		Source:      src,
+		Destination: dst,
+		Object: &storage.Object{
+			Size: size,
+		},
+	}
+	log.Info(msg)
+
+	return nil
 }
 
 func doUpload(
@@ -324,7 +319,7 @@ func doUpload(
 	dst *objurl.ObjectURL,
 	op string,
 	deleteSource bool,
-	shouldOverride shouldOverrideDst,
+	shouldOverride shouldOverrideFunc,
 	// flags
 	parents bool,
 	storageClass storage.StorageClass,
@@ -368,7 +363,6 @@ func doUpload(
 		dst,
 		metadata,
 	)
-
 	if err != nil {
 		return err
 	}
@@ -377,28 +371,28 @@ func doUpload(
 	if err != nil {
 		return err
 	}
+
 	obj, _ := srcClient.Stat(ctx, src)
 	size := obj.Size
 
-	if deleteSource && err == nil {
-		err = srcClient.Delete(ctx, src)
-	}
-
-	if err == nil {
-		msg := log.InfoMessage{
-			Operation:   op,
-			Source:      src,
-			Destination: dst,
-			Object: &storage.Object{
-				Size:         size,
-				StorageClass: storageClass,
-			},
+	if deleteSource {
+		if err := srcClient.Delete(ctx, src); err != nil {
+			return err
 		}
-		log.Info(msg)
-		return nil
 	}
 
-	return err
+	msg := log.InfoMessage{
+		Operation:   op,
+		Source:      src,
+		Destination: dst,
+		Object: &storage.Object{
+			Size:         size,
+			StorageClass: storageClass,
+		},
+	}
+	log.Info(msg)
+
+	return nil
 }
 
 func doCopy(
@@ -407,7 +401,7 @@ func doCopy(
 	dst *objurl.ObjectURL,
 	op string,
 	deleteSource bool,
-	shouldOverride shouldOverrideDst,
+	shouldOverride shouldOverrideFunc,
 	// flags
 	parents bool,
 	storageClass storage.StorageClass,
@@ -436,26 +430,28 @@ func doCopy(
 		dst,
 		metadata,
 	)
-
-	if deleteSource && err == nil {
-		err = srcClient.Delete(ctx, src)
+	if err != nil {
+		return err
 	}
 
-	if err == nil {
-		msg := log.InfoMessage{
-			Operation:   op,
-			Source:      src,
-			Destination: dst,
-			Object: &storage.Object{
-				URL:          dst,
-				StorageClass: storage.StorageClass(storageClass),
-			},
+	if deleteSource {
+		if err := srcClient.Delete(ctx, src); err != nil {
+			return err
 		}
-		log.Info(msg)
-		return nil
 	}
 
-	return err
+	msg := log.InfoMessage{
+		Operation:   op,
+		Source:      src,
+		Destination: dst,
+		Object: &storage.Object{
+			URL:          dst,
+			StorageClass: storage.StorageClass(storageClass),
+		},
+	}
+	log.Info(msg)
+
+	return nil
 }
 
 func guessContentType(rs io.ReadSeeker) string {
@@ -488,7 +484,7 @@ func prepareCopyDestination(
 		objname = src.Relative()
 	}
 
-	// For remote->remote copy operations, treat <dst> as folder if it has "/"
+	// For remote->remote copy operations, treat <dst> as prefix if it has "/"
 	// suffix.
 	if dst.IsRemote() {
 		if strings.HasSuffix(dst.Path, "/") {
@@ -502,8 +498,8 @@ func prepareCopyDestination(
 		return nil, err
 	}
 
-	// For local->local copy operations, we can safely stat <dst> to see if
-	// it's a file or a directory.
+	// For local->local copy operations, we can safely stat <dst> to check if
+	// it is a file or a directory.
 	obj, err := client.Stat(ctx, dst)
 	if err != nil && err != storage.ErrGivenObjectNotFound {
 		return nil, err
@@ -534,6 +530,11 @@ func prepareDownloadDestination(
 	dst *objurl.ObjectURL,
 	parents bool,
 ) (*objurl.ObjectURL, error) {
+	objname := src.Base()
+	if parents {
+		objname = src.Relative()
+	}
+
 	if originalSrc.HasGlob() {
 		os.MkdirAll(dst.Absolute(), os.ModePerm)
 	}
@@ -548,12 +549,10 @@ func prepareDownloadDestination(
 		return nil, err
 	}
 
-	objname := src.Base()
 	if parents {
 		if obj != nil && !obj.Type.IsDir() {
 			return nil, fmt.Errorf("destination argument is expected to be a directory")
 		}
-		objname = src.Relative()
 		dst = dst.Join(objname)
 		os.MkdirAll(dst.Dir(), os.ModePerm)
 	}

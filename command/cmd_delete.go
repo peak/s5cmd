@@ -18,16 +18,9 @@ var DeleteCommand = &cli.Command{
 	HelpName: "delete",
 	Usage:    "TODO",
 	Before: func(c *cli.Context) error {
-		validate := func() error {
-			// TODO(ig): support variadic args
-			if c.Args().Len() != 1 {
-				return fmt.Errorf("expected 1 object to remove")
-			}
-			return nil
-		}
-		if err := validate(); err != nil {
-			printError(givenCommand(c), c.Command.Name, err)
-			return err
+		// TODO(ig): support variadic args
+		if c.Args().Len() != 1 {
+			return fmt.Errorf("expected 1 object to remove")
 		}
 		return nil
 	},

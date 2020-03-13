@@ -23,15 +23,8 @@ var ListCommand = &cli.Command{
 		&cli.BoolFlag{Name: "humanize", Aliases: []string{"H"}},
 	},
 	Before: func(c *cli.Context) error {
-		validate := func() error {
-			if c.Args().Len() > 1 {
-				return fmt.Errorf("expected only 1 argument")
-			}
-			return nil
-		}
-		if err := validate(); err != nil {
-			printError(givenCommand(c), c.Command.Name, err)
-			return err
+		if c.Args().Len() > 1 {
+			return fmt.Errorf("expected only 1 argument")
 		}
 		return nil
 	},

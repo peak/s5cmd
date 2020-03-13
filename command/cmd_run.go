@@ -50,18 +50,22 @@ var RunCommand = &cli.Command{
 		}()
 
 		scanner := NewScanner(c.Context, reader)
+		lineno := -1
 		for line := range scanner.Scan() {
-			fields := strings.Fields(line)
+			lineno++
+			line = strings.TrimSpace(line)
+			if line == "" {
+				continue
+			}
 
+			fields := strings.Fields(line)
 			if len(fields) == 0 {
-				// FIXME(ig):
-				fmt.Println("ERR: invalid command")
 				continue
 			}
 
 			if fields[0] == "run" {
-				// FIXME(ig):
-				fmt.Println("ERR: no sir!")
+				err := fmt.Errorf("%q command (line: %v) is not permitted in run-mode", "run", lineno)
+				printError(givenCommand(c), c.Command.Name, err)
 				continue
 			}
 
@@ -75,12 +79,13 @@ var RunCommand = &cli.Command{
 
 				cmd := app.Command(subcmd)
 				if cmd == nil {
-					return fmt.Errorf("no %q command found", subcmd)
+					return fmt.Errorf("%q command (line: %v) not found", subcmd, lineno)
 				}
 
 				ctx := cli.NewContext(app, flagset, c)
 				return cmd.Run(ctx)
 			}
+
 			pm.Run(fn, waiter)
 		}
 
@@ -97,9 +102,9 @@ var RunCommand = &cli.Command{
 // Scanner is a cancelable scanner.
 type Scanner struct {
 	*bufio.Scanner
-	err  error
-	data chan string
-	ctx  context.Context
+	err    error
+	linech chan string
+	ctx    context.Context
 }
 
 // NewScanner creates a new scanner with cancellation.
@@ -107,7 +112,7 @@ func NewScanner(ctx context.Context, r io.Reader) *Scanner {
 	scanner := &Scanner{
 		ctx:     ctx,
 		Scanner: bufio.NewScanner(r),
-		data:    make(chan string),
+		linech:  make(chan string),
 	}
 
 	go scanner.scan()
@@ -116,7 +121,7 @@ func NewScanner(ctx context.Context, r io.Reader) *Scanner {
 
 // scan read the underlying reader.
 func (s *Scanner) scan() {
-	defer close(s.data)
+	defer close(s.linech)
 
 	for {
 		select {
@@ -128,14 +133,14 @@ func (s *Scanner) scan() {
 				return
 			}
 
-			s.data <- s.Scanner.Text()
+			s.linech <- s.Scanner.Text()
 		}
 	}
 }
 
 // Scan returns read-only channel to consume lines.
 func (s *Scanner) Scan() <-chan string {
-	return s.data
+	return s.linech
 }
 
 // Err returns error of scanner.

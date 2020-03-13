@@ -8,10 +8,12 @@ import (
 	"github.com/peak/s5cmd/storage"
 )
 
-// checkConditions checks if the job satisfies the conditions if the job has -n, -s and -u flags.
-// It returns error-embedded JobResponse with status "warning" if none of the requirements are met.
-// It returns nil if any warning or error is encountered during this check.
-func checkConditions(
+// shouldOverride is a closure to check if the destination should be
+// overriden if the source-destination pair and given copy flags conform to the
+// override criteria. For example; "cp -n -s <src> <dst>" should not override
+// the <dst> if <src> and <dst> filenames are the same, except if the size
+// differs.
+func shouldOverride(
 	ctx context.Context,
 	src *objurl.ObjectURL,
 	dst *objurl.ObjectURL,
@@ -19,7 +21,7 @@ func checkConditions(
 	ifSizeDiffer bool,
 	ifSourceNewer bool,
 ) error {
-	// if has no flag, return nil
+	// if not asked to override, ignore.
 	if !noClobber && !ifSizeDiffer && !ifSourceNewer {
 		return nil
 	}
@@ -34,7 +36,7 @@ func checkConditions(
 		return err
 	}
 
-	// if destination is not exists, no conditions apply.
+	// if destination not exists, no conditions apply.
 	if dstObj == nil {
 		return nil
 	}

@@ -8,8 +8,8 @@ import (
 	"github.com/peak/s5cmd/storage"
 )
 
-// shouldOverride is a closure to check if the destination should be
-// overriden if the source-destination pair and given copy flags conform to the
+// shouldOverride function checks if the destination should be overridden if
+// the source-destination pair and given copy flags conform to the
 // override criteria. For example; "cp -n -s <src> <dst>" should not override
 // the <dst> if <src> and <dst> filenames are the same, except if the size
 // differs.

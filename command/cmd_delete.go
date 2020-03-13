@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/peak/s5cmd/parallel"
-
 	"github.com/hashicorp/go-multierror"
 	"github.com/urfave/cli/v2"
 
@@ -34,19 +32,12 @@ var DeleteCommand = &cli.Command{
 		return nil
 	},
 	Action: func(c *cli.Context) error {
-		waiter := parallel.NewWaiter()
-		doDelete := func() error {
-			return Delete(
-				c.Context,
-				c.Command.Name,
-				givenCommand(c),
-				c.Args().First(),
-			)
-		}
-		parallel.Run(doDelete, waiter)
-		waiter.Wait()
-
-		err := <-waiter.Err()
+		err := Delete(
+			c.Context,
+			c.Command.Name,
+			givenCommand(c),
+			c.Args().First(),
+		)
 		if err != nil {
 			printError(givenCommand(c), c.Command.Name, err)
 			return err

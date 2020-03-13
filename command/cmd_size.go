@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/peak/s5cmd/parallel"
-
 	"github.com/urfave/cli/v2"
 
 	errorpkg "github.com/peak/s5cmd/error"
@@ -50,20 +48,13 @@ var SizeCommand = &cli.Command{
 		groupByClass := c.Bool("group")
 		humanize := c.Bool("humanize")
 
-		waiter := parallel.NewWaiter()
-		doSize := func() error {
-			return Size(
-				c.Context,
-				givenCommand(c),
-				c.Args().First(),
-				groupByClass,
-				humanize,
-			)
-		}
-		parallel.Run(doSize, waiter)
-		waiter.Wait()
-
-		err := <-waiter.Err()
+		err := Size(
+			c.Context,
+			givenCommand(c),
+			c.Args().First(),
+			groupByClass,
+			humanize,
+		)
 		if err != nil {
 			printError(givenCommand(c), c.Command.Name, err)
 			return err

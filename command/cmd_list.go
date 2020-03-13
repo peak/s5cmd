@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/peak/s5cmd/parallel"
-
 	"github.com/hashicorp/go-multierror"
 	"github.com/urfave/cli/v2"
 
@@ -51,19 +49,12 @@ var ListCommand = &cli.Command{
 		showEtag := c.Bool("etag")
 		humanize := c.Bool("humanize")
 
-		waiter := parallel.NewWaiter()
-		doList := func() error {
-			return List(
-				c.Context,
-				c.Args().First(),
-				showEtag,
-				humanize,
-			)
-		}
-		parallel.Run(doList, waiter)
-		waiter.Wait()
-
-		err := <-waiter.Err()
+		err := List(
+			c.Context,
+			c.Args().First(),
+			showEtag,
+			humanize,
+		)
 		if err != nil {
 			printError(givenCommand(c), c.Command.Name, err)
 			return err

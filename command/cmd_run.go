@@ -3,6 +3,7 @@ package command
 import (
 	"bufio"
 	"context"
+	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -69,16 +70,17 @@ var RunCommand = &cli.Command{
 				continue
 			}
 
-			var flags []string
-			for _, flag := range c.FlagNames() {
-				flags = append(flags, fmt.Sprintf("--%v=%v", flag, c.Generic(flag)))
-			}
-
-			fields = append(flags, fields...)
-			fields = append([]string{"s5cmd"}, fields...)
-
 			fn := func() error {
-				return app.RunContext(c.Context, fields)
+				subcmd := fields[0]
+
+				flagset := flag.NewFlagSet(subcmd, flag.ExitOnError)
+				if err := flagset.Parse(fields); err != nil {
+					return err
+				}
+
+				cmd := app.Command(subcmd)
+				cmdctx := cli.NewContext(app, flagset, c)
+				return cmd.Run(cmdctx)
 			}
 			pm.Run(fn, waiter)
 		}

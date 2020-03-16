@@ -17,7 +17,7 @@ import (
 var RunCommand = &cli.Command{
 	Name:     "run",
 	HelpName: "run",
-	Usage:    "TODO",
+	Usage:    "run commands in batch",
 	Before: func(c *cli.Context) error {
 		if c.Args().Len() > 1 {
 			return fmt.Errorf("expected only 1 file")

@@ -16,7 +16,7 @@ import (
 var DeleteCommand = &cli.Command{
 	Name:     "rm",
 	HelpName: "delete",
-	Usage:    "TODO",
+	Usage:    "remove objects",
 	Before: func(c *cli.Context) error {
 		// TODO(ig): support variadic args
 		if c.Args().Len() != 1 {

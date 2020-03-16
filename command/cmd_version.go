@@ -11,7 +11,7 @@ import (
 var VersionCommand = &cli.Command{
 	Name:     "version",
 	HelpName: "version",
-	Usage:    "TODO",
+	Usage:    "print version",
 	Action: func(c *cli.Context) error {
 		fmt.Println(version.GetHumanVersion())
 		return nil

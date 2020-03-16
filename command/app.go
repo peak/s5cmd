@@ -22,6 +22,7 @@ const (
 )
 
 var app = &cli.App{
+	HideHelp: true,
 	Flags: []cli.Flag{
 		&cli.IntFlag{Name: "download-concurrency", Aliases: []string{"dw"}, Value: defaultDownloadConcurrency},
 		&cli.IntFlag{Name: "upload-concurrency", Aliases: []string{"uw"}, Value: defaultUploadConcurrency},

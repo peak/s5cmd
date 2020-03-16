@@ -23,18 +23,40 @@ import (
 type shouldOverrideFunc func(dst *objurl.ObjectURL) error
 
 var copyCommandFlags = []cli.Flag{
-	&cli.BoolFlag{Name: "no-clobber", Aliases: []string{"n"}},
-	&cli.BoolFlag{Name: "if-size-differ", Aliases: []string{"s"}},
-	&cli.BoolFlag{Name: "if-source-newer", Aliases: []string{"u"}},
-	&cli.BoolFlag{Name: "parents"},
-	&cli.BoolFlag{Name: "recursive", Aliases: []string{"R"}},
-	&cli.StringFlag{Name: "storage-class"},
+	&cli.BoolFlag{
+		Name:    "no-clobber",
+		Aliases: []string{"n"},
+		Usage:   "do not overwrite destination if already exists",
+	},
+	&cli.BoolFlag{
+		Name:    "if-size-differ",
+		Aliases: []string{"s"},
+		Usage:   "only overwrite destination if size differs",
+	},
+	&cli.BoolFlag{
+		Name:    "if-source-newer",
+		Aliases: []string{"u"},
+		Usage:   "only overwrite destination if source modtime is newer",
+	},
+	&cli.BoolFlag{
+		Name:  "parents",
+		Usage: "create same directory structure of source, starting from the first wildcard",
+	},
+	&cli.BoolFlag{
+		Name:    "recursive",
+		Aliases: []string{"R"},
+		Usage:   "command is performed on all objects under the given source",
+	},
+	&cli.StringFlag{
+		Name:  "storage-class",
+		Usage: "set storage class for target ('STANDARD','REDUCED_REDUNDANCY','GLACIER','STANDARD_IA')",
+	},
 }
 
 var CopyCommand = &cli.Command{
 	Name:     "cp",
 	HelpName: "copy",
-	Usage:    "TODO",
+	Usage:    "copy objects",
 	Flags:    copyCommandFlags,
 	Before: func(c *cli.Context) error {
 		if c.Args().Len() != 2 {

@@ -14,7 +14,7 @@ import (
 var MakeBucketCommand = &cli.Command{
 	Name:     "mb",
 	HelpName: "make-bucket",
-	Usage:    "TODO",
+	Usage:    "creates a bucket",
 	Before: func(c *cli.Context) error {
 		if c.Args().Len() != 1 {
 			return fmt.Errorf("expected only 1 argument")

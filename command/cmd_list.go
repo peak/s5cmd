@@ -17,7 +17,8 @@ import (
 var ListCommand = &cli.Command{
 	Name:     "ls",
 	HelpName: "list",
-	Usage:    "TODO",
+	Usage:    "list buckets and objects",
+
 	Flags: []cli.Flag{
 		&cli.BoolFlag{Name: "etag", Aliases: []string{"e"}},
 		&cli.BoolFlag{Name: "humanize", Aliases: []string{"H"}},

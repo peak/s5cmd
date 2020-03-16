@@ -17,7 +17,7 @@ import (
 var SizeCommand = &cli.Command{
 	Name:     "du",
 	HelpName: "disk-usage",
-	Usage:    "TODO",
+	Usage:    "show disk usage",
 	Flags: []cli.Flag{
 		&cli.BoolFlag{Name: "humanize", Aliases: []string{"H"}},
 		&cli.BoolFlag{Name: "group", Aliases: []string{"g"}},

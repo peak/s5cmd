@@ -50,12 +50,18 @@ func Delete(
 		return err
 	}
 
+	// set recursive=true for delete operations
+	objch, err := expandSource(ctx, srcurl, true)
+	if err != nil {
+		return err
+	}
+
 	// do object->objurl transformation
 	urlch := make(chan *objurl.ObjectURL)
 	go func() {
 		defer close(urlch)
 
-		for object := range client.List(ctx, srcurl, true, storage.ListAllItems) {
+		for object := range objch {
 			if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) {
 				continue
 			}

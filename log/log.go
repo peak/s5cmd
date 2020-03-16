@@ -96,7 +96,6 @@ type logLevel int
 const (
 	LevelDebug logLevel = iota
 	LevelInfo
-	LevelWarning
 	LevelError
 )
 
@@ -107,8 +106,6 @@ func (l logLevel) String() string {
 		return ""
 	case LevelError:
 		return "ERROR "
-	case LevelWarning:
-		return "WARNING "
 	case LevelDebug:
 		return "DEBUG "
 	default:
@@ -124,8 +121,6 @@ func levelFromString(s string) logLevel {
 		return LevelDebug
 	case "info":
 		return LevelInfo
-	case "warning":
-		return LevelWarning
 	case "error":
 		return LevelError
 	default:

@@ -1,8 +1,11 @@
 package parallel
 
 import (
+	"runtime"
 	"sync"
 )
+
+const minNumWorkers = 2
 
 var global *Manager
 
@@ -24,6 +27,14 @@ type Manager struct {
 
 // New creates a new parallel manager.
 func New(workercount int) *Manager {
+	if workercount < 0 {
+		workercount = runtime.NumCPU() * -workercount
+	}
+
+	if workercount < minNumWorkers {
+		workercount = minNumWorkers
+	}
+
 	return &Manager{
 		wg:        &sync.WaitGroup{},
 		semaphore: make(chan bool, workercount),

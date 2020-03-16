@@ -3,7 +3,6 @@ package command
 import (
 	"context"
 	"fmt"
-	"runtime"
 
 	"github.com/urfave/cli/v2"
 
@@ -17,7 +16,6 @@ const (
 	defaultUploadConcurrency   = 5
 	defaultDownloadConcurrency = 5
 	defaultChunkSize           = 50
-	minNumWorkers              = 2
 	defaultRetryCount          = 10
 
 	megabytes = 1024 * 1024
@@ -67,14 +65,6 @@ var app = &cli.App{
 			}
 		}
 
-		if workerCount < 0 {
-			workerCount = runtime.NumCPU() * -workerCount
-		}
-
-		if workerCount < minNumWorkers {
-			workerCount = minNumWorkers
-		}
-
 		s3opts := storage.S3Opts{
 			MaxRetries:             retryCount,
 			EndpointURL:            endpointURL,
@@ -89,7 +79,7 @@ var app = &cli.App{
 
 		log.Init(logLevel, printJSON)
 
-		parallel.Init(c.Int("numworkers"))
+		parallel.Init(workerCount)
 
 		return nil
 	},

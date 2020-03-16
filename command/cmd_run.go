@@ -42,8 +42,12 @@ var RunCommand = &cli.Command{
 
 		waiter := parallel.NewWaiter()
 
-		var merror error
+		var (
+			merror    error
+			errDoneCh = make(chan bool)
+		)
 		go func() {
+			defer close(errDoneCh)
 			for err := range waiter.Err() {
 				merror = multierror.Append(merror, err)
 			}
@@ -90,6 +94,7 @@ var RunCommand = &cli.Command{
 		}
 
 		waiter.Wait()
+		<-errDoneCh
 
 		if err := scanner.Err(); err != nil {
 			return err

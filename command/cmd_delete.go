@@ -50,7 +50,8 @@ func Delete(
 		return err
 	}
 
-	// set recursive=true for delete operations
+	// recursive is set to true because delete operation works on absolute
+	// URLs. Setting recursive=true returns only file objects.
 	objch, err := expandSource(ctx, srcurl, true)
 	if err != nil {
 		return err
@@ -85,7 +86,6 @@ func Delete(
 			}
 
 			merror = multierror.Append(merror, obj.Err)
-			printError(fullCommand, op, err)
 			continue
 		}
 

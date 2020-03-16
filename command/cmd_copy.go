@@ -114,20 +114,24 @@ func Copy(
 
 	waiter := parallel.NewWaiter()
 
-	var merror error
+	var (
+		merror    error
+		errDoneCh = make(chan bool)
+	)
 	go func() {
+		defer close(errDoneCh)
 		for err := range waiter.Err() {
 			merror = multierror.Append(merror, err)
 		}
 	}()
 
 	for object := range objch {
-		if err := object.Err; err != nil {
-			printError(fullCommand, op, err)
+		if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) {
 			continue
 		}
 
-		if object.Type.IsDir() {
+		if err := object.Err; err != nil {
+			printError(fullCommand, op, err)
 			continue
 		}
 
@@ -236,6 +240,7 @@ func Copy(
 	}
 
 	waiter.Wait()
+	<-errDoneCh
 
 	return merror
 }
@@ -552,8 +557,8 @@ func prepareDownloadDestination(
 	return dst, nil
 }
 
-// prepareDownloadDestination will return a new destination URL for
-// remote->local and remote->remote copy operations.
+// prepareUploadDestination will return a new destination URL for local->remote
+// operations.
 func prepareUploadDestination(
 	src *objurl.ObjectURL,
 	dst *objurl.ObjectURL,
@@ -566,18 +571,25 @@ func prepareUploadDestination(
 	return dst.Join(objname)
 }
 
-// TODO(ig): this function could be in the storage layer.
+// expandSource returns the full list of objects from the given src argument.
+// If src is an expandable URL, such as directory, prefix or a glob, all
+// objects are returned by walking the source.
 func expandSource(
 	ctx context.Context,
 	src *objurl.ObjectURL,
 	isRecursive bool,
 ) (<-chan *storage.Object, error) {
+	// TODO(ig): this function could be in the storage layer.
+
 	client, err := storage.NewClient(src)
 	if err != nil {
 		return nil, err
 	}
 
 	var isDir bool
+	// if the source is local, we send a Stat call to know if  we have
+	// directory or file to walk. For remote storage, we don't want to send
+	// Stat since it doesn't have any folder semantics.
 	if !src.HasGlob() && !src.IsRemote() {
 		obj, err := client.Stat(ctx, src)
 		if err != nil {
@@ -586,6 +598,7 @@ func expandSource(
 		isDir = obj.Type.IsDir()
 	}
 
+	// call storage.List for only walking operations.
 	if src.HasGlob() || isDir {
 		return client.List(ctx, src, isRecursive, storage.ListAllItems), nil
 	}

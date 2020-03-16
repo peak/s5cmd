@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/hashicorp/go-multierror"
 	"github.com/urfave/cli/v2"
 
 	errorpkg "github.com/peak/s5cmd/error"
@@ -12,16 +13,6 @@ import (
 	"github.com/peak/s5cmd/storage"
 	"github.com/peak/s5cmd/strutil"
 )
-
-type sizeAndCount struct {
-	size  int64
-	count int64
-}
-
-func (s *sizeAndCount) addObject(obj *storage.Object) {
-	s.size += obj.Size
-	s.count++
-}
 
 var SizeCommand = &cli.Command{
 	Name:     "du",
@@ -71,13 +62,15 @@ func Size(
 	storageTotal := map[string]sizeAndCount{}
 	total := sizeAndCount{}
 
+	var merror error
+
 	for object := range client.List(ctx, srcurl, true, storage.ListAllItems) {
 		if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) {
 			continue
 		}
 
 		if err := object.Err; err != nil {
-			printError(fullCommand, "list", err)
+			merror = multierror.Append(merror, err)
 			continue
 		}
 		storageClass := string(object.StorageClass)
@@ -110,7 +103,7 @@ func Size(
 		log.Info(msg)
 	}
 
-	return nil
+	return merror
 }
 
 // SizeMessage is the structure for logging disk usage.
@@ -149,4 +142,14 @@ func (s SizeMessage) String() string {
 // JSON returns the JSON representation of SizeMessage.
 func (s SizeMessage) JSON() string {
 	return strutil.JSON(s)
+}
+
+type sizeAndCount struct {
+	size  int64
+	count int64
+}
+
+func (s *sizeAndCount) addObject(obj *storage.Object) {
+	s.size += obj.Size
+	s.count++
 }

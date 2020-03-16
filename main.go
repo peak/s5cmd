@@ -19,6 +19,7 @@ func main() {
 		signal.Notify(ch, os.Interrupt, syscall.SIGTERM)
 		<-ch
 		cancel()
+		signal.Stop(ch)
 	}()
 
 	if err := command.Main(ctx, os.Args); err != nil {

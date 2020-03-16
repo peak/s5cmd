@@ -72,14 +72,14 @@ var RunCommand = &cli.Command{
 			fn := func() error {
 				subcmd := fields[0]
 
-				flagset := flag.NewFlagSet(subcmd, flag.ExitOnError)
-				if err := flagset.Parse(fields); err != nil {
-					return err
-				}
-
 				cmd := app.Command(subcmd)
 				if cmd == nil {
 					return fmt.Errorf("%q command (line: %v) not found", subcmd, lineno)
+				}
+
+				flagset := flag.NewFlagSet(subcmd, flag.ExitOnError)
+				if err := flagset.Parse(fields); err != nil {
+					return err
 				}
 
 				ctx := cli.NewContext(app, flagset, c)
@@ -143,7 +143,7 @@ func (s *Scanner) Scan() <-chan string {
 	return s.linech
 }
 
-// Err returns error of scanner.
+// Err returns encountered errors, if any.
 func (s *Scanner) Err() error {
 	if s.err != nil {
 		return s.err

@@ -60,7 +60,7 @@ func (f *Filesystem) listSingleObject(ctx context.Context, url *objurl.ObjectURL
 
 	object, err := f.Stat(ctx, url)
 	if err != nil {
-		object.Err = err
+		object = &Object{Err: err}
 	}
 	ch <- object
 	return ch
@@ -101,35 +101,41 @@ func (f *Filesystem) expandGlob(ctx context.Context, url *objurl.ObjectURL, isRe
 				continue
 			}
 
-			godirwalk.Walk(fileurl.Absolute(), &godirwalk.Options{
-				Callback: func(pathname string, dirent *godirwalk.Dirent) error {
-					// we're interested in files
-					if dirent.IsDir() {
-						return nil
-					}
-
-					fileurl, err := objurl.New(pathname)
-					if err != nil {
-						return err
-					}
-
-					fileurl.SetRelative(url.Absolute())
-
-					obj := &Object{
-						URL:  fileurl,
-						Type: ObjectType{dirent.ModeType()},
-					}
-
-					sendObject(ctx, obj, ch)
-					return nil
-				},
-				// TODO(ig): enable following symlink once we have the necessary cli
-				// flags
-				FollowSymbolicLinks: false,
+			walkDir(fileurl, func(obj *Object) {
+				sendObject(ctx, obj, ch)
 			})
 		}
 	}()
 	return ch
+}
+
+func walkDir(url *objurl.ObjectURL, fn func(o *Object)) {
+	godirwalk.Walk(url.Absolute(), &godirwalk.Options{
+		Callback: func(pathname string, dirent *godirwalk.Dirent) error {
+			// we're interested in files
+			if dirent.IsDir() {
+				return nil
+			}
+
+			fileurl, err := objurl.New(pathname)
+			if err != nil {
+				return err
+			}
+
+			fileurl.SetRelative(url.Absolute())
+
+			obj := &Object{
+				URL:  fileurl,
+				Type: ObjectType{dirent.ModeType()},
+			}
+			fn(obj)
+			// sendObject(ctx, obj, ch)
+			return nil
+		},
+		// TODO(ig): enable following symlink once we have the necessary cli
+		// flags
+		FollowSymbolicLinks: false,
+	})
 }
 
 func (f *Filesystem) readDir(ctx context.Context, url *objurl.ObjectURL, ch chan *Object) {
@@ -162,30 +168,8 @@ func (f *Filesystem) walkDir(ctx context.Context, url *objurl.ObjectURL, isRecur
 			return
 		}
 
-		godirwalk.Walk(url.Absolute(), &godirwalk.Options{
-			Callback: func(pathname string, dirent *godirwalk.Dirent) error {
-				// we're interested in files
-				if dirent.IsDir() {
-					return nil
-				}
-
-				url, err := objurl.New(pathname)
-				if err != nil {
-					return err
-				}
-
-				obj := &Object{
-					URL:  url,
-					Type: ObjectType{dirent.ModeType()},
-				}
-
-				sendObject(ctx, obj, ch)
-
-				return nil
-			},
-			// TODO(ig): enable following symlink once we have the necessary cli
-			// flags
-			FollowSymbolicLinks: false,
+		walkDir(url, func(obj *Object) {
+			sendObject(ctx, obj, ch)
 		})
 	}()
 	return ch

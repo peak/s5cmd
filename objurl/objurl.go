@@ -13,8 +13,8 @@ import (
 const (
 	globCharacters string = "?*"
 
-	// s3Schema is the schema used on s3 URLs
-	s3Schema string = "s3://"
+	// s3Scheme is the schema used on s3 URLs
+	s3Scheme string = "s3://"
 
 	// s3Separator is the path separator for s3 URLs
 	s3Separator string = "/"
@@ -69,7 +69,7 @@ func New(s string) (*ObjectURL, error) {
 	scheme, rest := split[0], split[1]
 
 	if scheme != "s3" {
-		return nil, fmt.Errorf("s3 url should start with %q", s3Schema)
+		return nil, fmt.Errorf("s3 url should start with %q", s3Scheme)
 	}
 
 	parts := strings.SplitN(rest, s3Separator, 2)

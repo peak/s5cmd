@@ -84,10 +84,12 @@ func expandSource(ctx context.Context, src *objurl.ObjectURL, isRecursive bool) 
 		return nil, err
 	}
 
-	isDir := false
-
+	var isDir bool
 	if !src.HasGlob() && !src.IsRemote() {
-		obj, _ := client.Stat(ctx, src)
+		obj, err := client.Stat(ctx, src)
+		if err != nil {
+			return nil, err
+		}
 		isDir = obj.Type.IsDir()
 	}
 

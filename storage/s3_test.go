@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"fmt"
+	"os"
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -14,6 +15,27 @@ import (
 
 	"github.com/peak/s5cmd/objurl"
 )
+
+func TestNewSessionWithRegionSetViaEnv(t *testing.T) {
+	opts := S3Opts{
+		Region: "",
+	}
+
+	const expectedRegion = "us-west-2"
+
+	os.Setenv("AWS_REGION", expectedRegion)
+	defer os.Unsetenv("AWS_REGION")
+
+	sess, err := newSession(opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got := aws.StringValue(sess.Config.Region)
+	if got != expectedRegion {
+		t.Fatalf("expected %v, got %v", expectedRegion, got)
+	}
+}
 
 func TestS3_List_success(t *testing.T) {
 	url, err := objurl.New("s3://bucket/key")

@@ -58,8 +58,8 @@ func TestRunFromStdinWithErrors(t *testing.T) {
 
 	input := strings.NewReader(
 		strings.Join([]string{
-			fmt.Sprintf("ls s3:/"),
-			fmt.Sprintf("cp naber hey"),
+			"ls s3:/",
+			"cp naber hey",
 		}, "\n"),
 	)
 	cmd := s5cmd("run")

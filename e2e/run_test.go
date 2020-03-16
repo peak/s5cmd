@@ -38,6 +38,44 @@ func TestRunFromStdin(t *testing.T) {
 		1: suffix("file1.txt"),
 		2: suffix("file2.txt"),
 	}, sortInput(true))
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: equals(""),
+	}, strictLineCheck(true))
+}
+
+func TestRunFromStdinWithErrors(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+	putFile(t, s3client, bucket, "file1.txt", "content")
+	putFile(t, s3client, bucket, "file2.txt", "content")
+
+	input := strings.NewReader(
+		strings.Join([]string{
+			fmt.Sprintf("ls s3:/"),
+			fmt.Sprintf("cp naber hey"),
+		}, "\n"),
+	)
+	cmd := s5cmd("run")
+	result := icmd.RunCmd(cmd, icmd.WithStdin(input))
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(""),
+	}, sortInput(true))
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: equals(""),
+		1: equals(`ERROR "cp naber hey": given object not found`),
+		2: equals(`ERROR "ls s3:/": given object not found`),
+	}, strictLineCheck(true), sortInput(true))
 }
 
 func TestRunFromStdinJSON(t *testing.T) {
@@ -68,6 +106,10 @@ func TestRunFromStdinJSON(t *testing.T) {
 		1: prefix(`{"key":"s3://%v/file1.txt",`, bucket),
 		2: prefix(`{"key":"s3://%v/file2.txt",`, bucket),
 	}, sortInput(true), jsonCheck(true))
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: equals(""),
+	}, strictLineCheck(true))
 }
 
 func TestRunFromFile(t *testing.T) {
@@ -100,6 +142,10 @@ func TestRunFromFile(t *testing.T) {
 		1: suffix("file1.txt"),
 		2: suffix("file2.txt"),
 	}, sortInput(true))
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: equals(""),
+	}, strictLineCheck(true))
 }
 
 func TestRunFromFileJSON(t *testing.T) {
@@ -133,6 +179,9 @@ func TestRunFromFileJSON(t *testing.T) {
 		2: prefix(`{"key":"s3://%v/file2.txt",`, bucket),
 	}, sortInput(true), jsonCheck(true))
 
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: equals(""),
+	}, strictLineCheck(true))
 }
 
 func TestRunWildcardCountGreaterEqualThanWorkerCount(t *testing.T) {
@@ -167,4 +216,7 @@ func TestRunWildcardCountGreaterEqualThanWorkerCount(t *testing.T) {
 		3: equals(`cp s3://%v/file.txt`, bucket),
 	}, sortInput(true))
 
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: equals(""),
+	}, strictLineCheck(true))
 }

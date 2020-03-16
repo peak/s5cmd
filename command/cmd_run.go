@@ -9,7 +9,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/hashicorp/go-multierror"
 	"github.com/urfave/cli/v2"
 
 	"github.com/peak/s5cmd/parallel"
@@ -42,14 +41,13 @@ var RunCommand = &cli.Command{
 
 		waiter := parallel.NewWaiter()
 
-		var (
-			merror    error
-			errDoneCh = make(chan bool)
-		)
+		var errDoneCh = make(chan bool)
 		go func() {
 			defer close(errDoneCh)
-			for err := range waiter.Err() {
-				merror = multierror.Append(merror, err)
+			for range waiter.Err() {
+				// app.ExitErrHandler is called after each command.Run
+				// invocation. Ignore the errors returned from parallel.Run,
+				// just drain the channel for synchronization.
 			}
 		}()
 
@@ -78,12 +76,15 @@ var RunCommand = &cli.Command{
 
 				cmd := app.Command(subcmd)
 				if cmd == nil {
-					return fmt.Errorf("%q command (line: %v) not found", subcmd, lineno)
+					err := fmt.Errorf("%q command (line: %v) not found", subcmd, lineno)
+					printError(givenCommand(c), c.Command.Name, err)
+					return nil
 				}
 
 				flagset := flag.NewFlagSet(subcmd, flag.ExitOnError)
 				if err := flagset.Parse(fields); err != nil {
-					return err
+					printError(givenCommand(c), c.Command.Name, err)
+					return nil
 				}
 
 				ctx := cli.NewContext(app, flagset, c)
@@ -96,11 +97,7 @@ var RunCommand = &cli.Command{
 		waiter.Wait()
 		<-errDoneCh
 
-		if err := scanner.Err(); err != nil {
-			return err
-		}
-
-		return merror
+		return scanner.Err()
 	},
 }
 

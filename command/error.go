@@ -27,7 +27,7 @@ func printError(command, op string, err error) {
 		cerr, ok := err.(*errorpkg.Error)
 		if ok {
 			msg := log.ErrorMessage{
-				Err:       cleanupError(cerr.Original),
+				Err:       cleanupError(cerr.Err),
 				Command:   cerr.FullCommand(),
 				Operation: cerr.Op,
 			}
@@ -44,7 +44,7 @@ func printError(command, op string, err error) {
 				customErr, ok := err.(*errorpkg.Error)
 				if ok {
 					msg := log.ErrorMessage{
-						Err:       cleanupError(customErr.Original),
+						Err:       cleanupError(customErr.Err),
 						Command:   customErr.FullCommand(),
 						Operation: customErr.Op,
 					}

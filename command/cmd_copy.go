@@ -190,10 +190,10 @@ func Copy(
 				)
 				if err != nil {
 					return &errorpkg.Error{
-						Op:       op,
-						Src:      src,
-						Dst:      dsturl,
-						Original: err,
+						Op:  op,
+						Src: src,
+						Dst: dsturl,
+						Err: err,
 					}
 				}
 				return nil
@@ -218,10 +218,10 @@ func Copy(
 
 				if err != nil {
 					return &errorpkg.Error{
-						Op:       op,
-						Src:      src,
-						Dst:      dsturl,
-						Original: err,
+						Op:  op,
+						Src: src,
+						Dst: dsturl,
+						Err: err,
 					}
 				}
 				return nil
@@ -241,10 +241,10 @@ func Copy(
 				)
 				if err != nil {
 					return &errorpkg.Error{
-						Op:       op,
-						Src:      src,
-						Dst:      dsturl,
-						Original: err,
+						Op:  op,
+						Src: src,
+						Dst: dsturl,
+						Err: err,
 					}
 				}
 				return nil

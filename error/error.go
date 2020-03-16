@@ -11,6 +11,26 @@ import (
 	"github.com/peak/s5cmd/storage"
 )
 
+type Error struct {
+	// Op is the operation being performed, usually the name of the method
+	// being invoked (copy, move, etc.)
+	Op string
+	// Src is the source argument
+	Src *objurl.ObjectURL
+	// Dst is the destination argument
+	Dst *objurl.ObjectURL
+	// The underlying error if any
+	Err error
+}
+
+func (e *Error) FullCommand() string {
+	return fmt.Sprintf("%v %v %v", e.Op, e.Src, e.Dst)
+}
+
+func (e *Error) Error() string {
+	return e.Err.Error()
+}
+
 func IsCancelation(err error) bool {
 	if err == nil {
 		return false
@@ -36,19 +56,4 @@ func IsCancelation(err error) bool {
 	}
 
 	return false
-}
-
-type Error struct {
-	Op       string
-	Src      *objurl.ObjectURL
-	Dst      *objurl.ObjectURL
-	Original error
-}
-
-func (e *Error) FullCommand() string {
-	return fmt.Sprintf("%v %v %v", e.Op, e.Src, e.Dst)
-}
-
-func (e *Error) Error() string {
-	return e.Original.Error()
 }

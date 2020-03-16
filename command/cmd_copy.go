@@ -78,36 +78,6 @@ var CopyCommand = &cli.Command{
 	},
 }
 
-// TODO(ig): this function could be in the storage layer.
-func expandSource(
-	ctx context.Context,
-	src *objurl.ObjectURL,
-	isRecursive bool,
-) (<-chan *storage.Object, error) {
-	client, err := storage.NewClient(src)
-	if err != nil {
-		return nil, err
-	}
-
-	var isDir bool
-	if !src.HasGlob() && !src.IsRemote() {
-		obj, err := client.Stat(ctx, src)
-		if err != nil {
-			return nil, err
-		}
-		isDir = obj.Type.IsDir()
-	}
-
-	if src.HasGlob() || isDir {
-		return client.List(ctx, src, isRecursive, storage.ListAllItems), nil
-	}
-
-	ch := make(chan *storage.Object, 1)
-	ch <- &storage.Object{URL: src}
-	close(ch)
-	return ch, nil
-}
-
 func Copy(
 	ctx context.Context,
 	src string,
@@ -235,6 +205,8 @@ func Copy(
 			}
 		case dsturl.IsRemote(): // local->remote
 			task = func() error {
+				dsturl := prepareUploadDestination(src, dsturl, parents)
+
 				err := doUpload(
 					ctx,
 					src,
@@ -346,13 +318,6 @@ func doUpload(
 		return err
 	}
 	defer f.Close()
-
-	objname := src.Base()
-	if parents {
-		objname = src.Relative()
-	}
-
-	dst = dst.Join(objname)
 
 	err = shouldOverride(dst)
 	if err != nil {
@@ -585,4 +550,48 @@ func prepareDownloadDestination(
 	}
 
 	return dst, nil
+}
+
+// prepareDownloadDestination will return a new destination URL for
+// remote->local and remote->remote copy operations.
+func prepareUploadDestination(
+	src *objurl.ObjectURL,
+	dst *objurl.ObjectURL,
+	parents bool,
+) *objurl.ObjectURL {
+	objname := src.Base()
+	if parents {
+		objname = src.Relative()
+	}
+	return dst.Join(objname)
+}
+
+// TODO(ig): this function could be in the storage layer.
+func expandSource(
+	ctx context.Context,
+	src *objurl.ObjectURL,
+	isRecursive bool,
+) (<-chan *storage.Object, error) {
+	client, err := storage.NewClient(src)
+	if err != nil {
+		return nil, err
+	}
+
+	var isDir bool
+	if !src.HasGlob() && !src.IsRemote() {
+		obj, err := client.Stat(ctx, src)
+		if err != nil {
+			return nil, err
+		}
+		isDir = obj.Type.IsDir()
+	}
+
+	if src.HasGlob() || isDir {
+		return client.List(ctx, src, isRecursive, storage.ListAllItems), nil
+	}
+
+	ch := make(chan *storage.Object, 1)
+	ch <- &storage.Object{URL: src}
+	close(ch)
+	return ch, nil
 }

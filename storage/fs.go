@@ -101,7 +101,7 @@ func (f *Filesystem) expandGlob(ctx context.Context, url *objurl.ObjectURL, isRe
 				continue
 			}
 
-			walkDir(fileurl, func(obj *Object) {
+			walkDir(ctx, f, fileurl, func(obj *Object) {
 				sendObject(ctx, obj, ch)
 			})
 		}
@@ -109,8 +109,8 @@ func (f *Filesystem) expandGlob(ctx context.Context, url *objurl.ObjectURL, isRe
 	return ch
 }
 
-func walkDir(url *objurl.ObjectURL, fn func(o *Object)) {
-	godirwalk.Walk(url.Absolute(), &godirwalk.Options{
+func walkDir(ctx context.Context, storage Storage, url *objurl.ObjectURL, fn func(o *Object)) {
+	err := godirwalk.Walk(url.Absolute(), &godirwalk.Options{
 		Callback: func(pathname string, dirent *godirwalk.Dirent) error {
 			// we're interested in files
 			if dirent.IsDir() {
@@ -124,18 +124,21 @@ func walkDir(url *objurl.ObjectURL, fn func(o *Object)) {
 
 			fileurl.SetRelative(url.Absolute())
 
-			obj := &Object{
-				URL:  fileurl,
-				Type: ObjectType{dirent.ModeType()},
+			obj, err := storage.Stat(ctx, fileurl)
+			if err != nil {
+				return err
 			}
 			fn(obj)
-			// sendObject(ctx, obj, ch)
 			return nil
 		},
 		// TODO(ig): enable following symlink once we have the necessary cli
 		// flags
 		FollowSymbolicLinks: false,
 	})
+	if err != nil {
+		obj := &Object{Err: err}
+		fn(obj)
+	}
 }
 
 func (f *Filesystem) readDir(ctx context.Context, url *objurl.ObjectURL, ch chan *Object) {
@@ -168,7 +171,7 @@ func (f *Filesystem) walkDir(ctx context.Context, url *objurl.ObjectURL, isRecur
 			return
 		}
 
-		walkDir(url, func(obj *Object) {
+		walkDir(ctx, f, url, func(obj *Object) {
 			sendObject(ctx, obj, ch)
 		})
 	}()

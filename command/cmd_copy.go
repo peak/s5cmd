@@ -78,7 +78,12 @@ var CopyCommand = &cli.Command{
 	},
 }
 
-func expandSource(ctx context.Context, src *objurl.ObjectURL, isRecursive bool) (<-chan *storage.Object, error) {
+// TODO(ig): this function could be in the storage layer.
+func expandSource(
+	ctx context.Context,
+	src *objurl.ObjectURL,
+	isRecursive bool,
+) (<-chan *storage.Object, error) {
 	client, err := storage.NewClient(src)
 	if err != nil {
 		return nil, err

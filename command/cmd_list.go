@@ -118,7 +118,7 @@ type ListMessage struct {
 func (l ListMessage) humanize() string {
 	var size string
 	if l.showHumanized {
-		size = humanizeBytes(l.Object.Size)
+		size = strutil.HumanizeBytes(l.Object.Size)
 	} else {
 		size = fmt.Sprintf("%d", l.Object.Size)
 	}

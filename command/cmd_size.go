@@ -126,7 +126,7 @@ type SizeMessage struct {
 // humanize is a helper method to humanize bytes.
 func (s SizeMessage) humanize() string {
 	if s.showHumanized {
-		return humanizeBytes(s.Size)
+		return strutil.HumanizeBytes(s.Size)
 	}
 	return fmt.Sprintf("%d", s.Size)
 }

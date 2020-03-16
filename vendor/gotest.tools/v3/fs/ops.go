@@ -61,6 +61,23 @@ func WithBytes(raw []byte) PathOp {
 	}
 }
 
+// WithReaderContent copies the reader contents to the file at Path
+func WithReaderContent(r io.Reader) PathOp {
+	return func(path Path) error {
+		if m, ok := path.(manifestFile); ok {
+			m.SetContent(ioutil.NopCloser(r))
+			return nil
+		}
+		f, err := os.OpenFile(path.Path(), os.O_WRONLY, defaultFileMode)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		_, err = io.Copy(f, r)
+		return err
+	}
+}
+
 // AsUser changes ownership of the file system object at Path
 func AsUser(uid, gid int) PathOp {
 	return func(path Path) error {

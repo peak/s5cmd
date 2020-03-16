@@ -1,5 +1,5 @@
 /*Package cmp provides Comparisons for Assert and Check*/
-package cmp // import "gotest.tools/assert/cmp"
+package cmp // import "gotest.tools/v3/assert/cmp"
 
 import (
 	"fmt"
@@ -104,10 +104,10 @@ func Equal(x, y interface{}) Comparison {
 			return multiLineDiffResult(diff)
 		}
 		return ResultFailureTemplate(`
-			{{- .Data.x}} (
+			{{- printf "%v" .Data.x}} (
 				{{- with callArg 0 }}{{ formatNode . }} {{end -}}
 				{{- printf "%T" .Data.x -}}
-			) != {{ .Data.y}} (
+			) != {{ printf "%v" .Data.y}} (
 				{{- with callArg 1 }}{{ formatNode . }} {{end -}}
 				{{- printf "%T" .Data.y -}}
 			)`,

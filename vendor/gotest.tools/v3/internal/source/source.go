@@ -1,4 +1,4 @@
-package source // import "gotest.tools/internal/source"
+package source // import "gotest.tools/v3/internal/source"
 
 import (
 	"bytes"

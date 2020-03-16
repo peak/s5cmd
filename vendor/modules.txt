@@ -99,11 +99,12 @@ golang.org/x/xerrors/internal
 # gopkg.in/mgo.v2 v2.0.0-20180705113604-9856a29383ce
 gopkg.in/mgo.v2/bson
 gopkg.in/mgo.v2/internal/json
-# gotest.tools/v3 v3.0.0
+# gotest.tools/v3 v3.0.2
 gotest.tools/v3/assert
 gotest.tools/v3/assert/cmp
 gotest.tools/v3/fs
 gotest.tools/v3/icmd
+gotest.tools/v3/internal/cleanup
 gotest.tools/v3/internal/difflib
 gotest.tools/v3/internal/format
 gotest.tools/v3/internal/source

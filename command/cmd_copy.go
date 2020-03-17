@@ -544,7 +544,9 @@ func prepareDownloadDestination(
 	}
 
 	if originalSrc.HasGlob() {
-		os.MkdirAll(dst.Absolute(), os.ModePerm)
+		if err := os.MkdirAll(dst.Absolute(), os.ModePerm); err != nil {
+			return nil, err
+		}
 	}
 
 	client, err := storage.NewClient(dst)
@@ -562,11 +564,15 @@ func prepareDownloadDestination(
 			return nil, fmt.Errorf("destination argument is expected to be a directory")
 		}
 		dst = dst.Join(objname)
-		os.MkdirAll(dst.Dir(), os.ModePerm)
+		if err := os.MkdirAll(dst.Dir(), os.ModePerm); err != nil {
+			return nil, err
+		}
 	}
 
 	if err == storage.ErrGivenObjectNotFound {
-		os.MkdirAll(dst.Dir(), os.ModePerm)
+		if err := os.MkdirAll(dst.Dir(), os.ModePerm); err != nil {
+			return nil, err
+		}
 		if strings.HasSuffix(dst.Absolute(), "/") {
 			dst = dst.Join(objname)
 		}

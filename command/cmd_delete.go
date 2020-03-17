@@ -50,9 +50,8 @@ func Delete(
 		return err
 	}
 
-	// we set recursive=true here to operate on file-like objects. Recursive
-	// expansion is guaranteed to return only file-like objects. URLs. Setting
-	// recursive=true returns only file objects.
+	// storage.MultiDelete operates on file-like objects. Settings
+	// recursive=true guarantees returning only file-like objects.
 	objch, err := expandSource(ctx, srcurl, true)
 	if err != nil {
 		return err

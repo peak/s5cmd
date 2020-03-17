@@ -19,13 +19,11 @@ func Close() { global.Close() }
 
 func Run(task Task, waiter *Waiter) { global.Run(task, waiter) }
 
-// parallel is the manager to run and manage workers.
 type Manager struct {
 	wg        *sync.WaitGroup
 	semaphore chan bool
 }
 
-// New creates a new parallel manager.
 func New(workercount int) *Manager {
 	if workercount < 0 {
 		workercount = runtime.NumCPU() * -workercount
@@ -41,21 +39,19 @@ func New(workercount int) *Manager {
 	}
 }
 
-// acquire acquires the semaphore and blocks until resources are available.
-// It also increments the WaitGroup counter by one.
+// acquire limits concurrency by trying to acquire the semaphore.
 func (p *Manager) acquire() {
 	p.semaphore <- true
 	p.wg.Add(1)
 }
 
-// release decrements the WaitGroup counter by one and releases the semaphore.
+// release releases the acquired semaphore to signal that a task is finished.
 func (p *Manager) release() {
 	p.wg.Done()
 	<-p.semaphore
 }
 
-// runJob acquires semaphore and creates new goroutine for the job.
-// It exits goroutine after the job is done and releases the semaphore.
+// Run runs the given task while limiting the concurrency.
 func (p *Manager) Run(fn Task, waiter *Waiter) {
 	waiter.wg.Add(1)
 	p.acquire()
@@ -69,7 +65,7 @@ func (p *Manager) Run(fn Task, waiter *Waiter) {
 	}()
 }
 
-// Close waits all jobs to finish and closes semaphore.
+// Close waits all tasks to finish.
 func (p *Manager) Close() {
 	p.wg.Wait()
 	close(p.semaphore)

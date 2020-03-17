@@ -367,9 +367,9 @@ func Test_parseNonBatch(t *testing.T) {
 
 func TestObjectURL_IsBucket(t *testing.T) {
 	tests := []struct {
-		input      string
-		want       bool
-		want_error bool
+		input     string
+		want      bool
+		wantError bool
 	}{
 		{"s3://bucket", true, false},
 		{"s3://bucket/file", false, false},
@@ -378,11 +378,11 @@ func TestObjectURL_IsBucket(t *testing.T) {
 	}
 	for _, tc := range tests {
 		url, err := New(tc.input)
-		if tc.want_error && err != nil {
+		if tc.wantError && err != nil {
 			continue
 		}
 
-		if tc.want_error && err == nil {
+		if tc.wantError && err == nil {
 			t.Errorf("expecting error for input %s", tc.input)
 		}
 

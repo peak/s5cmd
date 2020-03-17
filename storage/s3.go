@@ -33,7 +33,8 @@ const (
 	// ListAllItems is a type to paginate all S3 keys.
 	ListAllItems = -1
 
-	// deleteObjectsMax is the max allowed objects to be deleted on single HTTP request.
+	// deleteObjectsMax is the max allowed objects to be deleted on single HTTP
+	// request.
 	deleteObjectsMax = 1000
 
 	transferAccelEndpoint = "s3-accelerate.amazonaws.com"
@@ -498,11 +499,6 @@ func newSession(opts S3Opts) (*session.Session, error) {
 		endpoint = url.URL{}
 	}
 
-	region := endpoints.UsEast1RegionID
-	if opts.Region != "" {
-		region = opts.Region
-	}
-
 	var httpClient *http.Client
 	if opts.NoVerifySSL {
 		httpClient = insecureHTTPClient
@@ -510,11 +506,14 @@ func newSession(opts S3Opts) (*session.Session, error) {
 
 	awsCfg = awsCfg.
 		WithEndpoint(endpoint.String()).
-		WithRegion(region).
 		WithS3ForcePathStyle(forcePathStyle).
 		WithS3UseAccelerate(useAccelerate).
 		WithHTTPClient(httpClient).
 		WithMaxRetries(opts.MaxRetries)
+
+	if opts.Region != "" {
+		awsCfg.WithRegion(opts.Region)
+	}
 
 	useSharedConfig := session.SharedConfigEnable
 	{
@@ -528,12 +527,21 @@ func newSession(opts S3Opts) (*session.Session, error) {
 		}
 	}
 
-	return session.NewSessionWithOptions(
+	sess, err := session.NewSessionWithOptions(
 		session.Options{
 			Config:            *awsCfg,
 			SharedConfigState: useSharedConfig,
 		},
 	)
+	if err != nil {
+		return nil, err
+	}
+
+	if aws.StringValue(sess.Config.Region) == "" {
+		sess.Config.Region = aws.String(endpoints.UsEast1RegionID)
+	}
+
+	return sess, nil
 }
 
 var insecureHTTPClient = &http.Client{

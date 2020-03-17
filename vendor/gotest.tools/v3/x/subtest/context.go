@@ -3,7 +3,7 @@ provides a testing.TB, and context.Context.
 
 This package was inspired by github.com/frankban/quicktest.
 */
-package subtest // import "gotest.tools/x/subtest"
+package subtest // import "gotest.tools/v3/x/subtest"
 
 import (
 	"context"
@@ -27,9 +27,9 @@ func (tc *testcase) Ctx() context.Context {
 	return tc.ctx
 }
 
-// Cleanup runs all cleanup functions. Functions are run in the opposite order
+// cleanup runs all cleanup functions. Functions are run in the opposite order
 // in which they were added. Cleanup is called automatically before Run exits.
-func (tc *testcase) Cleanup() {
+func (tc *testcase) cleanup() {
 	for _, f := range tc.cleanupFuncs {
 		// Defer all cleanup functions so they all run even if one calls
 		// t.FailNow() or panics. Deferring them also runs them in reverse order.
@@ -59,7 +59,7 @@ type parallel interface {
 func Run(t *testing.T, name string, subtest func(t TestContext)) bool {
 	return t.Run(name, func(t *testing.T) {
 		tc := &testcase{TB: t}
-		defer tc.Cleanup()
+		defer tc.cleanup()
 		subtest(tc)
 	})
 }
@@ -68,6 +68,9 @@ func Run(t *testing.T, name string, subtest func(t TestContext)) bool {
 type TestContext interface {
 	testing.TB
 	// AddCleanup function which will be run when before Run returns.
+	//
+	// Deprecated: Go 1.14+ now includes a testing.TB.Cleanup(func()) which
+	// should be used instead. AddCleanup will be removed in a future release.
 	AddCleanup(f func())
 	// Ctx returns a context for the test case. Multiple calls from the same subtest
 	// will return the same context. The context is cancelled when Run

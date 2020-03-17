@@ -1,6 +1,6 @@
 /*Package icmd executes binaries and provides convenient assertions for testing the results.
  */
-package icmd // import "gotest.tools/icmd"
+package icmd // import "gotest.tools/v3/icmd"
 
 import (
 	"bytes"

@@ -21,11 +21,15 @@ test:
 	@go test -mod=vendor ./...
 
 .PHONY: check
-check: vet staticcheck check-fmt
+check: vet staticcheck unparam check-fmt
 
 .PHONY: staticcheck
 staticcheck:
-	@staticcheck -checks 'inherit,-SA4009,-U1000' ./...
+	@staticcheck -checks 'inherit,-U1000' ./...
+
+.PHONY: unparam
+unparam:
+	@unparam ./...
 
 .PHONY: vet
 vet:

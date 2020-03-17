@@ -188,7 +188,6 @@ func Copy(
 					deleteSource,
 					shouldOverrideFunc,
 					// flags
-					parents,
 					storageClass,
 				)
 				if err != nil {
@@ -215,8 +214,6 @@ func Copy(
 					op,
 					deleteSource,
 					shouldOverrideFunc,
-					// flags
-					parents,
 				)
 
 				if err != nil {
@@ -241,7 +238,6 @@ func Copy(
 					deleteSource,
 					shouldOverrideFunc,
 					// flags
-					parents,
 					storageClass,
 				)
 				if err != nil {
@@ -275,8 +271,6 @@ func doDownload(
 	op string,
 	deleteSource bool,
 	shouldOverride shouldOverrideFunc,
-	// flags
-	parents bool,
 ) error {
 	srcClient, err := storage.NewClient(src)
 	if err != nil {
@@ -336,7 +330,6 @@ func doUpload(
 	deleteSource bool,
 	shouldOverride shouldOverrideFunc,
 	// flags
-	parents bool,
 	storageClass storage.StorageClass,
 ) error {
 	// TODO(ig): use storage abstraction
@@ -411,7 +404,6 @@ func doCopy(
 	deleteSource bool,
 	shouldOverride shouldOverrideFunc,
 	// flags
-	parents bool,
 	storageClass storage.StorageClass,
 ) error {
 	srcClient, err := storage.NewClient(src)

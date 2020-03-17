@@ -39,8 +39,6 @@ type ErrorMessage struct {
 	Operation string `json:"operation,omitempty"`
 	Command   string `json:"command,omitempty"`
 	Err       string `json:"error"`
-
-	format string
 }
 
 // String is the string representation of ErrorMessage.

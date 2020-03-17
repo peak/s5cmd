@@ -5,13 +5,6 @@ default: all
 .PHONY: all
 all: clean build test check
 
-.PHONY: dist
-dist: generate all
-
-.PHONY: generate
-generate:
-	@go generate ${SRCDIR}
-
 .PHONY: build
 build:
 	@go build ${GCFLAGS} -ldflags "${LDFLAGS}" ${SRCDIR}

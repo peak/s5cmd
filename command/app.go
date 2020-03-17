@@ -15,7 +15,7 @@ const (
 	defaultWorkerCount         = 256
 	defaultUploadConcurrency   = 5
 	defaultDownloadConcurrency = 5
-	defaultChunkSize           = 50
+	defaultChunkSize           = 50 // MiB
 	defaultRetryCount          = 10
 
 	megabytes = 1024 * 1024

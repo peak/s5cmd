@@ -39,12 +39,12 @@ func TestNewSessionPathStyle(t *testing.T) {
 			expectPathStyle: false,
 		},
 		{
-			name:            "expect_path_host_style_for_localhost",
+			name:            "expect_path_style_for_localhost",
 			endpoint:        url.URL{Host: "127.0.0.1"},
 			expectPathStyle: true,
 		},
 		{
-			name:            "expect_path_host_style_for_custom_endpoint",
+			name:            "expect_path_style_for_custom_endpoint",
 			endpoint:        url.URL{Host: "example.com"},
 			expectPathStyle: true,
 		},

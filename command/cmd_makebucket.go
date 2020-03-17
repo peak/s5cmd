@@ -13,7 +13,7 @@ import (
 
 var MakeBucketCommand = &cli.Command{
 	Name:     "mb",
-	HelpName: "make-bucket",
+	HelpName: "mb",
 	Usage:    "creates a bucket",
 	Before: func(c *cli.Context) error {
 		if c.Args().Len() != 1 {

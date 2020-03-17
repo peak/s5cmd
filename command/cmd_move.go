@@ -9,7 +9,7 @@ import (
 
 var MoveCommand = &cli.Command{
 	Name:     "mv",
-	HelpName: "move",
+	HelpName: "mv",
 	Usage:    "move objects",
 	Flags:    copyCommandFlags, // move and copy commands share the same flags
 	Before: func(c *cli.Context) error {

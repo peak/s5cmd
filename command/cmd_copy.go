@@ -19,9 +19,6 @@ import (
 	"github.com/peak/s5cmd/storage"
 )
 
-// shouldOverrideFunc is a helper closure for shouldOverride function.
-type shouldOverrideFunc func(dst *objurl.ObjectURL) error
-
 var copyCommandFlags = []cli.Flag{
 	&cli.BoolFlag{
 		Name:    "no-clobber",

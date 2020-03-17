@@ -1,10 +1,10 @@
-env:
-  - GO111MODULE=on
 before:
   hooks:
     - make
 builds:
   -
+    binary: s5cmd
+    ldflags: -s -w -X github.com/peak/s5cmd/version.Version={{.Tag}} -X github.com/peak/s5cmd/version.GitCommit={{ .ShortCommit }}
     env:
       - CGO_ENABLED=0
     goos:
@@ -18,17 +18,21 @@ builds:
     ignore:
       - goos: darwin
         goarch: 386
+
 archives:
-  - name_template: '{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}'
+  - name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Os }}-{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}'
     replacements:
-      darwin: Darwin
+      darwin: macOS
       linux: Linux
-      386: i386
-      amd64: x86_64
+      386: 32bit
+      amd64: 64bit
+
 checksum:
   name_template: '{{ .ProjectName }}_checksums.txt'
+
 snapshot:
   name_template: "{{ .Tag }}"
+
 changelog:
   sort: asc
   filters:
@@ -37,6 +41,7 @@ changelog:
       - '^test:'
       - Merge pull request
       - Merge branch
+
 brews:
   - github:
       owner: peak
@@ -46,7 +51,6 @@ brews:
     description: Parallel S3 and local filesystem execution tool
     test: |
       system "#{bin}/s5cmd -v"
+
 release:
-  github:
-    owner: peak
-    name: s5cmd
+  draft: true

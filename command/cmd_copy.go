@@ -155,27 +155,15 @@ func (c Copy) Run(ctx context.Context) error {
 		}
 
 		src := object.URL
-
-		shouldOverrideFunc := func(dst *objurl.ObjectURL) error {
-			return shouldOverride(
-				ctx,
-				src,
-				dst,
-				c.noClobber,
-				c.ifSizeDiffer,
-				c.ifSourceNewer,
-			)
-		}
-
 		var task parallel.Task
 
 		switch {
 		case srcurl.Type == dsturl.Type: // local->local or remote->remote
-			task = c.copy(ctx, srcurl, src, dsturl, shouldOverrideFunc)
+			task = c.copy(ctx, srcurl, src, dsturl)
 		case srcurl.IsRemote(): // remote->local
-			task = c.download(ctx, srcurl, src, dsturl, shouldOverrideFunc)
+			task = c.download(ctx, srcurl, src, dsturl)
 		case dsturl.IsRemote(): // local->remote
-			task = c.upload(ctx, src, dsturl, shouldOverrideFunc)
+			task = c.upload(ctx, src, dsturl)
 		default:
 			panic("unexpected src-dst pair")
 		}
@@ -194,7 +182,6 @@ func (c Copy) copy(
 	originalsrc *objurl.ObjectURL,
 	srcurl *objurl.ObjectURL,
 	dsturl *objurl.ObjectURL,
-	overrideFunc shouldOverrideFunc,
 ) func() error {
 	return func() error {
 		dsturl, err := prepareCopyDestination(ctx, originalsrc, srcurl, dsturl, c.parents)
@@ -208,7 +195,7 @@ func (c Copy) copy(
 			dsturl,
 			c.op,
 			c.deleteSource,
-			overrideFunc,
+			c.overrideFunc(ctx, srcurl),
 			// flags
 			c.storageClass,
 		)
@@ -229,7 +216,6 @@ func (c Copy) download(
 	originalsrc *objurl.ObjectURL,
 	srcurl *objurl.ObjectURL,
 	dsturl *objurl.ObjectURL,
-	overrideFunc shouldOverrideFunc,
 ) func() error {
 	return func() error {
 		dsturl, err := prepareDownloadDestination(ctx, originalsrc, srcurl, dsturl, c.parents)
@@ -243,7 +229,7 @@ func (c Copy) download(
 			dsturl,
 			c.op,
 			c.deleteSource,
-			overrideFunc,
+			c.overrideFunc(ctx, srcurl),
 		)
 
 		if err != nil {
@@ -262,7 +248,6 @@ func (c Copy) upload(
 	ctx context.Context,
 	srcurl *objurl.ObjectURL,
 	dsturl *objurl.ObjectURL,
-	overrideFunc shouldOverrideFunc,
 ) func() error {
 	return func() error {
 		dsturl := prepareUploadDestination(srcurl, dsturl, c.parents)
@@ -273,7 +258,7 @@ func (c Copy) upload(
 			dsturl,
 			c.op,
 			c.deleteSource,
-			overrideFunc,
+			c.overrideFunc(ctx, srcurl),
 			// flags
 			c.storageClass,
 		)
@@ -286,6 +271,19 @@ func (c Copy) upload(
 			}
 		}
 		return nil
+	}
+}
+
+func (c Copy) overrideFunc(ctx context.Context, src *objurl.ObjectURL) shouldOverrideFunc {
+	return func(dst *objurl.ObjectURL) error {
+		return shouldOverride(
+			ctx,
+			src,
+			dst,
+			c.noClobber,
+			c.ifSizeDiffer,
+			c.ifSourceNewer,
+		)
 	}
 }
 

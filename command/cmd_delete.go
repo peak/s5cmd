@@ -50,8 +50,9 @@ func Delete(
 		return err
 	}
 
-	// recursive is set to true because delete operation works on absolute
-	// URLs. Setting recursive=true returns only file objects.
+	// we set recursive=true here to operate on file-like objects. Recursive
+	// expansion is guaranteed to return only file-like objects. URLs. Setting
+	// recursive=true returns only file objects.
 	objch, err := expandSource(ctx, srcurl, true)
 	if err != nil {
 		return err
@@ -77,7 +78,6 @@ func Delete(
 
 	resultch := client.MultiDelete(ctx, urlch)
 
-	// a closed errch indicates that MultiDelete operation is finished.
 	var merror error
 	for obj := range resultch {
 		if err := obj.Err; err != nil {

@@ -59,17 +59,30 @@ var CopyCommand = &cli.Command{
 	Usage:    "copy objects",
 	Flags:    copyCommandFlags,
 	Before: func(c *cli.Context) error {
-		if c.Args().Len() != 2 {
+		if c.Args().Len() < 2 {
 			return fmt.Errorf("expected source and destination arguments")
 		}
 
-		dst, err := objurl.New(c.Args().Get(1))
+		args := c.Args().Slice()
+		last := c.Args().Len() - 1
+		src := args[:last]
+		dst := args[last]
+
+		dsturl, err := objurl.New(dst)
 		if err != nil {
 			return err
 		}
 
-		if dst.HasGlob() {
+		if dsturl.HasGlob() {
 			return fmt.Errorf("target %q can not contain glob characters", dst)
+		}
+
+		if err := checkSources(src...); err != nil {
+			return err
+		}
+
+		if dsturl.IsRemote() && len(src) > 1 && !strings.HasSuffix(dsturl.Absolute(), "/") {
+			return fmt.Errorf("target should be a directory for multiple sources")
 		}
 
 		return nil
@@ -82,10 +95,15 @@ var CopyCommand = &cli.Command{
 		parents := c.Bool("parents")
 		storageClass := storage.LookupClass(c.String("storage-class"))
 
+		args := c.Args().Slice()
+		last := c.Args().Len() - 1
+		src := args[:last]
+		dst := args[last]
+
 		return Copy(
 			c.Context,
-			c.Args().Get(0),
-			c.Args().Get(1),
+			src,
+			dst,
 			c.Command.Name,
 			givenCommand(c),
 			false, // don't delete source
@@ -102,7 +120,7 @@ var CopyCommand = &cli.Command{
 
 func Copy(
 	ctx context.Context,
-	src string,
+	src []string,
 	dst string,
 	op string,
 	fullCommand string,
@@ -115,7 +133,7 @@ func Copy(
 	parents bool,
 	storageClass storage.StorageClass,
 ) error {
-	srcurl, err := objurl.New(src)
+	srcurls, err := newSources(src...)
 	if err != nil {
 		return err
 	}
@@ -125,11 +143,7 @@ func Copy(
 		return err
 	}
 
-	// set recursive=true for local->remote copy operations. this
-	// is required for backwards compatibility.
-	recursive = recursive || (!srcurl.IsRemote() && dsturl.IsRemote())
-
-	objch, err := expandSource(ctx, srcurl, recursive)
+	args, err := expandSources(ctx, recursive, dsturl, srcurls...)
 	if err != nil {
 		return err
 	}
@@ -147,7 +161,10 @@ func Copy(
 		}
 	}()
 
-	for object := range objch {
+	for arg := range args {
+		srcurl := arg.originalUrl
+		object := arg.obj
+
 		if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) {
 			continue
 		}
@@ -157,7 +174,7 @@ func Copy(
 			continue
 		}
 
-		src := object.URL
+		src := arg.obj.URL
 
 		shouldOverrideFunc := func(dst *objurl.ObjectURL) error {
 			return shouldOverride(
@@ -589,42 +606,4 @@ func prepareUploadDestination(
 		objname = src.Relative()
 	}
 	return dst.Join(objname)
-}
-
-// expandSource returns the full list of objects from the given src argument.
-// If src is an expandable URL, such as directory, prefix or a glob, all
-// objects are returned by walking the source.
-func expandSource(
-	ctx context.Context,
-	src *objurl.ObjectURL,
-	isRecursive bool,
-) (<-chan *storage.Object, error) {
-	// TODO(ig): this function could be in the storage layer.
-
-	client, err := storage.NewClient(src)
-	if err != nil {
-		return nil, err
-	}
-
-	var isDir bool
-	// if the source is local, we send a Stat call to know if  we have
-	// directory or file to walk. For remote storage, we don't want to send
-	// Stat since it doesn't have any folder semantics.
-	if !src.HasGlob() && !src.IsRemote() {
-		obj, err := client.Stat(ctx, src)
-		if err != nil {
-			return nil, err
-		}
-		isDir = obj.Type.IsDir()
-	}
-
-	// call storage.List for only walking operations.
-	if src.HasGlob() || isDir {
-		return client.List(ctx, src, isRecursive, storage.ListAllItems), nil
-	}
-
-	ch := make(chan *storage.Object, 1)
-	ch <- &storage.Object{URL: src}
-	close(ch)
-	return ch, nil
 }

@@ -107,7 +107,6 @@ func Main(ctx context.Context, args []string) error {
 		DeleteCommand,
 		CopyCommand,
 		MoveCommand,
-		GetCommand,
 		RunCommand,
 		VersionCommand,
 	}

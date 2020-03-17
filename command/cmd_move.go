@@ -13,8 +13,15 @@ var MoveCommand = &cli.Command{
 	Usage:    "move objects",
 	Flags:    copyCommandFlags, // move and copy commands share the same flags
 	Before: func(c *cli.Context) error {
-		if c.Args().Len() != 2 {
+		if c.Args().Len() < 2 {
 			return fmt.Errorf("expected source and destination arguments")
+		}
+
+		args := c.Args().Slice()
+		last := c.Args().Len() - 1
+		src := args[:last]
+		if err := checkSources(src...); err != nil {
+			return err
 		}
 		return nil
 	},
@@ -26,10 +33,15 @@ var MoveCommand = &cli.Command{
 		parents := c.Bool("parents")
 		storageClass := storage.LookupClass(c.String("storage-class"))
 
+		args := c.Args().Slice()
+		last := c.Args().Len() - 1
+		src := args[:last]
+		dst := args[last]
+
 		return Copy(
 			c.Context,
-			c.Args().Get(0),
-			c.Args().Get(1),
+			src,
+			dst,
 			c.Command.Name,
 			givenCommand(c),
 			true, // delete source

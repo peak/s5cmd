@@ -73,7 +73,7 @@ func TestRunFromStdinWithErrors(t *testing.T) {
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: equals(""),
-		1: equals(`ERROR "cp naber hey": given object not found`),
+		1: equals(`ERROR "cp naber hey": no object found`),
 		2: equals(`ERROR "ls s3:/": given object not found`),
 	}, strictLineCheck(true), sortInput(true))
 }

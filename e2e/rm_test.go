@@ -334,8 +334,6 @@ func TestRemoveMultipleLocalFilesShouldNotFail(t *testing.T) {
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 }
 
-// TODO(ig): re-open once we support variadic args
-/*
 func TestBatchRemove(t *testing.T) {
 	t.Parallel()
 
@@ -387,4 +385,3 @@ func TestBatchRemove(t *testing.T) {
 		assertError(t, err, errS3NoSuchKey)
 	}
 }
-*/

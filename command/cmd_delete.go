@@ -18,10 +18,14 @@ var DeleteCommand = &cli.Command{
 	HelpName: "delete",
 	Usage:    "remove objects",
 	Before: func(c *cli.Context) error {
-		// TODO(ig): support variadic args
-		if c.Args().Len() != 1 {
-			return fmt.Errorf("expected 1 object to remove")
+		if !c.Args().Present() {
+			return fmt.Errorf("expected at least 1 object to remove")
 		}
+
+		if err := checkSources(c.Args().Slice()...); err != nil {
+			return err
+		}
+
 		return nil
 	},
 	Action: func(c *cli.Context) error {
@@ -29,7 +33,7 @@ var DeleteCommand = &cli.Command{
 			c.Context,
 			c.Command.Name,
 			givenCommand(c),
-			c.Args().First(),
+			c.Args().Slice()...,
 		)
 	},
 }
@@ -38,12 +42,13 @@ func Delete(
 	ctx context.Context,
 	op string,
 	fullCommand string,
-	src string,
+	src ...string,
 ) error {
-	srcurl, err := objurl.New(src)
+	srcurls, err := newSources(src...)
 	if err != nil {
 		return err
 	}
+	srcurl := srcurls[0]
 
 	client, err := storage.NewClient(srcurl)
 	if err != nil {
@@ -52,7 +57,7 @@ func Delete(
 
 	// storage.MultiDelete operates on file-like objects. Settings
 	// recursive=true guarantees returning only file-like objects.
-	objch, err := expandSource(ctx, srcurl, true)
+	args, err := expandSources(ctx, true, nil, srcurls...)
 	if err != nil {
 		return err
 	}
@@ -62,7 +67,8 @@ func Delete(
 	go func() {
 		defer close(urlch)
 
-		for object := range objch {
+		for arg := range args {
+			object := arg.obj
 			if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) {
 				continue
 			}

@@ -37,7 +37,11 @@ const (
 	// request.
 	deleteObjectsMax = 1000
 
+	// Amazon Accelerated Transfer endpoint
 	transferAccelEndpoint = "s3-accelerate.amazonaws.com"
+
+	// Google Cloud Storage endpoint
+	gcsEndpoint = "storage.googleapis.com"
 )
 
 // newS3Factory creates a new factory for
@@ -477,19 +481,22 @@ func newSession(opts S3Opts) (*session.Session, error) {
 
 	var endpoint url.URL
 	if opts.EndpointURL != "" {
+		// add a scheme to correctly parse the endpoint. Without a scheme,
+		// url.Parse will put the host information in path"
+		if !strings.HasPrefix(opts.EndpointURL, "http") {
+			opts.EndpointURL = "http://" + opts.EndpointURL
+		}
 		u, err := url.Parse(opts.EndpointURL)
 		if err != nil {
 			return nil, fmt.Errorf("parse endpoint %q: %v", opts.EndpointURL, err)
 		}
+
 		endpoint = *u
 	}
 
-	// use virtual-host style everywhere except localhost. e2e testing becomes
-	// harder if virtual-host style (subdomains) is used.
-	forcePathStyle := false
-	if isLocalhost(endpoint) {
-		forcePathStyle = true
-	}
+	// use virtual-host-style if the endpoint is known to support it,
+	// otherwise use the path-style approach.
+	isVirtualHostStyle := isVirtualHostStyle(endpoint)
 
 	useAccelerate := supportsTransferAcceleration(endpoint)
 	// AWS SDK handles transfer acceleration automatically. Setting the
@@ -506,7 +513,7 @@ func newSession(opts S3Opts) (*session.Session, error) {
 
 	awsCfg = awsCfg.
 		WithEndpoint(endpoint.String()).
-		WithS3ForcePathStyle(forcePathStyle).
+		WithS3ForcePathStyle(!isVirtualHostStyle).
 		WithS3UseAccelerate(useAccelerate).
 		WithHTTPClient(httpClient).
 		WithMaxRetries(opts.MaxRetries)
@@ -554,8 +561,15 @@ func supportsTransferAcceleration(endpoint url.URL) bool {
 	return endpoint.Hostname() == transferAccelEndpoint
 }
 
-func isLocalhost(endpoint url.URL) bool {
-	return endpoint.Hostname() == "127.0.0.1"
+func isGoogleEndpoint(endpoint url.URL) bool {
+	return endpoint.Hostname() == gcsEndpoint
+}
+
+// isVirtualHostStyle reports whether the given endpoint supports S3 virtual
+// host style bucket name resolving. If a custom S3 API compatible endpoint is
+// given, resolve the bucketname from the URL path.
+func isVirtualHostStyle(endpoint url.URL) bool {
+	return endpoint.Hostname() == "" || supportsTransferAcceleration(endpoint) || isGoogleEndpoint(endpoint)
 }
 
 func errHasCode(err error, code string) bool {

@@ -214,20 +214,17 @@ func TestRemoveTenThousandS3Objects(t *testing.T) {
 
 	createBucket(t, s3client, bucket)
 
-	filesToContent := map[string]string{
-		"testfile1.txt":          "this is a test file 1",
-		"readme.md":              "this is a readme file",
-		"filename-with-hypen.gz": "file has hypen in its name",
-		"another_test_file.txt":  "yet another txt file. yatf.",
-	}
-
 	const (
 		filecount = 10_000
 		content   = "file body"
 	)
 
+	filenameFunc := func(i int) string { return fmt.Sprintf("file_%06d", i) }
+	contentFunc := func(i int) string { return fmt.Sprintf("file body %06d", i) }
+
 	for i := 0; i < filecount; i++ {
-		filename := fmt.Sprintf("file_%06d", i)
+		filename := filenameFunc(i)
+		content := contentFunc(i)
 		putFile(t, s3client, bucket, filename, content)
 	}
 
@@ -249,7 +246,10 @@ func TestRemoveTenThousandS3Objects(t *testing.T) {
 	assertLines(t, result.Stdout(), expected, sortInput(true))
 
 	// assert s3 objects
-	for filename, content := range filesToContent {
+	for i := 0; i < filecount; i++ {
+		filename := filenameFunc(i)
+		content := contentFunc(i)
+
 		err := ensureS3Object(s3client, bucket, filename, content)
 		assertError(t, err, errS3NoSuchKey)
 	}

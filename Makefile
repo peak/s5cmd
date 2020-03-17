@@ -4,12 +4,9 @@ default: all
 
 .PHONY: all
 all: clean build test check
+
 .PHONY: dist
 dist: generate all
-
-.PHONY: fmt
-fmt:
-	@find ${SRCDIR} ! -path "*/vendor/*" -type f -name '*.go' -exec gofmt -l -s -w {} \;
 
 .PHONY: generate
 generate:

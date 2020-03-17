@@ -24,32 +24,26 @@ var GetCommand = &cli.Command{
 		return nil
 	},
 	Action: func(c *cli.Context) error {
-		noClobber := c.Bool("no-clobber")
-		ifSizeDiffer := c.Bool("if-size-differ")
-		ifSourceNewer := c.Bool("if-source-newer")
-		recursive := c.Bool("recursive")
-		parents := c.Bool("parents")
-		storageClass := storage.LookupClass(c.String("storage-class"))
-
 		dst := "."
 		if c.Args().Len() == 2 {
 			dst = c.Args().Get(1)
 		}
 
-		return Copy(
-			c.Context,
-			c.Args().Get(0),
-			dst,
-			c.Command.Name,
-			givenCommand(c),
-			false, // don't delete source
+		copyCommand := Copy{
+			src:          c.Args().Get(0),
+			dst:          dst,
+			op:           c.Command.Name,
+			fullCommand:  givenCommand(c),
+			deleteSource: false, // don't delete source
 			// flags
-			noClobber,
-			ifSizeDiffer,
-			ifSourceNewer,
-			recursive,
-			parents,
-			storageClass,
-		)
+			noClobber:     c.Bool("no-clobber"),
+			ifSizeDiffer:  c.Bool("if-size-differ"),
+			ifSourceNewer: c.Bool("if-source-newer"),
+			recursive:     c.Bool("recursive"),
+			parents:       c.Bool("parents"),
+			storageClass:  storage.LookupClass(c.String("storage-class")),
+		}
+
+		return copyCommand.Run(c.Context)
 	},
 }

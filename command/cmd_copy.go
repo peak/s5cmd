@@ -75,59 +75,56 @@ var CopyCommand = &cli.Command{
 		return nil
 	},
 	Action: func(c *cli.Context) error {
-		noClobber := c.Bool("no-clobber")
-		ifSizeDiffer := c.Bool("if-size-differ")
-		ifSourceNewer := c.Bool("if-source-newer")
-		recursive := c.Bool("recursive")
-		parents := c.Bool("parents")
-		storageClass := storage.LookupClass(c.String("storage-class"))
-
-		return Copy(
-			c.Context,
-			c.Args().Get(0),
-			c.Args().Get(1),
-			c.Command.Name,
-			givenCommand(c),
-			false, // don't delete source
+		copyCommand := Copy{
+			src:          c.Args().Get(0),
+			dst:          c.Args().Get(1),
+			op:           c.Command.Name,
+			fullCommand:  givenCommand(c),
+			deleteSource: false, // don't delete source
 			// flags
-			noClobber,
-			ifSizeDiffer,
-			ifSourceNewer,
-			recursive,
-			parents,
-			storageClass,
-		)
+			noClobber:     c.Bool("no-clobber"),
+			ifSizeDiffer:  c.Bool("if-size-differ"),
+			ifSourceNewer: c.Bool("if-source-newer"),
+			recursive:     c.Bool("recursive"),
+			parents:       c.Bool("parents"),
+			storageClass:  storage.LookupClass(c.String("storage-class")),
+		}
+
+		return copyCommand.Run(c.Context)
 	},
 }
 
-func Copy(
-	ctx context.Context,
-	src string,
-	dst string,
-	op string,
-	fullCommand string,
-	deleteSource bool,
+type Copy struct {
+	src         string
+	dst         string
+	op          string
+	fullCommand string
+
+	deleteSource bool
+
 	// flags
-	noClobber bool,
-	ifSizeDiffer bool,
-	ifSourceNewer bool,
-	recursive bool,
-	parents bool,
-	storageClass storage.StorageClass,
-) error {
-	srcurl, err := objurl.New(src)
+	noClobber     bool
+	ifSizeDiffer  bool
+	ifSourceNewer bool
+	recursive     bool
+	parents       bool
+	storageClass  storage.StorageClass
+}
+
+func (c Copy) Run(ctx context.Context) error {
+	srcurl, err := objurl.New(c.src)
 	if err != nil {
 		return err
 	}
 
-	dsturl, err := objurl.New(dst)
+	dsturl, err := objurl.New(c.dst)
 	if err != nil {
 		return err
 	}
 
 	// set recursive=true for local->remote copy operations. this
 	// is required for backwards compatibility.
-	recursive = recursive || (!srcurl.IsRemote() && dsturl.IsRemote())
+	recursive := c.recursive || (!srcurl.IsRemote() && dsturl.IsRemote())
 
 	objch, err := expandSource(ctx, srcurl, recursive)
 	if err != nil {
@@ -153,7 +150,7 @@ func Copy(
 		}
 
 		if err := object.Err; err != nil {
-			printError(fullCommand, op, err)
+			printError(c.fullCommand, c.op, err)
 			continue
 		}
 
@@ -164,9 +161,9 @@ func Copy(
 				ctx,
 				src,
 				dst,
-				noClobber,
-				ifSizeDiffer,
-				ifSourceNewer,
+				c.noClobber,
+				c.ifSizeDiffer,
+				c.ifSourceNewer,
 			)
 		}
 
@@ -174,82 +171,11 @@ func Copy(
 
 		switch {
 		case srcurl.Type == dsturl.Type: // local->local or remote->remote
-			task = func() error {
-				dsturl, err := prepareCopyDestination(ctx, srcurl, src, dsturl, parents)
-				if err != nil {
-					return err
-				}
-
-				err = doCopy(
-					ctx,
-					src,
-					dsturl,
-					op,
-					deleteSource,
-					shouldOverrideFunc,
-					// flags
-					storageClass,
-				)
-				if err != nil {
-					return &errorpkg.Error{
-						Op:  op,
-						Src: src,
-						Dst: dsturl,
-						Err: err,
-					}
-				}
-				return nil
-			}
+			task = c.copy(ctx, srcurl, src, dsturl, shouldOverrideFunc)
 		case srcurl.IsRemote(): // remote->local
-			task = func() error {
-				dsturl, err := prepareDownloadDestination(ctx, srcurl, src, dsturl, parents)
-				if err != nil {
-					return err
-				}
-
-				err = doDownload(
-					ctx,
-					src,
-					dsturl,
-					op,
-					deleteSource,
-					shouldOverrideFunc,
-				)
-
-				if err != nil {
-					return &errorpkg.Error{
-						Op:  op,
-						Src: src,
-						Dst: dsturl,
-						Err: err,
-					}
-				}
-				return nil
-			}
+			task = c.download(ctx, srcurl, src, dsturl, shouldOverrideFunc)
 		case dsturl.IsRemote(): // local->remote
-			task = func() error {
-				dsturl := prepareUploadDestination(src, dsturl, parents)
-
-				err := doUpload(
-					ctx,
-					src,
-					dsturl,
-					op,
-					deleteSource,
-					shouldOverrideFunc,
-					// flags
-					storageClass,
-				)
-				if err != nil {
-					return &errorpkg.Error{
-						Op:  op,
-						Src: src,
-						Dst: dsturl,
-						Err: err,
-					}
-				}
-				return nil
-			}
+			task = c.upload(ctx, src, dsturl, shouldOverrideFunc)
 		default:
 			panic("unexpected src-dst pair")
 		}
@@ -261,6 +187,106 @@ func Copy(
 	<-errDoneCh
 
 	return merror
+}
+
+func (c Copy) copy(
+	ctx context.Context,
+	originalsrc *objurl.ObjectURL,
+	srcurl *objurl.ObjectURL,
+	dsturl *objurl.ObjectURL,
+	overrideFunc shouldOverrideFunc,
+) func() error {
+	return func() error {
+		dsturl, err := prepareCopyDestination(ctx, originalsrc, srcurl, dsturl, c.parents)
+		if err != nil {
+			return err
+		}
+
+		err = doCopy(
+			ctx,
+			srcurl,
+			dsturl,
+			c.op,
+			c.deleteSource,
+			overrideFunc,
+			// flags
+			c.storageClass,
+		)
+		if err != nil {
+			return &errorpkg.Error{
+				Op:  c.op,
+				Src: srcurl,
+				Dst: dsturl,
+				Err: err,
+			}
+		}
+		return nil
+	}
+}
+
+func (c Copy) download(
+	ctx context.Context,
+	originalsrc *objurl.ObjectURL,
+	srcurl *objurl.ObjectURL,
+	dsturl *objurl.ObjectURL,
+	overrideFunc shouldOverrideFunc,
+) func() error {
+	return func() error {
+		dsturl, err := prepareDownloadDestination(ctx, originalsrc, srcurl, dsturl, c.parents)
+		if err != nil {
+			return err
+		}
+
+		err = doDownload(
+			ctx,
+			srcurl,
+			dsturl,
+			c.op,
+			c.deleteSource,
+			overrideFunc,
+		)
+
+		if err != nil {
+			return &errorpkg.Error{
+				Op:  c.op,
+				Src: srcurl,
+				Dst: dsturl,
+				Err: err,
+			}
+		}
+		return nil
+	}
+}
+
+func (c Copy) upload(
+	ctx context.Context,
+	srcurl *objurl.ObjectURL,
+	dsturl *objurl.ObjectURL,
+	overrideFunc shouldOverrideFunc,
+) func() error {
+	return func() error {
+		dsturl := prepareUploadDestination(srcurl, dsturl, c.parents)
+
+		err := doUpload(
+			ctx,
+			srcurl,
+			dsturl,
+			c.op,
+			c.deleteSource,
+			overrideFunc,
+			// flags
+			c.storageClass,
+		)
+		if err != nil {
+			return &errorpkg.Error{
+				Op:  c.op,
+				Src: srcurl,
+				Dst: dsturl,
+				Err: err,
+			}
+		}
+		return nil
+	}
 }
 
 // doDownload is used to fetch a remote object and save as a local object.

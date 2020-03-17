@@ -189,16 +189,7 @@ func (c Copy) copy(
 			return err
 		}
 
-		err = doCopy(
-			ctx,
-			srcurl,
-			dsturl,
-			c.op,
-			c.deleteSource,
-			c.overrideFunc(ctx, srcurl),
-			// flags
-			c.storageClass,
-		)
+		err = c.doCopy(ctx, srcurl, dsturl)
 		if err != nil {
 			return &errorpkg.Error{
 				Op:  c.op,
@@ -223,15 +214,7 @@ func (c Copy) download(
 			return err
 		}
 
-		err = doDownload(
-			ctx,
-			srcurl,
-			dsturl,
-			c.op,
-			c.deleteSource,
-			c.overrideFunc(ctx, srcurl),
-		)
-
+		err = c.doDownload(ctx, srcurl, dsturl)
 		if err != nil {
 			return &errorpkg.Error{
 				Op:  c.op,
@@ -252,16 +235,7 @@ func (c Copy) upload(
 	return func() error {
 		dsturl := prepareUploadDestination(srcurl, dsturl, c.parents)
 
-		err := doUpload(
-			ctx,
-			srcurl,
-			dsturl,
-			c.op,
-			c.deleteSource,
-			c.overrideFunc(ctx, srcurl),
-			// flags
-			c.storageClass,
-		)
+		err := c.doUpload(ctx, srcurl, dsturl)
 		if err != nil {
 			return &errorpkg.Error{
 				Op:  c.op,
@@ -274,28 +248,19 @@ func (c Copy) upload(
 	}
 }
 
-func (c Copy) overrideFunc(ctx context.Context, src *objurl.ObjectURL) shouldOverrideFunc {
-	return func(dst *objurl.ObjectURL) error {
-		return shouldOverride(
-			ctx,
-			src,
-			dst,
-			c.noClobber,
-			c.ifSizeDiffer,
-			c.ifSourceNewer,
-		)
-	}
+func (c Copy) shouldOverride(ctx context.Context, src *objurl.ObjectURL, dst *objurl.ObjectURL) error {
+	return shouldOverride(
+		ctx,
+		src,
+		dst,
+		c.noClobber,
+		c.ifSizeDiffer,
+		c.ifSourceNewer,
+	)
 }
 
 // doDownload is used to fetch a remote object and save as a local object.
-func doDownload(
-	ctx context.Context,
-	src *objurl.ObjectURL,
-	dst *objurl.ObjectURL,
-	op string,
-	deleteSource bool,
-	shouldOverride shouldOverrideFunc,
-) error {
+func (c Copy) doDownload(ctx context.Context, src *objurl.ObjectURL, dst *objurl.ObjectURL) error {
 	srcClient, err := storage.NewClient(src)
 	if err != nil {
 		return err
@@ -306,11 +271,11 @@ func doDownload(
 		return err
 	}
 
-	err = shouldOverride(dst)
+	err = c.shouldOverride(ctx, src, dst)
 	if err != nil {
 		// FIXME(ig): rename
 		if isWarning(err) {
-			printDebug(op, src, dst, err)
+			printDebug(c.op, src, dst, err)
 			return nil
 		}
 		return err
@@ -325,7 +290,7 @@ func doDownload(
 	size, err := srcClient.Get(ctx, src, f)
 	if err != nil {
 		err = dstClient.Delete(ctx, dst)
-	} else if deleteSource {
+	} else if c.deleteSource {
 		err = srcClient.Delete(ctx, src)
 	}
 
@@ -334,7 +299,7 @@ func doDownload(
 	}
 
 	msg := log.InfoMessage{
-		Operation:   op,
+		Operation:   c.op,
 		Source:      src,
 		Destination: dst,
 		Object: &storage.Object{
@@ -346,16 +311,7 @@ func doDownload(
 	return nil
 }
 
-func doUpload(
-	ctx context.Context,
-	src *objurl.ObjectURL,
-	dst *objurl.ObjectURL,
-	op string,
-	deleteSource bool,
-	shouldOverride shouldOverrideFunc,
-	// flags
-	storageClass storage.StorageClass,
-) error {
+func (c Copy) doUpload(ctx context.Context, src *objurl.ObjectURL, dst *objurl.ObjectURL) error {
 	// TODO(ig): use storage abstraction
 	f, err := os.Open(src.Absolute())
 	if err != nil {
@@ -363,10 +319,10 @@ func doUpload(
 	}
 	defer f.Close()
 
-	err = shouldOverride(dst)
+	err = c.shouldOverride(ctx, src, dst)
 	if err != nil {
 		if isWarning(err) {
-			printDebug(op, src, dst, err)
+			printDebug(c.op, src, dst, err)
 			return nil
 		}
 		return err
@@ -378,7 +334,7 @@ func doUpload(
 	}
 
 	metadata := map[string]string{
-		"StorageClass": string(storageClass),
+		"StorageClass": string(c.storageClass),
 		"ContentType":  guessContentType(f),
 	}
 
@@ -400,19 +356,19 @@ func doUpload(
 	obj, _ := srcClient.Stat(ctx, src)
 	size := obj.Size
 
-	if deleteSource {
+	if c.deleteSource {
 		if err := srcClient.Delete(ctx, src); err != nil {
 			return err
 		}
 	}
 
 	msg := log.InfoMessage{
-		Operation:   op,
+		Operation:   c.op,
 		Source:      src,
 		Destination: dst,
 		Object: &storage.Object{
 			Size:         size,
-			StorageClass: storageClass,
+			StorageClass: c.storageClass,
 		},
 	}
 	log.Info(msg)
@@ -420,29 +376,20 @@ func doUpload(
 	return nil
 }
 
-func doCopy(
-	ctx context.Context,
-	src *objurl.ObjectURL,
-	dst *objurl.ObjectURL,
-	op string,
-	deleteSource bool,
-	shouldOverride shouldOverrideFunc,
-	// flags
-	storageClass storage.StorageClass,
-) error {
+func (c Copy) doCopy(ctx context.Context, src *objurl.ObjectURL, dst *objurl.ObjectURL) error {
 	srcClient, err := storage.NewClient(src)
 	if err != nil {
 		return err
 	}
 
 	metadata := map[string]string{
-		"StorageClass": string(storageClass),
+		"StorageClass": string(c.storageClass),
 	}
 
-	err = shouldOverride(dst)
+	err = c.shouldOverride(ctx, src, dst)
 	if err != nil {
 		if isWarning(err) {
-			printDebug(op, src, dst, err)
+			printDebug(c.op, src, dst, err)
 			return nil
 		}
 		return err
@@ -458,19 +405,19 @@ func doCopy(
 		return err
 	}
 
-	if deleteSource {
+	if c.deleteSource {
 		if err := srcClient.Delete(ctx, src); err != nil {
 			return err
 		}
 	}
 
 	msg := log.InfoMessage{
-		Operation:   op,
+		Operation:   c.op,
 		Source:      src,
 		Destination: dst,
 		Object: &storage.Object{
 			URL:          dst,
-			StorageClass: storage.StorageClass(storageClass),
+			StorageClass: storage.StorageClass(c.storageClass),
 		},
 	}
 	log.Info(msg)

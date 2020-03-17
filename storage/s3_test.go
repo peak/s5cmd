@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"os"
 	"testing"
 
@@ -15,6 +16,56 @@ import (
 
 	"github.com/peak/s5cmd/objurl"
 )
+
+func TestNewSessionPathStyle(t *testing.T) {
+	testcases := []struct {
+		name            string
+		endpoint        url.URL
+		expectPathStyle bool
+	}{
+		{
+			name:            "expect_virtual_host_style_when_missing_endpoint",
+			endpoint:        url.URL{},
+			expectPathStyle: false,
+		},
+		{
+			name:            "expect_virtual_host_style_for_transfer_accel",
+			endpoint:        url.URL{Host: transferAccelEndpoint},
+			expectPathStyle: false,
+		},
+		{
+			name:            "expect_virtual_host_style_for_google_cloud_storage",
+			endpoint:        url.URL{Host: gcsEndpoint},
+			expectPathStyle: false,
+		},
+		{
+			name:            "expect_path_host_style_for_localhost",
+			endpoint:        url.URL{Host: "127.0.0.1"},
+			expectPathStyle: true,
+		},
+		{
+			name:            "expect_path_host_style_for_custom_endpoint",
+			endpoint:        url.URL{Host: "example.com"},
+			expectPathStyle: true,
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+
+			opts := S3Opts{EndpointURL: tc.endpoint.Hostname()}
+			sess, err := newSession(opts)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			got := aws.BoolValue(sess.Config.S3ForcePathStyle)
+			if got != tc.expectPathStyle {
+				t.Fatalf("expected: %v, got: %v", tc.expectPathStyle, got)
+			}
+		})
+	}
+}
 
 func TestNewSessionWithRegionSetViaEnv(t *testing.T) {
 	opts := S3Opts{

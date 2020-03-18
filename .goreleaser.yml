@@ -1,16 +1,56 @@
+before:
+  hooks:
+    - make
 builds:
-- env:
-  - CGO_ENABLED=0
+  -
+    binary: s5cmd
+    ldflags: -s -w -X github.com/peak/s5cmd/version.Version={{.Tag}} -X github.com/peak/s5cmd/version.GitCommit={{ .ShortCommit }}
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+    goarch:
+      - 386
+      - amd64
+      - arm
+      - arm64
+    ignore:
+      - goos: darwin
+        goarch: 386
 
 archives:
-- replacements:
-    darwin: Darwin
-    linux: Linux
-    windows: Windows
-    amd64: x86_64
+  - name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Os }}-{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}'
+    replacements:
+      darwin: macOS
+      linux: Linux
+      386: 32bit
+      amd64: 64bit
+
+checksum:
+  name_template: '{{ .ProjectName }}_checksums.txt'
+
+snapshot:
+  name_template: "{{ .Tag }}"
+
 changelog:
   sort: asc
   filters:
     exclude:
-    - '^docs:'
-    - '^test:'
+      - '^docs:'
+      - '^test:'
+      - Merge pull request
+      - Merge branch
+
+brews:
+  - github:
+      owner: peak
+      name: s5cmd
+    folder: Formula
+    homepage:  https://github.com/peak/s5cmd
+    description: Parallel S3 and local filesystem execution tool
+    test: |
+      system "#{bin}/s5cmd -v"
+
+release:
+  draft: true

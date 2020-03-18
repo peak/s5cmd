@@ -19,9 +19,6 @@ import (
 	"github.com/peak/s5cmd/storage"
 )
 
-// shouldOverrideFunc is a helper closure for shouldOverride function.
-type shouldOverrideFunc func(dst *objurl.ObjectURL) error
-
 var copyCommandFlags = []cli.Flag{
 	&cli.BoolFlag{
 		Name:    "no-clobber",
@@ -55,7 +52,7 @@ var copyCommandFlags = []cli.Flag{
 
 var CopyCommand = &cli.Command{
 	Name:     "cp",
-	HelpName: "copy",
+	HelpName: "cp",
 	Usage:    "copy objects",
 	Flags:    copyCommandFlags,
 	Before: func(c *cli.Context) error {
@@ -88,62 +85,59 @@ var CopyCommand = &cli.Command{
 		return nil
 	},
 	Action: func(c *cli.Context) error {
-		noClobber := c.Bool("no-clobber")
-		ifSizeDiffer := c.Bool("if-size-differ")
-		ifSourceNewer := c.Bool("if-source-newer")
-		recursive := c.Bool("recursive")
-		parents := c.Bool("parents")
-		storageClass := storage.LookupClass(c.String("storage-class"))
-
 		args := c.Args().Slice()
 		last := c.Args().Len() - 1
 		src := args[:last]
 		dst := args[last]
 
-		return Copy(
-			c.Context,
-			src,
-			dst,
-			c.Command.Name,
-			givenCommand(c),
-			false, // don't delete source
+		copyCommand := Copy{
+			src:          src,
+			dst:          dst,
+			op:           c.Command.Name,
+			fullCommand:  givenCommand(c),
+			deleteSource: false, // don't delete source
 			// flags
-			noClobber,
-			ifSizeDiffer,
-			ifSourceNewer,
-			recursive,
-			parents,
-			storageClass,
-		)
+			noClobber:     c.Bool("no-clobber"),
+			ifSizeDiffer:  c.Bool("if-size-differ"),
+			ifSourceNewer: c.Bool("if-source-newer"),
+			recursive:     c.Bool("recursive"),
+			parents:       c.Bool("parents"),
+			storageClass:  storage.LookupClass(c.String("storage-class")),
+		}
+
+		return copyCommand.Run(c.Context)
 	},
 }
 
-func Copy(
-	ctx context.Context,
-	src []string,
-	dst string,
-	op string,
-	fullCommand string,
-	deleteSource bool,
+type Copy struct {
+	src         []string
+	dst         string
+	op          string
+	fullCommand string
+
+	deleteSource bool
+
 	// flags
-	noClobber bool,
-	ifSizeDiffer bool,
-	ifSourceNewer bool,
-	recursive bool,
-	parents bool,
-	storageClass storage.StorageClass,
-) error {
-	srcurls, err := newSources(src...)
+	noClobber     bool
+	ifSizeDiffer  bool
+	ifSourceNewer bool
+	recursive     bool
+	parents       bool
+	storageClass  storage.StorageClass
+}
+
+func (c Copy) Run(ctx context.Context) error {
+	srcurls, err := newSources(c.src...)
 	if err != nil {
 		return err
 	}
 
-	dsturl, err := objurl.New(dst)
+	dsturl, err := objurl.New(c.dst)
 	if err != nil {
 		return err
 	}
 
-	args, err := expandSources(ctx, recursive, dsturl, srcurls...)
+	args, err := expandSources(ctx, c.recursive, dsturl, srcurls...)
 	if err != nil {
 		return err
 	}
@@ -162,7 +156,7 @@ func Copy(
 	}()
 
 	for arg := range args {
-		srcurl := arg.originalUrl
+		origSrc := arg.origSrc
 		object := arg.obj
 
 		if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) {
@@ -170,103 +164,20 @@ func Copy(
 		}
 
 		if err := object.Err; err != nil {
-			printError(fullCommand, op, err)
+			printError(c.fullCommand, c.op, err)
 			continue
 		}
 
-		src := arg.obj.URL
-
-		shouldOverrideFunc := func(dst *objurl.ObjectURL) error {
-			return shouldOverride(
-				ctx,
-				src,
-				dst,
-				noClobber,
-				ifSizeDiffer,
-				ifSourceNewer,
-			)
-		}
-
+		srcurl := object.URL
 		var task parallel.Task
 
 		switch {
 		case srcurl.Type == dsturl.Type: // local->local or remote->remote
-			task = func() error {
-				dsturl, err := prepareCopyDestination(ctx, srcurl, src, dsturl, parents)
-				if err != nil {
-					return err
-				}
-
-				err = doCopy(
-					ctx,
-					src,
-					dsturl,
-					op,
-					deleteSource,
-					shouldOverrideFunc,
-					// flags
-					storageClass,
-				)
-				if err != nil {
-					return &errorpkg.Error{
-						Op:  op,
-						Src: src,
-						Dst: dsturl,
-						Err: err,
-					}
-				}
-				return nil
-			}
+			task = c.prepareCopyTask(ctx, origSrc, srcurl, dsturl)
 		case srcurl.IsRemote(): // remote->local
-			task = func() error {
-				dsturl, err := prepareDownloadDestination(ctx, srcurl, src, dsturl, parents)
-				if err != nil {
-					return err
-				}
-
-				err = doDownload(
-					ctx,
-					src,
-					dsturl,
-					op,
-					deleteSource,
-					shouldOverrideFunc,
-				)
-
-				if err != nil {
-					return &errorpkg.Error{
-						Op:  op,
-						Src: src,
-						Dst: dsturl,
-						Err: err,
-					}
-				}
-				return nil
-			}
+			task = c.prepareDownloadTask(ctx, origSrc, srcurl, dsturl)
 		case dsturl.IsRemote(): // local->remote
-			task = func() error {
-				dsturl := prepareUploadDestination(src, dsturl, parents)
-
-				err := doUpload(
-					ctx,
-					src,
-					dsturl,
-					op,
-					deleteSource,
-					shouldOverrideFunc,
-					// flags
-					storageClass,
-				)
-				if err != nil {
-					return &errorpkg.Error{
-						Op:  op,
-						Src: src,
-						Dst: dsturl,
-						Err: err,
-					}
-				}
-				return nil
-			}
+			task = c.prepareUploadTask(ctx, srcurl, dsturl)
 		default:
 			panic("unexpected src-dst pair")
 		}
@@ -280,46 +191,110 @@ func Copy(
 	return merror
 }
 
-// doDownload is used to fetch a remote object and save as a local object.
-func doDownload(
+func (c Copy) prepareCopyTask(
 	ctx context.Context,
-	src *objurl.ObjectURL,
-	dst *objurl.ObjectURL,
-	op string,
-	deleteSource bool,
-	shouldOverride shouldOverrideFunc,
-) error {
-	srcClient, err := storage.NewClient(src)
+	origSrc *objurl.ObjectURL,
+	srcurl *objurl.ObjectURL,
+	dsturl *objurl.ObjectURL,
+) func() error {
+	return func() error {
+		dsturl, err := prepareCopyDestination(ctx, origSrc, srcurl, dsturl, c.parents)
+		if err != nil {
+			return err
+		}
+
+		err = c.doCopy(ctx, srcurl, dsturl)
+		if err != nil {
+			return &errorpkg.Error{
+				Op:  c.op,
+				Src: srcurl,
+				Dst: dsturl,
+				Err: err,
+			}
+		}
+		return nil
+	}
+}
+
+func (c Copy) prepareDownloadTask(
+	ctx context.Context,
+	origSrc *objurl.ObjectURL,
+	srcurl *objurl.ObjectURL,
+	dsturl *objurl.ObjectURL,
+) func() error {
+	return func() error {
+		dsturl, err := prepareDownloadDestination(ctx, origSrc, srcurl, dsturl, c.parents)
+		if err != nil {
+			return err
+		}
+
+		err = c.doDownload(ctx, srcurl, dsturl)
+		if err != nil {
+			return &errorpkg.Error{
+				Op:  c.op,
+				Src: srcurl,
+				Dst: dsturl,
+				Err: err,
+			}
+		}
+		return nil
+	}
+}
+
+func (c Copy) prepareUploadTask(
+	ctx context.Context,
+	srcurl *objurl.ObjectURL,
+	dsturl *objurl.ObjectURL,
+) func() error {
+	return func() error {
+		dsturl := prepareUploadDestination(srcurl, dsturl, c.parents)
+
+		err := c.doUpload(ctx, srcurl, dsturl)
+		if err != nil {
+			return &errorpkg.Error{
+				Op:  c.op,
+				Src: srcurl,
+				Dst: dsturl,
+				Err: err,
+			}
+		}
+		return nil
+	}
+}
+
+// doDownload is used to fetch a remote object and save as a local object.
+func (c Copy) doDownload(ctx context.Context, srcurl *objurl.ObjectURL, dsturl *objurl.ObjectURL) error {
+	srcClient, err := storage.NewClient(srcurl)
 	if err != nil {
 		return err
 	}
 
-	dstClient, err := storage.NewClient(dst)
+	dstClient, err := storage.NewClient(dsturl)
 	if err != nil {
 		return err
 	}
 
-	err = shouldOverride(dst)
+	err = c.shouldOverride(ctx, srcurl, dsturl)
 	if err != nil {
 		// FIXME(ig): rename
-		if isWarning(err) {
-			printDebug(op, src, dst, err)
+		if errorpkg.IsWarning(err) {
+			printDebug(c.op, srcurl, dsturl, err)
 			return nil
 		}
 		return err
 	}
 
-	f, err := os.Create(dst.Absolute())
+	f, err := os.Create(dsturl.Absolute())
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 
-	size, err := srcClient.Get(ctx, src, f)
+	size, err := srcClient.Get(ctx, srcurl, f)
 	if err != nil {
-		err = dstClient.Delete(ctx, dst)
-	} else if deleteSource {
-		err = srcClient.Delete(ctx, src)
+		err = dstClient.Delete(ctx, dsturl)
+	} else if c.deleteSource {
+		err = srcClient.Delete(ctx, srcurl)
 	}
 
 	if err != nil {
@@ -327,9 +302,9 @@ func doDownload(
 	}
 
 	msg := log.InfoMessage{
-		Operation:   op,
-		Source:      src,
-		Destination: dst,
+		Operation:   c.op,
+		Source:      srcurl,
+		Destination: dsturl,
 		Object: &storage.Object{
 			Size: size,
 		},
@@ -339,73 +314,59 @@ func doDownload(
 	return nil
 }
 
-func doUpload(
-	ctx context.Context,
-	src *objurl.ObjectURL,
-	dst *objurl.ObjectURL,
-	op string,
-	deleteSource bool,
-	shouldOverride shouldOverrideFunc,
-	// flags
-	storageClass storage.StorageClass,
-) error {
+func (c Copy) doUpload(ctx context.Context, srcurl *objurl.ObjectURL, dsturl *objurl.ObjectURL) error {
 	// TODO(ig): use storage abstraction
-	f, err := os.Open(src.Absolute())
+	f, err := os.Open(srcurl.Absolute())
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 
-	err = shouldOverride(dst)
+	err = c.shouldOverride(ctx, srcurl, dsturl)
 	if err != nil {
-		if isWarning(err) {
-			printDebug(op, src, dst, err)
+		if errorpkg.IsWarning(err) {
+			printDebug(c.op, srcurl, dsturl, err)
 			return nil
 		}
 		return err
 	}
 
-	dstClient, err := storage.NewClient(dst)
+	dstClient, err := storage.NewClient(dsturl)
 	if err != nil {
 		return err
 	}
 
 	metadata := map[string]string{
-		"StorageClass": string(storageClass),
+		"StorageClass": string(c.storageClass),
 		"ContentType":  guessContentType(f),
 	}
 
-	err = dstClient.Put(
-		ctx,
-		f,
-		dst,
-		metadata,
-	)
+	err = dstClient.Put(ctx, f, dsturl, metadata)
 	if err != nil {
 		return err
 	}
 
-	srcClient, err := storage.NewClient(src)
+	srcClient, err := storage.NewClient(srcurl)
 	if err != nil {
 		return err
 	}
 
-	obj, _ := srcClient.Stat(ctx, src)
+	obj, _ := srcClient.Stat(ctx, srcurl)
 	size := obj.Size
 
-	if deleteSource {
-		if err := srcClient.Delete(ctx, src); err != nil {
+	if c.deleteSource {
+		if err := srcClient.Delete(ctx, srcurl); err != nil {
 			return err
 		}
 	}
 
 	msg := log.InfoMessage{
-		Operation:   op,
-		Source:      src,
-		Destination: dst,
+		Operation:   c.op,
+		Source:      srcurl,
+		Destination: dsturl,
 		Object: &storage.Object{
 			Size:         size,
-			StorageClass: storageClass,
+			StorageClass: c.storageClass,
 		},
 	}
 	log.Info(msg)
@@ -413,62 +374,100 @@ func doUpload(
 	return nil
 }
 
-func doCopy(
-	ctx context.Context,
-	src *objurl.ObjectURL,
-	dst *objurl.ObjectURL,
-	op string,
-	deleteSource bool,
-	shouldOverride shouldOverrideFunc,
-	// flags
-	storageClass storage.StorageClass,
-) error {
-	srcClient, err := storage.NewClient(src)
+func (c Copy) doCopy(ctx context.Context, srcurl *objurl.ObjectURL, dsturl *objurl.ObjectURL) error {
+	srcClient, err := storage.NewClient(srcurl)
 	if err != nil {
 		return err
 	}
 
 	metadata := map[string]string{
-		"StorageClass": string(storageClass),
+		"StorageClass": string(c.storageClass),
 	}
 
-	err = shouldOverride(dst)
+	err = c.shouldOverride(ctx, srcurl, dsturl)
 	if err != nil {
-		if isWarning(err) {
-			printDebug(op, src, dst, err)
+		if errorpkg.IsWarning(err) {
+			printDebug(c.op, srcurl, dsturl, err)
 			return nil
 		}
 		return err
 	}
 
-	err = srcClient.Copy(
-		ctx,
-		src,
-		dst,
-		metadata,
-	)
+	err = srcClient.Copy(ctx, srcurl, dsturl, metadata)
 	if err != nil {
 		return err
 	}
 
-	if deleteSource {
-		if err := srcClient.Delete(ctx, src); err != nil {
+	if c.deleteSource {
+		if err := srcClient.Delete(ctx, srcurl); err != nil {
 			return err
 		}
 	}
 
 	msg := log.InfoMessage{
-		Operation:   op,
-		Source:      src,
-		Destination: dst,
+		Operation:   c.op,
+		Source:      srcurl,
+		Destination: dsturl,
 		Object: &storage.Object{
-			URL:          dst,
-			StorageClass: storage.StorageClass(storageClass),
+			URL:          dsturl,
+			StorageClass: c.storageClass,
 		},
 	}
 	log.Info(msg)
 
 	return nil
+}
+
+// shouldOverride function checks if the destination should be overridden if
+// the source-destination pair and given copy flags conform to the
+// override criteria. For example; "cp -n -s <src> <dst>" should not override
+// the <dst> if <src> and <dst> filenames are the same, except if the size
+// differs.
+func (c Copy) shouldOverride(ctx context.Context, srcurl *objurl.ObjectURL, dsturl *objurl.ObjectURL) error {
+	// if not asked to override, ignore.
+	if !c.noClobber && !c.ifSizeDiffer && !c.ifSourceNewer {
+		return nil
+	}
+
+	srcObj, err := getObject(ctx, srcurl)
+	if err != nil {
+		return err
+	}
+
+	dstObj, err := getObject(ctx, dsturl)
+	if err != nil {
+		return err
+	}
+
+	// if destination not exists, no conditions apply.
+	if dstObj == nil {
+		return nil
+	}
+
+	var stickyErr error
+	if c.noClobber {
+		stickyErr = errorpkg.ErrObjectExists
+	}
+
+	if c.ifSizeDiffer {
+		if srcObj.Size == dstObj.Size {
+			stickyErr = errorpkg.ErrObjectSizesMatch
+		} else {
+			stickyErr = nil
+		}
+	}
+
+	if c.ifSourceNewer {
+		srcMod, dstMod := srcObj.ModTime, dstObj.ModTime
+
+		if !srcMod.After(*dstMod) {
+			stickyErr = errorpkg.ErrObjectIsNewer
+		} else {
+			stickyErr = nil
+		}
+	}
+
+	return stickyErr
 }
 
 func guessContentType(rs io.ReadSeeker) string {
@@ -491,41 +490,41 @@ func givenCommand(c *cli.Context) string {
 // and remote->remote copy operations.
 func prepareCopyDestination(
 	ctx context.Context,
-	originalSrc *objurl.ObjectURL,
-	src *objurl.ObjectURL,
-	dst *objurl.ObjectURL,
+	origSrc *objurl.ObjectURL,
+	srcurl *objurl.ObjectURL,
+	dsturl *objurl.ObjectURL,
 	parents bool,
 ) (*objurl.ObjectURL, error) {
-	objname := src.Base()
+	objname := srcurl.Base()
 	if parents {
-		objname = src.Relative()
+		objname = srcurl.Relative()
 	}
 
 	// For remote->remote copy operations, treat <dst> as prefix if it has "/"
 	// suffix.
-	if dst.IsRemote() {
-		if strings.HasSuffix(dst.Path, "/") {
-			dst = dst.Join(objname)
+	if dsturl.IsRemote() {
+		if strings.HasSuffix(dsturl.Path, "/") {
+			dsturl = dsturl.Join(objname)
 		}
-		return dst, nil
+		return dsturl, nil
 	}
 
-	client, err := storage.NewClient(dst)
+	client, err := storage.NewClient(dsturl)
 	if err != nil {
 		return nil, err
 	}
 
 	// For local->local copy operations, we can safely stat <dst> to check if
 	// it is a file or a directory.
-	obj, err := client.Stat(ctx, dst)
+	obj, err := client.Stat(ctx, dsturl)
 	if err != nil && err != storage.ErrGivenObjectNotFound {
 		return nil, err
 	}
 
 	// Absolute <src> path is given. Use given <dst> and local copy operation
 	// will create missing directories if <dst> has one.
-	if !originalSrc.HasGlob() {
-		return dst, nil
+	if !origSrc.HasGlob() {
+		return dsturl, nil
 	}
 
 	// For local->local copy operations, if <src> has glob, <dst> is expected
@@ -535,35 +534,35 @@ func prepareCopyDestination(
 		return nil, fmt.Errorf("destination argument is expected to be a directory")
 	}
 
-	return dst.Join(objname), nil
+	return dsturl.Join(objname), nil
 }
 
 // prepareDownloadDestination will return a new destination URL for
 // remote->local and remote->remote copy operations.
 func prepareDownloadDestination(
 	ctx context.Context,
-	originalSrc *objurl.ObjectURL,
-	src *objurl.ObjectURL,
-	dst *objurl.ObjectURL,
+	origSrc *objurl.ObjectURL,
+	srcurl *objurl.ObjectURL,
+	dsturl *objurl.ObjectURL,
 	parents bool,
 ) (*objurl.ObjectURL, error) {
-	objname := src.Base()
+	objname := srcurl.Base()
 	if parents {
-		objname = src.Relative()
+		objname = srcurl.Relative()
 	}
 
-	if originalSrc.HasGlob() {
-		if err := os.MkdirAll(dst.Absolute(), os.ModePerm); err != nil {
+	if origSrc.HasGlob() {
+		if err := os.MkdirAll(dsturl.Absolute(), os.ModePerm); err != nil {
 			return nil, err
 		}
 	}
 
-	client, err := storage.NewClient(dst)
+	client, err := storage.NewClient(dsturl)
 	if err != nil {
 		return nil, err
 	}
 
-	obj, err := client.Stat(ctx, dst)
+	obj, err := client.Stat(ctx, dsturl)
 	if err != nil && err != storage.ErrGivenObjectNotFound {
 		return nil, err
 	}
@@ -572,38 +571,92 @@ func prepareDownloadDestination(
 		if obj != nil && !obj.Type.IsDir() {
 			return nil, fmt.Errorf("destination argument is expected to be a directory")
 		}
-		dst = dst.Join(objname)
-		if err := os.MkdirAll(dst.Dir(), os.ModePerm); err != nil {
+		dsturl = dsturl.Join(objname)
+		if err := os.MkdirAll(dsturl.Dir(), os.ModePerm); err != nil {
 			return nil, err
 		}
 	}
 
 	if err == storage.ErrGivenObjectNotFound {
-		if err := os.MkdirAll(dst.Dir(), os.ModePerm); err != nil {
+		if err := os.MkdirAll(dsturl.Dir(), os.ModePerm); err != nil {
 			return nil, err
 		}
-		if strings.HasSuffix(dst.Absolute(), "/") {
-			dst = dst.Join(objname)
+		if strings.HasSuffix(dsturl.Absolute(), "/") {
+			dsturl = dsturl.Join(objname)
 		}
 	} else {
 		if obj.Type.IsDir() {
-			dst = obj.URL.Join(objname)
+			dsturl = obj.URL.Join(objname)
 		}
 	}
 
-	return dst, nil
+	return dsturl, nil
 }
 
 // prepareUploadDestination will return a new destination URL for local->remote
 // operations.
 func prepareUploadDestination(
-	src *objurl.ObjectURL,
-	dst *objurl.ObjectURL,
+	srcurl *objurl.ObjectURL,
+	dsturl *objurl.ObjectURL,
 	parents bool,
 ) *objurl.ObjectURL {
-	objname := src.Base()
+	objname := srcurl.Base()
 	if parents {
-		objname = src.Relative()
+		objname = srcurl.Relative()
 	}
-	return dst.Join(objname)
+	return dsturl.Join(objname)
+}
+
+// expandSource returns the full list of objects from the given src argument.
+// If src is an expandable URL, such as directory, prefix or a glob, all
+// objects are returned by walking the source.
+func expandSource(
+	ctx context.Context,
+	srcurl *objurl.ObjectURL,
+	isRecursive bool,
+) (<-chan *storage.Object, error) {
+	// TODO(ig): this function could be in the storage layer.
+
+	client, err := storage.NewClient(srcurl)
+	if err != nil {
+		return nil, err
+	}
+
+	var isDir bool
+	// if the source is local, we send a Stat call to know if  we have
+	// directory or file to walk. For remote storage, we don't want to send
+	// Stat since it doesn't have any folder semantics.
+	if !srcurl.HasGlob() && !srcurl.IsRemote() {
+		obj, err := client.Stat(ctx, srcurl)
+		if err != nil {
+			return nil, err
+		}
+		isDir = obj.Type.IsDir()
+	}
+
+	// call storage.List for only walking operations.
+	if srcurl.HasGlob() || isDir {
+		return client.List(ctx, srcurl, isRecursive, storage.ListAllItems), nil
+	}
+
+	ch := make(chan *storage.Object, 1)
+	ch <- &storage.Object{URL: srcurl}
+	close(ch)
+	return ch, nil
+}
+
+// getObject checks if the object from given url exists. If no object is
+// found, error and returning object would be nil.
+func getObject(ctx context.Context, url *objurl.ObjectURL) (*storage.Object, error) {
+	client, err := storage.NewClient(url)
+	if err != nil {
+		return nil, err
+	}
+
+	obj, err := client.Stat(ctx, url)
+	if err == storage.ErrGivenObjectNotFound {
+		return nil, nil
+	}
+
+	return obj, err
 }

@@ -15,7 +15,7 @@ import (
 
 var DeleteCommand = &cli.Command{
 	Name:     "rm",
-	HelpName: "delete",
+	HelpName: "rm",
 	Usage:    "remove objects",
 	Before: func(c *cli.Context) error {
 		if !c.Args().Present() {

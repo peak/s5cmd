@@ -10,8 +10,8 @@ import (
 )
 
 type Arg struct {
-	originalUrl *objurl.ObjectURL
-	obj         *storage.Object
+	origSrc *objurl.ObjectURL
+	obj     *storage.Object
 }
 
 // expandSources returns the full list of objects from the given src arguments.
@@ -47,8 +47,8 @@ func expandSources(
 				if err != nil {
 					if err != storage.ErrGivenObjectNotFound {
 						argChan <- &Arg{
-							originalUrl: src,
-							obj:         &storage.Object{Err: err},
+							origSrc: src,
+							obj:     &storage.Object{Err: err},
 						}
 					}
 					continue
@@ -73,16 +73,16 @@ func expandSources(
 							continue
 						}
 						argChan <- &Arg{
-							originalUrl: originalUrl,
-							obj:         obj,
+							origSrc: originalUrl,
+							obj:     obj,
 						}
 						objFound = true
 					}
 				}(src)
 			} else {
 				argChan <- &Arg{
-					originalUrl: src,
-					obj:         &storage.Object{URL: src},
+					origSrc: src,
+					obj:     &storage.Object{URL: src},
 				}
 				objFound = true
 			}

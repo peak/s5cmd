@@ -16,11 +16,19 @@ import (
 
 var SizeCommand = &cli.Command{
 	Name:     "du",
-	HelpName: "disk-usage",
+	HelpName: "du",
 	Usage:    "show disk usage",
 	Flags: []cli.Flag{
-		&cli.BoolFlag{Name: "humanize", Aliases: []string{"H"}},
-		&cli.BoolFlag{Name: "group", Aliases: []string{"g"}},
+		&cli.BoolFlag{
+			Name:    "group",
+			Aliases: []string{"g"},
+			Usage:   "group sizes by storage class",
+		},
+		&cli.BoolFlag{
+			Name:    "humanize",
+			Aliases: []string{"H"},
+			Usage:   "human-readable output for object sizes",
+		},
 	},
 	Before: func(c *cli.Context) error {
 		if c.Args().Len() != 1 {

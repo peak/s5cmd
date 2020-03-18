@@ -9,7 +9,7 @@ import (
 
 var MoveCommand = &cli.Command{
 	Name:     "mv",
-	HelpName: "move",
+	HelpName: "mv",
 	Usage:    "move objects",
 	Flags:    copyCommandFlags, // move and copy commands share the same flags
 	Before: func(c *cli.Context) error {
@@ -26,32 +26,26 @@ var MoveCommand = &cli.Command{
 		return nil
 	},
 	Action: func(c *cli.Context) error {
-		noClobber := c.Bool("no-clobber")
-		ifSizeDiffer := c.Bool("if-size-differ")
-		ifSourceNewer := c.Bool("if-source-newer")
-		recursive := c.Bool("recursive")
-		parents := c.Bool("parents")
-		storageClass := storage.LookupClass(c.String("storage-class"))
-
 		args := c.Args().Slice()
 		last := c.Args().Len() - 1
 		src := args[:last]
 		dst := args[last]
 
-		return Copy(
-			c.Context,
-			src,
-			dst,
-			c.Command.Name,
-			givenCommand(c),
-			true, // delete source
+		copyCommand := Copy{
+			src:          src,
+			dst:          dst,
+			op:           c.Command.Name,
+			fullCommand:  givenCommand(c),
+			deleteSource: true, // delete source
 			// flags
-			noClobber,
-			ifSizeDiffer,
-			ifSourceNewer,
-			recursive,
-			parents,
-			storageClass,
-		)
+			noClobber:     c.Bool("no-clobber"),
+			ifSizeDiffer:  c.Bool("if-size-differ"),
+			ifSourceNewer: c.Bool("if-source-newer"),
+			recursive:     c.Bool("recursive"),
+			parents:       c.Bool("parents"),
+			storageClass:  storage.LookupClass(c.String("storage-class")),
+		}
+
+		return copyCommand.Run(c.Context)
 	},
 }

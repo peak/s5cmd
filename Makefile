@@ -5,13 +5,6 @@ default: all
 .PHONY: all
 all: clean build test check
 
-.PHONY: dist
-dist: generate all
-
-.PHONY: generate
-generate:
-	@go generate ${SRCDIR}
-
 .PHONY: build
 build:
 	@go build ${GCFLAGS} -ldflags "${LDFLAGS}" ${SRCDIR}
@@ -42,5 +35,15 @@ check-fmt:
 .PHONY: clean
 clean:
 	@rm -f ${SRCDIR}/s5cmd
+
+
+.PHONY: release
+release:
+	@echo "Latest tag is" $$(git describe --tags)
+	@echo "Are you sure you want to release '$$version'? [y/N]" && read ans && [ $${ans:-N} = y ]
+	rm -rf ./dist/
+	git tag $$version
+	git push --tags
+	goreleaser
 
 .NOTPARALLEL:

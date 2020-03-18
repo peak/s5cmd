@@ -583,10 +583,17 @@ func prepareUploadDestination(
 	dsturl *objurl.ObjectURL,
 	parents bool,
 ) *objurl.ObjectURL {
+	// if S3 destination is not a bucket and does not end with "/",
+	// use raw destination url.
+	if !dsturl.IsBucket() && !strings.HasSuffix(dsturl.Absolute(), "/") {
+		return dsturl
+	}
+
 	objname := srcurl.Base()
 	if parents {
 		objname = srcurl.Relative()
 	}
+
 	return dsturl.Join(objname)
 }
 

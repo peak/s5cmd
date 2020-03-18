@@ -403,24 +403,12 @@ func (c Copy) doCopy(ctx context.Context, src *objurl.ObjectURL, dst *objurl.Obj
 		Destination: dst,
 		Object: &storage.Object{
 			URL:          dst,
-			StorageClass: storage.StorageClass(c.storageClass),
+			StorageClass: c.storageClass,
 		},
 	}
 	log.Info(msg)
 
 	return nil
-}
-
-func guessContentType(rs io.ReadSeeker) string {
-	defer rs.Seek(0, io.SeekStart)
-
-	const bufsize = 512
-	buf, err := ioutil.ReadAll(io.LimitReader(rs, bufsize))
-	if err != nil {
-		return ""
-	}
-
-	return http.DetectContentType(buf)
 }
 
 // shouldOverride function checks if the destination should be overridden if
@@ -473,6 +461,18 @@ func (c Copy) shouldOverride(ctx context.Context, src *objurl.ObjectURL, dst *ob
 	}
 
 	return stickyErr
+}
+
+func guessContentType(rs io.ReadSeeker) string {
+	defer rs.Seek(0, io.SeekStart)
+
+	const bufsize = 512
+	buf, err := ioutil.ReadAll(io.LimitReader(rs, bufsize))
+	if err != nil {
+		return ""
+	}
+
+	return http.DetectContentType(buf)
 }
 
 func givenCommand(c *cli.Context) string {

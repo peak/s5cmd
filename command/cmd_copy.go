@@ -324,12 +324,7 @@ func (c Copy) doUpload(ctx context.Context, srcurl *objurl.ObjectURL, dsturl *ob
 		"ContentType":  guessContentType(f),
 	}
 
-	err = dstClient.Put(
-		ctx,
-		f,
-		dsturl,
-		metadata,
-	)
+	err = dstClient.Put(ctx, f, dsturl, metadata)
 	if err != nil {
 		return err
 	}

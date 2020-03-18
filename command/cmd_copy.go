@@ -79,7 +79,7 @@ var CopyCommand = &cli.Command{
 		}
 
 		if dsturl.IsRemote() && len(src) > 1 && !strings.HasSuffix(dsturl.Absolute(), "/") {
-			return fmt.Errorf("target should be a directory for multiple sources")
+			return fmt.Errorf("destination argument is expected to be a directory")
 		}
 
 		return nil

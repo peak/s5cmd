@@ -74,6 +74,8 @@ github.com/johannesboyne/gofakes3/internal/s3io
 github.com/karrick/godirwalk
 # github.com/pkg/errors v0.9.1
 github.com/pkg/errors
+# github.com/posener/complete v1.2.3
+github.com/posener/complete/cmd/install
 # github.com/russross/blackfriday/v2 v2.0.1
 github.com/russross/blackfriday/v2
 # github.com/ryszard/goskiplist v0.0.0-20150312221310-2dfbae5fcf46

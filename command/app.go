@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	cmpinstall "github.com/posener/complete/cmd/install"
 	"github.com/urfave/cli/v2"
 
 	"github.com/peak/s5cmd/log"
@@ -24,8 +25,9 @@ const (
 )
 
 var app = &cli.App{
-	Name:  appName,
-	Usage: "Blazing fast S3 and local filesystem execution tool",
+	Name:                 appName,
+	Usage:                "Blazing fast S3 and local filesystem execution tool",
+	EnableBashCompletion: true,
 	Flags: []cli.Flag{
 		&cli.IntFlag{
 			Name:    "download-concurrency",
@@ -134,6 +136,12 @@ var app = &cli.App{
 		return nil
 	},
 	Action: func(c *cli.Context) error {
+		if c.Bool("install-completion") {
+			if !cmpinstall.IsInstalled(appName) {
+				return cmpinstall.Install(appName)
+			}
+			return nil
+		}
 		return cli.ShowAppHelp(c)
 	},
 	After: func(c *cli.Context) error {

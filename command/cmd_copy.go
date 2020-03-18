@@ -245,15 +245,56 @@ func (c Copy) upload(
 	}
 }
 
+// shouldOverride function checks if the destination should be overridden if
+// the source-destination pair and given copy flags conform to the
+// override criteria. For example; "cp -n -s <src> <dst>" should not override
+// the <dst> if <src> and <dst> filenames are the same, except if the size
+// differs.
 func (c Copy) shouldOverride(ctx context.Context, src *objurl.ObjectURL, dst *objurl.ObjectURL) error {
-	return shouldOverride(
-		ctx,
-		src,
-		dst,
-		c.noClobber,
-		c.ifSizeDiffer,
-		c.ifSourceNewer,
-	)
+	// if not asked to override, ignore.
+	if !c.noClobber && !c.ifSizeDiffer && !c.ifSourceNewer {
+		return nil
+	}
+
+	srcObj, err := getObject(ctx, src)
+	if err != nil {
+		return err
+	}
+
+	dstObj, err := getObject(ctx, dst)
+	if err != nil {
+		return err
+	}
+
+	// if destination not exists, no conditions apply.
+	if dstObj == nil {
+		return nil
+	}
+
+	var stickyErr error
+	if c.noClobber {
+		stickyErr = errorpkg.ErrObjectExists
+	}
+
+	if c.ifSizeDiffer {
+		if srcObj.Size == dstObj.Size {
+			stickyErr = errorpkg.ErrObjectSizesMatch
+		} else {
+			stickyErr = nil
+		}
+	}
+
+	if c.ifSourceNewer {
+		srcMod, dstMod := srcObj.ModTime, dstObj.ModTime
+
+		if !srcMod.After(*dstMod) {
+			stickyErr = errorpkg.ErrObjectIsNewer
+		} else {
+			stickyErr = nil
+		}
+	}
+
+	return stickyErr
 }
 
 // doDownload is used to fetch a remote object and save as a local object.
@@ -271,7 +312,7 @@ func (c Copy) doDownload(ctx context.Context, src *objurl.ObjectURL, dst *objurl
 	err = c.shouldOverride(ctx, src, dst)
 	if err != nil {
 		// FIXME(ig): rename
-		if isWarning(err) {
+		if errorpkg.IsWarning(err) {
 			printDebug(c.op, src, dst, err)
 			return nil
 		}
@@ -318,7 +359,7 @@ func (c Copy) doUpload(ctx context.Context, src *objurl.ObjectURL, dst *objurl.O
 
 	err = c.shouldOverride(ctx, src, dst)
 	if err != nil {
-		if isWarning(err) {
+		if errorpkg.IsWarning(err) {
 			printDebug(c.op, src, dst, err)
 			return nil
 		}
@@ -385,7 +426,7 @@ func (c Copy) doCopy(ctx context.Context, src *objurl.ObjectURL, dst *objurl.Obj
 
 	err = c.shouldOverride(ctx, src, dst)
 	if err != nil {
-		if isWarning(err) {
+		if errorpkg.IsWarning(err) {
 			printDebug(c.op, src, dst, err)
 			return nil
 		}
@@ -595,4 +636,20 @@ func expandSource(
 	ch <- &storage.Object{URL: src}
 	close(ch)
 	return ch, nil
+}
+
+// getObject checks if the object from given url exists. If no object is
+// found, error and returning object would be nil.
+func getObject(ctx context.Context, url *objurl.ObjectURL) (*storage.Object, error) {
+	client, err := storage.NewClient(url)
+	if err != nil {
+		return nil, err
+	}
+
+	obj, err := client.Stat(ctx, url)
+	if err == storage.ErrGivenObjectNotFound {
+		return nil, nil
+	}
+
+	return obj, err
 }

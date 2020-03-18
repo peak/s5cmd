@@ -593,7 +593,6 @@ func prepareUploadDestination(
 	if parents {
 		objname = srcurl.Relative()
 	}
-
 	return dsturl.Join(objname)
 }
 

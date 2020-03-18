@@ -156,11 +156,11 @@ func (c Copy) Run(ctx context.Context) error {
 
 		switch {
 		case srcurl.Type == dsturl.Type: // local->local or remote->remote
-			task = c.copy(ctx, srcurl, src, dsturl)
+			task = c.prepareCopyTask(ctx, srcurl, src, dsturl)
 		case srcurl.IsRemote(): // remote->local
-			task = c.download(ctx, srcurl, src, dsturl)
+			task = c.prepareDownloadTask(ctx, srcurl, src, dsturl)
 		case dsturl.IsRemote(): // local->remote
-			task = c.upload(ctx, src, dsturl)
+			task = c.prepareUploadTask(ctx, src, dsturl)
 		default:
 			panic("unexpected src-dst pair")
 		}
@@ -174,7 +174,7 @@ func (c Copy) Run(ctx context.Context) error {
 	return merror
 }
 
-func (c Copy) copy(
+func (c Copy) prepareCopyTask(
 	ctx context.Context,
 	originalsrc *objurl.ObjectURL,
 	srcurl *objurl.ObjectURL,
@@ -199,7 +199,7 @@ func (c Copy) copy(
 	}
 }
 
-func (c Copy) download(
+func (c Copy) prepareDownloadTask(
 	ctx context.Context,
 	originalsrc *objurl.ObjectURL,
 	srcurl *objurl.ObjectURL,
@@ -224,7 +224,7 @@ func (c Copy) download(
 	}
 }
 
-func (c Copy) upload(
+func (c Copy) prepareUploadTask(
 	ctx context.Context,
 	srcurl *objurl.ObjectURL,
 	dsturl *objurl.ObjectURL,

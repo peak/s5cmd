@@ -24,9 +24,8 @@ const (
 )
 
 var app = &cli.App{
-	Name:                 appName,
-	Usage:                "Blazing fast S3 and local filesystem execution tool",
-	EnableBashCompletion: true,
+	Name:  appName,
+	Usage: "Blazing fast S3 and local filesystem execution tool",
 	Flags: []cli.Flag{
 		&cli.IntFlag{
 			Name:    "download-concurrency",
@@ -159,6 +158,10 @@ func Main(ctx context.Context, args []string) error {
 		MoveCommand,
 		RunCommand,
 		VersionCommand,
+	}
+
+	if autoComplete() {
+		return nil
 	}
 
 	return app.RunContext(ctx, args)

@@ -16,12 +16,19 @@ import (
 
 var ListCommand = &cli.Command{
 	Name:     "ls",
-	HelpName: "list",
+	HelpName: "ls",
 	Usage:    "list buckets and objects",
-
 	Flags: []cli.Flag{
-		&cli.BoolFlag{Name: "etag", Aliases: []string{"e"}},
-		&cli.BoolFlag{Name: "humanize", Aliases: []string{"H"}},
+		&cli.BoolFlag{
+			Name:    "etag",
+			Aliases: []string{"e"},
+			Usage:   "show entity tag (ETag) in the output",
+		},
+		&cli.BoolFlag{
+			Name:    "humanize",
+			Aliases: []string{"H"},
+			Usage:   "human-readable output for object sizes",
+		},
 	},
 	Before: func(c *cli.Context) error {
 		if c.Args().Len() > 1 {

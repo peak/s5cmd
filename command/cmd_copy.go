@@ -52,7 +52,7 @@ var copyCommandFlags = []cli.Flag{
 
 var CopyCommand = &cli.Command{
 	Name:     "cp",
-	HelpName: "copy",
+	HelpName: "cp",
 	Usage:    "copy objects",
 	Flags:    copyCommandFlags,
 	Before: func(c *cli.Context) error {

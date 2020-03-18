@@ -19,21 +19,70 @@ const (
 	defaultRetryCount          = 10
 
 	megabytes = 1024 * 1024
+
+	appName = "s5cmd"
 )
 
 var app = &cli.App{
-	HideHelp: true,
+	Name:  appName,
+	Usage: "Blazing fast S3 and local filesystem execution tool",
 	Flags: []cli.Flag{
-		&cli.IntFlag{Name: "download-concurrency", Aliases: []string{"dw"}, Value: defaultDownloadConcurrency},
-		&cli.IntFlag{Name: "upload-concurrency", Aliases: []string{"uw"}, Value: defaultUploadConcurrency},
-		&cli.IntFlag{Name: "download-chunk-size", Aliases: []string{"ds"}, Value: defaultChunkSize},
-		&cli.IntFlag{Name: "upload-chunk-size", Aliases: []string{"us"}, Value: defaultChunkSize},
-		&cli.IntFlag{Name: "retry-count", Aliases: []string{"r"}, Value: defaultRetryCount},
-		&cli.BoolFlag{Name: "no-verify-ssl"},
-		&cli.StringFlag{Name: "endpoint-url"},
-		&cli.IntFlag{Name: "numworkers", Value: defaultWorkerCount},
-		&cli.BoolFlag{Name: "json"},
-		&cli.StringFlag{Name: "log", Value: "info"},
+		&cli.IntFlag{
+			Name:    "download-concurrency",
+			Aliases: []string{"dw"},
+			Value:   defaultDownloadConcurrency,
+			Usage:   "number of concurrent parts receiving from remote server",
+		},
+		&cli.IntFlag{
+			Name:    "upload-concurrency",
+			Aliases: []string{"uw"},
+			Value:   defaultUploadConcurrency,
+			Usage:   "number of concurrent parts sending to remote server",
+		},
+		&cli.IntFlag{
+			Name:    "download-chunk-size",
+			Aliases: []string{"ds"},
+			Value:   defaultChunkSize,
+			Usage:   "size of each part requested from remote server",
+		},
+		&cli.IntFlag{
+			Name:    "upload-chunk-size",
+			Aliases: []string{"us"},
+			Value:   defaultChunkSize,
+			Usage:   "size of each part sent to remote server",
+		},
+		&cli.IntFlag{
+			Name:    "retry-count",
+			Aliases: []string{"r"},
+			Value:   defaultRetryCount,
+			Usage:   "number of times that a request will be retried for failures",
+		},
+		&cli.BoolFlag{
+			Name:  "no-verify-ssl",
+			Usage: "disable SSL certificate verification",
+		},
+		&cli.StringFlag{
+			Name:  "endpoint-url",
+			Usage: "override default S3 host for custom services",
+		},
+		&cli.IntFlag{
+			Name:  "numworkers",
+			Value: defaultWorkerCount,
+			Usage: "number of workers execute operation on each object",
+		},
+		&cli.BoolFlag{
+			Name:  "json",
+			Usage: "enable JSON formatted output",
+		},
+		&cli.StringFlag{
+			Name:  "log",
+			Value: "info",
+			Usage: "log level: (verbose, info, error)",
+		},
+		&cli.BoolFlag{
+			Name:  "install-completion",
+			Usage: "install shell completion for your shell",
+		},
 	},
 	Before: func(c *cli.Context) error {
 		downloadConcurrency := c.Int("download-concurrency")
@@ -107,7 +156,6 @@ func Main(ctx context.Context, args []string) error {
 		DeleteCommand,
 		CopyCommand,
 		MoveCommand,
-		GetCommand,
 		RunCommand,
 		VersionCommand,
 	}

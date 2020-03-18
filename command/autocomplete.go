@@ -38,5 +38,5 @@ func autoComplete() bool {
 		Flags: adaptFlags(app.Flags),
 		Sub:   cmpCommands,
 	}
-	return complete.New(appName, completionCmd).Run()
+	return complete.New(appName, completionCmd).Complete()
 }

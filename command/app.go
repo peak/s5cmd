@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	cmpinstall "github.com/posener/complete/cmd/install"
 	"github.com/urfave/cli/v2"
 
 	"github.com/peak/s5cmd/log"
@@ -136,12 +135,6 @@ var app = &cli.App{
 		return nil
 	},
 	Action: func(c *cli.Context) error {
-		if c.Bool("install-completion") {
-			if !cmpinstall.IsInstalled(appName) {
-				return cmpinstall.Install(appName)
-			}
-			return nil
-		}
 		return cli.ShowAppHelp(c)
 	},
 	After: func(c *cli.Context) error {

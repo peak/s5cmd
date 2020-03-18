@@ -75,6 +75,8 @@ github.com/karrick/godirwalk
 # github.com/pkg/errors v0.9.1
 github.com/pkg/errors
 # github.com/posener/complete v1.2.3
+github.com/posener/complete
+github.com/posener/complete/cmd
 github.com/posener/complete/cmd/install
 # github.com/russross/blackfriday/v2 v2.0.1
 github.com/russross/blackfriday/v2
@@ -86,7 +88,7 @@ github.com/shabbyrobe/gocovmerge
 github.com/shurcooL/sanitized_anchor_name
 # github.com/termie/go-shutil v0.0.0-20140729215957-bcacb06fecae
 github.com/termie/go-shutil
-# github.com/urfave/cli/v2 v2.1.1
+# github.com/urfave/cli/v2 v2.2.0
 github.com/urfave/cli/v2
 # golang.org/x/sys v0.0.0-20190422165155-953cdadca894
 golang.org/x/sys/unix

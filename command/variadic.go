@@ -23,13 +23,13 @@ func expandSources(
 	ctx context.Context,
 	isRecursive bool,
 	dsturl *objurl.ObjectURL,
-	sources ...*objurl.ObjectURL,
+	srcurls ...*objurl.ObjectURL,
 ) (<-chan *Arg, error) {
-	if len(sources) == 0 {
-		return nil, fmt.Errorf("at least one source required")
+	if len(srcurls) == 0 {
+		return nil, fmt.Errorf("at least one source url is required")
 	}
 	// all sources share same client
-	client, err := storage.NewClient(sources[0])
+	client, err := storage.NewClient(srcurls[0])
 	if err != nil {
 		return nil, err
 	}
@@ -41,7 +41,7 @@ func expandSources(
 		var wg sync.WaitGroup
 		var objFound bool
 
-		for _, origSrc := range sources {
+		for _, origSrc := range srcurls {
 			var isDir bool
 			// if the source is local, we send a Stat call to know if  we have
 			// directory or file to walk. For remote storage, we don't want to send

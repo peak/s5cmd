@@ -245,58 +245,6 @@ func (c Copy) upload(
 	}
 }
 
-// shouldOverride function checks if the destination should be overridden if
-// the source-destination pair and given copy flags conform to the
-// override criteria. For example; "cp -n -s <src> <dst>" should not override
-// the <dst> if <src> and <dst> filenames are the same, except if the size
-// differs.
-func (c Copy) shouldOverride(ctx context.Context, src *objurl.ObjectURL, dst *objurl.ObjectURL) error {
-	// if not asked to override, ignore.
-	if !c.noClobber && !c.ifSizeDiffer && !c.ifSourceNewer {
-		return nil
-	}
-
-	srcObj, err := getObject(ctx, src)
-	if err != nil {
-		return err
-	}
-
-	dstObj, err := getObject(ctx, dst)
-	if err != nil {
-		return err
-	}
-
-	// if destination not exists, no conditions apply.
-	if dstObj == nil {
-		return nil
-	}
-
-	var stickyErr error
-	if c.noClobber {
-		stickyErr = errorpkg.ErrObjectExists
-	}
-
-	if c.ifSizeDiffer {
-		if srcObj.Size == dstObj.Size {
-			stickyErr = errorpkg.ErrObjectSizesMatch
-		} else {
-			stickyErr = nil
-		}
-	}
-
-	if c.ifSourceNewer {
-		srcMod, dstMod := srcObj.ModTime, dstObj.ModTime
-
-		if !srcMod.After(*dstMod) {
-			stickyErr = errorpkg.ErrObjectIsNewer
-		} else {
-			stickyErr = nil
-		}
-	}
-
-	return stickyErr
-}
-
 // doDownload is used to fetch a remote object and save as a local object.
 func (c Copy) doDownload(ctx context.Context, src *objurl.ObjectURL, dst *objurl.ObjectURL) error {
 	srcClient, err := storage.NewClient(src)
@@ -473,6 +421,58 @@ func guessContentType(rs io.ReadSeeker) string {
 	}
 
 	return http.DetectContentType(buf)
+}
+
+// shouldOverride function checks if the destination should be overridden if
+// the source-destination pair and given copy flags conform to the
+// override criteria. For example; "cp -n -s <src> <dst>" should not override
+// the <dst> if <src> and <dst> filenames are the same, except if the size
+// differs.
+func (c Copy) shouldOverride(ctx context.Context, src *objurl.ObjectURL, dst *objurl.ObjectURL) error {
+	// if not asked to override, ignore.
+	if !c.noClobber && !c.ifSizeDiffer && !c.ifSourceNewer {
+		return nil
+	}
+
+	srcObj, err := getObject(ctx, src)
+	if err != nil {
+		return err
+	}
+
+	dstObj, err := getObject(ctx, dst)
+	if err != nil {
+		return err
+	}
+
+	// if destination not exists, no conditions apply.
+	if dstObj == nil {
+		return nil
+	}
+
+	var stickyErr error
+	if c.noClobber {
+		stickyErr = errorpkg.ErrObjectExists
+	}
+
+	if c.ifSizeDiffer {
+		if srcObj.Size == dstObj.Size {
+			stickyErr = errorpkg.ErrObjectSizesMatch
+		} else {
+			stickyErr = nil
+		}
+	}
+
+	if c.ifSourceNewer {
+		srcMod, dstMod := srcObj.ModTime, dstObj.ModTime
+
+		if !srcMod.After(*dstMod) {
+			stickyErr = errorpkg.ErrObjectIsNewer
+		} else {
+			stickyErr = nil
+		}
+	}
+
+	return stickyErr
 }
 
 func givenCommand(c *cli.Context) string {

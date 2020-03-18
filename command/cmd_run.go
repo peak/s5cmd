@@ -55,8 +55,16 @@ var RunCommand = &cli.Command{
 		lineno := -1
 		for line := range scanner.Scan() {
 			lineno++
+
+			// support inline comments
+			line = strings.Split(line, " #")[0]
+
 			line = strings.TrimSpace(line)
 			if line == "" {
+				continue
+			}
+
+			if strings.HasPrefix(line, "#") {
 				continue
 			}
 

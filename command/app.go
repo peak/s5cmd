@@ -160,5 +160,9 @@ func Main(ctx context.Context, args []string) error {
 		VersionCommand,
 	}
 
+	if autoComplete() {
+		return nil
+	}
+
 	return app.RunContext(ctx, args)
 }

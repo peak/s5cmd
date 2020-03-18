@@ -9,6 +9,7 @@ import (
 	"github.com/peak/s5cmd/storage"
 )
 
+// Arg is a container type for supporting variadic arguments.
 type Arg struct {
 	origSrc *objurl.ObjectURL
 	obj     *storage.Object
@@ -16,7 +17,8 @@ type Arg struct {
 
 // expandSources returns the full list of objects from the given src arguments.
 // If src is an expandable URL, such as directory, prefix or a glob, all
-// objects are returned by walking the source.
+// objects are returned by walking the source. It expands multiple resources asynchronously
+// and returns read-only arg channel.
 func expandSources(
 	ctx context.Context,
 	isRecursive bool,
@@ -97,6 +99,7 @@ func expandSources(
 	return argChan, nil
 }
 
+// newSources creates ObjectURL list from given source strings.
 func newSources(sources ...string) ([]*objurl.ObjectURL, error) {
 	var urls []*objurl.ObjectURL
 	for _, src := range sources {
@@ -109,6 +112,8 @@ func newSources(sources ...string) ([]*objurl.ObjectURL, error) {
 	return urls, nil
 }
 
+// checkSources check if given sources share same objurlType and gives
+// error if it contains both local and remote targets.
 func checkSources(sources ...string) error {
 	var hasRemote, hasLocal bool
 	for _, src := range sources {
@@ -116,6 +121,7 @@ func checkSources(sources ...string) error {
 		if err != nil {
 			return err
 		}
+
 		if srcurl.IsRemote() {
 			hasRemote = true
 		} else {

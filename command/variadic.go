@@ -22,12 +22,14 @@ type Arg struct {
 func expandSources(
 	ctx context.Context,
 	isRecursive bool,
-	dst *objurl.ObjectURL,
+	dsturl *objurl.ObjectURL,
 	sources ...*objurl.ObjectURL,
 ) (<-chan *Arg, error) {
+	if len(sources) == 0 {
+		return nil, fmt.Errorf("at least one source required")
+	}
 	// all sources share same client
-	srcurl := sources[0]
-	client, err := storage.NewClient(srcurl)
+	client, err := storage.NewClient(sources[0])
 	if err != nil {
 		return nil, err
 	}
@@ -39,17 +41,17 @@ func expandSources(
 		var wg sync.WaitGroup
 		var objFound bool
 
-		for _, src := range sources {
+		for _, origSrc := range sources {
 			var isDir bool
 			// if the source is local, we send a Stat call to know if  we have
 			// directory or file to walk. For remote storage, we don't want to send
 			// Stat since it doesn't have any folder semantics.
-			if !src.HasGlob() && !src.IsRemote() {
-				obj, err := client.Stat(ctx, src)
+			if !origSrc.HasGlob() && !origSrc.IsRemote() {
+				obj, err := client.Stat(ctx, origSrc)
 				if err != nil {
 					if err != storage.ErrGivenObjectNotFound {
 						argChan <- &Arg{
-							origSrc: src,
+							origSrc: origSrc,
 							obj:     &storage.Object{Err: err},
 						}
 					}
@@ -59,32 +61,32 @@ func expandSources(
 			}
 
 			recursive := isRecursive
-			if !recursive && dst != nil {
+			if !recursive && dsturl != nil {
 				// set recursive=true for local->remote copy operations. this
 				// is required for backwards compatibility.
-				recursive = !src.IsRemote() && dst.IsRemote()
+				recursive = !origSrc.IsRemote() && dsturl.IsRemote()
 			}
 
 			// call storage.List for only walking operations.
-			if src.HasGlob() || isDir {
+			if origSrc.HasGlob() || isDir {
 				wg.Add(1)
-				go func(originalUrl *objurl.ObjectURL) {
+				go func(origSrc *objurl.ObjectURL) {
 					defer wg.Done()
-					for obj := range client.List(ctx, originalUrl, recursive, storage.ListAllItems) {
+					for obj := range client.List(ctx, origSrc, recursive, storage.ListAllItems) {
 						if obj.Err == storage.ErrNoObjectFound {
 							continue
 						}
 						argChan <- &Arg{
-							origSrc: originalUrl,
+							origSrc: origSrc,
 							obj:     obj,
 						}
 						objFound = true
 					}
-				}(src)
+				}(origSrc)
 			} else {
 				argChan <- &Arg{
-					origSrc: src,
-					obj:     &storage.Object{URL: src},
+					origSrc: origSrc,
+					obj:     &storage.Object{URL: origSrc},
 				}
 				objFound = true
 			}

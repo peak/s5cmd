@@ -78,8 +78,10 @@ var CopyCommand = &cli.Command{
 			return err
 		}
 
-		if dsturl.IsRemote() && len(src) > 1 && !strings.HasSuffix(dsturl.Absolute(), "/") {
-			return fmt.Errorf("destination argument is expected to be a directory")
+		if dsturl.IsRemote() && len(src) > 1 {
+			if !strings.HasSuffix(dsturl.Absolute(), "/") && !dsturl.IsBucket() {
+				return fmt.Errorf("destination argument is expected to be a directory or bucket")
+			}
 		}
 
 		return nil

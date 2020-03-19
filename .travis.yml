@@ -3,6 +3,10 @@ language: go
 go:
   - 1.13.x
 
+env:
+  global:
+    - GOFLAGS="-mod=vendor"
+
 before_install:
   - go get honnef.co/go/tools/cmd/staticcheck
   - go get mvdan.cc/unparam

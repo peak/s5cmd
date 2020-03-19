@@ -30,7 +30,7 @@ vet:
 
 .PHONY: check-fmt
 check-fmt:
-	@sh -c 'unfmt_files="$$(go fmt ./...)"; if [ -n "$$unfmt_files"  ]; then echo "$$unfmt_files"; echo "Go code is not formatted, run <make fmt>"; exit 1; fi'
+	@sh -c 'if [ -n "$(go fmt ./...)" ]; then echo "Go code is not formatted"; exit 1; fi'
 
 .PHONY: clean
 clean:

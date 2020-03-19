@@ -81,16 +81,12 @@ var CopyCommand = &cli.Command{
 			return fmt.Errorf("target %q can not contain glob characters", dst)
 		}
 
-		if c.Int64("upload-chunk-size") < 5 {
-			return fmt.Errorf("upload chunk size should be greater than 5 MiB")
+		if c.Int64("part-size") < 5 {
+			return fmt.Errorf("part size should be greater than 5 MiB")
 		}
 
-		if c.Int64("download-chunk-size") < 5 {
-			return fmt.Errorf("download chunk size should be greater than 5 MiB")
-		}
-
-		if c.Int("download-concurrency") < 1 || c.Int("upload-concurrency") < 1 {
-			return fmt.Errorf("download/upload concurrency should be greater than 1")
+		if c.Int("concurrency") < 1 {
+			return fmt.Errorf("copy concurrency should be greater than 1")
 		}
 
 		return nil

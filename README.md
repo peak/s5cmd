@@ -96,9 +96,9 @@ s3://bucket/logs/2020/03/19/originals/file3.gz
 And will be saved as:
 
 ```
-.logs/18/file1.gz
-.logs/19/file2.gz
-.logs/19/originals/file3.gz
+logs/18/file1.gz
+logs/19/file2.gz
+logs/19/originals/file3.gz
 ```
 
 #### Upload a file to S3

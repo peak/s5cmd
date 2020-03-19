@@ -25,22 +25,22 @@ This is a major release with many breaking changes.
   is enabled by default for S3 and GCS. If you provide a custom endpoint via
   `--endpoint-url` flag (other than GCS and S3 transfer acceleration), `s5cmd`
   will fall back to the `path-style`.
-- Listing a non-existent object will return exit code `1`, instead of `0`. See #23.
+- Listing a non-existent object will return exit code `1`, instead of `0`. See [#23](https://github.com/peak/s5cmd/issues/23).
 
 ### Features
 
-- Added `mb` command to make buckets. See #25.
-- Added `--json` flag for JSON logging. See #22.
-- Added [S3 transfer acceleration](https://docs.aws.amazon.com/AmazonS3/latest/dev/transfer-acceleration.html) support. See #40.
+- Added `mb` command to make buckets. See [#25](https://github.com/peak/s5cmd/issues/25).
+- Added `--json` flag for JSON logging. See [#22](https://github.com/peak/s5cmd/issues/22).
+- Added [S3 transfer acceleration](https://docs.aws.amazon.com/AmazonS3/latest/dev/transfer-acceleration.html) support. See [#40](https://github.com/peak/s5cmd/issues/40).
 
 ### Bugfixes
 
-- Correctly set `Content-Type` of a file on upload operations. See #33.
+- Correctly set `Content-Type` of a file on upload operations. See [#33](https://github.com/peak/s5cmd/issues/33).
 
 ### Improvements
 
-- Pre-compiled binaries are provided on [releases page](https://github.com/peak/s5cmd/releases). See #21.
-- AWS Go SDK is updated to support IAM role for service accounts. See #23.
+- Pre-compiled binaries are provided on [releases page](https://github.com/peak/s5cmd/releases). See [#21](https://github.com/peak/s5cmd/issues/21).
+- AWS Go SDK is updated to support IAM role for service accounts. See [#32](https://github.com/peak/s5cmd/issues/32).
 
 ## v0.7.0 - 27 Jan 2020
 

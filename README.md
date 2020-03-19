@@ -204,8 +204,11 @@ restart your shell to activate the changes.
 `s5cmd` supports both text and JSON outputs.
 * text format
 
-    $ download s3://bucket/key
-    $ ERROR "cp s3://somebucket/file.txt file.txt": object already exists
+```shell
+$ download s3://bucket/key
+
+$ ERROR "cp s3://somebucket/file.txt file.txt": object already exists
+```
 
 * If `--json` flag if provided:
 

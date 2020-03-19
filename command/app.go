@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	cmpinstall "github.com/posener/complete/cmd/install"
 	"github.com/urfave/cli/v2"
 
 	"github.com/peak/s5cmd/log"
@@ -27,6 +28,15 @@ var app = &cli.App{
 	Name:  appName,
 	Usage: "Blazing fast S3 and local filesystem execution tool",
 	Flags: []cli.Flag{
+		&cli.BoolFlag{
+			Name:  "json",
+			Usage: "enable JSON formatted output",
+		},
+		&cli.IntFlag{
+			Name:  "numworkers",
+			Value: defaultWorkerCount,
+			Usage: "number of workers execute operation on each object",
+		},
 		&cli.IntFlag{
 			Name:    "download-concurrency",
 			Aliases: []string{"dw"},
@@ -57,22 +67,13 @@ var app = &cli.App{
 			Value:   defaultRetryCount,
 			Usage:   "number of times that a request will be retried for failures",
 		},
-		&cli.BoolFlag{
-			Name:  "no-verify-ssl",
-			Usage: "disable SSL certificate verification",
-		},
 		&cli.StringFlag{
 			Name:  "endpoint-url",
 			Usage: "override default S3 host for custom services",
 		},
-		&cli.IntFlag{
-			Name:  "numworkers",
-			Value: defaultWorkerCount,
-			Usage: "number of workers execute operation on each object",
-		},
 		&cli.BoolFlag{
-			Name:  "json",
-			Usage: "enable JSON formatted output",
+			Name:  "no-verify-ssl",
+			Usage: "disable SSL certificate verification",
 		},
 		&cli.StringFlag{
 			Name:  "log",
@@ -81,7 +82,7 @@ var app = &cli.App{
 		},
 		&cli.BoolFlag{
 			Name:  "install-completion",
-			Usage: "install shell completion for your shell",
+			Usage: "install completion for your shell",
 		},
 	},
 	Before: func(c *cli.Context) error {
@@ -134,6 +135,14 @@ var app = &cli.App{
 		return nil
 	},
 	Action: func(c *cli.Context) error {
+		if c.Bool("install-completion") {
+			if cmpinstall.IsInstalled(appName) {
+				return nil
+			}
+
+			return cmpinstall.Install(appName)
+		}
+
 		return cli.ShowAppHelp(c)
 	},
 	After: func(c *cli.Context) error {
@@ -151,11 +160,11 @@ var app = &cli.App{
 func Main(ctx context.Context, args []string) error {
 	app.Commands = []*cli.Command{
 		ListCommand,
-		SizeCommand,
-		MakeBucketCommand,
-		DeleteCommand,
 		CopyCommand,
+		DeleteCommand,
 		MoveCommand,
+		MakeBucketCommand,
+		SizeCommand,
 		RunCommand,
 		VersionCommand,
 	}

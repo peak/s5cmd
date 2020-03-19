@@ -25,7 +25,8 @@ func TestRunFromStdin(t *testing.T) {
 	input := strings.NewReader(
 		strings.Join([]string{
 			fmt.Sprintf("ls s3://%v/file1.txt", bucket),
-			fmt.Sprintf("ls s3://%v/file2.txt", bucket),
+			" # this is a comment",
+			fmt.Sprintf("ls s3://%v/file2.txt # this is an inline comment", bucket),
 		}, "\n"),
 	)
 	cmd := s5cmd("run")

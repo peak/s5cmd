@@ -24,7 +24,7 @@ This is a major release with many breaking changes.
   resolving](https://aws.amazon.com/blogs/aws/amazon-s3-path-deprecation-plan-the-rest-of-the-story/)
   is enabled by default for S3 and GCS. If you provide a custom endpoint via
   `--endpoint-url` flag (other than GCS and S3 transfer acceleration), `s5cmd`
-  will fall back to the `path-style`.
+  will fall back to the `path-style`. See [#92](https://github.com/peak/s5cmd/pull/92).
 - Listing a non-existent object will return exit code `1`, instead of `0`. See [#23](https://github.com/peak/s5cmd/issues/23).
 
 #### Features

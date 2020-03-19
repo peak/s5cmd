@@ -3,101 +3,72 @@ package log
 import (
 	"fmt"
 	"os"
-
-	"github.com/peak/s5cmd/flags"
 )
 
-// output is a structure for std logs.
+// output is an internal container for messages to be logged.
 type output struct {
 	std     *os.File
 	message string
 }
 
-// outCh is used to synchronize writes to standard output. Multi-line
+// outputCh is used to synchronize writes to standard output. Multi-line
 // logging is not possible if all workers print logs at the same time.
 var outputCh = make(chan output, 10000)
 
-// Logger is the global logger.
-var Logger *logger
+var global *Logger
 
 // Init inits global logger.
-func Init() {
-	Logger = New()
+func Init(level string, json bool) {
+	global = New(level, json)
 }
 
-// logLevel is the level of Logger.
-type logLevel int
-
-const (
-	levelDebug logLevel = iota
-	levelInfo
-	levelWarning
-	levelError
-)
-
-// String returns the string representation of logLevel.
-func (l logLevel) String() string {
-	switch l {
-	case levelInfo:
-		return ""
-	case levelError:
-		return "ERROR "
-	case levelWarning:
-		return "WARNING "
-	case levelDebug:
-		return "DEBUG "
-	default:
-		return "UNKNOWN "
-	}
+// Debug prints message in debug mode.
+func Debug(msg Message) {
+	global.printf(LevelDebug, msg, os.Stdout)
 }
 
-// levelFromString returns logLevel for given string. It
-// return `levelInfo` as a default.
-func levelFromString(s string) logLevel {
-	switch s {
-	case "debug":
-		return levelDebug
-	case "info":
-		return levelInfo
-	case "warning":
-		return levelWarning
-	case "error":
-		return levelError
-	default:
-		return levelInfo
-	}
+// Info prints message in info mode.
+func Info(msg Message) {
+	global.printf(LevelInfo, msg, os.Stdout)
 }
 
-// Message is an interface to print structured logs.
-type Message interface {
-	fmt.Stringer
-	JSON() string
+// Error prints message in error mode.
+func Error(msg Message) {
+	global.printf(LevelError, msg, os.Stderr)
 }
 
-// logger is a structure for logging messages.
-type logger struct {
+// Close closes logger and its channel.
+func Close() {
+	close(outputCh)
+	<-global.donech
+}
+
+// Logger is a structure for logging messages.
+type Logger struct {
 	donech chan struct{}
+	json   bool
 	level  logLevel
 }
 
 // New creates new logger.
-func New() *logger {
-	level := levelFromString(*flags.LogLevel)
-	logger := &logger{
+func New(level string, json bool) *Logger {
+	logLevel := levelFromString(level)
+	logger := &Logger{
 		donech: make(chan struct{}),
-		level:  level,
+		json:   json,
+		level:  logLevel,
 	}
 	go logger.out()
 	return logger
 }
 
 // printf prints message according to the given level, message and std mode.
-func (l *logger) printf(level logLevel, message Message, std *os.File) {
+func (l *Logger) printf(level logLevel, message Message, std *os.File) {
 	if level < l.level {
 		return
 	}
 
-	if *flags.JSON {
+	if l.json {
 		outputCh <- output{
 			message: message.JSON(),
 			std:     std,
@@ -110,28 +81,8 @@ func (l *logger) printf(level logLevel, message Message, std *os.File) {
 	}
 }
 
-// Debug prints message in debug mode.
-func (l *logger) Debug(msg Message) {
-	l.printf(levelDebug, msg, os.Stdout)
-}
-
-// Info prints message in info mode.
-func (l *logger) Info(msg Message) {
-	l.printf(levelInfo, msg, os.Stdout)
-}
-
-// Warning prints message in warning mode.
-func (l *logger) Warning(msg Message) {
-	l.printf(levelWarning, msg, os.Stderr)
-}
-
-// Error prints message in error mode.
-func (l *logger) Error(msg Message) {
-	l.printf(levelError, msg, os.Stderr)
-}
-
 // out listens for outputCh and logs messages.
-func (l *logger) out() {
+func (l *Logger) out() {
 	defer close(l.donech)
 
 	for output := range outputCh {
@@ -139,8 +90,40 @@ func (l *logger) out() {
 	}
 }
 
-// Close closes logger and its channel.
-func (l *logger) Close() {
-	close(outputCh)
-	<-l.donech
+// logLevel is the level of Logger.
+type logLevel int
+
+const (
+	LevelDebug logLevel = iota
+	LevelInfo
+	LevelError
+)
+
+// String returns the string representation of logLevel.
+func (l logLevel) String() string {
+	switch l {
+	case LevelInfo:
+		return ""
+	case LevelError:
+		return "ERROR "
+	case LevelDebug:
+		return "DEBUG "
+	default:
+		return "UNKNOWN "
+	}
+}
+
+// LevelFromString returns logLevel for given string. It
+// return `levelInfo` as a default.
+func levelFromString(s string) logLevel {
+	switch s {
+	case "debug":
+		return LevelDebug
+	case "info":
+		return LevelInfo
+	case "error":
+		return LevelError
+	default:
+		return LevelInfo
+	}
 }

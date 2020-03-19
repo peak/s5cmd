@@ -13,8 +13,8 @@ import (
 const (
 	globCharacters string = "?*"
 
-	// s3Schema is the schema used on s3 URLs
-	s3Schema string = "s3://"
+	// s3Scheme is the schema used on s3 URLs
+	s3Scheme string = "s3://"
 
 	// s3Separator is the path separator for s3 URLs
 	s3Separator string = "/"
@@ -50,11 +50,16 @@ func New(s string) (*ObjectURL, error) {
 	split := strings.Split(s, "://")
 
 	if len(split) == 1 {
-		return &ObjectURL{
+		url := &ObjectURL{
 			Type:   localObject,
 			Scheme: "",
 			Path:   s,
-		}, nil
+		}
+		if err := url.setPrefixAndFilter(); err != nil {
+			return nil, err
+		}
+
+		return url, nil
 	}
 
 	if len(split) != 2 {
@@ -64,7 +69,7 @@ func New(s string) (*ObjectURL, error) {
 	scheme, rest := split[0], split[1]
 
 	if scheme != "s3" {
-		return nil, fmt.Errorf("s3 url should start with %q", s3Schema)
+		return nil, fmt.Errorf("s3 url should start with %q", s3Scheme)
 	}
 
 	parts := strings.SplitN(rest, s3Separator, 2)
@@ -79,7 +84,7 @@ func New(s string) (*ObjectURL, error) {
 		return nil, fmt.Errorf("s3 url should have a bucket")
 	}
 
-	if HasGlobCharacter(bucket) {
+	if hasGlobCharacter(bucket) {
 		return nil, fmt.Errorf("bucket name cannot contain wildcards")
 	}
 
@@ -125,6 +130,17 @@ func (o *ObjectURL) Base() string {
 	basefn := filepath.Base
 	if o.IsRemote() {
 		basefn = path.Base
+	}
+
+	return basefn(o.Path)
+}
+
+// Dir returns all but the last element of path, typically the path's
+// directory.
+func (o *ObjectURL) Dir() string {
+	basefn := filepath.Dir
+	if o.IsRemote() {
+		basefn = path.Dir
 	}
 
 	return basefn(o.Path)
@@ -225,6 +241,11 @@ func (o *ObjectURL) Clone() *ObjectURL {
 	}
 }
 
+func (o *ObjectURL) SetRelative(base string) {
+	dir := filepath.Dir(base)
+	o.relativePath, _ = filepath.Rel(dir, o.Absolute())
+}
+
 // Match checks if given key matches with the object.
 func (o *ObjectURL) Match(key string) bool {
 	if !o.filterRegex.MatchString(key) {
@@ -252,6 +273,11 @@ func (o *ObjectURL) String() string {
 
 func (o *ObjectURL) MarshalJSON() ([]byte, error) {
 	return json.Marshal(o.String())
+}
+
+// HasGlob checks if a string contains any wildcard chars.
+func (o *ObjectURL) HasGlob() bool {
+	return hasGlobCharacter(o.Path)
 }
 
 // parseBatch parses keys for wildcard operations.
@@ -304,7 +330,7 @@ func parseNonBatch(prefix string, key string) string {
 	return trimmedKey
 }
 
-// HasGlobCharacter checks if a string contains any wildcard chars.
-func HasGlobCharacter(s string) bool {
+// hasGlobCharacter checks if a string contains any wildcard chars.
+func hasGlobCharacter(s string) bool {
 	return strings.ContainsAny(s, globCharacters)
 }

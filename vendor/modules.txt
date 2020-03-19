@@ -47,6 +47,8 @@ github.com/aws/aws-sdk-go/service/sts
 github.com/aws/aws-sdk-go/service/sts/stsiface
 # github.com/boltdb/bolt v1.3.1
 github.com/boltdb/bolt
+# github.com/cpuguy83/go-md2man/v2 v2.0.0-20190314233015-f79a8a8ca69d
+github.com/cpuguy83/go-md2man/v2/md2man
 # github.com/google/go-cmp v0.4.0
 github.com/google/go-cmp/cmp
 github.com/google/go-cmp/cmp/cmpopts
@@ -54,10 +56,6 @@ github.com/google/go-cmp/cmp/internal/diff
 github.com/google/go-cmp/cmp/internal/flags
 github.com/google/go-cmp/cmp/internal/function
 github.com/google/go-cmp/cmp/internal/value
-# github.com/google/gops v0.3.2
-github.com/google/gops/agent
-github.com/google/gops/internal
-github.com/google/gops/signal
 # github.com/hashicorp/errwrap v1.0.0
 github.com/hashicorp/errwrap
 # github.com/hashicorp/go-multierror v1.0.0
@@ -72,23 +70,26 @@ github.com/johannesboyne/gofakes3/backend/s3bolt
 github.com/johannesboyne/gofakes3/backend/s3mem
 github.com/johannesboyne/gofakes3/internal/goskipiter
 github.com/johannesboyne/gofakes3/internal/s3io
-# github.com/kardianos/osext v0.0.0-20170510131534-ae77be60afb1
-github.com/kardianos/osext
 # github.com/karrick/godirwalk v1.15.3
 github.com/karrick/godirwalk
 # github.com/pkg/errors v0.9.1
 github.com/pkg/errors
-# github.com/posener/complete v0.0.0-20171104095702-dc2bc5a81acc
+# github.com/posener/complete v1.2.3
 github.com/posener/complete
 github.com/posener/complete/cmd
 github.com/posener/complete/cmd/install
-github.com/posener/complete/match
+# github.com/russross/blackfriday/v2 v2.0.1
+github.com/russross/blackfriday/v2
 # github.com/ryszard/goskiplist v0.0.0-20150312221310-2dfbae5fcf46
 github.com/ryszard/goskiplist/skiplist
 # github.com/shabbyrobe/gocovmerge v0.0.0-20180507124511-f6ea450bfb63
 github.com/shabbyrobe/gocovmerge
+# github.com/shurcooL/sanitized_anchor_name v1.0.0
+github.com/shurcooL/sanitized_anchor_name
 # github.com/termie/go-shutil v0.0.0-20140729215957-bcacb06fecae
 github.com/termie/go-shutil
+# github.com/urfave/cli/v2 v2.2.0
+github.com/urfave/cli/v2
 # golang.org/x/sys v0.0.0-20190422165155-953cdadca894
 golang.org/x/sys/unix
 # golang.org/x/tools v0.0.0-20190624222133-a101b041ded4

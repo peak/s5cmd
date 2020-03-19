@@ -23,7 +23,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager/s3manageriface"
 
-	"github.com/peak/s5cmd/flags"
 	"github.com/peak/s5cmd/objurl"
 )
 
@@ -46,7 +45,7 @@ const (
 
 // newS3Factory creates a new factory for
 // creating reusable sessions.
-func newS3Factory() func() (*S3, error) {
+func newS3Factory(opts S3Opts) func() (*S3, error) {
 	var (
 		mu     sync.RWMutex
 		cached *S3
@@ -59,16 +58,6 @@ func newS3Factory() func() (*S3, error) {
 			return cached, nil
 		}
 		mu.RUnlock()
-
-		opts := S3Opts{
-			DownloadConcurrency:    *flags.DownloadConcurrency,
-			DownloadChunkSizeBytes: *flags.DownloadPartSize,
-			EndpointURL:            *flags.EndpointURL,
-			MaxRetries:             *flags.RetryCount,
-			NoVerifySSL:            *flags.NoVerifySSL,
-			UploadChunkSizeBytes:   *flags.UploadPartSize,
-			UploadConcurrency:      *flags.UploadConcurrency,
-		}
 
 		s3, err := NewS3Storage(opts)
 		if err != nil {
@@ -84,7 +73,12 @@ func newS3Factory() func() (*S3, error) {
 
 // newCachedS3 function returns a cached S3 storage with a re-used session if
 // available. Re-used AWS sessions dramatically improve performance.
-var newCachedS3 = newS3Factory()
+var newCachedS3 func() (*S3, error)
+
+func SetS3Options(opts S3Opts) {
+	newCachedS3 = newS3Factory(opts)
+
+}
 
 // S3 is a storage type which interacts with S3API, DownloaderAPI and
 // UploaderAPI.
@@ -264,6 +258,10 @@ func (s *S3) Get(ctx context.Context, from *objurl.ObjectURL, to io.WriterAt) (i
 // io.Reader interface, into S3 destination.
 func (s *S3) Put(ctx context.Context, reader io.Reader, to *objurl.ObjectURL, metadata map[string]string) error {
 	storageClass := metadata["StorageClass"]
+	if storageClass == "" {
+		storageClass = string(StorageStandard)
+	}
+
 	contentType := metadata["ContentType"]
 	if contentType == "" {
 		contentType = "application/octet-stream"

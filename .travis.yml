@@ -5,6 +5,7 @@ go:
 
 before_install:
   - go get honnef.co/go/tools/cmd/staticcheck
+  - go get mvdan.cc/unparam
 
 before_script:
   # e2e tests expects 0755 as default folder modbits, however on travis VMs,

@@ -4,16 +4,6 @@ default: all
 
 .PHONY: all
 all: clean build test check
-.PHONY: dist
-dist: generate all
-
-.PHONY: fmt
-fmt:
-	@find ${SRCDIR} ! -path "*/vendor/*" -type f -name '*.go' -exec gofmt -l -s -w {} \;
-
-.PHONY: generate
-generate:
-	@go generate ${SRCDIR}
 
 .PHONY: build
 build:
@@ -24,11 +14,15 @@ test:
 	@go test -mod=vendor ./...
 
 .PHONY: check
-check: vet staticcheck check-fmt
+check: vet staticcheck unparam check-fmt
 
 .PHONY: staticcheck
 staticcheck:
-	@staticcheck -checks 'inherit,-SA4009,-U1000' ./...
+	@staticcheck -checks 'inherit,-U1000' ./...
+
+.PHONY: unparam
+unparam:
+	@unparam ./...
 
 .PHONY: vet
 vet:
@@ -36,7 +30,7 @@ vet:
 
 .PHONY: check-fmt
 check-fmt:
-	@sh -c 'unfmt_files="$$(go fmt ./...)"; if [ -n "$$unfmt_files"  ]; then echo "$$unfmt_files"; echo "Go code is not formatted, run <make fmt>"; exit 1; fi'
+	@sh -c 'if [ -n "$(go fmt -mod=vendor ./...)" ]; then echo "Go code is not formatted"; exit 1; fi'
 
 .PHONY: clean
 clean:

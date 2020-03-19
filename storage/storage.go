@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/peak/s5cmd/objurl"
+	"github.com/peak/s5cmd/strutil"
 )
 
 var (
@@ -22,16 +23,42 @@ var (
 
 // Storage is an interface for storage operations.
 type Storage interface {
-	Stat(context.Context, *objurl.ObjectURL) (*Object, error)
-	List(context.Context, *objurl.ObjectURL, bool, int64) <-chan *Object
-	Copy(ctx context.Context, from, to *objurl.ObjectURL, metadata map[string]string) error
-	Get(context.Context, *objurl.ObjectURL, io.WriterAt) (int64, error)
-	Put(context.Context, io.Reader, *objurl.ObjectURL, map[string]string) error
-	Delete(context.Context, *objurl.ObjectURL) error
-	MultiDelete(context.Context, <-chan *objurl.ObjectURL) <-chan *Object
-	ListBuckets(context.Context, string) ([]Bucket, error)
-	MakeBucket(context.Context, string) error
-	UpdateRegion(string) error
+	// Stat returns the Object structure describing object. If src is not
+	// found, ErrGivenObjectNotFound is returned.
+	Stat(ctx context.Context, src *objurl.ObjectURL) (*Object, error)
+
+	// List the objects and directories/prefixes in the src. If recursive
+	// argument is given, given src will be walked if src is a walkable URL,
+	// such as directory, prefix or a wildcard.
+	List(ctx context.Context, src *objurl.ObjectURL, recursive bool, maxitems int64) <-chan *Object
+
+	// Copy src to dst, optionally setting the given metadata. Src and dst
+	// arguments are of the same type. If src is a remote type, server side
+	// copying will be used.
+	Copy(ctx context.Context, src, dst *objurl.ObjectURL, metadata map[string]string) error
+
+	// Get reads object content from src and writes to dst in parallel.
+	Get(ctx context.Context, src *objurl.ObjectURL, dst io.WriterAt) (int64, error)
+
+	// Put reads from src and writes content to dst.
+	Put(ctx context.Context, src io.Reader, dst *objurl.ObjectURL, metadata map[string]string) error
+
+	// Delete deletes the given src.
+	Delete(ctx context.Context, src *objurl.ObjectURL) error
+
+	// MultiDelete deletes all items returned from given urls in batches.
+	MultiDelete(ctx context.Context, urls <-chan *objurl.ObjectURL) <-chan *Object
+
+	// ListBuckets returns bucket list. If prefix is given, results will be
+	// filtered.
+	ListBuckets(ctx context.Context, prefix string) ([]Bucket, error)
+
+	// MakeBucket creates given bucket.
+	MakeBucket(ctx context.Context, bucket string) error
+
+	// UpdateRegion changes the active region of the current AWS session. It's
+	// used internally for autocompletion.
+	UpdateRegion(region string) error
 }
 
 // NewClient returns new Storage client from given url. Storage implementation
@@ -62,7 +89,7 @@ func (o *Object) String() string {
 
 // JSON returns the JSON representation of Object.
 func (o *Object) JSON() string {
-	return jsonMarshal(o)
+	return strutil.JSON(o)
 }
 
 // ObjectType is the type of Object.
@@ -109,7 +136,7 @@ func (b Bucket) String() string {
 
 // String returns the JSON representation of Bucket.
 func (b Bucket) JSON() string {
-	return jsonMarshal(b)
+	return strutil.JSON(b)
 }
 
 type StorageClass string
@@ -137,6 +164,21 @@ func (s StorageClass) ShortCode() string {
 	return code
 }
 
+func LookupClass(s string) StorageClass {
+	switch s {
+	case "STANDARD":
+		return StorageStandard
+	case "REDUCED_REDUNDANCY":
+		return StorageReducedRedundancy
+	case "GLACIER":
+		return StorageGlacier
+	case "STANDARD_IA":
+		return StorageStandardIA
+	default:
+		return StorageStandard
+	}
+}
+
 const (
 	// ObjectStorageClassStandard is a standard storage class type.
 	StorageStandard StorageClass = "STANDARD"
@@ -161,10 +203,4 @@ type notImplemented struct {
 // Error returns the string representation of Error for notImplemented.
 func (e notImplemented) Error() string {
 	return fmt.Sprintf("%q is not supported on %q storage", e.method, e.apiType)
-}
-
-// jsonMarshall is a helper function for creating JSON-encoded strings.
-func jsonMarshal(v interface{}) string {
-	bytes, _ := json.Marshal(v)
-	return string(bytes)
 }

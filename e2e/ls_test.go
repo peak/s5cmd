@@ -275,7 +275,7 @@ func TestListS3ObjectsAndFoldersWithPrefix(t *testing.T) {
 	})
 }
 
-func TestListNonexistingS3Object(t *testing.T) {
+func TestListNonexistingS3ObjectInGivenPrefix(t *testing.T) {
 	t.Parallel()
 
 	bucket := s3BucketFromTestName(t)
@@ -289,17 +289,39 @@ func TestListNonexistingS3Object(t *testing.T) {
 	cmd := s5cmd("ls", "s3://"+bucket+pattern)
 	result := icmd.RunCmd(cmd)
 
-	// s5cmd returns 0 even if it can't find the given object.
-	result.Assert(t, icmd.Success)
+	result.Assert(t, icmd.Expected{ExitCode: 1})
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(""),
 	}, strictLineCheck(false))
 
-	result.Assert(t, icmd.Expected{
-		Out:      "",
-		ExitCode: 0,
-	})
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: equals(`ERROR "ls s3://test-list-nonexisting-s-3-object-in-given-prefix/*/testfile*.txt": no object found`),
+	}, strictLineCheck(false))
+}
+
+func TestListNonexistingS3Object(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+
+	cmd := s5cmd("ls", "s3://"+bucket+"/nosuchobject")
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Expected{ExitCode: 1})
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(""),
+	}, strictLineCheck(false))
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: equals(`ERROR "ls s3://test-list-nonexisting-s-3-object/nosuchobject": no object found`),
+	}, strictLineCheck(false))
 }
 
 func TestListS3ObjectsWithDashE(t *testing.T) {

@@ -64,6 +64,10 @@ func printError(command, op string, err error) {
 		}
 	}
 
+	if errorpkg.IsCancelation(err) {
+		return
+	}
+
 	// we don't know the exact error type. log the error as is.
 	msg := log.ErrorMessage{
 		Err:       cleanupError(err),

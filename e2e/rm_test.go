@@ -385,3 +385,56 @@ func TestBatchRemove(t *testing.T) {
 		assertError(t, err, errS3NoSuchKey)
 	}
 }
+
+func TestRemoveRemoveWithWildcard(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	filesToContent := map[string]string{
+		"testdir1/file1.txt":     "file1 content",
+		"testdir1/file2.txt":     "file2 content",
+		"testdir1/dir/file3.txt": "file23content",
+		"file4.txt":              "file4 content",
+		"testdir2/file5.txt":     "file5 content",
+		"testdir2/file6.txt":     "file6 content",
+	}
+
+	for filename, content := range filesToContent {
+		putFile(t, s3client, bucket, filename, content)
+	}
+
+	cmd := s5cmd(
+		"rm",
+		"s3://"+bucket+"/testdir1/*",
+		"s3://"+bucket+"/testdir2/*",
+		"s3://"+bucket+"/file4.txt",
+	)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: equals(""),
+	})
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(""),
+		1: equals(`rm s3://%v/file4.txt`, bucket),
+		2: equals(`rm s3://%v/testdir1/dir/file3.txt`, bucket),
+		3: equals(`rm s3://%v/testdir1/file1.txt`, bucket),
+		4: equals(`rm s3://%v/testdir1/file2.txt`, bucket),
+		5: equals(`rm s3://%v/testdir2/file5.txt`, bucket),
+		6: equals(`rm s3://%v/testdir2/file6.txt`, bucket),
+	}, sortInput(true))
+
+	// assert s3 objects
+	for filename, content := range filesToContent {
+		err := ensureS3Object(s3client, bucket, filename, content)
+		assertError(t, err, errS3NoSuchKey)
+	}
+}

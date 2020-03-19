@@ -390,3 +390,56 @@ func TestMoveMultipleFilesToLocal(t *testing.T) {
 
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 }
+
+func TestBatchMoveLocalFilesToS3(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+
+	folderLayout := []fs.PathOp{
+		fs.WithFile("testfile1.txt", "this is a test file 1"),
+		fs.WithFile("readme.md", "this is a readme file"),
+		fs.WithFile("filename-with-hypen.gz", "file has hypen in its name"),
+	}
+
+	workdir := fs.NewDir(t, bucket, folderLayout...)
+	defer workdir.Remove()
+
+	cmd := s5cmd(
+		"mv",
+		"testfile1.txt",
+		"readme.md",
+		"filename-with-hypen.gz",
+		"s3://"+bucket+"/prefix/",
+	)
+	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(""),
+		1: equals(`mv filename-with-hypen.gz`),
+		2: equals(`mv readme.md`),
+		3: equals(`mv testfile1.txt`),
+	}, sortInput(true))
+
+	filesToContent := map[string]string{
+		"prefix/testfile1.txt":          "this is a test file 1",
+		"prefix/readme.md":              "this is a readme file",
+		"prefix/filename-with-hypen.gz": "file has hypen in its name",
+	}
+
+	// assert s3 objects
+	for filename, content := range filesToContent {
+		assert.Assert(t, ensureS3Object(s3client, bucket, filename, content))
+	}
+
+	// expect no files on filesystem
+	expected := fs.Expected(t)
+	assert.Assert(t, fs.Equal(cmd.Dir, expected))
+}

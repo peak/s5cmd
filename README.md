@@ -158,6 +158,10 @@ way S3 execution times can reach a few thousand operations per second.
 
     s5cmd run commands.txt
 
+or
+
+    cat commands.txt | s5cmd run
+
 `commands.txt` content could look like:
 
 ```

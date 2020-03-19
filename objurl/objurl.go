@@ -122,7 +122,10 @@ func (o *ObjectURL) Absolute() string {
 
 // Relative returns a URI reference based on the calculated prefix.
 func (o *ObjectURL) Relative() string {
-	return o.relativePath
+	if o.relativePath != "" {
+		return o.relativePath
+	}
+	return o.Absolute()
 }
 
 // Base returns the last element of object path.

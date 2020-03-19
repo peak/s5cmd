@@ -190,14 +190,12 @@ manual configurations.
 
 ### Shell Auto-Completion
 
-Bash and zsh shell completion is supported, utilizing
-[posener/complete](https://github.com/posener/complete). Tool and subcommand
-parameters, local files/dirs, as well as remote (S3) buckets and objects are
-supported.
+Shell completion is supported for bash, zsh and fish.
 
 To enable auto-completion, run:
 
     s5cmd --install-completion
+
 This will add a few lines to your shell configuration file. After installation,
 restart your shell to activate the changes.
 

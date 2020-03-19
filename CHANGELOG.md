@@ -41,6 +41,7 @@ This is a major release with many breaking changes.
 
 - Pre-compiled binaries are provided on [releases page](https://github.com/peak/s5cmd/releases). See [#21](https://github.com/peak/s5cmd/issues/21).
 - AWS Go SDK is updated to support IAM role for service accounts. See [#32](https://github.com/peak/s5cmd/issues/32).
+- `s5cmd` now creates destination directory if missing.
 
 ## v0.7.0 - 27 Jan 2020
 

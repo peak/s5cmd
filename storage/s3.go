@@ -438,40 +438,6 @@ func (s *S3) MakeBucket(ctx context.Context, name string) error {
 	return err
 }
 
-// UpdateRegion overrides AWS session with the region of given bucket.
-func (s *S3) UpdateRegion(bucket string) error {
-	o, err := s.api.GetBucketLocation(&s3.GetBucketLocationInput{
-		Bucket: &bucket,
-	})
-	if err != nil {
-		return err
-	}
-
-	// don't change the session region if given bucket has no location
-	// constraint set.
-	if o.LocationConstraint == nil {
-		return nil
-	}
-
-	ses, err := newSession(S3Opts{
-		MaxRetries:             s.opts.MaxRetries,
-		EndpointURL:            s.opts.EndpointURL,
-		Region:                 aws.StringValue(o.LocationConstraint),
-		NoVerifySSL:            s.opts.NoVerifySSL,
-		DownloadConcurrency:    s.opts.DownloadConcurrency,
-		DownloadChunkSizeBytes: s.opts.DownloadChunkSizeBytes,
-		UploadConcurrency:      s.opts.UploadConcurrency,
-		UploadChunkSizeBytes:   s.opts.UploadChunkSizeBytes,
-	})
-
-	if err != nil {
-		return err
-	}
-
-	s.api = s3.New(ses)
-	return nil
-}
-
 // NewAwsSession initializes a new AWS session with region fallback and custom
 // options.
 func newSession(opts S3Opts) (*session.Session, error) {

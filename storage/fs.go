@@ -222,10 +222,6 @@ func (f *Filesystem) MakeBucket(_ context.Context, _ string) error {
 	return f.notimplemented("MakeBucket")
 }
 
-func (f *Filesystem) UpdateRegion(_ string) error {
-	return f.notimplemented("UpdateRegion")
-}
-
 func (f *Filesystem) notimplemented(method string) error {
 	return notImplemented{
 		apiType: "filesystem",

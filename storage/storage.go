@@ -55,10 +55,6 @@ type Storage interface {
 
 	// MakeBucket creates given bucket.
 	MakeBucket(ctx context.Context, bucket string) error
-
-	// UpdateRegion changes the active region of the current AWS session. It's
-	// used internally for autocompletion.
-	UpdateRegion(region string) error
 }
 
 // NewClient returns new Storage client from given url. Storage implementation

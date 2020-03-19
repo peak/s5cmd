@@ -205,9 +205,15 @@ restart your shell to activate the changes.
 * text format
 
 ```shell
-$ download s3://bucket/key
+$ s5cmd cp s3://bucket/key .
 
-$ ERROR "cp s3://somebucket/file.txt file.txt": object already exists
+download s3://bucket/key
+```
+
+```shell
+$ s5cmd cp --no-clobber s3://somebucket/file.txt file.txt
+
+ERROR "cp s3://somebucket/file.txt file.txt": object already exists
 ```
 
 * If `--json` flag if provided:

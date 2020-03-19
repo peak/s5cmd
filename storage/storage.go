@@ -38,10 +38,10 @@ type Storage interface {
 	Copy(ctx context.Context, src, dst *objurl.ObjectURL, metadata map[string]string) error
 
 	// Get reads object content from src and writes to dst in parallel.
-	Get(ctx context.Context, src *objurl.ObjectURL, dst io.WriterAt) (int64, error)
+	Get(ctx context.Context, src *objurl.ObjectURL, dst io.WriterAt, concurrency int, partSize int64) (int64, error)
 
 	// Put reads from src and writes content to dst.
-	Put(ctx context.Context, src io.Reader, dst *objurl.ObjectURL, metadata map[string]string) error
+	Put(ctx context.Context, src io.Reader, dst *objurl.ObjectURL, metadata map[string]string, concurrency int, partSize int64) error
 
 	// Delete deletes the given src.
 	Delete(ctx context.Context, src *objurl.ObjectURL) error

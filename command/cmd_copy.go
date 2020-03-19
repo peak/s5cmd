@@ -48,6 +48,18 @@ var copyCommandFlags = []cli.Flag{
 		Name:  "storage-class",
 		Usage: "set storage class for target ('STANDARD','REDUCED_REDUNDANCY','GLACIER','STANDARD_IA')",
 	},
+	&cli.IntFlag{
+		Name:    "concurrency",
+		Aliases: []string{"c"},
+		Value:   defaultCopyConcurrency,
+		Usage:   "number of concurrent parts transmitted/received to/from remote server",
+	},
+	&cli.IntFlag{
+		Name:    "part-size",
+		Aliases: []string{"p"},
+		Value:   defaultPartSize,
+		Usage:   "size of each part transmitted/received to/from remote server, in MiB",
+	},
 }
 
 var CopyCommand = &cli.Command{
@@ -69,6 +81,18 @@ var CopyCommand = &cli.Command{
 			return fmt.Errorf("target %q can not contain glob characters", dst)
 		}
 
+		if c.Int64("upload-chunk-size") < 5 {
+			return fmt.Errorf("upload chunk size should be greater than 5 MiB")
+		}
+
+		if c.Int64("download-chunk-size") < 5 {
+			return fmt.Errorf("download chunk size should be greater than 5 MiB")
+		}
+
+		if c.Int("download-concurrency") < 1 || c.Int("upload-concurrency") < 1 {
+			return fmt.Errorf("download/upload concurrency should be greater than 1")
+		}
+
 		return nil
 	},
 	Action: func(c *cli.Context) error {
@@ -85,6 +109,8 @@ var CopyCommand = &cli.Command{
 			recursive:     c.Bool("recursive"),
 			parents:       c.Bool("parents"),
 			storageClass:  storage.LookupClass(c.String("storage-class")),
+			concurrency:   c.Int("concurrency"),
+			partSize:      c.Int64("partSize") * megabytes,
 		}
 
 		return copyCommand.Run(c.Context)
@@ -106,6 +132,10 @@ type Copy struct {
 	recursive     bool
 	parents       bool
 	storageClass  storage.StorageClass
+
+	// s3 options
+	concurrency int
+	partSize    int64
 }
 
 func (c Copy) Run(ctx context.Context) error {
@@ -273,7 +303,7 @@ func (c Copy) doDownload(ctx context.Context, srcurl *objurl.ObjectURL, dsturl *
 	}
 	defer f.Close()
 
-	size, err := srcClient.Get(ctx, srcurl, f)
+	size, err := srcClient.Get(ctx, srcurl, f, c.concurrency, c.partSize)
 	if err != nil {
 		err = dstClient.Delete(ctx, dsturl)
 	} else if c.deleteSource {
@@ -324,7 +354,7 @@ func (c Copy) doUpload(ctx context.Context, srcurl *objurl.ObjectURL, dsturl *ob
 		"ContentType":  guessContentType(f),
 	}
 
-	err = dstClient.Put(ctx, f, dsturl, metadata)
+	err = dstClient.Put(ctx, f, dsturl, metadata, c.concurrency, c.partSize)
 	if err != nil {
 		return err
 	}

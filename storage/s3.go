@@ -91,14 +91,10 @@ type S3 struct {
 
 // S3Opts stores configuration for S3 storage.
 type S3Opts struct {
-	MaxRetries             int
-	EndpointURL            string
-	Region                 string
-	NoVerifySSL            bool
-	UploadChunkSizeBytes   int64
-	UploadConcurrency      int
-	DownloadChunkSizeBytes int64
-	DownloadConcurrency    int
+	MaxRetries  int
+	EndpointURL string
+	Region      string
+	NoVerifySSL bool
 }
 
 // NewS3Storage creates new S3 session.
@@ -242,13 +238,19 @@ func (s *S3) Copy(ctx context.Context, from, to *objurl.ObjectURL, metadata map[
 
 // Get is a multipart download operation which downloads S3 objects into any
 // destination that implements io.WriterAt interface.
-func (s *S3) Get(ctx context.Context, from *objurl.ObjectURL, to io.WriterAt) (int64, error) {
+func (s *S3) Get(
+	ctx context.Context,
+	from *objurl.ObjectURL,
+	to io.WriterAt,
+	concurrency int,
+	partSize int64,
+) (int64, error) {
 	n, err := s.downloader.DownloadWithContext(ctx, to, &s3.GetObjectInput{
 		Bucket: aws.String(from.Bucket),
 		Key:    aws.String(from.Path),
 	}, func(u *s3manager.Downloader) {
-		u.PartSize = s.opts.DownloadChunkSizeBytes
-		u.Concurrency = s.opts.DownloadConcurrency
+		u.PartSize = partSize
+		u.Concurrency = concurrency
 	})
 
 	return n, err
@@ -256,7 +258,14 @@ func (s *S3) Get(ctx context.Context, from *objurl.ObjectURL, to io.WriterAt) (i
 
 // Put is a multipart upload operation to upload resources, which implements
 // io.Reader interface, into S3 destination.
-func (s *S3) Put(ctx context.Context, reader io.Reader, to *objurl.ObjectURL, metadata map[string]string) error {
+func (s *S3) Put(
+	ctx context.Context,
+	reader io.Reader,
+	to *objurl.ObjectURL,
+	metadata map[string]string,
+	concurrency int,
+	partSize int64,
+) error {
 	storageClass := metadata["StorageClass"]
 	if storageClass == "" {
 		storageClass = string(StorageStandard)
@@ -274,8 +283,8 @@ func (s *S3) Put(ctx context.Context, reader io.Reader, to *objurl.ObjectURL, me
 		ContentType:  aws.String(contentType),
 		StorageClass: aws.String(storageClass),
 	}, func(u *s3manager.Uploader) {
-		u.PartSize = s.opts.UploadChunkSizeBytes
-		u.Concurrency = s.opts.UploadConcurrency
+		u.PartSize = partSize
+		u.Concurrency = concurrency
 	})
 
 	return err

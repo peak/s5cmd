@@ -16,6 +16,7 @@ storage services and local filesystems.
 - Create buckets
 - Summarize objects sizes, grouping by storage class
 - Wildcard support for all operations
+- Varargs support for copy, move and delete operations 
 - Command file support to run commands in batches at very high execution speeds
 - [S3 Transfer Acceleration](https://docs.aws.amazon.com/AmazonS3/latest/dev/transfer-acceleration.html) support
 - Google Cloud Storage (and any other S3 API compatible service) support
@@ -67,16 +68,18 @@ against each matching object, in parallel.
 
 Suppose we have the following objects:
 ```
+s3://bucket/logs/2020/03/17/file1.gz
+s3://bucket/logs/2020/03/17/ignore.gz
 s3://bucket/logs/2020/03/18/file1.gz
 s3://bucket/logs/2020/03/19/file2.gz
 s3://bucket/logs/2020/03/19/originals/file3.gz
 ```
 
-    s5cmd cp 's3://bucket/logs/2020/03/*' logs/
+    s5cmd cp 's3://bucket/logs/2020/03/*' s3://bucket/logs/2020/03/17/file1.gz logs/
 
 
-`s5cmd` will match the given wildcard by doing an efficient search against the
-given prefix. All matching objects will be downloaded in parallel. `s5cmd` will
+`s5cmd` will match the given wildcards and arguments by doing an efficient search 
+against the given prefixes. All matching objects will be downloaded in parallel. `s5cmd` will
 create the destination directory if it is missing.
 
 `logs/` directory content will look like:

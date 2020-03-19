@@ -203,45 +203,28 @@ restart your shell to activate the changes.
 
 ## Output
 
-s5cmd supports both text and json output.
+`s5cmd` supports both text and JSON outputs.
 * text format
 
-    * success
+    $ download s3://bucket/key
+    $ ERROR "cp s3://somebucket/file.txt file.txt": object already exists
 
-    ```
-    [operation] [source]
+* If `--json` flag if provided:
 
-    # example: download s3://bucket/key
-    ```
-    * failure
-
-    ```
-    [ERROR|WARNING] [job] [message]
-
-    # example: WARNING "cp s3://somebucket/file.txt file.txt" (object already exists)
-    ```
-
-* json format
-    * success
-
-    ```json
+```json
     {
-      "operation": "[operation]",
+      "operation": "download",
       "success": true,
-      "source": "[source]",
-      "destination": "[destination]",
+      "source": "s3://bucket/key",
+      "destination": ".",
       "object": "[object]"
     }
-    ```
-    * failure
-
-    ```json
     {
-      "operation": "[operation]",
-      "job": "[job]",
-      "error": "[error]"
+      "operation": "download",
+      "job": "cp s3://somebucket/file.txt file.txt",
+      "error": "'cp s3://somebucket/file.txt file.txt': object already exists"
     }
-    ```
+```
 
 # LICENSE
 

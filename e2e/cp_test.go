@@ -14,36 +14,73 @@ import (
 func TestCopySingleS3ObjectToLocal(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
-
-	createBucket(t, s3client, bucket)
-
 	const (
-		filename = "testfile1.txt"
-		content  = "this is a file content"
+		bucket      = "bucket"
+		fileContent = "this is a file content"
 	)
 
-	putFile(t, s3client, bucket, filename, content)
+	testcases := []struct {
+		name     string
+		src      string
+		dst      string
+		expected fs.PathOp
+	}{
+		{
+			name:     "cp s3://bucket/obj .",
+			src:      "file1.txt",
+			dst:      ".",
+			expected: fs.WithFile("file1.txt", fileContent, fs.WithMode(0644)),
+		},
+		{
+			name:     "cp s3://bucket/obj obj",
+			src:      "file1.txt",
+			dst:      "file1.txt",
+			expected: fs.WithFile("file1.txt", fileContent, fs.WithMode(0644)),
+		},
+		{
+			name:     "cp s3://bucket/obj dir/",
+			src:      "file1.txt",
+			dst:      "dir/",
+			expected: fs.WithDir("dir", fs.WithFile("file1.txt", fileContent, fs.WithMode(0644))),
+		},
+		{
+			name:     "cp s3://bucket/obj dir/obj",
+			src:      "file1.txt",
+			dst:      "dir/file1.txt",
+			expected: fs.WithDir("dir", fs.WithFile("file1.txt", fileContent, fs.WithMode(0644))),
+		},
+	}
 
-	cmd := s5cmd("cp", "s3://"+bucket+"/"+filename, ".")
-	result := icmd.RunCmd(cmd)
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 
-	result.Assert(t, icmd.Success)
+			s3client, s5cmd, cleanup := setup(t)
+			defer cleanup()
 
-	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(`cp s3://%v/%v`, bucket, filename),
-		1: equals(""),
-	})
+			createBucket(t, s3client, bucket)
 
-	// assert local filesystem
-	expected := fs.Expected(t, fs.WithFile(filename, content, fs.WithMode(0644)))
-	assert.Assert(t, fs.Equal(cmd.Dir, expected))
+			putFile(t, s3client, bucket, tc.src, fileContent)
 
-	// assert s3 object
-	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content))
+			src := fmt.Sprintf("s3://%v/%v", bucket, tc.src)
+			cmd := s5cmd("cp", src, tc.dst)
+			result := icmd.RunCmd(cmd)
+
+			result.Assert(t, icmd.Success)
+
+			assertLines(t, result.Stdout(), map[int]compareFunc{
+				0: equals(`cp s3://%v/%v`, bucket, tc.src),
+				1: equals(""),
+			})
+
+			// assert local filesystem
+			expected := fs.Expected(t, tc.expected)
+			assert.Assert(t, fs.Equal(cmd.Dir, expected))
+
+			// assert s3 object
+			assert.Assert(t, ensureS3Object(s3client, bucket, tc.src, fileContent))
+		})
+	}
 }
 
 func TestCopySingleS3ObjectToLocalJSON(t *testing.T) {

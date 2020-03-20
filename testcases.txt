@@ -1,0 +1,144 @@
+# cp
+
+NOTE(ig): for variadic operations, sources must be the same type, such as:
+
+s5cmd cp file1.txt s3://bigtmp/obj1 s3://bigtmp/prefix/
+
+should not work since arg0 and arg1 are different types.
+
+## s3->local
+
+### valid cases ###
+✅ cp s3://bigtmp/s5cmdtest/obj1.txt .
+✅ cp s3://bigtmp/s5cmdtest/obj1.txt obj1.txt
+cp s3://bigtmp/s5cmdtest/obj1.txt foo/
+cp s3://bigtmp/s5cmdtest/obj1.txt foo/obj1.txt
+
+cp s3://bigtmp/s5cmdtest/*.txt .
+cp s3://bigtmp/s5cmdtest/*j1.txt .
+cp s3://bigtmp/s5cmdtest/*/*j1.txt .  # S3 tarafinda bigtmp/s5cmdtest/prefix/obj1.txt ve obj2.txt olsun.
+
+### invalid cases ###
+cp s3://bigtmp/s5cmdtest/obj1.txt *
+cp s3://bigtmp/s5cmdtest/obj1.txt foo/*
+
+# FIXME(ig): current s5cmd returns success but does nothing. should raise an error.
+cp s3://bigtmp/s5cmdtest/ .
+
+### variadic
+
+### valid cases ###
+cp s3://bigtmp/s5cmdtest/obj1.txt s3://bigtmp/s5cmdtest/obj2.txt .
+cp s3://bigtmp/s5cmdtest/obj1.txt s3://bigtmp/s5cmdtest/obj2.txt obj2.txt # TODO(ig): ???
+cp s3://bigtmp/s5cmdtest/obj1.txt s3://bigtmp/s5cmdtest/obj2.txt foo/
+cp s3://bigtmp/s5cmdtest/obj1.txt s3://bigtmp/s5cmdtest/obj2.txt foo/obj2.txt # TODO(ig): ???
+
+cp s3://bigtmp/s5cmdtest/obj1.txt s3://bigtmp/s5cmdtest/* .
+cp s3://bigtmp/s5cmdtest/prefix1/* s3://bigtmp/s5cmdtest/prefix2/* .
+
+### invalid cases ###
+cp s3://bigtmp/s5cmdtest/obj1.txt s3://bigtmp/s5cmdtest/obj2.txt *
+cp s3://bigtmp/s5cmdtest/obj1.txt foo/*
+
+
+## local->s3
+
+### valid cases
+cp obj1.txt s3://bigtmp/s5cmdtest/
+cp obj1.txt s3://bigtmp/s5cmdtest/obj1.txt
+
+cp obj1.txt s3://bigtmp/s5cmdtest/prefix/
+cp obj1.txt s3://bigtmp/s5cmdtest/prefix/obj1.txt
+
+cp '*' s3://bigtmp/s5cmdtest/prefix/
+cp 'dir/*' s3://bigtmp/s5cmdtest/prefix/
+cp 'dir/*' s3://bigtmp/s5cmdtest/obj1.txt # TODO(ig): ???
+
+cp dir/ s3://bigtmp/prefix/  # prefix altinda, dir/ altindaki dosyalar olacak
+cp . s3://bigtmp/prefix/  # yukaridakinin aynisi
+
+
+### invalid cases
+
+cp obj1.txt s3://bigtmp/*
+cp obj1.txt s3://bigtmp/prefix/*
+
+# dst slash ile bitmiyorsa dst object olarak algilanmamasi icin hata donulmeli.
+cp dir/ s3://bigtmp/prefix-without-slash
+
+### variadic
+#### valid cases ###
+
+cp obj1.txt obj2.txt s3://bigtmp/s5cmdtest/
+cp dir/ obj2.txt s3://bigtmp/s5cmdtest/
+cp dir/ dir2/* obj1.txt s3://bigtmp/s5cmdtest/
+
+# ??? dst'de sonunda slash olmazsa nasil davranmali?
+# s5cmdtest diye bir object varsa davranis nasil olacak? En yan etkisi olmayan
+# cozum, verilen dst'nin sonunda slash yoksa islemi yapmamak ve kullaniciyi
+# uyarmak olacak muhtemelen.
+cp dir/ dir2/* obj1.txt s3://bigtmp/s5cmdtest
+
+#### invalid cases ####
+
+cp obj1.txt obj2.txt s3://bigtmp/prefix/*
+cp dir/ obj2.txt s3://bigtmp/prefix/*
+cp dir/ dir2/* obj2.txt s3://bigtmp/prefix/*
+
+## s3->s3
+
+### valid cases ###
+cp s3://bigtmp/obj1.txt s3://bigtmp/
+cp s3://bigtmp/obj1.txt s3://bigtmp/prefix/
+cp s3://bigtmp/obj1.txt s3://bigtmp/obj1.txt
+
+cp s3://bigtmp/prefix/*.txt s3://bigtmp/
+cp s3://bigtmp/prefix/*.txt s3://bigtmp/prefix/
+cp s3://bigtmp/prefix/pre*/*.txt s3://bigtmp/dst/
+
+
+### invalid cases ###
+
+cp s3://bigtmp/obj1.txt s3://bigtmp/* # dst cant be wildcard
+cp s3://bigtmp/obj1.txt s3://bigtmp/prefix/* # dst cant be wildcard
+
+cp s3://bigtmp/prefix/ s3://bigtmp/dst/ # use wildcard. can't copy prefix.
+cp s3://bigtmp/prefix/ s3://bigtmp/dst # dst should be prefix
+cp s3://bigtmp/prefix/* s3://bigtmp/dst # dst should be prefix
+
+
+### variadic
+### valid cases ###
+cp s3://bigtmp/obj1.txt s3://bigtmp/prefix/ s3://bigtmp/s5cmdtest/
+
+### invalid cases ###
+
+## local->local
+
+ignored. won't be a blocker for v1.0.0
+
+# rm
+
+### valid cases
+s5cmd rm s3://bigtmp/obj
+s5cmd rm s3://bigtmp/prefix-without-slash # expect success because of S3 limitation.
+
+s5cmd rm s3://bigtmp/obj s3://bigtmp/prefix/*
+
+### invalid cases
+
+s5cmd rm s3://bigtmp/test10/
+s5cmd rm file1.txt s3://bigtmp/obj1 # sources must be same type
+
+
+#########################
+#########################
+#########################
+#########################
+
+# copy with --parents and -R combinations
+
+cp --parents dir/ s3://bigtmp/prefix/  # prefix altinda, dir/ altindaki dosyalar olacak ve klasorler hiyerarsik olarak duracak.
+
+# TODO(ig): wildcard olmayan bir source ile --parents verilince ne yapilmali?
+cp --parents testfile.txt dir/* s3://bigtmp/

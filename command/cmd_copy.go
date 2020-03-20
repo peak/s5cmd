@@ -139,7 +139,7 @@ func (c Copy) Run(ctx context.Context) error {
 		return err
 	}
 
-	args, err := expandSources(ctx, c.recursive, dsturl, srcurls...)
+	objChan, err := expandSources(ctx, c.recursive, dsturl, srcurls...)
 	if err != nil {
 		return err
 	}
@@ -157,10 +157,8 @@ func (c Copy) Run(ctx context.Context) error {
 		}
 	}()
 
-	for arg := range args {
-		origSrc := arg.origSrc
-		object := arg.obj
-
+	isBatch := len(srcurls) > 1 || srcurls[0].HasGlob()
+	for object := range objChan {
 		if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) {
 			continue
 		}
@@ -175,9 +173,9 @@ func (c Copy) Run(ctx context.Context) error {
 
 		switch {
 		case srcurl.Type == dsturl.Type: // local->local or remote->remote
-			task = c.prepareCopyTask(ctx, origSrc, srcurl, dsturl)
+			task = c.prepareCopyTask(ctx, srcurl, dsturl, isBatch)
 		case srcurl.IsRemote(): // remote->local
-			task = c.prepareDownloadTask(ctx, origSrc, srcurl, dsturl)
+			task = c.prepareDownloadTask(ctx, srcurl, dsturl, isBatch)
 		case dsturl.IsRemote(): // local->remote
 			task = c.prepareUploadTask(ctx, srcurl, dsturl)
 		default:
@@ -195,12 +193,12 @@ func (c Copy) Run(ctx context.Context) error {
 
 func (c Copy) prepareCopyTask(
 	ctx context.Context,
-	origSrc *objurl.ObjectURL,
 	srcurl *objurl.ObjectURL,
 	dsturl *objurl.ObjectURL,
+	isBatch bool,
 ) func() error {
 	return func() error {
-		dsturl, err := prepareCopyDestination(ctx, origSrc, srcurl, dsturl, c.parents)
+		dsturl, err := prepareCopyDestination(ctx, srcurl, dsturl, c.parents, isBatch)
 		if err != nil {
 			return err
 		}
@@ -220,12 +218,12 @@ func (c Copy) prepareCopyTask(
 
 func (c Copy) prepareDownloadTask(
 	ctx context.Context,
-	origSrc *objurl.ObjectURL,
 	srcurl *objurl.ObjectURL,
 	dsturl *objurl.ObjectURL,
+	isBatch bool,
 ) func() error {
 	return func() error {
-		dsturl, err := prepareDownloadDestination(ctx, origSrc, srcurl, dsturl, c.parents)
+		dsturl, err := prepareDownloadDestination(ctx, srcurl, dsturl, c.parents, isBatch)
 		if err != nil {
 			return err
 		}
@@ -495,10 +493,10 @@ func givenCommand(c *cli.Context) string {
 // and remote->remote copy operations.
 func prepareCopyDestination(
 	ctx context.Context,
-	origSrc *objurl.ObjectURL,
 	srcurl *objurl.ObjectURL,
 	dsturl *objurl.ObjectURL,
 	parents bool,
+	isBatch bool,
 ) (*objurl.ObjectURL, error) {
 	objname := srcurl.Base()
 	if parents {
@@ -528,7 +526,7 @@ func prepareCopyDestination(
 
 	// Absolute <src> path is given. Use given <dst> and local copy operation
 	// will create missing directories if <dst> has one.
-	if !origSrc.HasGlob() {
+	if !isBatch {
 		return dsturl, nil
 	}
 
@@ -546,17 +544,17 @@ func prepareCopyDestination(
 // remote->local and remote->remote copy operations.
 func prepareDownloadDestination(
 	ctx context.Context,
-	origSrc *objurl.ObjectURL,
 	srcurl *objurl.ObjectURL,
 	dsturl *objurl.ObjectURL,
 	parents bool,
+	isBatch bool,
 ) (*objurl.ObjectURL, error) {
 	objname := srcurl.Base()
 	if parents {
 		objname = srcurl.Relative()
 	}
 
-	if origSrc.HasGlob() {
+	if isBatch {
 		if err := os.MkdirAll(dsturl.Absolute(), os.ModePerm); err != nil {
 			return nil, err
 		}

@@ -57,7 +57,7 @@ func Delete(
 
 	// storage.MultiDelete operates on file-like objects. Settings
 	// recursive=true guarantees returning only file-like objects.
-	args, err := expandSources(ctx, true, nil, srcurls...)
+	objChan, err := expandSources(ctx, true, nil, srcurls...)
 	if err != nil {
 		return err
 	}
@@ -67,8 +67,7 @@ func Delete(
 	go func() {
 		defer close(urlch)
 
-		for arg := range args {
-			object := arg.obj
+		for object := range objChan {
 			if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) {
 				continue
 			}

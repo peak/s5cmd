@@ -334,7 +334,7 @@ func TestRemoveMultipleLocalFilesShouldNotFail(t *testing.T) {
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 }
 
-func TestBatchRemove(t *testing.T) {
+func TestVariadicRemove(t *testing.T) {
 	t.Parallel()
 
 	s3client, s5cmd, cleanup := setup(t)
@@ -386,7 +386,7 @@ func TestBatchRemove(t *testing.T) {
 	}
 }
 
-func TestRemoveRemoveWithWildcard(t *testing.T) {
+func TestVariadicRemoveWithWildcard(t *testing.T) {
 	t.Parallel()
 
 	s3client, s5cmd, cleanup := setup(t)

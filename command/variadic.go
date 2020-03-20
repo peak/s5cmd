@@ -9,12 +9,6 @@ import (
 	"github.com/peak/s5cmd/storage"
 )
 
-// Arg is a container type for supporting variadic arguments.
-type Arg struct {
-	origSrc *objurl.ObjectURL
-	obj     *storage.Object
-}
-
 // expandSources returns the full list of objects from the given src arguments.
 // If src is an expandable URL, such as directory, prefix or a glob, all
 // objects are returned by walking the source. It expands multiple resources asynchronously
@@ -24,7 +18,7 @@ func expandSources(
 	isRecursive bool,
 	dsturl *objurl.ObjectURL,
 	srcurls ...*objurl.ObjectURL,
-) (<-chan *Arg, error) {
+) (<-chan *storage.Object, error) {
 	if len(srcurls) == 0 {
 		return nil, fmt.Errorf("at least one source url is required")
 	}
@@ -34,9 +28,9 @@ func expandSources(
 		return nil, err
 	}
 
-	argChan := make(chan *Arg)
+	objChan := make(chan *storage.Object)
 	go func() {
-		defer close(argChan)
+		defer close(objChan)
 
 		var wg sync.WaitGroup
 		var objFound bool
@@ -50,10 +44,7 @@ func expandSources(
 				obj, err := client.Stat(ctx, origSrc)
 				if err != nil {
 					if err != storage.ErrGivenObjectNotFound {
-						argChan <- &Arg{
-							origSrc: origSrc,
-							obj:     &storage.Object{Err: err},
-						}
+						objChan <- &storage.Object{Err: err}
 					}
 					continue
 				}
@@ -72,33 +63,27 @@ func expandSources(
 				wg.Add(1)
 				go func(origSrc *objurl.ObjectURL) {
 					defer wg.Done()
-					for obj := range client.List(ctx, origSrc, recursive, storage.ListAllItems) {
-						if obj.Err == storage.ErrNoObjectFound {
+					for object := range client.List(ctx, origSrc, recursive, storage.ListAllItems) {
+						if object.Err == storage.ErrNoObjectFound {
 							continue
 						}
-						argChan <- &Arg{
-							origSrc: origSrc,
-							obj:     obj,
-						}
+						objChan <- object
 						objFound = true
 					}
 				}(origSrc)
 			} else {
-				argChan <- &Arg{
-					origSrc: origSrc,
-					obj:     &storage.Object{URL: origSrc},
-				}
+				objChan <- &storage.Object{URL: origSrc}
 				objFound = true
 			}
 		}
 
 		wg.Wait()
 		if !objFound {
-			argChan <- &Arg{obj: &storage.Object{Err: storage.ErrNoObjectFound}}
+			objChan <- &storage.Object{Err: storage.ErrNoObjectFound}
 		}
 	}()
 
-	return argChan, nil
+	return objChan, nil
 }
 
 // newSources creates ObjectURL list from given source strings.

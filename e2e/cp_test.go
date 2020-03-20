@@ -167,6 +167,43 @@ func TestCopySingleS3ObjectToLocalWithDestinationWildcard(t *testing.T) {
 	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content))
 }
 
+func TestCopyS3PrefixToLocalMustReturnError(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+
+	const (
+		prefix     = "prefix/"
+		objectpath = prefix + "file1.txt"
+		content    = "this is a file content"
+	)
+
+	putFile(t, s3client, bucket, objectpath, content)
+
+	cmd := s5cmd("cp", "s3://"+bucket+"/"+prefix, ".")
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Expected{ExitCode: 1})
+
+	// ignore stdout. we expect error logs from stderr.
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: equals(`ERROR "cp s3://%v/%v .": source argument must contain wildcard character`, bucket, prefix),
+		1: equals(""),
+	})
+
+	// assert local filesystem
+	expected := fs.Expected(t)
+	assert.Assert(t, fs.Equal(cmd.Dir, expected))
+
+	// assert s3 object
+	assert.Assert(t, ensureS3Object(s3client, bucket, objectpath, content))
+}
+
 func TestCopyMultipleFlatS3ObjectsToLocal(t *testing.T) {
 	t.Parallel()
 
@@ -1786,27 +1823,38 @@ func TestCopyLocalFileToS3WithSameFilenameDontOverrideIfS3ObjectIsOlder(t *testi
 
 func TestCopyLocalFileToS3WithCustomName(t *testing.T) {
 	t.Parallel()
+
 	bucket := s3BucketFromTestName(t)
+
 	s3client, s5cmd, cleanup := setup(t)
 	defer cleanup()
+
 	const (
 		filename = "testfile1.txt"
 		content  = "this is the content"
 	)
+
 	createBucket(t, s3client, bucket)
+
 	workdir := fs.NewDir(t, t.Name(), fs.WithFile(filename, content))
 	defer workdir.Remove()
+
 	dstpath := fmt.Sprintf("s3://%v/%v", bucket, filename)
+
 	cmd := s5cmd("cp", filename, dstpath)
 	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
+
 	result.Assert(t, icmd.Success)
+
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(`cp %v`, filename),
 		1: equals(""),
 	})
+
 	// assert local filesystem
 	expected := fs.Expected(t, fs.WithFile(filename, content))
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
+
 	// assert s3 object
 	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content))
 }

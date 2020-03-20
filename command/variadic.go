@@ -124,6 +124,11 @@ func checkSources(sources ...string) error {
 			return err
 		}
 
+		// we don't operate on S3 prefixes for copy and delete operations.
+		if srcurl.IsBucket() || srcurl.IsPrefix() {
+			return fmt.Errorf("source argument must contain wildcard character")
+		}
+
 		if srcurl.IsRemote() {
 			hasRemote = true
 		} else {

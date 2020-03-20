@@ -294,11 +294,14 @@ func (c Copy) doDownload(ctx context.Context, srcurl *objurl.ObjectURL, dsturl *
 
 	size, err := srcClient.Get(ctx, srcurl, f)
 	if err != nil {
-		err = dstClient.Delete(ctx, dsturl)
+		if cerr := dstClient.Delete(ctx, dsturl); cerr != nil {
+			err = multierror.Append(err, cerr)
+		}
 	} else if c.deleteSource {
-		err = srcClient.Delete(ctx, srcurl)
+		if cerr := srcClient.Delete(ctx, srcurl); cerr != nil {
+			err = multierror.Append(err, cerr)
+		}
 	}
-
 	if err != nil {
 		return err
 	}
@@ -602,9 +605,9 @@ func prepareUploadDestination(
 	dsturl *objurl.ObjectURL,
 	parents bool,
 ) *objurl.ObjectURL {
-	// if S3 destination is not a bucket and does not end with "/",
-	// use raw destination url.
-	if !dsturl.IsBucket() && !strings.HasSuffix(dsturl.Absolute(), "/") {
+	// if given destination is a bucket/objname, don't do any join and respect
+	// the user's destination object name.
+	if !dsturl.IsBucket() && !dsturl.IsPrefix() {
 		return dsturl
 	}
 

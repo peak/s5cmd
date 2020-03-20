@@ -106,6 +106,12 @@ func (o *ObjectURL) IsRemote() bool {
 	return o.Type == remoteObject
 }
 
+// IsPrefix reports whether the remote object is an S3 prefix, and does not
+// look like an object.
+func (o *ObjectURL) IsPrefix() bool {
+	return o.Type == remoteObject && strings.HasSuffix(o.Path, "/")
+}
+
 // IsBucket returns true if the object url contains only bucket name
 func (o *ObjectURL) IsBucket() bool {
 	return o.IsRemote() && o.Path == ""

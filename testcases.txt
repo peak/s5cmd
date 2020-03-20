@@ -11,35 +11,34 @@ should not work since arg0 and arg1 are different types.
 ### valid cases ###
 ✅ cp s3://bigtmp/s5cmdtest/obj1.txt .
 ✅ cp s3://bigtmp/s5cmdtest/obj1.txt obj1.txt
-cp s3://bigtmp/s5cmdtest/obj1.txt foo/
-cp s3://bigtmp/s5cmdtest/obj1.txt foo/obj1.txt
+✅ cp s3://bigtmp/s5cmdtest/obj1.txt foo/
+✅ cp s3://bigtmp/s5cmdtest/obj1.txt foo/obj1.txt
 
-cp s3://bigtmp/s5cmdtest/*.txt .
-cp s3://bigtmp/s5cmdtest/*j1.txt .
-cp s3://bigtmp/s5cmdtest/*/*j1.txt .  # S3 tarafinda bigtmp/s5cmdtest/prefix/obj1.txt ve obj2.txt olsun.
+✅ cp s5://bigtmp/s5cmdtest/*.txt .
+✅ cp s3://bigtmp/s5cmdtest/*j1.txt .
+✅ cp s3://bigtmp/s5cmdtest/*/*j1.txt .  # S3 tarafinda bigtmp/s5cmdtest/prefix/obj1.txt ve obj2.txt olsun.
 
 ### invalid cases ###
-cp s3://bigtmp/s5cmdtest/obj1.txt *
-cp s3://bigtmp/s5cmdtest/obj1.txt foo/*
+✅ cp s3://bigtmp/s5cmdtest/obj1.txt *
+✅ cp s3://bigtmp/s5cmdtest/obj1.txt foo/*
 
-# FIXME(ig): current s5cmd returns success but does nothing. should raise an error.
-cp s3://bigtmp/s5cmdtest/ .
+✅ cp s3://bigtmp/s5cmdtest/ .
 
 ### variadic
 
 ### valid cases ###
-cp s3://bigtmp/s5cmdtest/obj1.txt s3://bigtmp/s5cmdtest/obj2.txt .
+✅ cp s3://bigtmp/s5cmdtest/obj1.txt s3://bigtmp/s5cmdtest/obj2.txt .
+✅ cp s3://bigtmp/s5cmdtest/obj1.txt s3://bigtmp/s5cmdtest/obj2.txt foo/
+
 cp s3://bigtmp/s5cmdtest/obj1.txt s3://bigtmp/s5cmdtest/obj2.txt obj2.txt # TODO(ig): ???
-cp s3://bigtmp/s5cmdtest/obj1.txt s3://bigtmp/s5cmdtest/obj2.txt foo/
 cp s3://bigtmp/s5cmdtest/obj1.txt s3://bigtmp/s5cmdtest/obj2.txt foo/obj2.txt # TODO(ig): ???
 
-cp s3://bigtmp/s5cmdtest/obj1.txt s3://bigtmp/s5cmdtest/* .
-cp s3://bigtmp/s5cmdtest/prefix1/* s3://bigtmp/s5cmdtest/prefix2/* .
+✅ cp s3://bigtmp/s5cmdtest/obj1.txt s3://bigtmp/s5cmdtest/* .
+✅ cp s3://bigtmp/s5cmdtest/prefix1/* s3://bigtmp/s5cmdtest/prefix2/* .
 
 ### invalid cases ###
-cp s3://bigtmp/s5cmdtest/obj1.txt s3://bigtmp/s5cmdtest/obj2.txt *
-cp s3://bigtmp/s5cmdtest/obj1.txt foo/*
-
+✅ cp s3://bigtmp/s5cmdtest/obj1.txt s3://bigtmp/s5cmdtest/obj2.txt *
+✅ cp s3://bigtmp/s5cmdtest/obj1.txt foo/*
 
 ## local->s3
 
@@ -60,8 +59,8 @@ cp . s3://bigtmp/prefix/  # yukaridakinin aynisi
 
 ### invalid cases
 
-cp obj1.txt s3://bigtmp/*
-cp obj1.txt s3://bigtmp/prefix/*
+✅ cp obj1.txt s3://bigtmp/*
+✅ cp obj1.txt s3://bigtmp/prefix/*
 
 # dst slash ile bitmiyorsa dst object olarak algilanmamasi icin hata donulmeli.
 cp dir/ s3://bigtmp/prefix-without-slash
@@ -81,9 +80,9 @@ cp dir/ dir2/* obj1.txt s3://bigtmp/s5cmdtest
 
 #### invalid cases ####
 
-cp obj1.txt obj2.txt s3://bigtmp/prefix/*
-cp dir/ obj2.txt s3://bigtmp/prefix/*
-cp dir/ dir2/* obj2.txt s3://bigtmp/prefix/*
+✅ cp obj1.txt obj2.txt s3://bigtmp/prefix/*
+✅ cp dir/ obj2.txt s3://bigtmp/prefix/*
+✅ cp dir/ dir2/* obj2.txt s3://bigtmp/prefix/*
 
 ## s3->s3
 
@@ -99,8 +98,8 @@ cp s3://bigtmp/prefix/pre*/*.txt s3://bigtmp/dst/
 
 ### invalid cases ###
 
-cp s3://bigtmp/obj1.txt s3://bigtmp/* # dst cant be wildcard
-cp s3://bigtmp/obj1.txt s3://bigtmp/prefix/* # dst cant be wildcard
+✅ cp s3://bigtmp/obj1.txt s3://bigtmp/* # dst cant be wildcard
+✅ cp s3://bigtmp/obj1.txt s3://bigtmp/prefix/* # dst cant be wildcard
 
 cp s3://bigtmp/prefix/ s3://bigtmp/dst/ # use wildcard. can't copy prefix.
 cp s3://bigtmp/prefix/ s3://bigtmp/dst # dst should be prefix

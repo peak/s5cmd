@@ -1859,7 +1859,7 @@ func TestCopyLocalFileToS3WithCustomName(t *testing.T) {
 	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content))
 }
 
-func TestBatchCopyLocalFilesToS3(t *testing.T) {
+func TestVariadicCopyLocalFilesToS3(t *testing.T) {
 	t.Parallel()
 
 	bucket := s3BucketFromTestName(t)
@@ -1908,7 +1908,7 @@ func TestBatchCopyLocalFilesToS3(t *testing.T) {
 	}
 }
 
-func TestBatchCopyLocalFilesToS3WithWildcard(t *testing.T) {
+func TestVariadicCopyLocalFilesToS3WithWildcard(t *testing.T) {
 	t.Parallel()
 
 	bucket := s3BucketFromTestName(t)
@@ -1992,7 +1992,7 @@ func TestBatchCopyLocalFilesToS3WithWildcard(t *testing.T) {
 	}
 }
 
-func TestBatchCopyMultipleS3ObjectsToS3(t *testing.T) {
+func TestVariadicCopyMultipleS3ObjectsToS3(t *testing.T) {
 	t.Parallel()
 
 	bucket := s3BucketFromTestName(t)
@@ -2056,7 +2056,7 @@ func TestBatchCopyMultipleS3ObjectsToS3(t *testing.T) {
 	}
 }
 
-func TestBatchCopyMultipleNestedS3ObjectsToLocalWithParents(t *testing.T) {
+func TestVariadicCopyMultipleNestedS3ObjectsToLocalWithParents(t *testing.T) {
 	t.Parallel()
 
 	bucket := s3BucketFromTestName(t)
@@ -2114,6 +2114,157 @@ func TestBatchCopyMultipleNestedS3ObjectsToLocalWithParents(t *testing.T) {
 				fs.WithFile("another_test_file.txt", "yet another txt file. yatf."),
 			),
 		),
+	)
+
+	assert.Assert(t, fs.Equal(cmd.Dir, expected))
+
+	// assert s3 objects
+	for filename, content := range filesToContent {
+		assert.Assert(t, ensureS3Object(s3client, bucket, filename, content))
+	}
+}
+
+func TestVariadicCopyS3ObjectsToLocal(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+
+	filesToContent := map[string]string{
+		"file1.txt": "this is a test file 1",
+		"file2.txt": "this is a test file 2",
+	}
+
+	for filename, content := range filesToContent {
+		putFile(t, s3client, bucket, filename, content)
+	}
+	cmd := s5cmd(
+		"cp",
+		"s3://"+bucket+"/file1.txt",
+		"s3://"+bucket+"/file2.txt",
+		".",
+	)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(""),
+		1: equals(`cp s3://%v/file1.txt`, bucket),
+		2: equals(`cp s3://%v/file2.txt`, bucket),
+	}, sortInput(true))
+
+	// assert local filesystem
+	expected := fs.Expected(
+		t,
+		fs.WithFile("file1.txt", "this is a test file 1"),
+		fs.WithFile("file2.txt", "this is a test file 2"),
+	)
+	assert.Assert(t, fs.Equal(cmd.Dir, expected))
+
+	// assert s3 objects
+	for filename, content := range filesToContent {
+		assert.Assert(t, ensureS3Object(s3client, bucket, filename, content))
+	}
+}
+
+func TestVariadicCopyS3ObjectsToLocalWithGivenDirectory(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+
+	filesToContent := map[string]string{
+		"file1.txt": "this is a test file 1",
+		"file2.txt": "this is a test file 2",
+	}
+
+	for filename, content := range filesToContent {
+		putFile(t, s3client, bucket, filename, content)
+	}
+	cmd := s5cmd(
+		"cp",
+		"s3://"+bucket+"/file1.txt",
+		"s3://"+bucket+"/file2.txt",
+		"dst/",
+	)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(""),
+		1: equals(`cp s3://%v/file1.txt`, bucket),
+		2: equals(`cp s3://%v/file2.txt`, bucket),
+	}, sortInput(true))
+
+	// assert local filesystem
+	expected := fs.Expected(
+		t,
+		fs.WithDir("dst",
+			fs.WithFile("file1.txt", "this is a test file 1"),
+			fs.WithFile("file2.txt", "this is a test file 2"),
+		),
+	)
+	assert.Assert(t, fs.Equal(cmd.Dir, expected))
+
+	// assert s3 objects
+	for filename, content := range filesToContent {
+		assert.Assert(t, ensureS3Object(s3client, bucket, filename, content))
+	}
+}
+
+func TestVariadicCopyS3ObjectsWithWildcardToLocal(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+
+	filesToContent := map[string]string{
+		"file1.txt":   "test file 1",
+		"a/file2.txt": "test file 2",
+		"a/file3.txt": "test file 3",
+	}
+
+	for filename, content := range filesToContent {
+		putFile(t, s3client, bucket, filename, content)
+	}
+
+	cmd := s5cmd(
+		"cp",
+		"s3://"+bucket+"/file1.txt",
+		"s3://"+bucket+"/a/*",
+		".",
+	)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(""),
+		1: equals(`cp s3://%v/a/file2.txt`, bucket),
+		2: equals(`cp s3://%v/a/file3.txt`, bucket),
+		3: equals(`cp s3://%v/file1.txt`, bucket),
+	}, sortInput(true))
+
+	// assert local filesystem
+	expected := fs.Expected(
+		t,
+		fs.WithFile("file1.txt", "test file 1"),
+		fs.WithFile("file2.txt", "test file 2"),
+		fs.WithFile("file3.txt", "test file 3"),
 	)
 
 	assert.Assert(t, fs.Equal(cmd.Dir, expected))

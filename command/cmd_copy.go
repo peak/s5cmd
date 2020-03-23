@@ -177,7 +177,7 @@ func (c Copy) Run(ctx context.Context) error {
 		case srcurl.IsRemote(): // remote->local
 			task = c.prepareDownloadTask(ctx, srcurl, dsturl, isBatch)
 		case dsturl.IsRemote(): // local->remote
-			task = c.prepareUploadTask(ctx, srcurl, dsturl)
+			task = c.prepareUploadTask(ctx, srcurl, dsturl, isBatch)
 		default:
 			panic("unexpected src-dst pair")
 		}
@@ -245,9 +245,10 @@ func (c Copy) prepareUploadTask(
 	ctx context.Context,
 	srcurl *objurl.ObjectURL,
 	dsturl *objurl.ObjectURL,
+	isBatch bool,
 ) func() error {
 	return func() error {
-		dsturl := prepareUploadDestination(srcurl, dsturl, c.parents)
+		dsturl := prepareUploadDestination(srcurl, dsturl, c.parents, isBatch)
 
 		err := c.doUpload(ctx, srcurl, dsturl)
 		if err != nil {
@@ -602,10 +603,11 @@ func prepareUploadDestination(
 	srcurl *objurl.ObjectURL,
 	dsturl *objurl.ObjectURL,
 	parents bool,
+	isBatch bool,
 ) *objurl.ObjectURL {
 	// if given destination is a bucket/objname, don't do any join and respect
 	// the user's destination object name.
-	if !dsturl.IsBucket() && !dsturl.IsPrefix() {
+	if !isBatch && !dsturl.IsBucket() && !dsturl.IsPrefix() {
 		return dsturl
 	}
 

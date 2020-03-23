@@ -106,7 +106,11 @@ func (c Copy) Run(ctx context.Context) error {
 		return err
 	}
 
-	objChan, err := expandSources(ctx, c.recursive, dsturl, srcurl)
+	// set recursive=true for local->remote copy operations. this
+	// is required for backwards compatibility.
+	recursive := c.recursive || (!srcurl.IsRemote() && dsturl.IsRemote())
+
+	objch, err := expandSource(ctx, srcurl, recursive)
 	if err != nil {
 		return err
 	}
@@ -125,7 +129,7 @@ func (c Copy) Run(ctx context.Context) error {
 	}()
 
 	isBatch := srcurl.HasGlob()
-	for object := range objChan {
+	for object := range objch {
 		if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) {
 			continue
 		}
@@ -549,6 +553,44 @@ func prepareUploadDestination(
 		objname = srcurl.Relative()
 	}
 	return dsturl.Join(objname), nil
+}
+
+// expandSource returns the full list of objects from the given src argument.
+// If src is an expandable URL, such as directory, prefix or a glob, all
+// objects are returned by walking the source.
+func expandSource(
+	ctx context.Context,
+	srcurl *objurl.ObjectURL,
+	isRecursive bool,
+) (<-chan *storage.Object, error) {
+	// TODO(ig): this function could be in the storage layer.
+
+	client, err := storage.NewClient(srcurl)
+	if err != nil {
+		return nil, err
+	}
+
+	var isDir bool
+	// if the source is local, we send a Stat call to know if  we have
+	// directory or file to walk. For remote storage, we don't want to send
+	// Stat since it doesn't have any folder semantics.
+	if !srcurl.HasGlob() && !srcurl.IsRemote() {
+		obj, err := client.Stat(ctx, srcurl)
+		if err != nil {
+			return nil, err
+		}
+		isDir = obj.Type.IsDir()
+	}
+
+	// call storage.List for only walking operations.
+	if srcurl.HasGlob() || isDir {
+		return client.List(ctx, srcurl, isRecursive, storage.ListAllItems), nil
+	}
+
+	ch := make(chan *storage.Object, 1)
+	ch <- &storage.Object{URL: srcurl}
+	close(ch)
+	return ch, nil
 }
 
 // getObject checks if the object from given url exists. If no object is

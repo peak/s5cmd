@@ -32,7 +32,6 @@ This is a major release with many breaking changes.
 - Added `mb` command to make buckets. See [#25](https://github.com/peak/s5cmd/issues/25).
 - Added `--json` flag for JSON logging. See [#22](https://github.com/peak/s5cmd/issues/22).
 - Added [S3 transfer acceleration](https://docs.aws.amazon.com/AmazonS3/latest/dev/transfer-acceleration.html) support. See [#40](https://github.com/peak/s5cmd/issues/40).
-- Added varargs support. See [#2](https://github.com/peak/s5cmd/issues/2).
 
 #### Bugfixes
 

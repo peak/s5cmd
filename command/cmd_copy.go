@@ -596,9 +596,9 @@ func Validate(c *cli.Context) error {
 		return fmt.Errorf("target %q can not contain glob characters", dst)
 	}
 
-	// for remote->X operations, --parents is used in conjunction with a
-	// wildcard source to deduce relative source paths.
-	if srcurl.IsRemote() && !srcurl.HasGlob() && c.Bool("parents") {
+	// --parents is used in conjunction with a wildcard source to deduce
+	// relative source paths.
+	if !srcurl.HasGlob() && c.Bool("parents") {
 		return fmt.Errorf("source argument must contain wildcard if --parents flag is provided")
 	}
 
@@ -624,13 +624,13 @@ func Validate(c *cli.Context) error {
 }
 
 func validateCopy(ctx context.Context, srcurl, dsturl *objurl.ObjectURL) error {
+	if srcurl.IsRemote() {
+		return nil
+	}
+
 	client, err := storage.NewClient(dsturl)
 	if err != nil {
 		return err
-	}
-
-	if srcurl.IsRemote() {
-		return nil
 	}
 
 	// For local->local copy operations, we can safely stat <dst> to check if
@@ -665,8 +665,8 @@ func validateUpload(ctx context.Context, srcurl, dsturl *objurl.ObjectURL) error
 		return err
 	}
 
-	// 'cp dir/ s3://bucket/prefix-without-slash': expect a trailing slash to avoid any
-	// surprises.
+	// 'cp dir/ s3://bucket/prefix-without-slash': expect a trailing slash to
+	// avoid any surprises.
 	if obj.Type.IsDir() && !dsturl.IsBucket() && !dsturl.IsPrefix() {
 		return fmt.Errorf("target %q must be a bucket or a prefix", dsturl)
 	}

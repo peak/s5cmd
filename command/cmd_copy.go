@@ -60,43 +60,16 @@ var CopyCommand = &cli.Command{
 			return fmt.Errorf("expected source and destination arguments")
 		}
 
-		src := c.Args().Get(0)
-		dst := c.Args().Get(1)
-
-		srcurl, err := objurl.New(src)
-		if err != nil {
-			return err
-		}
-
-		dsturl, err := objurl.New(dst)
-		if err != nil {
-			return err
-		}
-
-		if dsturl.HasGlob() {
-			return fmt.Errorf("target %q can not contain glob characters", dst)
-		}
-
-		// 'cp dir/* s3://bucket/prefix': expect a trailing slash to avoid any
-		// surprises.
-		if srcurl.HasGlob() && dsturl.IsRemote() && !dsturl.IsPrefix() && !dsturl.IsBucket() {
-			return fmt.Errorf("target %q must be a bucket or a prefix", dsturl)
-		}
-
-		// we don't operate on S3 prefixes for copy and delete operations.
-		if srcurl.IsBucket() || srcurl.IsPrefix() {
-			return fmt.Errorf("source argument must contain wildcard character")
-		}
-
-		return checkSources(src)
+		return Validate(
+			c.Context,
+			c.Args().Get(0),
+			c.Args().Get(1),
+		)
 	},
 	Action: func(c *cli.Context) error {
-		src := c.Args().Get(0)
-		dst := c.Args().Get(1)
-
 		copyCommand := Copy{
-			src:          src,
-			dst:          dst,
+			src:          c.Args().Get(0),
+			dst:          c.Args().Get(1),
 			op:           c.Command.Name,
 			fullCommand:  givenCommand(c),
 			deleteSource: false, // don't delete source
@@ -250,9 +223,12 @@ func (c Copy) prepareUploadTask(
 	isBatch bool,
 ) func() error {
 	return func() error {
-		dsturl := prepareUploadDestination(srcurl, dsturl, c.parents, isBatch)
+		dsturl, err := prepareUploadDestination(ctx, srcurl, dsturl, c.parents, isBatch)
+		if err != nil {
+			return err
+		}
 
-		err := c.doUpload(ctx, srcurl, dsturl)
+		err = c.doUpload(ctx, srcurl, dsturl)
 		if err != nil {
 			return &errorpkg.Error{
 				Op:  c.op,
@@ -476,22 +452,6 @@ func (c Copy) shouldOverride(ctx context.Context, srcurl *objurl.ObjectURL, dstu
 	return stickyErr
 }
 
-func guessContentType(rs io.ReadSeeker) string {
-	defer rs.Seek(0, io.SeekStart)
-
-	const bufsize = 512
-	buf, err := ioutil.ReadAll(io.LimitReader(rs, bufsize))
-	if err != nil {
-		return ""
-	}
-
-	return http.DetectContentType(buf)
-}
-
-func givenCommand(c *cli.Context) string {
-	return fmt.Sprintf("%v %v", c.Command.FullName(), strings.Join(c.Args().Slice(), " "))
-}
-
 // prepareCopyDestination will return a new destination URL for local->local
 // and remote->remote copy operations.
 func prepareCopyDestination(
@@ -515,29 +475,10 @@ func prepareCopyDestination(
 		return dsturl, nil
 	}
 
-	client, err := storage.NewClient(dsturl)
-	if err != nil {
-		return nil, err
-	}
-
-	// For local->local copy operations, we can safely stat <dst> to check if
-	// it is a file or a directory.
-	obj, err := client.Stat(ctx, dsturl)
-	if err != nil && err != storage.ErrGivenObjectNotFound {
-		return nil, err
-	}
-
 	// Absolute <src> path is given. Use given <dst> and local copy operation
 	// will create missing directories if <dst> has one.
 	if !isBatch {
 		return dsturl, nil
-	}
-
-	// For local->local copy operations, if <src> has glob, <dst> is expected
-	// to be a directory. As always, local copy operation will create missing
-	// directories if <dst> has one.
-	if obj != nil && !obj.Type.IsDir() {
-		return nil, fmt.Errorf("destination argument is expected to be a directory")
 	}
 
 	return dsturl.Join(objname), nil
@@ -574,9 +515,6 @@ func prepareDownloadDestination(
 	}
 
 	if parents {
-		if obj != nil && !obj.Type.IsDir() {
-			return nil, fmt.Errorf("destination argument is expected to be a directory")
-		}
 		dsturl = dsturl.Join(objname)
 		if err := os.MkdirAll(dsturl.Dir(), os.ModePerm); err != nil {
 			return nil, err
@@ -602,22 +540,23 @@ func prepareDownloadDestination(
 // prepareUploadDestination will return a new destination URL for local->remote
 // operations.
 func prepareUploadDestination(
+	ctx context.Context,
 	srcurl *objurl.ObjectURL,
 	dsturl *objurl.ObjectURL,
 	parents bool,
 	isBatch bool,
-) *objurl.ObjectURL {
+) (*objurl.ObjectURL, error) {
 	// if given destination is a bucket/objname, don't do any join and respect
 	// the user's destination object name.
 	if !isBatch && !dsturl.IsBucket() && !dsturl.IsPrefix() {
-		return dsturl
+		return dsturl, nil
 	}
 
 	objname := srcurl.Base()
 	if parents {
 		objname = srcurl.Relative()
 	}
-	return dsturl.Join(objname)
+	return dsturl.Join(objname), nil
 }
 
 // getObject checks if the object from given url exists. If no object is
@@ -634,4 +573,107 @@ func getObject(ctx context.Context, url *objurl.ObjectURL) (*storage.Object, err
 	}
 
 	return obj, err
+}
+
+func Validate(ctx context.Context, src, dst string) error {
+	srcurl, err := objurl.New(src)
+	if err != nil {
+		return err
+	}
+
+	dsturl, err := objurl.New(dst)
+	if err != nil {
+		return err
+	}
+
+	if dsturl.HasGlob() {
+		return fmt.Errorf("target %q can not contain glob characters", dst)
+	}
+
+	// we don't operate on S3 prefixes for copy and delete operations.
+	if srcurl.IsBucket() || srcurl.IsPrefix() {
+		return fmt.Errorf("source argument must contain wildcard character")
+	}
+
+	// 'cp dir/* s3://bucket/prefix': expect a trailing slash to avoid any
+	// surprises.
+	if srcurl.HasGlob() && dsturl.IsRemote() && !dsturl.IsPrefix() && !dsturl.IsBucket() {
+		return fmt.Errorf("target %q must be a bucket or a prefix", dsturl)
+	}
+
+	switch {
+	case srcurl.Type == dsturl.Type:
+		return validateCopy(ctx, srcurl, dsturl)
+	case dsturl.IsRemote():
+		return validateUpload(ctx, srcurl, dsturl)
+	default:
+		return nil
+	}
+}
+
+func validateCopy(ctx context.Context, srcurl, dsturl *objurl.ObjectURL) error {
+	client, err := storage.NewClient(dsturl)
+	if err != nil {
+		return err
+	}
+
+	if srcurl.IsRemote() {
+		return nil
+	}
+
+	// For local->local copy operations, we can safely stat <dst> to check if
+	// it is a file or a directory.
+	obj, err := client.Stat(ctx, dsturl)
+	if err != nil && err != storage.ErrGivenObjectNotFound {
+		return err
+	}
+
+	// For local->local copy operations, if <src> has glob, <dst> is expected
+	// to be a directory. As always, local copy operation will create missing
+	// directories if <dst> has one.
+	if obj != nil && !obj.Type.IsDir() {
+		return fmt.Errorf("destination argument is expected to be a directory")
+	}
+
+	return nil
+}
+
+func validateUpload(ctx context.Context, srcurl, dsturl *objurl.ObjectURL) error {
+	srcclient, err := storage.NewClient(srcurl)
+	if err != nil {
+		return err
+	}
+
+	if srcurl.HasGlob() {
+		return nil
+	}
+
+	obj, err := srcclient.Stat(ctx, srcurl)
+	if err != nil {
+		return err
+	}
+
+	// 'cp dir/ s3://bucket/prefix-without-slash': expect a trailing slash to avoid any
+	// surprises.
+	if obj.Type.IsDir() && !dsturl.IsBucket() && !dsturl.IsPrefix() {
+		return fmt.Errorf("target %q must be a bucket or a prefix", dsturl)
+	}
+
+	return nil
+}
+
+func guessContentType(rs io.ReadSeeker) string {
+	defer rs.Seek(0, io.SeekStart)
+
+	const bufsize = 512
+	buf, err := ioutil.ReadAll(io.LimitReader(rs, bufsize))
+	if err != nil {
+		return ""
+	}
+
+	return http.DetectContentType(buf)
+}
+
+func givenCommand(c *cli.Context) string {
+	return fmt.Sprintf("%v %v", c.Command.FullName(), strings.Join(c.Args().Slice(), " "))
 }

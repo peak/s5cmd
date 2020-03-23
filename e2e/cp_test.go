@@ -1,3 +1,25 @@
+// Package e2e includes end-to-end testing of s5cmd commands.
+//
+// All test cases include a comment for which test cases are covered in the
+// following format:
+//
+// dir/: directory
+// file: local file
+// bucket: s3 bucket
+// prefix/: s3 prefix
+// prefix-without-slash: s3 prefix without a trailing slash
+// object: s3 object name
+// *: match all objects
+// *.ext: match partial objects
+//
+// dir2: another directory
+// file2: another local file
+// object2: another s3 object name
+// prefix2/: another s3 prefix
+// bucket2: another s3 bucket
+//
+// For example, finding the test case that covers uploading all files in a
+// directory to an s3 prefix: "cp dir/* s3://bucket/prefix/".
 package e2e
 
 import (
@@ -26,25 +48,25 @@ func TestCopySingleS3ObjectToLocal(t *testing.T) {
 		expected fs.PathOp
 	}{
 		{
-			name:     "cp s3://bucket/obj .",
+			name:     "cp s3://bucket/object .",
 			src:      "file1.txt",
 			dst:      ".",
 			expected: fs.WithFile("file1.txt", fileContent, fs.WithMode(0644)),
 		},
 		{
-			name:     "cp s3://bucket/obj obj",
+			name:     "cp s3://bucket/object file",
 			src:      "file1.txt",
 			dst:      "file1.txt",
 			expected: fs.WithFile("file1.txt", fileContent, fs.WithMode(0644)),
 		},
 		{
-			name:     "cp s3://bucket/obj dir/",
+			name:     "cp s3://bucket/object dir/",
 			src:      "file1.txt",
 			dst:      "dir/",
 			expected: fs.WithDir("dir", fs.WithFile("file1.txt", fileContent, fs.WithMode(0644))),
 		},
 		{
-			name:     "cp s3://bucket/obj dir/obj",
+			name:     "cp s3://bucket/object dir/file",
 			src:      "file1.txt",
 			dst:      "dir/file1.txt",
 			expected: fs.WithDir("dir", fs.WithFile("file1.txt", fileContent, fs.WithMode(0644))),
@@ -83,6 +105,7 @@ func TestCopySingleS3ObjectToLocal(t *testing.T) {
 	}
 }
 
+// --json cp s3://bucket/object .
 func TestCopySingleS3ObjectToLocalJSON(t *testing.T) {
 	t.Parallel()
 
@@ -131,6 +154,7 @@ func TestCopySingleS3ObjectToLocalJSON(t *testing.T) {
 	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content))
 }
 
+// cp s3://bucket/object *
 func TestCopySingleS3ObjectToLocalWithDestinationWildcard(t *testing.T) {
 	t.Parallel()
 
@@ -167,6 +191,7 @@ func TestCopySingleS3ObjectToLocalWithDestinationWildcard(t *testing.T) {
 	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content))
 }
 
+// cp s3://bucket/prefix/ .
 func TestCopyS3PrefixToLocalMustReturnError(t *testing.T) {
 	t.Parallel()
 
@@ -204,6 +229,7 @@ func TestCopyS3PrefixToLocalMustReturnError(t *testing.T) {
 	assert.Assert(t, ensureS3Object(s3client, bucket, objectpath, content))
 }
 
+// cp s3://bucket/* .
 func TestCopyMultipleFlatS3ObjectsToLocal(t *testing.T) {
 	t.Parallel()
 
@@ -253,6 +279,7 @@ func TestCopyMultipleFlatS3ObjectsToLocal(t *testing.T) {
 	}
 }
 
+// cp s3://bucket/*.txt .
 func TestCopyMultipleFlatS3ObjectsToLocalWithPartialMatching(t *testing.T) {
 	t.Parallel()
 
@@ -299,6 +326,7 @@ func TestCopyMultipleFlatS3ObjectsToLocalWithPartialMatching(t *testing.T) {
 	}
 }
 
+// cp s3://bucket/*/*.txt .
 func TestCopyMultipleNestedS3ObjectsToLocalWithPartialMatching(t *testing.T) {
 	t.Parallel()
 
@@ -339,6 +367,7 @@ func TestCopyMultipleNestedS3ObjectsToLocalWithPartialMatching(t *testing.T) {
 	}
 }
 
+// --json cp s3://bucket/* .
 func TestCopyMultipleFlatS3ObjectsToLocalJSON(t *testing.T) {
 	t.Parallel()
 
@@ -432,6 +461,7 @@ func TestCopyMultipleFlatS3ObjectsToLocalJSON(t *testing.T) {
 	}
 }
 
+// cp s3://bucket/* .
 func TestCopyMultipleNestedS3ObjectsToLocal(t *testing.T) {
 	t.Parallel()
 
@@ -488,6 +518,7 @@ func TestCopyMultipleNestedS3ObjectsToLocal(t *testing.T) {
 	}
 }
 
+// cp --parents s3://bucket/* .
 func TestCopyMultipleNestedS3ObjectsToLocalWithParents(t *testing.T) {
 	t.Parallel()
 
@@ -560,6 +591,7 @@ func TestCopyMultipleNestedS3ObjectsToLocalWithParents(t *testing.T) {
 	}
 }
 
+// cp s3://bucket/* dir/
 func TestCopyMultipleS3ObjectsToGivenLocalDirectory(t *testing.T) {
 	t.Parallel()
 
@@ -610,6 +642,7 @@ func TestCopyMultipleS3ObjectsToGivenLocalDirectory(t *testing.T) {
 	}
 }
 
+// cp dir/file s3://bucket/
 func TestCopySingleFileToS3(t *testing.T) {
 	t.Parallel()
 
@@ -664,6 +697,7 @@ func TestCopySingleFileToS3(t *testing.T) {
 	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content, ensureContentType(expectedContentType)))
 }
 
+// --json cp dir/file s3://bucket
 func TestCopySingleFileToS3JSON(t *testing.T) {
 	t.Parallel()
 
@@ -715,6 +749,7 @@ func TestCopySingleFileToS3JSON(t *testing.T) {
 	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content))
 }
 
+// cp dir/ s3://bucket/
 func TestCopyDirToS3(t *testing.T) {
 	t.Parallel()
 
@@ -761,7 +796,9 @@ func TestCopyDirToS3(t *testing.T) {
 	assert.Assert(t, ensureS3Object(s3client, bucket, "file2.txt", "this is the second test file"))
 }
 
+// cp dir/* s3://bucket/
 func TestCopyMultipleFilesToS3Bucket(t *testing.T) {
+
 	t.Parallel()
 
 	bucket := s3BucketFromTestName(t)
@@ -810,6 +847,7 @@ func TestCopyMultipleFilesToS3Bucket(t *testing.T) {
 	}
 }
 
+// cp dir/* s3://bucket/prefix
 func TestCopyMultipleFilesToS3WithPrefixWithoutSlash(t *testing.T) {
 	t.Parallel()
 
@@ -854,6 +892,7 @@ func TestCopyMultipleFilesToS3WithPrefixWithoutSlash(t *testing.T) {
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 }
 
+// cp dir/* s3://bucket/prefix/
 func TestCopyMultipleFilesToS3WithPrefixWithSlash(t *testing.T) {
 	t.Parallel()
 
@@ -907,6 +946,7 @@ func TestCopyMultipleFilesToS3WithPrefixWithSlash(t *testing.T) {
 	}
 }
 
+// cp dir/ s3://bucket/prefix/
 func TestCopyLocalDirectoryToS3WithPrefixWithSlash(t *testing.T) {
 	t.Parallel()
 
@@ -960,6 +1000,7 @@ func TestCopyLocalDirectoryToS3WithPrefixWithSlash(t *testing.T) {
 	}
 }
 
+// cp dir/ s3://bucket/prefix
 func TestCopyLocalDirectoryToS3WithPrefixWithoutSlash(t *testing.T) {
 	t.Parallel()
 
@@ -1004,6 +1045,7 @@ func TestCopyLocalDirectoryToS3WithPrefixWithoutSlash(t *testing.T) {
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 }
 
+// cp s3://bucket/object s3://bucket/object2
 func TestCopySingleS3ObjectToS3(t *testing.T) {
 	t.Parallel()
 
@@ -1042,6 +1084,7 @@ func TestCopySingleS3ObjectToS3(t *testing.T) {
 	assert.Assert(t, ensureS3Object(s3client, bucket, dstfilename, content))
 }
 
+// --json cp s3://bucket/object s3://bucket2/object
 func TestCopySingleS3ObjectToS3JSON(t *testing.T) {
 	t.Parallel()
 
@@ -1094,6 +1137,7 @@ func TestCopySingleS3ObjectToS3JSON(t *testing.T) {
 	assert.Assert(t, ensureS3Object(s3client, bucket, dstfilename, content))
 }
 
+// cp s3://bucket/object s3://bucket2/object
 func TestCopySingleS3ObjectIntoAnotherBucket(t *testing.T) {
 	t.Parallel()
 
@@ -1133,6 +1177,7 @@ func TestCopySingleS3ObjectIntoAnotherBucket(t *testing.T) {
 	assert.Assert(t, ensureS3Object(s3client, dstbucket, filename, content))
 }
 
+// cp s3://bucket/* s3://bucket/prefix/
 func TestCopyMultipleS3ObjectsToS3(t *testing.T) {
 	t.Parallel()
 
@@ -1181,6 +1226,7 @@ func TestCopyMultipleS3ObjectsToS3(t *testing.T) {
 	}
 }
 
+// --json cp s3://bucket/* s3://bucket/prefix/
 func TestCopyMultipleS3ObjectsToS3JSON(t *testing.T) {
 	t.Parallel()
 
@@ -1249,6 +1295,7 @@ func TestCopyMultipleS3ObjectsToS3JSON(t *testing.T) {
 	}
 }
 
+// cp -u -s --parents s3://bucket/prefix/* s3://bucket/prefix2/
 func TestCopyMultipleS3ObjectsToS3_Issue70(t *testing.T) {
 	t.Parallel()
 
@@ -1292,6 +1339,7 @@ func TestCopyMultipleS3ObjectsToS3_Issue70(t *testing.T) {
 	assert.Assert(t, ensureS3Object(s3client, bucket, ".local/folder2/file2.txt", "this is a test file 2"))
 }
 
+// cp file file2
 func TestCopySingleLocalFileToLocal(t *testing.T) {
 	t.Parallel()
 
@@ -1327,6 +1375,7 @@ func TestCopySingleLocalFileToLocal(t *testing.T) {
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 }
 
+// cp *.ext dir/
 func TestCopyMultipleLocalFlatFilesToLocal(t *testing.T) {
 	t.Parallel()
 
@@ -1378,6 +1427,7 @@ func TestCopyMultipleLocalFlatFilesToLocal(t *testing.T) {
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 }
 
+// cp -R * dir/
 func TestCopyMultipleLocalNestedFilesToLocal(t *testing.T) {
 	t.Parallel()
 
@@ -1442,6 +1492,7 @@ func TestCopyMultipleLocalNestedFilesToLocal(t *testing.T) {
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 }
 
+// cp -R --parents * dir/
 func TestCopyMultipleLocalNestedFilesToLocalPreserveLayout(t *testing.T) {
 	t.Parallel()
 
@@ -1503,6 +1554,7 @@ func TestCopyMultipleLocalNestedFilesToLocalPreserveLayout(t *testing.T) {
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 }
 
+// cp s3://bucket/object . (./object exists)
 func TestCopyS3ObjectToLocalWithTheSameFilename(t *testing.T) {
 	t.Parallel()
 
@@ -1538,6 +1590,7 @@ func TestCopyS3ObjectToLocalWithTheSameFilename(t *testing.T) {
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 }
 
+// -log=debug cp -n s3://bucket/object .
 func TestCopyS3ToLocalWithSameFilenameWithNoClobber(t *testing.T) {
 	t.Parallel()
 
@@ -1576,6 +1629,7 @@ func TestCopyS3ToLocalWithSameFilenameWithNoClobber(t *testing.T) {
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 }
 
+// cp -n -s s3://bucket/object .
 func TestCopyS3ToLocalWithSameFilenameOverrideIfSizeDiffers(t *testing.T) {
 	t.Parallel()
 
@@ -1613,6 +1667,7 @@ func TestCopyS3ToLocalWithSameFilenameOverrideIfSizeDiffers(t *testing.T) {
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 }
 
+// cp -n -u s3://bucket/object . (source is newer)
 func TestCopyS3ToLocalWithSameFilenameOverrideIfSourceIsNewer(t *testing.T) {
 	t.Parallel()
 
@@ -1656,6 +1711,7 @@ func TestCopyS3ToLocalWithSameFilenameOverrideIfSourceIsNewer(t *testing.T) {
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 }
 
+// cp -n -u s3://bucket/object . (source is older)
 func TestCopyS3ToLocalWithSameFilenameDontOverrideIfS3ObjectIsOlder(t *testing.T) {
 	t.Parallel()
 
@@ -1703,6 +1759,7 @@ func TestCopyS3ToLocalWithSameFilenameDontOverrideIfS3ObjectIsOlder(t *testing.T
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 }
 
+// cp -u -s --parents s3://bucket/prefix/* dir/
 func TestCopyS3ToLocal_Issue70(t *testing.T) {
 	t.Parallel()
 
@@ -1759,6 +1816,7 @@ func TestCopyS3ToLocal_Issue70(t *testing.T) {
 	}
 }
 
+// cp file s3://bucket (bucket/file exists)
 func TestCopyLocalFileToS3WithTheSameFilename(t *testing.T) {
 	t.Parallel()
 
@@ -1798,6 +1856,7 @@ func TestCopyLocalFileToS3WithTheSameFilename(t *testing.T) {
 	assert.Assert(t, ensureS3Object(s3client, bucket, filename, newContent))
 }
 
+// -log=debug cp -n file s3://bucket (bucket/file exists)
 func TestCopyLocalFileToS3WithSameFilenameWithNoClobber(t *testing.T) {
 	t.Parallel()
 
@@ -1841,6 +1900,7 @@ func TestCopyLocalFileToS3WithSameFilenameWithNoClobber(t *testing.T) {
 	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content))
 }
 
+// cp -n file s3://bucket
 func TestCopyLocalFileToS3WithNoClobber(t *testing.T) {
 	t.Parallel()
 
@@ -1883,6 +1943,7 @@ func TestCopyLocalFileToS3WithNoClobber(t *testing.T) {
 	assert.Assert(t, ensureS3Object(s3client, bucket, filename, newContent))
 }
 
+// cp -n -s file s3://bucket (bucket/file exists)
 func TestCopyLocalFileToS3WithSameFilenameOverrideIfSizeDiffers(t *testing.T) {
 	t.Parallel()
 
@@ -1923,6 +1984,7 @@ func TestCopyLocalFileToS3WithSameFilenameOverrideIfSizeDiffers(t *testing.T) {
 	assert.NilError(t, ensureS3Object(s3client, bucket, filename, expectedContent))
 }
 
+// cp -n -u file s3://bucket (bucket/file exists, source is newer)
 func TestCopyLocalFileToS3WithSameFilenameOverrideIfSourceIsNewer(t *testing.T) {
 	t.Parallel()
 
@@ -1969,6 +2031,7 @@ func TestCopyLocalFileToS3WithSameFilenameOverrideIfSourceIsNewer(t *testing.T) 
 	assert.NilError(t, ensureS3Object(s3client, bucket, filename, expectedContent))
 }
 
+// cp -n -u file s3://bucket (bucket/file exists, source is older)
 func TestCopyLocalFileToS3WithSameFilenameDontOverrideIfS3ObjectIsOlder(t *testing.T) {
 	t.Parallel()
 
@@ -2015,6 +2078,7 @@ func TestCopyLocalFileToS3WithSameFilenameDontOverrideIfS3ObjectIsOlder(t *testi
 	assert.NilError(t, ensureS3Object(s3client, bucket, filename, content))
 }
 
+// cp file s3://bucket/object
 func TestCopyLocalFileToS3WithCustomName(t *testing.T) {
 	t.Parallel()
 
@@ -2053,6 +2117,7 @@ func TestCopyLocalFileToS3WithCustomName(t *testing.T) {
 	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content))
 }
 
+// cp file s3://bucket/prefix/
 func TestCopyLocalFileToS3WithPrefix(t *testing.T) {
 	t.Parallel()
 
@@ -2091,7 +2156,8 @@ func TestCopyLocalFileToS3WithPrefix(t *testing.T) {
 	assert.Assert(t, ensureS3Object(s3client, bucket, fmt.Sprintf("s5cmdtest/%s", filename), content))
 }
 
-func TestMultipleLocalFileToS3(t *testing.T) {
+// cp file s3://bucket
+func TestMultipleLocalFileToS3Bucket(t *testing.T) {
 	t.Parallel()
 
 	bucket := s3BucketFromTestName(t)
@@ -2109,7 +2175,7 @@ func TestMultipleLocalFileToS3(t *testing.T) {
 	workdir := fs.NewDir(t, t.Name(), fs.WithFile(filename, content))
 	defer workdir.Remove()
 
-	dstpath := fmt.Sprintf("s3://%v/s5cmdtest/", bucket)
+	dstpath := fmt.Sprintf("s3://%v", bucket)
 
 	cmd := s5cmd("cp", filename, dstpath)
 	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
@@ -2126,5 +2192,5 @@ func TestMultipleLocalFileToS3(t *testing.T) {
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 
 	// assert s3 object
-	assert.Assert(t, ensureS3Object(s3client, bucket, fmt.Sprintf("s5cmdtest/%s", filename), content))
+	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content))
 }

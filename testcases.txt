@@ -35,8 +35,8 @@
 ✅ cp 'dir/*'  s3://bigtmp/s5cmdtest/a
 ✅ cp 'dir/*' s3://bigtmp/s5cmdtest/obj1.txt
 
-cp dir/ s3://bigtmp/prefix/  # prefix altinda, dir/ altindaki dosyalar olacak
-cp . s3://bigtmp/prefix/  # yukaridakinin aynisi
+✅ cp dir/ s3://bigtmp/prefix/  # prefix altinda, dir/ altindaki dosyalar olacak
+✅ cp . s3://bigtmp/prefix/  # yukaridakinin aynisi
 
 
 ### invalid cases
@@ -45,18 +45,18 @@ cp . s3://bigtmp/prefix/  # yukaridakinin aynisi
 ✅ cp obj1.txt s3://bigtmp/prefix/*
 
 # dst slash ile bitmiyorsa dst object olarak algilanmamasi icin hata donulmeli.
-cp dir/ s3://bigtmp/prefix-without-slash
+✅ cp dir/ s3://bigtmp/prefix-without-slash
 
 ## s3->s3
 
 ### valid cases ###
 cp s3://bigtmp/obj1.txt s3://bigtmp/
 cp s3://bigtmp/obj1.txt s3://bigtmp/prefix/
-cp s3://bigtmp/obj1.txt s3://bigtmp/obj1.txt
+✅ cp s3://bigtmp/obj1.txt s3://bigtmp/obj1.txt
 
 cp s3://bigtmp/prefix/*.txt s3://bigtmp/
-cp s3://bigtmp/prefix/*.txt s3://bigtmp/prefix/
-cp s3://bigtmp/prefix/pre*/*.txt s3://bigtmp/dst/
+✅ cp s3://bigtmp/prefix/*.txt s3://bigtmp/prefix/
+✅ cp s3://bigtmp/prefix/pre*/*.txt s3://bigtmp/dst/
 
 
 ### invalid cases ###

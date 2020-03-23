@@ -1,11 +1,5 @@
 # cp
 
-NOTE(ig): for variadic operations, sources must be the same type, such as:
-
-s5cmd cp file1.txt s3://bigtmp/obj1 s3://bigtmp/prefix/
-
-should not work since arg0 and arg1 are different types.
-
 ## s3->local
 
 ### valid cases ###
@@ -24,24 +18,6 @@ should not work since arg0 and arg1 are different types.
 
 ✅ cp s3://bigtmp/s5cmdtest/ .
 
-### variadic
-
-### valid cases ###
-✅ cp s3://bigtmp/s5cmdtest/obj1.txt s3://bigtmp/s5cmdtest/obj2.txt .
-✅ cp s3://bigtmp/s5cmdtest/obj1.txt s3://bigtmp/s5cmdtest/obj2.txt foo/
-
-✅ cp s3://bigtmp/s5cmdtest/obj1.txt s3://bigtmp/s5cmdtest/obj2.txt obj2.txt # TODO(ig): ???
-# creates obj2.txt/ dir
-
-✅ cp s3://bigtmp/s5cmdtest/obj1.txt s3://bigtmp/s5cmdtest/obj2.txt foo/obj2.txt # TODO(ig): ???
-
-✅ cp s3://bigtmp/s5cmdtest/obj1.txt s3://bigtmp/s5cmdtest/* .
-✅ cp s3://bigtmp/s5cmdtest/prefix1/* s3://bigtmp/s5cmdtest/prefix2/* .
-
-### invalid cases ###
-✅ cp s3://bigtmp/s5cmdtest/obj1.txt s3://bigtmp/s5cmdtest/obj2.txt *
-✅ cp s3://bigtmp/s5cmdtest/obj1.txt foo/*
-
 ## local->s3
 
 ### valid cases
@@ -55,9 +31,9 @@ should not work since arg0 and arg1 are different types.
 ✅ cp '*' s3://bigtmp/s5cmdtest/prefix/ # l1949
 ✅ cp 'dir/*' s3://bigtmp/s5cmdtest/prefix/
 
-# should be like a/ dir. ??????????????/
-cp 'dir/*'  s3://bigtmp/s5cmdtest/a
-cp 'dir/*' s3://bigtmp/s5cmdtest/obj1.txt # TODO(ig): ???
+# expect 'a/' instead of 'a' and give error
+✅ cp 'dir/*'  s3://bigtmp/s5cmdtest/a
+✅ cp 'dir/*' s3://bigtmp/s5cmdtest/obj1.txt
 
 cp dir/ s3://bigtmp/prefix/  # prefix altinda, dir/ altindaki dosyalar olacak
 cp . s3://bigtmp/prefix/  # yukaridakinin aynisi
@@ -70,25 +46,6 @@ cp . s3://bigtmp/prefix/  # yukaridakinin aynisi
 
 # dst slash ile bitmiyorsa dst object olarak algilanmamasi icin hata donulmeli.
 cp dir/ s3://bigtmp/prefix-without-slash
-
-### variadic
-#### valid cases ###
-
-cp obj1.txt obj2.txt s3://bigtmp/s5cmdtest/
-cp dir/ obj2.txt s3://bigtmp/s5cmdtest/
-cp dir/ dir2/* obj1.txt s3://bigtmp/s5cmdtest/
-
-# ??? dst'de sonunda slash olmazsa nasil davranmali?
-# s5cmdtest diye bir object varsa davranis nasil olacak? En yan etkisi olmayan
-# cozum, verilen dst'nin sonunda slash yoksa islemi yapmamak ve kullaniciyi
-# uyarmak olacak muhtemelen.
-cp dir/ dir2/* obj1.txt s3://bigtmp/s5cmdtest
-
-#### invalid cases ####
-
-✅ cp obj1.txt obj2.txt s3://bigtmp/prefix/*
-✅ cp dir/ obj2.txt s3://bigtmp/prefix/*
-✅ cp dir/ dir2/* obj2.txt s3://bigtmp/prefix/*
 
 ## s3->s3
 
@@ -111,12 +68,6 @@ cp s3://bigtmp/prefix/ s3://bigtmp/dst/ # use wildcard. can't copy prefix.
 cp s3://bigtmp/prefix/ s3://bigtmp/dst # dst should be prefix
 cp s3://bigtmp/prefix/* s3://bigtmp/dst # dst should be prefix
 
-
-### variadic
-### valid cases ###
-cp s3://bigtmp/obj1.txt s3://bigtmp/prefix/ s3://bigtmp/s5cmdtest/
-
-### invalid cases ###
 
 ## local->local
 

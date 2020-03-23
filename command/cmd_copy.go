@@ -56,14 +56,17 @@ var CopyCommand = &cli.Command{
 	Usage:    "copy objects",
 	Flags:    copyCommandFlags,
 	Before: func(c *cli.Context) error {
-		if c.Args().Len() < 2 {
+		if c.Args().Len() != 2 {
 			return fmt.Errorf("expected source and destination arguments")
 		}
 
-		args := c.Args().Slice()
-		last := c.Args().Len() - 1
-		src := args[:last]
-		dst := args[last]
+		src := c.Args().Get(0)
+		dst := c.Args().Get(1)
+
+		srcurl, err := objurl.New(src)
+		if err != nil {
+			return err
+		}
 
 		dsturl, err := objurl.New(dst)
 		if err != nil {
@@ -74,23 +77,22 @@ var CopyCommand = &cli.Command{
 			return fmt.Errorf("target %q can not contain glob characters", dst)
 		}
 
-		if err := checkSources(src...); err != nil {
-			return err
+		// 'cp dir/* s3://bucket/prefix': expect a trailing slash to avoid any
+		// surprises.
+		if srcurl.HasGlob() && dsturl.IsRemote() && !dsturl.IsPrefix() && !dsturl.IsBucket() {
+			return fmt.Errorf("target %q must be a bucket or a prefix", dsturl)
 		}
 
-		if dsturl.IsRemote() && len(src) > 1 {
-			if !strings.HasSuffix(dsturl.Absolute(), "/") && !dsturl.IsBucket() {
-				return fmt.Errorf("destination argument is expected to be a directory or bucket")
-			}
+		// we don't operate on S3 prefixes for copy and delete operations.
+		if srcurl.IsBucket() || srcurl.IsPrefix() {
+			return fmt.Errorf("source argument must contain wildcard character")
 		}
 
-		return nil
+		return checkSources(src)
 	},
 	Action: func(c *cli.Context) error {
-		args := c.Args().Slice()
-		last := c.Args().Len() - 1
-		src := args[:last]
-		dst := args[last]
+		src := c.Args().Get(0)
+		dst := c.Args().Get(1)
 
 		copyCommand := Copy{
 			src:          src,
@@ -112,7 +114,7 @@ var CopyCommand = &cli.Command{
 }
 
 type Copy struct {
-	src         []string
+	src         string
 	dst         string
 	op          string
 	fullCommand string
@@ -129,7 +131,7 @@ type Copy struct {
 }
 
 func (c Copy) Run(ctx context.Context) error {
-	srcurls, err := newSources(c.src...)
+	srcurl, err := objurl.New(c.src)
 	if err != nil {
 		return err
 	}
@@ -139,7 +141,7 @@ func (c Copy) Run(ctx context.Context) error {
 		return err
 	}
 
-	objChan, err := expandSources(ctx, c.recursive, dsturl, srcurls...)
+	objChan, err := expandSources(ctx, c.recursive, dsturl, srcurl)
 	if err != nil {
 		return err
 	}
@@ -157,7 +159,7 @@ func (c Copy) Run(ctx context.Context) error {
 		}
 	}()
 
-	isBatch := len(srcurls) > 1 || srcurls[0].HasGlob()
+	isBatch := srcurl.HasGlob()
 	for object := range objChan {
 		if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) {
 			continue

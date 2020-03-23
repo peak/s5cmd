@@ -92,7 +92,78 @@ ignored. won't be a blocker for v1.0.0
 
 # copy with --parents and -R combinations
 
-cp --parents dir/ s3://bigtmp/prefix/  # prefix altinda, dir/ altindaki dosyalar olacak ve klasorler hiyerarsik olarak duracak.
+## s3->local
 
-# TODO(ig): wildcard olmayan bir source ile --parents verilince ne yapilmali?
-cp --parents testfile.txt dir/* s3://bigtmp/
+### valid cases ###
+✅ cp --parents s3://bigtmp/s5cmdtest/obj1.txt .
+✅ cp --parents s3://bigtmp/s5cmdtest/obj1.txt obj1.txt
+✅ cp --parents s3://bigtmp/s5cmdtest/obj1.txt foo/
+✅ cp --parents s3://bigtmp/s5cmdtest/obj1.txt foo/obj1.txt
+✅ cp --parents s3://bigtmp/s5cmdtest/ .
+
+✅ cp --parents s3://bigtmp/s5cmdtest/*.txt .
+✅ cp --parents s3://bigtmp/s5cmdtest/*j1.txt .
+✅ cp --parents s3://bigtmp/s5cmdtest/*/*j1.txt .  # S3 tarafinda bigtmp/s5cmdtest/prefix/obj1.txt ve obj2.txt olsun.
+
+## local->s3
+
+### valid cases
+✅ cp --parents '*' s3://bigtmp/s5cmdtest/prefix/
+✅ cp --parents 'dir/*' s3://bigtmp/s5cmdtest/prefix/
+
+✅ cp --parents dir/ s3://bigtmp/prefix/  # prefix altinda, dir/ altindaki dosyalar olacak
+✅ cp --parents . s3://bigtmp/prefix/  # yukaridakinin aynisi
+
+### invalid cases
+
+# parents and no-wildcard doesn't mix together
+✅ cp --parents obj1.txt s3://bigtmp/s5cmdtest/
+ cp --parents dir/dir2/obj1.txt s3://bigtmp/s5cmdtest/obj1.txt
+
+ cp obj1.txt s3://bigtmp/*
+ cp obj1.txt s3://bigtmp/prefix/*
+
+✅ cp --parents 'dir/*'  s3://bigtmp/s5cmdtest/a
+✅ cp --parents 'dir/*' s3://bigtmp/s5cmdtest/obj1.txt
+
+# dst slash ile bitmiyorsa dst object olarak algilanmamasi icin hata donulmeli.
+ cp dir/ s3://bigtmp/prefix-without-slash
+
+## s3->s3
+
+### valid cases ###
+ cp s3://bigtmp/obj1.txt s3://bigtmp2/
+ cp s3://bigtmp/obj1.txt s3://bigtmp/prefix/
+ cp s3://bigtmp/obj1.txt s3://bigtmp/obj1.txt
+
+ cp s3://bigtmp/prefix/*.txt s3://bigtmp/
+ cp s3://bigtmp/prefix/*.txt s3://bigtmp/prefix/
+ cp s3://bigtmp/prefix/pre*/*.txt s3://bigtmp/dst/
+
+
+### invalid cases ###
+
+ cp s3://bigtmp/obj1.txt s3://bigtmp/* # dst cant be wildcard
+ cp s3://bigtmp/obj1.txt s3://bigtmp/prefix/* # dst cant be wildcard
+
+ cp s3://bigtmp/prefix/ s3://bigtmp/dst/ # use wildcard. can't copy prefix.
+ cp s3://bigtmp/prefix/ s3://bigtmp/dst # dst should be prefix
+ cp s3://bigtmp/prefix/* s3://bigtmp/dst # dst should be prefix
+
+## local->local
+
+ignored. won't be a blocker for v1.0.0
+
+# rm
+
+### valid cases
+✅ s5cmd rm s3://bigtmp/obj
+✅ s5cmd rm s3://bigtmp/prefix-without-slash # expect success because of S3 limitation.
+✅ s5cmd rm s3://bigtmp/obj s3://bigtmp/prefix/*
+
+### invalid cases
+
+✅ s5cmd rm s3://bigtmp/test10/
+✅ s5cmd rm file1.txt s3://bigtmp/obj1 # sources must be same type
+
+

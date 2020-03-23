@@ -97,6 +97,9 @@ var app = &cli.App{
 		printJSON := c.Bool("json")
 		logLevel := c.String("log")
 
+		log.Init(logLevel, printJSON)
+		parallel.Init(workerCount)
+
 		// validation
 		{
 			if uploadChunkSize < 5 {
@@ -127,10 +130,6 @@ var app = &cli.App{
 		}
 
 		storage.SetS3Options(s3opts)
-
-		log.Init(logLevel, printJSON)
-
-		parallel.Init(workerCount)
 
 		return nil
 	},

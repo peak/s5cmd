@@ -56,15 +56,7 @@ var CopyCommand = &cli.Command{
 	Usage:    "copy objects",
 	Flags:    copyCommandFlags,
 	Before: func(c *cli.Context) error {
-		if c.Args().Len() != 2 {
-			return fmt.Errorf("expected source and destination arguments")
-		}
-
-		return Validate(
-			c.Context,
-			c.Args().Get(0),
-			c.Args().Get(1),
-		)
+		return Validate(c)
 	},
 	Action: func(c *cli.Context) error {
 		copyCommand := Copy{
@@ -575,7 +567,20 @@ func getObject(ctx context.Context, url *objurl.ObjectURL) (*storage.Object, err
 	return obj, err
 }
 
-func Validate(ctx context.Context, src, dst string) error {
+func Validate(c *cli.Context) error {
+	if c.Args().Len() != 2 {
+		return fmt.Errorf("expected source and destination arguments")
+	}
+
+	storageClass := storage.LookupClass(c.String("storage-class"))
+	if storageClass == storage.StorageInvalid {
+		return fmt.Errorf("invalid storage class")
+	}
+
+	ctx := c.Context
+	src := c.Args().Get(0)
+	dst := c.Args().Get(1)
+
 	srcurl, err := objurl.New(src)
 	if err != nil {
 		return err
@@ -586,8 +591,15 @@ func Validate(ctx context.Context, src, dst string) error {
 		return err
 	}
 
+	// wildcard destination doesn't mean anything
 	if dsturl.HasGlob() {
 		return fmt.Errorf("target %q can not contain glob characters", dst)
+	}
+
+	// for remote->X operations, --parents is used in conjunction with a
+	// wildcard source to deduce relative source paths.
+	if srcurl.IsRemote() && !srcurl.HasGlob() && c.Bool("parents") {
+		return fmt.Errorf("source argument must contain wildcard if --parents flag is provided")
 	}
 
 	// we don't operate on S3 prefixes for copy and delete operations.

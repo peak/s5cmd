@@ -212,7 +212,7 @@ func (o *ObjectURL) setPrefixAndFilter() error {
 		o.Prefix = o.Path[:loc]
 		o.filter = o.Path[loc:]
 	}
-	for _, char := range regexCharacters
+	for _, char := range regexCharacters {
 		o.Prefix = strings.Replace(o.Prefix, string(char), "\\" + string(char), -1)
 	}
 

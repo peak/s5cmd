@@ -9,6 +9,7 @@ import (
 	"gotest.tools/v3/icmd"
 )
 
+// rm s3://bucket/object
 func TestRemoveSingleS3Object(t *testing.T) {
 	t.Parallel()
 
@@ -45,6 +46,7 @@ func TestRemoveSingleS3Object(t *testing.T) {
 	assertError(t, err, errS3NoSuchKey)
 }
 
+// --json rm s3://bucket/object
 func TestRemoveSingleS3ObjectJSON(t *testing.T) {
 	t.Parallel()
 
@@ -87,6 +89,7 @@ func TestRemoveSingleS3ObjectJSON(t *testing.T) {
 	assertError(t, err, errS3NoSuchKey)
 }
 
+// rm s3://bucket/*
 func TestRemoveMultipleS3Objects(t *testing.T) {
 	t.Parallel()
 
@@ -132,6 +135,7 @@ func TestRemoveMultipleS3Objects(t *testing.T) {
 	}
 }
 
+// --json rm s3://bucket/*
 func TestRemoveMultipleS3ObjectsJSON(t *testing.T) {
 	t.Parallel()
 
@@ -202,6 +206,7 @@ func TestRemoveMultipleS3ObjectsJSON(t *testing.T) {
 
 }
 
+// rm s3://bucket/* (removes 10k objects)
 func TestRemoveTenThousandS3Objects(t *testing.T) {
 	t.Parallel()
 
@@ -255,6 +260,68 @@ func TestRemoveTenThousandS3Objects(t *testing.T) {
 	}
 }
 
+// rm s3://bucket/prefix
+func TestRemoveS3PrefixWithoutSlash(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+
+	const prefix = "prefix"
+	src := fmt.Sprintf("s3://%v/%v", bucket, prefix)
+
+	cmd := s5cmd("rm", src)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: equals(""),
+	})
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals("rm s3://%v/%v", bucket, prefix),
+		1: equals(""),
+	})
+}
+
+// rm s3://bucket/prefix/
+func TestRemoveS3Prefix(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+
+	const (
+		filename = "file.txt"
+		content  = "test file"
+	)
+
+	putFile(t, s3client, bucket, filename, content)
+
+	const prefix = "prefix/"
+	src := fmt.Sprintf("s3://%v/%v", bucket, prefix)
+
+	cmd := s5cmd("rm", src)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Expected{ExitCode: 1})
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: equals(`ERROR "rm %v": source argument must contain wildcard character`, src),
+		1: equals(""),
+	})
+}
+
+// rm file
 func TestRemoveSingleLocalFile(t *testing.T) {
 	t.Parallel()
 
@@ -288,6 +355,7 @@ func TestRemoveSingleLocalFile(t *testing.T) {
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 }
 
+// rm *.ext
 func TestRemoveMultipleLocalFilesShouldNotFail(t *testing.T) {
 	t.Parallel()
 
@@ -313,7 +381,7 @@ func TestRemoveMultipleLocalFilesShouldNotFail(t *testing.T) {
 	cmd := s5cmd("rm", "*.txt")
 	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
 
-	result.Assert(t, icmd.Expected{ExitCode: 0})
+	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(""),
@@ -334,6 +402,7 @@ func TestRemoveMultipleLocalFilesShouldNotFail(t *testing.T) {
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 }
 
+// rm s3://bucket/object s3://bucket/object2
 func TestVariadicRemove(t *testing.T) {
 	t.Parallel()
 
@@ -386,6 +455,7 @@ func TestVariadicRemove(t *testing.T) {
 	}
 }
 
+// rm s3://bucket/prefix/* s3://bucket/object
 func TestVariadicRemoveWithWildcard(t *testing.T) {
 	t.Parallel()
 
@@ -437,4 +507,46 @@ func TestVariadicRemoveWithWildcard(t *testing.T) {
 		err := ensureS3Object(s3client, bucket, filename, content)
 		assertError(t, err, errS3NoSuchKey)
 	}
+}
+
+// rm file s3://bucket/object
+func TestRemoveMultipleMixedObjects(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	const bucket = "bucket"
+	createBucket(t, s3client, bucket)
+
+	const (
+		filename = "file.txt"
+		content  = "this is a test file"
+
+		objectname = "object.txt"
+	)
+
+	workdir := fs.NewDir(t, t.Name(), fs.WithFile(filename, content))
+	defer workdir.Remove()
+
+	putFile(t, s3client, bucket, objectname, content)
+
+	remoteSource := fmt.Sprintf("s3://%v/%v", bucket, objectname)
+
+	cmd := s5cmd("rm", filename, remoteSource)
+	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
+
+	result.Assert(t, icmd.Expected{ExitCode: 1})
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: equals(`ERROR "rm %v %v": arguments cannot have both local and remote sources`, filename, remoteSource),
+		1: equals(""),
+	})
+
+	// assert local filesystem
+	expected := fs.Expected(t, fs.WithFile(filename, content))
+	assert.Assert(t, fs.Equal(workdir.Path(), expected))
+
+	// assert s3 object
+	assert.Assert(t, ensureS3Object(s3client, bucket, objectname, content))
 }

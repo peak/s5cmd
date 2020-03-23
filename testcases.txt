@@ -50,11 +50,11 @@
 ## s3->s3
 
 ### valid cases ###
-cp s3://bigtmp/obj1.txt s3://bigtmp/
-cp s3://bigtmp/obj1.txt s3://bigtmp/prefix/
+✅ cp s3://bigtmp/obj1.txt s3://bigtmp2/
+✅ cp s3://bigtmp/obj1.txt s3://bigtmp/prefix/
 ✅ cp s3://bigtmp/obj1.txt s3://bigtmp/obj1.txt
 
-cp s3://bigtmp/prefix/*.txt s3://bigtmp/
+✅ cp s3://bigtmp/prefix/*.txt s3://bigtmp/
 ✅ cp s3://bigtmp/prefix/*.txt s3://bigtmp/prefix/
 ✅ cp s3://bigtmp/prefix/pre*/*.txt s3://bigtmp/dst/
 
@@ -64,10 +64,9 @@ cp s3://bigtmp/prefix/*.txt s3://bigtmp/
 ✅ cp s3://bigtmp/obj1.txt s3://bigtmp/* # dst cant be wildcard
 ✅ cp s3://bigtmp/obj1.txt s3://bigtmp/prefix/* # dst cant be wildcard
 
-cp s3://bigtmp/prefix/ s3://bigtmp/dst/ # use wildcard. can't copy prefix.
-cp s3://bigtmp/prefix/ s3://bigtmp/dst # dst should be prefix
-cp s3://bigtmp/prefix/* s3://bigtmp/dst # dst should be prefix
-
+✅ cp s3://bigtmp/prefix/ s3://bigtmp/dst/ # use wildcard. can't copy prefix.
+✅ cp s3://bigtmp/prefix/ s3://bigtmp/dst # dst should be prefix
+✅ cp s3://bigtmp/prefix/* s3://bigtmp/dst # dst should be prefix
 
 ## local->local
 
@@ -76,15 +75,14 @@ ignored. won't be a blocker for v1.0.0
 # rm
 
 ### valid cases
-s5cmd rm s3://bigtmp/obj
-s5cmd rm s3://bigtmp/prefix-without-slash # expect success because of S3 limitation.
-
-s5cmd rm s3://bigtmp/obj s3://bigtmp/prefix/*
+✅ s5cmd rm s3://bigtmp/obj
+✅ s5cmd rm s3://bigtmp/prefix-without-slash # expect success because of S3 limitation.
+✅ s5cmd rm s3://bigtmp/obj s3://bigtmp/prefix/*
 
 ### invalid cases
 
-s5cmd rm s3://bigtmp/test10/
-s5cmd rm file1.txt s3://bigtmp/obj1 # sources must be same type
+✅ s5cmd rm s3://bigtmp/test10/
+✅ s5cmd rm file1.txt s3://bigtmp/obj1 # sources must be same type
 
 
 #########################

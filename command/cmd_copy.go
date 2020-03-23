@@ -469,7 +469,7 @@ func prepareCopyDestination(
 	// For remote->remote copy operations, treat <dst> as prefix if it has "/"
 	// suffix.
 	if dsturl.IsRemote() {
-		if strings.HasSuffix(dsturl.Path, "/") {
+		if dsturl.IsPrefix() || dsturl.IsBucket() {
 			dsturl = dsturl.Join(objname)
 		}
 		return dsturl, nil

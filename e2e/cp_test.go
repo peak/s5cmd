@@ -1137,12 +1137,54 @@ func TestCopySingleS3ObjectToS3JSON(t *testing.T) {
 	assert.Assert(t, ensureS3Object(s3client, bucket, dstfilename, content))
 }
 
-// cp s3://bucket/object s3://bucket2/object
+// cp s3://bucket/object s3://bucket2/
 func TestCopySingleS3ObjectIntoAnotherBucket(t *testing.T) {
 	t.Parallel()
 
 	srcbucket := s3BucketFromTestName(t)
 	dstbucket := "copy-" + s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, srcbucket)
+	createBucket(t, s3client, dstbucket)
+
+	const (
+		filename = "testfile1.txt"
+		content  = "this is a file content"
+	)
+
+	putFile(t, s3client, srcbucket, filename, content)
+
+	src := fmt.Sprintf("s3://%v/%v", srcbucket, filename)
+	dst := fmt.Sprintf("s3://%v/", dstbucket)
+
+	cmd := s5cmd("cp", src, dst)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`cp %v`, src),
+		1: equals(""),
+	})
+
+	// assert s3 source object
+	assert.Assert(t, ensureS3Object(s3client, srcbucket, filename, content))
+
+	// assert s3 destination object
+	assert.Assert(t, ensureS3Object(s3client, dstbucket, filename, content))
+}
+
+// cp s3://bucket/object s3://bucket2/object
+func TestCopySingleS3ObjectIntoAnotherBucketWithObjName(t *testing.T) {
+	t.Parallel()
+
+	const (
+		srcbucket = "bucket"
+		dstbucket = "dstbucket"
+	)
 
 	s3client, s5cmd, cleanup := setup(t)
 	defer cleanup()
@@ -1177,8 +1219,46 @@ func TestCopySingleS3ObjectIntoAnotherBucket(t *testing.T) {
 	assert.Assert(t, ensureS3Object(s3client, dstbucket, filename, content))
 }
 
+// cp s3://bucket/object s3://bucket2/prefix/
+func TestCopySingleS3ObjectIntoAnotherBucketWithPrefix(t *testing.T) {
+	t.Parallel()
+
+	const bucket = "bucket"
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+
+	const (
+		filename = "testfile1.txt"
+		content  = "this is a file content"
+	)
+
+	putFile(t, s3client, bucket, filename, content)
+
+	src := fmt.Sprintf("s3://%v/%v", bucket, filename)
+	dst := fmt.Sprintf("s3://%v/prefix/%v", bucket, filename)
+
+	cmd := s5cmd("cp", src, dst)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`cp %v`, src),
+		1: equals(""),
+	})
+
+	// assert s3 source object
+	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content))
+
+	// assert s3 destination object
+	assert.Assert(t, ensureS3Object(s3client, bucket, "prefix/"+filename, content))
+}
+
 // cp s3://bucket/* s3://bucket/prefix/
-func TestCopyMultipleS3ObjectsToS3(t *testing.T) {
+func TestCopyMultipleS3ObjectsToS3WithPrefix(t *testing.T) {
 	t.Parallel()
 
 	bucket := s3BucketFromTestName(t)
@@ -1224,6 +1304,48 @@ func TestCopyMultipleS3ObjectsToS3(t *testing.T) {
 	for filename, content := range filesToContent {
 		assert.Assert(t, ensureS3Object(s3client, bucket, "dst/"+filename, content))
 	}
+}
+
+// cp s3://bucket/* s3://bucket/prefix
+func TestCopyMultipleS3ObjectsToS3WithPrefixWithoutSlash(t *testing.T) {
+	t.Parallel()
+
+	const bucket = "bucket"
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+
+	filesToContent := map[string]string{
+		"testfile1.txt":          "this is a test file 1",
+		"readme.md":              "this is a readme file",
+		"filename-with-hypen.gz": "file has hypen in its name",
+		"another_test_file.txt":  "yet another txt file. yatf.",
+	}
+
+	for filename, content := range filesToContent {
+		putFile(t, s3client, bucket, filename, content)
+	}
+
+	src := fmt.Sprintf("s3://%v/*", bucket)
+	dst := fmt.Sprintf("s3://%v/dst", bucket)
+
+	cmd := s5cmd("cp", src, dst)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Expected{ExitCode: 1})
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: equals(`ERROR "cp %v %v": target %q must be a bucket or a prefix`, src, dst, dst),
+		1: equals(""),
+	})
+
+	// assert s3 source objects
+	for filename, content := range filesToContent {
+		assert.Assert(t, ensureS3Object(s3client, bucket, filename, content))
+	}
+
 }
 
 // --json cp s3://bucket/* s3://bucket/prefix/

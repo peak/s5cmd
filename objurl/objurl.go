@@ -21,6 +21,9 @@ const (
 
 	// matchAllRe is the regex to match everything
 	matchAllRe string = ".*"
+
+	// regexCharacters need to be escaped to be interpreted literally
+    regexCharacters string = "\\^$.|?*+()[{"
 )
 
 type objurlType int
@@ -209,6 +212,9 @@ func (o *ObjectURL) setPrefixAndFilter() error {
 		o.Prefix = o.Path[:loc]
 		o.filter = o.Path[loc:]
 	}
+	for _, char := range regexCharacters {
+        o.Prefix = strings.Replace(o.Prefix, string(char), "\\" + string(char), -1)
+    }
 
 	filterRegex := matchAllRe
 	if o.filter != "" {

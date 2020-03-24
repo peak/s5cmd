@@ -48,6 +48,18 @@ var copyCommandFlags = []cli.Flag{
 		Name:  "storage-class",
 		Usage: "set storage class for target ('STANDARD','REDUCED_REDUNDANCY','GLACIER','STANDARD_IA')",
 	},
+	&cli.IntFlag{
+		Name:    "concurrency",
+		Aliases: []string{"c"},
+		Value:   defaultCopyConcurrency,
+		Usage:   "number of concurrent parts transferred between host and remote server",
+	},
+	&cli.IntFlag{
+		Name:    "part-size",
+		Aliases: []string{"p"},
+		Value:   defaultPartSize,
+		Usage:   "size of each part transferred between host and remote server, in MiB",
+	},
 }
 
 var CopyCommand = &cli.Command{
@@ -69,6 +81,14 @@ var CopyCommand = &cli.Command{
 			return fmt.Errorf("target %q can not contain glob characters", dst)
 		}
 
+		if c.Int64("part-size") < 5 {
+			return fmt.Errorf("part size should be greater than 5 MiB")
+		}
+
+		if c.Int("concurrency") < 1 {
+			return fmt.Errorf("copy concurrency should be greater than 1")
+		}
+
 		return nil
 	},
 	Action: func(c *cli.Context) error {
@@ -85,6 +105,8 @@ var CopyCommand = &cli.Command{
 			recursive:     c.Bool("recursive"),
 			parents:       c.Bool("parents"),
 			storageClass:  storage.LookupClass(c.String("storage-class")),
+			concurrency:   c.Int("concurrency"),
+			partSize:      c.Int64("partSize") * megabytes,
 		}
 
 		return copyCommand.Run(c.Context)
@@ -106,6 +128,10 @@ type Copy struct {
 	recursive     bool
 	parents       bool
 	storageClass  storage.StorageClass
+
+	// s3 options
+	concurrency int
+	partSize    int64
 }
 
 func (c Copy) Run(ctx context.Context) error {
@@ -273,7 +299,7 @@ func (c Copy) doDownload(ctx context.Context, srcurl *objurl.ObjectURL, dsturl *
 	}
 	defer f.Close()
 
-	size, err := srcClient.Get(ctx, srcurl, f)
+	size, err := srcClient.Get(ctx, srcurl, f, c.concurrency, c.partSize)
 	if err != nil {
 		err = dstClient.Delete(ctx, dsturl)
 	} else if c.deleteSource {
@@ -324,7 +350,7 @@ func (c Copy) doUpload(ctx context.Context, srcurl *objurl.ObjectURL, dsturl *ob
 		"ContentType":  guessContentType(f),
 	}
 
-	err = dstClient.Put(ctx, f, dsturl, metadata)
+	err = dstClient.Put(ctx, f, dsturl, metadata, c.concurrency, c.partSize)
 	if err != nil {
 		return err
 	}
@@ -625,7 +651,7 @@ func expandSource(
 
 	// call storage.List for only walking operations.
 	if srcurl.HasGlob() || isDir {
-		return client.List(ctx, srcurl, isRecursive, storage.ListAllItems), nil
+		return client.List(ctx, srcurl, isRecursive), nil
 	}
 
 	ch := make(chan *storage.Object, 1)

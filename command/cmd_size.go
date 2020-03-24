@@ -72,7 +72,7 @@ func Size(
 
 	var merror error
 
-	for object := range client.List(ctx, srcurl, true, storage.ListAllItems) {
+	for object := range client.List(ctx, srcurl, true) {
 		if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) {
 			continue
 		}

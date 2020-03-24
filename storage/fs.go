@@ -39,7 +39,7 @@ func (f *Filesystem) Stat(ctx context.Context, url *url.URL) (*Object, error) {
 	}, nil
 }
 
-func (f *Filesystem) List(ctx context.Context, src *url.URL, isRecursive bool, _ int64) <-chan *Object {
+func (f *Filesystem) List(ctx context.Context, src *url.URL, isRecursive bool) <-chan *Object {
 	obj, err := f.Stat(ctx, src)
 	isDir := err == nil && obj.Type.IsDir()
 
@@ -206,11 +206,11 @@ func (f *Filesystem) MultiDelete(ctx context.Context, urlch <-chan *url.URL) <-c
 	return resultch
 }
 
-func (f *Filesystem) Put(ctx context.Context, body io.Reader, url *url.URL, _ map[string]string) error {
+func (f *Filesystem) Put(_ context.Context, _ io.Reader, _ *url.URL, _ map[string]string, _ int, _ int64) error {
 	return f.notimplemented("Put")
 }
 
-func (f *Filesystem) Get(_ context.Context, _ *url.URL, _ io.WriterAt) (int64, error) {
+func (f *Filesystem) Get(_ context.Context, _ *url.URL, _ io.WriterAt, _ int, _ int64) (int64, error) {
 	return 0, f.notimplemented("Get")
 }
 

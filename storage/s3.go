@@ -29,9 +29,6 @@ import (
 var _ Storage = (*S3)(nil)
 
 const (
-	// ListAllItems is a type to paginate all S3 keys.
-	ListAllItems = -1
-
 	// deleteObjectsMax is the max allowed objects to be deleted on single HTTP
 	// request.
 	deleteObjectsMax = 1000
@@ -92,14 +89,10 @@ type S3 struct {
 
 // S3Opts stores configuration for S3 storage.
 type S3Opts struct {
-	MaxRetries             int
-	EndpointURL            string
-	Region                 string
-	NoVerifySSL            bool
-	UploadChunkSizeBytes   int64
-	UploadConcurrency      int
-	DownloadChunkSizeBytes int64
-	DownloadConcurrency    int
+	MaxRetries  int
+	EndpointURL string
+	Region      string
+	NoVerifySSL bool
 }
 
 // NewS3Storage creates new S3 session.
@@ -143,7 +136,7 @@ func (s *S3) Stat(ctx context.Context, url *url.URL) (*Object, error) {
 // List is a non-blocking S3 list operation which paginates and filters S3
 // keys. If no object found or an error is encountered during this period,
 // it sends these errors to object channel.
-func (s *S3) List(ctx context.Context, url *url.URL, _ bool, maxKeys int64) <-chan *Object {
+func (s *S3) List(ctx context.Context, url *url.URL, _ bool) <-chan *Object {
 	listInput := s3.ListObjectsV2Input{
 		Bucket: aws.String(url.Bucket),
 		Prefix: aws.String(url.Prefix),
@@ -151,11 +144,6 @@ func (s *S3) List(ctx context.Context, url *url.URL, _ bool, maxKeys int64) <-ch
 
 	if url.Delimiter != "" {
 		listInput.SetDelimiter(url.Delimiter)
-	}
-
-	shouldPaginate := maxKeys < 0
-	if !shouldPaginate {
-		listInput.SetMaxKeys(maxKeys)
 	}
 
 	objCh := make(chan *Object)
@@ -208,7 +196,7 @@ func (s *S3) List(ctx context.Context, url *url.URL, _ bool, maxKeys int64) <-ch
 				objectFound = true
 			}
 
-			return shouldPaginate && !lastPage
+			return !lastPage
 		})
 
 		if err != nil {
@@ -243,13 +231,19 @@ func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata map[string]st
 
 // Get is a multipart download operation which downloads S3 objects into any
 // destination that implements io.WriterAt interface.
-func (s *S3) Get(ctx context.Context, from *url.URL, to io.WriterAt) (int64, error) {
+func (s *S3) Get(
+	ctx context.Context,
+	from *url.URL,
+	to io.WriterAt,
+	concurrency int,
+	partSize int64,
+) (int64, error) {
 	n, err := s.downloader.DownloadWithContext(ctx, to, &s3.GetObjectInput{
 		Bucket: aws.String(from.Bucket),
 		Key:    aws.String(from.Path),
 	}, func(u *s3manager.Downloader) {
-		u.PartSize = s.opts.DownloadChunkSizeBytes
-		u.Concurrency = s.opts.DownloadConcurrency
+		u.PartSize = partSize
+		u.Concurrency = concurrency
 	})
 
 	return n, err
@@ -257,7 +251,14 @@ func (s *S3) Get(ctx context.Context, from *url.URL, to io.WriterAt) (int64, err
 
 // Put is a multipart upload operation to upload resources, which implements
 // io.Reader interface, into S3 destination.
-func (s *S3) Put(ctx context.Context, reader io.Reader, to *url.URL, metadata map[string]string) error {
+func (s *S3) Put(
+	ctx context.Context,
+	reader io.Reader,
+	to *url.URL,
+	metadata map[string]string,
+	concurrency int,
+	partSize int64,
+) error {
 	storageClass := metadata["StorageClass"]
 	if storageClass == "" {
 		storageClass = string(StorageStandard)
@@ -275,8 +276,8 @@ func (s *S3) Put(ctx context.Context, reader io.Reader, to *url.URL, metadata ma
 		ContentType:  aws.String(contentType),
 		StorageClass: aws.String(storageClass),
 	}, func(u *s3manager.Uploader) {
-		u.PartSize = s.opts.UploadChunkSizeBytes
-		u.Concurrency = s.opts.UploadConcurrency
+		u.PartSize = partSize
+		u.Concurrency = concurrency
 	})
 
 	return err

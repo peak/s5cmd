@@ -26,6 +26,9 @@ This is a major release with many breaking changes.
   `--endpoint-url` flag (other than GCS and S3 transfer acceleration), `s5cmd`
   will fall back to the `path-style`. ([#92](https://github.com/peak/s5cmd/pull/92))
 - Listing a non-existent object will return exit code `1`, instead of `0`. ([#23](https://github.com/peak/s5cmd/issues/23))
+- `-ds`, `-dw`, `-us` and `-uw` global flags are no longer available. Multipart
+  concurrency and part size flags are now part of the `cp/mv` command. New
+  replacement flags are `--concurrency | -c` and `--part-size | -p`.
 
 #### Features
 

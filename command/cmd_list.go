@@ -92,7 +92,7 @@ func List(
 
 	var merror error
 
-	for object := range client.List(ctx, srcurl, true, storage.ListAllItems) {
+	for object := range client.List(ctx, srcurl, true) {
 		if errorpkg.IsCancelation(object.Err) {
 			continue
 		}

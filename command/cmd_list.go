@@ -14,10 +14,34 @@ import (
 	"github.com/peak/s5cmd/strutil"
 )
 
+var listHelpTemplate = `Name:
+	{{.HelpName}} - {{.Usage}}
+
+Usage:
+	{{.HelpName}} [options] argument
+
+Options:
+	{{range .VisibleFlags}}{{.}}
+	{{end}}
+Examples:
+	1. List all buckets
+		 > s5cmd {{.HelpName}}
+
+	2. List objects and prefixes in a bucket
+		 > s5cmd {{.HelpName}} s3://bucket/
+
+	3. List all objects in a bucket
+		 > s5cmd {{.HelpName}} s3://bucket/*
+
+	4. List all objects that matches a wildcard
+		 > s5cmd {{.HelpName}} s3://bucket/prefix/*/*.gz
+`
+
 var ListCommand = &cli.Command{
-	Name:     "ls",
-	HelpName: "ls",
-	Usage:    "list buckets and objects",
+	Name:               "ls",
+	HelpName:           "ls",
+	Usage:              "list buckets and objects",
+	CustomHelpTemplate: listHelpTemplate,
 	Flags: []cli.Flag{
 		&cli.BoolFlag{
 			Name:    "etag",

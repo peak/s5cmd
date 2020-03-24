@@ -19,6 +19,38 @@ import (
 	"github.com/peak/s5cmd/storage"
 )
 
+var copyHelpTemplate = `Name:
+	{{.HelpName}} - {{.Usage}}
+
+Usage:
+	{{.HelpName}} [options] source destination
+
+Options:
+	{{range .VisibleFlags}}{{.}}
+	{{end}}
+Examples:
+	1. Download an S3 object to working directory
+		 > s5cmd {{.HelpName}} s3://bucket/prefix/object.gz .
+
+	2. Download an S3 object and rename
+		 > s5cmd {{.HelpName}} s3://bucket/prefix/object.gz myobject.gz
+
+	3. Download all S3 objects to a directory
+		 > s5cmd {{.HelpName}} s3://bucket/* target-directory/
+
+	4. Upload a file to S3 bucket
+		 > s5cmd {{.HelpName}} myfile.gz s3://bucket/
+
+	5. Upload a directory to S3 bucket recursively
+		 > s5cmd {{.HelpName}} dir/ s3://bucket/
+
+	6. Mirror a directory to target S3 prefix
+		 > s5cmd {{.HelpName}} -n -s -u dir/ s3://bucket/target-prefix/
+
+	7. Mirror an S3 prefix to target S3 prefix
+		 > s5cmd {{.HelpName}} -n -s -u s3://bucket/source-prefix/ s3://bucket/target-prefix/
+`
+
 var copyCommandFlags = []cli.Flag{
 	&cli.BoolFlag{
 		Name:    "no-clobber",
@@ -63,10 +95,11 @@ var copyCommandFlags = []cli.Flag{
 }
 
 var CopyCommand = &cli.Command{
-	Name:     "cp",
-	HelpName: "cp",
-	Usage:    "copy objects",
-	Flags:    copyCommandFlags,
+	Name:               "cp",
+	HelpName:           "cp",
+	Usage:              "copy objects",
+	Flags:              copyCommandFlags,
+	CustomHelpTemplate: copyHelpTemplate,
 	Before: func(c *cli.Context) error {
 		if c.Args().Len() != 2 {
 			return fmt.Errorf("expected source and destination arguments")

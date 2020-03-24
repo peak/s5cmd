@@ -11,10 +11,25 @@ import (
 	"github.com/peak/s5cmd/storage"
 )
 
+var makeBucketHelpTemplate = `Name:
+	{{.HelpName}} - {{.Usage}}
+
+Usage:
+	{{.HelpName}} bucketname
+
+Options:
+	{{range .VisibleFlags}}{{.}}
+	{{end}}
+Examples:
+	1. Create a new S3 bucket
+		 > s5cmd {{.HelpName}} newbucket
+`
+
 var MakeBucketCommand = &cli.Command{
-	Name:     "mb",
-	HelpName: "mb",
-	Usage:    "make bucket",
+	Name:               "mb",
+	HelpName:           "mb",
+	Usage:              "make bucket",
+	CustomHelpTemplate: makeBucketHelpTemplate,
 	Before: func(c *cli.Context) error {
 		if c.Args().Len() != 1 {
 			return fmt.Errorf("expected only 1 argument")

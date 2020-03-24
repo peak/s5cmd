@@ -28,7 +28,7 @@ This is a major release with many breaking changes.
 - Listing a non-existent object will return exit code `1`, instead of `0`. ([#23](https://github.com/peak/s5cmd/issues/23))
 - `-ds`, `-dw`, `-us` and `-uw` global flags are no longer available. Multipart
   concurrency and part size flags are now part of the `cp/mv` command. New
-  replacement flags are `--concurrency | c` and `--part-size | p`.
+  replacement flags are `--concurrency | -c` and `--part-size | -p`.
 
 #### Features
 

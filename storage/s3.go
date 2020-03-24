@@ -43,8 +43,9 @@ const (
 	gcsEndpoint = "storage.googleapis.com"
 )
 
-// newS3Factory creates a new factory for
-// creating reusable sessions.
+// newS3Factory returns a closure that creates new S3 storage. This pattern is
+// used to re-use S3 sessions which makes huge difference for batch S3
+// operations.
 func newS3Factory(opts S3Opts) func() (*S3, error) {
 	var (
 		mu     sync.RWMutex

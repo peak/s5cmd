@@ -17,6 +17,9 @@ storage services and local filesystems.
 - Summarize objects sizes, grouping by storage class
 - Wildcard support for all operations
 - Command file support to run commands in batches at very high execution speeds
+- [S3 Transfer Acceleration](https://docs.aws.amazon.com/AmazonS3/latest/dev/transfer-acceleration.html) support
+- Google Cloud Storage (and any other S3 API compatible service) support
+- Structured logging for querying command outputs
 - Shell auto-completion
 
 ## Installation
@@ -179,7 +182,7 @@ mv s3://bucket/2020/03/18/file1.gz s3://bucket/2020/03/18/original/file.gz
 ls # inline comments are OK too
 ```
 
-### Specifying Credentials
+### Specifying credentials
 
 `s5cmd` uses official AWS SDK to access S3. SDK requires credentials to sign
 requests to AWS. Credentials can be provided in a variety of ways:
@@ -192,7 +195,7 @@ requests to AWS. Credentials can be provided in a variety of ways:
 The SDK detects and uses the built-in providers automatically, without requiring
 manual configurations.
 
-### Shell Auto-Completion
+### Shell auto-completion
 
 Shell completion is supported for bash, zsh and fish.
 
@@ -202,6 +205,22 @@ To enable auto-completion, run:
 
 This will add a few lines to your shell configuration file. After installation,
 restart your shell to activate the changes.
+
+### Google Cloud Storage support
+
+`s5cmd` supports S3 API compatible services, such as GCS, Minio or your favorite
+object storage.
+
+    s5cmd --endpoint-url https://storage.googleapis.com ls
+
+will return your GCS buckets.
+
+`s5cmd` will use virtual-host style bucket resolving for S3, S3 transfer
+acceleration and GCS. If a custom endpoint is provided, it'll fallback to
+path-style.
+
+⚠️  There's an [outstanding issue](https://github.com/peak/s5cmd/issues/81) for
+not being able to list objects at GCS. It'll be fixed in upcoming releases.
 
 ## Output
 
@@ -220,7 +239,7 @@ $ s5cmd cp --no-clobber s3://somebucket/file.txt file.txt
 ERROR "cp s3://somebucket/file.txt file.txt": object already exists
 ```
 
-* If `--json` flag if provided:
+* If `--json` flag is provided:
 
 ```json
     {

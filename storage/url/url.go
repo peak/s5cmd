@@ -33,6 +33,7 @@ const (
 // URL is the canonical representation of an object, either on local or remote
 // storage.
 type URL struct {
+	origin    *URL
 	Type      urlType
 	Scheme    string
 	Bucket    string
@@ -99,6 +100,11 @@ func New(s string) (*URL, error) {
 		return nil, err
 	}
 	return url, nil
+}
+
+// Origin returns the original reference url.
+func (u *URL) Origin() *URL {
+	return u.origin
 }
 
 // IsRemote reports whether the object is stored on a remote storage system.
@@ -228,6 +234,7 @@ func (u *URL) setPrefixAndFilter() error {
 // Clone creates a copy of the receiver.
 func (u *URL) Clone() *URL {
 	return &URL{
+		origin:    u,
 		Type:      u.Type,
 		Scheme:    u.Scheme,
 		Bucket:    u.Bucket,
@@ -277,6 +284,9 @@ func (u *URL) MarshalJSON() ([]byte, error) {
 
 // HasGlob checks if a string contains any wildcard chars.
 func (u *URL) HasGlob() bool {
+	if u.origin != nil {
+		return u.origin.HasGlob()
+	}
 	return hasGlobCharacter(u.Path)
 }
 

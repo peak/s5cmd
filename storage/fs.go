@@ -86,7 +86,8 @@ func (f *Filesystem) expandGlob(ctx context.Context, src *url.URL, isRecursive b
 		for _, filename := range matchedFiles {
 			filename := filename
 
-			fileurl, _ := url.New(filename)
+			fileurl := src.Clone()
+			fileurl.Path = filename
 			fileurl.SetRelative(src.Absolute())
 
 			obj, _ := f.Stat(ctx, fileurl)
@@ -117,11 +118,8 @@ func walkDir(ctx context.Context, storage Storage, src *url.URL, fn func(o *Obje
 				return nil
 			}
 
-			fileurl, err := url.New(pathname)
-			if err != nil {
-				return err
-			}
-
+			fileurl := src.Clone()
+			fileurl.Path = pathname
 			fileurl.SetRelative(src.Absolute())
 
 			obj, err := storage.Stat(ctx, fileurl)

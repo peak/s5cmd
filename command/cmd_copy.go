@@ -182,9 +182,9 @@ func (c Copy) Run(ctx context.Context) error {
 
 		switch {
 		case srcurl.Type == dsturl.Type: // local->local or remote->remote
-			task = c.prepareCopyTask(ctx, origSrc, srcurl, dsturl)
+			task = c.prepareCopyTask(ctx, srcurl, dsturl)
 		case srcurl.IsRemote(): // remote->local
-			task = c.prepareDownloadTask(ctx, origSrc, srcurl, dsturl)
+			task = c.prepareDownloadTask(ctx, srcurl, dsturl)
 		case dsturl.IsRemote(): // local->remote
 			task = c.prepareUploadTask(ctx, srcurl, dsturl)
 		default:
@@ -202,12 +202,11 @@ func (c Copy) Run(ctx context.Context) error {
 
 func (c Copy) prepareCopyTask(
 	ctx context.Context,
-	origSrc *url.URL,
 	srcurl *url.URL,
 	dsturl *url.URL,
 ) func() error {
 	return func() error {
-		dsturl, err := prepareCopyDestination(ctx, origSrc, srcurl, dsturl, c.parents)
+		dsturl, err := prepareCopyDestination(ctx, srcurl, dsturl, c.parents)
 		if err != nil {
 			return err
 		}
@@ -227,12 +226,11 @@ func (c Copy) prepareCopyTask(
 
 func (c Copy) prepareDownloadTask(
 	ctx context.Context,
-	origSrc *url.URL,
 	srcurl *url.URL,
 	dsturl *url.URL,
 ) func() error {
 	return func() error {
-		dsturl, err := prepareDownloadDestination(ctx, origSrc, srcurl, dsturl, c.parents)
+		dsturl, err := prepareDownloadDestination(ctx, srcurl, dsturl, c.parents)
 		if err != nil {
 			return err
 		}
@@ -499,7 +497,6 @@ func givenCommand(c *cli.Context) string {
 // and remote->remote copy operations.
 func prepareCopyDestination(
 	ctx context.Context,
-	origSrc *url.URL,
 	srcurl *url.URL,
 	dsturl *url.URL,
 	parents bool,
@@ -532,7 +529,7 @@ func prepareCopyDestination(
 
 	// Absolute <src> path is given. Use given <dst> and local copy operation
 	// will create missing directories if <dst> has one.
-	if !origSrc.HasGlob() {
+	if !srcurl.HasGlob() {
 		return dsturl, nil
 	}
 
@@ -550,7 +547,6 @@ func prepareCopyDestination(
 // remote->local and remote->remote copy operations.
 func prepareDownloadDestination(
 	ctx context.Context,
-	origSrc *url.URL,
 	srcurl *url.URL,
 	dsturl *url.URL,
 	parents bool,
@@ -560,7 +556,7 @@ func prepareDownloadDestination(
 		objname = srcurl.Relative()
 	}
 
-	if origSrc.HasGlob() {
+	if srcurl.HasGlob() {
 		if err := os.MkdirAll(dsturl.Absolute(), os.ModePerm); err != nil {
 			return nil, err
 		}

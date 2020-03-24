@@ -121,26 +121,31 @@ func TestS3_List_success(t *testing.T) {
 		isDir  bool
 		url    string
 		relurl string
+		origin string
 	}{
 		{
 			isDir:  true,
 			url:    "s3://bucket/key/a/",
 			relurl: "a/",
+			origin: url.Path,
 		},
 		{
 			isDir:  true,
 			url:    "s3://bucket/key/b/",
 			relurl: "b/",
+			origin: url.Path,
 		},
 		{
 			isDir:  false,
 			url:    "s3://bucket/key/test.txt",
 			relurl: "test.txt",
+			origin: url.Path,
 		},
 		{
 			isDir:  false,
 			url:    "s3://bucket/key/test.pdf",
 			relurl: "test.pdf",
+			origin: url.Path,
 		},
 	}
 
@@ -158,6 +163,9 @@ func TestS3_List_success(t *testing.T) {
 			t.Errorf("(-want +got):\n%v", diff)
 		}
 		if diff := cmp.Diff(want.relurl, got.URL.Relative()); diff != "" {
+			t.Errorf("(-want +got):\n%v", diff)
+		}
+		if diff := cmp.Diff(want.origin, got.URL.Origin().Path); diff != "" {
 			t.Errorf("(-want +got):\n%v", diff)
 		}
 		index++

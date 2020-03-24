@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
+	urlpkg "net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -23,7 +23,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager/s3manageriface"
 
-	"github.com/peak/s5cmd/objurl"
+	"github.com/peak/s5cmd/storage/url"
 )
 
 var _ Storage = (*S3)(nil)
@@ -89,14 +89,10 @@ type S3 struct {
 
 // S3Opts stores configuration for S3 storage.
 type S3Opts struct {
-	MaxRetries             int
-	EndpointURL            string
-	Region                 string
-	NoVerifySSL            bool
-	UploadChunkSizeBytes   int64
-	UploadConcurrency      int
-	DownloadChunkSizeBytes int64
-	DownloadConcurrency    int
+	MaxRetries  int
+	EndpointURL string
+	Region      string
+	NoVerifySSL bool
 }
 
 // NewS3Storage creates new S3 session.
@@ -115,7 +111,7 @@ func NewS3Storage(opts S3Opts) (*S3, error) {
 }
 
 // Stat retrieves metadata from S3 object without returning the object itself.
-func (s *S3) Stat(ctx context.Context, url *objurl.ObjectURL) (*Object, error) {
+func (s *S3) Stat(ctx context.Context, url *url.URL) (*Object, error) {
 	output, err := s.api.HeadObjectWithContext(ctx, &s3.HeadObjectInput{
 		Bucket: aws.String(url.Bucket),
 		Key:    aws.String(url.Path),
@@ -140,7 +136,7 @@ func (s *S3) Stat(ctx context.Context, url *objurl.ObjectURL) (*Object, error) {
 // List is a non-blocking S3 list operation which paginates and filters S3
 // keys. If no object found or an error is encountered during this period,
 // it sends these errors to object channel.
-func (s *S3) List(ctx context.Context, url *objurl.ObjectURL, _ bool) <-chan *Object {
+func (s *S3) List(ctx context.Context, url *url.URL, _ bool) <-chan *Object {
 	listInput := s3.ListObjectsV2Input{
 		Bucket: aws.String(url.Bucket),
 		Prefix: aws.String(url.Prefix),
@@ -218,7 +214,7 @@ func (s *S3) List(ctx context.Context, url *objurl.ObjectURL, _ bool) <-chan *Ob
 
 // Copy is a single-object copy operation which copies objects to S3
 // destination from another S3 source.
-func (s *S3) Copy(ctx context.Context, from, to *objurl.ObjectURL, metadata map[string]string) error {
+func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata map[string]string) error {
 	// SDK expects CopySource like "bucket[/key]"
 	copySource := strings.TrimPrefix(from.String(), "s3://")
 
@@ -235,13 +231,19 @@ func (s *S3) Copy(ctx context.Context, from, to *objurl.ObjectURL, metadata map[
 
 // Get is a multipart download operation which downloads S3 objects into any
 // destination that implements io.WriterAt interface.
-func (s *S3) Get(ctx context.Context, from *objurl.ObjectURL, to io.WriterAt) (int64, error) {
+func (s *S3) Get(
+	ctx context.Context,
+	from *url.URL,
+	to io.WriterAt,
+	concurrency int,
+	partSize int64,
+) (int64, error) {
 	n, err := s.downloader.DownloadWithContext(ctx, to, &s3.GetObjectInput{
 		Bucket: aws.String(from.Bucket),
 		Key:    aws.String(from.Path),
 	}, func(u *s3manager.Downloader) {
-		u.PartSize = s.opts.DownloadChunkSizeBytes
-		u.Concurrency = s.opts.DownloadConcurrency
+		u.PartSize = partSize
+		u.Concurrency = concurrency
 	})
 
 	return n, err
@@ -249,7 +251,14 @@ func (s *S3) Get(ctx context.Context, from *objurl.ObjectURL, to io.WriterAt) (i
 
 // Put is a multipart upload operation to upload resources, which implements
 // io.Reader interface, into S3 destination.
-func (s *S3) Put(ctx context.Context, reader io.Reader, to *objurl.ObjectURL, metadata map[string]string) error {
+func (s *S3) Put(
+	ctx context.Context,
+	reader io.Reader,
+	to *url.URL,
+	metadata map[string]string,
+	concurrency int,
+	partSize int64,
+) error {
 	storageClass := metadata["StorageClass"]
 	if storageClass == "" {
 		storageClass = string(StorageStandard)
@@ -267,8 +276,8 @@ func (s *S3) Put(ctx context.Context, reader io.Reader, to *objurl.ObjectURL, me
 		ContentType:  aws.String(contentType),
 		StorageClass: aws.String(storageClass),
 	}, func(u *s3manager.Uploader) {
-		u.PartSize = s.opts.UploadChunkSizeBytes
-		u.Concurrency = s.opts.UploadConcurrency
+		u.PartSize = partSize
+		u.Concurrency = concurrency
 	})
 
 	return err
@@ -284,7 +293,7 @@ type chunk struct {
 
 // calculateChunks calculates chunks for given objectURL channel and returns
 // read-only chunk channel.
-func (s *S3) calculateChunks(ch <-chan *objurl.ObjectURL) <-chan chunk {
+func (s *S3) calculateChunks(ch <-chan *url.URL) <-chan chunk {
 	chunkch := make(chan chunk)
 
 	go func() {
@@ -322,7 +331,7 @@ func (s *S3) calculateChunks(ch <-chan *objurl.ObjectURL) <-chan chunk {
 }
 
 // Delete is a single object delete operation.
-func (s *S3) Delete(ctx context.Context, url *objurl.ObjectURL) error {
+func (s *S3) Delete(ctx context.Context, url *url.URL) error {
 	chunk := chunk{
 		Bucket: url.Bucket,
 		Keys: []*s3.ObjectIdentifier{
@@ -353,13 +362,13 @@ func (s *S3) doDelete(ctx context.Context, chunk chunk, resultch chan *Object) {
 
 	for _, d := range o.Deleted {
 		key := fmt.Sprintf("s3://%v/%v", bucket, aws.StringValue(d.Key))
-		url, _ := objurl.New(key)
+		url, _ := url.New(key)
 		resultch <- &Object{URL: url}
 	}
 
 	for _, e := range o.Errors {
 		key := fmt.Sprintf("s3://%v/%v", bucket, aws.StringValue(e.Key))
-		url, _ := objurl.New(key)
+		url, _ := url.New(key)
 		resultch <- &Object{
 			URL: url,
 			Err: fmt.Errorf(aws.StringValue(e.Message)),
@@ -372,7 +381,7 @@ func (s *S3) doDelete(ctx context.Context, chunk chunk, resultch chan *Object) {
 // chunks in parallel. Each chunk may have at most 1000 objects since DeleteObjects
 // API has a limitation.
 // See: https://docs.aws.amazon.com/AmazonS3/latest/API/API_DeleteObjects.html.
-func (s *S3) MultiDelete(ctx context.Context, urlch <-chan *objurl.ObjectURL) <-chan *Object {
+func (s *S3) MultiDelete(ctx context.Context, urlch <-chan *url.URL) <-chan *Object {
 	resultch := make(chan *Object)
 
 	go func() {
@@ -436,14 +445,14 @@ func (s *S3) MakeBucket(ctx context.Context, name string) error {
 func newSession(opts S3Opts) (*session.Session, error) {
 	awsCfg := aws.NewConfig()
 
-	var endpoint url.URL
+	var endpoint urlpkg.URL
 	if opts.EndpointURL != "" {
 		// add a scheme to correctly parse the endpoint. Without a scheme,
 		// url.Parse will put the host information in path"
 		if !strings.HasPrefix(opts.EndpointURL, "http") {
 			opts.EndpointURL = "http://" + opts.EndpointURL
 		}
-		u, err := url.Parse(opts.EndpointURL)
+		u, err := urlpkg.Parse(opts.EndpointURL)
 		if err != nil {
 			return nil, fmt.Errorf("parse endpoint %q: %v", opts.EndpointURL, err)
 		}
@@ -460,7 +469,7 @@ func newSession(opts S3Opts) (*session.Session, error) {
 	// Endpoint to a transfer acceleration endpoint would cause bucket
 	// operations fail.
 	if useAccelerate {
-		endpoint = url.URL{}
+		endpoint = urlpkg.URL{}
 	}
 
 	var httpClient *http.Client
@@ -514,18 +523,18 @@ var insecureHTTPClient = &http.Client{
 	},
 }
 
-func supportsTransferAcceleration(endpoint url.URL) bool {
+func supportsTransferAcceleration(endpoint urlpkg.URL) bool {
 	return endpoint.Hostname() == transferAccelEndpoint
 }
 
-func isGoogleEndpoint(endpoint url.URL) bool {
+func isGoogleEndpoint(endpoint urlpkg.URL) bool {
 	return endpoint.Hostname() == gcsEndpoint
 }
 
 // isVirtualHostStyle reports whether the given endpoint supports S3 virtual
 // host style bucket name resolving. If a custom S3 API compatible endpoint is
 // given, resolve the bucketname from the URL path.
-func isVirtualHostStyle(endpoint url.URL) bool {
+func isVirtualHostStyle(endpoint urlpkg.URL) bool {
 	return endpoint.Hostname() == "" || supportsTransferAcceleration(endpoint) || isGoogleEndpoint(endpoint)
 }
 

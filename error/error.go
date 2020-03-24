@@ -7,8 +7,8 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
-	"github.com/peak/s5cmd/objurl"
 	"github.com/peak/s5cmd/storage"
+	"github.com/peak/s5cmd/storage/url"
 )
 
 type Error struct {
@@ -16,9 +16,9 @@ type Error struct {
 	// being invoked (copy, move, etc.)
 	Op string
 	// Src is the source argument
-	Src *objurl.ObjectURL
+	Src *url.URL
 	// Dst is the destination argument
-	Dst *objurl.ObjectURL
+	Dst *url.URL
 	// The underlying error if any
 	Err error
 }

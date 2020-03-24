@@ -9,8 +9,8 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	"github.com/peak/s5cmd/mocks"
-	"github.com/peak/s5cmd/objurl"
 	"github.com/peak/s5cmd/storage"
+	"github.com/peak/s5cmd/storage/url"
 )
 
 func Test_expandSources(t *testing.T) {
@@ -26,14 +26,14 @@ func Test_expandSources(t *testing.T) {
 				"s3://bucket/key": {},
 				"s3://bucket/wildcard/*.txt": {
 					{
-						URL: &objurl.ObjectURL{
+						URL: &url.URL{
 							Scheme: "s3",
 							Bucket: "bucket",
 							Path:   "wildcard/test.txt",
 						},
 					},
 					{
-						URL: &objurl.ObjectURL{
+						URL: &url.URL{
 							Scheme: "s3",
 							Bucket: "bucket",
 							Path:   "wildcard/anothertest.txt",
@@ -42,7 +42,7 @@ func Test_expandSources(t *testing.T) {
 				},
 				"s3://bucket/dir/?/readme.md": {
 					{
-						URL: &objurl.ObjectURL{
+						URL: &url.URL{
 							Scheme: "s3",
 							Bucket: "bucket",
 							Path:   "dir/subdir1/readme.md",
@@ -68,14 +68,14 @@ func Test_expandSources(t *testing.T) {
 				},
 				"s3://bucket/*.txt": {
 					{
-						URL: &objurl.ObjectURL{
+						URL: &url.URL{
 							Scheme: "s3",
 							Bucket: "bucket",
 							Path:   "file1.txt",
 						},
 					},
 					{
-						URL: &objurl.ObjectURL{
+						URL: &url.URL{
 							Scheme: "s3",
 							Bucket: "bucket",
 							Path:   "file2.txt",
@@ -118,7 +118,7 @@ func Test_expandSources(t *testing.T) {
 			// List(ctx context.Context, src *objurl.ObjectURL, recursive bool) <-chan *storage.Object {
 			client := &mocks.Storage{}
 			for src, objects := range tt.src {
-				srcurl, err := objurl.New(src)
+				srcurl, err := url.New(src)
 				if err != nil {
 					t.Errorf("unexpected error: %v", err)
 				}

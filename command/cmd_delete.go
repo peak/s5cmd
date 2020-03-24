@@ -10,8 +10,8 @@ import (
 
 	errorpkg "github.com/peak/s5cmd/error"
 	"github.com/peak/s5cmd/log"
-	"github.com/peak/s5cmd/objurl"
 	"github.com/peak/s5cmd/storage"
+	"github.com/peak/s5cmd/storage/url"
 )
 
 var DeleteCommand = &cli.Command{
@@ -60,8 +60,8 @@ func Delete(
 	// recursive=true guarantees returning only file-like objects.
 	objChan := expandSources(ctx, client, srcurls...)
 
-	// do object->objurl transformation
-	urlch := make(chan *objurl.ObjectURL)
+	// do object->url transformation
+	urlch := make(chan *url.URL)
 	go func() {
 		defer close(urlch)
 
@@ -108,7 +108,7 @@ func Delete(
 func expandSources(
 	ctx context.Context,
 	client storage.Storage,
-	srcurls ...*objurl.ObjectURL,
+	srcurls ...*url.URL,
 ) <-chan *storage.Object {
 	objChan := make(chan *storage.Object)
 	go func() {
@@ -121,7 +121,7 @@ func expandSources(
 			// call storage.List for only walking operations.
 			if origSrc.HasGlob() {
 				wg.Add(1)
-				go func(origSrc *objurl.ObjectURL) {
+				go func(origSrc *url.URL) {
 					defer wg.Done()
 					for object := range client.List(ctx, origSrc, true) {
 						if object.Err == storage.ErrNoObjectFound {
@@ -147,10 +147,10 @@ func expandSources(
 }
 
 // newSources creates ObjectURL list from given source strings.
-func newSources(sources ...string) ([]*objurl.ObjectURL, error) {
-	var urls []*objurl.ObjectURL
+func newSources(sources ...string) ([]*url.URL, error) {
+	var urls []*url.URL
 	for _, src := range sources {
-		srcurl, err := objurl.New(src)
+		srcurl, err := url.New(src)
 		if err != nil {
 			return nil, err
 		}
@@ -164,7 +164,7 @@ func newSources(sources ...string) ([]*objurl.ObjectURL, error) {
 func checkSources(sources ...string) error {
 	var hasRemote, hasLocal bool
 	for _, src := range sources {
-		srcurl, err := objurl.New(src)
+		srcurl, err := url.New(src)
 		if err != nil {
 			return err
 		}

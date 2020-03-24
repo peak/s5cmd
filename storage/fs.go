@@ -11,7 +11,7 @@ import (
 	"github.com/karrick/godirwalk"
 	"github.com/termie/go-shutil"
 
-	"github.com/peak/s5cmd/objurl"
+	"github.com/peak/s5cmd/storage/url"
 )
 
 type Filesystem struct{}
@@ -20,7 +20,7 @@ func NewFilesystem() *Filesystem {
 	return &Filesystem{}
 }
 
-func (f *Filesystem) Stat(ctx context.Context, url *objurl.ObjectURL) (*Object, error) {
+func (f *Filesystem) Stat(ctx context.Context, url *url.URL) (*Object, error) {
 	st, err := os.Stat(url.Absolute())
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -39,26 +39,26 @@ func (f *Filesystem) Stat(ctx context.Context, url *objurl.ObjectURL) (*Object, 
 	}, nil
 }
 
-func (f *Filesystem) List(ctx context.Context, url *objurl.ObjectURL, isRecursive bool) <-chan *Object {
-	obj, err := f.Stat(ctx, url)
+func (f *Filesystem) List(ctx context.Context, src *url.URL, isRecursive bool) <-chan *Object {
+	obj, err := f.Stat(ctx, src)
 	isDir := err == nil && obj.Type.IsDir()
 
 	if isDir {
-		return f.walkDir(ctx, url, isRecursive)
+		return f.walkDir(ctx, src, isRecursive)
 	}
 
-	if url.HasGlob() {
-		return f.expandGlob(ctx, url, isRecursive)
+	if src.HasGlob() {
+		return f.expandGlob(ctx, src, isRecursive)
 	}
 
-	return f.listSingleObject(ctx, url)
+	return f.listSingleObject(ctx, src)
 }
 
-func (f *Filesystem) listSingleObject(ctx context.Context, url *objurl.ObjectURL) <-chan *Object {
+func (f *Filesystem) listSingleObject(ctx context.Context, src *url.URL) <-chan *Object {
 	ch := make(chan *Object, 1)
 	defer close(ch)
 
-	object, err := f.Stat(ctx, url)
+	object, err := f.Stat(ctx, src)
 	if err != nil {
 		object = &Object{Err: err}
 	}
@@ -66,19 +66,19 @@ func (f *Filesystem) listSingleObject(ctx context.Context, url *objurl.ObjectURL
 	return ch
 }
 
-func (f *Filesystem) expandGlob(ctx context.Context, url *objurl.ObjectURL, isRecursive bool) <-chan *Object {
+func (f *Filesystem) expandGlob(ctx context.Context, src *url.URL, isRecursive bool) <-chan *Object {
 	ch := make(chan *Object)
 
 	go func() {
 		defer close(ch)
 
-		matchedFiles, err := filepath.Glob(url.Absolute())
+		matchedFiles, err := filepath.Glob(src.Absolute())
 		if err != nil {
 			sendError(ctx, err, ch)
 			return
 		}
 		if len(matchedFiles) == 0 {
-			err := fmt.Errorf("no match found for %q", url)
+			err := fmt.Errorf("no match found for %q", src)
 			sendError(ctx, err, ch)
 			return
 		}
@@ -86,8 +86,8 @@ func (f *Filesystem) expandGlob(ctx context.Context, url *objurl.ObjectURL, isRe
 		for _, filename := range matchedFiles {
 			filename := filename
 
-			fileurl, _ := objurl.New(filename)
-			fileurl.SetRelative(url.Absolute())
+			fileurl, _ := url.New(filename)
+			fileurl.SetRelative(src.Absolute())
 
 			obj, _ := f.Stat(ctx, fileurl)
 
@@ -109,20 +109,20 @@ func (f *Filesystem) expandGlob(ctx context.Context, url *objurl.ObjectURL, isRe
 	return ch
 }
 
-func walkDir(ctx context.Context, storage Storage, url *objurl.ObjectURL, fn func(o *Object)) {
-	err := godirwalk.Walk(url.Absolute(), &godirwalk.Options{
+func walkDir(ctx context.Context, storage Storage, src *url.URL, fn func(o *Object)) {
+	err := godirwalk.Walk(src.Absolute(), &godirwalk.Options{
 		Callback: func(pathname string, dirent *godirwalk.Dirent) error {
 			// we're interested in files
 			if dirent.IsDir() {
 				return nil
 			}
 
-			fileurl, err := objurl.New(pathname)
+			fileurl, err := url.New(pathname)
 			if err != nil {
 				return err
 			}
 
-			fileurl.SetRelative(url.Absolute())
+			fileurl.SetRelative(src.Absolute())
 
 			obj, err := storage.Stat(ctx, fileurl)
 			if err != nil {
@@ -141,8 +141,8 @@ func walkDir(ctx context.Context, storage Storage, url *objurl.ObjectURL, fn fun
 	}
 }
 
-func (f *Filesystem) readDir(ctx context.Context, url *objurl.ObjectURL, ch chan *Object) {
-	dir := url.Absolute()
+func (f *Filesystem) readDir(ctx context.Context, src *url.URL, ch chan *Object) {
+	dir := src.Absolute()
 	fis, err := ioutil.ReadDir(dir)
 	if err != nil {
 		sendError(ctx, err, ch)
@@ -152,7 +152,7 @@ func (f *Filesystem) readDir(ctx context.Context, url *objurl.ObjectURL, ch chan
 	for _, fi := range fis {
 		mod := fi.ModTime()
 		obj := &Object{
-			URL:     url.Join(fi.Name()),
+			URL:     src.Join(fi.Name()),
 			ModTime: &mod,
 			Type:    ObjectType{fi.Mode()},
 			Size:    fi.Size(),
@@ -161,23 +161,23 @@ func (f *Filesystem) readDir(ctx context.Context, url *objurl.ObjectURL, ch chan
 	}
 }
 
-func (f *Filesystem) walkDir(ctx context.Context, url *objurl.ObjectURL, isRecursive bool) <-chan *Object {
+func (f *Filesystem) walkDir(ctx context.Context, src *url.URL, isRecursive bool) <-chan *Object {
 	ch := make(chan *Object)
 	go func() {
 		defer close(ch)
 
 		if !isRecursive {
-			f.readDir(ctx, url, ch)
+			f.readDir(ctx, src, ch)
 			return
 		}
 
-		walkDir(ctx, f, url, func(obj *Object) {
+		walkDir(ctx, f, src, func(obj *Object) {
 			sendObject(ctx, obj, ch)
 		})
 	}()
 	return ch
 }
-func (f *Filesystem) Copy(ctx context.Context, src, dst *objurl.ObjectURL, _ map[string]string) error {
+func (f *Filesystem) Copy(ctx context.Context, src, dst *url.URL, _ map[string]string) error {
 	if err := os.MkdirAll(dst.Dir(), os.ModePerm); err != nil {
 		return err
 	}
@@ -185,11 +185,11 @@ func (f *Filesystem) Copy(ctx context.Context, src, dst *objurl.ObjectURL, _ map
 	return err
 }
 
-func (f *Filesystem) Delete(ctx context.Context, url *objurl.ObjectURL) error {
+func (f *Filesystem) Delete(ctx context.Context, url *url.URL) error {
 	return os.Remove(url.Absolute())
 }
 
-func (f *Filesystem) MultiDelete(ctx context.Context, urlch <-chan *objurl.ObjectURL) <-chan *Object {
+func (f *Filesystem) MultiDelete(ctx context.Context, urlch <-chan *url.URL) <-chan *Object {
 	resultch := make(chan *Object)
 	go func() {
 		defer close(resultch)
@@ -206,11 +206,11 @@ func (f *Filesystem) MultiDelete(ctx context.Context, urlch <-chan *objurl.Objec
 	return resultch
 }
 
-func (f *Filesystem) Put(ctx context.Context, body io.Reader, url *objurl.ObjectURL, _ map[string]string) error {
+func (f *Filesystem) Put(_ context.Context, _ io.Reader, _ *url.URL, _ map[string]string, _ int, _ int64) error {
 	return f.notimplemented("Put")
 }
 
-func (f *Filesystem) Get(_ context.Context, _ *objurl.ObjectURL, _ io.WriterAt) (int64, error) {
+func (f *Filesystem) Get(_ context.Context, _ *url.URL, _ io.WriterAt, _ int, _ int64) (int64, error) {
 	return 0, f.notimplemented("Get")
 }
 

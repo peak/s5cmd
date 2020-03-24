@@ -115,7 +115,6 @@ func Test_expandSources(t *testing.T) {
 				t.Errorf("unexpected error: %v", err)
 			}
 
-			// List(ctx context.Context, src *objurl.ObjectURL, recursive bool) <-chan *storage.Object {
 			client := &mocks.Storage{}
 			for src, objects := range tt.src {
 				srcurl, err := url.New(src)

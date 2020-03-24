@@ -116,13 +116,18 @@ func Test_expandSources(t *testing.T) {
 			}
 
 			client := &mocks.Storage{}
+
 			for src, objects := range tt.src {
 				srcurl, err := url.New(src)
 				if err != nil {
 					t.Errorf("unexpected error: %v", err)
 				}
-				ch := generateObjects(objects)
-				client.On("List", mock.Anything, srcurl, true).Return(ch)
+
+				if srcurl.HasGlob() {
+					// we operate storage.List() only for wildcard operations.
+					ch := generateObjects(objects)
+					client.On("List", mock.Anything, srcurl, true).Once().Return(ch)
+				}
 			}
 
 			gotChan := expandSources(context.Background(), client, srcurls...)
@@ -142,6 +147,8 @@ func Test_expandSources(t *testing.T) {
 			if !reflect.DeepEqual(objects, tt.wantObjects) {
 				t.Errorf("got = %v, want %v", objects, tt.wantObjects)
 			}
+
+			client.AssertExpectations(t)
 		})
 	}
 }

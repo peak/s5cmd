@@ -16,7 +16,7 @@ storage services and local filesystems.
 - Create buckets
 - Summarize objects sizes, grouping by storage class
 - Wildcard support for all operations
-- Varargs support for copy, move and delete operations 
+- Multiple arguments support for delete operation
 - Command file support to run commands in batches at very high execution speeds
 - [S3 Transfer Acceleration](https://docs.aws.amazon.com/AmazonS3/latest/dev/transfer-acceleration.html) support
 - Google Cloud Storage (and any other S3 API compatible service) support

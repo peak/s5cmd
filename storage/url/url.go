@@ -63,7 +63,7 @@ func New(s string) (*URL, error) {
 	}
 
 	if len(split) != 2 {
-		return nil, fmt.Errorf("objurl: unknown url format %q", s)
+		return nil, fmt.Errorf("storage: unknown url format %q", s)
 	}
 
 	scheme, rest := split[0], split[1]

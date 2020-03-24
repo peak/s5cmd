@@ -28,6 +28,8 @@ import (
 
 var _ Storage = (*S3)(nil)
 
+var sentinelURL = urlpkg.URL{}
+
 const (
 	// deleteObjectsMax is the max allowed objects to be deleted on single HTTP
 	// request.
@@ -43,7 +45,7 @@ const (
 // newS3Factory returns a closure that creates new S3 storage. This pattern is
 // used to re-use S3 sessions which makes huge difference for batch S3
 // operations.
-func newS3Factory(opts S3Opts) func() (*S3, error) {
+func newS3Factory(opts S3Options) func() (*S3, error) {
 	var (
 		mu     sync.RWMutex
 		cached *S3
@@ -73,7 +75,7 @@ func newS3Factory(opts S3Opts) func() (*S3, error) {
 // available. Re-used AWS sessions dramatically improve performance.
 var newCachedS3 func() (*S3, error)
 
-func SetS3Options(opts S3Opts) {
+func SetS3Options(opts S3Options) {
 	newCachedS3 = newS3Factory(opts)
 
 }
@@ -81,32 +83,56 @@ func SetS3Options(opts S3Opts) {
 // S3 is a storage type which interacts with S3API, DownloaderAPI and
 // UploaderAPI.
 type S3 struct {
-	api        s3iface.S3API
-	downloader s3manageriface.DownloaderAPI
-	uploader   s3manageriface.UploaderAPI
-	opts       S3Opts
+	api         s3iface.S3API
+	downloader  s3manageriface.DownloaderAPI
+	uploader    s3manageriface.UploaderAPI
+	endpointURL urlpkg.URL
+	opts        S3Options
 }
 
-// S3Opts stores configuration for S3 storage.
-type S3Opts struct {
+// S3Options stores configuration for S3 storage.
+type S3Options struct {
 	MaxRetries  int
-	EndpointURL string
+	Endpoint    string
 	Region      string
 	NoVerifySSL bool
 }
 
+func parseEndpoint(endpoint string) (urlpkg.URL, error) {
+	if endpoint == "" {
+		return sentinelURL, nil
+	}
+	// add a scheme to correctly parse the endpoint. Without a scheme,
+	// url.Parse will put the host information in path"
+	if !strings.HasPrefix(endpoint, "http") {
+		endpoint = "http://" + endpoint
+	}
+	u, err := urlpkg.Parse(endpoint)
+	if err != nil {
+		return sentinelURL, fmt.Errorf("parse endpoint %q: %v", endpoint, err)
+	}
+
+	return *u, nil
+}
+
 // NewS3Storage creates new S3 session.
-func NewS3Storage(opts S3Opts) (*S3, error) {
+func NewS3Storage(opts S3Options) (*S3, error) {
+	endpointURL, err := parseEndpoint(opts.Endpoint)
+	if err != nil {
+		return nil, err
+	}
+
 	awsSession, err := newSession(opts)
 	if err != nil {
 		return nil, err
 	}
 
 	return &S3{
-		api:        s3.New(awsSession),
-		downloader: s3manager.NewDownloader(awsSession),
-		uploader:   s3manager.NewUploader(awsSession),
-		opts:       opts,
+		api:         s3.New(awsSession),
+		downloader:  s3manager.NewDownloader(awsSession),
+		uploader:    s3manager.NewUploader(awsSession),
+		endpointURL: endpointURL,
+		opts:        opts,
 	}, nil
 }
 
@@ -137,6 +163,13 @@ func (s *S3) Stat(ctx context.Context, url *url.URL) (*Object, error) {
 // keys. If no object found or an error is encountered during this period,
 // it sends these errors to object channel.
 func (s *S3) List(ctx context.Context, url *url.URL, _ bool) <-chan *Object {
+	if isGoogleEndpoint(s.endpointURL) {
+		return s.listObjects(ctx, url)
+	}
+	return s.listObjectsV2(ctx, url)
+}
+
+func (s *S3) listObjectsV2(ctx context.Context, url *url.URL) <-chan *Object {
 	listInput := s3.ListObjectsV2Input{
 		Bucket: aws.String(url.Bucket),
 		Prefix: aws.String(url.Prefix),
@@ -153,6 +186,84 @@ func (s *S3) List(ctx context.Context, url *url.URL, _ bool) <-chan *Object {
 		objectFound := false
 
 		err := s.api.ListObjectsV2PagesWithContext(ctx, &listInput, func(p *s3.ListObjectsV2Output, lastPage bool) bool {
+			for _, c := range p.CommonPrefixes {
+				prefix := aws.StringValue(c.Prefix)
+				if !url.Match(prefix) {
+					continue
+				}
+
+				newurl := url.Clone()
+				newurl.Path = prefix
+				objCh <- &Object{
+					URL:  newurl,
+					Type: ObjectType{os.ModeDir},
+				}
+
+				objectFound = true
+			}
+
+			for _, c := range p.Contents {
+				key := aws.StringValue(c.Key)
+				if !url.Match(key) {
+					continue
+				}
+
+				var objtype os.FileMode
+				if strings.HasSuffix(key, "/") {
+					objtype = os.ModeDir
+				}
+
+				newurl := url.Clone()
+				newurl.Path = aws.StringValue(c.Key)
+				etag := aws.StringValue(c.ETag)
+				mod := aws.TimeValue(c.LastModified)
+				objCh <- &Object{
+					URL:          newurl,
+					Etag:         strings.Trim(etag, `"`),
+					ModTime:      &mod,
+					Type:         ObjectType{objtype},
+					Size:         aws.Int64Value(c.Size),
+					StorageClass: StorageClass(aws.StringValue(c.StorageClass)),
+				}
+
+				objectFound = true
+			}
+
+			return !lastPage
+		})
+
+		if err != nil {
+			objCh <- &Object{Err: err}
+			return
+		}
+
+		if !objectFound {
+			objCh <- &Object{Err: ErrNoObjectFound}
+		}
+	}()
+
+	return objCh
+}
+
+// listObjects is used for cloud services that does not support S3
+// ListObjectsV2 API. I'm looking at you GCS.
+func (s *S3) listObjects(ctx context.Context, url *url.URL) <-chan *Object {
+	listInput := s3.ListObjectsInput{
+		Bucket: aws.String(url.Bucket),
+		Prefix: aws.String(url.Prefix),
+	}
+
+	if url.Delimiter != "" {
+		listInput.SetDelimiter(url.Delimiter)
+	}
+
+	objCh := make(chan *Object)
+
+	go func() {
+		defer close(objCh)
+		objectFound := false
+
+		err := s.api.ListObjectsPagesWithContext(ctx, &listInput, func(p *s3.ListObjectsOutput, lastPage bool) bool {
 			for _, c := range p.CommonPrefixes {
 				prefix := aws.StringValue(c.Prefix)
 				if !url.Match(prefix) {
@@ -291,7 +402,7 @@ type chunk struct {
 	Keys   []*s3.ObjectIdentifier
 }
 
-// calculateChunks calculates chunks for given objectURL channel and returns
+// calculateChunks calculates chunks for given URL channel and returns
 // read-only chunk channel.
 func (s *S3) calculateChunks(ch <-chan *url.URL) <-chan chunk {
 	chunkch := make(chan chunk)
@@ -442,34 +553,24 @@ func (s *S3) MakeBucket(ctx context.Context, name string) error {
 
 // NewAwsSession initializes a new AWS session with region fallback and custom
 // options.
-func newSession(opts S3Opts) (*session.Session, error) {
+func newSession(opts S3Options) (*session.Session, error) {
 	awsCfg := aws.NewConfig()
 
-	var endpoint urlpkg.URL
-	if opts.EndpointURL != "" {
-		// add a scheme to correctly parse the endpoint. Without a scheme,
-		// url.Parse will put the host information in path"
-		if !strings.HasPrefix(opts.EndpointURL, "http") {
-			opts.EndpointURL = "http://" + opts.EndpointURL
-		}
-		u, err := urlpkg.Parse(opts.EndpointURL)
-		if err != nil {
-			return nil, fmt.Errorf("parse endpoint %q: %v", opts.EndpointURL, err)
-		}
-
-		endpoint = *u
+	endpointURL, err := parseEndpoint(opts.Endpoint)
+	if err != nil {
+		return nil, err
 	}
 
 	// use virtual-host-style if the endpoint is known to support it,
 	// otherwise use the path-style approach.
-	isVirtualHostStyle := isVirtualHostStyle(endpoint)
+	isVirtualHostStyle := isVirtualHostStyle(endpointURL)
 
-	useAccelerate := supportsTransferAcceleration(endpoint)
+	useAccelerate := supportsTransferAcceleration(endpointURL)
 	// AWS SDK handles transfer acceleration automatically. Setting the
 	// Endpoint to a transfer acceleration endpoint would cause bucket
 	// operations fail.
 	if useAccelerate {
-		endpoint = urlpkg.URL{}
+		endpointURL = sentinelURL
 	}
 
 	var httpClient *http.Client
@@ -478,7 +579,7 @@ func newSession(opts S3Opts) (*session.Session, error) {
 	}
 
 	awsCfg = awsCfg.
-		WithEndpoint(endpoint.String()).
+		WithEndpoint(endpointURL.String()).
 		WithS3ForcePathStyle(!isVirtualHostStyle).
 		WithS3UseAccelerate(useAccelerate).
 		WithHTTPClient(httpClient).
@@ -535,7 +636,7 @@ func isGoogleEndpoint(endpoint urlpkg.URL) bool {
 // host style bucket name resolving. If a custom S3 API compatible endpoint is
 // given, resolve the bucketname from the URL path.
 func isVirtualHostStyle(endpoint urlpkg.URL) bool {
-	return endpoint.Hostname() == "" || supportsTransferAcceleration(endpoint) || isGoogleEndpoint(endpoint)
+	return endpoint == sentinelURL || supportsTransferAcceleration(endpoint) || isGoogleEndpoint(endpoint)
 }
 
 func errHasCode(err error, code string) bool {

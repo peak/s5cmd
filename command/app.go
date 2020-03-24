@@ -73,9 +73,9 @@ var app = &cli.App{
 			return fmt.Errorf("retry count must be a positive value")
 		}
 
-		s3opts := storage.S3Opts{
+		s3opts := storage.S3Options{
 			MaxRetries:  retryCount,
-			EndpointURL: endpointURL,
+			Endpoint:    endpointURL,
 			NoVerifySSL: noVerifySSL,
 		}
 

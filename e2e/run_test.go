@@ -221,3 +221,34 @@ func TestRunWildcardCountGreaterEqualThanWorkerCount(t *testing.T) {
 		0: equals(""),
 	}, strictLineCheck(true))
 }
+
+func TestRunSpecialCharactersInPrefix(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+	putFile(t, s3client, bucket, "file.txt", "content")
+
+	content := []string{
+		"cp \"s3://" + bucket + "special-chars_!@#$%^&_()_+{[_%5Cäè| __;'_,_._-中文 =/_!@#$%^&_()_+{[_%5Cäè| __;'_,_._-中文 =image.jpg\" ./image.jpg",
+	}
+	file := fs.NewFile(t, "prefix", fs.WithContent(strings.Join(content, "\n")))
+	defer file.Remove()
+
+	cmd := s5cmd("run", file.Path())
+	cmd.Timeout = time.Second
+	result := icmd.RunCmd(cmd)
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals("cp s3://" + bucket + "/special-chars_!@#$%^&_()_+{[_%5Cäè| __;'_,_._-中文 =/_!@#$%^&_()_+{[_%5Cäè| __;'_,_._-中文 =image.jpg"),
+	}, sortInput(true))
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: equals(""),
+	}, strictLineCheck(true))
+}

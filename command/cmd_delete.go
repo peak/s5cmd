@@ -58,10 +58,7 @@ func Delete(
 
 	// storage.MultiDelete operates on file-like objects. Settings
 	// recursive=true guarantees returning only file-like objects.
-	objChan, err := expandSources(ctx, srcurls...)
-	if err != nil {
-		return err
-	}
+	objChan := expandSources(ctx, client, srcurls...)
 
 	// do object->objurl transformation
 	urlch := make(chan *objurl.ObjectURL)
@@ -110,14 +107,9 @@ func Delete(
 // object channel, otherwise it creates storage object from the original source.
 func expandSources(
 	ctx context.Context,
+	client storage.Storage,
 	srcurls ...*objurl.ObjectURL,
-) (<-chan *storage.Object, error) {
-	// all sources share same client
-	client, err := storage.NewClient(srcurls[0])
-	if err != nil {
-		return nil, err
-	}
-
+) <-chan *storage.Object {
 	objChan := make(chan *storage.Object)
 	go func() {
 		defer close(objChan)
@@ -151,7 +143,7 @@ func expandSources(
 		}
 	}()
 
-	return objChan, nil
+	return objChan
 }
 
 // newSources creates ObjectURL list from given source strings.

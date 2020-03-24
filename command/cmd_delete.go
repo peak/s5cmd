@@ -131,7 +131,7 @@ func expandSources(
 				wg.Add(1)
 				go func(origSrc *objurl.ObjectURL) {
 					defer wg.Done()
-					for object := range client.List(ctx, origSrc, true, storage.ListAllItems) {
+					for object := range client.List(ctx, origSrc, true) {
 						if object.Err == storage.ErrNoObjectFound {
 							continue
 						}

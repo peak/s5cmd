@@ -402,8 +402,88 @@ func TestRemoveMultipleLocalFilesShouldNotFail(t *testing.T) {
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 }
 
+// rm dir/
+func TestRemoveLocalDirectory(t *testing.T) {
+	t.Parallel()
+
+	_, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	folderLayout := []fs.PathOp{
+		fs.WithDir(
+			"testdir",
+			fs.WithFile("file1.txt", "this is the first test file"),
+			fs.WithFile("file2.txt", "this is the second test file"),
+			fs.WithFile("readme.md", "this is a readme file"),
+		),
+	}
+
+	workdir := fs.NewDir(t, t.Name(), folderLayout...)
+	defer workdir.Remove()
+
+	cmd := s5cmd("rm", "testdir")
+	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(""),
+		1: equals("rm file1.txt"),
+		2: equals("rm file2.txt"),
+		3: equals("rm readme.md"),
+	}, strictLineCheck(true), sortInput(true))
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: equals(""),
+	})
+
+	// expected empty dir
+	expected := fs.Expected(t, fs.WithDir("testdir"))
+	assert.Assert(t, fs.Equal(workdir.Path(), expected))
+}
+
+// rm dir/ file file2
+func TestVariadicMultipleLocalFilesWithDirectory(t *testing.T) {
+	t.Parallel()
+
+	_, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	folderLayout := []fs.PathOp{
+		fs.WithDir(
+			"testdir",
+			fs.WithFile("readme.md", "this is a readme file"),
+		),
+		fs.WithFile("file1.txt", "this is the first test file"),
+		fs.WithFile("file2.txt", "this is the second test file"),
+	}
+
+	workdir := fs.NewDir(t, t.Name(), folderLayout...)
+	defer workdir.Remove()
+
+	cmd := s5cmd("rm", "testdir", "file1.txt", "file2.txt")
+	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(""),
+		1: equals("rm file1.txt"),
+		2: equals("rm file2.txt"),
+		3: equals("rm readme.md"),
+	}, strictLineCheck(true), sortInput(true))
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: equals(""),
+	})
+
+	// expected empty dir
+	expected := fs.Expected(t, fs.WithDir("testdir"))
+	assert.Assert(t, fs.Equal(workdir.Path(), expected))
+}
+
 // rm s3://bucket/object s3://bucket/object2
-func TestVariadicRemove(t *testing.T) {
+func TestVariadicRemoveS3Objects(t *testing.T) {
 	t.Parallel()
 
 	s3client, s5cmd, cleanup := setup(t)
@@ -456,7 +536,7 @@ func TestVariadicRemove(t *testing.T) {
 }
 
 // rm s3://bucket/prefix/* s3://bucket/object
-func TestVariadicRemoveWithWildcard(t *testing.T) {
+func TestVariadicRemoveS3ObjectsWithWildcard(t *testing.T) {
 	t.Parallel()
 
 	s3client, s5cmd, cleanup := setup(t)

@@ -128,7 +128,12 @@ func (c Copy) Run(ctx context.Context) error {
 	// is required for backwards compatibility.
 	recursive := c.recursive || (!srcurl.IsRemote() && dsturl.IsRemote())
 
-	objch, err := expandSource(ctx, srcurl, recursive)
+	client, err := storage.NewClient(srcurl)
+	if err != nil {
+		return err
+	}
+
+	objch, err := expandSource(ctx, client, srcurl, recursive)
 	if err != nil {
 		return err
 	}
@@ -573,16 +578,10 @@ func prepareUploadDestination(
 // objects are returned by walking the source.
 func expandSource(
 	ctx context.Context,
+	client storage.Storage,
 	srcurl *url.URL,
 	isRecursive bool,
 ) (<-chan *storage.Object, error) {
-	// TODO(ig): this function could be in the storage layer.
-
-	client, err := storage.NewClient(srcurl)
-	if err != nil {
-		return nil, err
-	}
-
 	var isDir bool
 	// if the source is local, we send a Stat call to know if  we have
 	// directory or file to walk. For remote storage, we don't want to send

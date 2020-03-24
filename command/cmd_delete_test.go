@@ -25,7 +25,15 @@ func Test_expandSources(t *testing.T) {
 		{
 			name: "merge_multiple_source_urls",
 			src: map[string][]*storage.Object{
-				"s3://bucket/key": {},
+				"s3://bucket/key": {
+					{
+						URL: &url.URL{
+							Scheme: "s3",
+							Bucket: "bucket",
+							Path:   "key",
+						},
+					},
+				},
 				"s3://bucket/wildcard/*.txt": {
 					{
 						URL: &url.URL{
@@ -47,13 +55,21 @@ func Test_expandSources(t *testing.T) {
 						URL: &url.URL{
 							Scheme: "s3",
 							Bucket: "bucket",
-							Path:   "dir/subdir1/readme.md",
+							Path:   "dir/a/readme.md",
+						},
+					},
+					{
+						URL: &url.URL{
+							Scheme: "s3",
+							Bucket: "bucket",
+							Path:   "dir/b/readme.md",
 						},
 					},
 				},
 			},
 			wantObjects: []string{
-				"s3://bucket/dir/subdir1/readme.md",
+				"s3://bucket/dir/a/readme.md",
+				"s3://bucket/dir/b/readme.md",
 				"s3://bucket/key",
 				"s3://bucket/wildcard/anothertest.txt",
 				"s3://bucket/wildcard/test.txt",
@@ -127,11 +143,8 @@ func Test_expandSources(t *testing.T) {
 					t.Errorf("unexpected error: %v", err)
 				}
 
-				if srcurl.HasGlob() {
-					// we operate storage.List() only for wildcard operations.
-					ch := generateObjects(objects)
-					client.On("List", mock.Anything, srcurl, true).Once().Return(ch)
-				}
+				ch := generateObjects(objects)
+				client.On("List", mock.Anything, srcurl, true).Once().Return(ch)
 			}
 
 			gotChan := expandSources(context.Background(), client, srcurls...)

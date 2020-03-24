@@ -110,40 +110,39 @@ func expandSources(
 	client storage.Storage,
 	srcurls ...*url.URL,
 ) <-chan *storage.Object {
-	objChan := make(chan *storage.Object)
+	mergech := make(chan *storage.Object)
 	go func() {
-		defer close(objChan)
+		defer close(mergech)
 
 		var wg sync.WaitGroup
 		var objFound bool
 
 		for _, origSrc := range srcurls {
-			// call storage.List for only walking operations.
-			if origSrc.HasGlob() {
-				wg.Add(1)
-				go func(origSrc *url.URL) {
-					defer wg.Done()
-					for object := range client.List(ctx, origSrc, true) {
-						if object.Err == storage.ErrNoObjectFound {
-							continue
-						}
-						objChan <- object
-						objFound = true
+			wg.Add(1)
+			go func(origSrc *url.URL) {
+				defer wg.Done()
+				objch, err := expandSource(ctx, client, origSrc, true)
+				if err != nil {
+					mergech <- &storage.Object{Err: err}
+					return
+				}
+				for object := range objch {
+					if object.Err == storage.ErrNoObjectFound {
+						continue
 					}
-				}(origSrc)
-			} else {
-				objChan <- &storage.Object{URL: origSrc}
-				objFound = true
-			}
+					mergech <- object
+					objFound = true
+				}
+			}(origSrc)
 		}
 
 		wg.Wait()
 		if !objFound {
-			objChan <- &storage.Object{Err: storage.ErrNoObjectFound}
+			mergech <- &storage.Object{Err: storage.ErrNoObjectFound}
 		}
 	}()
 
-	return objChan
+	return mergech
 }
 
 // newSources creates ObjectURL list from given source strings.

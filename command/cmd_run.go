@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/urfave/cli/v2"
-    "github.com/kballard/go-shellquote"
+	"github.com/kballard/go-shellquote"
 
 	"github.com/peak/s5cmd/parallel"
 )

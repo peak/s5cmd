@@ -29,9 +29,6 @@ import (
 var _ Storage = (*S3)(nil)
 
 const (
-	// ListAllItems is a type to paginate all S3 keys.
-	ListAllItems = -1
-
 	// deleteObjectsMax is the max allowed objects to be deleted on single HTTP
 	// request.
 	deleteObjectsMax = 1000
@@ -143,7 +140,7 @@ func (s *S3) Stat(ctx context.Context, url *objurl.ObjectURL) (*Object, error) {
 // List is a non-blocking S3 list operation which paginates and filters S3
 // keys. If no object found or an error is encountered during this period,
 // it sends these errors to object channel.
-func (s *S3) List(ctx context.Context, url *objurl.ObjectURL, _ bool, maxKeys int64) <-chan *Object {
+func (s *S3) List(ctx context.Context, url *objurl.ObjectURL, _ bool) <-chan *Object {
 	listInput := s3.ListObjectsV2Input{
 		Bucket: aws.String(url.Bucket),
 		Prefix: aws.String(url.Prefix),
@@ -151,11 +148,6 @@ func (s *S3) List(ctx context.Context, url *objurl.ObjectURL, _ bool, maxKeys in
 
 	if url.Delimiter != "" {
 		listInput.SetDelimiter(url.Delimiter)
-	}
-
-	shouldPaginate := maxKeys < 0
-	if !shouldPaginate {
-		listInput.SetMaxKeys(maxKeys)
 	}
 
 	objCh := make(chan *Object)
@@ -208,7 +200,7 @@ func (s *S3) List(ctx context.Context, url *objurl.ObjectURL, _ bool, maxKeys in
 				objectFound = true
 			}
 
-			return shouldPaginate && !lastPage
+			return !lastPage
 		})
 
 		if err != nil {

@@ -240,7 +240,7 @@ $ s5cmd cp --no-clobber s3://somebucket/file.txt file.txt
 ERROR "cp s3://somebucket/file.txt file.txt": object already exists
 ```
 
-* If `--json` flag if provided:
+* If `--json` flag is provided:
 
 ```json
     {

@@ -4,7 +4,7 @@
 
 This is a major release with many breaking changes.
 
-#### Backwards incompatible changes
+#### Breaking changes
 
 - Dropped `get` command. Users could get the same effect with `s5cmd cp <src> .`.
 - Dropped `nested command` support.
@@ -24,24 +24,24 @@ This is a major release with many breaking changes.
   resolving](https://aws.amazon.com/blogs/aws/amazon-s3-path-deprecation-plan-the-rest-of-the-story/)
   is enabled by default for S3 and GCS. If you provide a custom endpoint via
   `--endpoint-url` flag (other than GCS and S3 transfer acceleration), `s5cmd`
-  will fall back to the `path-style`. See [#92](https://github.com/peak/s5cmd/pull/92).
-- Listing a non-existent object will return exit code `1`, instead of `0`. See [#23](https://github.com/peak/s5cmd/issues/23).
+  will fall back to the `path-style`. ([#92](https://github.com/peak/s5cmd/pull/92))
+- Listing a non-existent object will return exit code `1`, instead of `0`. ([#23](https://github.com/peak/s5cmd/issues/23))
 
 #### Features
 
-- Added `mb` command to make buckets. See [#25](https://github.com/peak/s5cmd/issues/25).
-- Added `--json` flag for JSON logging. See [#22](https://github.com/peak/s5cmd/issues/22).
-- Added [S3 transfer acceleration](https://docs.aws.amazon.com/AmazonS3/latest/dev/transfer-acceleration.html) support. See [#40](https://github.com/peak/s5cmd/issues/40).
+- Added `mb` command to make buckets. ([#25](https://github.com/peak/s5cmd/issues/25))
+- Added `--json` flag for JSON logging. ([#22](https://github.com/peak/s5cmd/issues/22))
+- Added [S3 transfer acceleration](https://docs.aws.amazon.com/AmazonS3/latest/dev/transfer-acceleration.html) support. ([#40](https://github.com/peak/s5cmd/issues/40))
 
 #### Bugfixes
 
-- Correctly set `Content-Type` of a file on upload operations. See [#33](https://github.com/peak/s5cmd/issues/33).
+- Correctly set `Content-Type` of a file on upload operations. ([#33](https://github.com/peak/s5cmd/issues/33))
 
 #### Improvements
 
-- Pre-compiled binaries are provided on [releases page](https://github.com/peak/s5cmd/releases). See [#21](https://github.com/peak/s5cmd/issues/21).
-- AWS Go SDK is updated to support IAM role for service accounts. See [#32](https://github.com/peak/s5cmd/issues/32).
-- `s5cmd` now creates destination directory if missing.
+- Pre-compiled binaries are provided on [releases page](https://github.com/peak/s5cmd/releases). ([#21](https://github.com/peak/s5cmd/issues/21))
+- AWS Go SDK is updated to support IAM role for service accounts. ([#32](https://github.com/peak/s5cmd/issues/32))
+- For copy/move operations, `s5cmd` now creates destination directory if missing.
 
 ## v0.7.0 - 27 Jan 2020
 

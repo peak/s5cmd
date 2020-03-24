@@ -30,7 +30,7 @@ type Storage interface {
 	// List the objects and directories/prefixes in the src. If recursive
 	// argument is given, given src will be walked if src is a walkable URL,
 	// such as directory, prefix or a wildcard.
-	List(ctx context.Context, src *objurl.ObjectURL, recursive bool, maxitems int64) <-chan *Object
+	List(ctx context.Context, src *objurl.ObjectURL, recursive bool) <-chan *Object
 
 	// Copy src to dst, optionally setting the given metadata. Src and dst
 	// arguments are of the same type. If src is a remote type, server side

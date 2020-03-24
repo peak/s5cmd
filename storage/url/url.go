@@ -1,5 +1,5 @@
-// Package objurl abstracts local and remote file URLs.
-package objurl
+// Package url abstracts local and remote file URLs.
+package url
 
 import (
 	"encoding/json"
@@ -23,17 +23,17 @@ const (
 	matchAllRe string = ".*"
 )
 
-type objurlType int
+type urlType int
 
 const (
-	remoteObject objurlType = iota
+	remoteObject urlType = iota
 	localObject
 )
 
-// ObjectURL is the canonical representation of an object, either on local or
-// remote storage.
-type ObjectURL struct {
-	Type      objurlType
+// URL is the canonical representation of an object, either on local or remote
+// storage.
+type URL struct {
+	Type      urlType
 	Scheme    string
 	Bucket    string
 	Path      string
@@ -45,12 +45,12 @@ type ObjectURL struct {
 	filterRegex  *regexp.Regexp
 }
 
-// New creates a new ObjectURL from given path string.
-func New(s string) (*ObjectURL, error) {
+// New creates a new URL from given path string.
+func New(s string) (*URL, error) {
 	split := strings.Split(s, "://")
 
 	if len(split) == 1 {
-		url := &ObjectURL{
+		url := &URL{
 			Type:   localObject,
 			Scheme: "",
 			Path:   s,
@@ -88,7 +88,7 @@ func New(s string) (*ObjectURL, error) {
 		return nil, fmt.Errorf("bucket name cannot contain wildcards")
 	}
 
-	url := &ObjectURL{
+	url := &URL{
 		Type:   remoteObject,
 		Scheme: "s3",
 		Bucket: bucket,
@@ -102,70 +102,70 @@ func New(s string) (*ObjectURL, error) {
 }
 
 // IsRemote reports whether the object is stored on a remote storage system.
-func (o *ObjectURL) IsRemote() bool {
-	return o.Type == remoteObject
+func (u *URL) IsRemote() bool {
+	return u.Type == remoteObject
 }
 
 // IsBucket returns true if the object url contains only bucket name
-func (o *ObjectURL) IsBucket() bool {
-	return o.IsRemote() && o.Path == ""
+func (u *URL) IsBucket() bool {
+	return u.IsRemote() && u.Path == ""
 }
 
 // Absolute returns the absolute URL format of the object.
-func (o *ObjectURL) Absolute() string {
-	if !o.IsRemote() {
-		return o.Path
+func (u *URL) Absolute() string {
+	if !u.IsRemote() {
+		return u.Path
 	}
 
-	return o.remoteURL()
+	return u.remoteURL()
 }
 
 // Relative returns a URI reference based on the calculated prefix.
-func (o *ObjectURL) Relative() string {
-	return o.relativePath
+func (u *URL) Relative() string {
+	return u.relativePath
 }
 
 // Base returns the last element of object path.
-func (o *ObjectURL) Base() string {
+func (u *URL) Base() string {
 	basefn := filepath.Base
-	if o.IsRemote() {
+	if u.IsRemote() {
 		basefn = path.Base
 	}
 
-	return basefn(o.Path)
+	return basefn(u.Path)
 }
 
 // Dir returns all but the last element of path, typically the path's
 // directory.
-func (o *ObjectURL) Dir() string {
+func (u *URL) Dir() string {
 	basefn := filepath.Dir
-	if o.IsRemote() {
+	if u.IsRemote() {
 		basefn = path.Dir
 	}
 
-	return basefn(o.Path)
+	return basefn(u.Path)
 }
 
-// Join joins string and returns new ObjectURL.
-func (o *ObjectURL) Join(s string) *ObjectURL {
+// Join joins string and returns new URL.
+func (u *URL) Join(s string) *URL {
 	joinfn := filepath.Join
-	if o.IsRemote() {
+	if u.IsRemote() {
 		joinfn = path.Join
 	}
 
-	clone := o.Clone()
+	clone := u.Clone()
 	clone.Path = joinfn(clone.Path, s)
 	return clone
 }
 
-func (o *ObjectURL) remoteURL() string {
-	s := o.Scheme + "://"
-	if o.Bucket != "" {
-		s += o.Bucket
+func (u *URL) remoteURL() string {
+	s := u.Scheme + "://"
+	if u.Bucket != "" {
+		s += u.Bucket
 	}
 
-	if o.Path != "" {
-		s += "/" + o.Path
+	if u.Path != "" {
+		s += "/" + u.Path
 	}
 
 	return s
@@ -199,85 +199,85 @@ func (o *ObjectURL) remoteURL() string {
 //		regex: ^a/b/c.*$
 //		delimiter: "/"
 //
-func (o *ObjectURL) setPrefixAndFilter() error {
-	loc := strings.IndexAny(o.Path, globCharacters)
+func (u *URL) setPrefixAndFilter() error {
+	loc := strings.IndexAny(u.Path, globCharacters)
 	wildOperation := loc > -1
 	if !wildOperation {
-		o.Delimiter = s3Separator
-		o.Prefix = o.Path
+		u.Delimiter = s3Separator
+		u.Prefix = u.Path
 	} else {
-		o.Prefix = o.Path[:loc]
-		o.filter = o.Path[loc:]
+		u.Prefix = u.Path[:loc]
+		u.filter = u.Path[loc:]
 	}
 
 	filterRegex := matchAllRe
-	if o.filter != "" {
-		filterRegex = regexp.QuoteMeta(o.filter)
+	if u.filter != "" {
+		filterRegex = regexp.QuoteMeta(u.filter)
 		filterRegex = strings.Replace(filterRegex, "\\?", ".", -1)
 		filterRegex = strings.Replace(filterRegex, "\\*", ".*?", -1)
 	}
-	filterRegex = o.Prefix + filterRegex
+	filterRegex = u.Prefix + filterRegex
 	r, err := regexp.Compile("^" + filterRegex + "$")
 	if err != nil {
 		return err
 	}
-	o.filterRegex = r
+	u.filterRegex = r
 	return nil
 }
 
 // Clone creates a copy of the receiver.
-func (o *ObjectURL) Clone() *ObjectURL {
-	return &ObjectURL{
-		Type:      o.Type,
-		Scheme:    o.Scheme,
-		Bucket:    o.Bucket,
-		Delimiter: o.Delimiter,
-		Path:      o.Path,
-		Prefix:    o.Prefix,
+func (u *URL) Clone() *URL {
+	return &URL{
+		Type:      u.Type,
+		Scheme:    u.Scheme,
+		Bucket:    u.Bucket,
+		Delimiter: u.Delimiter,
+		Path:      u.Path,
+		Prefix:    u.Prefix,
 
-		relativePath: o.relativePath,
-		filter:       o.filter,
-		filterRegex:  o.filterRegex,
+		relativePath: u.relativePath,
+		filter:       u.filter,
+		filterRegex:  u.filterRegex,
 	}
 }
 
-func (o *ObjectURL) SetRelative(base string) {
+func (u *URL) SetRelative(base string) {
 	dir := filepath.Dir(base)
-	o.relativePath, _ = filepath.Rel(dir, o.Absolute())
+	u.relativePath, _ = filepath.Rel(dir, u.Absolute())
 }
 
 // Match checks if given key matches with the object.
-func (o *ObjectURL) Match(key string) bool {
-	if !o.filterRegex.MatchString(key) {
+func (u *URL) Match(key string) bool {
+	if !u.filterRegex.MatchString(key) {
 		return false
 	}
 
-	isBatch := o.filter != ""
+	isBatch := u.filter != ""
 	if isBatch {
-		v := parseBatch(o.Prefix, key)
-		o.relativePath = v
+		v := parseBatch(u.Prefix, key)
+		u.relativePath = v
 		return true
 	}
 
-	v := parseNonBatch(o.Prefix, key)
-	o.relativePath = v
+	v := parseNonBatch(u.Prefix, key)
+	u.relativePath = v
 	return true
 }
 
-func (o *ObjectURL) String() string {
-	if o.IsRemote() {
-		return o.Absolute()
+func (u *URL) String() string {
+	if u.IsRemote() {
+		return u.Absolute()
 	}
-	return o.Base()
+	return u.Base()
 }
 
-func (o *ObjectURL) MarshalJSON() ([]byte, error) {
-	return json.Marshal(o.String())
+func (u *URL) MarshalJSON() ([]byte, error) {
+	return json.Marshal(u.String())
 }
 
 // HasGlob checks if a string contains any wildcard chars.
-func (o *ObjectURL) HasGlob() bool {
-	return hasGlobCharacter(o.Path)
+func (u *URL) HasGlob() bool {
+	return hasGlobCharacter(u.Path)
 }
 
 // parseBatch parses keys for wildcard operations.

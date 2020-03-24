@@ -1,4 +1,4 @@
-package objurl
+package url
 
 import (
 	"reflect"
@@ -44,7 +44,7 @@ func TestNew(t *testing.T) {
 	tests := []struct {
 		name         string
 		object       string
-		want         *ObjectURL
+		want         *URL
 		wantFilterRe string
 		wantErr      bool
 	}{
@@ -61,7 +61,7 @@ func TestNew(t *testing.T) {
 		{
 			name:   "url_with_no_wildcard",
 			object: "s3://bucket/key",
-			want: &ObjectURL{
+			want: &URL{
 				Scheme:    "s3",
 				Bucket:    "bucket",
 				Path:      "key",
@@ -73,7 +73,7 @@ func TestNew(t *testing.T) {
 		{
 			name:   "url_with_no_wildcard_end_with_slash",
 			object: "s3://bucket/key/",
-			want: &ObjectURL{
+			want: &URL{
 				Scheme:    "s3",
 				Bucket:    "bucket",
 				Path:      "key/",
@@ -85,7 +85,7 @@ func TestNew(t *testing.T) {
 		{
 			name:   "url_with_wildcard",
 			object: "s3://bucket/key/a/?/test/*",
-			want: &ObjectURL{
+			want: &URL{
 				Scheme:      "s3",
 				Bucket:      "bucket",
 				Path:        "key/a/?/test/*",
@@ -100,15 +100,15 @@ func TestNew(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := New(tt.object)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("ParseObjectURL() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("ParseURL() error = %v, wantErr %v", err, tt.wantErr)
 			}
-			if diff := cmp.Diff(tt.want, got, cmpopts.IgnoreUnexported(ObjectURL{})); diff != "" {
-				t.Errorf("test case %q: ObjectURL mismatch (-want +got):\n%v", tt.name, diff)
+			if diff := cmp.Diff(tt.want, got, cmpopts.IgnoreUnexported(URL{})); diff != "" {
+				t.Errorf("test case %q: URL mismatch (-want +got):\n%v", tt.name, diff)
 
 			}
 			if tt.wantFilterRe != "" {
 				if diff := cmp.Diff(tt.wantFilterRe, got.filterRegex.String()); diff != "" {
-					t.Errorf("test case %q: ObjectURL.filterRegex mismatch (-want +got):\n%v", tt.name, diff)
+					t.Errorf("test case %q: URL.filterRegex mismatch (-want +got):\n%v", tt.name, diff)
 
 				}
 			}
@@ -116,18 +116,18 @@ func TestNew(t *testing.T) {
 	}
 }
 
-func TestObjectURL_setPrefixAndFilter(t *testing.T) {
+func TestURLSetPrefixAndFilter(t *testing.T) {
 	tests := []struct {
 		name   string
-		before *ObjectURL
-		after  *ObjectURL
+		before *URL
+		after  *URL
 	}{
 		{
 			name: "wild_operation",
-			before: &ObjectURL{
+			before: &URL{
 				Path: "a/b_c/*/de/*/test",
 			},
-			after: &ObjectURL{
+			after: &URL{
 				Path:        "a/b_c/*/de/*/test",
 				Prefix:      "a/b_c/",
 				Delimiter:   "",
@@ -137,10 +137,10 @@ func TestObjectURL_setPrefixAndFilter(t *testing.T) {
 		},
 		{
 			name: "not_wild_operation",
-			before: &ObjectURL{
+			before: &URL{
 				Path: "a/b_c/d/e",
 			},
-			after: &ObjectURL{
+			after: &URL{
 				Path:        "a/b_c/d/e",
 				Prefix:      "a/b_c/d/e",
 				Delimiter:   "/",
@@ -163,7 +163,7 @@ func TestObjectURL_setPrefixAndFilter(t *testing.T) {
 	}
 }
 
-func TestObjectURL_New_and_CheckMatch(t *testing.T) {
+func TestCheckMatch(t *testing.T) {
 	type matchResult struct {
 		matched bool
 		relurl  string
@@ -271,7 +271,7 @@ func TestObjectURL_New_and_CheckMatch(t *testing.T) {
 	}
 }
 
-func Test_parseBatch(t *testing.T) {
+func TestParseBatch(t *testing.T) {
 	tests := []struct {
 		name   string
 		prefix string
@@ -312,7 +312,7 @@ func Test_parseBatch(t *testing.T) {
 	}
 }
 
-func Test_parseNonBatch(t *testing.T) {
+func TestParseNonBatch(t *testing.T) {
 	tests := []struct {
 		name   string
 		prefix string
@@ -365,7 +365,7 @@ func Test_parseNonBatch(t *testing.T) {
 	}
 }
 
-func TestObjectURL_IsBucket(t *testing.T) {
+func TestURLIsBucket(t *testing.T) {
 	tests := []struct {
 		input     string
 		want      bool

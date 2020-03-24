@@ -14,9 +14,9 @@ import (
 
 	errorpkg "github.com/peak/s5cmd/error"
 	"github.com/peak/s5cmd/log"
-	"github.com/peak/s5cmd/objurl"
 	"github.com/peak/s5cmd/parallel"
 	"github.com/peak/s5cmd/storage"
+	"github.com/peak/s5cmd/storage/url"
 )
 
 var copyCommandFlags = []cli.Flag{
@@ -72,7 +72,7 @@ var CopyCommand = &cli.Command{
 			return fmt.Errorf("expected source and destination arguments")
 		}
 
-		dst, err := objurl.New(c.Args().Get(1))
+		dst, err := url.New(c.Args().Get(1))
 		if err != nil {
 			return err
 		}
@@ -135,12 +135,12 @@ type Copy struct {
 }
 
 func (c Copy) Run(ctx context.Context) error {
-	origSrc, err := objurl.New(c.src)
+	origSrc, err := url.New(c.src)
 	if err != nil {
 		return err
 	}
 
-	dsturl, err := objurl.New(c.dst)
+	dsturl, err := url.New(c.dst)
 	if err != nil {
 		return err
 	}
@@ -202,9 +202,9 @@ func (c Copy) Run(ctx context.Context) error {
 
 func (c Copy) prepareCopyTask(
 	ctx context.Context,
-	origSrc *objurl.ObjectURL,
-	srcurl *objurl.ObjectURL,
-	dsturl *objurl.ObjectURL,
+	origSrc *url.URL,
+	srcurl *url.URL,
+	dsturl *url.URL,
 ) func() error {
 	return func() error {
 		dsturl, err := prepareCopyDestination(ctx, origSrc, srcurl, dsturl, c.parents)
@@ -227,9 +227,9 @@ func (c Copy) prepareCopyTask(
 
 func (c Copy) prepareDownloadTask(
 	ctx context.Context,
-	origSrc *objurl.ObjectURL,
-	srcurl *objurl.ObjectURL,
-	dsturl *objurl.ObjectURL,
+	origSrc *url.URL,
+	srcurl *url.URL,
+	dsturl *url.URL,
 ) func() error {
 	return func() error {
 		dsturl, err := prepareDownloadDestination(ctx, origSrc, srcurl, dsturl, c.parents)
@@ -252,8 +252,8 @@ func (c Copy) prepareDownloadTask(
 
 func (c Copy) prepareUploadTask(
 	ctx context.Context,
-	srcurl *objurl.ObjectURL,
-	dsturl *objurl.ObjectURL,
+	srcurl *url.URL,
+	dsturl *url.URL,
 ) func() error {
 	return func() error {
 		dsturl := prepareUploadDestination(srcurl, dsturl, c.parents)
@@ -272,7 +272,7 @@ func (c Copy) prepareUploadTask(
 }
 
 // doDownload is used to fetch a remote object and save as a local object.
-func (c Copy) doDownload(ctx context.Context, srcurl *objurl.ObjectURL, dsturl *objurl.ObjectURL) error {
+func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) error {
 	srcClient, err := storage.NewClient(srcurl)
 	if err != nil {
 		return err
@@ -323,7 +323,7 @@ func (c Copy) doDownload(ctx context.Context, srcurl *objurl.ObjectURL, dsturl *
 	return nil
 }
 
-func (c Copy) doUpload(ctx context.Context, srcurl *objurl.ObjectURL, dsturl *objurl.ObjectURL) error {
+func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) error {
 	// TODO(ig): use storage abstraction
 	f, err := os.Open(srcurl.Absolute())
 	if err != nil {
@@ -383,7 +383,7 @@ func (c Copy) doUpload(ctx context.Context, srcurl *objurl.ObjectURL, dsturl *ob
 	return nil
 }
 
-func (c Copy) doCopy(ctx context.Context, srcurl *objurl.ObjectURL, dsturl *objurl.ObjectURL) error {
+func (c Copy) doCopy(ctx context.Context, srcurl *url.URL, dsturl *url.URL) error {
 	srcClient, err := storage.NewClient(srcurl)
 	if err != nil {
 		return err
@@ -432,7 +432,7 @@ func (c Copy) doCopy(ctx context.Context, srcurl *objurl.ObjectURL, dsturl *obju
 // override criteria. For example; "cp -n -s <src> <dst>" should not override
 // the <dst> if <src> and <dst> filenames are the same, except if the size
 // differs.
-func (c Copy) shouldOverride(ctx context.Context, srcurl *objurl.ObjectURL, dsturl *objurl.ObjectURL) error {
+func (c Copy) shouldOverride(ctx context.Context, srcurl *url.URL, dsturl *url.URL) error {
 	// if not asked to override, ignore.
 	if !c.noClobber && !c.ifSizeDiffer && !c.ifSourceNewer {
 		return nil
@@ -499,11 +499,11 @@ func givenCommand(c *cli.Context) string {
 // and remote->remote copy operations.
 func prepareCopyDestination(
 	ctx context.Context,
-	origSrc *objurl.ObjectURL,
-	srcurl *objurl.ObjectURL,
-	dsturl *objurl.ObjectURL,
+	origSrc *url.URL,
+	srcurl *url.URL,
+	dsturl *url.URL,
 	parents bool,
-) (*objurl.ObjectURL, error) {
+) (*url.URL, error) {
 	objname := srcurl.Base()
 	if parents {
 		objname = srcurl.Relative()
@@ -550,11 +550,11 @@ func prepareCopyDestination(
 // remote->local and remote->remote copy operations.
 func prepareDownloadDestination(
 	ctx context.Context,
-	origSrc *objurl.ObjectURL,
-	srcurl *objurl.ObjectURL,
-	dsturl *objurl.ObjectURL,
+	origSrc *url.URL,
+	srcurl *url.URL,
+	dsturl *url.URL,
 	parents bool,
-) (*objurl.ObjectURL, error) {
+) (*url.URL, error) {
 	objname := srcurl.Base()
 	if parents {
 		objname = srcurl.Relative()
@@ -605,10 +605,10 @@ func prepareDownloadDestination(
 // prepareUploadDestination will return a new destination URL for local->remote
 // operations.
 func prepareUploadDestination(
-	srcurl *objurl.ObjectURL,
-	dsturl *objurl.ObjectURL,
+	srcurl *url.URL,
+	dsturl *url.URL,
 	parents bool,
-) *objurl.ObjectURL {
+) *url.URL {
 	// if S3 destination is not a bucket and does not end with "/",
 	// use raw destination url.
 	if !dsturl.IsBucket() && !strings.HasSuffix(dsturl.Absolute(), "/") {
@@ -627,7 +627,7 @@ func prepareUploadDestination(
 // objects are returned by walking the source.
 func expandSource(
 	ctx context.Context,
-	srcurl *objurl.ObjectURL,
+	srcurl *url.URL,
 	isRecursive bool,
 ) (<-chan *storage.Object, error) {
 	// TODO(ig): this function could be in the storage layer.
@@ -662,7 +662,7 @@ func expandSource(
 
 // getObject checks if the object from given url exists. If no object is
 // found, error and returning object would be nil.
-func getObject(ctx context.Context, url *objurl.ObjectURL) (*storage.Object, error) {
+func getObject(ctx context.Context, url *url.URL) (*storage.Object, error) {
 	client, err := storage.NewClient(url)
 	if err != nil {
 		return nil, err

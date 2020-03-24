@@ -9,7 +9,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/peak/s5cmd/objurl"
+	"github.com/peak/s5cmd/storage/url"
 	"github.com/peak/s5cmd/strutil"
 )
 
@@ -25,29 +25,29 @@ var (
 type Storage interface {
 	// Stat returns the Object structure describing object. If src is not
 	// found, ErrGivenObjectNotFound is returned.
-	Stat(ctx context.Context, src *objurl.ObjectURL) (*Object, error)
+	Stat(ctx context.Context, src *url.URL) (*Object, error)
 
 	// List the objects and directories/prefixes in the src. If recursive
 	// argument is given, given src will be walked if src is a walkable URL,
 	// such as directory, prefix or a wildcard.
-	List(ctx context.Context, src *objurl.ObjectURL, recursive bool) <-chan *Object
+	List(ctx context.Context, src *url.URL, recursive bool) <-chan *Object
 
 	// Copy src to dst, optionally setting the given metadata. Src and dst
 	// arguments are of the same type. If src is a remote type, server side
 	// copying will be used.
-	Copy(ctx context.Context, src, dst *objurl.ObjectURL, metadata map[string]string) error
+	Copy(ctx context.Context, src, dst *url.URL, metadata map[string]string) error
 
 	// Get reads object content from src and writes to dst in parallel.
-	Get(ctx context.Context, src *objurl.ObjectURL, dst io.WriterAt, concurrency int, partSize int64) (int64, error)
+	Get(ctx context.Context, src *url.URL, dst io.WriterAt, concurrency int, partSize int64) (int64, error)
 
 	// Put reads from src and writes content to dst.
-	Put(ctx context.Context, src io.Reader, dst *objurl.ObjectURL, metadata map[string]string, concurrency int, partSize int64) error
+	Put(ctx context.Context, src io.Reader, dst *url.URL, metadata map[string]string, concurrency int, partSize int64) error
 
 	// Delete deletes the given src.
-	Delete(ctx context.Context, src *objurl.ObjectURL) error
+	Delete(ctx context.Context, src *url.URL) error
 
 	// MultiDelete deletes all items returned from given urls in batches.
-	MultiDelete(ctx context.Context, urls <-chan *objurl.ObjectURL) <-chan *Object
+	MultiDelete(ctx context.Context, urls <-chan *url.URL) <-chan *Object
 
 	// ListBuckets returns bucket list. If prefix is given, results will be
 	// filtered.
@@ -59,7 +59,7 @@ type Storage interface {
 
 // NewClient returns new Storage client from given url. Storage implementation
 // is inferred from the url.
-func NewClient(url *objurl.ObjectURL) (Storage, error) {
+func NewClient(url *url.URL) (Storage, error) {
 	if url.IsRemote() {
 		return newCachedS3()
 	}
@@ -69,13 +69,13 @@ func NewClient(url *objurl.ObjectURL) (Storage, error) {
 
 // Object is a generic type which contains metadata for storage items.
 type Object struct {
-	URL          *objurl.ObjectURL `json:"key,omitempty"`
-	Etag         string            `json:"etag,omitempty"`
-	ModTime      *time.Time        `json:"last_modified,omitempty"`
-	Type         ObjectType        `json:"type,omitempty"`
-	Size         int64             `json:"size,omitempty"`
-	StorageClass StorageClass      `json:"storage_class,omitempty"`
-	Err          error             `json:"error,omitempty"`
+	URL          *url.URL     `json:"key,omitempty"`
+	Etag         string       `json:"etag,omitempty"`
+	ModTime      *time.Time   `json:"last_modified,omitempty"`
+	Type         ObjectType   `json:"type,omitempty"`
+	Size         int64        `json:"size,omitempty"`
+	StorageClass StorageClass `json:"storage_class,omitempty"`
+	Err          error        `json:"error,omitempty"`
 }
 
 // String returns the string representation of Object.

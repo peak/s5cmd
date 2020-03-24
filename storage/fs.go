@@ -206,11 +206,11 @@ func (f *Filesystem) MultiDelete(ctx context.Context, urlch <-chan *objurl.Objec
 	return resultch
 }
 
-func (f *Filesystem) Put(ctx context.Context, body io.Reader, url *objurl.ObjectURL, _ map[string]string) error {
+func (f *Filesystem) Put(ctx context.Context, body io.Reader, url *objurl.ObjectURL, _ map[string]string, _ int, _ int64) error {
 	return f.notimplemented("Put")
 }
 
-func (f *Filesystem) Get(_ context.Context, _ *objurl.ObjectURL, _ io.WriterAt) (int64, error) {
+func (f *Filesystem) Get(_ context.Context, _ *objurl.ObjectURL, _ io.WriterAt, _ int, _ int64) (int64, error) {
 	return 0, f.notimplemented("Get")
 }
 

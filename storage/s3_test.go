@@ -96,8 +96,7 @@ func TestS3_List_success(t *testing.T) {
 
 	mockApi := s3.New(unit.Session)
 	mockS3 := &S3{
-		api:  mockApi,
-		opts: S3Options{},
+		api: mockApi,
 	}
 
 	mockApi.Handlers.Send.Clear() // mock sending
@@ -172,8 +171,7 @@ func TestS3_List_error(t *testing.T) {
 
 	mockApi := s3.New(unit.Session)
 	mockS3 := &S3{
-		api:  mockApi,
-		opts: S3Options{},
+		api: mockApi,
 	}
 	mockErr := fmt.Errorf("mock error")
 
@@ -199,8 +197,7 @@ func TestS3_List_no_item_found(t *testing.T) {
 
 	mockApi := s3.New(unit.Session)
 	mockS3 := &S3{
-		api:  mockApi,
-		opts: S3Options{},
+		api: mockApi,
 	}
 
 	mockApi.Handlers.Send.Clear() // mock sending
@@ -236,8 +233,7 @@ func TestS3_List_context_cancelled(t *testing.T) {
 
 	mockApi := s3.New(unit.Session)
 	mockS3 := &S3{
-		api:  mockApi,
-		opts: S3Options{},
+		api: mockApi,
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())

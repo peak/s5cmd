@@ -87,7 +87,6 @@ type S3 struct {
 	downloader  s3manageriface.DownloaderAPI
 	uploader    s3manageriface.UploaderAPI
 	endpointURL urlpkg.URL
-	opts        S3Options
 }
 
 // S3Options stores configuration for S3 storage.
@@ -132,7 +131,6 @@ func NewS3Storage(opts S3Options) (*S3, error) {
 		downloader:  s3manager.NewDownloader(awsSession),
 		uploader:    s3manager.NewUploader(awsSession),
 		endpointURL: endpointURL,
-		opts:        opts,
 	}, nil
 }
 

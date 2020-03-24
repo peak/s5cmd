@@ -188,7 +188,7 @@ const (
 	// StorageGlacier is a glacier storage class type.
 	StorageGlacier StorageClass = "GLACIER"
 
-	// TransitionStorageClassStandardIA is a Standard Infrequent-Access storage
+	// StorageStandardIA is a Standard Infrequent-Access storage
 	// class type.
 	StorageStandardIA StorageClass = "STANDARD_IA"
 )

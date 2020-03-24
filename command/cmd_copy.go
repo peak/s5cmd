@@ -219,12 +219,8 @@ func (c Copy) prepareUploadTask(
 	isBatch bool,
 ) func() error {
 	return func() error {
-		dsturl, err := prepareUploadDestination(ctx, srcurl, dsturl, c.parents, isBatch)
-		if err != nil {
-			return err
-		}
-
-		err = c.doUpload(ctx, srcurl, dsturl)
+		dsturl = prepareUploadDestination(srcurl, dsturl, c.parents, isBatch)
+		err := c.doUpload(ctx, srcurl, dsturl)
 		if err != nil {
 			return &errorpkg.Error{
 				Op:  c.op,
@@ -536,23 +532,22 @@ func prepareDownloadDestination(
 // prepareUploadDestination will return a new destination URL for local->remote
 // operations.
 func prepareUploadDestination(
-	ctx context.Context,
 	srcurl *objurl.ObjectURL,
 	dsturl *objurl.ObjectURL,
 	parents bool,
 	isBatch bool,
-) (*objurl.ObjectURL, error) {
+) *objurl.ObjectURL {
 	// if given destination is a bucket/objname, don't do any join and respect
 	// the user's destination object name.
 	if !isBatch && !dsturl.IsBucket() && !dsturl.IsPrefix() {
-		return dsturl, nil
+		return dsturl
 	}
 
 	objname := srcurl.Base()
 	if parents {
 		objname = srcurl.Relative()
 	}
-	return dsturl.Join(objname), nil
+	return dsturl.Join(objname)
 }
 
 // expandSource returns the full list of objects from the given src argument.

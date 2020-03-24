@@ -52,13 +52,13 @@ var copyCommandFlags = []cli.Flag{
 		Name:    "concurrency",
 		Aliases: []string{"c"},
 		Value:   defaultCopyConcurrency,
-		Usage:   "number of concurrent parts transmitted/received to/from remote server",
+		Usage:   "number of concurrent parts transferred between host and remote server",
 	},
 	&cli.IntFlag{
 		Name:    "part-size",
 		Aliases: []string{"p"},
 		Value:   defaultPartSize,
-		Usage:   "size of each part transmitted/received to/from remote server, in MiB",
+		Usage:   "size of each part transferred between host and remote server, in MiB",
 	},
 }
 

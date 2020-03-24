@@ -9,8 +9,8 @@ import (
 
 	errorpkg "github.com/peak/s5cmd/error"
 	"github.com/peak/s5cmd/log"
-	"github.com/peak/s5cmd/objurl"
 	"github.com/peak/s5cmd/storage"
+	"github.com/peak/s5cmd/storage/url"
 )
 
 var DeleteCommand = &cli.Command{
@@ -40,7 +40,7 @@ func Delete(
 	fullCommand string,
 	src string,
 ) error {
-	srcurl, err := objurl.New(src)
+	srcurl, err := url.New(src)
 	if err != nil {
 		return err
 	}
@@ -57,8 +57,8 @@ func Delete(
 		return err
 	}
 
-	// do object->objurl transformation
-	urlch := make(chan *objurl.ObjectURL)
+	// do object->url transformation
+	urlch := make(chan *url.URL)
 	go func() {
 		defer close(urlch)
 

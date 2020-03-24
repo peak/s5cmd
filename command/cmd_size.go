@@ -9,8 +9,8 @@ import (
 
 	errorpkg "github.com/peak/s5cmd/error"
 	"github.com/peak/s5cmd/log"
-	"github.com/peak/s5cmd/objurl"
 	"github.com/peak/s5cmd/storage"
+	"github.com/peak/s5cmd/storage/url"
 	"github.com/peak/s5cmd/strutil"
 )
 
@@ -57,7 +57,7 @@ func Size(
 	groupByClass bool,
 	humanize bool,
 ) error {
-	srcurl, err := objurl.New(src)
+	srcurl, err := url.New(src)
 	if err != nil {
 		return err
 	}

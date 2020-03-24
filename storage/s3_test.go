@@ -3,7 +3,7 @@ package storage
 import (
 	"context"
 	"fmt"
-	"net/url"
+	urlpkg "net/url"
 	"os"
 	"testing"
 
@@ -14,38 +14,38 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/google/go-cmp/cmp"
 
-	"github.com/peak/s5cmd/objurl"
+	"github.com/peak/s5cmd/storage/url"
 )
 
 func TestNewSessionPathStyle(t *testing.T) {
 	testcases := []struct {
 		name            string
-		endpoint        url.URL
+		endpoint        urlpkg.URL
 		expectPathStyle bool
 	}{
 		{
 			name:            "expect_virtual_host_style_when_missing_endpoint",
-			endpoint:        url.URL{},
+			endpoint:        urlpkg.URL{},
 			expectPathStyle: false,
 		},
 		{
 			name:            "expect_virtual_host_style_for_transfer_accel",
-			endpoint:        url.URL{Host: transferAccelEndpoint},
+			endpoint:        urlpkg.URL{Host: transferAccelEndpoint},
 			expectPathStyle: false,
 		},
 		{
 			name:            "expect_virtual_host_style_for_google_cloud_storage",
-			endpoint:        url.URL{Host: gcsEndpoint},
+			endpoint:        urlpkg.URL{Host: gcsEndpoint},
 			expectPathStyle: false,
 		},
 		{
 			name:            "expect_path_style_for_localhost",
-			endpoint:        url.URL{Host: "127.0.0.1"},
+			endpoint:        urlpkg.URL{Host: "127.0.0.1"},
 			expectPathStyle: true,
 		},
 		{
 			name:            "expect_path_style_for_custom_endpoint",
-			endpoint:        url.URL{Host: "example.com"},
+			endpoint:        urlpkg.URL{Host: "example.com"},
 			expectPathStyle: true,
 		},
 	}
@@ -89,7 +89,7 @@ func TestNewSessionWithRegionSetViaEnv(t *testing.T) {
 }
 
 func TestS3_List_success(t *testing.T) {
-	url, err := objurl.New("s3://bucket/key")
+	url, err := url.New("s3://bucket/key")
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -165,7 +165,7 @@ func TestS3_List_success(t *testing.T) {
 }
 
 func TestS3_List_error(t *testing.T) {
-	url, err := objurl.New("s3://bucket/key")
+	url, err := url.New("s3://bucket/key")
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -192,7 +192,7 @@ func TestS3_List_error(t *testing.T) {
 }
 
 func TestS3_List_no_item_found(t *testing.T) {
-	url, err := objurl.New("s3://bucket/key")
+	url, err := url.New("s3://bucket/key")
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -229,7 +229,7 @@ func TestS3_List_no_item_found(t *testing.T) {
 }
 
 func TestS3_List_context_cancelled(t *testing.T) {
-	url, err := objurl.New("s3://bucket/key")
+	url, err := url.New("s3://bucket/key")
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}

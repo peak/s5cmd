@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/urfave/cli/v2"
+    "github.com/kballard/go-shellquote"
 
 	"github.com/peak/s5cmd/parallel"
 )
@@ -68,7 +69,11 @@ var RunCommand = &cli.Command{
 				continue
 			}
 
-			fields := strings.Fields(line)
+			fields, err := shellquote.Split(line)
+			if err != nil {
+				return err
+			}
+
 			if len(fields) == 0 {
 				continue
 			}

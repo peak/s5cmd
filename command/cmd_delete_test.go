@@ -14,6 +14,8 @@ import (
 )
 
 func Test_expandSources(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name        string
 		src         map[string][]*storage.Object
@@ -110,6 +112,8 @@ func Test_expandSources(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			srcurls, err := newSources(keys(tt.src)...)
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
@@ -155,7 +159,7 @@ func Test_expandSources(t *testing.T) {
 
 func keys(urls map[string][]*storage.Object) []string {
 	var urlKeys []string
-	for key, _ := range urls {
+	for key := range urls {
 		urlKeys = append(urlKeys, key)
 	}
 	return urlKeys
@@ -173,6 +177,8 @@ func generateObjects(objects []*storage.Object) <-chan *storage.Object {
 }
 
 func Test_checkSources(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name    string
 		sources []string
@@ -211,6 +217,8 @@ func Test_checkSources(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			if err := checkSources(tt.sources...); (err != nil) != tt.wantErr {
 				t.Errorf("checkSources() error = %v, wantErr %v", err, tt.wantErr)
 			}

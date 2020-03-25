@@ -32,7 +32,7 @@ check-fmt:
 
 .PHONY: mock
 mock:
-	@mockery -testonly -dir=storage -name=Storage -case=underscore
+	@mockery -inpkg -dir=storage -name=Storage -case=underscore
 
 .PHONY: clean
 clean:

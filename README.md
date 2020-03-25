@@ -223,6 +223,14 @@ path-style.
 ⚠️  There's an [outstanding issue](https://github.com/peak/s5cmd/issues/81) for
 not being able to list objects at GCS. It'll be fixed in upcoming releases.
 
+### Retry logic
+
+`s5cmd` uses an exponential backoff retry mechanism for transient or potential
+server-side throttling errors. Non-retriable errors, such as `invalid
+credentials`, `authorization errors` etc, will not be retried. By default,
+`s5cmd` will retry 10 times for about a minute. You can adjust the number of
+retries with `--retry-count` option.
+
 ## Output
 
 `s5cmd` supports both text and JSON outputs.

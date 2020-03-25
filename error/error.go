@@ -31,6 +31,10 @@ func (e *Error) Error() string {
 	return e.Err.Error()
 }
 
+func (e *Error) Unwrap() error {
+	return e.Err
+}
+
 func IsCancelation(err error) bool {
 	if err == nil {
 		return false

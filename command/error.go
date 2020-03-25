@@ -22,6 +22,11 @@ func printDebug(op string, src, dst *url.URL, err error) {
 
 // printError is the helper function to log error messages.
 func printError(command, op string, err error) {
+	// dont print cancelation errors
+	if errorpkg.IsCancelation(err) {
+		return
+	}
+
 	// check if we have our own error type
 	{
 		cerr, ok := err.(*errorpkg.Error)
@@ -62,10 +67,6 @@ func printError(command, op string, err error) {
 			}
 			return
 		}
-	}
-
-	if errorpkg.IsCancelation(err) {
-		return
 	}
 
 	// we don't know the exact error type. log the error as is.

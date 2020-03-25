@@ -263,7 +263,7 @@ func TestCheckMatch(t *testing.T) {
 				if got != matchResult.matched {
 					t.Errorf("Match() got = %v, want %v", got, matchResult.matched)
 				}
-				if u.Relative() != matchResult.relurl {
+				if got && u.Relative() != matchResult.relurl {
 					t.Errorf("Match() got = %v, want %v", got, matchResult.relurl)
 				}
 			}

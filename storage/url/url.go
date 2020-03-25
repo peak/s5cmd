@@ -106,6 +106,12 @@ func (u *URL) IsRemote() bool {
 	return u.Type == remoteObject
 }
 
+// IsPrefix reports whether the remote object is an S3 prefix, and does not
+// look like an object.
+func (o *URL) IsPrefix() bool {
+	return o.IsRemote() && strings.HasSuffix(o.Path, "/")
+}
+
 // IsBucket returns true if the object url contains only bucket name
 func (u *URL) IsBucket() bool {
 	return u.IsRemote() && u.Path == ""
@@ -121,8 +127,11 @@ func (u *URL) Absolute() string {
 }
 
 // Relative returns a URI reference based on the calculated prefix.
-func (u *URL) Relative() string {
-	return u.relativePath
+func (o *URL) Relative() string {
+	if o.relativePath != "" {
+		return o.relativePath
+	}
+	return o.Absolute()
 }
 
 // Base returns the last element of object path.

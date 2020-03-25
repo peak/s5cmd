@@ -12,6 +12,7 @@ require (
 	github.com/karrick/godirwalk v1.15.3
 	github.com/kr/pretty v0.2.0 // indirect
 	github.com/posener/complete v1.2.3
+	github.com/stretchr/testify v1.4.0
 	github.com/termie/go-shutil v0.0.0-20140729215957-bcacb06fecae
 	github.com/urfave/cli/v2 v2.2.0
 	golang.org/x/sys v0.0.0-20190422165155-953cdadca894 // indirect

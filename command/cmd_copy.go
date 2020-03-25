@@ -41,13 +41,16 @@ Examples:
 	4. Upload a file to S3 bucket
 		 > s5cmd {{.HelpName}} myfile.gz s3://bucket/
 
-	5. Upload a directory to S3 bucket recursively
+	5. Upload matching files to S3 bucket
+		 > s5cmd {{.HelpName}} dir/*.gz s3://bucket/
+
+	6. Upload all files in a directory to S3 bucket recursively
 		 > s5cmd {{.HelpName}} dir/ s3://bucket/
 
-	6. Mirror a directory to target S3 prefix
+	7. Mirror a directory to target S3 prefix
 		 > s5cmd {{.HelpName}} -n -s -u dir/ s3://bucket/target-prefix/
 
-	7. Mirror an S3 prefix to target S3 prefix
+	8. Mirror an S3 prefix to target S3 prefix
 		 > s5cmd {{.HelpName}} -n -s -u s3://bucket/source-prefix/ s3://bucket/target-prefix/
 `
 

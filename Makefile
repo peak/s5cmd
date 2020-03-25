@@ -26,6 +26,10 @@ vet:
 check-fmt:
 	@sh -c 'if [ -n "$(go fmt -mod=vendor ./...)" ]; then echo "Go code is not formatted"; exit 1; fi'
 
+.PHONY: mock
+mock:
+	@mockery -testonly -dir=storage -name=Storage -case=underscore
+
 .PHONY: clean
 clean:
 	@rm -f ./s5cmd

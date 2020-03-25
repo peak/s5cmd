@@ -39,7 +39,10 @@ func (f *Filesystem) Stat(ctx context.Context, url *url.URL) (*Object, error) {
 	}, nil
 }
 
-func (f *Filesystem) List(ctx context.Context, src *url.URL, isRecursive bool) <-chan *Object {
+func (f *Filesystem) List(ctx context.Context, src *url.URL) <-chan *Object {
+	// we always operate on recursive mode
+	const isRecursive = true
+
 	obj, err := f.Stat(ctx, src)
 	isDir := err == nil && obj.Type.IsDir()
 

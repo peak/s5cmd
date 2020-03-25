@@ -584,7 +584,7 @@ func expandSource(
 
 	// call storage.List for only walking operations.
 	if srcurl.HasGlob() || isDir {
-		return client.List(ctx, srcurl, true), nil
+		return client.List(ctx, srcurl), nil
 	}
 
 	ch := make(chan *storage.Object, 1)

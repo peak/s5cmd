@@ -678,30 +678,12 @@ func Validate(c *cli.Context) error {
 }
 
 func validateCopy(ctx context.Context, srcurl, dsturl *url.URL) error {
-	if srcurl.IsRemote() {
+	if srcurl.IsRemote() || dsturl.IsRemote() {
 		return nil
 	}
 
-	client, err := storage.NewClient(dsturl)
-	if err != nil {
-		return err
-	}
-
-	// For local->local copy operations, we can safely stat <dst> to check if
-	// it is a file or a directory.
-	obj, err := client.Stat(ctx, dsturl)
-	if err != nil && err != storage.ErrGivenObjectNotFound {
-		return err
-	}
-
-	// For local->local copy operations, if <src> has glob, <dst> is expected
-	// to be a directory. As always, local copy operation will create missing
-	// directories if <dst> has one.
-	if obj != nil && !obj.Type.IsDir() {
-		return fmt.Errorf("destination argument is expected to be a directory")
-	}
-
-	return nil
+	// we don't support local->local copies
+	return fmt.Errorf("local->local copy operations are not permitted")
 }
 
 func validateUpload(ctx context.Context, srcurl, dsturl *url.URL) error {

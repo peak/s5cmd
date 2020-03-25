@@ -1449,221 +1449,6 @@ func TestCopyMultipleS3ObjectsToS3_Issue70(t *testing.T) {
 	assert.Assert(t, ensureS3Object(s3client, bucket, ".local/folder2/file2.txt", "this is a test file 2"))
 }
 
-// cp file file2
-func TestCopySingleLocalFileToLocal(t *testing.T) {
-	t.Parallel()
-
-	_, s5cmd, cleanup := setup(t)
-	defer cleanup()
-
-	const (
-		filename    = "testfile1.txt"
-		newFilename = "testfile1-copy.txt"
-		content     = "this is a test file"
-	)
-
-	workdir := fs.NewDir(t, t.Name(), fs.WithFile(filename, content))
-	defer workdir.Remove()
-
-	cmd := s5cmd("cp", filename, newFilename)
-	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
-
-	result.Assert(t, icmd.Success)
-
-	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: suffix("cp %v", filename),
-		1: equals(""),
-	})
-
-	// assert local filesystem
-	expected := fs.Expected(
-		t,
-		fs.WithFile(filename, content),
-		fs.WithFile(newFilename, content),
-	)
-
-	assert.Assert(t, fs.Equal(workdir.Path(), expected))
-}
-
-// cp *.ext dir/
-func TestCopyMultipleLocalFlatFilesToLocal(t *testing.T) {
-	t.Parallel()
-
-	_, s5cmd, cleanup := setup(t)
-	defer cleanup()
-
-	filesToContent := map[string]string{
-		"testfile1.txt":          "this is a test file 1",
-		"readme.md":              "this is a readme file",
-		"filename-with-hypen.gz": "file has hypen in its name",
-		"another_test_file.txt":  "yet another txt file. yatf.",
-	}
-
-	var files []fs.PathOp
-	for filename, content := range filesToContent {
-		op := fs.WithFile(filename, content)
-		files = append(files, op)
-	}
-
-	workdir := fs.NewDir(t, t.Name(), files...)
-	defer workdir.Remove()
-
-	cmd := s5cmd("cp", "*.txt", "another-directory/")
-	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
-
-	result.Assert(t, icmd.Success)
-
-	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(""),
-		1: suffix("cp another_test_file.txt"),
-		2: suffix("cp testfile1.txt"),
-	}, sortInput(true))
-
-	// assert local filesystem
-	expected := fs.Expected(
-		t,
-		fs.WithMode(0700),
-		fs.WithFile("testfile1.txt", "this is a test file 1"),
-		fs.WithFile("another_test_file.txt", "yet another txt file. yatf."),
-		fs.WithFile("readme.md", "this is a readme file"),
-		fs.WithFile("filename-with-hypen.gz", "file has hypen in its name"),
-		fs.WithDir("another-directory",
-			fs.WithMode(0755),
-			fs.WithFile("testfile1.txt", "this is a test file 1"),
-			fs.WithFile("another_test_file.txt", "yet another txt file. yatf."),
-		),
-	)
-
-	assert.Assert(t, fs.Equal(workdir.Path(), expected))
-}
-
-// cp -R * dir/
-func TestCopyMultipleLocalNestedFilesToLocal(t *testing.T) {
-	t.Parallel()
-
-	_, s5cmd, cleanup := setup(t)
-	defer cleanup()
-
-	// nested folder layout
-	//
-	// ├ a
-	// │ └─readme.md
-	// │ └─file1.txt
-	// └─b
-	//   └─c
-	//     └─file2.txt
-	//
-	// after `s5cmd cp -R * dst`, expect:
-	//
-	// ├ dst
-	// │ └─readme.md
-	// │ └─file1.txt
-	// │ └─file2.txt
-
-	folderLayout := []fs.PathOp{
-		fs.WithDir(
-			"a",
-			fs.WithFile("file1.txt", "this is the first test file"),
-			fs.WithFile("readme.md", "this is a readme file"),
-		),
-		fs.WithDir(
-			"b",
-			fs.WithDir(
-				"c",
-				fs.WithFile("file2.txt", "this is the second test file"),
-			),
-		),
-	}
-
-	workdir := fs.NewDir(t, t.Name(), folderLayout...)
-	defer workdir.Remove()
-
-	cmd := s5cmd("cp", "-R", "*", "dst")
-	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
-
-	result.Assert(t, icmd.Success)
-
-	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(""),
-		1: suffix("cp file1.txt"),
-		2: suffix("cp file2.txt"),
-		3: suffix("cp readme.md"),
-	}, sortInput(true))
-
-	newLayout := append(folderLayout, fs.WithDir(
-		"dst",
-		fs.WithFile("file1.txt", "this is the first test file"),
-		fs.WithFile("file2.txt", "this is the second test file"),
-		fs.WithFile("readme.md", "this is a readme file"),
-	),
-	)
-
-	expected := fs.Expected(t, newLayout...)
-	assert.Assert(t, fs.Equal(workdir.Path(), expected))
-}
-
-// cp -R --parents * dir/
-func TestCopyMultipleLocalNestedFilesToLocalPreserveLayout(t *testing.T) {
-	t.Parallel()
-
-	_, s5cmd, cleanup := setup(t)
-	defer cleanup()
-
-	// nested folder layout
-	//
-	// ├─a
-	// │ ├─readme.md
-	// │ └─file1.txt
-	// └─b
-	//   └─c
-	//     └─file2.txt
-	//
-	// after `s5cmd cp -R --parents * dst`, expect:
-	//
-	// └dst
-	//   ├─a
-	//   │ ├─readme.md
-	//   │ └─file1.txt
-	//   └─b
-	//     └─c
-	//       └─file2.txt
-
-	folderLayout := []fs.PathOp{
-		fs.WithDir(
-			"a",
-			fs.WithFile("file1.txt", "this is the first test file"),
-			fs.WithFile("readme.md", "this is a readme file"),
-		),
-		fs.WithDir(
-			"b",
-			fs.WithDir(
-				"c",
-				fs.WithFile("file2.txt", "this is the second test file"),
-			),
-		),
-	}
-
-	workdir := fs.NewDir(t, t.Name(), folderLayout...)
-	defer workdir.Remove()
-
-	cmd := s5cmd("cp", "-R", "--parents", "*", "dst")
-	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
-
-	result.Assert(t, icmd.Success)
-
-	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(""),
-		1: equals("cp file1.txt"),
-		2: equals("cp file2.txt"),
-		3: equals("cp readme.md"),
-	}, sortInput(true))
-
-	newLayout := append(folderLayout, fs.WithDir("dst", folderLayout...))
-
-	expected := fs.Expected(t, newLayout...)
-	assert.Assert(t, fs.Equal(workdir.Path(), expected))
-}
-
 // cp s3://bucket/object dir/ (dirobject exists)
 func TestCopyS3ObjectToLocalWithTheSameFilename(t *testing.T) {
 	t.Parallel()
@@ -1733,7 +1518,7 @@ func TestCopyS3ToLocalWithSameFilenameWithNoClobber(t *testing.T) {
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: equals(""),
-	}, strictLineCheck(true))
+	})
 
 	expected := fs.Expected(t, fs.WithFile(filename, content))
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
@@ -1863,7 +1648,7 @@ func TestCopyS3ToLocalWithSameFilenameDontOverrideIfS3ObjectIsOlder(t *testing.T
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: equals(""),
-	}, strictLineCheck(true))
+	})
 
 	expected := fs.Expected(t, fs.WithFile(filename, content))
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
@@ -2000,7 +1785,7 @@ func TestCopyLocalFileToS3WithSameFilenameWithNoClobber(t *testing.T) {
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: equals(""),
-	}, strictLineCheck(true))
+	})
 
 	// assert local filesystem
 	expected := fs.Expected(t, fs.WithFile(filename, newContent))
@@ -2043,7 +1828,7 @@ func TestCopyLocalFileToS3WithNoClobber(t *testing.T) {
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: equals(""),
-	}, strictLineCheck(true))
+	})
 
 	// assert local filesystem
 	expected := fs.Expected(t, fs.WithFile(filename, newContent))
@@ -2089,7 +1874,7 @@ func TestCopyLocalFileToS3WithSameFilenameOverrideIfSizeDiffers(t *testing.T) {
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: equals(""),
-	}, strictLineCheck(true))
+	})
 
 	assert.NilError(t, ensureS3Object(s3client, bucket, filename, expectedContent))
 }
@@ -2136,7 +1921,7 @@ func TestCopyLocalFileToS3WithSameFilenameOverrideIfSourceIsNewer(t *testing.T) 
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: equals(""),
-	}, strictLineCheck(true))
+	})
 
 	assert.NilError(t, ensureS3Object(s3client, bucket, filename, expectedContent))
 }
@@ -2183,7 +1968,7 @@ func TestCopyLocalFileToS3WithSameFilenameDontOverrideIfS3ObjectIsOlder(t *testi
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: equals(""),
-	}, strictLineCheck(true))
+	})
 
 	assert.NilError(t, ensureS3Object(s3client, bucket, filename, content))
 }

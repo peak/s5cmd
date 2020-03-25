@@ -387,7 +387,7 @@ func TestRemoveMultipleLocalFilesShouldNotFail(t *testing.T) {
 		0: equals(""),
 		1: equals("rm another_test_file.txt"),
 		2: equals("rm testfile1.txt"),
-	}, strictLineCheck(true), sortInput(true))
+	}, sortInput(true))
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: equals(""),
@@ -431,7 +431,7 @@ func TestRemoveLocalDirectory(t *testing.T) {
 		1: equals("rm file1.txt"),
 		2: equals("rm file2.txt"),
 		3: equals("rm readme.md"),
-	}, strictLineCheck(true), sortInput(true))
+	}, sortInput(true))
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: equals(""),
@@ -471,7 +471,7 @@ func TestVariadicMultipleLocalFilesWithDirectory(t *testing.T) {
 		1: equals("rm file1.txt"),
 		2: equals("rm file2.txt"),
 		3: equals("rm readme.md"),
-	}, strictLineCheck(true), sortInput(true))
+	}, sortInput(true))
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: equals(""),

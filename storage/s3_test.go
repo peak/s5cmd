@@ -53,7 +53,7 @@ func TestNewSessionPathStyle(t *testing.T) {
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 
-			opts := S3Opts{EndpointURL: tc.endpoint.Hostname()}
+			opts := S3Options{Endpoint: tc.endpoint.Hostname()}
 			sess, err := newSession(opts)
 			if err != nil {
 				t.Fatal(err)
@@ -68,7 +68,7 @@ func TestNewSessionPathStyle(t *testing.T) {
 }
 
 func TestNewSessionWithRegionSetViaEnv(t *testing.T) {
-	opts := S3Opts{
+	opts := S3Options{
 		Region: "",
 	}
 
@@ -96,8 +96,7 @@ func TestS3_List_success(t *testing.T) {
 
 	mockApi := s3.New(unit.Session)
 	mockS3 := &S3{
-		api:  mockApi,
-		opts: S3Opts{},
+		api: mockApi,
 	}
 
 	mockApi.Handlers.Send.Clear() // mock sending
@@ -172,8 +171,7 @@ func TestS3_List_error(t *testing.T) {
 
 	mockApi := s3.New(unit.Session)
 	mockS3 := &S3{
-		api:  mockApi,
-		opts: S3Opts{},
+		api: mockApi,
 	}
 	mockErr := fmt.Errorf("mock error")
 
@@ -199,8 +197,7 @@ func TestS3_List_no_item_found(t *testing.T) {
 
 	mockApi := s3.New(unit.Session)
 	mockS3 := &S3{
-		api:  mockApi,
-		opts: S3Opts{},
+		api: mockApi,
 	}
 
 	mockApi.Handlers.Send.Clear() // mock sending
@@ -236,8 +233,7 @@ func TestS3_List_context_cancelled(t *testing.T) {
 
 	mockApi := s3.New(unit.Session)
 	mockS3 := &S3{
-		api:  mockApi,
-		opts: S3Opts{},
+		api: mockApi,
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())

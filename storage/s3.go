@@ -638,7 +638,7 @@ func isVirtualHostStyle(endpoint urlpkg.URL) bool {
 }
 
 func errHasCode(err error, code string) bool {
-	if code == "" || err == nil {
+	if err == nil || code == "" {
 		return false
 	}
 
@@ -648,6 +648,12 @@ func errHasCode(err error, code string) bool {
 			return true
 		}
 	}
+
+	var multiUploadErr s3manager.MultiUploadFailure
+	if errors.As(err, &multiUploadErr) {
+		return errHasCode(multiUploadErr.OrigErr(), code)
+	}
+
 	return false
 
 }

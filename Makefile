@@ -1,5 +1,3 @@
-SRCDIR ?= .
-
 default: all
 
 .PHONY: all
@@ -7,7 +5,7 @@ all: clean build test check
 
 .PHONY: build
 build:
-	@go build ${GCFLAGS} -ldflags "${LDFLAGS}" ${SRCDIR}
+	@go build ${GCFLAGS} -ldflags "${LDFLAGS}" .
 
 .PHONY: test
 test:
@@ -34,7 +32,7 @@ check-fmt:
 
 .PHONY: clean
 clean:
-	@rm -f ${SRCDIR}/s5cmd
+	@rm -f ./s5cmd
 
 
 .PHONY: release

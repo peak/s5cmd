@@ -68,28 +68,7 @@ var CopyCommand = &cli.Command{
 	Usage:    "copy objects",
 	Flags:    copyCommandFlags,
 	Before: func(c *cli.Context) error {
-		if c.Args().Len() != 2 {
-			return fmt.Errorf("expected source and destination arguments")
-		}
-
-		dst, err := url.New(c.Args().Get(1))
-		if err != nil {
-			return err
-		}
-
-		if dst.HasGlob() {
-			return fmt.Errorf("target %q can not contain glob characters", dst)
-		}
-
-		if c.Int64("part-size") < 5 {
-			return fmt.Errorf("part size should be greater than 5 MiB")
-		}
-
-		if c.Int("concurrency") < 1 {
-			return fmt.Errorf("copy concurrency should be greater than 1")
-		}
-
-		return nil
+		return Validate(c)
 	},
 	Action: func(c *cli.Context) error {
 		copyCommand := Copy{
@@ -135,7 +114,7 @@ type Copy struct {
 }
 
 func (c Copy) Run(ctx context.Context) error {
-	origSrc, err := url.New(c.src)
+	origsrc, err := url.New(c.src)
 	if err != nil {
 		return err
 	}
@@ -147,9 +126,14 @@ func (c Copy) Run(ctx context.Context) error {
 
 	// set recursive=true for local->remote copy operations. this
 	// is required for backwards compatibility.
-	recursive := c.recursive || (!origSrc.IsRemote() && dsturl.IsRemote())
+	recursive := c.recursive || (!origsrc.IsRemote() && dsturl.IsRemote())
 
-	objch, err := expandSource(ctx, origSrc, recursive)
+	client, err := storage.NewClient(origsrc)
+	if err != nil {
+		return err
+	}
+
+	objch, err := expandSource(ctx, client, origsrc, recursive)
 	if err != nil {
 		return err
 	}
@@ -178,6 +162,8 @@ func (c Copy) Run(ctx context.Context) error {
 		}
 
 		srcurl := object.URL
+		srcurl.SetOrigin(origsrc)
+
 		var task parallel.Task
 
 		switch {
@@ -206,12 +192,8 @@ func (c Copy) prepareCopyTask(
 	dsturl *url.URL,
 ) func() error {
 	return func() error {
-		dsturl, err := prepareCopyDestination(ctx, srcurl, dsturl, c.parents)
-		if err != nil {
-			return err
-		}
-
-		err = c.doCopy(ctx, srcurl, dsturl)
+		dsturl = prepareCopyDestination(srcurl, dsturl, c.parents)
+		err := c.doCopy(ctx, srcurl, dsturl)
 		if err != nil {
 			return &errorpkg.Error{
 				Op:  c.op,
@@ -254,8 +236,7 @@ func (c Copy) prepareUploadTask(
 	dsturl *url.URL,
 ) func() error {
 	return func() error {
-		dsturl := prepareUploadDestination(srcurl, dsturl, c.parents)
-
+		dsturl = prepareUploadDestination(srcurl, dsturl, c.parents)
 		err := c.doUpload(ctx, srcurl, dsturl)
 		if err != nil {
 			return &errorpkg.Error{
@@ -299,11 +280,14 @@ func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) 
 
 	size, err := srcClient.Get(ctx, srcurl, f, c.concurrency, c.partSize)
 	if err != nil {
-		err = dstClient.Delete(ctx, dsturl)
+		if cerr := dstClient.Delete(ctx, dsturl); cerr != nil {
+			err = multierror.Append(err, cerr)
+		}
 	} else if c.deleteSource {
-		err = srcClient.Delete(ctx, srcurl)
+		if cerr := srcClient.Delete(ctx, srcurl); cerr != nil {
+			err = multierror.Append(err, cerr)
+		}
 	}
-
 	if err != nil {
 		return err
 	}
@@ -477,30 +461,13 @@ func (c Copy) shouldOverride(ctx context.Context, srcurl *url.URL, dsturl *url.U
 	return stickyErr
 }
 
-func guessContentType(rs io.ReadSeeker) string {
-	defer rs.Seek(0, io.SeekStart)
-
-	const bufsize = 512
-	buf, err := ioutil.ReadAll(io.LimitReader(rs, bufsize))
-	if err != nil {
-		return ""
-	}
-
-	return http.DetectContentType(buf)
-}
-
-func givenCommand(c *cli.Context) string {
-	return fmt.Sprintf("%v %v", c.Command.FullName(), strings.Join(c.Args().Slice(), " "))
-}
-
 // prepareCopyDestination will return a new destination URL for local->local
 // and remote->remote copy operations.
 func prepareCopyDestination(
-	ctx context.Context,
 	srcurl *url.URL,
 	dsturl *url.URL,
 	parents bool,
-) (*url.URL, error) {
+) *url.URL {
 	objname := srcurl.Base()
 	if parents {
 		objname = srcurl.Relative()
@@ -509,38 +476,19 @@ func prepareCopyDestination(
 	// For remote->remote copy operations, treat <dst> as prefix if it has "/"
 	// suffix.
 	if dsturl.IsRemote() {
-		if strings.HasSuffix(dsturl.Path, "/") {
+		if dsturl.IsPrefix() || dsturl.IsBucket() {
 			dsturl = dsturl.Join(objname)
 		}
-		return dsturl, nil
-	}
-
-	client, err := storage.NewClient(dsturl)
-	if err != nil {
-		return nil, err
-	}
-
-	// For local->local copy operations, we can safely stat <dst> to check if
-	// it is a file or a directory.
-	obj, err := client.Stat(ctx, dsturl)
-	if err != nil && err != storage.ErrGivenObjectNotFound {
-		return nil, err
+		return dsturl
 	}
 
 	// Absolute <src> path is given. Use given <dst> and local copy operation
 	// will create missing directories if <dst> has one.
-	if !srcurl.HasGlob() {
-		return dsturl, nil
+	if !srcurl.Origin().HasGlob() {
+		return dsturl
 	}
 
-	// For local->local copy operations, if <src> has glob, <dst> is expected
-	// to be a directory. As always, local copy operation will create missing
-	// directories if <dst> has one.
-	if obj != nil && !obj.Type.IsDir() {
-		return nil, fmt.Errorf("destination argument is expected to be a directory")
-	}
-
-	return dsturl.Join(objname), nil
+	return dsturl.Join(objname)
 }
 
 // prepareDownloadDestination will return a new destination URL for
@@ -556,7 +504,7 @@ func prepareDownloadDestination(
 		objname = srcurl.Relative()
 	}
 
-	if srcurl.HasGlob() {
+	if srcurl.Origin().HasGlob() {
 		if err := os.MkdirAll(dsturl.Absolute(), os.ModePerm); err != nil {
 			return nil, err
 		}
@@ -573,9 +521,6 @@ func prepareDownloadDestination(
 	}
 
 	if parents {
-		if obj != nil && !obj.Type.IsDir() {
-			return nil, fmt.Errorf("destination argument is expected to be a directory")
-		}
 		dsturl = dsturl.Join(objname)
 		if err := os.MkdirAll(dsturl.Dir(), os.ModePerm); err != nil {
 			return nil, err
@@ -605,9 +550,9 @@ func prepareUploadDestination(
 	dsturl *url.URL,
 	parents bool,
 ) *url.URL {
-	// if S3 destination is not a bucket and does not end with "/",
-	// use raw destination url.
-	if !dsturl.IsBucket() && !strings.HasSuffix(dsturl.Absolute(), "/") {
+	// if given destination is a bucket/objname, don't do any join and respect
+	// the user's destination object name.
+	if !srcurl.Origin().HasGlob() && !dsturl.IsBucket() && !dsturl.IsPrefix() {
 		return dsturl
 	}
 
@@ -623,16 +568,10 @@ func prepareUploadDestination(
 // objects are returned by walking the source.
 func expandSource(
 	ctx context.Context,
+	client storage.Storage,
 	srcurl *url.URL,
 	isRecursive bool,
 ) (<-chan *storage.Object, error) {
-	// TODO(ig): this function could be in the storage layer.
-
-	client, err := storage.NewClient(srcurl)
-	if err != nil {
-		return nil, err
-	}
-
 	var isDir bool
 	// if the source is local, we send a Stat call to know if  we have
 	// directory or file to walk. For remote storage, we don't want to send
@@ -670,4 +609,127 @@ func getObject(ctx context.Context, url *url.URL) (*storage.Object, error) {
 	}
 
 	return obj, err
+}
+
+func Validate(c *cli.Context) error {
+	if c.Args().Len() != 2 {
+		return fmt.Errorf("expected source and destination arguments")
+	}
+
+	storageClass := storage.LookupClass(c.String("storage-class"))
+	if storageClass == storage.StorageInvalid {
+		return fmt.Errorf("invalid storage class")
+	}
+
+	ctx := c.Context
+	src := c.Args().Get(0)
+	dst := c.Args().Get(1)
+
+	srcurl, err := url.New(src)
+	if err != nil {
+		return err
+	}
+
+	dsturl, err := url.New(dst)
+	if err != nil {
+		return err
+	}
+
+	// wildcard destination doesn't mean anything
+	if dsturl.HasGlob() {
+		return fmt.Errorf("target %q can not contain glob characters", dst)
+	}
+
+	// --parents is used in conjunction with a wildcard source to deduce
+	// relative source paths.
+	if !srcurl.HasGlob() && c.Bool("parents") {
+		return fmt.Errorf("source argument must contain wildcard if --parents flag is provided")
+	}
+
+	// we don't operate on S3 prefixes for copy and delete operations.
+	if srcurl.IsBucket() || srcurl.IsPrefix() {
+		return fmt.Errorf("source argument must contain wildcard character")
+	}
+
+	// 'cp dir/* s3://bucket/prefix': expect a trailing slash to avoid any
+	// surprises.
+	if srcurl.HasGlob() && dsturl.IsRemote() && !dsturl.IsPrefix() && !dsturl.IsBucket() {
+		return fmt.Errorf("target %q must be a bucket or a prefix", dsturl)
+	}
+
+	switch {
+	case srcurl.Type == dsturl.Type:
+		return validateCopy(ctx, srcurl, dsturl)
+	case dsturl.IsRemote():
+		return validateUpload(ctx, srcurl, dsturl)
+	default:
+		return nil
+	}
+}
+
+func validateCopy(ctx context.Context, srcurl, dsturl *url.URL) error {
+	if srcurl.IsRemote() {
+		return nil
+	}
+
+	client, err := storage.NewClient(dsturl)
+	if err != nil {
+		return err
+	}
+
+	// For local->local copy operations, we can safely stat <dst> to check if
+	// it is a file or a directory.
+	obj, err := client.Stat(ctx, dsturl)
+	if err != nil && err != storage.ErrGivenObjectNotFound {
+		return err
+	}
+
+	// For local->local copy operations, if <src> has glob, <dst> is expected
+	// to be a directory. As always, local copy operation will create missing
+	// directories if <dst> has one.
+	if obj != nil && !obj.Type.IsDir() {
+		return fmt.Errorf("destination argument is expected to be a directory")
+	}
+
+	return nil
+}
+
+func validateUpload(ctx context.Context, srcurl, dsturl *url.URL) error {
+	srcclient, err := storage.NewClient(srcurl)
+	if err != nil {
+		return err
+	}
+
+	if srcurl.HasGlob() {
+		return nil
+	}
+
+	obj, err := srcclient.Stat(ctx, srcurl)
+	if err != nil {
+		return err
+	}
+
+	// 'cp dir/ s3://bucket/prefix-without-slash': expect a trailing slash to
+	// avoid any surprises.
+	if obj.Type.IsDir() && !dsturl.IsBucket() && !dsturl.IsPrefix() {
+		return fmt.Errorf("target %q must be a bucket or a prefix", dsturl)
+	}
+
+	return nil
+}
+
+func guessContentType(rs io.ReadSeeker) string {
+	defer rs.Seek(0, io.SeekStart)
+
+	const bufsize = 512
+	buf, err := ioutil.ReadAll(io.LimitReader(rs, bufsize))
+	if err != nil {
+		return ""
+	}
+
+	return http.DetectContentType(buf)
+}
+
+func givenCommand(c *cli.Context) string {
+	return fmt.Sprintf("%v %v", c.Command.FullName(), strings.Join(c.Args().Slice(), " "))
 }

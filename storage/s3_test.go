@@ -53,7 +53,7 @@ func TestNewSessionPathStyle(t *testing.T) {
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 
-			opts := S3Opts{EndpointURL: tc.endpoint.Hostname()}
+			opts := S3Options{Endpoint: tc.endpoint.Hostname()}
 			sess, err := newSession(opts)
 			if err != nil {
 				t.Fatal(err)
@@ -68,7 +68,7 @@ func TestNewSessionPathStyle(t *testing.T) {
 }
 
 func TestNewSessionWithRegionSetViaEnv(t *testing.T) {
-	opts := S3Opts{
+	opts := S3Options{
 		Region: "",
 	}
 
@@ -96,8 +96,7 @@ func TestS3_List_success(t *testing.T) {
 
 	mockApi := s3.New(unit.Session)
 	mockS3 := &S3{
-		api:  mockApi,
-		opts: S3Opts{},
+		api: mockApi,
 	}
 
 	mockApi.Handlers.Send.Clear() // mock sending
@@ -121,31 +120,26 @@ func TestS3_List_success(t *testing.T) {
 		isDir  bool
 		url    string
 		relurl string
-		origin string
 	}{
 		{
 			isDir:  true,
 			url:    "s3://bucket/key/a/",
 			relurl: "a/",
-			origin: url.Path,
 		},
 		{
 			isDir:  true,
 			url:    "s3://bucket/key/b/",
 			relurl: "b/",
-			origin: url.Path,
 		},
 		{
 			isDir:  false,
 			url:    "s3://bucket/key/test.txt",
 			relurl: "test.txt",
-			origin: url.Path,
 		},
 		{
 			isDir:  false,
 			url:    "s3://bucket/key/test.pdf",
 			relurl: "test.pdf",
-			origin: url.Path,
 		},
 	}
 
@@ -165,9 +159,6 @@ func TestS3_List_success(t *testing.T) {
 		if diff := cmp.Diff(want.relurl, got.URL.Relative()); diff != "" {
 			t.Errorf("(-want +got):\n%v", diff)
 		}
-		if diff := cmp.Diff(want.origin, got.URL.Origin().Path); diff != "" {
-			t.Errorf("(-want +got):\n%v", diff)
-		}
 		index++
 	}
 }
@@ -180,8 +171,7 @@ func TestS3_List_error(t *testing.T) {
 
 	mockApi := s3.New(unit.Session)
 	mockS3 := &S3{
-		api:  mockApi,
-		opts: S3Opts{},
+		api: mockApi,
 	}
 	mockErr := fmt.Errorf("mock error")
 
@@ -207,8 +197,7 @@ func TestS3_List_no_item_found(t *testing.T) {
 
 	mockApi := s3.New(unit.Session)
 	mockS3 := &S3{
-		api:  mockApi,
-		opts: S3Opts{},
+		api: mockApi,
 	}
 
 	mockApi.Handlers.Send.Clear() // mock sending
@@ -244,8 +233,7 @@ func TestS3_List_context_cancelled(t *testing.T) {
 
 	mockApi := s3.New(unit.Session)
 	mockS3 := &S3{
-		api:  mockApi,
-		opts: S3Opts{},
+		api: mockApi,
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())

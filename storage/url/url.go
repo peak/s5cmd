@@ -64,7 +64,7 @@ func New(s string) (*URL, error) {
 	}
 
 	if len(split) != 2 {
-		return nil, fmt.Errorf("objurl: unknown url format %q", s)
+		return nil, fmt.Errorf("storage: unknown url format %q", s)
 	}
 
 	scheme, rest := split[0], split[1]
@@ -112,6 +112,12 @@ func (u *URL) IsRemote() bool {
 	return u.Type == remoteObject
 }
 
+// IsPrefix reports whether the remote object is an S3 prefix, and does not
+// look like an object.
+func (o *URL) IsPrefix() bool {
+	return o.IsRemote() && strings.HasSuffix(o.Path, "/")
+}
+
 // IsBucket returns true if the object url contains only bucket name
 func (u *URL) IsBucket() bool {
 	return u.IsRemote() && u.Path == ""
@@ -127,8 +133,11 @@ func (u *URL) Absolute() string {
 }
 
 // Relative returns a URI reference based on the calculated prefix.
-func (u *URL) Relative() string {
-	return u.relativePath
+func (o *URL) Relative() string {
+	if o.relativePath != "" {
+		return o.relativePath
+	}
+	return o.Absolute()
 }
 
 // Base returns the last element of object path.
@@ -234,7 +243,6 @@ func (u *URL) setPrefixAndFilter() error {
 // Clone creates a copy of the receiver.
 func (u *URL) Clone() *URL {
 	return &URL{
-		origin:    u,
 		Type:      u.Type,
 		Scheme:    u.Scheme,
 		Bucket:    u.Bucket,
@@ -251,6 +259,10 @@ func (u *URL) Clone() *URL {
 func (u *URL) SetRelative(base string) {
 	dir := filepath.Dir(base)
 	u.relativePath, _ = filepath.Rel(dir, u.Absolute())
+}
+
+func (u *URL) SetOrigin(origin *URL) {
+	u.origin = origin
 }
 
 // Match checks if given key matches with the object.
@@ -284,9 +296,6 @@ func (u *URL) MarshalJSON() ([]byte, error) {
 
 // HasGlob checks if a string contains any wildcard chars.
 func (u *URL) HasGlob() bool {
-	if u.origin != nil {
-		return u.origin.HasGlob()
-	}
 	return hasGlobCharacter(u.Path)
 }
 

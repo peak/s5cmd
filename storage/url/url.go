@@ -102,11 +102,6 @@ func New(s string) (*URL, error) {
 	return url, nil
 }
 
-// Origin returns the original reference url.
-func (u *URL) Origin() *URL {
-	return u.origin
-}
-
 // IsRemote reports whether the object is stored on a remote storage system.
 func (u *URL) IsRemote() bool {
 	return u.Type == remoteObject
@@ -263,6 +258,11 @@ func (u *URL) SetRelative(base string) {
 
 func (u *URL) SetOrigin(origin *URL) {
 	u.origin = origin
+}
+
+// Origin returns the original reference url.
+func (u *URL) Origin() *URL {
+	return u.origin
 }
 
 // Match checks if given key matches with the object.

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -133,26 +132,6 @@ func walkDir(ctx context.Context, storage Storage, src *url.URL, fn func(o *Obje
 	if err != nil {
 		obj := &Object{Err: err}
 		fn(obj)
-	}
-}
-
-func (f *Filesystem) readDir(ctx context.Context, src *url.URL, ch chan *Object) {
-	dir := src.Absolute()
-	fis, err := ioutil.ReadDir(dir)
-	if err != nil {
-		sendError(ctx, err, ch)
-		return
-	}
-
-	for _, fi := range fis {
-		mod := fi.ModTime()
-		obj := &Object{
-			URL:     src.Join(fi.Name()),
-			ModTime: &mod,
-			Type:    ObjectType{fi.Mode()},
-			Size:    fi.Size(),
-		}
-		sendObject(ctx, obj, ch)
 	}
 }
 

@@ -652,7 +652,7 @@ func Validate(c *cli.Context) error {
 
 	switch {
 	case srcurl.Type == dsturl.Type:
-		return validateCopy(ctx, srcurl, dsturl)
+		return validateCopy(srcurl, dsturl)
 	case dsturl.IsRemote():
 		return validateUpload(ctx, srcurl, dsturl)
 	default:
@@ -660,7 +660,7 @@ func Validate(c *cli.Context) error {
 	}
 }
 
-func validateCopy(ctx context.Context, srcurl, dsturl *url.URL) error {
+func validateCopy(srcurl, dsturl *url.URL) error {
 	if srcurl.IsRemote() || dsturl.IsRemote() {
 		return nil
 	}

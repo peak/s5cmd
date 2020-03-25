@@ -16,7 +16,7 @@ check: vet staticcheck unparam check-fmt
 
 .PHONY: staticcheck
 staticcheck:
-	@staticcheck -checks 'inherit,-U1000' ./...
+	@staticcheck -checks 'all,-U1000,-ST1000,-ST1003' ./...
 
 .PHONY: unparam
 unparam:

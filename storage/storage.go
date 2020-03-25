@@ -104,7 +104,7 @@ func (o ObjectType) String() string {
 	return ""
 }
 
-// MarshallJSON returns the stringer of ObjectType as a marshalled json.
+// MarshalJSON returns the stringer of ObjectType as a marshalled json.
 func (o ObjectType) MarshalJSON() ([]byte, error) {
 	return json.Marshal(o.String())
 }
@@ -128,17 +128,12 @@ func (b Bucket) String() string {
 	return fmt.Sprintf("%s  s3://%s", b.CreationDate.Format(dateFormat), b.Name)
 }
 
-// String returns the JSON representation of Bucket.
+// JSON returns the JSON representation of Bucket.
 func (b Bucket) JSON() string {
 	return strutil.JSON(b)
 }
 
 type StorageClass string
-
-// IsGlacierObject checks if the storage class of object is glacier.
-func (s StorageClass) IsGlacier() bool {
-	return s == StorageGlacier
-}
 
 // ShortCode returns the short code of Storage Class.
 func (s StorageClass) ShortCode() string {

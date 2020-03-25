@@ -1,8 +1,6 @@
 package command
 
 import (
-	"fmt"
-
 	"github.com/peak/s5cmd/storage"
 	"github.com/urfave/cli/v2"
 )
@@ -40,10 +38,7 @@ var MoveCommand = &cli.Command{
 	Flags:              copyCommandFlags, // move and copy commands share the same flags
 	CustomHelpTemplate: moveHelpTemplate,
 	Before: func(c *cli.Context) error {
-		if c.Args().Len() != 2 {
-			return fmt.Errorf("expected source and destination arguments")
-		}
-		return nil
+		return CopyCommand.Before(c)
 	},
 	Action: func(c *cli.Context) error {
 		copyCommand := Copy{

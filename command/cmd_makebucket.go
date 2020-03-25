@@ -7,8 +7,8 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"github.com/peak/s5cmd/log"
-	"github.com/peak/s5cmd/objurl"
 	"github.com/peak/s5cmd/storage"
+	"github.com/peak/s5cmd/storage/url"
 )
 
 var makeBucketHelpTemplate = `Name:
@@ -36,7 +36,7 @@ var MakeBucketCommand = &cli.Command{
 		}
 
 		src := c.Args().First()
-		bucket, err := objurl.New(src)
+		bucket, err := url.New(src)
 		if err != nil {
 			return err
 		}
@@ -60,7 +60,7 @@ func MakeBucket(
 	op string,
 	src string,
 ) error {
-	bucket, err := objurl.New(src)
+	bucket, err := url.New(src)
 	if err != nil {
 		return err
 	}

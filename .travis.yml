@@ -18,3 +18,4 @@ script:
 - make check-fmt
 - make staticcheck
 - make vet
+

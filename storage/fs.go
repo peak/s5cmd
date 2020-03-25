@@ -40,18 +40,15 @@ func (f *Filesystem) Stat(ctx context.Context, url *url.URL) (*Object, error) {
 }
 
 func (f *Filesystem) List(ctx context.Context, src *url.URL) <-chan *Object {
-	// we always operate on recursive mode
-	const isRecursive = true
-
 	obj, err := f.Stat(ctx, src)
 	isDir := err == nil && obj.Type.IsDir()
 
 	if isDir {
-		return f.walkDir(ctx, src, isRecursive)
+		return f.walkDir(ctx, src)
 	}
 
 	if src.HasGlob() {
-		return f.expandGlob(ctx, src, isRecursive)
+		return f.expandGlob(ctx, src)
 	}
 
 	return f.listSingleObject(ctx, src)
@@ -69,7 +66,7 @@ func (f *Filesystem) listSingleObject(ctx context.Context, src *url.URL) <-chan 
 	return ch
 }
 
-func (f *Filesystem) expandGlob(ctx context.Context, src *url.URL, isRecursive bool) <-chan *Object {
+func (f *Filesystem) expandGlob(ctx context.Context, src *url.URL) <-chan *Object {
 	ch := make(chan *Object)
 
 	go func() {
@@ -96,11 +93,6 @@ func (f *Filesystem) expandGlob(ctx context.Context, src *url.URL, isRecursive b
 
 			if !obj.Type.IsDir() {
 				sendObject(ctx, obj, ch)
-				continue
-			}
-
-			// don't walk the directory if not asked
-			if !isRecursive {
 				continue
 			}
 
@@ -164,15 +156,10 @@ func (f *Filesystem) readDir(ctx context.Context, src *url.URL, ch chan *Object)
 	}
 }
 
-func (f *Filesystem) walkDir(ctx context.Context, src *url.URL, isRecursive bool) <-chan *Object {
+func (f *Filesystem) walkDir(ctx context.Context, src *url.URL) <-chan *Object {
 	ch := make(chan *Object)
 	go func() {
 		defer close(ch)
-
-		if !isRecursive {
-			f.readDir(ctx, src, ch)
-			return
-		}
 
 		walkDir(ctx, f, src, func(obj *Object) {
 			sendObject(ctx, obj, ch)

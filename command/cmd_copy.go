@@ -192,12 +192,8 @@ func (c Copy) prepareCopyTask(
 	isBatch bool,
 ) func() error {
 	return func() error {
-		dsturl, err := prepareCopyDestination(ctx, srcurl, dsturl, c.parents, isBatch)
-		if err != nil {
-			return err
-		}
-
-		err = c.doCopy(ctx, srcurl, dsturl)
+		dsturl = prepareCopyDestination(srcurl, dsturl, c.parents, isBatch)
+		err := c.doCopy(ctx, srcurl, dsturl)
 		if err != nil {
 			return &errorpkg.Error{
 				Op:  c.op,
@@ -470,12 +466,11 @@ func (c Copy) shouldOverride(ctx context.Context, srcurl *url.URL, dsturl *url.U
 // prepareCopyDestination will return a new destination URL for local->local
 // and remote->remote copy operations.
 func prepareCopyDestination(
-	ctx context.Context,
 	srcurl *url.URL,
 	dsturl *url.URL,
 	parents bool,
 	isBatch bool,
-) (*url.URL, error) {
+) *url.URL {
 	objname := srcurl.Base()
 	if parents {
 		objname = srcurl.Relative()
@@ -487,16 +482,16 @@ func prepareCopyDestination(
 		if dsturl.IsPrefix() || dsturl.IsBucket() {
 			dsturl = dsturl.Join(objname)
 		}
-		return dsturl, nil
+		return dsturl
 	}
 
 	// Absolute <src> path is given. Use given <dst> and local copy operation
 	// will create missing directories if <dst> has one.
 	if !isBatch {
-		return dsturl, nil
+		return dsturl
 	}
 
-	return dsturl.Join(objname), nil
+	return dsturl.Join(objname)
 }
 
 // prepareDownloadDestination will return a new destination URL for

@@ -220,9 +220,6 @@ will return your GCS buckets.
 acceleration and GCS. If a custom endpoint is provided, it'll fallback to
 path-style.
 
-⚠️  There's an [outstanding issue](https://github.com/peak/s5cmd/issues/81) for
-not being able to list objects at GCS. It'll be fixed in upcoming releases.
-
 ## Output
 
 `s5cmd` supports both text and JSON outputs.

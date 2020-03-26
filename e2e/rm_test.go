@@ -433,7 +433,7 @@ func TestRemoveLocalDirectory(t *testing.T) {
 		1: equals("rm testdir/file1.txt"),
 		2: equals("rm testdir/file2.txt"),
 		3: equals("rm testdir/readme.md"),
-	}, strictLineCheck(true), sortInput(true))
+	}, sortInput(true))
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: equals(""),
@@ -473,7 +473,7 @@ func TestVariadicMultipleLocalFilesWithDirectory(t *testing.T) {
 		1: equals("rm file1.txt"),
 		2: equals("rm file2.txt"),
 		3: equals("rm testdir/readme.md"),
-	}, strictLineCheck(true), sortInput(true))
+	}, sortInput(true))
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: equals(""),

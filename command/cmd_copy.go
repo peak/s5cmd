@@ -19,6 +19,12 @@ import (
 	"github.com/peak/s5cmd/storage/url"
 )
 
+const (
+	defaultCopyConcurrency = 5
+	defaultPartSize        = 50 // MiB
+	megabytes              = 1024 * 1024
+)
+
 var copyHelpTemplate = `Name:
 	{{.HelpName}} - {{.Usage}}
 

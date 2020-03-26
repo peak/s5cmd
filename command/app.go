@@ -13,12 +13,8 @@ import (
 )
 
 const (
-	defaultWorkerCount     = 256
-	defaultCopyConcurrency = 5
-	defaultPartSize        = 50 // MiB
-	defaultRetryCount      = 10
-
-	megabytes = 1024 * 1024
+	defaultWorkerCount = 256
+	defaultRetryCount  = 10
 
 	appName = "s5cmd"
 )

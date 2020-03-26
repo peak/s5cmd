@@ -15,6 +15,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/aws/client"
 	"github.com/aws/aws-sdk-go/aws/endpoints"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -580,12 +581,13 @@ func newSession(opts S3Options) (*session.Session, error) {
 		WithEndpoint(endpointURL.String()).
 		WithS3ForcePathStyle(!isVirtualHostStyle).
 		WithS3UseAccelerate(useAccelerate).
-		WithHTTPClient(httpClient).
-		WithMaxRetries(opts.MaxRetries)
+		WithHTTPClient(httpClient)
 
 	if opts.Region != "" {
 		awsCfg.WithRegion(opts.Region)
 	}
+
+	awsCfg.Retryer = newRequestRetryer(opts.MaxRetries)
 
 	useSharedConfig := session.SharedConfigEnable
 	{
@@ -614,6 +616,26 @@ func newSession(opts S3Options) (*session.Session, error) {
 	}
 
 	return sess, nil
+}
+
+type requestRetryer struct {
+	*client.DefaultRetryer
+}
+
+func newRequestRetryer(maxRetries int) *requestRetryer {
+	return &requestRetryer{
+		DefaultRetryer: &client.DefaultRetryer{
+			NumMaxRetries: maxRetries,
+		},
+	}
+}
+
+func (r *requestRetryer) ShouldRetry(req *request.Request) bool {
+	if errHasCode(req.Error, "InternalError") {
+		return true
+	}
+	return r.DefaultRetryer.ShouldRetry(req)
+
 }
 
 var insecureHTTPClient = &http.Client{

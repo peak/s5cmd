@@ -71,8 +71,9 @@ var copyCommandFlags = []cli.Flag{
 		Usage:   "only overwrite destination if source modtime is newer",
 	},
 	&cli.BoolFlag{
-		Name:  "flatten",
-		Usage: "flatten directory structure of source, starting from the first wildcard",
+		Name:    "flatten",
+		Aliases: []string{"f"},
+		Usage:   "flatten directory structure of source, starting from the first wildcard",
 	},
 	&cli.StringFlag{
 		Name:  "storage-class",
@@ -177,6 +178,11 @@ func (c Copy) Run(ctx context.Context) error {
 	}()
 
 	isBatch := srcurl.HasGlob()
+	if !isBatch && !srcurl.IsRemote() {
+		obj, _ := client.Stat(ctx, srcurl)
+		isBatch = obj != nil && obj.Type.IsDir()
+	}
+
 	for object := range objch {
 		if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) {
 			continue
@@ -488,35 +494,23 @@ func (c Copy) shouldOverride(ctx context.Context, srcurl *url.URL, dsturl *url.U
 	return stickyErr
 }
 
-// prepareCopyDestination will return a new destination URL for local->local
-// and remote->remote copy operations.
+// prepareCopyDestination will return a new destination URL for
+// remote->remote copy operations.
 func prepareCopyDestination(
 	srcurl *url.URL,
 	dsturl *url.URL,
 	flatten bool,
 	isBatch bool,
 ) *url.URL {
-	objname := srcurl.Relative()
-	if flatten {
-		objname = srcurl.Base()
+	objname := srcurl.Base()
+	if isBatch && !flatten {
+		objname = srcurl.Relative()
 	}
 
-	// For remote->remote copy operations, treat <dst> as prefix if it has "/"
-	// suffix.
-	if dsturl.IsRemote() {
-		if dsturl.IsPrefix() || dsturl.IsBucket() {
-			dsturl = dsturl.Join(objname)
-		}
-		return dsturl
+	if dsturl.IsPrefix() || dsturl.IsBucket() {
+		dsturl = dsturl.Join(objname)
 	}
-
-	// Absolute <src> path is given. Use given <dst> and local copy operation
-	// will create missing directories if <dst> has one.
-	if !isBatch {
-		return dsturl
-	}
-
-	return dsturl.Join(objname)
+	return dsturl
 }
 
 // prepareDownloadDestination will return a new destination URL for
@@ -528,9 +522,9 @@ func prepareDownloadDestination(
 	flatten bool,
 	isBatch bool,
 ) (*url.URL, error) {
-	objname := srcurl.Relative()
-	if flatten {
-		objname = srcurl.Base()
+	objname := srcurl.Base()
+	if isBatch && !flatten {
+		objname = srcurl.Relative()
 	}
 
 	if isBatch {
@@ -549,7 +543,7 @@ func prepareDownloadDestination(
 		return nil, err
 	}
 
-	if !flatten {
+	if isBatch && !flatten {
 		dsturl = dsturl.Join(objname)
 		if err := os.MkdirAll(dsturl.Dir(), os.ModePerm); err != nil {
 			return nil, err
@@ -586,10 +580,11 @@ func prepareUploadDestination(
 		return dsturl
 	}
 
-	objname := srcurl.Relative()
-	if flatten {
-		objname = srcurl.Base()
+	objname := srcurl.Base()
+	if isBatch && !flatten {
+		objname = srcurl.Relative()
 	}
+
 	return dsturl.Join(objname)
 }
 

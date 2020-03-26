@@ -10,6 +10,7 @@ import (
 	"gotest.tools/v3/icmd"
 )
 
+// mv s3://bucket/key dir/
 func TestMoveSingleS3ObjectToLocal(t *testing.T) {
 	t.Parallel()
 
@@ -46,6 +47,7 @@ func TestMoveSingleS3ObjectToLocal(t *testing.T) {
 	assertError(t, err, errS3NoSuchKey)
 }
 
+// mv --flatten s3://bucket/key dir/
 func TestMoveMultipleFlatS3ObjectsToLocal(t *testing.T) {
 	t.Parallel()
 

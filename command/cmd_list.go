@@ -163,11 +163,11 @@ const (
 
 // String returns the string representation of ListMessage.
 func (l ListMessage) String() string {
-	var listFormat = "%19s %1s %-1s %8s %s"
+	var listFormat = "%19s %1s %-1s %12s %s"
 	var etag string
 	if l.showEtag {
 		etag = l.Object.Etag
-		listFormat = "%19s %1s %-38s %8s %s"
+		listFormat = "%19s %1s %-38s %12s %s"
 	}
 
 	if l.Object.Type.IsDir() {

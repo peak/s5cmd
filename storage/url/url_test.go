@@ -31,10 +31,11 @@ func TestHasWild(t *testing.T) {
 			want: false,
 		},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := hasGlobCharacter(tt.s); got != tt.want {
-				t.Errorf("HasWild() = %v, want %v", got, tt.want)
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			if got := hasGlobCharacter(tc.s); got != tc.want {
+				t.Errorf("HasWild() = %v, want %v", got, tc.want)
 			}
 		})
 	}
@@ -96,19 +97,20 @@ func TestNew(t *testing.T) {
 			wantFilterRe: regexp.MustCompile(`^key/a/./test/.*?$`).String(),
 		},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := New(tt.object)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("ParseURL() error = %v, wantErr %v", err, tt.wantErr)
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := New(tc.object)
+			if (err != nil) != tc.wantErr {
+				t.Errorf("ParseURL() error = %v, wantErr %v", err, tc.wantErr)
 			}
-			if diff := cmp.Diff(tt.want, got, cmpopts.IgnoreUnexported(URL{})); diff != "" {
-				t.Errorf("test case %q: URL mismatch (-want +got):\n%v", tt.name, diff)
+			if diff := cmp.Diff(tc.want, got, cmpopts.IgnoreUnexported(URL{})); diff != "" {
+				t.Errorf("test case %q: URL mismatch (-want +got):\n%v", tc.name, diff)
 
 			}
-			if tt.wantFilterRe != "" {
-				if diff := cmp.Diff(tt.wantFilterRe, got.filterRegex.String()); diff != "" {
-					t.Errorf("test case %q: URL.filterRegex mismatch (-want +got):\n%v", tt.name, diff)
+			if tc.wantFilterRe != "" {
+				if diff := cmp.Diff(tc.wantFilterRe, got.filterRegex.String()); diff != "" {
+					t.Errorf("test case %q: URL.filterRegex mismatch (-want +got):\n%v", tc.name, diff)
 
 				}
 			}
@@ -149,15 +151,16 @@ func TestURLSetPrefixAndFilter(t *testing.T) {
 			},
 		},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := tt.before
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			got := tc.before
 			if err := got.setPrefixAndFilter(); err != nil {
 				t.Errorf("unexpected error %v", err)
 			}
 
-			if !reflect.DeepEqual(got, tt.after) {
-				t.Errorf("setPrefixAndFilter() got = %v, want %v", got, tt.after)
+			if !reflect.DeepEqual(got, tc.after) {
+				t.Errorf("setPrefixAndFilter() got = %v, want %v", got, tc.after)
 			}
 		})
 	}
@@ -251,14 +254,15 @@ func TestCheckMatch(t *testing.T) {
 			},
 		},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			u, err := New(tt.url)
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			u, err := New(tc.url)
 			if err != nil {
 				t.Errorf("unexpected error %v", err)
 			}
 
-			for key, matchResult := range tt.keys {
+			for key, matchResult := range tc.keys {
 				got := u.Match(key)
 				if got != matchResult.matched {
 					t.Errorf("Match() got = %v, want %v", got, matchResult.matched)
@@ -303,10 +307,11 @@ func TestParseBatch(t *testing.T) {
 			want:   "b/asset.txt",
 		},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := parseBatch(tt.prefix, tt.key); got != tt.want {
-				t.Errorf("parseBatch() = %v, want %v", got, tt.want)
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			if got := parseBatch(tc.prefix, tc.key); got != tc.want {
+				t.Errorf("parseBatch() = %v, want %v", got, tc.want)
 			}
 		})
 	}
@@ -356,10 +361,11 @@ func TestParseNonBatch(t *testing.T) {
 			want:   "testdir/",
 		},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := parseNonBatch(tt.prefix, tt.key); got != tt.want {
-				t.Errorf("parseNonBatch() = %v, want %v", got, tt.want)
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			if got := parseNonBatch(tc.prefix, tc.key); got != tc.want {
+				t.Errorf("parseNonBatch() = %v, want %v", got, tc.want)
 			}
 		})
 	}

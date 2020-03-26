@@ -42,38 +42,44 @@ func TestCopySingleS3ObjectToLocal(t *testing.T) {
 	)
 
 	testcases := []struct {
-		name     string
-		src      string
-		dst      string
-		expected fs.PathOp
+		name           string
+		src            string
+		dst            string
+		expected       fs.PathOp
+		expectedOutput string
 	}{
 		{
-			name:     "cp s3://bucket/object .",
-			src:      "file1.txt",
-			dst:      ".",
-			expected: fs.WithFile("file1.txt", fileContent, fs.WithMode(0644)),
+			name:           "cp s3://bucket/object .",
+			src:            "file1.txt",
+			dst:            ".",
+			expected:       fs.WithFile("file1.txt", fileContent, fs.WithMode(0644)),
+			expectedOutput: "cp s3://bucket/file1.txt file1.txt",
 		},
 		{
-			name:     "cp s3://bucket/object file",
-			src:      "file1.txt",
-			dst:      "file1.txt",
-			expected: fs.WithFile("file1.txt", fileContent, fs.WithMode(0644)),
+			name:           "cp s3://bucket/object file",
+			src:            "file1.txt",
+			dst:            "file1.txt",
+			expected:       fs.WithFile("file1.txt", fileContent, fs.WithMode(0644)),
+			expectedOutput: "cp s3://bucket/file1.txt file1.txt",
 		},
 		{
-			name:     "cp s3://bucket/object dir/",
-			src:      "file1.txt",
-			dst:      "dir/",
-			expected: fs.WithDir("dir", fs.WithFile("file1.txt", fileContent, fs.WithMode(0644))),
+			name:           "cp s3://bucket/object dir/",
+			src:            "file1.txt",
+			dst:            "dir/",
+			expected:       fs.WithDir("dir", fs.WithFile("file1.txt", fileContent, fs.WithMode(0644))),
+			expectedOutput: "cp s3://bucket/file1.txt dir/file1.txt",
 		},
 		{
-			name:     "cp s3://bucket/object dir/file",
-			src:      "file1.txt",
-			dst:      "dir/file1.txt",
-			expected: fs.WithDir("dir", fs.WithFile("file1.txt", fileContent, fs.WithMode(0644))),
+			name:           "cp s3://bucket/object dir/file",
+			src:            "file1.txt",
+			dst:            "dir/file1.txt",
+			expected:       fs.WithDir("dir", fs.WithFile("file1.txt", fileContent, fs.WithMode(0644))),
+			expectedOutput: "cp s3://bucket/file1.txt dir/file1.txt",
 		},
 	}
 
 	for _, tc := range testcases {
+		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -91,7 +97,7 @@ func TestCopySingleS3ObjectToLocal(t *testing.T) {
 			result.Assert(t, icmd.Success)
 
 			assertLines(t, result.Stdout(), map[int]compareFunc{
-				0: equals(`cp s3://%v/%v %v`, bucket, tc.src, tc.dst),
+				0: equals(tc.expectedOutput),
 				1: equals(""),
 			})
 

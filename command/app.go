@@ -71,9 +71,8 @@ var app = &cli.App{
 		log.Init(logLevel, printJSON)
 		parallel.Init(workerCount)
 
-		// validation
-		if retryCount < 1 {
-			return fmt.Errorf("retry count must be a positive value")
+		if retryCount < 0 {
+			return fmt.Errorf("retry count cannot be a negative value")
 		}
 
 		s3opts := storage.S3Options{

@@ -27,10 +27,8 @@ type Storage interface {
 	// found, ErrGivenObjectNotFound is returned.
 	Stat(ctx context.Context, src *url.URL) (*Object, error)
 
-	// List the objects and directories/prefixes in the src. If recursive
-	// argument is given, given src will be walked if src is a walkable URL,
-	// such as directory, prefix or a wildcard.
-	List(ctx context.Context, src *url.URL, recursive bool) <-chan *Object
+	// List the objects and directories/prefixes in the src.
+	List(ctx context.Context, src *url.URL) <-chan *Object
 
 	// Copy src to dst, optionally setting the given metadata. Src and dst
 	// arguments are of the same type. If src is a remote type, server side
@@ -106,7 +104,7 @@ func (o ObjectType) String() string {
 	return ""
 }
 
-// MarshallJSON returns the stringer of ObjectType as a marshalled json.
+// MarshalJSON returns the stringer of ObjectType as a marshalled json.
 func (o ObjectType) MarshalJSON() ([]byte, error) {
 	return json.Marshal(o.String())
 }
@@ -130,17 +128,12 @@ func (b Bucket) String() string {
 	return fmt.Sprintf("%s  s3://%s", b.CreationDate.Format(dateFormat), b.Name)
 }
 
-// String returns the JSON representation of Bucket.
+// JSON returns the JSON representation of Bucket.
 func (b Bucket) JSON() string {
 	return strutil.JSON(b)
 }
 
 type StorageClass string
-
-// IsGlacierObject checks if the storage class of object is glacier.
-func (s StorageClass) IsGlacier() bool {
-	return s == StorageGlacier
-}
 
 // ShortCode returns the short code of Storage Class.
 func (s StorageClass) ShortCode() string {

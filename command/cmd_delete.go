@@ -80,8 +80,6 @@ func Delete(
 		return err
 	}
 
-	// storage.MultiDelete operates on file-like objects. Settings
-	// recursive=true guarantees returning only file-like objects.
 	objChan := expandSources(ctx, client, srcurls...)
 
 	// do object->url transformation
@@ -145,7 +143,7 @@ func expandSources(
 			wg.Add(1)
 			go func(origSrc *url.URL) {
 				defer wg.Done()
-				objch, err := expandSource(ctx, client, origSrc, true)
+				objch, err := expandSource(ctx, client, origSrc)
 				if err != nil {
 					mergech <- &storage.Object{Err: err}
 					return

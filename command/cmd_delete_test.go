@@ -8,7 +8,6 @@ import (
 
 	"github.com/stretchr/testify/mock"
 
-	"github.com/peak/s5cmd/mocks"
 	"github.com/peak/s5cmd/storage"
 	"github.com/peak/s5cmd/storage/url"
 )
@@ -135,7 +134,7 @@ func Test_expandSources(t *testing.T) {
 				t.Errorf("unexpected error: %v", err)
 			}
 
-			client := &mocks.Storage{}
+			client := &storage.MockStorage{}
 
 			for src, objects := range tt.src {
 				srcurl, err := url.New(src)
@@ -144,7 +143,7 @@ func Test_expandSources(t *testing.T) {
 				}
 
 				ch := generateObjects(objects)
-				client.On("List", mock.Anything, srcurl, true).Once().Return(ch)
+				client.On("List", mock.Anything, srcurl).Once().Return(ch)
 			}
 
 			gotChan := expandSources(context.Background(), client, srcurls...)

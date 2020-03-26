@@ -84,10 +84,10 @@ parallel. `s5cmd` will create the destination directory if it is missing.
 
 `file1.gz file2.gz file3.gz`
 
-ℹ️ `s5cmd` flattens the source directory structure by default. If you want to keep
-the source directory structure, use the `--parents` flag.
+ℹ️ `s5cmd` preserves the source directory structure by default. If you want to flatten
+the source directory structure, use the `--flatten` flag.
 
-    s5cmd cp --parents 's3://bucket/logs/2020/03/*' logs/
+    s5cmd cp 's3://bucket/logs/2020/03/*' logs/
 
 The above command will match the following objects:
 
@@ -111,7 +111,7 @@ logs/19/originals/file3.gz
 
 #### Upload multiple files to S3
 
-    s5cmd cp --parents directory/ s3://bucket/
+    s5cmd cp directory/ s3://bucket/
 
 Will upload all files at given directory to S3 while keeping the folder hiearchy
 of the source.
@@ -138,7 +138,7 @@ they'll be deleted in a single request.
 
 `s5cmd` supports copying objects on the server side as well.
 
-    s5cmd cp --parents 's3://bucket/logs/2020/*' s3://bucket/logs/backup/
+    s5cmd cp 's3://bucket/logs/2020/*' s3://bucket/logs/backup/
 
 Will copy all the matching objects to the given S3 prefix, respecting the source
 folder hiearchy.
@@ -169,7 +169,7 @@ or
 `commands.txt` content could look like:
 
 ```
-cp --parents s3://bucket/2020/03/* logs/2020/03/
+cp s3://bucket/2020/03/* logs/2020/03/
 
 # line comments are supported
 rm s3://bucket/2020/03/19/file2.gz

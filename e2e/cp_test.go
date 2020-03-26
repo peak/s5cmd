@@ -2499,7 +2499,7 @@ func TestCopyMultipleLocalNestedFilesToS3(t *testing.T) {
 	//   └─c
 	//     └─file2.txt
 	//
-	// after `s5cmd cp --parents * s3://bucket/prefix/`, expect:
+	// after `s5cmd cp * s3://bucket/prefix/`, expect:
 	//
 	// prefix
 	//  ├─a

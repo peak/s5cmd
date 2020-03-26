@@ -19,6 +19,12 @@ import (
 	"github.com/peak/s5cmd/storage/url"
 )
 
+const (
+	defaultCopyConcurrency = 5
+	defaultPartSize        = 50 // MiB
+	megabytes              = 1024 * 1024
+)
+
 var copyHelpTemplate = `Name:
 	{{.HelpName}} - {{.Usage}}
 
@@ -116,7 +122,7 @@ var CopyCommand = &cli.Command{
 			flatten:       c.Bool("flatten"),
 			storageClass:  storage.LookupClass(c.String("storage-class")),
 			concurrency:   c.Int("concurrency"),
-			partSize:      c.Int64("partSize") * megabytes,
+			partSize:      c.Int64("part-size") * megabytes,
 		}
 
 		return copyCommand.Run(c.Context)
@@ -586,37 +592,6 @@ func prepareUploadDestination(
 	}
 
 	return dsturl.Join(objname)
-}
-
-// expandSource returns the full list of objects from the given src argument.
-// If src is an expandable URL, such as directory, prefix or a glob, all
-// objects are returned by walking the source.
-func expandSource(
-	ctx context.Context,
-	client storage.Storage,
-	srcurl *url.URL,
-) (<-chan *storage.Object, error) {
-	var isDir bool
-	// if the source is local, we send a Stat call to know if  we have
-	// directory or file to walk. For remote storage, we don't want to send
-	// Stat since it doesn't have any folder semantics.
-	if !srcurl.HasGlob() && !srcurl.IsRemote() {
-		obj, err := client.Stat(ctx, srcurl)
-		if err != nil {
-			return nil, err
-		}
-		isDir = obj.Type.IsDir()
-	}
-
-	// call storage.List for only walking operations.
-	if srcurl.HasGlob() || isDir {
-		return client.List(ctx, srcurl), nil
-	}
-
-	ch := make(chan *storage.Object, 1)
-	ch <- &storage.Object{URL: srcurl}
-	close(ch)
-	return ch, nil
 }
 
 // getObject checks if the object from given url exists. If no object is

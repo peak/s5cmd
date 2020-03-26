@@ -158,12 +158,18 @@ func (l ListMessage) humanize() string {
 }
 
 const (
-	listFormat = "%19s %1s %-6s %12s %s"
 	dateFormat = "2006/01/02 15:04:05"
 )
 
 // String returns the string representation of ListMessage.
 func (l ListMessage) String() string {
+	var listFormat = "%19s %1s %-1s %12s %s"
+	var etag string
+	if l.showEtag {
+		etag = l.Object.Etag
+		listFormat = "%19s %1s %-38s %12s %s"
+	}
+
 	if l.Object.Type.IsDir() {
 		s := fmt.Sprintf(
 			listFormat,
@@ -174,11 +180,6 @@ func (l ListMessage) String() string {
 			l.Object.URL.Relative(),
 		)
 		return s
-	}
-
-	var etag string
-	if l.showEtag {
-		etag = l.Object.Etag
 	}
 
 	s := fmt.Sprintf(

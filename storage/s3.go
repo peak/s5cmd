@@ -15,6 +15,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/aws/client"
 	"github.com/aws/aws-sdk-go/aws/endpoints"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -580,12 +581,13 @@ func newSession(opts S3Options) (*session.Session, error) {
 		WithEndpoint(endpointURL.String()).
 		WithS3ForcePathStyle(!isVirtualHostStyle).
 		WithS3UseAccelerate(useAccelerate).
-		WithHTTPClient(httpClient).
-		WithMaxRetries(opts.MaxRetries)
+		WithHTTPClient(httpClient)
 
 	if opts.Region != "" {
 		awsCfg.WithRegion(opts.Region)
 	}
+
+	awsCfg.Retryer = NewCustomRetryer(opts.MaxRetries)
 
 	useSharedConfig := session.SharedConfigEnable
 	{
@@ -614,6 +616,29 @@ func newSession(opts S3Options) (*session.Session, error) {
 	}
 
 	return sess, nil
+}
+
+// CustomRetryer wraps the SDK's built in DefaultRetryer adding additional
+// error codes. Such as, retry for S3 InternalError code.
+type CustomRetryer struct {
+	client.DefaultRetryer
+}
+
+func NewCustomRetryer(maxRetries int) *CustomRetryer {
+	return &CustomRetryer{
+		DefaultRetryer: client.DefaultRetryer{
+			NumMaxRetries: maxRetries,
+		},
+	}
+}
+
+// ShouldRetry overrides the SDK's built in DefaultRetryer adding customization
+// to retry S3 InternalError code.
+func (c *CustomRetryer) ShouldRetry(req *request.Request) bool {
+	if errHasCode(req.Error, "InternalError") {
+		return true
+	}
+	return c.DefaultRetryer.ShouldRetry(req)
 }
 
 var insecureHTTPClient = &http.Client{

@@ -71,8 +71,8 @@ var copyCommandFlags = []cli.Flag{
 		Usage:   "only overwrite destination if source modtime is newer",
 	},
 	&cli.BoolFlag{
-		Name:  "parents",
-		Usage: "create same directory structure of source, starting from the first wildcard",
+		Name:  "flatten",
+		Usage: "flatten directory structure of source, starting from the first wildcard",
 	},
 	&cli.StringFlag{
 		Name:  "storage-class",
@@ -112,7 +112,7 @@ var CopyCommand = &cli.Command{
 			noClobber:     c.Bool("no-clobber"),
 			ifSizeDiffer:  c.Bool("if-size-differ"),
 			ifSourceNewer: c.Bool("if-source-newer"),
-			parents:       c.Bool("parents"),
+			flatten:       c.Bool("flatten"),
 			storageClass:  storage.LookupClass(c.String("storage-class")),
 			concurrency:   c.Int("concurrency"),
 			partSize:      c.Int64("partSize") * megabytes,
@@ -134,7 +134,7 @@ type Copy struct {
 	noClobber     bool
 	ifSizeDiffer  bool
 	ifSourceNewer bool
-	parents       bool
+	flatten       bool
 	storageClass  storage.StorageClass
 
 	// s3 options
@@ -238,7 +238,7 @@ func (c Copy) prepareDownloadTask(
 	isBatch bool,
 ) func() error {
 	return func() error {
-		dsturl, err := prepareDownloadDestination(ctx, srcurl, dsturl, c.parents, isBatch)
+		dsturl, err := prepareDownloadDestination(ctx, srcurl, dsturl, c.flatten, isBatch)
 		if err != nil {
 			return err
 		}
@@ -263,7 +263,7 @@ func (c Copy) prepareUploadTask(
 	isBatch bool,
 ) func() error {
 	return func() error {
-		dsturl = prepareUploadDestination(srcurl, dsturl, c.parents, isBatch)
+		dsturl = prepareUploadDestination(srcurl, dsturl, c.flatten, isBatch)
 		err := c.doUpload(ctx, srcurl, dsturl)
 		if err != nil {
 			return &errorpkg.Error{
@@ -493,12 +493,12 @@ func (c Copy) shouldOverride(ctx context.Context, srcurl *url.URL, dsturl *url.U
 func prepareCopyDestination(
 	srcurl *url.URL,
 	dsturl *url.URL,
-	parents bool,
+	flatten bool,
 	isBatch bool,
 ) *url.URL {
-	objname := srcurl.Base()
-	if parents {
-		objname = srcurl.Relative()
+	objname := srcurl.Relative()
+	if flatten {
+		objname = srcurl.Base()
 	}
 
 	// For remote->remote copy operations, treat <dst> as prefix if it has "/"
@@ -525,12 +525,12 @@ func prepareDownloadDestination(
 	ctx context.Context,
 	srcurl *url.URL,
 	dsturl *url.URL,
-	parents bool,
+	flatten bool,
 	isBatch bool,
 ) (*url.URL, error) {
-	objname := srcurl.Base()
-	if parents {
-		objname = srcurl.Relative()
+	objname := srcurl.Relative()
+	if flatten {
+		objname = srcurl.Base()
 	}
 
 	if isBatch {
@@ -549,7 +549,7 @@ func prepareDownloadDestination(
 		return nil, err
 	}
 
-	if parents {
+	if !flatten {
 		dsturl = dsturl.Join(objname)
 		if err := os.MkdirAll(dsturl.Dir(), os.ModePerm); err != nil {
 			return nil, err
@@ -577,7 +577,7 @@ func prepareDownloadDestination(
 func prepareUploadDestination(
 	srcurl *url.URL,
 	dsturl *url.URL,
-	parents bool,
+	flatten bool,
 	isBatch bool,
 ) *url.URL {
 	// if given destination is a bucket/objname, don't do any join and respect
@@ -586,9 +586,9 @@ func prepareUploadDestination(
 		return dsturl
 	}
 
-	objname := srcurl.Base()
-	if parents {
-		objname = srcurl.Relative()
+	objname := srcurl.Relative()
+	if flatten {
+		objname = srcurl.Base()
 	}
 	return dsturl.Join(objname)
 }
@@ -667,12 +667,6 @@ func Validate(c *cli.Context) error {
 	// wildcard destination doesn't mean anything
 	if dsturl.HasGlob() {
 		return fmt.Errorf("target %q can not contain glob characters", dst)
-	}
-
-	// --parents is used in conjunction with a wildcard source to deduce
-	// relative source paths.
-	if !srcurl.HasGlob() && c.Bool("parents") {
-		return fmt.Errorf("source argument must contain wildcard if --parents flag is provided")
 	}
 
 	// we don't operate on S3 prefixes for copy and delete operations.

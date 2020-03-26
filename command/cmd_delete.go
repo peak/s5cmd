@@ -46,11 +46,7 @@ var DeleteCommand = &cli.Command{
 			return fmt.Errorf("expected at least 1 object to remove")
 		}
 
-		if err := sourcesHaveSameType(c.Args().Slice()...); err != nil {
-			return err
-		}
-
-		return nil
+		return sourcesHaveSameType(c.Args().Slice()...)
 	},
 	Action: func(c *cli.Context) error {
 		return Delete(

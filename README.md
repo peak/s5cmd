@@ -234,9 +234,9 @@ retries with `--retry-count` option.
 * text format
 
 ```shell
-$ s5cmd cp s3://bucket/key .
+$ s5cmd cp s3://bucket/testfile .
 
-download s3://bucket/key
+cp s3://bucket/testfile testfile
 ```
 
 ```shell
@@ -249,14 +249,14 @@ ERROR "cp s3://somebucket/file.txt file.txt": object already exists
 
 ```json
     {
-      "operation": "download",
+      "operation": "cp",
       "success": true,
-      "source": "s3://bucket/key",
-      "destination": ".",
+      "source": "s3://bucket/testfile",
+      "destination": "testfile",
       "object": "[object]"
     }
     {
-      "operation": "download",
+      "operation": "cp",
       "job": "cp s3://somebucket/file.txt file.txt",
       "error": "'cp s3://somebucket/file.txt file.txt': object already exists"
     }

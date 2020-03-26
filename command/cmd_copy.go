@@ -217,7 +217,7 @@ func (c Copy) prepareCopyTask(
 	isBatch bool,
 ) func() error {
 	return func() error {
-		dsturl = prepareCopyDestination(srcurl, dsturl, c.parents, isBatch)
+		dsturl = prepareCopyDestination(srcurl, dsturl, c.flatten, isBatch)
 		err := c.doCopy(ctx, srcurl, dsturl)
 		if err != nil {
 			return &errorpkg.Error{

@@ -15,11 +15,12 @@ This is a major release with many breaking changes.
 - Exit code for errors was `127`. It is `1` now.
 - Dropped `exit` command. It was used to change the shell exit code and usually
   a part of the nested command usage.
+- Dropped local->local copy and move support. ([#118](https://github.com/peak/s5cmd/issues/118))
 - All error messages are sent to stderr now.
 - `-version` flag is changed to `version` command.
 - Dropped `batch-rm` command. It was not listed in the help output. Now that we
   support variadic arguments, users can remove multiple objects by providing
-  wildcards or multiple arguments to `s5cmd rm` command.
+  wildcards or multiple arguments to `s5cmd rm` command. ([#106](https://github.com/peak/s5cmd/pull/106))
 - [Virtual host style bucket name
   resolving](https://aws.amazon.com/blogs/aws/amazon-s3-path-deprecation-plan-the-rest-of-the-story/)
   is enabled by default for S3 and GCS. If you provide a custom endpoint via
@@ -28,13 +29,14 @@ This is a major release with many breaking changes.
 - Listing a non-existent object will return exit code `1`, instead of `0`. ([#23](https://github.com/peak/s5cmd/issues/23))
 - `-ds`, `-dw`, `-us` and `-uw` global flags are no longer available. Multipart
   concurrency and part size flags are now part of the `cp/mv` command. New
-  replacement flags are `--concurrency | -c` and `--part-size | -p`.
+  replacement flags are `--concurrency | -c` and `--part-size | -p`. ([#110](https://github.com/peak/s5cmd/pull/110))
 
 #### Features
 
 - Added `mb` command to make buckets. ([#25](https://github.com/peak/s5cmd/issues/25))
 - Added `--json` flag for JSON logging. ([#22](https://github.com/peak/s5cmd/issues/22))
 - Added [S3 transfer acceleration](https://docs.aws.amazon.com/AmazonS3/latest/dev/transfer-acceleration.html) support. ([#40](https://github.com/peak/s5cmd/issues/40))
+- Added [Google Cloud Storage](https://github.com/peak/s5cmd#google-cloud-storage-support) support. ([#81](https://github.com/peak/s5cmd/issues/81))
 
 #### Bugfixes
 

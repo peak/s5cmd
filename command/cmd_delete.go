@@ -14,10 +14,34 @@ import (
 	"github.com/peak/s5cmd/storage/url"
 )
 
+var deleteHelpTemplate = `Name:
+	{{.HelpName}} - {{.Usage}}
+
+Usage:
+	{{.HelpName}} argument [argument]
+
+Options:
+	{{range .VisibleFlags}}{{.}}
+	{{end}}
+Examples:
+	1. Delete an S3 object
+		 > s5cmd {{.HelpName}} s3://bucketname/prefix/object.gz
+
+	2. Delete all objects with a prefix
+		 > s5cmd {{.HelpName}} s3://bucketname/prefix/*
+
+	3. Delete all objects that matches a wildcard
+		 > s5cmd {{.HelpName}} s3://bucketname/*/obj*.gz
+
+	4. Delete all matching objects and a specific object
+		 > s5cmd {{.HelpName}} s3://bucketname/prefix/* s3://bucketname/object1.gz
+`
+
 var DeleteCommand = &cli.Command{
-	Name:     "rm",
-	HelpName: "rm",
-	Usage:    "remove objects",
+	Name:               "rm",
+	HelpName:           "rm",
+	Usage:              "remove objects",
+	CustomHelpTemplate: deleteHelpTemplate,
 	Before: func(c *cli.Context) error {
 		if !c.Args().Present() {
 			return fmt.Errorf("expected at least 1 object to remove")
@@ -52,8 +76,6 @@ func Delete(
 		return err
 	}
 
-	// storage.MultiDelete operates on file-like objects. Settings
-	// recursive=true guarantees returning only file-like objects.
 	objChan := expandSources(ctx, client, srcurls...)
 
 	// do object->url transformation
@@ -117,7 +139,7 @@ func expandSources(
 			wg.Add(1)
 			go func(origSrc *url.URL) {
 				defer wg.Done()
-				objch, err := expandSource(ctx, client, origSrc, true)
+				objch, err := expandSource(ctx, client, origSrc)
 				if err != nil {
 					mergech <- &storage.Object{Err: err}
 					return

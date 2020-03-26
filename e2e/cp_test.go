@@ -1523,7 +1523,7 @@ func TestCopyS3ToLocalWithSameFilenameWithNoClobber(t *testing.T) {
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: equals(""),
-	}, strictLineCheck(true))
+	})
 
 	expected := fs.Expected(t, fs.WithFile(filename, content))
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
@@ -1653,7 +1653,7 @@ func TestCopyS3ToLocalWithSameFilenameDontOverrideIfS3ObjectIsOlder(t *testing.T
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: equals(""),
-	}, strictLineCheck(true))
+	})
 
 	expected := fs.Expected(t, fs.WithFile(filename, content))
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
@@ -1791,7 +1791,7 @@ func TestCopyLocalFileToS3WithSameFilenameWithNoClobber(t *testing.T) {
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: equals(""),
-	}, strictLineCheck(true))
+	})
 
 	// assert local filesystem
 	expected := fs.Expected(t, fs.WithFile(filename, newContent))
@@ -1835,7 +1835,7 @@ func TestCopyLocalFileToS3WithNoClobber(t *testing.T) {
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: equals(""),
-	}, strictLineCheck(true))
+	})
 
 	// assert local filesystem
 	expected := fs.Expected(t, fs.WithFile(filename, newContent))
@@ -1882,7 +1882,7 @@ func TestCopyLocalFileToS3WithSameFilenameOverrideIfSizeDiffers(t *testing.T) {
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: equals(""),
-	}, strictLineCheck(true))
+	})
 
 	assert.NilError(t, ensureS3Object(s3client, bucket, filename, expectedContent))
 }
@@ -1930,7 +1930,7 @@ func TestCopyLocalFileToS3WithSameFilenameOverrideIfSourceIsNewer(t *testing.T) 
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: equals(""),
-	}, strictLineCheck(true))
+	})
 
 	assert.NilError(t, ensureS3Object(s3client, bucket, filename, expectedContent))
 }
@@ -1977,7 +1977,7 @@ func TestCopyLocalFileToS3WithSameFilenameDontOverrideIfS3ObjectIsOlder(t *testi
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: equals(""),
-	}, strictLineCheck(true))
+	})
 
 	assert.NilError(t, ensureS3Object(s3client, bucket, filename, content))
 }

@@ -14,10 +14,28 @@ import (
 	"github.com/peak/s5cmd/parallel"
 )
 
+var runHelpTemplate = `Name:
+	{{.HelpName}} - {{.Usage}}
+
+Usage:
+	{{.HelpName}} [file]
+
+Options:
+	{{range .VisibleFlags}}{{.}}
+	{{end}}
+Examples:
+	1. Run the commands declared in "commands.txt" file in parallel
+		 > s5cmd {{.HelpName}} commands.txt
+
+	2. Read commands from standard input and execute in parallel.
+		 > cat commands.txt | s5cmd {{.HelpName}}
+`
+
 var RunCommand = &cli.Command{
-	Name:     "run",
-	HelpName: "run",
-	Usage:    "run commands in batch",
+	Name:               "run",
+	HelpName:           "run",
+	Usage:              "run commands in batch",
+	CustomHelpTemplate: runHelpTemplate,
 	Before: func(c *cli.Context) error {
 		if c.Args().Len() > 1 {
 			return fmt.Errorf("expected only 1 file")

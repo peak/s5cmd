@@ -115,7 +115,7 @@ var CopyCommand = &cli.Command{
 			parents:       c.Bool("parents"),
 			storageClass:  storage.LookupClass(c.String("storage-class")),
 			concurrency:   c.Int("concurrency"),
-			partSize:      c.Int64("partSize") * megabytes,
+			partSize:      c.Int64("part-size") * megabytes,
 		}
 
 		return copyCommand.Run(c.Context)

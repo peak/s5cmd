@@ -639,7 +639,6 @@ func (c *CustomRetryer) ShouldRetry(req *request.Request) bool {
 		return true
 	}
 	return c.DefaultRetryer.ShouldRetry(req)
-
 }
 
 var insecureHTTPClient = &http.Client{

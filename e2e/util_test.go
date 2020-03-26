@@ -428,9 +428,6 @@ func checkLineAlignments(actual string) error {
 
 	sort.Strings(lines)
 
-	// skip first line since its empty
-	lines = lines[1:]
-
 	var index int
 	for lineno, line := range lines {
 		// format:

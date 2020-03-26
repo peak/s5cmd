@@ -274,10 +274,7 @@ func (u *URL) Match(key string) bool {
 }
 
 func (u *URL) String() string {
-	if u.IsRemote() {
-		return u.Absolute()
-	}
-	return u.Base()
+	return u.Absolute()
 }
 
 func (u *URL) MarshalJSON() ([]byte, error) {

@@ -210,9 +210,9 @@ func TestRunWildcardCountGreaterEqualThanWorkerCount(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(""),
-		1: equals(`cp s3://%v/file.txt`, bucket),
-		2: equals(`cp s3://%v/file.txt`, bucket),
-		3: equals(`cp s3://%v/file.txt`, bucket),
+		1: equals(`cp s3://%v/file.txt file.txt`, bucket),
+		2: equals(`cp s3://%v/file.txt file.txt`, bucket),
+		3: equals(`cp s3://%v/file.txt file.txt`, bucket),
 	}, sortInput(true))
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{

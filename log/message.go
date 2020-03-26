@@ -25,6 +25,9 @@ type InfoMessage struct {
 
 // String is the string representation of InfoMessage.
 func (i InfoMessage) String() string {
+	if i.Destination != nil {
+		return fmt.Sprintf("%v %v %v", i.Operation, i.Source, i.Destination)
+	}
 	return fmt.Sprintf("%v %v", i.Operation, i.Source)
 }
 

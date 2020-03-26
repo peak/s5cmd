@@ -619,14 +619,13 @@ func newSession(opts S3Options) (*session.Session, error) {
 }
 
 type requestRetryer struct {
-	*client.DefaultRetryer
+	client.DefaultRetryer
+	maxRetries int
 }
 
 func newRequestRetryer(maxRetries int) *requestRetryer {
 	return &requestRetryer{
-		DefaultRetryer: &client.DefaultRetryer{
-			NumMaxRetries: maxRetries,
-		},
+		maxRetries: maxRetries,
 	}
 }
 
@@ -636,6 +635,10 @@ func (r *requestRetryer) ShouldRetry(req *request.Request) bool {
 	}
 	return r.DefaultRetryer.ShouldRetry(req)
 
+}
+
+func (r *requestRetryer) MaxRetries() int {
+	return r.maxRetries
 }
 
 var insecureHTTPClient = &http.Client{

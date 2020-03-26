@@ -587,7 +587,7 @@ func newSession(opts S3Options) (*session.Session, error) {
 		awsCfg.WithRegion(opts.Region)
 	}
 
-	awsCfg.Retryer = newRequestRetryer(opts.MaxRetries)
+	awsCfg.Retryer = NewCustomRetryer(opts.MaxRetries)
 
 	useSharedConfig := session.SharedConfigEnable
 	{
@@ -618,27 +618,28 @@ func newSession(opts S3Options) (*session.Session, error) {
 	return sess, nil
 }
 
-type requestRetryer struct {
+// CustomRetryer wraps the SDK's built in DefaultRetryer adding additional
+// error codes. Such as, retry for S3 InternalError code.
+type CustomRetryer struct {
 	client.DefaultRetryer
-	maxRetries int
 }
 
-func newRequestRetryer(maxRetries int) *requestRetryer {
-	return &requestRetryer{
-		maxRetries: maxRetries,
+func NewCustomRetryer(maxRetries int) *CustomRetryer {
+	return &CustomRetryer{
+		DefaultRetryer: client.DefaultRetryer{
+			NumMaxRetries: maxRetries,
+		},
 	}
 }
 
-func (r *requestRetryer) ShouldRetry(req *request.Request) bool {
+// ShouldRetry overrides the SDK's built in DefaultRetryer adding customization
+// to retry S3 InternalError code.
+func (c *CustomRetryer) ShouldRetry(req *request.Request) bool {
 	if errHasCode(req.Error, "InternalError") {
 		return true
 	}
-	return r.DefaultRetryer.ShouldRetry(req)
+	return c.DefaultRetryer.ShouldRetry(req)
 
-}
-
-func (r *requestRetryer) MaxRetries() int {
-	return r.maxRetries
 }
 
 var insecureHTTPClient = &http.Client{

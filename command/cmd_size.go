@@ -14,10 +14,28 @@ import (
 	"github.com/peak/s5cmd/strutil"
 )
 
+var sizeHelpTemplate = `Name:
+	{{.HelpName}} - {{.Usage}}
+
+Usage:
+	{{.HelpName}} [options] argument
+
+Options:
+	{{range .VisibleFlags}}{{.}}
+	{{end}}
+Examples:
+	1. Show disk usage of all objects in a bucket
+		 > s5cmd {{.HelpName}} s3://bucket/*
+
+	2. Show disk usage of all objects that match a wildcard, grouped by storage class
+		 > s5cmd {{.HelpName}} --group s3://bucket/prefix/obj*.gz
+`
+
 var SizeCommand = &cli.Command{
-	Name:     "du",
-	HelpName: "du",
-	Usage:    "show disk usage",
+	Name:               "du",
+	HelpName:           "du",
+	Usage:              "show disk usage",
+	CustomHelpTemplate: sizeHelpTemplate,
 	Flags: []cli.Flag{
 		&cli.BoolFlag{
 			Name:    "group",

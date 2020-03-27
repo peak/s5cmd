@@ -580,18 +580,15 @@ func prepareUploadDestination(
 	flatten bool,
 	isBatch bool,
 ) *url.URL {
-	// if given destination is a bucket/objname, don't do any join and respect
-	// the user's destination object name.
-	if !isBatch && !dsturl.IsBucket() && !dsturl.IsPrefix() {
-		return dsturl
-	}
-
 	objname := srcurl.Base()
 	if isBatch && !flatten {
 		objname = srcurl.Relative()
 	}
 
-	return dsturl.Join(objname)
+	if dsturl.IsPrefix() || dsturl.IsBucket() {
+		dsturl = dsturl.Join(objname)
+	}
+	return dsturl
 }
 
 // getObject checks if the object from given url exists. If no object is

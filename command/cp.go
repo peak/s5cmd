@@ -179,8 +179,16 @@ func (c Copy) Run(ctx context.Context) error {
 		defer close(errDoneCh)
 		for err := range waiter.Err() {
 			if strings.Contains(err.Error(), "too many open files") {
-				fmt.Println("WARNING You are hitting the max open file limit allowed by your OS. You can increase open file limit or try to decrease the number of workers with the parameter '-numworkers'.")
-				fmt.Printf("ERROR %v\n", err)
+				log.Warning(log.WarningMessage{
+					Err: "You are hitting the max open file limit allowed by your OS. You can increase open file limit or try to decrease the number of workers with the parameter '-numworkers'",
+				})
+
+				log.Error(log.ErrorMessage{
+					Err: err.Error(),
+				})
+
+				log.Close()
+
 				os.Exit(1)
 			}
 			merror = multierror.Append(merror, err)

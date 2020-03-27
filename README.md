@@ -228,6 +228,13 @@ credentials`, `authorization errors` etc, will not be retried. By default,
 `s5cmd` will retry 10 times for about a minute. You can adjust the number of
 retries with `--retry-count` option.
 
+## Using wildcards
+
+Most shells can attempt to expand wildcards before passing the arguments to
+`s5cmd`, resulting in surprising `no matches found` errors.
+
+To avoid this problem, surround the wildcarded expression with single quotes.
+
 ## Output
 
 `s5cmd` supports both text and JSON outputs.

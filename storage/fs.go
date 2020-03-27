@@ -104,6 +104,10 @@ func (f *Filesystem) expandGlob(ctx context.Context, src *url.URL) <-chan *Objec
 }
 
 func walkDir(ctx context.Context, storage Storage, src *url.URL, fn func(o *Object)) {
+	//skip if symlink is pointing to a dir and --no-follow-symlink
+	if !ShouldProcessUrl(src) {
+		return
+	}
 	err := godirwalk.Walk(src.Absolute(), &godirwalk.Options{
 		Callback: func(pathname string, dirent *godirwalk.Dirent) error {
 			// we're interested in files
@@ -119,15 +123,20 @@ func walkDir(ctx context.Context, storage Storage, src *url.URL, fn func(o *Obje
 			fileurl.SetRelative(src.Absolute())
 
 			obj, err := storage.Stat(ctx, fileurl)
+
+			//skip if symlink is pointing to a file and --no-follow-symlink
+			if !ShouldProcessUrl(fileurl) {
+				return nil
+			}
+
 			if err != nil {
 				return err
 			}
 			fn(obj)
 			return nil
 		},
-		// TODO(ig): enable following symlink once we have the necessary cli
 		// flags
-		FollowSymbolicLinks: false,
+		FollowSymbolicLinks: FollowSymlinks,
 	})
 	if err != nil {
 		obj := &Object{Err: err}

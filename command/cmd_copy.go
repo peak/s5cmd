@@ -80,6 +80,10 @@ var copyCommandFlags = []cli.Flag{
 		Name:  "parents",
 		Usage: "create same directory structure of source, starting from the first wildcard",
 	},
+	&cli.BoolFlag{
+		Name:  "no-follow-symlinks",
+		Usage: "do not follow symbolic links (s5cmd follows symbolic links by default)",
+	},
 	&cli.StringFlag{
 		Name:  "storage-class",
 		Usage: "set storage class for target ('STANDARD','REDUCED_REDUNDANCY','GLACIER','STANDARD_IA')",
@@ -124,6 +128,7 @@ var CopyCommand = &cli.Command{
 			partSize:      c.Int64("part-size") * megabytes,
 		}
 
+		storage.FollowSymlinks = !c.Bool("no-follow-symlinks")
 		return copyCommand.Run(c.Context)
 	},
 }

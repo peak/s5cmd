@@ -21,6 +21,9 @@ var (
 	ErrNoObjectFound = fmt.Errorf("no object found")
 )
 
+// following symbolic links is the default behaviour
+var FollowSymlinks = true
+
 // Storage is an interface for storage operations.
 type Storage interface {
 	// Stat returns the Object structure describing object. If src is not
@@ -112,6 +115,30 @@ func (o ObjectType) MarshalJSON() ([]byte, error) {
 // IsDir checks if the object is a directory.
 func (o ObjectType) IsDir() bool {
 	return o.mode.IsDir()
+}
+
+// IsSymlink checks if the object is a symbolic link.
+func (o ObjectType) IsSymlink() bool {
+	return o.mode&os.ModeSymlink != 0
+}
+
+// If follow symlinks is disabled we should not process the url.
+// (this check is needed only for local files)
+func ShouldProcessUrl(url *url.URL) bool {
+	if FollowSymlinks {
+		return true
+	}
+
+	if url.IsRemote() {
+		return true
+	}
+	fi, err := os.Lstat(url.Absolute())
+	if err != nil {
+		return false
+	}
+
+	// do not process symlinks
+	return fi.Mode()&os.ModeSymlink == 0
 }
 
 // dateFormat is a constant time template for the bucket.

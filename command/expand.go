@@ -34,7 +34,9 @@ func expandSource(
 	}
 
 	ch := make(chan *storage.Object, 1)
-	ch <- &storage.Object{URL: srcurl}
+	if storage.ShouldProcessUrl(srcurl) {
+		ch <- &storage.Object{URL: srcurl}
+	}
 	close(ch)
 	return ch, nil
 }

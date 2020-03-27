@@ -245,6 +245,13 @@ $ s5cmd cp --no-clobber s3://somebucket/file.txt file.txt
 ERROR "cp s3://somebucket/file.txt file.txt": object already exists
 ```
 
+## Using wildcards
+
+Most shells can attempt to expand wildcards before passing the arguments to
+`s5cmd`, resulting in surprising "object not found" errors.
+
+To avoid this problem, surround the wildcarded expression with single quotes.
+
 * If `--json` flag is provided:
 
 ```json

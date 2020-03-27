@@ -34,7 +34,7 @@ Examples:
 var MoveCommand = &cli.Command{
 	Name:               "mv",
 	HelpName:           "mv",
-	Usage:              "move objects",
+	Usage:              "move/rename objects",
 	Flags:              copyCommandFlags, // move and copy commands share the same flags
 	CustomHelpTemplate: moveHelpTemplate,
 	Before: func(c *cli.Context) error {

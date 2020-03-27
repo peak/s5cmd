@@ -501,7 +501,7 @@ func (c Copy) shouldOverride(ctx context.Context, srcurl *url.URL, dsturl *url.U
 }
 
 // prepareRemoteDestination will return a new destination URL for
-// remote->remote and local-remote copy operations.
+// remote->remote and local->remote copy operations.
 func prepareRemoteDestination(
 	srcurl *url.URL,
 	dsturl *url.URL,

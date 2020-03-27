@@ -34,7 +34,7 @@ Examples:
 var SizeCommand = &cli.Command{
 	Name:               "du",
 	HelpName:           "du",
-	Usage:              "show disk usage",
+	Usage:              "show object size usage",
 	CustomHelpTemplate: sizeHelpTemplate,
 	Flags: []cli.Flag{
 		&cli.BoolFlag{

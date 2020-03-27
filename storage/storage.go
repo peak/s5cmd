@@ -21,7 +21,7 @@ var (
 	ErrNoObjectFound = fmt.Errorf("no object found")
 )
 
-// following symbolic links is the default behaviour
+// FollowSymlinks is used to check the value of --no-follow-symlinks flag globally
 var FollowSymlinks = true
 
 // Storage is an interface for storage operations.
@@ -122,6 +122,7 @@ func (o ObjectType) IsSymlink() bool {
 	return o.mode&os.ModeSymlink != 0
 }
 
+// ShouldProcessUrl returns true if follow symlinks is enabled.
 // If follow symlinks is disabled we should not process the url.
 // (this check is needed only for local files)
 func ShouldProcessUrl(url *url.URL) bool {

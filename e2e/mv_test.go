@@ -98,6 +98,7 @@ func TestMoveMultipleFlatS3ObjectsToLocal(t *testing.T) {
 	}
 }
 
+// mv file s3://bucket
 func TestMoveSingleFileToS3(t *testing.T) {
 	t.Parallel()
 
@@ -135,6 +136,7 @@ func TestMoveSingleFileToS3(t *testing.T) {
 	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content))
 }
 
+// mv dir/* s3://bucket
 func TestMoveMultipleFilesToS3(t *testing.T) {
 	t.Parallel()
 
@@ -186,6 +188,7 @@ func TestMoveMultipleFilesToS3(t *testing.T) {
 	}
 }
 
+// mv s3://bucket/object s3://bucket2/object
 func TestMoveSingleS3ObjectToS3(t *testing.T) {
 	t.Parallel()
 
@@ -224,6 +227,7 @@ func TestMoveSingleS3ObjectToS3(t *testing.T) {
 	assert.Assert(t, ensureS3Object(s3client, bucket, "dst/"+filename, content))
 }
 
+// mv s3://bucket/object s3://bucket2/object
 func TestMoveSingleS3ObjectIntoAnotherBucket(t *testing.T) {
 	t.Parallel()
 
@@ -264,6 +268,7 @@ func TestMoveSingleS3ObjectIntoAnotherBucket(t *testing.T) {
 	assert.Assert(t, ensureS3Object(s3client, dstbucket, filename, content))
 }
 
+// mv s3://bucket/* s3://bucket2/prefix/
 func TestMoveMultipleS3ObjectsToS3(t *testing.T) {
 	t.Parallel()
 

@@ -229,7 +229,7 @@ func (c Copy) prepareCopyTask(
 	isBatch bool,
 ) func() error {
 	return func() error {
-		dsturl = prepareCopyDestination(srcurl, dsturl, c.flatten, isBatch)
+		dsturl = prepareRemoteDestination(srcurl, dsturl, c.flatten, isBatch)
 		err := c.doCopy(ctx, srcurl, dsturl)
 		if err != nil {
 			return &errorpkg.Error{
@@ -250,7 +250,7 @@ func (c Copy) prepareDownloadTask(
 	isBatch bool,
 ) func() error {
 	return func() error {
-		dsturl, err := prepareDownloadDestination(ctx, srcurl, dsturl, c.flatten, isBatch)
+		dsturl, err := prepareLocalDestination(ctx, srcurl, dsturl, c.flatten, isBatch)
 		if err != nil {
 			return err
 		}
@@ -275,7 +275,7 @@ func (c Copy) prepareUploadTask(
 	isBatch bool,
 ) func() error {
 	return func() error {
-		dsturl = prepareUploadDestination(srcurl, dsturl, c.flatten, isBatch)
+		dsturl = prepareRemoteDestination(srcurl, dsturl, c.flatten, isBatch)
 		err := c.doUpload(ctx, srcurl, dsturl)
 		if err != nil {
 			return &errorpkg.Error{
@@ -500,9 +500,9 @@ func (c Copy) shouldOverride(ctx context.Context, srcurl *url.URL, dsturl *url.U
 	return stickyErr
 }
 
-// prepareCopyDestination will return a new destination URL for
-// remote->remote copy operations.
-func prepareCopyDestination(
+// prepareRemoteDestination will return a new destination URL for
+// remote->remote and local-remote copy operations.
+func prepareRemoteDestination(
 	srcurl *url.URL,
 	dsturl *url.URL,
 	flatten bool,
@@ -520,8 +520,8 @@ func prepareCopyDestination(
 }
 
 // prepareDownloadDestination will return a new destination URL for
-// remote->local and remote->remote copy operations.
-func prepareDownloadDestination(
+// remote->local copy operations.
+func prepareLocalDestination(
 	ctx context.Context,
 	srcurl *url.URL,
 	dsturl *url.URL,
@@ -570,25 +570,6 @@ func prepareDownloadDestination(
 	}
 
 	return dsturl, nil
-}
-
-// prepareUploadDestination will return a new destination URL for local->remote
-// operations.
-func prepareUploadDestination(
-	srcurl *url.URL,
-	dsturl *url.URL,
-	flatten bool,
-	isBatch bool,
-) *url.URL {
-	objname := srcurl.Base()
-	if isBatch && !flatten {
-		objname = srcurl.Relative()
-	}
-
-	if dsturl.IsPrefix() || dsturl.IsBucket() {
-		dsturl = dsturl.Join(objname)
-	}
-	return dsturl
 }
 
 // getObject checks if the object from given url exists. If no object is

@@ -19,6 +19,47 @@ import (
 	"github.com/peak/s5cmd/storage/url"
 )
 
+const (
+	defaultCopyConcurrency = 5
+	defaultPartSize        = 50 // MiB
+	megabytes              = 1024 * 1024
+)
+
+var copyHelpTemplate = `Name:
+	{{.HelpName}} - {{.Usage}}
+
+Usage:
+	{{.HelpName}} [options] source destination
+
+Options:
+	{{range .VisibleFlags}}{{.}}
+	{{end}}
+Examples:
+	1. Download an S3 object to working directory
+		 > s5cmd {{.HelpName}} s3://bucket/prefix/object.gz .
+
+	2. Download an S3 object and rename
+		 > s5cmd {{.HelpName}} s3://bucket/prefix/object.gz myobject.gz
+
+	3. Download all S3 objects to a directory
+		 > s5cmd {{.HelpName}} s3://bucket/* target-directory/
+
+	4. Upload a file to S3 bucket
+		 > s5cmd {{.HelpName}} myfile.gz s3://bucket/
+
+	5. Upload matching files to S3 bucket
+		 > s5cmd {{.HelpName}} dir/*.gz s3://bucket/
+
+	6. Upload all files in a directory to S3 bucket recursively
+		 > s5cmd {{.HelpName}} dir/ s3://bucket/
+
+	7. Mirror a directory to target S3 prefix
+		 > s5cmd {{.HelpName}} -n -s -u dir/ s3://bucket/target-prefix/
+
+	8. Mirror an S3 prefix to target S3 prefix
+		 > s5cmd {{.HelpName}} -n -s -u s3://bucket/source-prefix/ s3://bucket/target-prefix/
+`
+
 var copyCommandFlags = []cli.Flag{
 	&cli.BoolFlag{
 		Name:    "no-clobber",
@@ -39,11 +80,6 @@ var copyCommandFlags = []cli.Flag{
 		Name:  "parents",
 		Usage: "create same directory structure of source, starting from the first wildcard",
 	},
-	&cli.BoolFlag{
-		Name:    "recursive",
-		Aliases: []string{"R"},
-		Usage:   "command is performed on all objects under the given source",
-	},
 	&cli.StringFlag{
 		Name:  "storage-class",
 		Usage: "set storage class for target ('STANDARD','REDUCED_REDUNDANCY','GLACIER','STANDARD_IA')",
@@ -63,10 +99,11 @@ var copyCommandFlags = []cli.Flag{
 }
 
 var CopyCommand = &cli.Command{
-	Name:     "cp",
-	HelpName: "cp",
-	Usage:    "copy objects",
-	Flags:    copyCommandFlags,
+	Name:               "cp",
+	HelpName:           "cp",
+	Usage:              "copy objects",
+	Flags:              copyCommandFlags,
+	CustomHelpTemplate: copyHelpTemplate,
 	Before: func(c *cli.Context) error {
 		return Validate(c)
 	},
@@ -81,11 +118,10 @@ var CopyCommand = &cli.Command{
 			noClobber:     c.Bool("no-clobber"),
 			ifSizeDiffer:  c.Bool("if-size-differ"),
 			ifSourceNewer: c.Bool("if-source-newer"),
-			recursive:     c.Bool("recursive"),
 			parents:       c.Bool("parents"),
 			storageClass:  storage.LookupClass(c.String("storage-class")),
 			concurrency:   c.Int("concurrency"),
-			partSize:      c.Int64("partSize") * megabytes,
+			partSize:      c.Int64("part-size") * megabytes,
 		}
 
 		return copyCommand.Run(c.Context)
@@ -104,7 +140,6 @@ type Copy struct {
 	noClobber     bool
 	ifSizeDiffer  bool
 	ifSourceNewer bool
-	recursive     bool
 	parents       bool
 	storageClass  storage.StorageClass
 
@@ -124,16 +159,12 @@ func (c Copy) Run(ctx context.Context) error {
 		return err
 	}
 
-	// set recursive=true for local->remote copy operations. this
-	// is required for backwards compatibility.
-	recursive := c.recursive || (!srcurl.IsRemote() && dsturl.IsRemote())
-
 	client, err := storage.NewClient(srcurl)
 	if err != nil {
 		return err
 	}
 
-	objch, err := expandSource(ctx, client, srcurl, recursive)
+	objch, err := expandSource(ctx, client, srcurl)
 	if err != nil {
 		return err
 	}
@@ -197,12 +228,8 @@ func (c Copy) prepareCopyTask(
 	isBatch bool,
 ) func() error {
 	return func() error {
-		dsturl, err := prepareCopyDestination(ctx, srcurl, dsturl, c.parents, isBatch)
-		if err != nil {
-			return err
-		}
-
-		err = c.doCopy(ctx, srcurl, dsturl)
+		dsturl = prepareCopyDestination(srcurl, dsturl, c.parents, isBatch)
+		err := c.doCopy(ctx, srcurl, dsturl)
 		if err != nil {
 			return &errorpkg.Error{
 				Op:  c.op,
@@ -475,12 +502,11 @@ func (c Copy) shouldOverride(ctx context.Context, srcurl *url.URL, dsturl *url.U
 // prepareCopyDestination will return a new destination URL for local->local
 // and remote->remote copy operations.
 func prepareCopyDestination(
-	ctx context.Context,
 	srcurl *url.URL,
 	dsturl *url.URL,
 	parents bool,
 	isBatch bool,
-) (*url.URL, error) {
+) *url.URL {
 	objname := srcurl.Base()
 	if parents {
 		objname = srcurl.Relative()
@@ -492,16 +518,16 @@ func prepareCopyDestination(
 		if dsturl.IsPrefix() || dsturl.IsBucket() {
 			dsturl = dsturl.Join(objname)
 		}
-		return dsturl, nil
+		return dsturl
 	}
 
 	// Absolute <src> path is given. Use given <dst> and local copy operation
 	// will create missing directories if <dst> has one.
 	if !isBatch {
-		return dsturl, nil
+		return dsturl
 	}
 
-	return dsturl.Join(objname), nil
+	return dsturl.Join(objname)
 }
 
 // prepareDownloadDestination will return a new destination URL for
@@ -578,38 +604,6 @@ func prepareUploadDestination(
 	return dsturl.Join(objname)
 }
 
-// expandSource returns the full list of objects from the given src argument.
-// If src is an expandable URL, such as directory, prefix or a glob, all
-// objects are returned by walking the source.
-func expandSource(
-	ctx context.Context,
-	client storage.Storage,
-	srcurl *url.URL,
-	isRecursive bool,
-) (<-chan *storage.Object, error) {
-	var isDir bool
-	// if the source is local, we send a Stat call to know if  we have
-	// directory or file to walk. For remote storage, we don't want to send
-	// Stat since it doesn't have any folder semantics.
-	if !srcurl.HasGlob() && !srcurl.IsRemote() {
-		obj, err := client.Stat(ctx, srcurl)
-		if err != nil {
-			return nil, err
-		}
-		isDir = obj.Type.IsDir()
-	}
-
-	// call storage.List for only walking operations.
-	if srcurl.HasGlob() || isDir {
-		return client.List(ctx, srcurl, isRecursive), nil
-	}
-
-	ch := make(chan *storage.Object, 1)
-	ch <- &storage.Object{URL: srcurl}
-	close(ch)
-	return ch, nil
-}
-
 // getObject checks if the object from given url exists. If no object is
 // found, error and returning object would be nil.
 func getObject(ctx context.Context, url *url.URL) (*storage.Object, error) {
@@ -674,7 +668,7 @@ func Validate(c *cli.Context) error {
 
 	switch {
 	case srcurl.Type == dsturl.Type:
-		return validateCopy(ctx, srcurl, dsturl)
+		return validateCopy(srcurl, dsturl)
 	case dsturl.IsRemote():
 		return validateUpload(ctx, srcurl, dsturl)
 	default:
@@ -682,31 +676,13 @@ func Validate(c *cli.Context) error {
 	}
 }
 
-func validateCopy(ctx context.Context, srcurl, dsturl *url.URL) error {
-	if srcurl.IsRemote() {
+func validateCopy(srcurl, dsturl *url.URL) error {
+	if srcurl.IsRemote() || dsturl.IsRemote() {
 		return nil
 	}
 
-	client, err := storage.NewClient(dsturl)
-	if err != nil {
-		return err
-	}
-
-	// For local->local copy operations, we can safely stat <dst> to check if
-	// it is a file or a directory.
-	obj, err := client.Stat(ctx, dsturl)
-	if err != nil && err != storage.ErrGivenObjectNotFound {
-		return err
-	}
-
-	// For local->local copy operations, if <src> has glob, <dst> is expected
-	// to be a directory. As always, local copy operation will create missing
-	// directories if <dst> has one.
-	if obj != nil && !obj.Type.IsDir() {
-		return fmt.Errorf("destination argument is expected to be a directory")
-	}
-
-	return nil
+	// we don't support local->local copies
+	return fmt.Errorf("local->local copy operations are not permitted")
 }
 
 func validateUpload(ctx context.Context, srcurl, dsturl *url.URL) error {

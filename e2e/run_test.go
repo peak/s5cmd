@@ -42,7 +42,7 @@ func TestRunFromStdin(t *testing.T) {
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: equals(""),
-	}, strictLineCheck(true))
+	})
 }
 
 func TestRunFromStdinWithErrors(t *testing.T) {
@@ -54,13 +54,11 @@ func TestRunFromStdinWithErrors(t *testing.T) {
 	defer cleanup()
 
 	createBucket(t, s3client, bucket)
-	putFile(t, s3client, bucket, "file1.txt", "content")
-	putFile(t, s3client, bucket, "file2.txt", "content")
 
 	input := strings.NewReader(
 		strings.Join([]string{
 			"ls s3:/",
-			"cp naber hey",
+			fmt.Sprintf("cp s3://%v/nonexistentobject .", bucket),
 		}, "\n"),
 	)
 	cmd := s5cmd("run")
@@ -74,9 +72,9 @@ func TestRunFromStdinWithErrors(t *testing.T) {
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: equals(""),
-		1: equals(`ERROR "cp naber hey": given object not found`),
+		1: contains(`ERROR "cp s3://%v/nonexistentobject nonexistentobject": NoSuchKey: status code: 404`, bucket),
 		2: equals(`ERROR "ls s3:/": given object not found`),
-	}, strictLineCheck(true), sortInput(true))
+	}, sortInput(true))
 }
 
 func TestRunFromStdinJSON(t *testing.T) {
@@ -110,7 +108,7 @@ func TestRunFromStdinJSON(t *testing.T) {
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: equals(""),
-	}, strictLineCheck(true))
+	})
 }
 
 func TestRunFromFile(t *testing.T) {
@@ -146,7 +144,7 @@ func TestRunFromFile(t *testing.T) {
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: equals(""),
-	}, strictLineCheck(true))
+	})
 }
 
 func TestRunFromFileJSON(t *testing.T) {
@@ -182,7 +180,7 @@ func TestRunFromFileJSON(t *testing.T) {
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: equals(""),
-	}, strictLineCheck(true))
+	})
 }
 
 func TestRunWildcardCountGreaterEqualThanWorkerCount(t *testing.T) {
@@ -212,12 +210,12 @@ func TestRunWildcardCountGreaterEqualThanWorkerCount(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(""),
-		1: equals(`cp s3://%v/file.txt`, bucket),
-		2: equals(`cp s3://%v/file.txt`, bucket),
-		3: equals(`cp s3://%v/file.txt`, bucket),
+		1: equals(`cp s3://%v/file.txt file.txt`, bucket),
+		2: equals(`cp s3://%v/file.txt file.txt`, bucket),
+		3: equals(`cp s3://%v/file.txt file.txt`, bucket),
 	}, sortInput(true))
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: equals(""),
-	}, strictLineCheck(true))
+	})
 }

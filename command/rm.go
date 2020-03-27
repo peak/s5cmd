@@ -3,7 +3,6 @@ package command
 import (
 	"context"
 	"fmt"
-	"sync"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/urfave/cli/v2"
@@ -14,20 +13,40 @@ import (
 	"github.com/peak/s5cmd/storage/url"
 )
 
+var deleteHelpTemplate = `Name:
+	{{.HelpName}} - {{.Usage}}
+
+Usage:
+	{{.HelpName}} argument [argument]
+
+Options:
+	{{range .VisibleFlags}}{{.}}
+	{{end}}
+Examples:
+	1. Delete an S3 object
+		 > s5cmd {{.HelpName}} s3://bucketname/prefix/object.gz
+
+	2. Delete all objects with a prefix
+		 > s5cmd {{.HelpName}} s3://bucketname/prefix/*
+
+	3. Delete all objects that matches a wildcard
+		 > s5cmd {{.HelpName}} s3://bucketname/*/obj*.gz
+
+	4. Delete all matching objects and a specific object
+		 > s5cmd {{.HelpName}} s3://bucketname/prefix/* s3://bucketname/object1.gz
+`
+
 var DeleteCommand = &cli.Command{
-	Name:     "rm",
-	HelpName: "rm",
-	Usage:    "remove objects",
+	Name:               "rm",
+	HelpName:           "rm",
+	Usage:              "remove objects",
+	CustomHelpTemplate: deleteHelpTemplate,
 	Before: func(c *cli.Context) error {
 		if !c.Args().Present() {
 			return fmt.Errorf("expected at least 1 object to remove")
 		}
 
-		if err := checkSources(c.Args().Slice()...); err != nil {
-			return err
-		}
-
-		return nil
+		return sourcesHaveSameType(c.Args().Slice()...)
 	},
 	Action: func(c *cli.Context) error {
 		return Delete(
@@ -45,7 +64,7 @@ func Delete(
 	fullCommand string,
 	src ...string,
 ) error {
-	srcurls, err := newSources(src...)
+	srcurls, err := newURLs(src...)
 	if err != nil {
 		return err
 	}
@@ -56,8 +75,6 @@ func Delete(
 		return err
 	}
 
-	// storage.MultiDelete operates on file-like objects. Settings
-	// recursive=true guarantees returning only file-like objects.
 	objChan := expandSources(ctx, client, srcurls...)
 
 	// do object->url transformation
@@ -101,52 +118,8 @@ func Delete(
 	return merror
 }
 
-// expandSources is a non-blocking argument dispatcher.
-// It creates a object channel by walking and expanding the given source urls.
-// If the url has a glob, it creates a goroutine to list storage items and sends them to
-// object channel, otherwise it creates storage object from the original source.
-func expandSources(
-	ctx context.Context,
-	client storage.Storage,
-	srcurls ...*url.URL,
-) <-chan *storage.Object {
-	mergech := make(chan *storage.Object)
-	go func() {
-		defer close(mergech)
-
-		var wg sync.WaitGroup
-		var objFound bool
-
-		for _, origSrc := range srcurls {
-			wg.Add(1)
-			go func(origSrc *url.URL) {
-				defer wg.Done()
-				objch, err := expandSource(ctx, client, origSrc, true)
-				if err != nil {
-					mergech <- &storage.Object{Err: err}
-					return
-				}
-				for object := range objch {
-					if object.Err == storage.ErrNoObjectFound {
-						continue
-					}
-					mergech <- object
-					objFound = true
-				}
-			}(origSrc)
-		}
-
-		wg.Wait()
-		if !objFound {
-			mergech <- &storage.Object{Err: storage.ErrNoObjectFound}
-		}
-	}()
-
-	return mergech
-}
-
-// newSources creates ObjectURL list from given source strings.
-func newSources(sources ...string) ([]*url.URL, error) {
+// newSources creates object URL list from given sources.
+func newURLs(sources ...string) ([]*url.URL, error) {
 	var urls []*url.URL
 	for _, src := range sources {
 		srcurl, err := url.New(src)
@@ -158,9 +131,8 @@ func newSources(sources ...string) ([]*url.URL, error) {
 	return urls, nil
 }
 
-// checkSources check if given sources share same objurlType and gives
-// error if it contains both local and remote targets.
-func checkSources(sources ...string) error {
+// sourcesHaveSameType check if given sources share the same object types.
+func sourcesHaveSameType(sources ...string) error {
 	var hasRemote, hasLocal bool
 	for _, src := range sources {
 		srcurl, err := url.New(src)

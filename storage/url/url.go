@@ -63,7 +63,7 @@ func New(s string) (*URL, error) {
 	}
 
 	if len(split) != 2 {
-		return nil, fmt.Errorf("objurl: unknown url format %q", s)
+		return nil, fmt.Errorf("storage: unknown url format %q", s)
 	}
 
 	scheme, rest := split[0], split[1]
@@ -108,8 +108,8 @@ func (u *URL) IsRemote() bool {
 
 // IsPrefix reports whether the remote object is an S3 prefix, and does not
 // look like an object.
-func (o *URL) IsPrefix() bool {
-	return o.IsRemote() && strings.HasSuffix(o.Path, "/")
+func (u *URL) IsPrefix() bool {
+	return u.IsRemote() && strings.HasSuffix(u.Path, "/")
 }
 
 // IsBucket returns true if the object url contains only bucket name
@@ -127,11 +127,11 @@ func (u *URL) Absolute() string {
 }
 
 // Relative returns a URI reference based on the calculated prefix.
-func (o *URL) Relative() string {
-	if o.relativePath != "" {
-		return o.relativePath
+func (u *URL) Relative() string {
+	if u.relativePath != "" {
+		return u.relativePath
 	}
-	return o.Absolute()
+	return u.Absolute()
 }
 
 // Base returns the last element of object path.
@@ -274,10 +274,7 @@ func (u *URL) Match(key string) bool {
 }
 
 func (u *URL) String() string {
-	if u.IsRemote() {
-		return u.Absolute()
-	}
-	return u.Base()
+	return u.Absolute()
 }
 
 func (u *URL) MarshalJSON() ([]byte, error) {

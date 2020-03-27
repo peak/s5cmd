@@ -14,10 +14,34 @@ import (
 	"github.com/peak/s5cmd/strutil"
 )
 
+var listHelpTemplate = `Name:
+	{{.HelpName}} - {{.Usage}}
+
+Usage:
+	{{.HelpName}} [options] argument
+
+Options:
+	{{range .VisibleFlags}}{{.}}
+	{{end}}
+Examples:
+	1. List all buckets
+		 > s5cmd {{.HelpName}}
+
+	2. List objects and prefixes in a bucket
+		 > s5cmd {{.HelpName}} s3://bucket/
+
+	3. List all objects in a bucket
+		 > s5cmd {{.HelpName}} s3://bucket/*
+
+	4. List all objects that matches a wildcard
+		 > s5cmd {{.HelpName}} s3://bucket/prefix/*/*.gz
+`
+
 var ListCommand = &cli.Command{
-	Name:     "ls",
-	HelpName: "ls",
-	Usage:    "list buckets and objects",
+	Name:               "ls",
+	HelpName:           "ls",
+	Usage:              "list buckets and objects",
+	CustomHelpTemplate: listHelpTemplate,
 	Flags: []cli.Flag{
 		&cli.BoolFlag{
 			Name:    "etag",
@@ -92,7 +116,7 @@ func List(
 
 	var merror error
 
-	for object := range client.List(ctx, srcurl, true) {
+	for object := range client.List(ctx, srcurl) {
 		if errorpkg.IsCancelation(object.Err) {
 			continue
 		}
@@ -134,12 +158,18 @@ func (l ListMessage) humanize() string {
 }
 
 const (
-	listFormat = "%19s %1s %-6s %12s %s"
 	dateFormat = "2006/01/02 15:04:05"
 )
 
 // String returns the string representation of ListMessage.
 func (l ListMessage) String() string {
+	var listFormat = "%19s %1s %-1s %12s %s"
+	var etag string
+	if l.showEtag {
+		etag = l.Object.Etag
+		listFormat = "%19s %1s %-38s %12s %s"
+	}
+
 	if l.Object.Type.IsDir() {
 		s := fmt.Sprintf(
 			listFormat,
@@ -150,11 +180,6 @@ func (l ListMessage) String() string {
 			l.Object.URL.Relative(),
 		)
 		return s
-	}
-
-	var etag string
-	if l.showEtag {
-		etag = l.Object.Etag
 	}
 
 	s := fmt.Sprintf(

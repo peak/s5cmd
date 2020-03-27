@@ -3,6 +3,10 @@ default: all
 .PHONY: all
 all: clean build test check
 
+.PHONY: build
+build:
+	@go build ${GCFLAGS} -ldflags "${LDFLAGS}" .
+
 .PHONY: test
 test:
 	@go test -mod=vendor ./...
@@ -12,7 +16,7 @@ check: vet staticcheck unparam check-fmt
 
 .PHONY: staticcheck
 staticcheck:
-	@staticcheck -checks 'inherit,-U1000' ./...
+	@staticcheck -checks 'all,-U1000,-ST1000,-ST1003' ./...
 
 .PHONY: unparam
 unparam:
@@ -25,6 +29,10 @@ vet:
 .PHONY: check-fmt
 check-fmt:
 	@sh -c 'if [ -n "$(go fmt -mod=vendor ./...)" ]; then echo "Go code is not formatted"; exit 1; fi'
+
+.PHONY: mock
+mock:
+	@mockery -inpkg -dir=storage -name=Storage -case=underscore
 
 .PHONY: clean
 clean:

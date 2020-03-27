@@ -8,12 +8,11 @@ import (
 
 	"github.com/stretchr/testify/mock"
 
-	"github.com/peak/s5cmd/mocks"
 	"github.com/peak/s5cmd/storage"
 	"github.com/peak/s5cmd/storage/url"
 )
 
-func Test_expandSources(t *testing.T) {
+func TestExpandSources(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -126,25 +125,31 @@ func Test_expandSources(t *testing.T) {
 			wantError: storage.ErrNoObjectFound,
 		},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			// t.Parallel()
 
-			srcurls, err := newSources(keys(tt.src)...)
+			srcurls, err := newURLs(keys(tc.src)...)
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
+				return
 			}
 
-			client := &mocks.Storage{}
+			client := &storage.MockStorage{}
 
-			for src, objects := range tt.src {
+			for src, objects := range tc.src {
 				srcurl, err := url.New(src)
 				if err != nil {
 					t.Errorf("unexpected error: %v", err)
+					continue
 				}
 
 				ch := generateObjects(objects)
-				client.On("List", mock.Anything, srcurl, true).Once().Return(ch)
+
+				if src != "s3://bucket/key" {
+					client.On("List", mock.Anything, srcurl).Once().Return(ch)
+				}
 			}
 
 			gotChan := expandSources(context.Background(), client, srcurls...)
@@ -152,8 +157,8 @@ func Test_expandSources(t *testing.T) {
 			var objects []string
 			for obj := range gotChan {
 				if obj.Err != nil {
-					if obj.Err != tt.wantError {
-						t.Errorf("got error = %v, want %v", obj.Err, tt.wantError)
+					if obj.Err != tc.wantError {
+						t.Errorf("got error = %v, want %v", obj.Err, tc.wantError)
 					}
 					continue
 				}
@@ -161,8 +166,8 @@ func Test_expandSources(t *testing.T) {
 			}
 			// sort read objects
 			sort.Strings(objects)
-			if !reflect.DeepEqual(objects, tt.wantObjects) {
-				t.Errorf("got = %v, want %v", objects, tt.wantObjects)
+			if !reflect.DeepEqual(objects, tc.wantObjects) {
+				t.Errorf("got = %v, want %v", objects, tc.wantObjects)
 			}
 
 			client.AssertExpectations(t)
@@ -179,7 +184,7 @@ func keys(urls map[string][]*storage.Object) []string {
 }
 
 func generateObjects(objects []*storage.Object) <-chan *storage.Object {
-	ch := make(chan *storage.Object)
+	ch := make(chan *storage.Object, len(objects))
 	go func() {
 		defer close(ch)
 		for _, object := range objects {
@@ -187,54 +192,4 @@ func generateObjects(objects []*storage.Object) <-chan *storage.Object {
 		}
 	}()
 	return ch
-}
-
-func Test_checkSources(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name    string
-		sources []string
-		wantErr bool
-	}{
-		{
-			name: "error_if_local_and_remote_mixed",
-			sources: []string{
-				"s3://bucket/key",
-				"filename.txy",
-			},
-			wantErr: true,
-		},
-		{
-			name: "error_if_sources_have_bucket",
-			sources: []string{
-				"s3://bucket/key",
-				"s3://bucket",
-			},
-			wantErr: true,
-		},
-		{
-			name: "error_if_sources_have_s3_prefix",
-			sources: []string{
-				"s3://bucket/prefix/",
-			},
-			wantErr: true,
-		},
-		{
-			name: "success",
-			sources: []string{
-				"s3://bucket/prefix/filename.txt",
-				"s3://bucket/wildcard/*.txt",
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			if err := checkSources(tt.sources...); (err != nil) != tt.wantErr {
-				t.Errorf("checkSources() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
 }

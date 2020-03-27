@@ -220,8 +220,20 @@ will return your GCS buckets.
 acceleration and GCS. If a custom endpoint is provided, it'll fallback to
 path-style.
 
-⚠️  There's an [outstanding issue](https://github.com/peak/s5cmd/issues/81) for
-not being able to list objects at GCS. It'll be fixed in upcoming releases.
+### Retry logic
+
+`s5cmd` uses an exponential backoff retry mechanism for transient or potential
+server-side throttling errors. Non-retriable errors, such as `invalid
+credentials`, `authorization errors` etc, will not be retried. By default,
+`s5cmd` will retry 10 times for about a minute. You can adjust the number of
+retries with `--retry-count` option.
+
+## Using wildcards
+
+Most shells can attempt to expand wildcards before passing the arguments to
+`s5cmd`, resulting in surprising `no matches found` errors.
+
+To avoid this problem, surround the wildcarded expression with single quotes.
 
 ## Output
 
@@ -229,9 +241,9 @@ not being able to list objects at GCS. It'll be fixed in upcoming releases.
 * text format
 
 ```shell
-$ s5cmd cp s3://bucket/key .
+$ s5cmd cp s3://bucket/testfile .
 
-download s3://bucket/key
+cp s3://bucket/testfile testfile
 ```
 
 ```shell
@@ -244,14 +256,14 @@ ERROR "cp s3://somebucket/file.txt file.txt": object already exists
 
 ```json
     {
-      "operation": "download",
+      "operation": "cp",
       "success": true,
-      "source": "s3://bucket/key",
-      "destination": ".",
+      "source": "s3://bucket/testfile",
+      "destination": "testfile",
       "object": "[object]"
     }
     {
-      "operation": "download",
+      "operation": "cp",
       "job": "cp s3://somebucket/file.txt file.txt",
       "error": "'cp s3://somebucket/file.txt file.txt': object already exists"
     }

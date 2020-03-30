@@ -76,23 +76,3 @@ func (d DebugMessage) String() string {
 func (d DebugMessage) JSON() string {
 	return strutil.JSON(d)
 }
-
-// WarningMessage is a generic message structure for unsuccessful operations.
-type WarningMessage struct {
-	Operation string `json:"operation,omitempty"`
-	Command   string `json:"command,omitempty"`
-	Err       string `json:"error"`
-}
-
-// String is the string representation of WarningMessage.
-func (e WarningMessage) String() string {
-	if e.Command == "" {
-		return fmt.Sprint(e.Err)
-	}
-	return fmt.Sprintf("%q: %v", e.Command, e.Err)
-}
-
-// JSON is the JSON representation of WarningMessage.
-func (e WarningMessage) JSON() string {
-	return strutil.JSON(e)
-}

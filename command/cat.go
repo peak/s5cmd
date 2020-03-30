@@ -74,7 +74,7 @@ func Cat(ctx context.Context, src *url.URL, partSize int64) error {
 	}
 	_, err = client.Get(ctx, src, sequentialWriterAt{w: os.Stdout}, 1, partSize)
 	if err != nil {
-		return fmt.Errorf("get returned with: %w", err)
+		return err
 	}
 
 	return nil

@@ -151,7 +151,7 @@ func TestExpandSources(t *testing.T) {
 				ch := generateObjects(objects)
 
 				if src != "s3://bucket/key" {
-					client.On("List", mock.Anything, srcurl).Once().Return(ch)
+					client.On("List", mock.Anything, srcurl, mock.Anything).Once().Return(ch)
 				}
 			}
 

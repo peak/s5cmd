@@ -24,7 +24,6 @@ package e2e
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -2194,12 +2193,11 @@ func TestCopyLinkToASingleFileWithFollowSymlinkDisabled(t *testing.T) {
 			fs.WithFile("f1.txt", fileContent),
 		),
 		fs.WithDir("b"),
+		fs.WithSymlink("b/my_link", "a/f1.txt"),
 	}
 
 	workdir := fs.NewDir(t, t.Name(), folderLayout...)
 	defer workdir.Remove()
-
-	os.Symlink(workdir.Join("a/f1.txt"), workdir.Join("b/my_link"))
 
 	dst := fmt.Sprintf("s3://%v/prefix/", bucket)
 
@@ -2231,13 +2229,12 @@ func TestCopyWithFollowSymlink(t *testing.T) {
 		),
 		fs.WithDir("b"),
 		fs.WithDir("c"),
+		fs.WithSymlink("b/link1", "a/f1.txt"),
+		fs.WithSymlink("c/link2", "b/link1"),
 	}
 
 	workdir := fs.NewDir(t, t.Name(), folderLayout...)
 	defer workdir.Remove()
-
-	os.Symlink(workdir.Join("a/f1.txt"), workdir.Join("b/link1"))
-	os.Symlink(workdir.Join("b/link1"), workdir.Join("c/link2"))
 
 	dst := fmt.Sprintf("s3://%v/prefix/", bucket)
 
@@ -2277,13 +2274,12 @@ func TestCopyWithNoFollowSymlink(t *testing.T) {
 		),
 		fs.WithDir("b"),
 		fs.WithDir("c"),
+		fs.WithSymlink("b/link1", "a/f1.txt"),
+		fs.WithSymlink("c/link2", "b/link1"),
 	}
 
 	workdir := fs.NewDir(t, t.Name(), folderLayout...)
 	defer workdir.Remove()
-
-	os.Symlink(workdir.Join("a/f1.txt"), workdir.Join("b/link1"))
-	os.Symlink(workdir.Join("b/link1"), workdir.Join("c/link2"))
 
 	dst := fmt.Sprintf("s3://%v/prefix/", bucket)
 

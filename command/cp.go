@@ -82,7 +82,7 @@ var copyCommandFlags = []cli.Flag{
 	},
 	&cli.BoolFlag{
 		Name:  "no-follow-symlinks",
-		Usage: "do not follow symbolic links (s5cmd follows symbolic links by default)",
+		Usage: "do not follow symbolic links",
 	},
 	&cli.StringFlag{
 		Name:  "storage-class",

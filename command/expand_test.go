@@ -2,7 +2,6 @@ package command
 
 import (
 	"context"
-	"os"
 	"reflect"
 	"sort"
 	"testing"
@@ -188,12 +187,11 @@ func TestExpandSource_Follow_Link_To_Single_File(t *testing.T) {
 		fs.WithDir(
 			"b",
 		),
+		fs.WithSymlink("b/my_link", "a/f1.txt"),
 	}
 
 	workdir := fs.NewDir(t, "expandsourcetest", folderLayout...)
 	defer workdir.Remove()
-
-	os.Symlink(workdir.Join("a/f1.txt"), workdir.Join("b/my_link"))
 
 	ctx := context.Background()
 	workdirUrl, _ := url.New(workdir.Join("b/my_link"))
@@ -217,12 +215,11 @@ func TestExpandSource_Do_Not_Follow_Link_To_Single_File(t *testing.T) {
 		fs.WithDir(
 			"b",
 		),
+		fs.WithSymlink("b/my_link", "a/f1.txt"),
 	}
 
 	workdir := fs.NewDir(t, "expandsourcetest", folderLayout...)
 	defer workdir.Remove()
-
-	os.Symlink(workdir.Join("a/f1.txt"), workdir.Join("b/my_link"))
 
 	ctx := context.Background()
 	workdirUrl, _ := url.New(workdir.Join("b/my_link"))
@@ -249,12 +246,11 @@ func TestExpandSource_Follow_Link_To_Directory(t *testing.T) {
 		fs.WithDir(
 			"c",
 		),
+		fs.WithSymlink("c/my_link", "a"),
 	}
 
 	workdir := fs.NewDir(t, "expandsourcetest", folderLayout...)
 	defer workdir.Remove()
-
-	os.Symlink(workdir.Join("a"), workdir.Join("c/my_link"))
 
 	ctx := context.Background()
 	workdirUrl, _ := url.New(workdir.Join("c/my_link"))
@@ -286,12 +282,11 @@ func TestExpandSource_Do_Not_Follow_Link_To_Directory(t *testing.T) {
 		fs.WithDir(
 			"c",
 		),
+		fs.WithSymlink("c/my_link", "a"),
 	}
 
 	workdir := fs.NewDir(t, "expandsourcetest", folderLayout...)
 	defer workdir.Remove()
-
-	os.Symlink(workdir.Join("a"), workdir.Join("c/my_link"))
 
 	ctx := context.Background()
 	workdirUrl, _ := url.New(workdir.Join("c/my_link"))
@@ -316,14 +311,14 @@ func TestExpandSource_Do_Not_Follow_Symlinks(t *testing.T) {
 		),
 		fs.WithDir("b"),
 		fs.WithDir("c"),
+		fs.WithSymlink("b/link1", "a/f1.txt"),
+		fs.WithSymlink("c/link2", "b/link1"),
 	}
 
 	workdir := fs.NewDir(t, t.Name(), folderLayout...)
 	defer workdir.Remove()
 
 	workdirUrl, _ := url.New(workdir.Path())
-	os.Symlink(workdir.Join("a/f1.txt"), workdir.Join("b/link1"))
-	os.Symlink(workdir.Join("b/link1"), workdir.Join("c/link2"))
 
 	//do not follow symbolic links
 	storage.FollowSymlinks = false

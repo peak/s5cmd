@@ -122,12 +122,12 @@ func walkDir(ctx context.Context, storage Storage, src *url.URL, followSymlinks 
 
 			fileurl.SetRelative(src.Absolute())
 
-			obj, err := storage.Stat(ctx, fileurl)
-
 			//skip if symlink is pointing to a file and --no-follow-symlink
 			if !ShouldProcessUrl(fileurl, followSymlinks) {
 				return nil
 			}
+
+			obj, err := storage.Stat(ctx, fileurl)
 
 			if err != nil {
 				return err

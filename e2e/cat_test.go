@@ -194,7 +194,7 @@ func TestCatLocalFileFail(t *testing.T) {
 	}
 }
 
-// this method will create a string with 64666688 in size (~61.670 MB)
+// getSequentialFileContent creates a string with 64666688 in size (~61.670 MB)
 func getSequentialFileContent() (string, map[int]compareFunc) {
 	sb := strings.Builder{}
 	expectedLines := make(map[int]compareFunc)

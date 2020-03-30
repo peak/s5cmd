@@ -16,13 +16,13 @@ var catHelpTemplate = `Name:
 	{{.HelpName}} - {{.Usage}}
 
 Usage:
-	{{.HelpName}} [options] source destination
+	{{.HelpName}} [options] source
 
 Options:
 	{{range .VisibleFlags}}{{.}}
 	{{end}}
 Examples:
-	1. Print an S3 object's content to stdout
+	1. Print a remote object's content to stdout
 		 > s5cmd {{.HelpName}} s3://bucket/prefix/object
 `
 

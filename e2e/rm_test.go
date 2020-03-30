@@ -206,7 +206,6 @@ func TestRemoveMultipleS3ObjectsJSON(t *testing.T) {
 
 }
 
-/*
 // rm s3://bucket/* (removes 10k objects)
 func TestRemoveTenThousandS3Objects(t *testing.T) {
 	t.Parallel()
@@ -260,7 +259,6 @@ func TestRemoveTenThousandS3Objects(t *testing.T) {
 		assertError(t, err, errS3NoSuchKey)
 	}
 }
-*/
 
 // rm s3://bucket/prefix
 func TestRemoveS3PrefixWithoutSlash(t *testing.T) {

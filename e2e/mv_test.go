@@ -47,8 +47,8 @@ func TestMoveSingleS3ObjectToLocal(t *testing.T) {
 	assertError(t, err, errS3NoSuchKey)
 }
 
-// mv --flatten s3://bucket/key dir/
-func TestMoveMultipleFlatS3ObjectsToLocal(t *testing.T) {
+// mv s3://bucket/key dir/
+func TestMoveMultipleS3ObjectsToLocal(t *testing.T) {
 	t.Parallel()
 
 	bucket := s3BucketFromTestName(t)

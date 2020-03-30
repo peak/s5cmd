@@ -257,7 +257,7 @@ func TestCopyMultipleFlatS3ObjectsToLocal(t *testing.T) {
 		putFile(t, s3client, bucket, filename, content)
 	}
 
-	cmd := s5cmd("cp", "-flatten", "s3://"+bucket+"/*", ".")
+	cmd := s5cmd("cp", "--flatten", "s3://"+bucket+"/*", ".")
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Success)
@@ -309,7 +309,7 @@ func TestCopyMultipleFlatS3ObjectsToLocalWithPartialMatching(t *testing.T) {
 		putFile(t, s3client, bucket, filename, content)
 	}
 
-	cmd := s5cmd("cp", "-flatten", "s3://"+bucket+"/*.txt", ".")
+	cmd := s5cmd("cp", "--flatten", "s3://"+bucket+"/*.txt", ".")
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Success)
@@ -355,7 +355,7 @@ func TestCopyMultipleFlatNestedS3ObjectsToLocalWithPartialMatching(t *testing.T)
 		putFile(t, s3client, bucket, filename, content)
 	}
 
-	cmd := s5cmd("cp", "-flatten", "s3://"+bucket+"/*/*.txt", ".")
+	cmd := s5cmd("cp", "--flatten", "s3://"+bucket+"/*/*.txt", ".")
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Success)
@@ -397,7 +397,7 @@ func TestCopyMultipleFlatS3ObjectsToLocalJSON(t *testing.T) {
 		putFile(t, s3client, bucket, filename, content)
 	}
 
-	cmd := s5cmd("-json", "cp", "-flatten", "s3://"+bucket+"/*", ".")
+	cmd := s5cmd("-json", "cp", "--flatten", "s3://"+bucket+"/*", ".")
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Success)
@@ -845,7 +845,7 @@ func TestFlattenCopyDirToS3(t *testing.T) {
 
 	// this command ('s5cmd cp dir/ s3://bucket/') will run in 'walk' mode,
 	// which is different than 'glob' mode.
-	cmd := s5cmd("cp", "-flatten", workdir.Path()+"/", dstpath)
+	cmd := s5cmd("cp", "--flatten", workdir.Path()+"/", dstpath)
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Success)
@@ -956,7 +956,7 @@ func TestFlattenCopyMultipleFilesToS3Bucket(t *testing.T) {
 	srcpath := workdir.Path()
 	defer workdir.Remove()
 
-	cmd := s5cmd("cp", "-flatten", srcpath+"/*", dstpath)
+	cmd := s5cmd("cp", "--flatten", srcpath+"/*", dstpath)
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Success)
@@ -1125,7 +1125,7 @@ func TestFlattenCopyMultipleFilesToS3WithPrefixWithSlash(t *testing.T) {
 	src := fmt.Sprintf("%v/*", srcpath)
 	dst := fmt.Sprintf("s3://%v/prefix/", bucket)
 
-	cmd := s5cmd("cp", "-flatten", src, dst)
+	cmd := s5cmd("cp", "--flatten", src, dst)
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Success)
@@ -1248,7 +1248,7 @@ func TestFlattenCopyLocalDirectoryToS3WithPrefixWithSlash(t *testing.T) {
 	src := fmt.Sprintf("%v/", workdir.Path())
 	dst := fmt.Sprintf("s3://%v/prefix/", bucket)
 
-	cmd := s5cmd("cp", "-flatten", src, dst)
+	cmd := s5cmd("cp", "--flatten", src, dst)
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Success)
@@ -1478,7 +1478,7 @@ func TestFlattenCopySingleS3ObjectIntoAnotherBucket(t *testing.T) {
 	src := fmt.Sprintf("s3://%v/%v", srcbucket, filename)
 	dst := fmt.Sprintf("s3://%v/", dstbucket)
 
-	cmd := s5cmd("cp", "-flatten", src, dst)
+	cmd := s5cmd("cp", "--flatten", src, dst)
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Success)
@@ -1649,7 +1649,7 @@ func TestFlattenCopyMultipleS3ObjectsToS3WithPrefix(t *testing.T) {
 	src := fmt.Sprintf("s3://%v/*", bucket)
 	dst := fmt.Sprintf("s3://%v/dst/", bucket)
 
-	cmd := s5cmd("cp", "-flatten", src, dst)
+	cmd := s5cmd("cp", "--flatten", src, dst)
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Success)

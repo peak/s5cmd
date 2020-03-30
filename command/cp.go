@@ -77,8 +77,9 @@ var copyCommandFlags = []cli.Flag{
 		Usage:   "only overwrite destination if source modtime is newer",
 	},
 	&cli.BoolFlag{
-		Name:  "parents",
-		Usage: "create same directory structure of source, starting from the first wildcard",
+		Name:    "flatten",
+		Aliases: []string{"f"},
+		Usage:   "flatten directory structure of source, starting from the first wildcard",
 	},
 	&cli.StringFlag{
 		Name:  "storage-class",
@@ -118,7 +119,7 @@ var CopyCommand = &cli.Command{
 			noClobber:     c.Bool("no-clobber"),
 			ifSizeDiffer:  c.Bool("if-size-differ"),
 			ifSourceNewer: c.Bool("if-source-newer"),
-			parents:       c.Bool("parents"),
+			flatten:       c.Bool("flatten"),
 			storageClass:  storage.LookupClass(c.String("storage-class")),
 			concurrency:   c.Int("concurrency"),
 			partSize:      c.Int64("part-size") * megabytes,
@@ -140,7 +141,7 @@ type Copy struct {
 	noClobber     bool
 	ifSizeDiffer  bool
 	ifSourceNewer bool
-	parents       bool
+	flatten       bool
 	storageClass  storage.StorageClass
 
 	// s3 options
@@ -183,6 +184,11 @@ func (c Copy) Run(ctx context.Context) error {
 	}()
 
 	isBatch := srcurl.HasGlob()
+	if !isBatch && !srcurl.IsRemote() {
+		obj, _ := client.Stat(ctx, srcurl)
+		isBatch = obj != nil && obj.Type.IsDir()
+	}
+
 	for object := range objch {
 		if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) {
 			continue
@@ -223,7 +229,7 @@ func (c Copy) prepareCopyTask(
 	isBatch bool,
 ) func() error {
 	return func() error {
-		dsturl = prepareCopyDestination(srcurl, dsturl, c.parents, isBatch)
+		dsturl = prepareRemoteDestination(srcurl, dsturl, c.flatten, isBatch)
 		err := c.doCopy(ctx, srcurl, dsturl)
 		if err != nil {
 			return &errorpkg.Error{
@@ -244,7 +250,7 @@ func (c Copy) prepareDownloadTask(
 	isBatch bool,
 ) func() error {
 	return func() error {
-		dsturl, err := prepareDownloadDestination(ctx, srcurl, dsturl, c.parents, isBatch)
+		dsturl, err := prepareLocalDestination(ctx, srcurl, dsturl, c.flatten, isBatch)
 		if err != nil {
 			return err
 		}
@@ -269,7 +275,7 @@ func (c Copy) prepareUploadTask(
 	isBatch bool,
 ) func() error {
 	return func() error {
-		dsturl = prepareUploadDestination(srcurl, dsturl, c.parents, isBatch)
+		dsturl = prepareRemoteDestination(srcurl, dsturl, c.flatten, isBatch)
 		err := c.doUpload(ctx, srcurl, dsturl)
 		if err != nil {
 			return &errorpkg.Error{
@@ -494,48 +500,36 @@ func (c Copy) shouldOverride(ctx context.Context, srcurl *url.URL, dsturl *url.U
 	return stickyErr
 }
 
-// prepareCopyDestination will return a new destination URL for local->local
-// and remote->remote copy operations.
-func prepareCopyDestination(
+// prepareRemoteDestination will return a new destination URL for
+// remote->remote and local->remote copy operations.
+func prepareRemoteDestination(
 	srcurl *url.URL,
 	dsturl *url.URL,
-	parents bool,
+	flatten bool,
 	isBatch bool,
 ) *url.URL {
 	objname := srcurl.Base()
-	if parents {
+	if isBatch && !flatten {
 		objname = srcurl.Relative()
 	}
 
-	// For remote->remote copy operations, treat <dst> as prefix if it has "/"
-	// suffix.
-	if dsturl.IsRemote() {
-		if dsturl.IsPrefix() || dsturl.IsBucket() {
-			dsturl = dsturl.Join(objname)
-		}
-		return dsturl
+	if dsturl.IsPrefix() || dsturl.IsBucket() {
+		dsturl = dsturl.Join(objname)
 	}
-
-	// Absolute <src> path is given. Use given <dst> and local copy operation
-	// will create missing directories if <dst> has one.
-	if !isBatch {
-		return dsturl
-	}
-
-	return dsturl.Join(objname)
+	return dsturl
 }
 
 // prepareDownloadDestination will return a new destination URL for
-// remote->local and remote->remote copy operations.
-func prepareDownloadDestination(
+// remote->local copy operations.
+func prepareLocalDestination(
 	ctx context.Context,
 	srcurl *url.URL,
 	dsturl *url.URL,
-	parents bool,
+	flatten bool,
 	isBatch bool,
 ) (*url.URL, error) {
 	objname := srcurl.Base()
-	if parents {
+	if isBatch && !flatten {
 		objname = srcurl.Relative()
 	}
 
@@ -555,7 +549,7 @@ func prepareDownloadDestination(
 		return nil, err
 	}
 
-	if parents {
+	if isBatch && !flatten {
 		dsturl = dsturl.Join(objname)
 		if err := os.MkdirAll(dsturl.Dir(), os.ModePerm); err != nil {
 			return nil, err
@@ -576,27 +570,6 @@ func prepareDownloadDestination(
 	}
 
 	return dsturl, nil
-}
-
-// prepareUploadDestination will return a new destination URL for local->remote
-// operations.
-func prepareUploadDestination(
-	srcurl *url.URL,
-	dsturl *url.URL,
-	parents bool,
-	isBatch bool,
-) *url.URL {
-	// if given destination is a bucket/objname, don't do any join and respect
-	// the user's destination object name.
-	if !isBatch && !dsturl.IsBucket() && !dsturl.IsPrefix() {
-		return dsturl
-	}
-
-	objname := srcurl.Base()
-	if parents {
-		objname = srcurl.Relative()
-	}
-	return dsturl.Join(objname)
 }
 
 // getObject checks if the object from given url exists. If no object is
@@ -642,12 +615,6 @@ func Validate(c *cli.Context) error {
 	// wildcard destination doesn't mean anything
 	if dsturl.HasGlob() {
 		return fmt.Errorf("target %q can not contain glob characters", dst)
-	}
-
-	// --parents is used in conjunction with a wildcard source to deduce
-	// relative source paths.
-	if !srcurl.HasGlob() && c.Bool("parents") {
-		return fmt.Errorf("source argument must contain wildcard if --parents flag is provided")
 	}
 
 	// we don't operate on S3 prefixes for copy and delete operations.

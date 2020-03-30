@@ -30,7 +30,8 @@ This is a major release with many breaking changes.
 - `-ds`, `-dw`, `-us` and `-uw` global flags are no longer available. Multipart
   concurrency and part size flags are now part of the `cp/mv` command. New
   replacement flags are `--concurrency | -c` and `--part-size | -p`. ([#110](https://github.com/peak/s5cmd/pull/110))
-
+- Dropped `-parents` flag from copy command. Copy behaviour has changed to preserve the directory hierarchy as a default.
+  Optional `-flatten` flag is added to flatten directory structure.
 #### Features
 
 - Added `mb` command to make buckets. ([#25](https://github.com/peak/s5cmd/issues/25))

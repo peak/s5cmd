@@ -1,0 +1,20 @@
+# Check https://circleci.com/docs/2.0/language-go/ for more details
+version: 2
+jobs:
+  build:
+    docker:
+      - image: circleci/golang:1.14
+
+    working_directory: /go/src/github.com/peak/s5cmd
+    steps:
+      - run: go get honnef.co/go/tools/cmd/staticcheck
+      - run: go get mvdan.cc/unparam
+
+      - checkout
+
+      - run: go mod verify
+      - run: make test
+      - run: make check-fmt
+      - run: make staticcheck
+      - run: make vet
+      - run: make unparam

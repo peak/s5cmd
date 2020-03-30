@@ -6,6 +6,9 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"gotest.tools/v3/fs"
+
 	"github.com/stretchr/testify/mock"
 
 	"github.com/peak/s5cmd/storage"
@@ -148,11 +151,11 @@ func TestExpandSources(t *testing.T) {
 				ch := generateObjects(objects)
 
 				if src != "s3://bucket/key" {
-					client.On("List", mock.Anything, srcurl).Once().Return(ch)
+					client.On("List", mock.Anything, srcurl, mock.Anything).Once().Return(ch)
 				}
 			}
 
-			gotChan := expandSources(context.Background(), client, srcurls...)
+			gotChan := expandSources(context.Background(), client, false, srcurls...)
 
 			var objects []string
 			for obj := range gotChan {
@@ -173,6 +176,153 @@ func TestExpandSources(t *testing.T) {
 			client.AssertExpectations(t)
 		})
 	}
+}
+
+func TestExpandSource_Follow_Link_To_Single_File(t *testing.T) {
+	folderLayout := []fs.PathOp{
+		fs.WithDir(
+			"a",
+			fs.WithFile("f1.txt", ""),
+		),
+		fs.WithDir(
+			"b",
+		),
+		fs.WithSymlink("b/my_link", "a/f1.txt"),
+	}
+
+	workdir := fs.NewDir(t, "expandsourcetest", folderLayout...)
+	defer workdir.Remove()
+
+	ctx := context.Background()
+	workdirUrl, _ := url.New(workdir.Join("b/my_link"))
+
+	//follow symbolic links
+	ch, _ := expandSource(ctx, storage.NewFilesystem(), true, workdirUrl)
+	var expected []string
+	for obj := range ch {
+		expected = append(expected, obj.URL.Absolute())
+	}
+	assert.Equal(t, []string{workdir.Join("b/my_link")}, expected)
+}
+
+func TestExpandSource_Do_Not_Follow_Link_To_Single_File(t *testing.T) {
+	folderLayout := []fs.PathOp{
+		fs.WithDir(
+			"a",
+			fs.WithFile("f1.txt", ""),
+		),
+		fs.WithDir(
+			"b",
+		),
+		fs.WithSymlink("b/my_link", "a/f1.txt"),
+	}
+
+	workdir := fs.NewDir(t, "expandsourcetest", folderLayout...)
+	defer workdir.Remove()
+
+	ctx := context.Background()
+	workdirUrl, _ := url.New(workdir.Join("b/my_link"))
+
+	//do not follow symbolic links
+	ch, _ := expandSource(ctx, storage.NewFilesystem(), false, workdirUrl)
+	var expected []string
+	for obj := range ch {
+		expected = append(expected, obj.URL.Absolute())
+	}
+	assert.Empty(t, expected)
+}
+
+func TestExpandSource_Follow_Link_To_Directory(t *testing.T) {
+	folderLayout := []fs.PathOp{
+		fs.WithDir(
+			"a",
+			fs.WithFile("f1.txt", ""),
+			fs.WithFile("f2.txt", ""),
+			fs.WithDir("b",
+				fs.WithFile("f3.txt", "")),
+		),
+		fs.WithDir(
+			"c",
+		),
+		fs.WithSymlink("c/my_link", "a"),
+	}
+
+	workdir := fs.NewDir(t, "expandsourcetest", folderLayout...)
+	defer workdir.Remove()
+
+	ctx := context.Background()
+	workdirUrl, _ := url.New(workdir.Join("c/my_link"))
+
+	//follow symbolic links
+	ch, _ := expandSource(ctx, storage.NewFilesystem(), true, workdirUrl)
+	var expected []string
+	for obj := range ch {
+		expected = append(expected, obj.URL.Absolute())
+	}
+	sort.Strings(expected)
+	assert.Equal(t, []string{
+		workdir.Join("c/my_link/b/f3.txt"),
+		workdir.Join("c/my_link/f1.txt"),
+		workdir.Join("c/my_link/f2.txt"),
+	}, expected)
+}
+
+func TestExpandSource_Do_Not_Follow_Link_To_Directory(t *testing.T) {
+	folderLayout := []fs.PathOp{
+		fs.WithDir(
+			"a",
+			fs.WithFile("f1.txt", ""),
+			fs.WithFile("f2.txt", ""),
+			fs.WithDir("b",
+				fs.WithFile("f3.txt", "")),
+		),
+		fs.WithDir(
+			"c",
+		),
+		fs.WithSymlink("c/my_link", "a"),
+	}
+
+	workdir := fs.NewDir(t, "expandsourcetest", folderLayout...)
+	defer workdir.Remove()
+
+	ctx := context.Background()
+	workdirUrl, _ := url.New(workdir.Join("c/my_link"))
+
+	//do not follow symbolic links
+	ch, _ := expandSource(ctx, storage.NewFilesystem(), false, workdirUrl)
+	var expected []string
+	for obj := range ch {
+		expected = append(expected, obj.URL.Absolute())
+	}
+	assert.Empty(t, expected)
+}
+
+func TestExpandSource_Do_Not_Follow_Symlinks(t *testing.T) {
+	ctx := context.Background()
+	fileContent := "CAFEBABE"
+	folderLayout := []fs.PathOp{
+		fs.WithDir(
+			"a",
+			fs.WithFile("f1.txt", fileContent),
+		),
+		fs.WithDir("b"),
+		fs.WithDir("c"),
+		fs.WithSymlink("b/link1", "a/f1.txt"),
+		fs.WithSymlink("c/link2", "b/link1"),
+	}
+
+	workdir := fs.NewDir(t, t.Name(), folderLayout...)
+	defer workdir.Remove()
+
+	workdirUrl, _ := url.New(workdir.Path())
+
+	//do not follow symbolic links
+	ch, _ := expandSource(ctx, storage.NewFilesystem(), false, workdirUrl)
+	var expected []string
+	for obj := range ch {
+		expected = append(expected, obj.URL.Absolute())
+	}
+	assert.Equal(t, []string{workdir.Join("a/f1.txt")}, expected)
 }
 
 func keys(urls map[string][]*storage.Object) []string {

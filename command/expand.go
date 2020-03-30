@@ -14,6 +14,7 @@ import (
 func expandSource(
 	ctx context.Context,
 	client storage.Storage,
+	followSymlinks bool,
 	srcurl *url.URL,
 ) (<-chan *storage.Object, error) {
 	var isDir bool
@@ -30,11 +31,13 @@ func expandSource(
 
 	// call storage.List for only walking operations.
 	if srcurl.HasGlob() || isDir {
-		return client.List(ctx, srcurl), nil
+		return client.List(ctx, srcurl, followSymlinks), nil
 	}
 
 	ch := make(chan *storage.Object, 1)
-	ch <- &storage.Object{URL: srcurl}
+	if storage.ShouldProcessUrl(srcurl, followSymlinks) {
+		ch <- &storage.Object{URL: srcurl}
+	}
 	close(ch)
 	return ch, nil
 }
@@ -46,6 +49,7 @@ func expandSource(
 func expandSources(
 	ctx context.Context,
 	client storage.Storage,
+	followSymlinks bool,
 	srcurls ...*url.URL,
 ) <-chan *storage.Object {
 	ch := make(chan *storage.Object)
@@ -61,7 +65,7 @@ func expandSources(
 			go func(origSrc *url.URL) {
 				defer wg.Done()
 
-				objch, err := expandSource(ctx, client, origSrc)
+				objch, err := expandSource(ctx, client, followSymlinks, origSrc)
 				if err != nil {
 					ch <- &storage.Object{Err: err}
 					return

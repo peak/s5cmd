@@ -81,6 +81,10 @@ var copyCommandFlags = []cli.Flag{
 		Aliases: []string{"f"},
 		Usage:   "flatten directory structure of source, starting from the first wildcard",
 	},
+	&cli.BoolFlag{
+		Name:  "no-follow-symlinks",
+		Usage: "do not follow symbolic links",
+	},
 	&cli.StringFlag{
 		Name:  "storage-class",
 		Usage: "set storage class for target ('STANDARD','REDUCED_REDUNDANCY','GLACIER','STANDARD_IA')",
@@ -116,15 +120,15 @@ var CopyCommand = &cli.Command{
 			fullCommand:  givenCommand(c),
 			deleteSource: false, // don't delete source
 			// flags
-			noClobber:     c.Bool("no-clobber"),
-			ifSizeDiffer:  c.Bool("if-size-differ"),
-			ifSourceNewer: c.Bool("if-source-newer"),
-			flatten:       c.Bool("flatten"),
-			storageClass:  storage.LookupClass(c.String("storage-class")),
-			concurrency:   c.Int("concurrency"),
-			partSize:      c.Int64("part-size") * megabytes,
+			noClobber:      c.Bool("no-clobber"),
+			ifSizeDiffer:   c.Bool("if-size-differ"),
+			ifSourceNewer:  c.Bool("if-source-newer"),
+			flatten:        c.Bool("flatten"),
+			followSymlinks: !c.Bool("no-follow-symlinks"),
+			storageClass:   storage.LookupClass(c.String("storage-class")),
+			concurrency:    c.Int("concurrency"),
+			partSize:       c.Int64("part-size") * megabytes,
 		}
-
 		return copyCommand.Run(c.Context)
 	},
 }
@@ -138,11 +142,12 @@ type Copy struct {
 	deleteSource bool
 
 	// flags
-	noClobber     bool
-	ifSizeDiffer  bool
-	ifSourceNewer bool
-	flatten       bool
-	storageClass  storage.StorageClass
+	noClobber      bool
+	ifSizeDiffer   bool
+	ifSourceNewer  bool
+	flatten        bool
+	followSymlinks bool
+	storageClass   storage.StorageClass
 
 	// s3 options
 	concurrency int
@@ -165,7 +170,7 @@ func (c Copy) Run(ctx context.Context) error {
 		return err
 	}
 
-	objch, err := expandSource(ctx, client, srcurl)
+	objch, err := expandSource(ctx, client, c.followSymlinks, srcurl)
 	if err != nil {
 		return err
 	}

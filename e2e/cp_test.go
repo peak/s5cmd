@@ -2550,3 +2550,124 @@ func TestCopyMultipleLocalNestedFilesToS3(t *testing.T) {
 	assert.Assert(t, ensureS3Object(s3client, bucket, "prefix/a/file1.txt", "file1"))
 	assert.Assert(t, ensureS3Object(s3client, bucket, "prefix/b/c/file2.txt", "file2"))
 }
+
+// cp --no-follow-symlinks my_link s3://bucket/prefix/
+func TestCopyLinkToASingleFileWithFollowSymlinkDisabled(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	const bucket = "bucket"
+	createBucket(t, s3client, bucket)
+
+	fileContent := "CAFEBABE"
+	folderLayout := []fs.PathOp{
+		fs.WithDir(
+			"a",
+			fs.WithFile("f1.txt", fileContent),
+		),
+		fs.WithDir("b"),
+		fs.WithSymlink("b/my_link", "a/f1.txt"),
+	}
+
+	workdir := fs.NewDir(t, t.Name(), folderLayout...)
+	defer workdir.Remove()
+
+	dst := fmt.Sprintf("s3://%v/prefix/", bucket)
+
+	cmd := s5cmd("cp", "--no-follow-symlinks", "b/my_link", dst)
+	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(""),
+	}, sortInput(true))
+}
+
+// cp * s3://bucket/prefix/
+func TestCopyWithFollowSymlink(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	const bucket = "bucket"
+	createBucket(t, s3client, bucket)
+
+	fileContent := "CAFEBABE"
+	folderLayout := []fs.PathOp{
+		fs.WithDir(
+			"a",
+			fs.WithFile("f1.txt", fileContent),
+		),
+		fs.WithDir("b"),
+		fs.WithDir("c"),
+		fs.WithSymlink("b/link1", "a/f1.txt"),
+		fs.WithSymlink("c/link2", "b/link1"),
+	}
+
+	workdir := fs.NewDir(t, t.Name(), folderLayout...)
+	defer workdir.Remove()
+
+	dst := fmt.Sprintf("s3://%v/prefix/", bucket)
+
+	cmd := s5cmd("cp", "*", dst)
+	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(""),
+		1: equals("cp a/f1.txt %va/f1.txt", dst),
+		2: equals("cp b/link1 %vb/link1", dst),
+		3: equals("cp c/link2 %vc/link2", dst),
+	}, sortInput(true))
+
+	// assert s3 objects
+	assert.Assert(t, ensureS3Object(s3client, bucket, "prefix/a/f1.txt", fileContent))
+	assert.Assert(t, ensureS3Object(s3client, bucket, "prefix/b/link1", fileContent))
+	assert.Assert(t, ensureS3Object(s3client, bucket, "prefix/c/link2", fileContent))
+}
+
+// cp --no-follow-symlinks * s3://bucket/prefix/
+func TestCopyWithNoFollowSymlink(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	const bucket = "bucket"
+	createBucket(t, s3client, bucket)
+
+	fileContent := "CAFEBABE"
+	folderLayout := []fs.PathOp{
+		fs.WithDir(
+			"a",
+			fs.WithFile("f1.txt", fileContent),
+		),
+		fs.WithDir("b"),
+		fs.WithDir("c"),
+		fs.WithSymlink("b/link1", "a/f1.txt"),
+		fs.WithSymlink("c/link2", "b/link1"),
+	}
+
+	workdir := fs.NewDir(t, t.Name(), folderLayout...)
+	defer workdir.Remove()
+
+	dst := fmt.Sprintf("s3://%v/prefix/", bucket)
+
+	cmd := s5cmd("cp", "--no-follow-symlinks", "*", dst)
+	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(""),
+		1: equals("cp a/f1.txt %va/f1.txt", dst),
+	}, sortInput(true))
+
+	// assert s3 objects
+	assert.Assert(t, ensureS3Object(s3client, bucket, "prefix/a/f1.txt", fileContent))
+}

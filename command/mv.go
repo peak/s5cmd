@@ -51,7 +51,7 @@ var MoveCommand = &cli.Command{
 			noClobber:     c.Bool("no-clobber"),
 			ifSizeDiffer:  c.Bool("if-size-differ"),
 			ifSourceNewer: c.Bool("if-source-newer"),
-			parents:       c.Bool("parents"),
+			flatten:       c.Bool("flatten"),
 			storageClass:  storage.LookupClass(c.String("storage-class")),
 		}
 

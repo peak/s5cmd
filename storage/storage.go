@@ -28,7 +28,7 @@ type Storage interface {
 	Stat(ctx context.Context, src *url.URL) (*Object, error)
 
 	// List the objects and directories/prefixes in the src.
-	List(ctx context.Context, src *url.URL) <-chan *Object
+	List(ctx context.Context, src *url.URL, followSymlinks bool) <-chan *Object
 
 	// Copy src to dst, optionally setting the given metadata. Src and dst
 	// arguments are of the same type. If src is a remote type, server side
@@ -112,6 +112,31 @@ func (o ObjectType) MarshalJSON() ([]byte, error) {
 // IsDir checks if the object is a directory.
 func (o ObjectType) IsDir() bool {
 	return o.mode.IsDir()
+}
+
+// IsSymlink checks if the object is a symbolic link.
+func (o ObjectType) IsSymlink() bool {
+	return o.mode&os.ModeSymlink != 0
+}
+
+// ShouldProcessUrl returns true if follow symlinks is enabled.
+// If follow symlinks is disabled we should not process the url.
+// (this check is needed only for local files)
+func ShouldProcessUrl(url *url.URL, followSymlinks bool) bool {
+	if followSymlinks {
+		return true
+	}
+
+	if url.IsRemote() {
+		return true
+	}
+	fi, err := os.Lstat(url.Absolute())
+	if err != nil {
+		return false
+	}
+
+	// do not process symlinks
+	return fi.Mode()&os.ModeSymlink == 0
 }
 
 // dateFormat is a constant time template for the bucket.

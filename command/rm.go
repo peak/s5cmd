@@ -75,7 +75,7 @@ func Delete(
 		return err
 	}
 
-	objChan := expandSources(ctx, client, srcurls...)
+	objChan := expandSources(ctx, client, false, srcurls...)
 
 	// do object->url transformation
 	urlch := make(chan *url.URL)

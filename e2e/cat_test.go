@@ -93,7 +93,7 @@ func TestCatS3ObjectFail(t *testing.T) {
 				src,
 			},
 			expected: map[int]compareFunc{
-				0: contains(`ERROR "cat s3://bucket/file.txt": get returned with: NoSuchKey: status code: 404`),
+				0: contains(`ERROR "cat s3://bucket/file.txt": NoSuchKey: status code: 404`),
 				1: equals(""),
 			},
 		},
@@ -105,7 +105,7 @@ func TestCatS3ObjectFail(t *testing.T) {
 				src,
 			},
 			expected: map[int]compareFunc{
-				0: contains(`{"operation":"cat","command":"cat s3://bucket/file.txt","error":"get returned with: NoSuchKey: status code: 404,`),
+				0: contains(`{"operation":"cat","command":"cat s3://bucket/file.txt","error":"NoSuchKey: status code: 404,`),
 				1: equals(""),
 			},
 		},
@@ -159,7 +159,7 @@ func TestCatLocalFileFail(t *testing.T) {
 				filename,
 			},
 			expected: map[int]compareFunc{
-				0: contains(`ERROR "cat file.txt": get returned with: "Get" is not supported on "filesystem" storage`),
+				0: contains(`ERROR "cat file.txt": "Get" is not supported on "filesystem" storage`),
 				1: equals(""),
 			},
 		},
@@ -171,7 +171,7 @@ func TestCatLocalFileFail(t *testing.T) {
 				filename,
 			},
 			expected: map[int]compareFunc{
-				0: contains(`{"operation":"cat","command":"cat file.txt","error":"get returned with: \"Get\" is not supported on \"filesystem\" storage"}`),
+				0: contains(`{"operation":"cat","command":"cat file.txt","error":"\"Get\" is not supported on \"filesystem\" storage"}`),
 				1: equals(""),
 			},
 		},

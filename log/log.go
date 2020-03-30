@@ -34,7 +34,7 @@ func Info(msg Message) {
 
 // Warning prints message in warning mode.
 func Warning(msg Message) {
-	global.printf(LevelWarning, msg, os.Stdout)
+	global.printf(LevelWarning, msg, os.Stderr)
 }
 
 // Error prints message in error mode.

@@ -21,9 +21,6 @@ var (
 	ErrNoObjectFound = fmt.Errorf("no object found")
 )
 
-// FollowSymlinks is used to check the value of --no-follow-symlinks flag globally
-var FollowSymlinks = true
-
 // Storage is an interface for storage operations.
 type Storage interface {
 	// Stat returns the Object structure describing object. If src is not
@@ -31,7 +28,7 @@ type Storage interface {
 	Stat(ctx context.Context, src *url.URL) (*Object, error)
 
 	// List the objects and directories/prefixes in the src.
-	List(ctx context.Context, src *url.URL) <-chan *Object
+	List(ctx context.Context, src *url.URL, followSymlinks bool) <-chan *Object
 
 	// Copy src to dst, optionally setting the given metadata. Src and dst
 	// arguments are of the same type. If src is a remote type, server side
@@ -125,8 +122,8 @@ func (o ObjectType) IsSymlink() bool {
 // ShouldProcessUrl returns true if follow symlinks is enabled.
 // If follow symlinks is disabled we should not process the url.
 // (this check is needed only for local files)
-func ShouldProcessUrl(url *url.URL) bool {
-	if FollowSymlinks {
+func ShouldProcessUrl(url *url.URL, followSymlinks bool) bool {
+	if followSymlinks {
 		return true
 	}
 

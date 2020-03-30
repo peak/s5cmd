@@ -116,7 +116,7 @@ func List(
 
 	var merror error
 
-	for object := range client.List(ctx, srcurl) {
+	for object := range client.List(ctx, srcurl, false) {
 		if errorpkg.IsCancelation(object.Err) {
 			continue
 		}

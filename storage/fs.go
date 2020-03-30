@@ -38,16 +38,16 @@ func (f *Filesystem) Stat(ctx context.Context, url *url.URL) (*Object, error) {
 	}, nil
 }
 
-func (f *Filesystem) List(ctx context.Context, src *url.URL) <-chan *Object {
+func (f *Filesystem) List(ctx context.Context, src *url.URL, followSymlinks bool) <-chan *Object {
 	obj, err := f.Stat(ctx, src)
 	isDir := err == nil && obj.Type.IsDir()
 
 	if isDir {
-		return f.walkDir(ctx, src)
+		return f.walkDir(ctx, src, followSymlinks)
 	}
 
 	if src.HasGlob() {
-		return f.expandGlob(ctx, src)
+		return f.expandGlob(ctx, src, followSymlinks)
 	}
 
 	return f.listSingleObject(ctx, src)
@@ -65,7 +65,7 @@ func (f *Filesystem) listSingleObject(ctx context.Context, src *url.URL) <-chan 
 	return ch
 }
 
-func (f *Filesystem) expandGlob(ctx context.Context, src *url.URL) <-chan *Object {
+func (f *Filesystem) expandGlob(ctx context.Context, src *url.URL, followSymlinks bool) <-chan *Object {
 	ch := make(chan *Object)
 
 	go func() {
@@ -95,7 +95,7 @@ func (f *Filesystem) expandGlob(ctx context.Context, src *url.URL) <-chan *Objec
 				continue
 			}
 
-			walkDir(ctx, f, fileurl, func(obj *Object) {
+			walkDir(ctx, f, fileurl, followSymlinks, func(obj *Object) {
 				sendObject(ctx, obj, ch)
 			})
 		}
@@ -103,9 +103,9 @@ func (f *Filesystem) expandGlob(ctx context.Context, src *url.URL) <-chan *Objec
 	return ch
 }
 
-func walkDir(ctx context.Context, storage Storage, src *url.URL, fn func(o *Object)) {
+func walkDir(ctx context.Context, storage Storage, src *url.URL, followSymlinks bool, fn func(o *Object)) {
 	//skip if symlink is pointing to a dir and --no-follow-symlink
-	if !ShouldProcessUrl(src) {
+	if !ShouldProcessUrl(src, followSymlinks) {
 		return
 	}
 	err := godirwalk.Walk(src.Absolute(), &godirwalk.Options{
@@ -125,7 +125,7 @@ func walkDir(ctx context.Context, storage Storage, src *url.URL, fn func(o *Obje
 			obj, err := storage.Stat(ctx, fileurl)
 
 			//skip if symlink is pointing to a file and --no-follow-symlink
-			if !ShouldProcessUrl(fileurl) {
+			if !ShouldProcessUrl(fileurl, followSymlinks) {
 				return nil
 			}
 
@@ -136,7 +136,7 @@ func walkDir(ctx context.Context, storage Storage, src *url.URL, fn func(o *Obje
 			return nil
 		},
 		// flags
-		FollowSymbolicLinks: FollowSymlinks,
+		FollowSymbolicLinks: followSymlinks,
 	})
 	if err != nil {
 		obj := &Object{Err: err}
@@ -144,12 +144,12 @@ func walkDir(ctx context.Context, storage Storage, src *url.URL, fn func(o *Obje
 	}
 }
 
-func (f *Filesystem) walkDir(ctx context.Context, src *url.URL) <-chan *Object {
+func (f *Filesystem) walkDir(ctx context.Context, src *url.URL, followSymlinks bool) <-chan *Object {
 	ch := make(chan *Object)
 	go func() {
 		defer close(ch)
 
-		walkDir(ctx, f, src, func(obj *Object) {
+		walkDir(ctx, f, src, followSymlinks, func(obj *Object) {
 			sendObject(ctx, obj, ch)
 		})
 	}()

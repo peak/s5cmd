@@ -119,16 +119,15 @@ var CopyCommand = &cli.Command{
 			fullCommand:  givenCommand(c),
 			deleteSource: false, // don't delete source
 			// flags
-			noClobber:     c.Bool("no-clobber"),
-			ifSizeDiffer:  c.Bool("if-size-differ"),
-			ifSourceNewer: c.Bool("if-source-newer"),
-			parents:       c.Bool("parents"),
-			storageClass:  storage.LookupClass(c.String("storage-class")),
-			concurrency:   c.Int("concurrency"),
-			partSize:      c.Int64("part-size") * megabytes,
+			noClobber:      c.Bool("no-clobber"),
+			ifSizeDiffer:   c.Bool("if-size-differ"),
+			ifSourceNewer:  c.Bool("if-source-newer"),
+			parents:        c.Bool("parents"),
+			followSymlinks: !c.Bool("no-follow-symlinks"),
+			storageClass:   storage.LookupClass(c.String("storage-class")),
+			concurrency:    c.Int("concurrency"),
+			partSize:       c.Int64("part-size") * megabytes,
 		}
-
-		storage.FollowSymlinks = !c.Bool("no-follow-symlinks")
 		return copyCommand.Run(c.Context)
 	},
 }
@@ -142,11 +141,12 @@ type Copy struct {
 	deleteSource bool
 
 	// flags
-	noClobber     bool
-	ifSizeDiffer  bool
-	ifSourceNewer bool
-	parents       bool
-	storageClass  storage.StorageClass
+	noClobber      bool
+	ifSizeDiffer   bool
+	ifSourceNewer  bool
+	parents        bool
+	followSymlinks bool
+	storageClass   storage.StorageClass
 
 	// s3 options
 	concurrency int
@@ -169,7 +169,7 @@ func (c Copy) Run(ctx context.Context) error {
 		return err
 	}
 
-	objch, err := expandSource(ctx, client, srcurl)
+	objch, err := expandSource(ctx, client, c.followSymlinks, srcurl)
 	if err != nil {
 		return err
 	}

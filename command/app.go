@@ -114,6 +114,7 @@ func Main(ctx context.Context, args []string) error {
 		SizeCommand,
 		RunCommand,
 		VersionCommand,
+		CatCommand,
 	}
 
 	if autoComplete() {

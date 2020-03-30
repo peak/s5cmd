@@ -33,7 +33,7 @@ func TestCatS3Object(t *testing.T) {
 		{
 			name: "cat remote object with json flag",
 			cmd: []string{
-				"-json",
+				"--json",
 				"cat",
 				src,
 			},
@@ -100,7 +100,7 @@ func TestCatS3ObjectFail(t *testing.T) {
 		{
 			name: "cat non existent remote object with json flag",
 			cmd: []string{
-				"-json",
+				"--json",
 				"cat",
 				src,
 			},
@@ -112,7 +112,7 @@ func TestCatS3ObjectFail(t *testing.T) {
 		{
 			name: "cat remote object with glob",
 			cmd: []string{
-				"-json",
+				"--json",
 				"cat",
 				src + "/*",
 			},
@@ -166,7 +166,7 @@ func TestCatLocalFileFail(t *testing.T) {
 		{
 			name: "cat local file with json flag",
 			cmd: []string{
-				"-json",
+				"--json",
 				"cat",
 				filename,
 			},

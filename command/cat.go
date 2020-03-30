@@ -84,7 +84,7 @@ type sequentialWriterAt struct {
 	w io.Writer
 }
 
-func (fw sequentialWriterAt) WriteAt(p []byte, offset int64) (n int, err error) {
+func (sw sequentialWriterAt) WriteAt(p []byte, offset int64) (int, error) {
 	// ignore 'offset' because we forced sequential downloads
-	return fw.w.Write(p)
+	return sw.w.Write(p)
 }

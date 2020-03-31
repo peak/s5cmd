@@ -348,6 +348,18 @@ func (s *S3) Get(
 	concurrency int,
 	partSize int64,
 ) (int64, error) {
+	if concurrency == 1 {
+		resp, err := s.api.GetObjectWithContext(ctx, &s3.GetObjectInput{
+			Bucket: aws.String(from.Bucket),
+			Key:    aws.String(from.Path),
+		})
+		if err != nil {
+			return 0, err
+		}
+
+		return readInto(resp.Body, to, partSize)
+	}
+
 	n, err := s.downloader.DownloadWithContext(ctx, to, &s3.GetObjectInput{
 		Bucket: aws.String(from.Bucket),
 		Key:    aws.String(from.Path),
@@ -357,6 +369,34 @@ func (s *S3) Get(
 	})
 
 	return n, err
+}
+
+func readInto(from io.ReadCloser, to io.WriterAt, bufLen int64) (int64, error) {
+	defer from.Close()
+
+	var read int64
+	var wrote int64
+	buf := make([]byte, bufLen)
+	for {
+		rn, readErr := from.Read(buf)
+		if readErr != nil && readErr != io.EOF {
+			return wrote, readErr
+		}
+
+		wn, err := to.WriteAt(buf[:rn], read)
+		if err != nil {
+			return wrote, err
+		}
+
+		read += int64(rn)
+		wrote += int64(wn)
+
+		if readErr == io.EOF {
+			break
+		}
+	}
+
+	return wrote, nil
 }
 
 // Put is a multipart upload operation to upload resources, which implements

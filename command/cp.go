@@ -165,10 +165,7 @@ func (c Copy) Run(ctx context.Context) error {
 		return err
 	}
 
-	client, err := storage.NewClient(srcurl)
-	if err != nil {
-		return err
-	}
+	client := storage.NewClient(srcurl)
 
 	objch, err := expandSource(ctx, client, c.followSymlinks, srcurl)
 	if err != nil {
@@ -308,17 +305,10 @@ func (c Copy) prepareUploadTask(
 
 // doDownload is used to fetch a remote object and save as a local object.
 func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) error {
-	srcClient, err := storage.NewClient(srcurl)
-	if err != nil {
-		return err
-	}
+	srcClient := storage.NewClient(srcurl)
+	dstClient := storage.NewClient(dsturl)
 
-	dstClient, err := storage.NewClient(dsturl)
-	if err != nil {
-		return err
-	}
-
-	err = c.shouldOverride(ctx, srcurl, dsturl)
+	err := c.shouldOverride(ctx, srcurl, dsturl)
 	if err != nil {
 		// FIXME(ig): rename
 		if errorpkg.IsWarning(err) {
@@ -374,10 +364,7 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 		return err
 	}
 
-	dstClient, err := storage.NewClient(dsturl)
-	if err != nil {
-		return err
-	}
+	dstClient := storage.NewClient(dsturl)
 
 	metadata := map[string]string{
 		"StorageClass": string(c.storageClass),
@@ -389,10 +376,7 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 		return err
 	}
 
-	srcClient, err := storage.NewClient(srcurl)
-	if err != nil {
-		return err
-	}
+	srcClient := storage.NewClient(srcurl)
 
 	obj, _ := srcClient.Stat(ctx, srcurl)
 	size := obj.Size
@@ -418,16 +402,13 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 }
 
 func (c Copy) doCopy(ctx context.Context, srcurl *url.URL, dsturl *url.URL) error {
-	srcClient, err := storage.NewClient(srcurl)
-	if err != nil {
-		return err
-	}
+	srcClient := storage.NewClient(srcurl)
 
 	metadata := map[string]string{
 		"StorageClass": string(c.storageClass),
 	}
 
-	err = c.shouldOverride(ctx, srcurl, dsturl)
+	err := c.shouldOverride(ctx, srcurl, dsturl)
 	if err != nil {
 		if errorpkg.IsWarning(err) {
 			printDebug(c.op, srcurl, dsturl, err)
@@ -552,10 +533,7 @@ func prepareLocalDestination(
 		}
 	}
 
-	client, err := storage.NewClient(dsturl)
-	if err != nil {
-		return nil, err
-	}
+	client := storage.NewClient(dsturl)
 
 	obj, err := client.Stat(ctx, dsturl)
 	if err != nil && err != storage.ErrGivenObjectNotFound {
@@ -588,10 +566,7 @@ func prepareLocalDestination(
 // getObject checks if the object from given url exists. If no object is
 // found, error and returning object would be nil.
 func getObject(ctx context.Context, url *url.URL) (*storage.Object, error) {
-	client, err := storage.NewClient(url)
-	if err != nil {
-		return nil, err
-	}
+	client := storage.NewClient(url)
 
 	obj, err := client.Stat(ctx, url)
 	if err == storage.ErrGivenObjectNotFound {
@@ -661,10 +636,7 @@ func validateCopy(srcurl, dsturl *url.URL) error {
 }
 
 func validateUpload(ctx context.Context, srcurl, dsturl *url.URL) error {
-	srcclient, err := storage.NewClient(srcurl)
-	if err != nil {
-		return err
-	}
+	srcclient := storage.NewClient(srcurl)
 
 	if srcurl.HasGlob() {
 		return nil

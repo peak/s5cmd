@@ -57,12 +57,12 @@ type Storage interface {
 
 // NewClient returns new Storage client from given url. Storage implementation
 // is inferred from the url.
-func NewClient(url *url.URL) (Storage, error) {
+func NewClient(url *url.URL) Storage {
 	if url.IsRemote() {
-		return newCachedS3()
+		return cachedS3
 	}
 
-	return NewFilesystem(), nil
+	return NewFilesystem()
 }
 
 // Object is a generic type which contains metadata for storage items.

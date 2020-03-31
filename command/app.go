@@ -77,9 +77,9 @@ var app = &cli.App{
 			NoVerifySSL: noVerifySSL,
 		}
 
-		storage.SetS3Options(s3opts)
+		err := storage.SetS3Options(s3opts)
 
-		return nil
+		return err
 	},
 	Action: func(c *cli.Context) error {
 		if c.Bool("install-completion") {

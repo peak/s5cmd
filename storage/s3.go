@@ -74,10 +74,12 @@ func newS3Factory(opts S3Options) func() (*S3, error) {
 
 // newCachedS3 function returns a cached S3 storage with a re-used session if
 // available. Re-used AWS sessions dramatically improve performance.
-var newCachedS3 func() (*S3, error)
+var cachedS3 *S3
 
-func SetS3Options(opts S3Options) {
-	newCachedS3 = newS3Factory(opts)
+func SetS3Options(opts S3Options) error {
+	s3, err := NewS3Storage(opts)
+	cachedS3 = s3
+	return err
 
 }
 

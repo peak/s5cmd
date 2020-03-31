@@ -58,7 +58,7 @@ func newS3Factory(opts S3Options) func() (*S3, error) {
 
 		s3, err := NewS3Storage(opts)
 		if err != nil {
-			return s3, err
+			return nil, err
 		}
 
 		cached = s3

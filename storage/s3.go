@@ -52,6 +52,19 @@ func newS3Factory(opts S3Options) func() (*S3, error) {
 		cached *S3
 	)
 
+	newS3 := func() (*S3, error) {
+		mu.Lock()
+		defer mu.Unlock()
+
+		s3, err := NewS3Storage(opts)
+		if err != nil {
+			return s3, err
+		}
+
+		cached = s3
+		return cached, nil
+	}
+
 	return func() (*S3, error) {
 		mu.RLock()
 		if cached != nil {
@@ -59,16 +72,7 @@ func newS3Factory(opts S3Options) func() (*S3, error) {
 			return cached, nil
 		}
 		mu.RUnlock()
-
-		s3, err := NewS3Storage(opts)
-		if err != nil {
-			return nil, err
-		}
-
-		mu.Lock()
-		cached = s3
-		mu.Unlock()
-		return s3, nil
+		return newS3()
 	}
 }
 

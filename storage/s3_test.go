@@ -3,10 +3,8 @@ package storage
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	urlpkg "net/url"
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -307,24 +305,5 @@ func TestS3RetryOnInternalError(t *testing.T) {
 
 	if retried != expectedRetry {
 		t.Errorf("expected retry %v, got %v", expectedRetry, retried)
-	}
-}
-
-func Test_readInto(t *testing.T) {
-	content := "1\n2\n3\n4\n5\n6\n7"
-	from := ioutil.NopCloser(strings.NewReader(content))
-	to := aws.NewWriteAtBuffer([]byte{})
-
-	gotN, err := readInto(from, to, 1)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if gotN != int64(len(content)) {
-		t.Fatalf("expected bytes: %d, got: %d", len(content), gotN)
-	}
-
-	if diff := cmp.Diff(content, string(to.Bytes())); diff != "" {
-		t.Fatalf("equals: (-want +got):\n%v", diff)
 	}
 }

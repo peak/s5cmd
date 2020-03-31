@@ -341,6 +341,7 @@ func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata map[string]st
 
 // Get is a multipart download operation which downloads S3 objects into any
 // destination that implements io.WriterAt interface.
+// 'partSize' is ignored if given concurrency is 1
 func (s *S3) Get(
 	ctx context.Context,
 	from *url.URL,
@@ -356,8 +357,9 @@ func (s *S3) Get(
 		if err != nil {
 			return 0, err
 		}
+		defer resp.Body.Close()
 
-		return readInto(resp.Body, to, partSize)
+		return io.Copy(&writeAtAdapter{w: to}, resp.Body)
 	}
 
 	n, err := s.downloader.DownloadWithContext(ctx, to, &s3.GetObjectInput{
@@ -369,34 +371,6 @@ func (s *S3) Get(
 	})
 
 	return n, err
-}
-
-func readInto(from io.ReadCloser, to io.WriterAt, bufLen int64) (int64, error) {
-	defer from.Close()
-
-	var read int64
-	var wrote int64
-	buf := make([]byte, bufLen)
-	for {
-		rn, readErr := from.Read(buf)
-		if readErr != nil && readErr != io.EOF {
-			return wrote, readErr
-		}
-
-		wn, err := to.WriteAt(buf[:rn], read)
-		if err != nil {
-			return wrote, err
-		}
-
-		read += int64(rn)
-		wrote += int64(wn)
-
-		if readErr == io.EOF {
-			break
-		}
-	}
-
-	return wrote, nil
 }
 
 // Put is a multipart upload operation to upload resources, which implements
@@ -725,4 +699,20 @@ func errHasCode(err error, code string) bool {
 
 func IsCancelationError(err error) bool {
 	return errHasCode(err, request.CanceledErrorCode)
+}
+
+// writerAtAdapter is an 'io.Writer' adapter for 'io.WriterAt'
+type writeAtAdapter struct {
+	w      io.WriterAt
+	offset int64
+}
+
+func (a *writeAtAdapter) Write(p []byte) (int, error) {
+	n, err := a.w.WriteAt(p, a.offset)
+	if err != nil {
+		return n, err
+	}
+
+	a.offset += int64(n)
+	return n, nil
 }

@@ -50,6 +50,7 @@ This is a major release with many breaking changes.
 - Pre-compiled binaries are provided on [releases page](https://github.com/peak/s5cmd/releases). ([#21](https://github.com/peak/s5cmd/issues/21))
 - AWS Go SDK is updated to support IAM role for service accounts. ([#32](https://github.com/peak/s5cmd/issues/32))
 - For copy/move operations, `s5cmd` now creates destination directory if missing.
+- Increase the soft limit of open files to 1000 and exits immediately when it encounters `too many open files` error. ([#52](https://github.com/peak/s5cmd/issues/52))
 
 ## v0.7.0 - 27 Jan 2020
 

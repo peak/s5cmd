@@ -324,16 +324,12 @@ func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) 
 
 	size, err := srcClient.Get(ctx, srcurl, f, c.concurrency, c.partSize)
 	if err != nil {
-		if cerr := dstClient.Delete(ctx, dsturl); cerr != nil {
-			err = multierror.Append(err, cerr)
-		}
-	} else if c.deleteSource {
-		if cerr := srcClient.Delete(ctx, srcurl); cerr != nil {
-			err = multierror.Append(err, cerr)
-		}
-	}
-	if err != nil {
+		_ = dstClient.Delete(ctx, dsturl)
 		return err
+	}
+
+	if c.deleteSource {
+		_ = srcClient.Delete(ctx, srcurl)
 	}
 
 	msg := log.InfoMessage{

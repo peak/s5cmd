@@ -74,6 +74,8 @@ func Cat(ctx context.Context, src *url.URL) error {
 		return err
 	}
 
+	// set concurrency to 1 for sequential download and give a dummy 'partSize' since
+	// `storage.S3.Get()` ignores 'partSize' if concurrency is set to 1.
 	_, err = client.Get(ctx, src, sequentialWriterAt{w: os.Stdout}, 1, -1)
 	return err
 }

@@ -341,7 +341,7 @@ func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata map[string]st
 
 // Get is a multipart download operation which downloads S3 objects into any
 // destination that implements io.WriterAt interface.
-// 'partSize' is ignored if given concurrency is 1
+// Makes a single 'GetObject' call if 'concurrency' is 1 and ignores 'partSize'
 func (s *S3) Get(
 	ctx context.Context,
 	from *url.URL,
@@ -699,7 +699,7 @@ func IsCancelationError(err error) bool {
 	return errHasCode(err, request.CanceledErrorCode)
 }
 
-// writerAtAdapter is an 'io.Writer' adapter for 'io.WriterAt'
+// writerAtAdapter is an 'io.Writer' adapter for 'io.WriterAt'.
 type writeAtAdapter struct {
 	w      io.WriterAt
 	offset int64

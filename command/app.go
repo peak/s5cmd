@@ -112,9 +112,9 @@ func Main(ctx context.Context, args []string) error {
 		MoveCommand,
 		MakeBucketCommand,
 		SizeCommand,
+		CatCommand,
 		RunCommand,
 		VersionCommand,
-		CatCommand,
 	}
 
 	if autoComplete() {

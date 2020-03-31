@@ -18,9 +18,10 @@ func TestCatS3Object(t *testing.T) {
 	contents, expected := getSequentialFileContent()
 
 	testcases := []struct {
-		name     string
-		cmd      []string
-		expected map[int]compareFunc
+		name      string
+		cmd       []string
+		expected  map[int]compareFunc
+		assertOps []assertOp
 	}{
 		{
 			name: "cat remote object",
@@ -38,6 +39,9 @@ func TestCatS3Object(t *testing.T) {
 				src,
 			},
 			expected: expected,
+			assertOps: []assertOp{
+				jsonCheck(true),
+			},
 		},
 		{
 			// generated file is ~61.670 MB, run with lower part size to assert sequential writes
@@ -79,12 +83,15 @@ func TestCatS3ObjectFail(t *testing.T) {
 		filename = "file.txt"
 	)
 
-	src := fmt.Sprintf("s3://%v/%v", bucket, filename)
+	bucketSrc := fmt.Sprintf("s3://%v", bucket)
+	prefixSrc := fmt.Sprintf("%v/prefix", bucketSrc)
+	src := fmt.Sprintf("%s/%v", prefixSrc, filename)
 
 	testcases := []struct {
-		name     string
-		cmd      []string
-		expected map[int]compareFunc
+		name      string
+		cmd       []string
+		expected  map[int]compareFunc
+		assertOps []assertOp
 	}{
 		{
 			name: "cat non existent remote object",
@@ -93,7 +100,7 @@ func TestCatS3ObjectFail(t *testing.T) {
 				src,
 			},
 			expected: map[int]compareFunc{
-				0: contains(`ERROR "cat s3://bucket/file.txt": NoSuchKey: status code: 404`),
+				0: contains(`ERROR "cat s3://bucket/prefix/file.txt": NoSuchKey: status code: 404`),
 				1: equals(""),
 			},
 		},
@@ -105,8 +112,11 @@ func TestCatS3ObjectFail(t *testing.T) {
 				src,
 			},
 			expected: map[int]compareFunc{
-				0: contains(`{"operation":"cat","command":"cat s3://bucket/file.txt","error":"NoSuchKey: status code: 404,`),
+				0: contains(`{"operation":"cat","command":"cat s3://bucket/prefix/file.txt","error":"NoSuchKey: status code: 404,`),
 				1: equals(""),
+			},
+			assertOps: []assertOp{
+				jsonCheck(true),
 			},
 		},
 		{
@@ -117,7 +127,21 @@ func TestCatS3ObjectFail(t *testing.T) {
 				src + "/*",
 			},
 			expected: map[int]compareFunc{
-				0: contains(`{"operation":"cat","command":"cat s3://bucket/file.txt/*","error":"remote source \"s3://bucket/file.txt/*\" can not contain glob characters"}`),
+				0: equals(`{"operation":"cat","command":"cat s3://bucket/prefix/file.txt/*","error":"remote source \"s3://bucket/prefix/file.txt/*\" can not contain glob characters"}`),
+				1: equals(""),
+			},
+			assertOps: []assertOp{
+				jsonCheck(true),
+			},
+		},
+		{
+			name: "cat bucket",
+			cmd: []string{
+				"cat",
+				bucketSrc,
+			},
+			expected: map[int]compareFunc{
+				0: contains(`ERROR "cat s3://bucket": remote source must an object`),
 				1: equals(""),
 			},
 		},
@@ -136,8 +160,7 @@ func TestCatS3ObjectFail(t *testing.T) {
 			result := icmd.RunCmd(cmd)
 
 			result.Assert(t, icmd.Expected{ExitCode: 1})
-
-			assertLines(t, result.Stderr(), tc.expected)
+			assertLines(t, result.Stderr(), tc.expected, tc.assertOps...)
 		})
 	}
 }
@@ -159,7 +182,7 @@ func TestCatLocalFileFail(t *testing.T) {
 				filename,
 			},
 			expected: map[int]compareFunc{
-				0: contains(`ERROR "cat file.txt": "Get" is not supported on "filesystem" storage`),
+				0: contains(`ERROR "cat file.txt": source must be a remote object`),
 				1: equals(""),
 			},
 		},
@@ -171,7 +194,7 @@ func TestCatLocalFileFail(t *testing.T) {
 				filename,
 			},
 			expected: map[int]compareFunc{
-				0: contains(`{"operation":"cat","command":"cat file.txt","error":"\"Get\" is not supported on \"filesystem\" storage"}`),
+				0: contains(`{"operation":"cat","command":"cat file.txt","error":"source must be a remote object"}`),
 				1: equals(""),
 			},
 		},

@@ -38,7 +38,7 @@ var catCommandFlags = []cli.Flag{
 var CatCommand = &cli.Command{
 	Name:               "cat",
 	HelpName:           "cat",
-	Usage:              "print S3 object's contents to stdout",
+	Usage:              "print remote object's contents to stdout",
 	Flags:              catCommandFlags,
 	CustomHelpTemplate: catHelpTemplate,
 	Before: func(c *cli.Context) error {
@@ -49,6 +49,14 @@ var CatCommand = &cli.Command{
 		src, err := url.New(c.Args().Get(0))
 		if err != nil {
 			return err
+		}
+
+		if !src.IsRemote() {
+			return fmt.Errorf("source must be a remote object")
+		}
+
+		if src.IsBucket() || src.IsPrefix() {
+			return fmt.Errorf("remote source must an object")
 		}
 
 		if src.HasGlob() {
@@ -72,12 +80,9 @@ func Cat(ctx context.Context, src *url.URL, partSize int64) error {
 	if err != nil {
 		return err
 	}
-	_, err = client.Get(ctx, src, sequentialWriterAt{w: os.Stdout}, 1, partSize)
-	if err != nil {
-		return err
-	}
 
-	return nil
+	_, err = client.Get(ctx, src, sequentialWriterAt{w: os.Stdout}, 1, partSize)
+	return err
 }
 
 type sequentialWriterAt struct {

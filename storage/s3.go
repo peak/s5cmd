@@ -82,7 +82,6 @@ var newCachedS3 func() (*S3, error)
 
 func SetS3Options(opts S3Options) {
 	newCachedS3 = newS3Factory(opts)
-
 }
 
 // S3 is a storage type which interacts with S3API, DownloaderAPI and

@@ -210,6 +210,12 @@ func (c Copy) Run(ctx context.Context) error {
 			continue
 		}
 
+		if object.StorageClass == storage.StorageGlacier {
+			err := fmt.Errorf("object '%v' is on Glacier storage", object)
+			printError(c.fullCommand, c.op, err)
+			continue
+		}
+
 		srcurl := object.URL
 		var task parallel.Task
 

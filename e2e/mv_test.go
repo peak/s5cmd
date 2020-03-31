@@ -35,7 +35,6 @@ func TestMoveSingleS3ObjectToLocal(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(`mv s3://%v/%v %v`, bucket, filename, filename),
-		1: equals(""),
 	})
 
 	// assert local filesystem
@@ -75,11 +74,10 @@ func TestMoveMultipleS3ObjectsToLocal(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(""),
-		1: equals(`mv s3://%v/another_test_file.txt another_test_file.txt`, bucket),
-		2: equals(`mv s3://%v/filename-with-hypen.gz filename-with-hypen.gz`, bucket),
-		3: equals(`mv s3://%v/readme.md readme.md`, bucket),
-		4: equals(`mv s3://%v/testfile1.txt testfile1.txt`, bucket),
+		0: equals(`mv s3://%v/another_test_file.txt another_test_file.txt`, bucket),
+		1: equals(`mv s3://%v/filename-with-hypen.gz filename-with-hypen.gz`, bucket),
+		2: equals(`mv s3://%v/readme.md readme.md`, bucket),
+		3: equals(`mv s3://%v/testfile1.txt testfile1.txt`, bucket),
 	}, sortInput(true))
 
 	// assert local filesystem
@@ -125,7 +123,6 @@ func TestMoveSingleFileToS3(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(`mv %v %v%v`, fpath, dst, filename),
-		1: equals(""),
 	})
 
 	// expect no files on filesystem
@@ -171,11 +168,10 @@ func TestMoveMultipleFilesToS3(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(""),
-		1: equals(`mv %v/another_test_file.txt %vanother_test_file.txt`, src, dst),
-		2: equals(`mv %v/filename-with-hypen.gz %vfilename-with-hypen.gz`, src, dst),
-		3: equals(`mv %v/readme.md %vreadme.md`, src, dst),
-		4: equals(`mv %v/testfile1.txt %vtestfile1.txt`, src, dst),
+		0: equals(`mv %v/another_test_file.txt %vanother_test_file.txt`, src, dst),
+		1: equals(`mv %v/filename-with-hypen.gz %vfilename-with-hypen.gz`, src, dst),
+		2: equals(`mv %v/readme.md %vreadme.md`, src, dst),
+		3: equals(`mv %v/testfile1.txt %vtestfile1.txt`, src, dst),
 	}, sortInput(true))
 
 	// expect no files on filesystem
@@ -216,7 +212,6 @@ func TestMoveSingleS3ObjectToS3(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(`mv %v %v`, src, dst),
-		1: equals(""),
 	})
 
 	// expect no s3 source object
@@ -257,7 +252,6 @@ func TestMoveSingleS3ObjectIntoAnotherBucket(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(`mv %v %v`, src, dst),
-		1: equals(""),
 	})
 
 	// expect no s3 source object
@@ -299,11 +293,10 @@ func TestMoveMultipleS3ObjectsToS3(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: contains(""),
-		1: equals("mv s3://%v/another_test_file.txt %vanother_test_file.txt", bucket, dst),
-		2: equals("mv s3://%v/filename-with-hypen.gz %vfilename-with-hypen.gz", bucket, dst),
-		3: equals("mv s3://%v/readme.md %vreadme.md", bucket, dst),
-		4: equals("mv s3://%v/testfile1.txt %vtestfile1.txt", bucket, dst),
+		0: equals("mv s3://%v/another_test_file.txt %vanother_test_file.txt", bucket, dst),
+		1: equals("mv s3://%v/filename-with-hypen.gz %vfilename-with-hypen.gz", bucket, dst),
+		2: equals("mv s3://%v/readme.md %vreadme.md", bucket, dst),
+		3: equals("mv s3://%v/testfile1.txt %vtestfile1.txt", bucket, dst),
 	}, sortInput(true))
 
 	// expect no s3 source objects

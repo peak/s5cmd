@@ -32,7 +32,6 @@ func TestListBuckets(t *testing.T) {
 		1: suffix("s3://%v-2", bucketPrefix),
 		2: suffix("s3://%v-3", bucketPrefix),
 		3: suffix("s3://%v-4", bucketPrefix),
-		4: equals(""),
 	})
 }
 
@@ -61,7 +60,6 @@ func TestListBucketsJSON(t *testing.T) {
 		1: suffix(`"name":"%v-2"}`, bucketPrefix),
 		2: suffix(`"name":"%v-3"}`, bucketPrefix),
 		3: suffix(`"name":"%v-4"}`, bucketPrefix),
-		4: equals(""),
 	}, jsonCheck(true))
 }
 
@@ -87,7 +85,6 @@ func TestListSingleS3Object(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: suffix("317 testfile1.txt"),
-		1: equals(""),
 	})
 }
 
@@ -113,7 +110,6 @@ func TestListSingleS3ObjectJSON(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: prefix(`{"key":"s3://%v/testfile1.txt",`, bucket),
-		1: equals(""),
 	}, jsonCheck(true))
 }
 
@@ -140,7 +136,6 @@ func TestListSingleWildcardS3Object(t *testing.T) {
 		0: suffix("317 testfile1.txt"),
 		1: suffix("322 testfile2.txt"),
 		2: suffix("330 testfile3.txt"),
-		3: equals(""),
 	}, alignment(true))
 }
 
@@ -178,7 +173,6 @@ func TestListMultipleWildcardS3Object(t *testing.T) {
 		3: suffix("304 b/testfile4.txt"),
 		4: suffix("312 d/foo/bar/testfile8.txt"),
 		5: suffix("309 f/txt/testfile10.txt"),
-		6: equals(""),
 	}, alignment(true))
 }
 
@@ -213,7 +207,6 @@ func TestListMultipleWildcardS3ObjectWithPrefix(t *testing.T) {
 		0: suffix("304 testfile1.txt"),
 		1: suffix("304 testfile2.txt"),
 		2: suffix("304 testfile3.txt"),
-		3: equals(""),
 	}, alignment(true))
 }
 
@@ -252,7 +245,6 @@ func TestListS3ObjectsAndFolders(t *testing.T) {
 		5: suffix("DIR f/"),
 		6: suffix("? 298 report.gz"),
 		7: suffix("? 302 testfile1.txt"),
-		8: equals(""),
 	}, alignment(true))
 }
 
@@ -280,7 +272,6 @@ func TestListS3ObjectsAndFoldersWithPrefix(t *testing.T) {
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: suffix("DIR t/"),
 		1: suffix("? 302 testfile1.txt"),
-		2: equals(""),
 	}, alignment(true))
 }
 
@@ -301,9 +292,7 @@ func TestListNonexistingS3ObjectInGivenPrefix(t *testing.T) {
 
 	result.Assert(t, icmd.Expected{ExitCode: 1})
 
-	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(""),
-	}, strictLineCheck(false))
+	assertLines(t, result.Stdout(), map[int]compareFunc{})
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: equals(`ERROR "ls s3://test-list-nonexisting-s-3-object-in-given-prefix/*/testfile*.txt": no object found`),
@@ -326,9 +315,7 @@ func TestListNonexistingS3Object(t *testing.T) {
 
 	result.Assert(t, icmd.Expected{ExitCode: 1})
 
-	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(""),
-	}, strictLineCheck(false))
+	assertLines(t, result.Stdout(), map[int]compareFunc{})
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: equals(`ERROR "ls s3://test-list-nonexisting-s-3-object/nosuchobject": no object found`),
@@ -357,7 +344,6 @@ func TestListS3ObjectsWithDashE(t *testing.T) {
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: match(`^ \? \w+ \d+ testfile1.txt$`),
 		1: match(`^ \? \w+ \d+ testfile2.txt$`),
-		2: equals(""),
 	}, trimMatch(dateRe), alignment(true))
 }
 
@@ -383,6 +369,5 @@ func TestListS3ObjectsWithDashH(t *testing.T) {
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: match(`^ \? 215.1K testfile1.txt$`),
 		1: match(`^ \? 264.0K testfile2.txt$`),
-		2: equals(""),
 	}, trimMatch(dateRe), alignment(true))
 }

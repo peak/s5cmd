@@ -366,11 +366,14 @@ func assertLines(t *testing.T, actual string, expectedlines map[int]compareFunc,
 		}
 	}
 
+	actual = strings.TrimSpace(actual)
+
 	for _, re := range opts.trimRegexes {
 		actual = re.ReplaceAllString(actual, "")
 	}
 
 	lines := strings.Split(actual, "\n")
+
 	if opts.sort {
 		sort.Strings(lines)
 	}
@@ -384,6 +387,11 @@ func assertLines(t *testing.T, actual string, expectedlines map[int]compareFunc,
 	}
 
 	for i, line := range lines {
+
+		if line == "" {
+			continue
+		}
+
 		// trim consecutive spaces
 		line = replaceMatchWithSpace(line, `\s+`)
 

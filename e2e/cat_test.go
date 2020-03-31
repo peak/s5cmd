@@ -43,17 +43,6 @@ func TestCatS3Object(t *testing.T) {
 				jsonCheck(true),
 			},
 		},
-		{
-			// generated file is ~61.670 MB, run with lower part size to assert sequential writes
-			name: "cat remote object with part-size set to 1MB",
-			cmd: []string{
-				"cat",
-				"-part-size",
-				"1",
-				src,
-			},
-			expected: expected,
-		},
 	}
 	for _, tc := range testcases {
 		tc := tc

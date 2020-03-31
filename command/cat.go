@@ -26,14 +26,7 @@ Examples:
 		 > s5cmd {{.HelpName}} s3://bucket/prefix/object
 `
 
-var catCommandFlags = []cli.Flag{
-	&cli.IntFlag{
-		Name:    "part-size",
-		Aliases: []string{"p"},
-		Value:   defaultPartSize,
-		Usage:   "size of parts transferred between host and remote server, in MiB",
-	},
-}
+var catCommandFlags []cli.Flag
 
 var CatCommand = &cli.Command{
 	Name:               "cat",
@@ -71,17 +64,17 @@ var CatCommand = &cli.Command{
 			return err
 		}
 
-		return Cat(c.Context, src, c.Int64("part-size")*megabytes)
+		return Cat(c.Context, src)
 	},
 }
 
-func Cat(ctx context.Context, src *url.URL, partSize int64) error {
+func Cat(ctx context.Context, src *url.URL) error {
 	client, err := storage.NewClient(src)
 	if err != nil {
 		return err
 	}
 
-	_, err = client.Get(ctx, src, sequentialWriterAt{w: os.Stdout}, 1, partSize)
+	_, err = client.Get(ctx, src, sequentialWriterAt{w: os.Stdout}, 1, -1)
 	return err
 }
 

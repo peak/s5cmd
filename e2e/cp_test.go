@@ -98,7 +98,6 @@ func TestCopySingleS3ObjectToLocal(t *testing.T) {
 
 			assertLines(t, result.Stdout(), map[int]compareFunc{
 				0: equals(tc.expectedOutput),
-				1: equals(""),
 			})
 
 			// assert local filesystem
@@ -149,7 +148,6 @@ func TestCopySingleS3ObjectToLocalJSON(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: json(jsonText, bucket),
-		1: equals(""),
 	}, jsonCheck(true))
 
 	// assert local filesystem
@@ -186,7 +184,6 @@ func TestCopySingleS3ObjectToLocalWithDestinationWildcard(t *testing.T) {
 	// ignore stdout. we expect error logs from stderr.
 	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: equals(`ERROR "cp s3://%v/%v *": target "*" can not contain glob characters`, bucket, filename),
-		1: equals(""),
 	})
 
 	// assert local filesystem
@@ -224,7 +221,6 @@ func TestCopyS3PrefixToLocalMustReturnError(t *testing.T) {
 	// ignore stdout. we expect error logs from stderr.
 	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: equals(`ERROR "cp s3://%v/%v .": source argument must contain wildcard character`, bucket, prefix),
-		1: equals(""),
 	})
 
 	// assert local filesystem
@@ -263,11 +259,10 @@ func TestCopyMultipleFlatS3ObjectsToLocal(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(""),
-		1: equals(`cp s3://%v/a/filename-with-hypen.gz filename-with-hypen.gz`, bucket),
-		2: equals(`cp s3://%v/a/readme.md readme.md`, bucket),
-		3: equals(`cp s3://%v/b/another_test_file.txt another_test_file.txt`, bucket),
-		4: equals(`cp s3://%v/testfile1.txt testfile1.txt`, bucket),
+		0: equals(`cp s3://%v/a/filename-with-hypen.gz filename-with-hypen.gz`, bucket),
+		1: equals(`cp s3://%v/a/readme.md readme.md`, bucket),
+		2: equals(`cp s3://%v/b/another_test_file.txt another_test_file.txt`, bucket),
+		3: equals(`cp s3://%v/testfile1.txt testfile1.txt`, bucket),
 	}, sortInput(true))
 
 	// assert local filesystem
@@ -315,9 +310,8 @@ func TestCopyMultipleFlatS3ObjectsToLocalWithPartialMatching(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(""),
-		1: equals(`cp s3://%v/dir/another_test_file.txt another_test_file.txt`, bucket),
-		2: equals(`cp s3://%v/testfile1.txt testfile1.txt`, bucket),
+		0: equals(`cp s3://%v/dir/another_test_file.txt another_test_file.txt`, bucket),
+		1: equals(`cp s3://%v/testfile1.txt testfile1.txt`, bucket),
 	}, sortInput(true))
 
 	// assert local filesystem
@@ -361,8 +355,7 @@ func TestCopyMultipleFlatNestedS3ObjectsToLocalWithPartialMatching(t *testing.T)
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(""),
-		1: equals(`cp s3://%v/a/b/testfile2.txt testfile2.txt`, bucket),
+		0: equals(`cp s3://%v/a/b/testfile2.txt testfile2.txt`, bucket),
 	}, sortInput(true))
 
 	// assert local filesystem
@@ -403,8 +396,7 @@ func TestCopyMultipleFlatS3ObjectsToLocalJSON(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(""),
-		1: json(`
+		0: json(`
 			{
 				"operation": "cp",
 				"success": true,
@@ -416,7 +408,7 @@ func TestCopyMultipleFlatS3ObjectsToLocalJSON(t *testing.T) {
 				}
 			}
 		`, bucket),
-		2: json(`
+		1: json(`
 			{
 				"operation": "cp",
 				"success": true,
@@ -428,7 +420,7 @@ func TestCopyMultipleFlatS3ObjectsToLocalJSON(t *testing.T) {
 				}
 			}
 		`, bucket),
-		3: json(`
+		2: json(`
 			{
 				"operation": "cp",
 				"success": true,
@@ -440,7 +432,7 @@ func TestCopyMultipleFlatS3ObjectsToLocalJSON(t *testing.T) {
 				}
 			}
 		`, bucket),
-		4: json(`
+		3: json(`
 			{
 				"operation": "cp",
 				"success": true,
@@ -500,12 +492,11 @@ func TestCopyMultipleNestedS3ObjectsToLocal(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(""),
-		1: equals(`cp s3://%v/a/b/filename-with-hypen.gz a/b/filename-with-hypen.gz`, bucket),
-		2: equals(`cp s3://%v/a/readme.md a/readme.md`, bucket),
-		3: equals(`cp s3://%v/b/another_test_file.txt b/another_test_file.txt`, bucket),
-		4: equals(`cp s3://%v/c/d/e/another_test_file.txt c/d/e/another_test_file.txt`, bucket),
-		5: equals(`cp s3://%v/testfile1.txt testfile1.txt`, bucket),
+		0: equals(`cp s3://%v/a/b/filename-with-hypen.gz a/b/filename-with-hypen.gz`, bucket),
+		1: equals(`cp s3://%v/a/readme.md a/readme.md`, bucket),
+		2: equals(`cp s3://%v/b/another_test_file.txt b/another_test_file.txt`, bucket),
+		3: equals(`cp s3://%v/c/d/e/another_test_file.txt c/d/e/another_test_file.txt`, bucket),
+		4: equals(`cp s3://%v/testfile1.txt testfile1.txt`, bucket),
 	}, sortInput(true))
 
 	// assert local filesystem
@@ -572,9 +563,8 @@ func TestCopyMultipleNestedS3ObjectsToLocalWithPartial(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(""),
-		1: equals(`cp s3://%v/b/another_test_file.txt b/another_test_file.txt`, bucket),
-		2: equals(`cp s3://%v/c/d/e/another_test_file.txt c/d/e/another_test_file.txt`, bucket),
+		0: equals(`cp s3://%v/b/another_test_file.txt b/another_test_file.txt`, bucket),
+		1: equals(`cp s3://%v/c/d/e/another_test_file.txt c/d/e/another_test_file.txt`, bucket),
 	}, sortInput(true))
 
 	// assert local filesystem
@@ -633,11 +623,10 @@ func TestCopyMultipleS3ObjectsToGivenLocalDirectory(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(""),
-		1: equals(`cp s3://%v/a/another_test_file.txt %v/a/another_test_file.txt`, bucket, dst),
-		2: equals(`cp s3://%v/b/filename-with-hypen.gz %v/b/filename-with-hypen.gz`, bucket, dst),
-		3: equals(`cp s3://%v/readme.md %v/readme.md`, bucket, dst),
-		4: equals(`cp s3://%v/testfile1.txt %v/testfile1.txt`, bucket, dst),
+		0: equals(`cp s3://%v/a/another_test_file.txt %v/a/another_test_file.txt`, bucket, dst),
+		1: equals(`cp s3://%v/b/filename-with-hypen.gz %v/b/filename-with-hypen.gz`, bucket, dst),
+		2: equals(`cp s3://%v/readme.md %v/readme.md`, bucket, dst),
+		3: equals(`cp s3://%v/testfile1.txt %v/testfile1.txt`, bucket, dst),
 	}, sortInput(true))
 
 	// assert local filesystem
@@ -706,7 +695,6 @@ func TestCopySingleFileToS3(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: suffix(`cp %v %v%v`, srcpath, dstpath, filename),
-		1: equals(""),
 	})
 
 	// assert local filesystem
@@ -758,7 +746,6 @@ func TestCopySingleFileToS3JSON(t *testing.T) {
 	result.Assert(t, icmd.Success)
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: json(jsonText, fpath, bucket),
-		1: equals(""),
 	}, jsonCheck(true))
 
 	// assert local filesystem
@@ -802,10 +789,9 @@ func TestCopyDirToS3(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(""),
-		1: equals(`cp %v/c/file2.txt %vc/file2.txt`, srcpath, dstpath),
-		2: equals(`cp %v/file1.txt %vfile1.txt`, srcpath, dstpath),
-		3: equals(`cp %v/readme.md %vreadme.md`, srcpath, dstpath),
+		0: equals(`cp %v/c/file2.txt %vc/file2.txt`, srcpath, dstpath),
+		1: equals(`cp %v/file1.txt %vfile1.txt`, srcpath, dstpath),
+		2: equals(`cp %v/readme.md %vreadme.md`, srcpath, dstpath),
 	}, sortInput(true))
 
 	// assert local filesystem
@@ -851,10 +837,9 @@ func TestFlattenCopyDirToS3(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(""),
-		1: equals(`cp %v/c/file2.txt %vfile2.txt`, srcpath, dstpath),
-		2: equals(`cp %v/file1.txt %vfile1.txt`, srcpath, dstpath),
-		3: equals(`cp %v/readme.md %vreadme.md`, srcpath, dstpath),
+		0: equals(`cp %v/c/file2.txt %vfile2.txt`, srcpath, dstpath),
+		1: equals(`cp %v/file1.txt %vfile1.txt`, srcpath, dstpath),
+		2: equals(`cp %v/readme.md %vreadme.md`, srcpath, dstpath),
 	}, sortInput(true))
 
 	// assert local filesystem
@@ -902,11 +887,10 @@ func TestCopyMultipleFilesToS3Bucket(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(""),
-		1: equals(`cp %v/a/another_test_file.txt %va/another_test_file.txt`, srcpath, dstpath),
-		2: equals(`cp %v/b/filename-with-hypen.gz %vb/filename-with-hypen.gz`, srcpath, dstpath),
-		3: equals(`cp %v/readme.md %vreadme.md`, srcpath, dstpath),
-		4: equals(`cp %v/testfile1.txt %vtestfile1.txt`, srcpath, dstpath),
+		0: equals(`cp %v/a/another_test_file.txt %va/another_test_file.txt`, srcpath, dstpath),
+		1: equals(`cp %v/b/filename-with-hypen.gz %vb/filename-with-hypen.gz`, srcpath, dstpath),
+		2: equals(`cp %v/readme.md %vreadme.md`, srcpath, dstpath),
+		3: equals(`cp %v/testfile1.txt %vtestfile1.txt`, srcpath, dstpath),
 	}, sortInput(true))
 
 	// assert local filesystem
@@ -962,11 +946,10 @@ func TestFlattenCopyMultipleFilesToS3Bucket(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(""),
-		1: equals(`cp %v/a/another_test_file.txt %vanother_test_file.txt`, srcpath, dstpath),
-		2: equals(`cp %v/b/filename-with-hypen.gz %vfilename-with-hypen.gz`, srcpath, dstpath),
-		3: equals(`cp %v/readme.md %vreadme.md`, srcpath, dstpath),
-		4: equals(`cp %v/testfile1.txt %vtestfile1.txt`, srcpath, dstpath),
+		0: equals(`cp %v/a/another_test_file.txt %vanother_test_file.txt`, srcpath, dstpath),
+		1: equals(`cp %v/b/filename-with-hypen.gz %vfilename-with-hypen.gz`, srcpath, dstpath),
+		2: equals(`cp %v/readme.md %vreadme.md`, srcpath, dstpath),
+		3: equals(`cp %v/testfile1.txt %vtestfile1.txt`, srcpath, dstpath),
 	}, sortInput(true))
 
 	// assert local filesystem
@@ -1023,7 +1006,6 @@ func TestCopyMultipleFilesToS3WithPrefixWithoutSlash(t *testing.T) {
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: equals(`ERROR "cp %v %v": target %q must be a bucket or a prefix`, src, dst, dst),
-		1: equals(""),
 	})
 
 	// assert local filesystem
@@ -1069,11 +1051,10 @@ func TestCopyMultipleFilesToS3WithPrefixWithSlash(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(""),
-		1: equals(`cp %v/a/another_test_file.txt %va/another_test_file.txt`, srcpath, dst),
-		2: equals(`cp %v/b/filename-with-hypen.gz %vb/filename-with-hypen.gz`, srcpath, dst),
-		3: equals(`cp %v/readme.md %vreadme.md`, srcpath, dst),
-		4: equals(`cp %v/testfile1.txt %vtestfile1.txt`, srcpath, dst),
+		0: equals(`cp %v/a/another_test_file.txt %va/another_test_file.txt`, srcpath, dst),
+		1: equals(`cp %v/b/filename-with-hypen.gz %vb/filename-with-hypen.gz`, srcpath, dst),
+		2: equals(`cp %v/readme.md %vreadme.md`, srcpath, dst),
+		3: equals(`cp %v/testfile1.txt %vtestfile1.txt`, srcpath, dst),
 	}, sortInput(true))
 
 	// assert local filesystem
@@ -1131,11 +1112,10 @@ func TestFlattenCopyMultipleFilesToS3WithPrefixWithSlash(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(""),
-		1: equals(`cp %v/a/another_test_file.txt %vanother_test_file.txt`, srcpath, dst),
-		2: equals(`cp %v/b/filename-with-hypen.gz %vfilename-with-hypen.gz`, srcpath, dst),
-		3: equals(`cp %v/readme.md %vreadme.md`, srcpath, dst),
-		4: equals(`cp %v/testfile1.txt %vtestfile1.txt`, srcpath, dst),
+		0: equals(`cp %v/a/another_test_file.txt %vanother_test_file.txt`, srcpath, dst),
+		1: equals(`cp %v/b/filename-with-hypen.gz %vfilename-with-hypen.gz`, srcpath, dst),
+		2: equals(`cp %v/readme.md %vreadme.md`, srcpath, dst),
+		3: equals(`cp %v/testfile1.txt %vtestfile1.txt`, srcpath, dst),
 	}, sortInput(true))
 
 	// assert local filesystem
@@ -1191,11 +1171,10 @@ func TestCopyLocalDirectoryToS3WithPrefixWithSlash(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(""),
-		1: equals(`cp %va/another_test_file.txt %va/another_test_file.txt`, src, dst),
-		2: equals(`cp %vb/filename-with-hypen.gz %vb/filename-with-hypen.gz`, src, dst),
-		3: equals(`cp %vreadme.md %vreadme.md`, src, dst),
-		4: equals(`cp %vtestfile1.txt %vtestfile1.txt`, src, dst),
+		0: equals(`cp %va/another_test_file.txt %va/another_test_file.txt`, src, dst),
+		1: equals(`cp %vb/filename-with-hypen.gz %vb/filename-with-hypen.gz`, src, dst),
+		2: equals(`cp %vreadme.md %vreadme.md`, src, dst),
+		3: equals(`cp %vtestfile1.txt %vtestfile1.txt`, src, dst),
 	}, sortInput(true))
 
 	// assert local filesystem
@@ -1254,11 +1233,10 @@ func TestFlattenCopyLocalDirectoryToS3WithPrefixWithSlash(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(""),
-		1: equals(`cp %va/another_test_file.txt %vanother_test_file.txt`, src, dst),
-		2: equals(`cp %vb/c/filename-with-hypen.gz %vfilename-with-hypen.gz`, src, dst),
-		3: equals(`cp %vreadme.md %vreadme.md`, src, dst),
-		4: equals(`cp %vtestfile1.txt %vtestfile1.txt`, src, dst),
+		0: equals(`cp %va/another_test_file.txt %vanother_test_file.txt`, src, dst),
+		1: equals(`cp %vb/c/filename-with-hypen.gz %vfilename-with-hypen.gz`, src, dst),
+		2: equals(`cp %vreadme.md %vreadme.md`, src, dst),
+		3: equals(`cp %vtestfile1.txt %vtestfile1.txt`, src, dst),
 	}, sortInput(true))
 
 	// assert local filesystem
@@ -1315,7 +1293,6 @@ func TestCopyLocalDirectoryToS3WithPrefixWithoutSlash(t *testing.T) {
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: equals(`ERROR "cp %v %v": target %q must be a bucket or a prefix`, src, dst, dst),
-		1: equals(""),
 	})
 
 	// assert local filesystem
@@ -1352,7 +1329,6 @@ func TestCopySingleS3ObjectToS3(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(`cp %v %v`, src, dst),
-		1: equals(""),
 	})
 
 	// assert s3 source object
@@ -1405,7 +1381,6 @@ func TestCopySingleS3ObjectToS3JSON(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: json(jsonText),
-		1: equals(""),
 	}, jsonCheck(true))
 
 	// assert s3 source object
@@ -1445,7 +1420,6 @@ func TestCopySingleS3ObjectIntoAnotherBucket(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(`cp %v %v%v`, src, dst, filename),
-		1: equals(""),
 	})
 
 	// assert s3 source object
@@ -1485,7 +1459,6 @@ func TestFlattenCopySingleS3ObjectIntoAnotherBucket(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(`cp %v %v%v`, src, dst, filename),
-		1: equals(""),
 	})
 
 	// assert s3 source object
@@ -1527,7 +1500,6 @@ func TestCopySingleS3ObjectIntoAnotherBucketWithObjName(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(`cp %v %v`, src, dst),
-		1: equals(""),
 	})
 
 	// assert s3 source object
@@ -1565,7 +1537,6 @@ func TestCopySingleS3ObjectIntoAnotherBucketWithPrefix(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(`cp %v %v`, src, dst),
-		1: equals(""),
 	})
 
 	// assert s3 source object
@@ -1606,11 +1577,10 @@ func TestCopyMultipleS3ObjectsToS3WithPrefix(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(""),
-		1: equals(`cp s3://%v/a/another_test_file.txt %va/another_test_file.txt`, bucket, dst),
-		2: equals(`cp s3://%v/b/filename-with-hypen.gz %vb/filename-with-hypen.gz`, bucket, dst),
-		3: equals(`cp s3://%v/readme.md %vreadme.md`, bucket, dst),
-		4: equals(`cp s3://%v/testfile1.txt %vtestfile1.txt`, bucket, dst),
+		0: equals(`cp s3://%v/a/another_test_file.txt %va/another_test_file.txt`, bucket, dst),
+		1: equals(`cp s3://%v/b/filename-with-hypen.gz %vb/filename-with-hypen.gz`, bucket, dst),
+		2: equals(`cp s3://%v/readme.md %vreadme.md`, bucket, dst),
+		3: equals(`cp s3://%v/testfile1.txt %vtestfile1.txt`, bucket, dst),
 	}, sortInput(true))
 
 	// assert s3 source objects
@@ -1655,11 +1625,10 @@ func TestFlattenCopyMultipleS3ObjectsToS3WithPrefix(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(""),
-		1: equals(`cp s3://%v/a/another_test_file.txt %vanother_test_file.txt`, bucket, dst),
-		2: equals(`cp s3://%v/b/filename-with-hypen.gz %vfilename-with-hypen.gz`, bucket, dst),
-		3: equals(`cp s3://%v/readme.md %vreadme.md`, bucket, dst),
-		4: equals(`cp s3://%v/testfile1.txt %vtestfile1.txt`, bucket, dst),
+		0: equals(`cp s3://%v/a/another_test_file.txt %vanother_test_file.txt`, bucket, dst),
+		1: equals(`cp s3://%v/b/filename-with-hypen.gz %vfilename-with-hypen.gz`, bucket, dst),
+		2: equals(`cp s3://%v/readme.md %vreadme.md`, bucket, dst),
+		3: equals(`cp s3://%v/testfile1.txt %vtestfile1.txt`, bucket, dst),
 	}, sortInput(true))
 
 	// assert s3 source objects
@@ -1712,7 +1681,6 @@ func TestCopyMultipleS3ObjectsToS3WithPrefixWithoutSlash(t *testing.T) {
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: equals(`ERROR "cp %v %v": target %q must be a bucket or a prefix`, src, dst, dst),
-		1: equals(""),
 	})
 
 	// assert s3 source objects
@@ -1751,8 +1719,7 @@ func TestCopyMultipleS3ObjectsToS3JSON(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(""),
-		1: json(`
+		0: json(`
 			{
 				"operation": "cp",
 				"success": true,
@@ -1765,7 +1732,7 @@ func TestCopyMultipleS3ObjectsToS3JSON(t *testing.T) {
 				}
 			}
 		`, bucket, bucket, bucket),
-		2: json(`
+		1: json(`
 			{
 				"operation": "cp",
 				"success": true,
@@ -1820,9 +1787,8 @@ func TestCopyMultipleS3ObjectsToS3_Issue70(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(""),
-		1: equals(`cp s3://%v/config/.local/folder1/file1.txt %vfolder1/file1.txt`, bucket, dst),
-		2: equals(`cp s3://%v/config/.local/folder2/file2.txt %vfolder2/file2.txt`, bucket, dst),
+		0: equals(`cp s3://%v/config/.local/folder1/file1.txt %vfolder1/file1.txt`, bucket, dst),
+		1: equals(`cp s3://%v/config/.local/folder2/file2.txt %vfolder2/file2.txt`, bucket, dst),
 	}, sortInput(true))
 
 	// assert s3 source objects
@@ -1864,7 +1830,6 @@ func TestCopyS3ObjectToLocalWithTheSameFilename(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals("cp s3://%v/%v %v", bucket, filename, filename),
-		1: equals(""),
 	})
 
 	expected := fs.Expected(t, fs.WithFile(filename, expectedContent))
@@ -1899,12 +1864,9 @@ func TestCopyS3ToLocalWithSameFilenameWithNoClobber(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(`DEBUG "cp s3://%v/%v %v": object already exists`, bucket, filename, filename),
-		1: equals(""),
 	})
 
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: equals(""),
-	})
+	assertLines(t, result.Stderr(), map[int]compareFunc{})
 
 	expected := fs.Expected(t, fs.WithFile(filename, content))
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
@@ -1941,7 +1903,6 @@ func TestCopyS3ToLocalWithSameFilenameOverrideIfSizeDiffers(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(`cp s3://%v/%v %v`, bucket, filename, filename),
-		1: equals(""),
 	})
 
 	expected := fs.Expected(t, fs.WithFile(filename, expectedContent))
@@ -1985,7 +1946,6 @@ func TestCopyS3ToLocalWithSameFilenameOverrideIfSourceIsNewer(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(`cp s3://%v/%v %v`, bucket, filename, filename),
-		1: equals(""),
 	})
 
 	expected := fs.Expected(t, fs.WithFile(filename, expectedContent))
@@ -2029,12 +1989,9 @@ func TestCopyS3ToLocalWithSameFilenameDontOverrideIfS3ObjectIsOlder(t *testing.T
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(`DEBUG "cp s3://%v/%v %v": object is newer or same age`, bucket, filename, filename),
-		1: equals(""),
 	})
 
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: equals(""),
-	})
+	assertLines(t, result.Stderr(), map[int]compareFunc{})
 
 	expected := fs.Expected(t, fs.WithFile(filename, content))
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
@@ -2073,9 +2030,8 @@ func TestCopyS3ToLocal_Issue70(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(""),
-		1: equals(`cp s3://%v/config/.local/folder1/file1.txt %v/folder1/file1.txt`, bucket, dstpath),
-		2: equals(`cp s3://%v/config/.local/folder2/file2.txt %v/folder2/file2.txt`, bucket, dstpath),
+		0: equals(`cp s3://%v/config/.local/folder1/file1.txt %v/folder1/file1.txt`, bucket, dstpath),
+		1: equals(`cp s3://%v/config/.local/folder2/file2.txt %v/folder2/file2.txt`, bucket, dstpath),
 	}, sortInput(true))
 
 	// assert local filesystem
@@ -2127,7 +2083,6 @@ func TestCopyLocalFileToS3WithTheSameFilename(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(`cp %v %v/%v`, filename, dst, filename),
-		1: equals(""),
 	})
 
 	// assert local filesystem
@@ -2167,12 +2122,9 @@ func TestCopyLocalFileToS3WithSameFilenameWithNoClobber(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(`DEBUG "cp %v s3://%v/%v": object already exists`, filename, bucket, filename),
-		1: equals(""),
 	})
 
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: equals(""),
-	})
+	assertLines(t, result.Stderr(), map[int]compareFunc{})
 
 	// assert local filesystem
 	expected := fs.Expected(t, fs.WithFile(filename, newContent))
@@ -2211,12 +2163,9 @@ func TestCopyLocalFileToS3WithNoClobber(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(`cp %v %v/%v`, filename, dst, filename),
-		1: equals(""),
 	})
 
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: equals(""),
-	})
+	assertLines(t, result.Stderr(), map[int]compareFunc{})
 
 	// assert local filesystem
 	expected := fs.Expected(t, fs.WithFile(filename, newContent))
@@ -2258,12 +2207,9 @@ func TestCopyLocalFileToS3WithSameFilenameOverrideIfSizeDiffers(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(`cp %v %v/%v`, filename, dst, filename),
-		1: equals(""),
 	})
 
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: equals(""),
-	})
+	assertLines(t, result.Stderr(), map[int]compareFunc{})
 
 	assert.NilError(t, ensureS3Object(s3client, bucket, filename, expectedContent))
 }
@@ -2306,12 +2252,9 @@ func TestCopyLocalFileToS3WithSameFilenameOverrideIfSourceIsNewer(t *testing.T) 
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(`cp %v %v/%v`, filename, dst, filename),
-		1: equals(""),
 	})
 
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: equals(""),
-	})
+	assertLines(t, result.Stderr(), map[int]compareFunc{})
 
 	assert.NilError(t, ensureS3Object(s3client, bucket, filename, expectedContent))
 }
@@ -2353,12 +2296,9 @@ func TestCopyLocalFileToS3WithSameFilenameDontOverrideIfS3ObjectIsOlder(t *testi
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(`DEBUG "cp %v s3://%v/%v": object is newer or same age`, filename, bucket, filename),
-		1: equals(""),
 	})
 
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: equals(""),
-	})
+	assertLines(t, result.Stderr(), map[int]compareFunc{})
 
 	assert.NilError(t, ensureS3Object(s3client, bucket, filename, content))
 }
@@ -2391,7 +2331,6 @@ func TestCopyLocalFileToS3WithCustomName(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(`cp %v %v`, filename, dstpath),
-		1: equals(""),
 	})
 
 	// assert local filesystem
@@ -2430,7 +2369,6 @@ func TestCopyLocalFileToS3WithPrefix(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(`cp %v %v%v`, filename, dstpath, filename),
-		1: equals(""),
 	})
 
 	// assert local filesystem
@@ -2469,7 +2407,6 @@ func TestMultipleLocalFileToS3Bucket(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(`cp %v %v/%v`, filename, dstpath, filename),
-		1: equals(""),
 	})
 
 	// assert local filesystem
@@ -2535,10 +2472,9 @@ func TestCopyMultipleLocalNestedFilesToS3(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(""),
-		1: equals("cp a/file1.txt %va/file1.txt", dst),
-		2: equals("cp a/readme.md %va/readme.md", dst),
-		3: equals("cp b/c/file2.txt %vb/c/file2.txt", dst),
+		0: equals("cp a/file1.txt %va/file1.txt", dst),
+		1: equals("cp a/readme.md %va/readme.md", dst),
+		2: equals("cp b/c/file2.txt %vb/c/file2.txt", dst),
 	}, sortInput(true))
 
 	// assert local filesystem
@@ -2581,9 +2517,7 @@ func TestCopyLinkToASingleFileWithFollowSymlinkDisabled(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(""),
-	}, sortInput(true))
+	assertLines(t, result.Stdout(), map[int]compareFunc{})
 }
 
 // cp * s3://bucket/prefix/
@@ -2619,10 +2553,9 @@ func TestCopyWithFollowSymlink(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(""),
-		1: equals("cp a/f1.txt %va/f1.txt", dst),
-		2: equals("cp b/link1 %vb/link1", dst),
-		3: equals("cp c/link2 %vc/link2", dst),
+		0: equals("cp a/f1.txt %va/f1.txt", dst),
+		1: equals("cp b/link1 %vb/link1", dst),
+		2: equals("cp c/link2 %vc/link2", dst),
 	}, sortInput(true))
 
 	// assert s3 objects
@@ -2664,8 +2597,7 @@ func TestCopyWithNoFollowSymlink(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(""),
-		1: equals("cp a/f1.txt %va/f1.txt", dst),
+		0: equals("cp a/f1.txt %va/f1.txt", dst),
 	}, sortInput(true))
 
 	// assert s3 objects

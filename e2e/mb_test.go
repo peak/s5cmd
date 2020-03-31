@@ -24,7 +24,6 @@ func TestMakeBucket_success(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(`mb %v`, src),
-		1: equals(""),
 	})
 
 	_, err := s3client.HeadBucket(&s3.HeadBucketInput{Bucket: aws.String(bucketName)})
@@ -56,7 +55,6 @@ func TestMakeBucket_success_json(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: json(jsonText, src),
-		1: equals(""),
 	}, jsonCheck(true))
 
 	_, err := s3client.HeadBucket(&s3.HeadBucketInput{Bucket: aws.String(bucketName)})
@@ -80,7 +78,6 @@ func TestMakeBucket_failure(t *testing.T) {
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: equals(`ERROR "mb %v": invalid s3 bucket`, src),
-		1: equals(""),
 	})
 }
 
@@ -99,6 +96,5 @@ func TestMakeBucket_failure_json(t *testing.T) {
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: equals(`{"operation":"mb","command":"mb %v","error":"invalid s3 bucket"}`, src),
-		1: equals(""),
 	}, jsonCheck(true))
 }

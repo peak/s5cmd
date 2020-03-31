@@ -35,14 +35,11 @@ func TestRunFromStdin(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(""),
-		1: suffix("file1.txt"),
-		2: suffix("file2.txt"),
+		0: suffix("file1.txt"),
+		1: suffix("file2.txt"),
 	}, sortInput(true))
 
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: equals(""),
-	})
+	assertLines(t, result.Stderr(), map[int]compareFunc{})
 }
 
 func TestRunFromStdinWithErrors(t *testing.T) {
@@ -66,14 +63,11 @@ func TestRunFromStdinWithErrors(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(""),
-	}, sortInput(true))
+	assertLines(t, result.Stdout(), map[int]compareFunc{})
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: equals(""),
-		1: contains(`ERROR "cp s3://%v/nonexistentobject nonexistentobject": NoSuchKey: status code: 404`, bucket),
-		2: equals(`ERROR "ls s3:/": given object not found`),
+		0: contains(`ERROR "cp s3://%v/nonexistentobject nonexistentobject": NoSuchKey: status code: 404`, bucket),
+		1: equals(`ERROR "ls s3:/": given object not found`),
 	}, sortInput(true))
 }
 
@@ -101,14 +95,11 @@ func TestRunFromStdinJSON(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(""),
-		1: prefix(`{"key":"s3://%v/file1.txt",`, bucket),
-		2: prefix(`{"key":"s3://%v/file2.txt",`, bucket),
+		0: prefix(`{"key":"s3://%v/file1.txt",`, bucket),
+		1: prefix(`{"key":"s3://%v/file2.txt",`, bucket),
 	}, sortInput(true), jsonCheck(true))
 
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: equals(""),
-	})
+	assertLines(t, result.Stderr(), map[int]compareFunc{})
 }
 
 func TestRunFromFile(t *testing.T) {
@@ -137,14 +128,11 @@ func TestRunFromFile(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(""),
-		1: suffix("file1.txt"),
-		2: suffix("file2.txt"),
+		0: suffix("file1.txt"),
+		1: suffix("file2.txt"),
 	}, sortInput(true))
 
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: equals(""),
-	})
+	assertLines(t, result.Stderr(), map[int]compareFunc{})
 }
 
 func TestRunFromFileJSON(t *testing.T) {
@@ -173,14 +161,11 @@ func TestRunFromFileJSON(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(""),
-		1: prefix(`{"key":"s3://%v/file1.txt",`, bucket),
-		2: prefix(`{"key":"s3://%v/file2.txt",`, bucket),
+		0: prefix(`{"key":"s3://%v/file1.txt",`, bucket),
+		1: prefix(`{"key":"s3://%v/file2.txt",`, bucket),
 	}, sortInput(true), jsonCheck(true))
 
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: equals(""),
-	})
+	assertLines(t, result.Stderr(), map[int]compareFunc{})
 }
 
 func TestRunWildcardCountGreaterEqualThanWorkerCount(t *testing.T) {
@@ -209,13 +194,10 @@ func TestRunWildcardCountGreaterEqualThanWorkerCount(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(""),
+		0: equals(`cp s3://%v/file.txt file.txt`, bucket),
 		1: equals(`cp s3://%v/file.txt file.txt`, bucket),
 		2: equals(`cp s3://%v/file.txt file.txt`, bucket),
-		3: equals(`cp s3://%v/file.txt file.txt`, bucket),
 	}, sortInput(true))
 
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: equals(""),
-	})
+	assertLines(t, result.Stderr(), map[int]compareFunc{})
 }

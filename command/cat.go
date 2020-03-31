@@ -26,13 +26,10 @@ Examples:
 		 > s5cmd {{.HelpName}} s3://bucket/prefix/object
 `
 
-var catCommandFlags []cli.Flag
-
 var CatCommand = &cli.Command{
 	Name:               "cat",
 	HelpName:           "cat",
 	Usage:              "print remote object's contents to stdout",
-	Flags:              catCommandFlags,
 	CustomHelpTemplate: catHelpTemplate,
 	Before: func(c *cli.Context) error {
 		if c.Args().Len() != 1 {

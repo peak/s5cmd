@@ -30,9 +30,13 @@ This is a major release with many breaking changes.
 - `-ds`, `-dw`, `-us` and `-uw` global flags are no longer available. Multipart
   concurrency and part size flags are now part of the `cp/mv` command. New
   replacement flags are `--concurrency | -c` and `--part-size | -p`. ([#110](https://github.com/peak/s5cmd/pull/110))
-- s5cmd `cp` command follows symbolic links by default (only when uploading to s3 from local filesystem). Use `--no-follow-symlinks` flag to disable this feature.
-- Dropped `-parents` flag from copy command. Copy behaviour has changed to preserve the directory hierarchy as a default.
-  Optional `-flatten` flag is added to flatten directory structure.
+- s5cmd `cp` command follows symbolic links by default (only when uploading to
+  s3 from local filesystem). Use `--no-follow-symlinks` flag to disable this
+  feature. ([#17](https://github.com/peak/s5cmd/issues/17))
+- Dropped `-parents` flag from copy command. Copy behaviour has changed to
+  preserve the directory hierarchy as a default. Optional `-flatten` flag is
+  added to flatten directory structure. ([#107](https://github.com/peak/s5cmd/issues/107))
+- Dropped `-vv` verbosity flag. `--log` flag is introduced.
 
 #### Features
 

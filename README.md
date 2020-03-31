@@ -13,6 +13,7 @@ storage services and local filesystems.
 - List buckets and objects
 - Upload, download or delete objects
 - Move, copy or rename objects
+- Print object contents to stdout
 - Create buckets
 - Summarize objects sizes, grouping by storage class
 - Wildcard support for all operations

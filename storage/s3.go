@@ -341,6 +341,7 @@ func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata map[string]st
 
 // Get is a multipart download operation which downloads S3 objects into any
 // destination that implements io.WriterAt interface.
+// Makes a single 'GetObject' call if 'concurrency' is 1 and ignores 'partSize'.
 func (s *S3) Get(
 	ctx context.Context,
 	from *url.URL,
@@ -348,15 +349,26 @@ func (s *S3) Get(
 	concurrency int,
 	partSize int64,
 ) (int64, error) {
-	n, err := s.downloader.DownloadWithContext(ctx, to, &s3.GetObjectInput{
+	if concurrency == 1 {
+		resp, err := s.api.GetObjectWithContext(ctx, &s3.GetObjectInput{
+			Bucket: aws.String(from.Bucket),
+			Key:    aws.String(from.Path),
+		})
+		if err != nil {
+			return 0, err
+		}
+		defer resp.Body.Close()
+
+		return io.Copy(&writeAtAdapter{w: to}, resp.Body)
+	}
+
+	return s.downloader.DownloadWithContext(ctx, to, &s3.GetObjectInput{
 		Bucket: aws.String(from.Bucket),
 		Key:    aws.String(from.Path),
 	}, func(u *s3manager.Downloader) {
 		u.PartSize = partSize
 		u.Concurrency = concurrency
 	})
-
-	return n, err
 }
 
 // Put is a multipart upload operation to upload resources, which implements
@@ -685,4 +697,20 @@ func errHasCode(err error, code string) bool {
 
 func IsCancelationError(err error) bool {
 	return errHasCode(err, request.CanceledErrorCode)
+}
+
+// writerAtAdapter is an 'io.Writer' adapter for 'io.WriterAt'.
+type writeAtAdapter struct {
+	w      io.WriterAt
+	offset int64
+}
+
+func (a *writeAtAdapter) Write(p []byte) (int, error) {
+	n, err := a.w.WriteAt(p, a.offset)
+	if err != nil {
+		return n, err
+	}
+
+	a.offset += int64(n)
+	return n, nil
 }

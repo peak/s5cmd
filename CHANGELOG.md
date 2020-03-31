@@ -44,6 +44,7 @@ This is a major release with many breaking changes.
 - Added `--json` flag for JSON logging. ([#22](https://github.com/peak/s5cmd/issues/22))
 - Added [S3 transfer acceleration](https://docs.aws.amazon.com/AmazonS3/latest/dev/transfer-acceleration.html) support. ([#40](https://github.com/peak/s5cmd/issues/40))
 - Added [Google Cloud Storage](https://github.com/peak/s5cmd#google-cloud-storage-support) support. ([#81](https://github.com/peak/s5cmd/issues/81))
+- Added `cat` command to print remote object contents to stdout ([#20](https://github.com/peak/s5cmd/issues/20))
 
 #### Bugfixes
 
@@ -54,6 +55,7 @@ This is a major release with many breaking changes.
 - Pre-compiled binaries are provided on [releases page](https://github.com/peak/s5cmd/releases). ([#21](https://github.com/peak/s5cmd/issues/21))
 - AWS Go SDK is updated to support IAM role for service accounts. ([#32](https://github.com/peak/s5cmd/issues/32))
 - For copy/move operations, `s5cmd` now creates destination directory if missing.
+- Increase the soft limit of open files to 1000 and exits immediately when it encounters `too many open files` error. ([#52](https://github.com/peak/s5cmd/issues/52))
 
 ## v0.7.0 - 27 Jan 2020
 

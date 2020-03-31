@@ -90,7 +90,6 @@ func TestCatS3ObjectFail(t *testing.T) {
 			},
 			expected: map[int]compareFunc{
 				0: contains(`ERROR "cat s3://bucket/prefix/file.txt": NoSuchKey: status code: 404`),
-				1: equals(""),
 			},
 		},
 		{
@@ -102,7 +101,6 @@ func TestCatS3ObjectFail(t *testing.T) {
 			},
 			expected: map[int]compareFunc{
 				0: contains(`{"operation":"cat","command":"cat s3://bucket/prefix/file.txt","error":"NoSuchKey: status code: 404,`),
-				1: equals(""),
 			},
 			assertOps: []assertOp{
 				jsonCheck(true),
@@ -117,7 +115,6 @@ func TestCatS3ObjectFail(t *testing.T) {
 			},
 			expected: map[int]compareFunc{
 				0: equals(`{"operation":"cat","command":"cat s3://bucket/prefix/file.txt/*","error":"remote source \"s3://bucket/prefix/file.txt/*\" can not contain glob characters"}`),
-				1: equals(""),
 			},
 			assertOps: []assertOp{
 				jsonCheck(true),
@@ -131,7 +128,6 @@ func TestCatS3ObjectFail(t *testing.T) {
 			},
 			expected: map[int]compareFunc{
 				0: contains(`ERROR "cat s3://bucket": remote source must an object`),
-				1: equals(""),
 			},
 		},
 	}
@@ -172,7 +168,6 @@ func TestCatLocalFileFail(t *testing.T) {
 			},
 			expected: map[int]compareFunc{
 				0: contains(`ERROR "cat file.txt": source must be a remote object`),
-				1: equals(""),
 			},
 		},
 		{
@@ -184,7 +179,6 @@ func TestCatLocalFileFail(t *testing.T) {
 			},
 			expected: map[int]compareFunc{
 				0: contains(`{"operation":"cat","command":"cat file.txt","error":"source must be a remote object"}`),
-				1: equals(""),
 			},
 		},
 	}
@@ -211,13 +205,12 @@ func getSequentialFileContent() (string, map[int]compareFunc) {
 	sb := strings.Builder{}
 	expectedLines := make(map[int]compareFunc)
 
-	for i := 1; i <= 1000000; i++ {
+	for i := 0; i < 1000000; i++ {
 		line := fmt.Sprintf(`{ "line": "%d", "id": "i%d", data: "some event %d" }`, i, i, i)
 		sb.WriteString(line)
 		sb.WriteString("\n")
 
-		expectedLines[i-1] = equals(line)
-		expectedLines[i] = equals("")
+		expectedLines[i] = equals(line)
 	}
 
 	return sb.String(), expectedLines

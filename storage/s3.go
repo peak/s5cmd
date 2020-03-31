@@ -362,15 +362,13 @@ func (s *S3) Get(
 		return io.Copy(&writeAtAdapter{w: to}, resp.Body)
 	}
 
-	n, err := s.downloader.DownloadWithContext(ctx, to, &s3.GetObjectInput{
+	return s.downloader.DownloadWithContext(ctx, to, &s3.GetObjectInput{
 		Bucket: aws.String(from.Bucket),
 		Key:    aws.String(from.Path),
 	}, func(u *s3manager.Downloader) {
 		u.PartSize = partSize
 		u.Concurrency = concurrency
 	})
-
-	return n, err
 }
 
 // Put is a multipart upload operation to upload resources, which implements

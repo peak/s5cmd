@@ -346,6 +346,14 @@ func assertError(t *testing.T, err error, expected interface{}) {
 func assertLines(t *testing.T, actual string, expectedlines map[int]compareFunc, fns ...assertOp) {
 	t.Helper()
 
+	if actual == "" {
+		if len(expectedlines) > 0 {
+			t.Errorf("expected a content, got empty string")
+		}
+
+		return
+	}
+
 	// default assertion options
 	opts := assertOpts{
 		strict:      true,
@@ -387,11 +395,6 @@ func assertLines(t *testing.T, actual string, expectedlines map[int]compareFunc,
 	}
 
 	for i, line := range lines {
-
-		if line == "" {
-			continue
-		}
-
 		// trim consecutive spaces
 		line = replaceMatchWithSpace(line, `\s+`)
 

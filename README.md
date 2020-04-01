@@ -1,4 +1,3 @@
-![Tag](https://img.shields.io/github/tag/peak/s5cmd.svg)
 [![Go Report](https://goreportcard.com/badge/github.com/peak/s5cmd)](https://goreportcard.com/report/github.com/peak/s5cmd)
 
 # s5cmd

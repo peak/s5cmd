@@ -77,7 +77,7 @@ var app = &cli.App{
 			NoVerifySSL: noVerifySSL,
 		}
 
-		err := storage.SetS3Options(s3opts)
+		err := storage.Init(s3opts)
 
 		return err
 	},

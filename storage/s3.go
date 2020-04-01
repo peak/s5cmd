@@ -72,15 +72,13 @@ func newS3Factory(opts S3Options) func() (*S3, error) {
 	}
 }
 
-// newCachedS3 function returns a cached S3 storage with a re-used session if
-// available. Re-used AWS sessions dramatically improve performance.
+// Re-used AWS sessions dramatically improve performance.
 var cachedS3 *S3
 
-func SetS3Options(opts S3Options) error {
+func Init(opts S3Options) error {
 	s3, err := NewS3Storage(opts)
 	cachedS3 = s3
 	return err
-
 }
 
 // S3 is a storage type which interacts with S3API, DownloaderAPI and

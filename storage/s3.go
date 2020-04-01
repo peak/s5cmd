@@ -43,35 +43,6 @@ const (
 	gcsEndpoint = "storage.googleapis.com"
 )
 
-// newS3Factory returns a closure that creates new S3 storage. This pattern is
-// used to re-use S3 sessions which makes huge difference for batch S3
-// operations.
-func newS3Factory(opts S3Options) func() (*S3, error) {
-	var (
-		mu     sync.RWMutex
-		cached *S3
-	)
-
-	return func() (*S3, error) {
-		mu.RLock()
-		if cached != nil {
-			mu.RUnlock()
-			return cached, nil
-		}
-		mu.RUnlock()
-
-		s3, err := NewS3Storage(opts)
-		if err != nil {
-			return nil, err
-		}
-
-		mu.Lock()
-		cached = s3
-		mu.Unlock()
-		return s3, nil
-	}
-}
-
 // Re-used AWS sessions dramatically improve performance.
 var cachedS3 *S3
 

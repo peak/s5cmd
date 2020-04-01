@@ -60,7 +60,6 @@ var SizeCommand = &cli.Command{
 
 		return Size(
 			c.Context,
-			givenCommand(c),
 			c.Args().First(),
 			groupByClass,
 			humanize,
@@ -70,7 +69,6 @@ var SizeCommand = &cli.Command{
 
 func Size(
 	ctx context.Context,
-	fullCommand string,
 	src string,
 	groupByClass bool,
 	humanize bool,

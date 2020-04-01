@@ -98,6 +98,12 @@ var app = &cli.App{
 		return nil
 	},
 	ExitErrHandler: func(c *cli.Context, err error) {
+		// if commands support batch operations, log them
+		// when error occurs.
+		switch c.Command {
+		case CopyCommand, MoveCommand, DeleteCommand:
+			return
+		}
 		if err != nil {
 			printError(givenCommand(c), c.Command.Name, err)
 		}

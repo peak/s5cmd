@@ -105,6 +105,7 @@ func Delete(
 			}
 
 			merror = multierror.Append(merror, obj.Err)
+			printError(fullCommand, op, err)
 			continue
 		}
 

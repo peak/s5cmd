@@ -191,6 +191,7 @@ func (c Copy) Run(ctx context.Context) error {
 				os.Exit(1)
 			}
 			merror = multierror.Append(merror, err)
+			printError(c.fullCommand, c.op, err)
 		}
 	}()
 

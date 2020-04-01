@@ -226,8 +226,8 @@ path-style.
 `s5cmd` uses an exponential backoff retry mechanism for transient or potential
 server-side throttling errors. Non-retriable errors, such as `invalid
 credentials`, `authorization errors` etc, will not be retried. By default,
-`s5cmd` will retry 10 times for about a minute. You can adjust the number of
-retries with `--retry-count` option.
+`s5cmd` will retry 10 times for up to a minute. Number of retries are adjustable
+via `--retry-count` flag.
 
 ## Using wildcards
 

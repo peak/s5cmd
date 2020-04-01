@@ -1,6 +1,6 @@
 # Changelog
 
-## not released yet
+## v1.0.0 - 1 Apr 2020
 
 This is a major release with many breaking changes.
 

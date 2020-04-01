@@ -49,6 +49,8 @@ This is a major release with many breaking changes.
 #### Bugfixes
 
 - Correctly set `Content-Type` of a file on upload operations. ([#33](https://github.com/peak/s5cmd/issues/33))
+- Fixed a bug where workers are unable to consume job if there are too many
+  outstanding wildcard expansion requests. ([#12](https://github.com/peak/s5cmd/issues/12), [#58](https://github.com/peak/s5cmd/issues/58))
 
 #### Improvements
 

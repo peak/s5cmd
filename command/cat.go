@@ -66,14 +66,11 @@ var CatCommand = &cli.Command{
 }
 
 func Cat(ctx context.Context, src *url.URL) error {
-	client, err := storage.NewClient(src)
-	if err != nil {
-		return err
-	}
+	client := storage.NewClient(src)
 
 	// set concurrency to 1 for sequential write to 'stdout' and give a dummy 'partSize' since
 	// `storage.S3.Get()` ignores 'partSize' if concurrency is set to 1.
-	_, err = client.Get(ctx, src, sequentialWriterAt{w: os.Stdout}, 1, -1)
+	_, err := client.Get(ctx, src, sequentialWriterAt{w: os.Stdout}, 1, -1)
 	return err
 }
 

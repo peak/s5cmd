@@ -70,10 +70,7 @@ func Delete(
 	}
 	srcurl := srcurls[0]
 
-	client, err := storage.NewClient(srcurl)
-	if err != nil {
-		return err
-	}
+	client := storage.NewClient(srcurl)
 
 	objChan := expandSources(ctx, client, false, srcurls...)
 

@@ -65,10 +65,7 @@ func MakeBucket(
 		return err
 	}
 
-	client, err := storage.NewClient(bucket)
-	if err != nil {
-		return err
-	}
+	client := storage.NewClient(bucket)
 
 	err = client.MakeBucket(ctx, bucket.Bucket)
 	if err != nil {

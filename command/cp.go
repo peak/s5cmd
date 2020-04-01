@@ -35,29 +35,35 @@ Options:
 	{{range .VisibleFlags}}{{.}}
 	{{end}}
 Examples:
-	1. Download an S3 object to working directory
+	01. Download an S3 object to working directory
 		 > s5cmd {{.HelpName}} s3://bucket/prefix/object.gz .
 
-	2. Download an S3 object and rename
+	02. Download an S3 object and rename
 		 > s5cmd {{.HelpName}} s3://bucket/prefix/object.gz myobject.gz
 
-	3. Download all S3 objects to a directory
+	03. Download all S3 objects to a directory
 		 > s5cmd {{.HelpName}} s3://bucket/* target-directory/
 
-	4. Upload a file to S3 bucket
+	04. Upload a file to S3 bucket
 		 > s5cmd {{.HelpName}} myfile.gz s3://bucket/
 
-	5. Upload matching files to S3 bucket
+	05. Upload matching files to S3 bucket
 		 > s5cmd {{.HelpName}} dir/*.gz s3://bucket/
 
-	6. Upload all files in a directory to S3 bucket recursively
+	06. Upload all files in a directory to S3 bucket recursively
 		 > s5cmd {{.HelpName}} dir/ s3://bucket/
 
-	7. Mirror a directory to target S3 prefix
+	07. Copy S3 object to another bucket
+		 > s5cmd {{.HelpName}} s3://bucket/object s3://target-bucket/prefix/object
+
+	08. Copy matching S3 objects to another bucket
+		 > s5cmd {{.HelpName}} s3://bucket/*.gz s3://target-bucket/prefix/
+
+	09. Mirror a directory to target S3 prefix
 		 > s5cmd {{.HelpName}} -n -s -u dir/ s3://bucket/target-prefix/
 
-	8. Mirror an S3 prefix to target S3 prefix
-		 > s5cmd {{.HelpName}} -n -s -u s3://bucket/source-prefix/ s3://bucket/target-prefix/
+	10. Mirror an S3 prefix to target S3 prefix
+		 > s5cmd {{.HelpName}} -n -s -u s3://bucket/source-prefix/* s3://bucket/target-prefix/
 `
 
 var copyCommandFlags = []cli.Flag{

@@ -50,7 +50,7 @@ brews:
     homepage:  https://github.com/peak/s5cmd
     description: Parallel S3 and local filesystem execution tool
     test: |
-      system "#{bin}/s5cmd -v"
+      system "#{bin}/s5cmd version"
 
 release:
   draft: true

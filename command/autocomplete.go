@@ -28,7 +28,7 @@ func adaptFlags(flags []cli.Flag) complete.Flags {
 	return completionFlags
 }
 
-func autoComplete() bool {
+func maybeAutoComplete() bool {
 	cmpCommands := make(complete.Commands)
 	for _, cmd := range app.Commands {
 		cmpCommands[cmd.Name] = adaptCommand(cmd)

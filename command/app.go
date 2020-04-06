@@ -115,7 +115,7 @@ func Main(ctx context.Context, args []string) error {
 		VersionCommand,
 	}
 
-	if autoComplete() {
+	if maybeAutoComplete() {
 		return nil
 	}
 

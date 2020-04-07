@@ -207,9 +207,7 @@ func TestRemoveTenThousandS3Objects(t *testing.T) {
 
 	createBucket(t, s3client, bucket)
 
-	const (
-		filecount = 10_000
-	)
+	const filecount = 10000
 
 	filenameFunc := func(i int) string { return fmt.Sprintf("file_%06d", i) }
 	contentFunc := func(i int) string { return fmt.Sprintf("file body %06d", i) }

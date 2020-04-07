@@ -26,7 +26,7 @@ Examples:
 		 > s5cmd {{.HelpName}} s3://bucket/prefix/object
 `
 
-var CatCommand = &cli.Command{
+var catCommand = &cli.Command{
 	Name:               "cat",
 	HelpName:           "cat",
 	Usage:              "print remote object's contents to stdout",
@@ -65,6 +65,7 @@ var CatCommand = &cli.Command{
 	},
 }
 
+// Cat prints content of given source to standard output.
 func Cat(ctx context.Context, src *url.URL) error {
 	client := storage.NewClient(src)
 

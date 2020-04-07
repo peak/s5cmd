@@ -275,7 +275,7 @@ func TestS3RetryOnInternalError(t *testing.T) {
 	const expectedRetry = 5
 
 	sess := unit.Session
-	sess.Config.Retryer = NewCustomRetryer(expectedRetry)
+	sess.Config.Retryer = newCustomRetryer(expectedRetry)
 
 	mockApi := s3.New(sess)
 	mockS3 := &S3{

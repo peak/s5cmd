@@ -31,7 +31,7 @@ Examples:
 		 > s5cmd {{.HelpName}} --group s3://bucket/prefix/obj*.gz
 `
 
-var SizeCommand = &cli.Command{
+var sizeCommand = &cli.Command{
 	Name:               "du",
 	HelpName:           "du",
 	Usage:              "show object size usage",
@@ -67,6 +67,7 @@ var SizeCommand = &cli.Command{
 	},
 }
 
+// Size calculates disk usage of given source.
 func Size(
 	ctx context.Context,
 	src string,

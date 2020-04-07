@@ -102,17 +102,18 @@ var app = &cli.App{
 	},
 }
 
+// Main is the entrypoint function to run given commands.
 func Main(ctx context.Context, args []string) error {
 	app.Commands = []*cli.Command{
-		ListCommand,
-		CopyCommand,
-		DeleteCommand,
-		MoveCommand,
-		MakeBucketCommand,
-		SizeCommand,
-		CatCommand,
-		RunCommand,
-		VersionCommand,
+		listCommand,
+		copyCommand,
+		deleteCommand,
+		moveCommand,
+		makeBucketCommand,
+		sizeCommand,
+		catCommand,
+		runCommand,
+		versionCommand,
 	}
 
 	if maybeAutoComplete() {

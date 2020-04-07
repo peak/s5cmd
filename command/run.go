@@ -31,7 +31,7 @@ Examples:
 		 > cat commands.txt | s5cmd {{.HelpName}}
 `
 
-var RunCommand = &cli.Command{
+var runCommand = &cli.Command{
 	Name:               "run",
 	HelpName:           "run",
 	Usage:              "run commands in batch",

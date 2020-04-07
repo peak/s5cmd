@@ -37,7 +37,7 @@ Examples:
 		 > s5cmd {{.HelpName}} s3://bucket/prefix/*/*.gz
 `
 
-var ListCommand = &cli.Command{
+var listCommand = &cli.Command{
 	Name:               "ls",
 	HelpName:           "ls",
 	Usage:              "list buckets and objects",
@@ -77,6 +77,7 @@ var ListCommand = &cli.Command{
 	},
 }
 
+// ListBuckets prints all buckets.
 func ListBuckets(ctx context.Context) error {
 	// set as remote storage
 	url := &url.URL{Type: 0}
@@ -94,6 +95,7 @@ func ListBuckets(ctx context.Context) error {
 	return nil
 }
 
+// List prints objects at given source.
 func List(
 	ctx context.Context,
 	src string,

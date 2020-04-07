@@ -8,7 +8,7 @@ import (
 	"github.com/peak/s5cmd/version"
 )
 
-var VersionCommand = &cli.Command{
+var versionCommand = &cli.Command{
 	Name:     "version",
 	HelpName: "version",
 	Usage:    "print version",

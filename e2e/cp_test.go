@@ -2130,7 +2130,7 @@ func TestCopyLocalFileToS3WithSameFilenameWithNoClobber(t *testing.T) {
 	expected := fs.Expected(t, fs.WithFile(filename, newContent))
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 
-	// expect s3 object is not overriden
+	// expect s3 object is not overridden
 	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content))
 }
 
@@ -2171,7 +2171,7 @@ func TestCopyLocalFileToS3WithNoClobber(t *testing.T) {
 	expected := fs.Expected(t, fs.WithFile(filename, newContent))
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 
-	// expect s3 object is not overriden
+	// expect s3 object is not overridden
 	assert.Assert(t, ensureS3Object(s3client, bucket, filename, newContent))
 }
 

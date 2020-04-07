@@ -109,17 +109,17 @@ var copyCommandFlags = []cli.Flag{
 	},
 }
 
-var CopyCommand = &cli.Command{
+var copyCommand = &cli.Command{
 	Name:               "cp",
 	HelpName:           "cp",
 	Usage:              "copy objects",
 	Flags:              copyCommandFlags,
 	CustomHelpTemplate: copyHelpTemplate,
 	Before: func(c *cli.Context) error {
-		return Validate(c)
+		return validate(c)
 	},
 	Action: func(c *cli.Context) error {
-		copyCommand := Copy{
+		return Copy{
 			src:          c.Args().Get(0),
 			dst:          c.Args().Get(1),
 			op:           c.Command.Name,
@@ -134,11 +134,11 @@ var CopyCommand = &cli.Command{
 			storageClass:   storage.LookupClass(c.String("storage-class")),
 			concurrency:    c.Int("concurrency"),
 			partSize:       c.Int64("part-size") * megabytes,
-		}
-		return copyCommand.Run(c.Context)
+		}.Run(c.Context)
 	},
 }
 
+// Copy holds copy operation flags and states.
 type Copy struct {
 	src         string
 	dst         string
@@ -160,6 +160,7 @@ type Copy struct {
 	partSize    int64
 }
 
+// Run starts copying given source objects to destination.
 func (c Copy) Run(ctx context.Context) error {
 	srcurl, err := url.New(c.src)
 	if err != nil {
@@ -582,7 +583,7 @@ func getObject(ctx context.Context, url *url.URL) (*storage.Object, error) {
 	return obj, err
 }
 
-func Validate(c *cli.Context) error {
+func validate(c *cli.Context) error {
 	if c.Args().Len() != 2 {
 		return fmt.Errorf("expected source and destination arguments")
 	}

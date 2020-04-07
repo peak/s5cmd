@@ -25,7 +25,7 @@ Examples:
 		 > s5cmd {{.HelpName}} newbucket
 `
 
-var MakeBucketCommand = &cli.Command{
+var makeBucketCommand = &cli.Command{
 	Name:               "mb",
 	HelpName:           "mb",
 	Usage:              "make bucket",
@@ -55,6 +55,7 @@ var MakeBucketCommand = &cli.Command{
 	},
 }
 
+// MakeBucket creates bucket.
 func MakeBucket(
 	ctx context.Context,
 	op string,

@@ -570,7 +570,7 @@ func newSession(opts S3Options) (*session.Session, error) {
 		awsCfg.WithRegion(opts.Region)
 	}
 
-	awsCfg.Retryer = NewCustomRetryer(opts.MaxRetries)
+	awsCfg.Retryer = newCustomRetryer(opts.MaxRetries)
 
 	useSharedConfig := session.SharedConfigEnable
 	{
@@ -601,14 +601,14 @@ func newSession(opts S3Options) (*session.Session, error) {
 	return sess, nil
 }
 
-// CustomRetryer wraps the SDK's built in DefaultRetryer adding additional
+// customRetryer wraps the SDK's built in DefaultRetryer adding additional
 // error codes. Such as, retry for S3 InternalError code.
-type CustomRetryer struct {
+type customRetryer struct {
 	client.DefaultRetryer
 }
 
-func NewCustomRetryer(maxRetries int) *CustomRetryer {
-	return &CustomRetryer{
+func newCustomRetryer(maxRetries int) *customRetryer {
+	return &customRetryer{
 		DefaultRetryer: client.DefaultRetryer{
 			NumMaxRetries: maxRetries,
 		},
@@ -617,7 +617,7 @@ func NewCustomRetryer(maxRetries int) *CustomRetryer {
 
 // ShouldRetry overrides the SDK's built in DefaultRetryer adding customization
 // to retry S3 InternalError code.
-func (c *CustomRetryer) ShouldRetry(req *request.Request) bool {
+func (c *customRetryer) ShouldRetry(req *request.Request) bool {
 	if errHasCode(req.Error, "InternalError") {
 		return true
 	}
@@ -666,6 +666,8 @@ func errHasCode(err error, code string) bool {
 
 }
 
+// IsCancelationError reports whether given error is a storage related
+// cancelation error.
 func IsCancelationError(err error) bool {
 	return errHasCode(err, request.CanceledErrorCode)
 }

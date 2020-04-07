@@ -36,7 +36,7 @@ Examples:
 		 > s5cmd {{.HelpName}} s3://bucketname/prefix/* s3://bucketname/object1.gz
 `
 
-var DeleteCommand = &cli.Command{
+var deleteCommand = &cli.Command{
 	Name:               "rm",
 	HelpName:           "rm",
 	Usage:              "remove objects",
@@ -58,6 +58,7 @@ var DeleteCommand = &cli.Command{
 	},
 }
 
+// Delete remove given sources.
 func Delete(
 	ctx context.Context,
 	op string,

@@ -13,12 +13,14 @@ import (
 	"github.com/peak/s5cmd/storage/url"
 )
 
+// Filesystem is the Storage implementation of a local filesystem.
 type Filesystem struct{}
 
 func NewFilesystem() *Filesystem {
 	return &Filesystem{}
 }
 
+// Stat returns the Object structure describing object.
 func (f *Filesystem) Stat(ctx context.Context, url *url.URL) (*Object, error) {
 	st, err := os.Stat(url.Absolute())
 	if err != nil {
@@ -38,6 +40,7 @@ func (f *Filesystem) Stat(ctx context.Context, url *url.URL) (*Object, error) {
 	}, nil
 }
 
+// List returns the objects and directories reside in given src.
 func (f *Filesystem) List(ctx context.Context, src *url.URL, followSymlinks bool) <-chan *Object {
 	obj, err := f.Stat(ctx, src)
 	isDir := err == nil && obj.Type.IsDir()
@@ -155,6 +158,8 @@ func (f *Filesystem) walkDir(ctx context.Context, src *url.URL, followSymlinks b
 	}()
 	return ch
 }
+
+// Copy copies given source to destination.
 func (f *Filesystem) Copy(ctx context.Context, src, dst *url.URL, _ map[string]string) error {
 	if err := os.MkdirAll(dst.Dir(), os.ModePerm); err != nil {
 		return err
@@ -163,10 +168,12 @@ func (f *Filesystem) Copy(ctx context.Context, src, dst *url.URL, _ map[string]s
 	return err
 }
 
+// Delete deletes given file.
 func (f *Filesystem) Delete(ctx context.Context, url *url.URL) error {
 	return os.Remove(url.Absolute())
 }
 
+// MultiDelete deletes all files returned from given channel.
 func (f *Filesystem) MultiDelete(ctx context.Context, urlch <-chan *url.URL) <-chan *Object {
 	resultch := make(chan *Object)
 	go func() {
@@ -184,18 +191,22 @@ func (f *Filesystem) MultiDelete(ctx context.Context, urlch <-chan *url.URL) <-c
 	return resultch
 }
 
+// Put is not supported for filesystem.
 func (f *Filesystem) Put(_ context.Context, _ io.Reader, _ *url.URL, _ map[string]string, _ int, _ int64) error {
 	return f.notimplemented("Put")
 }
 
+// Get is not supported for filesystem.
 func (f *Filesystem) Get(_ context.Context, _ *url.URL, _ io.WriterAt, _ int, _ int64) (int64, error) {
 	return 0, f.notimplemented("Get")
 }
 
+// ListBuckets is not supported for filesystem.
 func (f *Filesystem) ListBuckets(_ context.Context, _ string) ([]Bucket, error) {
 	return nil, f.notimplemented("ListBuckets")
 }
 
+// MakeBucket is not supported for filesytem.
 func (f *Filesystem) MakeBucket(_ context.Context, _ string) error {
 	return f.notimplemented("MakeBucket")
 }

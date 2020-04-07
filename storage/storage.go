@@ -158,6 +158,7 @@ func (b Bucket) JSON() string {
 	return strutil.JSON(b)
 }
 
+// StorageClass represents the storage used to store an object.
 type StorageClass string
 
 // ShortCode returns the short code of Storage Class.
@@ -178,6 +179,7 @@ func (s StorageClass) ShortCode() string {
 	return code
 }
 
+// LookupClass looks up given class.
 func LookupClass(s string) StorageClass {
 	switch s {
 	case "", "STANDARD":
@@ -194,7 +196,7 @@ func LookupClass(s string) StorageClass {
 }
 
 const (
-	// StorageUnknown is a placeholder class if the class is not valid.
+	// StorageInvalid is a placeholder class if the class is not valid.
 	StorageInvalid StorageClass = "UNKNOWN"
 
 	// StorageStandard is a standard storage class type.

@@ -250,6 +250,7 @@ func (u *URL) Clone() *URL {
 	}
 }
 
+// SetRelative explicitly sets the relative path of u against given base value.
 func (u *URL) SetRelative(base string) {
 	dir := filepath.Dir(base)
 	u.relativePath, _ = filepath.Rel(dir, u.Absolute())
@@ -273,10 +274,12 @@ func (u *URL) Match(key string) bool {
 	return true
 }
 
+// String is the fmt.Stringer implementation of URL.
 func (u *URL) String() string {
 	return u.Absolute()
 }
 
+// MarshalJSON is the json.Marshaler implementation of URL.
 func (u *URL) MarshalJSON() ([]byte, error) {
 	return json.Marshal(u.String())
 }
@@ -306,7 +309,7 @@ func parseBatch(prefix string, key string) string {
 }
 
 // parseNonBatch parses keys for non-wildcard operations.
-// It substracts prefix part from the key and gets first
+// It subtracts prefix part from the key and gets first
 // path.
 //
 // Example:

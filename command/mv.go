@@ -31,14 +31,14 @@ Examples:
 		 > s5cmd {{.HelpName}} dir/ s3://bucket/
 `
 
-var MoveCommand = &cli.Command{
+var moveCommand = &cli.Command{
 	Name:               "mv",
 	HelpName:           "mv",
 	Usage:              "move/rename objects",
 	Flags:              copyCommandFlags, // move and copy commands share the same flags
 	CustomHelpTemplate: moveHelpTemplate,
 	Before: func(c *cli.Context) error {
-		return CopyCommand.Before(c)
+		return copyCommand.Before(c)
 	},
 	Action: func(c *cli.Context) error {
 		copyCommand := Copy{

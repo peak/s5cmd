@@ -127,7 +127,7 @@ func TestCatS3ObjectFail(t *testing.T) {
 				bucketSrc,
 			},
 			expected: map[int]compareFunc{
-				0: contains(`ERROR "cat s3://bucket": remote source must an object`),
+				0: contains(`ERROR "cat s3://bucket": remote source must be an object`),
 			},
 		},
 	}

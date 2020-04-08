@@ -46,7 +46,7 @@ var catCommand = &cli.Command{
 		}
 
 		if src.IsBucket() || src.IsPrefix() {
-			return fmt.Errorf("remote source must an object")
+			return fmt.Errorf("remote source must be an object")
 		}
 
 		if src.HasGlob() {

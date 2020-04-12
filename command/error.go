@@ -8,10 +8,10 @@ import (
 
 	errorpkg "github.com/peak/s5cmd/error"
 	"github.com/peak/s5cmd/log"
-	"github.com/peak/s5cmd/objurl"
+	"github.com/peak/s5cmd/storage/url"
 )
 
-func printDebug(op string, src, dst *objurl.ObjectURL, err error) {
+func printDebug(op string, src, dst *url.URL, err error) {
 	msg := log.DebugMessage{
 		Command:   fmt.Sprintf("%v %v %v", op, src, dst),
 		Operation: op,
@@ -22,6 +22,11 @@ func printDebug(op string, src, dst *objurl.ObjectURL, err error) {
 
 // printError is the helper function to log error messages.
 func printError(command, op string, err error) {
+	// dont print cancelation errors
+	if errorpkg.IsCancelation(err) {
+		return
+	}
+
 	// check if we have our own error type
 	{
 		cerr, ok := err.(*errorpkg.Error)

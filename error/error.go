@@ -7,30 +7,38 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
-	"github.com/peak/s5cmd/objurl"
 	"github.com/peak/s5cmd/storage"
+	"github.com/peak/s5cmd/storage/url"
 )
 
+// Error is the type that implements error interface.
 type Error struct {
 	// Op is the operation being performed, usually the name of the method
 	// being invoked (copy, move, etc.)
 	Op string
 	// Src is the source argument
-	Src *objurl.ObjectURL
+	Src *url.URL
 	// Dst is the destination argument
-	Dst *objurl.ObjectURL
+	Dst *url.URL
 	// The underlying error if any
 	Err error
 }
 
+// FullCommand returns the command string that occured at.
 func (e *Error) FullCommand() string {
 	return fmt.Sprintf("%v %v %v", e.Op, e.Src, e.Dst)
 }
 
+// Error implements the error interface.
 func (e *Error) Error() string {
 	return e.Err.Error()
 }
 
+func (e *Error) Unwrap() error {
+	return e.Err
+}
+
+// IsCancelation reports whether if given error is a cancelation error.
 func IsCancelation(err error) bool {
 	if err == nil {
 		return false
@@ -58,7 +66,6 @@ func IsCancelation(err error) bool {
 	return false
 }
 
-//  OK-to-have error types (warnings) that is used when the job status is warning.
 var (
 	ErrObjectExists     = fmt.Errorf("object already exists")
 	ErrObjectIsNewer    = fmt.Errorf("object is newer or same age")

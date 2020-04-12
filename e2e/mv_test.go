@@ -10,6 +10,7 @@ import (
 	"gotest.tools/v3/icmd"
 )
 
+// mv s3://bucket/key dir/
 func TestMoveSingleS3ObjectToLocal(t *testing.T) {
 	t.Parallel()
 
@@ -33,8 +34,7 @@ func TestMoveSingleS3ObjectToLocal(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(`mv s3://%v/%v`, bucket, filename),
-		1: equals(""),
+		0: equals(`mv s3://%v/%v %v`, bucket, filename, filename),
 	})
 
 	// assert local filesystem
@@ -46,7 +46,8 @@ func TestMoveSingleS3ObjectToLocal(t *testing.T) {
 	assertError(t, err, errS3NoSuchKey)
 }
 
-func TestMoveMultipleFlatS3ObjectsToLocal(t *testing.T) {
+// mv s3://bucket/key dir/
+func TestMoveMultipleS3ObjectsToLocal(t *testing.T) {
 	t.Parallel()
 
 	bucket := s3BucketFromTestName(t)
@@ -73,11 +74,10 @@ func TestMoveMultipleFlatS3ObjectsToLocal(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(""),
-		1: equals(`mv s3://%v/another_test_file.txt`, bucket),
-		2: equals(`mv s3://%v/filename-with-hypen.gz`, bucket),
-		3: equals(`mv s3://%v/readme.md`, bucket),
-		4: equals(`mv s3://%v/testfile1.txt`, bucket),
+		0: equals(`mv s3://%v/another_test_file.txt another_test_file.txt`, bucket),
+		1: equals(`mv s3://%v/filename-with-hypen.gz filename-with-hypen.gz`, bucket),
+		2: equals(`mv s3://%v/readme.md readme.md`, bucket),
+		3: equals(`mv s3://%v/testfile1.txt testfile1.txt`, bucket),
 	}, sortInput(true))
 
 	// assert local filesystem
@@ -96,6 +96,7 @@ func TestMoveMultipleFlatS3ObjectsToLocal(t *testing.T) {
 	}
 }
 
+// mv file s3://bucket
 func TestMoveSingleFileToS3(t *testing.T) {
 	t.Parallel()
 
@@ -114,14 +115,14 @@ func TestMoveSingleFileToS3(t *testing.T) {
 	fpath := file.Path()
 	filename := filepath.Base(file.Path())
 
-	cmd := s5cmd("mv", fpath, "s3://"+bucket+"/")
+	dst := fmt.Sprintf("s3://%v/", bucket)
+	cmd := s5cmd("mv", fpath, dst)
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(`mv %v`, filename),
-		1: equals(""),
+		0: equals(`mv %v %v%v`, fpath, dst, filename),
 	})
 
 	// expect no files on filesystem
@@ -132,6 +133,7 @@ func TestMoveSingleFileToS3(t *testing.T) {
 	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content))
 }
 
+// mv dir/* s3://bucket
 func TestMoveMultipleFilesToS3(t *testing.T) {
 	t.Parallel()
 
@@ -158,17 +160,18 @@ func TestMoveMultipleFilesToS3(t *testing.T) {
 	workdir := fs.NewDir(t, bucket, files...)
 	defer workdir.Remove()
 
-	cmd := s5cmd("mv", workdir.Path()+"/*", "s3://"+bucket+"/")
+	src := workdir.Path()
+	dst := fmt.Sprintf("s3://%v/", bucket)
+	cmd := s5cmd("mv", src+"/*", dst)
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(""),
-		1: equals(`mv another_test_file.txt`),
-		2: equals(`mv filename-with-hypen.gz`),
-		3: equals(`mv readme.md`),
-		4: equals(`mv testfile1.txt`),
+		0: equals(`mv %v/another_test_file.txt %vanother_test_file.txt`, src, dst),
+		1: equals(`mv %v/filename-with-hypen.gz %vfilename-with-hypen.gz`, src, dst),
+		2: equals(`mv %v/readme.md %vreadme.md`, src, dst),
+		3: equals(`mv %v/testfile1.txt %vtestfile1.txt`, src, dst),
 	}, sortInput(true))
 
 	// expect no files on filesystem
@@ -181,6 +184,7 @@ func TestMoveMultipleFilesToS3(t *testing.T) {
 	}
 }
 
+// mv s3://bucket/object s3://bucket2/object
 func TestMoveSingleS3ObjectToS3(t *testing.T) {
 	t.Parallel()
 
@@ -207,8 +211,7 @@ func TestMoveSingleS3ObjectToS3(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(`mv s3://%v/testfile1.txt`, bucket),
-		1: equals(""),
+		0: equals(`mv %v %v`, src, dst),
 	})
 
 	// expect no s3 source object
@@ -219,6 +222,7 @@ func TestMoveSingleS3ObjectToS3(t *testing.T) {
 	assert.Assert(t, ensureS3Object(s3client, bucket, "dst/"+filename, content))
 }
 
+// mv s3://bucket/object s3://bucket2/object
 func TestMoveSingleS3ObjectIntoAnotherBucket(t *testing.T) {
 	t.Parallel()
 
@@ -247,8 +251,7 @@ func TestMoveSingleS3ObjectIntoAnotherBucket(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(`mv s3://%v/testfile1.txt`, srcbucket),
-		1: equals(""),
+		0: equals(`mv %v %v`, src, dst),
 	})
 
 	// expect no s3 source object
@@ -259,6 +262,7 @@ func TestMoveSingleS3ObjectIntoAnotherBucket(t *testing.T) {
 	assert.Assert(t, ensureS3Object(s3client, dstbucket, filename, content))
 }
 
+// mv s3://bucket/* s3://bucket2/prefix/
 func TestMoveMultipleS3ObjectsToS3(t *testing.T) {
 	t.Parallel()
 
@@ -289,11 +293,10 @@ func TestMoveMultipleS3ObjectsToS3(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: contains(""),
-		1: equals("mv s3://%v/another_test_file.txt", bucket),
-		2: equals("mv s3://%v/filename-with-hypen.gz", bucket),
-		3: equals("mv s3://%v/readme.md", bucket),
-		4: equals("mv s3://%v/testfile1.txt", bucket),
+		0: equals("mv s3://%v/another_test_file.txt %vanother_test_file.txt", bucket, dst),
+		1: equals("mv s3://%v/filename-with-hypen.gz %vfilename-with-hypen.gz", bucket, dst),
+		2: equals("mv s3://%v/readme.md %vreadme.md", bucket, dst),
+		3: equals("mv s3://%v/testfile1.txt %vtestfile1.txt", bucket, dst),
 	}, sortInput(true))
 
 	// expect no s3 source objects
@@ -306,87 +309,4 @@ func TestMoveMultipleS3ObjectsToS3(t *testing.T) {
 	for filename, content := range filesToContent {
 		assert.Assert(t, ensureS3Object(s3client, bucket, "dst/"+filename, content))
 	}
-}
-
-func TestMoveSingleFileToLocal(t *testing.T) {
-	t.Parallel()
-
-	_, s5cmd, cleanup := setup(t)
-	defer cleanup()
-
-	const (
-		filename    = "testfile1.txt"
-		newFilename = "testfile1-copy.txt"
-		content     = "this is a test file"
-	)
-
-	workdir := fs.NewDir(t, t.Name(), fs.WithFile(filename, content))
-	defer workdir.Remove()
-
-	cmd := s5cmd("mv", filename, newFilename)
-	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
-
-	result.Assert(t, icmd.Success)
-
-	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals("mv testfile1.txt"),
-		1: equals(""),
-	})
-
-	// assert local filesystem
-	expected := fs.Expected(t, fs.WithFile(newFilename, content))
-	assert.Assert(t, fs.Equal(workdir.Path(), expected))
-}
-
-func TestMoveMultipleFilesToLocal(t *testing.T) {
-	t.Parallel()
-
-	_, s5cmd, cleanup := setup(t)
-	defer cleanup()
-
-	filesToContent := map[string]string{
-		"testfile1.txt":          "this is a test file 1",
-		"readme.md":              "this is a readme file",
-		"filename-with-hypen.gz": "file has hypen in its name",
-		"another_test_file.txt":  "yet another txt file. yatf.",
-	}
-
-	var files []fs.PathOp
-	for filename, content := range filesToContent {
-		op := fs.WithFile(filename, content)
-		files = append(files, op)
-	}
-
-	workdir := fs.NewDir(t, t.Name(), files...)
-	defer workdir.Remove()
-
-	cmd := s5cmd("mv", "*.txt", "another-directory/")
-	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
-
-	result.Assert(t, icmd.Success)
-
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: equals(""),
-	})
-
-	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(""),
-		1: equals("mv another_test_file.txt"),
-		2: equals("mv testfile1.txt"),
-	}, sortInput(true))
-
-	// assert local filesystem
-	expected := fs.Expected(
-		t,
-		fs.WithMode(0700),
-		fs.WithFile("readme.md", "this is a readme file"),
-		fs.WithFile("filename-with-hypen.gz", "file has hypen in its name"),
-		fs.WithDir("another-directory",
-			fs.WithMode(0755),
-			fs.WithFile("testfile1.txt", "this is a test file 1"),
-			fs.WithFile("another_test_file.txt", "yet another txt file. yatf."),
-		),
-	)
-
-	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 }

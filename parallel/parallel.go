@@ -3,15 +3,18 @@ package parallel
 import (
 	"runtime"
 	"sync"
+	"syscall"
 )
 
 const minNumWorkers = 2
+const minOpenFilesLimit = 1000
 
 var global *Manager
 
 type Task func() error
 
 func Init(workercount int) {
+	adjustOpenFilesLimit()
 	global = New(workercount)
 }
 
@@ -89,4 +92,25 @@ func (w *Waiter) Wait() {
 
 func (w *Waiter) Err() <-chan error {
 	return w.errch
+}
+
+// adjustOpenFilesLimit tries to increase the soft limit of open files.
+func adjustOpenFilesLimit() {
+	var rLimit syscall.Rlimit
+	err := syscall.Getrlimit(syscall.RLIMIT_NOFILE, &rLimit)
+	if err != nil {
+		return
+	}
+
+	if rLimit.Cur >= minOpenFilesLimit {
+		return
+	}
+
+	if rLimit.Max < minOpenFilesLimit {
+		return
+	}
+
+	rLimit.Cur = minOpenFilesLimit
+
+	_ = syscall.Setrlimit(syscall.RLIMIT_NOFILE, &rLimit)
 }

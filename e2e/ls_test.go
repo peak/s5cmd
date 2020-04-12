@@ -7,6 +7,7 @@ import (
 	"gotest.tools/v3/icmd"
 )
 
+// ls
 func TestListBuckets(t *testing.T) {
 	t.Parallel()
 
@@ -31,10 +32,10 @@ func TestListBuckets(t *testing.T) {
 		1: suffix("s3://%v-2", bucketPrefix),
 		2: suffix("s3://%v-3", bucketPrefix),
 		3: suffix("s3://%v-4", bucketPrefix),
-		4: equals(""),
 	})
 }
 
+// -json ls bucket
 func TestListBucketsJSON(t *testing.T) {
 	t.Parallel()
 
@@ -59,10 +60,10 @@ func TestListBucketsJSON(t *testing.T) {
 		1: suffix(`"name":"%v-2"}`, bucketPrefix),
 		2: suffix(`"name":"%v-3"}`, bucketPrefix),
 		3: suffix(`"name":"%v-4"}`, bucketPrefix),
-		4: equals(""),
 	}, jsonCheck(true))
 }
 
+// ls bucket/object
 func TestListSingleS3Object(t *testing.T) {
 	t.Parallel()
 
@@ -84,10 +85,10 @@ func TestListSingleS3Object(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: suffix("317 testfile1.txt"),
-		1: equals(""),
 	})
 }
 
+// -json ls bucket/object
 func TestListSingleS3ObjectJSON(t *testing.T) {
 	t.Parallel()
 
@@ -109,10 +110,10 @@ func TestListSingleS3ObjectJSON(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: prefix(`{"key":"s3://%v/testfile1.txt",`, bucket),
-		1: equals(""),
 	}, jsonCheck(true))
 }
 
+// ls bucket/*.ext
 func TestListSingleWildcardS3Object(t *testing.T) {
 	t.Parallel()
 
@@ -135,10 +136,10 @@ func TestListSingleWildcardS3Object(t *testing.T) {
 		0: suffix("317 testfile1.txt"),
 		1: suffix("322 testfile2.txt"),
 		2: suffix("330 testfile3.txt"),
-		3: equals(""),
-	})
+	}, alignment(true))
 }
 
+// ls bucket/*/object*.ext
 func TestListMultipleWildcardS3Object(t *testing.T) {
 	t.Parallel()
 
@@ -172,10 +173,10 @@ func TestListMultipleWildcardS3Object(t *testing.T) {
 		3: suffix("304 b/testfile4.txt"),
 		4: suffix("312 d/foo/bar/testfile8.txt"),
 		5: suffix("309 f/txt/testfile10.txt"),
-		6: equals(""),
-	})
+	}, alignment(true))
 }
 
+// ls bucket/prefix/object*.ext
 func TestListMultipleWildcardS3ObjectWithPrefix(t *testing.T) {
 	t.Parallel()
 
@@ -206,10 +207,10 @@ func TestListMultipleWildcardS3ObjectWithPrefix(t *testing.T) {
 		0: suffix("304 testfile1.txt"),
 		1: suffix("304 testfile2.txt"),
 		2: suffix("304 testfile3.txt"),
-		3: equals(""),
-	})
+	}, alignment(true))
 }
 
+// ls bucket
 func TestListS3ObjectsAndFolders(t *testing.T) {
 	t.Parallel()
 
@@ -244,10 +245,10 @@ func TestListS3ObjectsAndFolders(t *testing.T) {
 		5: suffix("DIR f/"),
 		6: suffix("? 298 report.gz"),
 		7: suffix("? 302 testfile1.txt"),
-		8: equals(""),
-	})
+	}, alignment(true))
 }
 
+// ls bucket/prefix
 func TestListS3ObjectsAndFoldersWithPrefix(t *testing.T) {
 	t.Parallel()
 
@@ -271,10 +272,10 @@ func TestListS3ObjectsAndFoldersWithPrefix(t *testing.T) {
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: suffix("DIR t/"),
 		1: suffix("? 302 testfile1.txt"),
-		2: equals(""),
-	})
+	}, alignment(true))
 }
 
+// ls bucket/*/object*.ext
 func TestListNonexistingS3ObjectInGivenPrefix(t *testing.T) {
 	t.Parallel()
 
@@ -291,15 +292,14 @@ func TestListNonexistingS3ObjectInGivenPrefix(t *testing.T) {
 
 	result.Assert(t, icmd.Expected{ExitCode: 1})
 
-	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(""),
-	}, strictLineCheck(false))
+	assertLines(t, result.Stdout(), map[int]compareFunc{})
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: equals(`ERROR "ls s3://test-list-nonexisting-s-3-object-in-given-prefix/*/testfile*.txt": no object found`),
 	}, strictLineCheck(false))
 }
 
+// ls bucket/object (nonexistent)
 func TestListNonexistingS3Object(t *testing.T) {
 	t.Parallel()
 
@@ -315,15 +315,14 @@ func TestListNonexistingS3Object(t *testing.T) {
 
 	result.Assert(t, icmd.Expected{ExitCode: 1})
 
-	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(""),
-	}, strictLineCheck(false))
+	assertLines(t, result.Stdout(), map[int]compareFunc{})
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: equals(`ERROR "ls s3://test-list-nonexisting-s-3-object/nosuchobject": no object found`),
 	}, strictLineCheck(false))
 }
 
+// ls -e bucket
 func TestListS3ObjectsWithDashE(t *testing.T) {
 	t.Parallel()
 
@@ -345,10 +344,10 @@ func TestListS3ObjectsWithDashE(t *testing.T) {
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: match(`^ \? \w+ \d+ testfile1.txt$`),
 		1: match(`^ \? \w+ \d+ testfile2.txt$`),
-		2: equals(""),
-	}, trimMatch(dateRe))
+	}, trimMatch(dateRe), alignment(true))
 }
 
+// ls -H bucket
 func TestListS3ObjectsWithDashH(t *testing.T) {
 	t.Parallel()
 
@@ -370,6 +369,5 @@ func TestListS3ObjectsWithDashH(t *testing.T) {
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: match(`^ \? 215.1K testfile1.txt$`),
 		1: match(`^ \? 264.0K testfile2.txt$`),
-		2: equals(""),
-	}, trimMatch(dateRe))
+	}, trimMatch(dateRe), alignment(true))
 }

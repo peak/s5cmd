@@ -4,23 +4,24 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
 	"github.com/karrick/godirwalk"
 	"github.com/termie/go-shutil"
 
-	"github.com/peak/s5cmd/objurl"
+	"github.com/peak/s5cmd/storage/url"
 )
 
+// Filesystem is the Storage implementation of a local filesystem.
 type Filesystem struct{}
 
 func NewFilesystem() *Filesystem {
 	return &Filesystem{}
 }
 
-func (f *Filesystem) Stat(ctx context.Context, url *objurl.ObjectURL) (*Object, error) {
+// Stat returns the Object structure describing object.
+func (f *Filesystem) Stat(ctx context.Context, url *url.URL) (*Object, error) {
 	st, err := os.Stat(url.Absolute())
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -39,26 +40,27 @@ func (f *Filesystem) Stat(ctx context.Context, url *objurl.ObjectURL) (*Object, 
 	}, nil
 }
 
-func (f *Filesystem) List(ctx context.Context, url *objurl.ObjectURL, isRecursive bool, _ int64) <-chan *Object {
-	obj, err := f.Stat(ctx, url)
+// List returns the objects and directories reside in given src.
+func (f *Filesystem) List(ctx context.Context, src *url.URL, followSymlinks bool) <-chan *Object {
+	obj, err := f.Stat(ctx, src)
 	isDir := err == nil && obj.Type.IsDir()
 
 	if isDir {
-		return f.walkDir(ctx, url, isRecursive)
+		return f.walkDir(ctx, src, followSymlinks)
 	}
 
-	if url.HasGlob() {
-		return f.expandGlob(ctx, url, isRecursive)
+	if src.HasGlob() {
+		return f.expandGlob(ctx, src, followSymlinks)
 	}
 
-	return f.listSingleObject(ctx, url)
+	return f.listSingleObject(ctx, src)
 }
 
-func (f *Filesystem) listSingleObject(ctx context.Context, url *objurl.ObjectURL) <-chan *Object {
+func (f *Filesystem) listSingleObject(ctx context.Context, src *url.URL) <-chan *Object {
 	ch := make(chan *Object, 1)
 	defer close(ch)
 
-	object, err := f.Stat(ctx, url)
+	object, err := f.Stat(ctx, src)
 	if err != nil {
 		object = &Object{Err: err}
 	}
@@ -66,19 +68,19 @@ func (f *Filesystem) listSingleObject(ctx context.Context, url *objurl.ObjectURL
 	return ch
 }
 
-func (f *Filesystem) expandGlob(ctx context.Context, url *objurl.ObjectURL, isRecursive bool) <-chan *Object {
+func (f *Filesystem) expandGlob(ctx context.Context, src *url.URL, followSymlinks bool) <-chan *Object {
 	ch := make(chan *Object)
 
 	go func() {
 		defer close(ch)
 
-		matchedFiles, err := filepath.Glob(url.Absolute())
+		matchedFiles, err := filepath.Glob(src.Absolute())
 		if err != nil {
 			sendError(ctx, err, ch)
 			return
 		}
 		if len(matchedFiles) == 0 {
-			err := fmt.Errorf("no match found for %q", url)
+			err := fmt.Errorf("no match found for %q", src)
 			sendError(ctx, err, ch)
 			return
 		}
@@ -86,8 +88,8 @@ func (f *Filesystem) expandGlob(ctx context.Context, url *objurl.ObjectURL, isRe
 		for _, filename := range matchedFiles {
 			filename := filename
 
-			fileurl, _ := objurl.New(filename)
-			fileurl.SetRelative(url.Absolute())
+			fileurl, _ := url.New(filename)
+			fileurl.SetRelative(src.Absolute())
 
 			obj, _ := f.Stat(ctx, fileurl)
 
@@ -96,12 +98,7 @@ func (f *Filesystem) expandGlob(ctx context.Context, url *objurl.ObjectURL, isRe
 				continue
 			}
 
-			// don't walk the directory if not asked
-			if !isRecursive {
-				continue
-			}
-
-			walkDir(ctx, f, fileurl, func(obj *Object) {
+			walkDir(ctx, f, fileurl, followSymlinks, func(obj *Object) {
 				sendObject(ctx, obj, ch)
 			})
 		}
@@ -109,31 +106,40 @@ func (f *Filesystem) expandGlob(ctx context.Context, url *objurl.ObjectURL, isRe
 	return ch
 }
 
-func walkDir(ctx context.Context, storage Storage, url *objurl.ObjectURL, fn func(o *Object)) {
-	err := godirwalk.Walk(url.Absolute(), &godirwalk.Options{
+func walkDir(ctx context.Context, storage Storage, src *url.URL, followSymlinks bool, fn func(o *Object)) {
+	//skip if symlink is pointing to a dir and --no-follow-symlink
+	if !ShouldProcessUrl(src, followSymlinks) {
+		return
+	}
+	err := godirwalk.Walk(src.Absolute(), &godirwalk.Options{
 		Callback: func(pathname string, dirent *godirwalk.Dirent) error {
 			// we're interested in files
 			if dirent.IsDir() {
 				return nil
 			}
 
-			fileurl, err := objurl.New(pathname)
+			fileurl, err := url.New(pathname)
 			if err != nil {
 				return err
 			}
 
-			fileurl.SetRelative(url.Absolute())
+			fileurl.SetRelative(src.Absolute())
+
+			//skip if symlink is pointing to a file and --no-follow-symlink
+			if !ShouldProcessUrl(fileurl, followSymlinks) {
+				return nil
+			}
 
 			obj, err := storage.Stat(ctx, fileurl)
+
 			if err != nil {
 				return err
 			}
 			fn(obj)
 			return nil
 		},
-		// TODO(ig): enable following symlink once we have the necessary cli
 		// flags
-		FollowSymbolicLinks: false,
+		FollowSymbolicLinks: followSymlinks,
 	})
 	if err != nil {
 		obj := &Object{Err: err}
@@ -141,43 +147,20 @@ func walkDir(ctx context.Context, storage Storage, url *objurl.ObjectURL, fn fun
 	}
 }
 
-func (f *Filesystem) readDir(ctx context.Context, url *objurl.ObjectURL, ch chan *Object) {
-	dir := url.Absolute()
-	fis, err := ioutil.ReadDir(dir)
-	if err != nil {
-		sendError(ctx, err, ch)
-		return
-	}
-
-	for _, fi := range fis {
-		mod := fi.ModTime()
-		obj := &Object{
-			URL:     url.Join(fi.Name()),
-			ModTime: &mod,
-			Type:    ObjectType{fi.Mode()},
-			Size:    fi.Size(),
-		}
-		sendObject(ctx, obj, ch)
-	}
-}
-
-func (f *Filesystem) walkDir(ctx context.Context, url *objurl.ObjectURL, isRecursive bool) <-chan *Object {
+func (f *Filesystem) walkDir(ctx context.Context, src *url.URL, followSymlinks bool) <-chan *Object {
 	ch := make(chan *Object)
 	go func() {
 		defer close(ch)
 
-		if !isRecursive {
-			f.readDir(ctx, url, ch)
-			return
-		}
-
-		walkDir(ctx, f, url, func(obj *Object) {
+		walkDir(ctx, f, src, followSymlinks, func(obj *Object) {
 			sendObject(ctx, obj, ch)
 		})
 	}()
 	return ch
 }
-func (f *Filesystem) Copy(ctx context.Context, src, dst *objurl.ObjectURL, _ map[string]string) error {
+
+// Copy copies given source to destination.
+func (f *Filesystem) Copy(ctx context.Context, src, dst *url.URL, _ map[string]string) error {
 	if err := os.MkdirAll(dst.Dir(), os.ModePerm); err != nil {
 		return err
 	}
@@ -185,11 +168,13 @@ func (f *Filesystem) Copy(ctx context.Context, src, dst *objurl.ObjectURL, _ map
 	return err
 }
 
-func (f *Filesystem) Delete(ctx context.Context, url *objurl.ObjectURL) error {
+// Delete deletes given file.
+func (f *Filesystem) Delete(ctx context.Context, url *url.URL) error {
 	return os.Remove(url.Absolute())
 }
 
-func (f *Filesystem) MultiDelete(ctx context.Context, urlch <-chan *objurl.ObjectURL) <-chan *Object {
+// MultiDelete deletes all files returned from given channel.
+func (f *Filesystem) MultiDelete(ctx context.Context, urlch <-chan *url.URL) <-chan *Object {
 	resultch := make(chan *Object)
 	go func() {
 		defer close(resultch)
@@ -206,18 +191,22 @@ func (f *Filesystem) MultiDelete(ctx context.Context, urlch <-chan *objurl.Objec
 	return resultch
 }
 
-func (f *Filesystem) Put(ctx context.Context, body io.Reader, url *objurl.ObjectURL, _ map[string]string) error {
+// Put is not supported for filesystem.
+func (f *Filesystem) Put(_ context.Context, _ io.Reader, _ *url.URL, _ map[string]string, _ int, _ int64) error {
 	return f.notimplemented("Put")
 }
 
-func (f *Filesystem) Get(_ context.Context, _ *objurl.ObjectURL, _ io.WriterAt) (int64, error) {
+// Get is not supported for filesystem.
+func (f *Filesystem) Get(_ context.Context, _ *url.URL, _ io.WriterAt, _ int, _ int64) (int64, error) {
 	return 0, f.notimplemented("Get")
 }
 
+// ListBuckets is not supported for filesystem.
 func (f *Filesystem) ListBuckets(_ context.Context, _ string) ([]Bucket, error) {
 	return nil, f.notimplemented("ListBuckets")
 }
 
+// MakeBucket is not supported for filesytem.
 func (f *Filesystem) MakeBucket(_ context.Context, _ string) error {
 	return f.notimplemented("MakeBucket")
 }

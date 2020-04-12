@@ -24,17 +24,17 @@ func Init(level string, json bool) {
 
 // Debug prints message in debug mode.
 func Debug(msg Message) {
-	global.printf(LevelDebug, msg, os.Stdout)
+	global.printf(levelDebug, msg, os.Stdout)
 }
 
 // Info prints message in info mode.
 func Info(msg Message) {
-	global.printf(LevelInfo, msg, os.Stdout)
+	global.printf(levelInfo, msg, os.Stdout)
 }
 
 // Error prints message in error mode.
 func Error(msg Message) {
-	global.printf(LevelError, msg, os.Stderr)
+	global.printf(levelError, msg, os.Stderr)
 }
 
 // Close closes logger and its channel.
@@ -94,36 +94,36 @@ func (l *Logger) out() {
 type logLevel int
 
 const (
-	LevelDebug logLevel = iota
-	LevelInfo
-	LevelError
+	levelDebug logLevel = iota
+	levelInfo
+	levelError
 )
 
 // String returns the string representation of logLevel.
 func (l logLevel) String() string {
 	switch l {
-	case LevelInfo:
+	case levelInfo:
 		return ""
-	case LevelError:
+	case levelError:
 		return "ERROR "
-	case LevelDebug:
+	case levelDebug:
 		return "DEBUG "
 	default:
 		return "UNKNOWN "
 	}
 }
 
-// LevelFromString returns logLevel for given string. It
+// levelFromString returns logLevel for given string. It
 // return `levelInfo` as a default.
 func levelFromString(s string) logLevel {
 	switch s {
 	case "debug":
-		return LevelDebug
+		return levelDebug
 	case "info":
-		return LevelInfo
+		return levelInfo
 	case "error":
-		return LevelError
+		return levelError
 	default:
-		return LevelInfo
+		return levelInfo
 	}
 }

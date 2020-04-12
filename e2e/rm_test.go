@@ -9,6 +9,7 @@ import (
 	"gotest.tools/v3/icmd"
 )
 
+// rm s3://bucket/object
 func TestRemoveSingleS3Object(t *testing.T) {
 	t.Parallel()
 
@@ -31,13 +32,10 @@ func TestRemoveSingleS3Object(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: equals(""),
-	})
+	assertLines(t, result.Stderr(), map[int]compareFunc{})
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals("rm s3://%v/testfile1.txt", bucket),
-		1: equals(""),
 	})
 
 	// assert s3 object
@@ -45,6 +43,7 @@ func TestRemoveSingleS3Object(t *testing.T) {
 	assertError(t, err, errS3NoSuchKey)
 }
 
+// --json rm s3://bucket/object
 func TestRemoveSingleS3ObjectJSON(t *testing.T) {
 	t.Parallel()
 
@@ -67,9 +66,7 @@ func TestRemoveSingleS3ObjectJSON(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: equals(""),
-	})
+	assertLines(t, result.Stderr(), map[int]compareFunc{})
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: json(`
@@ -79,7 +76,6 @@ func TestRemoveSingleS3ObjectJSON(t *testing.T) {
 				"source": "s3://%v/%v"
 			}
 		`, bucket, filename),
-		1: equals(""),
 	})
 
 	// assert s3 object
@@ -87,6 +83,7 @@ func TestRemoveSingleS3ObjectJSON(t *testing.T) {
 	assertError(t, err, errS3NoSuchKey)
 }
 
+// rm s3://bucket/*
 func TestRemoveMultipleS3Objects(t *testing.T) {
 	t.Parallel()
 
@@ -113,16 +110,13 @@ func TestRemoveMultipleS3Objects(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: equals(""),
-	})
+	assertLines(t, result.Stderr(), map[int]compareFunc{})
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(""),
-		1: equals(`rm s3://%v/another_test_file.txt`, bucket),
-		2: equals(`rm s3://%v/filename-with-hypen.gz`, bucket),
-		3: equals(`rm s3://%v/readme.md`, bucket),
-		4: equals(`rm s3://%v/testfile1.txt`, bucket),
+		0: equals(`rm s3://%v/another_test_file.txt`, bucket),
+		1: equals(`rm s3://%v/filename-with-hypen.gz`, bucket),
+		2: equals(`rm s3://%v/readme.md`, bucket),
+		3: equals(`rm s3://%v/testfile1.txt`, bucket),
 	}, sortInput(true))
 
 	// assert s3 objects
@@ -132,6 +126,7 @@ func TestRemoveMultipleS3Objects(t *testing.T) {
 	}
 }
 
+// --json rm s3://bucket/*
 func TestRemoveMultipleS3ObjectsJSON(t *testing.T) {
 	t.Parallel()
 
@@ -158,34 +153,31 @@ func TestRemoveMultipleS3ObjectsJSON(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: equals(""),
-	})
+	assertLines(t, result.Stderr(), map[int]compareFunc{})
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(""),
-		1: json(`
+		0: json(`
 			{
 				"operation": "rm",
 				"success": true,
 				"source": "s3://%v/another_test_file.txt"
 			}
 		`, bucket),
-		2: json(`
+		1: json(`
 			{
 				"operation": "rm",
 				"success": true,
 				"source": "s3://%v/filename-with-hypen.gz"
 			}
 		`, bucket),
-		3: json(`
+		2: json(`
 			{
 				"operation": "rm",
 				"success": true,
 				"source": "s3://%v/readme.md"
 			}
 		`, bucket),
-		4: json(`
+		3: json(`
 			{
 				"operation": "rm",
 				"success": true,
@@ -202,6 +194,7 @@ func TestRemoveMultipleS3ObjectsJSON(t *testing.T) {
 
 }
 
+// rm s3://bucket/* (removes 10k objects)
 func TestRemoveTenThousandS3Objects(t *testing.T) {
 	t.Parallel()
 
@@ -214,10 +207,7 @@ func TestRemoveTenThousandS3Objects(t *testing.T) {
 
 	createBucket(t, s3client, bucket)
 
-	const (
-		filecount = 10_000
-		content   = "file body"
-	)
+	const filecount = 10000
 
 	filenameFunc := func(i int) string { return fmt.Sprintf("file_%06d", i) }
 	contentFunc := func(i int) string { return fmt.Sprintf("file body %06d", i) }
@@ -233,14 +223,11 @@ func TestRemoveTenThousandS3Objects(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: equals(""),
-	})
+	assertLines(t, result.Stderr(), map[int]compareFunc{})
 
 	expected := make(map[int]compareFunc)
-	expected[0] = equals("")
 	for i := 0; i < filecount; i++ {
-		expected[i+1] = contains(`rm s3://%v/file_%06d`, bucket, i)
+		expected[i] = contains(`rm s3://%v/file_%06d`, bucket, i)
 	}
 
 	assertLines(t, result.Stdout(), expected, sortInput(true))
@@ -255,6 +242,64 @@ func TestRemoveTenThousandS3Objects(t *testing.T) {
 	}
 }
 
+// rm s3://bucket/prefix
+func TestRemoveS3PrefixWithoutSlash(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+
+	const prefix = "prefix"
+	src := fmt.Sprintf("s3://%v/%v", bucket, prefix)
+
+	cmd := s5cmd("rm", src)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{})
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals("rm s3://%v/%v", bucket, prefix),
+	})
+}
+
+// rm s3://bucket/prefix/
+func TestRemoveS3Prefix(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+
+	const (
+		filename = "file.txt"
+		content  = "test file"
+	)
+
+	putFile(t, s3client, bucket, filename, content)
+
+	const prefix = "prefix/"
+	src := fmt.Sprintf("s3://%v/%v", bucket, prefix)
+
+	cmd := s5cmd("rm", src)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Expected{ExitCode: 1})
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: equals(`ERROR "rm %v": source argument must contain wildcard character`, src),
+	})
+}
+
+// rm file
 func TestRemoveSingleLocalFile(t *testing.T) {
 	t.Parallel()
 
@@ -274,13 +319,10 @@ func TestRemoveSingleLocalFile(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: equals(""),
-	})
+	assertLines(t, result.Stderr(), map[int]compareFunc{})
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(`rm %v`, filename),
-		1: equals(""),
 	})
 
 	// assert local filesystem
@@ -288,6 +330,7 @@ func TestRemoveSingleLocalFile(t *testing.T) {
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 }
 
+// rm *.ext
 func TestRemoveMultipleLocalFilesShouldNotFail(t *testing.T) {
 	t.Parallel()
 
@@ -313,17 +356,14 @@ func TestRemoveMultipleLocalFilesShouldNotFail(t *testing.T) {
 	cmd := s5cmd("rm", "*.txt")
 	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
 
-	result.Assert(t, icmd.Expected{ExitCode: 0})
+	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(""),
-		1: equals("rm another_test_file.txt"),
-		2: equals("rm testfile1.txt"),
-	}, strictLineCheck(true), sortInput(true))
+		0: equals("rm another_test_file.txt"),
+		1: equals("rm testfile1.txt"),
+	}, sortInput(true))
 
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: equals(""),
-	})
+	assertLines(t, result.Stderr(), map[int]compareFunc{})
 
 	// assert local filesystem
 	expectedFiles := []fs.PathOp{
@@ -334,9 +374,82 @@ func TestRemoveMultipleLocalFilesShouldNotFail(t *testing.T) {
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 }
 
-// TODO(ig): re-open once we support variadic args
-/*
-func TestBatchRemove(t *testing.T) {
+// rm dir/
+func TestRemoveLocalDirectory(t *testing.T) {
+	t.Parallel()
+
+	_, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	folderLayout := []fs.PathOp{
+		fs.WithDir(
+			"testdir",
+			fs.WithFile("file1.txt", "this is the first test file"),
+			fs.WithFile("file2.txt", "this is the second test file"),
+			fs.WithFile("readme.md", "this is a readme file"),
+		),
+	}
+
+	workdir := fs.NewDir(t, t.Name(), folderLayout...)
+	defer workdir.Remove()
+
+	cmd := s5cmd("rm", "testdir")
+	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals("rm testdir/file1.txt"),
+		1: equals("rm testdir/file2.txt"),
+		2: equals("rm testdir/readme.md"),
+	}, sortInput(true))
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{})
+
+	// expected empty dir
+	expected := fs.Expected(t, fs.WithDir("testdir"))
+	assert.Assert(t, fs.Equal(workdir.Path(), expected))
+}
+
+// rm dir/ file file2
+func TestVariadicMultipleLocalFilesWithDirectory(t *testing.T) {
+	t.Parallel()
+
+	_, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	folderLayout := []fs.PathOp{
+		fs.WithDir(
+			"testdir",
+			fs.WithFile("readme.md", "this is a readme file"),
+		),
+		fs.WithFile("file1.txt", "this is the first test file"),
+		fs.WithFile("file2.txt", "this is the second test file"),
+	}
+
+	workdir := fs.NewDir(t, t.Name(), folderLayout...)
+	defer workdir.Remove()
+
+	cmd := s5cmd("rm", "testdir", "file1.txt", "file2.txt")
+	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals("rm file1.txt"),
+		1: equals("rm file2.txt"),
+		2: equals("rm testdir/readme.md"),
+	}, sortInput(true))
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{})
+
+	// expected empty dir
+	expected := fs.Expected(t, fs.WithDir("testdir"))
+	assert.Assert(t, fs.Equal(workdir.Path(), expected))
+}
+
+// rm s3://bucket/object s3://bucket/object2
+func TestVariadicRemoveS3Objects(t *testing.T) {
 	t.Parallel()
 
 	s3client, s5cmd, cleanup := setup(t)
@@ -369,16 +482,13 @@ func TestBatchRemove(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: equals(""),
-	})
+	assertLines(t, result.Stderr(), map[int]compareFunc{})
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(""),
-		1: equals(`rm s3://%v/file1.txt`, bucket),
-		2: equals(`rm s3://%v/file2.txt`, bucket),
-		3: equals(`rm s3://%v/file3.txt`, bucket),
-		4: equals(`rm s3://%v/file4.txt`, bucket),
+		0: equals(`rm s3://%v/file1.txt`, bucket),
+		1: equals(`rm s3://%v/file2.txt`, bucket),
+		2: equals(`rm s3://%v/file3.txt`, bucket),
+		3: equals(`rm s3://%v/file4.txt`, bucket),
 	}, sortInput(true))
 
 	// assert s3 objects
@@ -387,4 +497,95 @@ func TestBatchRemove(t *testing.T) {
 		assertError(t, err, errS3NoSuchKey)
 	}
 }
-*/
+
+// rm s3://bucket/prefix/* s3://bucket/object
+func TestVariadicRemoveS3ObjectsWithWildcard(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	filesToContent := map[string]string{
+		"testdir1/file1.txt":     "file1 content",
+		"testdir1/file2.txt":     "file2 content",
+		"testdir1/dir/file3.txt": "file23content",
+		"file4.txt":              "file4 content",
+		"testdir2/file5.txt":     "file5 content",
+		"testdir2/file6.txt":     "file6 content",
+	}
+
+	for filename, content := range filesToContent {
+		putFile(t, s3client, bucket, filename, content)
+	}
+
+	cmd := s5cmd(
+		"rm",
+		"s3://"+bucket+"/testdir1/*",
+		"s3://"+bucket+"/testdir2/*",
+		"s3://"+bucket+"/file4.txt",
+	)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{})
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`rm s3://%v/file4.txt`, bucket),
+		1: equals(`rm s3://%v/testdir1/dir/file3.txt`, bucket),
+		2: equals(`rm s3://%v/testdir1/file1.txt`, bucket),
+		3: equals(`rm s3://%v/testdir1/file2.txt`, bucket),
+		4: equals(`rm s3://%v/testdir2/file5.txt`, bucket),
+		5: equals(`rm s3://%v/testdir2/file6.txt`, bucket),
+	}, sortInput(true))
+
+	// assert s3 objects
+	for filename, content := range filesToContent {
+		err := ensureS3Object(s3client, bucket, filename, content)
+		assertError(t, err, errS3NoSuchKey)
+	}
+}
+
+// rm file s3://bucket/object
+func TestRemoveMultipleMixedObjects(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	const bucket = "bucket"
+	createBucket(t, s3client, bucket)
+
+	const (
+		filename = "file.txt"
+		content  = "this is a test file"
+
+		objectname = "object.txt"
+	)
+
+	workdir := fs.NewDir(t, t.Name(), fs.WithFile(filename, content))
+	defer workdir.Remove()
+
+	putFile(t, s3client, bucket, objectname, content)
+
+	remoteSource := fmt.Sprintf("s3://%v/%v", bucket, objectname)
+
+	cmd := s5cmd("rm", filename, remoteSource)
+	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
+
+	result.Assert(t, icmd.Expected{ExitCode: 1})
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: equals(`ERROR "rm %v %v": arguments cannot have both local and remote sources`, filename, remoteSource),
+	})
+
+	// assert local filesystem
+	expected := fs.Expected(t, fs.WithFile(filename, content))
+	assert.Assert(t, fs.Equal(workdir.Path(), expected))
+
+	// assert s3 object
+	assert.Assert(t, ensureS3Object(s3client, bucket, objectname, content))
+}

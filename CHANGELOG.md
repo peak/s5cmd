@@ -1,10 +1,10 @@
 # Changelog
 
-## not released yet
+## v1.0.0 - 1 Apr 2020
 
 This is a major release with many breaking changes.
 
-#### Backwards incompatible changes
+#### Breaking changes
 
 - Dropped `get` command. Users could get the same effect with `s5cmd cp <src> .`.
 - Dropped `nested command` support.
@@ -15,33 +15,49 @@ This is a major release with many breaking changes.
 - Exit code for errors was `127`. It is `1` now.
 - Dropped `exit` command. It was used to change the shell exit code and usually
   a part of the nested command usage.
+- Dropped local->local copy and move support. ([#118](https://github.com/peak/s5cmd/issues/118))
 - All error messages are sent to stderr now.
 - `-version` flag is changed to `version` command.
 - Dropped `batch-rm` command. It was not listed in the help output. Now that we
   support variadic arguments, users can remove multiple objects by providing
-  wildcards or multiple arguments to `s5cmd rm` command.
+  wildcards or multiple arguments to `s5cmd rm` command. ([#106](https://github.com/peak/s5cmd/pull/106))
 - [Virtual host style bucket name
   resolving](https://aws.amazon.com/blogs/aws/amazon-s3-path-deprecation-plan-the-rest-of-the-story/)
   is enabled by default for S3 and GCS. If you provide a custom endpoint via
   `--endpoint-url` flag (other than GCS and S3 transfer acceleration), `s5cmd`
-  will fall back to the `path-style`. See [#92](https://github.com/peak/s5cmd/pull/92).
-- Listing a non-existent object will return exit code `1`, instead of `0`. See [#23](https://github.com/peak/s5cmd/issues/23).
+  will fall back to the `path-style`. ([#92](https://github.com/peak/s5cmd/pull/92))
+- Listing a non-existent object will return exit code `1`, instead of `0`. ([#23](https://github.com/peak/s5cmd/issues/23))
+- `-ds`, `-dw`, `-us` and `-uw` global flags are no longer available. Multipart
+  concurrency and part size flags are now part of the `cp/mv` command. New
+  replacement flags are `--concurrency | -c` and `--part-size | -p`. ([#110](https://github.com/peak/s5cmd/pull/110))
+- s5cmd `cp` command follows symbolic links by default (only when uploading to
+  s3 from local filesystem). Use `--no-follow-symlinks` flag to disable this
+  feature. ([#17](https://github.com/peak/s5cmd/issues/17))
+- Dropped `-parents` flag from copy command. Copy behaviour has changed to
+  preserve the directory hierarchy as a default. Optional `-flatten` flag is
+  added to flatten directory structure. ([#107](https://github.com/peak/s5cmd/issues/107))
+- Dropped `-vv` verbosity flag. `--log` flag is introduced.
 
 #### Features
 
-- Added `mb` command to make buckets. See [#25](https://github.com/peak/s5cmd/issues/25).
-- Added `--json` flag for JSON logging. See [#22](https://github.com/peak/s5cmd/issues/22).
-- Added [S3 transfer acceleration](https://docs.aws.amazon.com/AmazonS3/latest/dev/transfer-acceleration.html) support. See [#40](https://github.com/peak/s5cmd/issues/40).
+- Added `mb` command to make buckets. ([#25](https://github.com/peak/s5cmd/issues/25))
+- Added `--json` flag for JSON logging. ([#22](https://github.com/peak/s5cmd/issues/22))
+- Added [S3 transfer acceleration](https://docs.aws.amazon.com/AmazonS3/latest/dev/transfer-acceleration.html) support. ([#40](https://github.com/peak/s5cmd/issues/40))
+- Added [Google Cloud Storage](https://github.com/peak/s5cmd#google-cloud-storage-support) support. ([#81](https://github.com/peak/s5cmd/issues/81))
+- Added `cat` command to print remote object contents to stdout ([#20](https://github.com/peak/s5cmd/issues/20))
 
 #### Bugfixes
 
-- Correctly set `Content-Type` of a file on upload operations. See [#33](https://github.com/peak/s5cmd/issues/33).
+- Correctly set `Content-Type` of a file on upload operations. ([#33](https://github.com/peak/s5cmd/issues/33))
+- Fixed a bug where workers are unable to consume job if there are too many
+  outstanding wildcard expansion requests. ([#12](https://github.com/peak/s5cmd/issues/12), [#58](https://github.com/peak/s5cmd/issues/58))
 
 #### Improvements
 
-- Pre-compiled binaries are provided on [releases page](https://github.com/peak/s5cmd/releases). See [#21](https://github.com/peak/s5cmd/issues/21).
-- AWS Go SDK is updated to support IAM role for service accounts. See [#32](https://github.com/peak/s5cmd/issues/32).
-- `s5cmd` now creates destination directory if missing.
+- Pre-compiled binaries are provided on [releases page](https://github.com/peak/s5cmd/releases). ([#21](https://github.com/peak/s5cmd/issues/21))
+- AWS Go SDK is updated to support IAM role for service accounts. ([#32](https://github.com/peak/s5cmd/issues/32))
+- For copy/move operations, `s5cmd` now creates destination directory if missing.
+- Increase the soft limit of open files to 1000 and exits immediately when it encounters `too many open files` error. ([#52](https://github.com/peak/s5cmd/issues/52))
 
 ## v0.7.0 - 27 Jan 2020
 

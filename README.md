@@ -1,4 +1,3 @@
-![Tag](https://img.shields.io/github/tag/peak/s5cmd.svg)
 [![Go Report](https://goreportcard.com/badge/github.com/peak/s5cmd)](https://goreportcard.com/report/github.com/peak/s5cmd)
 
 # s5cmd
@@ -13,9 +12,11 @@ storage services and local filesystems.
 - List buckets and objects
 - Upload, download or delete objects
 - Move, copy or rename objects
+- Print object contents to stdout
 - Create buckets
 - Summarize objects sizes, grouping by storage class
 - Wildcard support for all operations
+- Multiple arguments support for delete operation
 - Command file support to run commands in batches at very high execution speeds
 - [S3 Transfer Acceleration](https://docs.aws.amazon.com/AmazonS3/latest/dev/transfer-acceleration.html) support
 - Google Cloud Storage (and any other S3 API compatible service) support
@@ -75,18 +76,18 @@ s3://bucket/logs/2020/03/19/originals/file3.gz
     s5cmd cp 's3://bucket/logs/2020/03/*' logs/
 
 
-`s5cmd` will match the given wildcard by doing an efficient search against the
-given prefix. All matching objects will be downloaded in parallel. `s5cmd` will
-create the destination directory if it is missing.
+`s5cmd` will match the given wildcards and arguments by doing an efficient
+search against the given prefixes. All matching objects will be downloaded in
+parallel. `s5cmd` will create the destination directory if it is missing.
 
 `logs/` directory content will look like:
 
 `file1.gz file2.gz file3.gz`
 
-ℹ️ `s5cmd` flattens the source directory structure by default. If you want to keep
-the source directory structure, use the `--parents` flag.
+ℹ️ `s5cmd` preserves the source directory structure by default. If you want to flatten
+the source directory structure, use the `--flatten` flag.
 
-    s5cmd cp --parents 's3://bucket/logs/2020/03/*' logs/
+    s5cmd cp 's3://bucket/logs/2020/03/*' logs/
 
 The above command will match the following objects:
 
@@ -110,7 +111,7 @@ logs/19/originals/file3.gz
 
 #### Upload multiple files to S3
 
-    s5cmd cp --parents directory/ s3://bucket/
+    s5cmd cp directory/ s3://bucket/
 
 Will upload all files at given directory to S3 while keeping the folder hiearchy
 of the source.
@@ -137,7 +138,7 @@ they'll be deleted in a single request.
 
 `s5cmd` supports copying objects on the server side as well.
 
-    s5cmd cp --parents 's3://bucket/logs/2020/*' s3://bucket/logs/backup/
+    s5cmd cp 's3://bucket/logs/2020/*' s3://bucket/logs/backup/
 
 Will copy all the matching objects to the given S3 prefix, respecting the source
 folder hiearchy.
@@ -168,7 +169,7 @@ or
 `commands.txt` content could look like:
 
 ```
-cp --parents s3://bucket/2020/03/* logs/2020/03/
+cp s3://bucket/2020/03/* logs/2020/03/
 
 # line comments are supported
 rm s3://bucket/2020/03/19/file2.gz
@@ -219,8 +220,20 @@ will return your GCS buckets.
 acceleration and GCS. If a custom endpoint is provided, it'll fallback to
 path-style.
 
-⚠️  There's an [outstanding issue](https://github.com/peak/s5cmd/issues/81) for
-not being able to list objects at GCS. It'll be fixed in upcoming releases.
+### Retry logic
+
+`s5cmd` uses an exponential backoff retry mechanism for transient or potential
+server-side throttling errors. Non-retriable errors, such as `invalid
+credentials`, `authorization errors` etc, will not be retried. By default,
+`s5cmd` will retry 10 times for up to a minute. Number of retries are adjustable
+via `--retry-count` flag.
+
+## Using wildcards
+
+Most shells can attempt to expand wildcards before passing the arguments to
+`s5cmd`, resulting in surprising `no matches found` errors.
+
+To avoid this problem, surround the wildcarded expression with single quotes.
 
 ## Output
 
@@ -228,9 +241,9 @@ not being able to list objects at GCS. It'll be fixed in upcoming releases.
 * text format
 
 ```shell
-$ s5cmd cp s3://bucket/key .
+$ s5cmd cp s3://bucket/testfile .
 
-download s3://bucket/key
+cp s3://bucket/testfile testfile
 ```
 
 ```shell
@@ -243,14 +256,14 @@ ERROR "cp s3://somebucket/file.txt file.txt": object already exists
 
 ```json
     {
-      "operation": "download",
+      "operation": "cp",
       "success": true,
-      "source": "s3://bucket/key",
-      "destination": ".",
+      "source": "s3://bucket/testfile",
+      "destination": "testfile",
       "object": "[object]"
     }
     {
-      "operation": "download",
+      "operation": "cp",
       "job": "cp s3://somebucket/file.txt file.txt",
       "error": "'cp s3://somebucket/file.txt file.txt': object already exists"
     }

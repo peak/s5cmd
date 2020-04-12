@@ -3,7 +3,7 @@ package storage
 import (
 	"context"
 	"fmt"
-	"net/url"
+	urlpkg "net/url"
 	"os"
 	"testing"
 
@@ -14,46 +14,47 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/google/go-cmp/cmp"
 
-	"github.com/peak/s5cmd/objurl"
+	"github.com/peak/s5cmd/storage/url"
 )
 
 func TestNewSessionPathStyle(t *testing.T) {
 	testcases := []struct {
 		name            string
-		endpoint        url.URL
+		endpoint        urlpkg.URL
 		expectPathStyle bool
 	}{
 		{
 			name:            "expect_virtual_host_style_when_missing_endpoint",
-			endpoint:        url.URL{},
+			endpoint:        urlpkg.URL{},
 			expectPathStyle: false,
 		},
 		{
 			name:            "expect_virtual_host_style_for_transfer_accel",
-			endpoint:        url.URL{Host: transferAccelEndpoint},
+			endpoint:        urlpkg.URL{Host: transferAccelEndpoint},
 			expectPathStyle: false,
 		},
 		{
 			name:            "expect_virtual_host_style_for_google_cloud_storage",
-			endpoint:        url.URL{Host: gcsEndpoint},
+			endpoint:        urlpkg.URL{Host: gcsEndpoint},
 			expectPathStyle: false,
 		},
 		{
 			name:            "expect_path_style_for_localhost",
-			endpoint:        url.URL{Host: "127.0.0.1"},
+			endpoint:        urlpkg.URL{Host: "127.0.0.1"},
 			expectPathStyle: true,
 		},
 		{
 			name:            "expect_path_style_for_custom_endpoint",
-			endpoint:        url.URL{Host: "example.com"},
+			endpoint:        urlpkg.URL{Host: "example.com"},
 			expectPathStyle: true,
 		},
 	}
 
 	for _, tc := range testcases {
+		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 
-			opts := S3Opts{EndpointURL: tc.endpoint.Hostname()}
+			opts := S3Options{Endpoint: tc.endpoint.Hostname()}
 			sess, err := newSession(opts)
 			if err != nil {
 				t.Fatal(err)
@@ -68,7 +69,7 @@ func TestNewSessionPathStyle(t *testing.T) {
 }
 
 func TestNewSessionWithRegionSetViaEnv(t *testing.T) {
-	opts := S3Opts{
+	opts := S3Options{
 		Region: "",
 	}
 
@@ -88,16 +89,15 @@ func TestNewSessionWithRegionSetViaEnv(t *testing.T) {
 	}
 }
 
-func TestS3_List_success(t *testing.T) {
-	url, err := objurl.New("s3://bucket/key")
+func TestS3ListSuccess(t *testing.T) {
+	url, err := url.New("s3://bucket/key")
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 
 	mockApi := s3.New(unit.Session)
 	mockS3 := &S3{
-		api:  mockApi,
-		opts: S3Opts{},
+		api: mockApi,
 	}
 
 	mockApi.Handlers.Send.Clear() // mock sending
@@ -145,9 +145,10 @@ func TestS3_List_success(t *testing.T) {
 	}
 
 	index := 0
-	for got := range mockS3.List(context.Background(), url, true, ListAllItems) {
+	for got := range mockS3.List(context.Background(), url, true) {
 		if got.Err != nil {
 			t.Errorf("unexpected error: %v", got.Err)
+			continue
 		}
 
 		want := responses[index]
@@ -164,16 +165,15 @@ func TestS3_List_success(t *testing.T) {
 	}
 }
 
-func TestS3_List_error(t *testing.T) {
-	url, err := objurl.New("s3://bucket/key")
+func TestS3ListError(t *testing.T) {
+	url, err := url.New("s3://bucket/key")
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 
 	mockApi := s3.New(unit.Session)
 	mockS3 := &S3{
-		api:  mockApi,
-		opts: S3Opts{},
+		api: mockApi,
 	}
 	mockErr := fmt.Errorf("mock error")
 
@@ -184,23 +184,22 @@ func TestS3_List_error(t *testing.T) {
 		r.Error = mockErr
 	})
 
-	for got := range mockS3.List(context.Background(), url, true, ListAllItems) {
+	for got := range mockS3.List(context.Background(), url, true) {
 		if got.Err != mockErr {
 			t.Errorf("error got = %v, want %v", got.Err, mockErr)
 		}
 	}
 }
 
-func TestS3_List_no_item_found(t *testing.T) {
-	url, err := objurl.New("s3://bucket/key")
+func TestS3ListNoItemFound(t *testing.T) {
+	url, err := url.New("s3://bucket/key")
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 
 	mockApi := s3.New(unit.Session)
 	mockS3 := &S3{
-		api:  mockApi,
-		opts: S3Opts{},
+		api: mockApi,
 	}
 
 	mockApi.Handlers.Send.Clear() // mock sending
@@ -221,28 +220,26 @@ func TestS3_List_no_item_found(t *testing.T) {
 		}
 	})
 
-	for got := range mockS3.List(context.Background(), url, true, ListAllItems) {
+	for got := range mockS3.List(context.Background(), url, true) {
 		if got.Err != ErrNoObjectFound {
 			t.Errorf("error got = %v, want %v", got.Err, ErrNoObjectFound)
 		}
 	}
 }
 
-func TestS3_List_context_cancelled(t *testing.T) {
-	url, err := objurl.New("s3://bucket/key")
+func TestS3ListContextCancelled(t *testing.T) {
+	url, err := url.New("s3://bucket/key")
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 
 	mockApi := s3.New(unit.Session)
 	mockS3 := &S3{
-		api:  mockApi,
-		opts: S3Opts{},
+		api: mockApi,
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	// cancel on-flying request
 
 	mockApi.Handlers.Unmarshal.Clear()
 	mockApi.Handlers.UnmarshalMeta.Clear()
@@ -255,14 +252,58 @@ func TestS3_List_context_cancelled(t *testing.T) {
 		}
 	})
 
-	for got := range mockS3.List(ctx, url, true, ListAllItems) {
+	for got := range mockS3.List(ctx, url, true) {
 		reqErr, ok := got.Err.(awserr.Error)
 		if !ok {
 			t.Errorf("could not convert error")
+			continue
 		}
 
 		if reqErr.Code() != request.CanceledErrorCode {
 			t.Errorf("error got = %v, want %v", got.Err, context.Canceled)
+			continue
 		}
+	}
+}
+
+func TestS3RetryOnInternalError(t *testing.T) {
+	url, err := url.New("s3://bucket/key")
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	const expectedRetry = 5
+
+	sess := unit.Session
+	sess.Config.Retryer = newCustomRetryer(expectedRetry)
+
+	mockApi := s3.New(sess)
+	mockS3 := &S3{
+		api: mockApi,
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	mockApi.Handlers.Send.Clear() // mock sending
+	mockApi.Handlers.Unmarshal.Clear()
+	mockApi.Handlers.UnmarshalMeta.Clear()
+	mockApi.Handlers.ValidateResponse.Clear()
+	mockApi.Handlers.Unmarshal.PushBack(func(r *request.Request) {
+		r.Error = awserr.New("InternalError", "s3 api failed", nil)
+	})
+
+	retried := -1
+	// Add a request handler to the AfterRetry handler stack that is used by the
+	// SDK to be executed after the SDK has determined if it will retry.
+	mockApi.Handlers.AfterRetry.PushBack(func(_ *request.Request) {
+		retried++
+	})
+
+	for range mockS3.List(ctx, url, true) {
+	}
+
+	if retried != expectedRetry {
+		t.Errorf("expected retry %v, got %v", expectedRetry, retried)
 	}
 }

@@ -9,7 +9,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/peak/s5cmd/objurl"
+	"github.com/peak/s5cmd/storage/url"
 	"github.com/peak/s5cmd/strutil"
 )
 
@@ -25,29 +25,27 @@ var (
 type Storage interface {
 	// Stat returns the Object structure describing object. If src is not
 	// found, ErrGivenObjectNotFound is returned.
-	Stat(ctx context.Context, src *objurl.ObjectURL) (*Object, error)
+	Stat(ctx context.Context, src *url.URL) (*Object, error)
 
-	// List the objects and directories/prefixes in the src. If recursive
-	// argument is given, given src will be walked if src is a walkable URL,
-	// such as directory, prefix or a wildcard.
-	List(ctx context.Context, src *objurl.ObjectURL, recursive bool, maxitems int64) <-chan *Object
+	// List the objects and directories/prefixes in the src.
+	List(ctx context.Context, src *url.URL, followSymlinks bool) <-chan *Object
 
 	// Copy src to dst, optionally setting the given metadata. Src and dst
 	// arguments are of the same type. If src is a remote type, server side
 	// copying will be used.
-	Copy(ctx context.Context, src, dst *objurl.ObjectURL, metadata map[string]string) error
+	Copy(ctx context.Context, src, dst *url.URL, metadata map[string]string) error
 
 	// Get reads object content from src and writes to dst in parallel.
-	Get(ctx context.Context, src *objurl.ObjectURL, dst io.WriterAt) (int64, error)
+	Get(ctx context.Context, src *url.URL, dst io.WriterAt, concurrency int, partSize int64) (int64, error)
 
 	// Put reads from src and writes content to dst.
-	Put(ctx context.Context, src io.Reader, dst *objurl.ObjectURL, metadata map[string]string) error
+	Put(ctx context.Context, src io.Reader, dst *url.URL, metadata map[string]string, concurrency int, partSize int64) error
 
 	// Delete deletes the given src.
-	Delete(ctx context.Context, src *objurl.ObjectURL) error
+	Delete(ctx context.Context, src *url.URL) error
 
 	// MultiDelete deletes all items returned from given urls in batches.
-	MultiDelete(ctx context.Context, urls <-chan *objurl.ObjectURL) <-chan *Object
+	MultiDelete(ctx context.Context, urls <-chan *url.URL) <-chan *Object
 
 	// ListBuckets returns bucket list. If prefix is given, results will be
 	// filtered.
@@ -59,23 +57,23 @@ type Storage interface {
 
 // NewClient returns new Storage client from given url. Storage implementation
 // is inferred from the url.
-func NewClient(url *objurl.ObjectURL) (Storage, error) {
+func NewClient(url *url.URL) Storage {
 	if url.IsRemote() {
-		return newCachedS3()
+		return cachedS3
 	}
 
-	return NewFilesystem(), nil
+	return NewFilesystem()
 }
 
 // Object is a generic type which contains metadata for storage items.
 type Object struct {
-	URL          *objurl.ObjectURL `json:"key,omitempty"`
-	Etag         string            `json:"etag,omitempty"`
-	ModTime      *time.Time        `json:"last_modified,omitempty"`
-	Type         ObjectType        `json:"type,omitempty"`
-	Size         int64             `json:"size,omitempty"`
-	StorageClass StorageClass      `json:"storage_class,omitempty"`
-	Err          error             `json:"error,omitempty"`
+	URL          *url.URL     `json:"key,omitempty"`
+	Etag         string       `json:"etag,omitempty"`
+	ModTime      *time.Time   `json:"last_modified,omitempty"`
+	Type         ObjectType   `json:"type,omitempty"`
+	Size         int64        `json:"size,omitempty"`
+	StorageClass StorageClass `json:"storage_class,omitempty"`
+	Err          error        `json:"error,omitempty"`
 }
 
 // String returns the string representation of Object.
@@ -106,7 +104,7 @@ func (o ObjectType) String() string {
 	return ""
 }
 
-// MarshallJSON returns the stringer of ObjectType as a marshalled json.
+// MarshalJSON returns the stringer of ObjectType as a marshalled json.
 func (o ObjectType) MarshalJSON() ([]byte, error) {
 	return json.Marshal(o.String())
 }
@@ -114,6 +112,31 @@ func (o ObjectType) MarshalJSON() ([]byte, error) {
 // IsDir checks if the object is a directory.
 func (o ObjectType) IsDir() bool {
 	return o.mode.IsDir()
+}
+
+// IsSymlink checks if the object is a symbolic link.
+func (o ObjectType) IsSymlink() bool {
+	return o.mode&os.ModeSymlink != 0
+}
+
+// ShouldProcessUrl returns true if follow symlinks is enabled.
+// If follow symlinks is disabled we should not process the url.
+// (this check is needed only for local files)
+func ShouldProcessUrl(url *url.URL, followSymlinks bool) bool {
+	if followSymlinks {
+		return true
+	}
+
+	if url.IsRemote() {
+		return true
+	}
+	fi, err := os.Lstat(url.Absolute())
+	if err != nil {
+		return false
+	}
+
+	// do not process symlinks
+	return fi.Mode()&os.ModeSymlink == 0
 }
 
 // dateFormat is a constant time template for the bucket.
@@ -130,17 +153,13 @@ func (b Bucket) String() string {
 	return fmt.Sprintf("%s  s3://%s", b.CreationDate.Format(dateFormat), b.Name)
 }
 
-// String returns the JSON representation of Bucket.
+// JSON returns the JSON representation of Bucket.
 func (b Bucket) JSON() string {
 	return strutil.JSON(b)
 }
 
+// StorageClass represents the storage used to store an object.
 type StorageClass string
-
-// IsGlacierObject checks if the storage class of object is glacier.
-func (s StorageClass) IsGlacier() bool {
-	return s == StorageGlacier
-}
 
 // ShortCode returns the short code of Storage Class.
 func (s StorageClass) ShortCode() string {
@@ -160,9 +179,10 @@ func (s StorageClass) ShortCode() string {
 	return code
 }
 
+// LookupClass looks up given class.
 func LookupClass(s string) StorageClass {
 	switch s {
-	case "STANDARD":
+	case "", "STANDARD":
 		return StorageStandard
 	case "REDUCED_REDUNDANCY":
 		return StorageReducedRedundancy
@@ -171,21 +191,24 @@ func LookupClass(s string) StorageClass {
 	case "STANDARD_IA":
 		return StorageStandardIA
 	default:
-		return StorageStandard
+		return StorageInvalid
 	}
 }
 
 const (
-	// ObjectStorageClassStandard is a standard storage class type.
+	// StorageInvalid is a placeholder class if the class is not valid.
+	StorageInvalid StorageClass = "UNKNOWN"
+
+	// StorageStandard is a standard storage class type.
 	StorageStandard StorageClass = "STANDARD"
 
-	// ObjectStorageClassReducedRedundancy is a reduced redundancy storage class type.
+	// StorageReducedRedundancy is a reduced redundancy storage class type.
 	StorageReducedRedundancy StorageClass = "REDUCED_REDUNDANCY"
 
-	// ObjectStorageClassGlacier is a glacier storage class type.
+	// StorageGlacier is a glacier storage class type.
 	StorageGlacier StorageClass = "GLACIER"
 
-	// TransitionStorageClassStandardIA is a Standard Infrequent-Access storage
+	// StorageStandardIA is a Standard Infrequent-Access storage
 	// class type.
 	StorageStandardIA StorageClass = "STANDARD_IA"
 )

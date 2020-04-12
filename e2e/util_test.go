@@ -299,6 +299,7 @@ type assertOpts struct {
 	strict      bool
 	sort        bool
 	json        bool
+	alignment   bool
 	trimRegexes []*regexp.Regexp
 }
 
@@ -322,6 +323,12 @@ func jsonCheck(v bool) func(*assertOpts) {
 	}
 }
 
+func alignment(v bool) func(*assertOpts) {
+	return func(opts *assertOpts) {
+		opts.alignment = v
+	}
+}
+
 func trimMatch(match string) func(*assertOpts) {
 	re := regexp.MustCompile(match)
 	return func(opts *assertOpts) {
@@ -339,11 +346,20 @@ func assertError(t *testing.T, err error, expected interface{}) {
 func assertLines(t *testing.T, actual string, expectedlines map[int]compareFunc, fns ...assertOp) {
 	t.Helper()
 
+	if actual == "" {
+		if len(expectedlines) > 0 {
+			t.Errorf("expected a content, got empty string")
+		}
+
+		return
+	}
+
 	// default assertion options
 	opts := assertOpts{
 		strict:      true,
 		sort:        false,
 		json:        false,
+		alignment:   false,
 		trimRegexes: nil,
 	}
 
@@ -351,11 +367,21 @@ func assertLines(t *testing.T, actual string, expectedlines map[int]compareFunc,
 		fn(&opts)
 	}
 
+	// check alignment before trimming spaces
+	if opts.alignment {
+		if err := checkLineAlignments(actual); err != nil {
+			t.Error(err)
+		}
+	}
+
+	actual = strings.TrimSpace(actual)
+
 	for _, re := range opts.trimRegexes {
 		actual = re.ReplaceAllString(actual, "")
 	}
 
 	lines := strings.Split(actual, "\n")
+
 	if opts.sort {
 		sort.Strings(lines)
 	}
@@ -396,6 +422,39 @@ func assertLines(t *testing.T, actual string, expectedlines map[int]compareFunc,
 	if t.Failed() {
 		t.Log(actual)
 	}
+}
+
+func checkLineAlignments(actual string) error {
+	// use original string. because some characters are
+	// trimmed during line preparation and we need to check
+	// original string
+	actual = strings.TrimSuffix(actual, "\n")
+	lines := strings.Split(actual, "\n")
+
+	lineExists := len(lines) > 0
+	if !lineExists {
+		// nothing to compare
+		return nil
+	}
+
+	sort.Strings(lines)
+
+	var index int
+	for lineno, line := range lines {
+		// format:
+		// 			2020/03/26 09:14:10          1024.0M 1gb
+		//                                  	 	 DIR test/
+		//
+		// only check the alignment of Dir
+		got := strings.LastIndex(line, " ")
+		if index == 0 {
+			index = got
+		}
+		if index != got {
+			return fmt.Errorf("unaligned string, line: %v expected index: %v, got: %v", lineno, index, got)
+		}
+	}
+	return nil
 }
 
 func match(expected string) compareFunc {

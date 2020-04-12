@@ -211,7 +211,7 @@ func TestRunSpecialCharactersInPrefix(t *testing.T) {
 	defer cleanup()
 
 	createBucket(t, s3client, bucket)
-	putFile(t, s3client, bucket, "file.txt", "content")
+	putFile(t, s3client, bucket, `special-chars_!@#$%^&_()_+{[_%5Cäè| __;'_,_._-中文 =/_!@#$%^&_()_+{[_%5Cäè| __;'_,_._-中文 =image.jpg`, "content")
 
 	content := []string{
 		`cp "s3://` + bucket + `/special-chars_!@#$%^&_()_+{[_%5Cäè| __;'_,_._-中文 =/_!@#$%^&_()_+{[_%5Cäè| __;'_,_._-中文 =image.jpg" ./image.jpg`,

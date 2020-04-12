@@ -225,7 +225,7 @@ func TestRunSpecialCharactersInPrefix(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(`cp s3://` + bucket + `/special-chars_!@#$%^&_()_+{[_%5Cäè| __;'_,_._-中文 =/_!@#$%^&_()_+{[_%5Cäè| __;'_,_._-中文 =image.jpg`),
+		0: equals(`cp s3://` + bucket + `/special-chars_!@#$%^&_()_+{[_%5Cäè| __;'_,_._-中文 =/_!@#$%^&_()_+{[_%5Cäè| __;'_,_._-中文 =image.jpg ./image.jpg`),
 	}, sortInput(true))
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{})

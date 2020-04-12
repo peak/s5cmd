@@ -209,7 +209,6 @@ func (o *ObjectURL) setPrefixAndFilter() error {
 		o.Prefix = o.Path[:loc]
 		o.filter = o.Path[loc:]
 	}
-	o.Prefix = regexp.QuoteMeta(o.Prefix)
 
 	filterRegex := matchAllRe
 	if o.filter != "" {
@@ -217,7 +216,7 @@ func (o *ObjectURL) setPrefixAndFilter() error {
 		filterRegex = strings.Replace(filterRegex, "\\?", ".", -1)
 		filterRegex = strings.Replace(filterRegex, "\\*", ".*?", -1)
 	}
-	filterRegex = o.Prefix + filterRegex
+	filterRegex = regexp.QuoteMeta(o.Prefix) + filterRegex
 	r, err := regexp.Compile("^" + filterRegex + "$")
 	if err != nil {
 		return err

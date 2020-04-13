@@ -211,10 +211,12 @@ func TestRunSpecialCharactersInPrefix(t *testing.T) {
 	defer cleanup()
 
 	createBucket(t, s3client, bucket)
-	putFile(t, s3client, bucket, `special-chars_!@#$%^&_()_+{[_%5Cäè| __;'_,_._-中文 =/_!@#$%^&_()_+{[_%5Cäè| __;'_,_._-中文 =image.jpg`, "content")
+	sourceFileName := `special-chars_!@#$%^&_()_+{[_%5Cäè| __;'_,_._-中文 =/_!@#$%^&_()_+{[_%5Cäè| __;'_,_._-中文 =image.jpg`
+	targetFilePath := `./image.jpg`
+	putFile(t, s3client, bucket, sourceFileName, "content")
 
 	content := []string{
-		`cp "s3://` + bucket + `/special-chars_!@#$%^&_()_+{[_%5Cäè| __;'_,_._-中文 =/_!@#$%^&_()_+{[_%5Cäè| __;'_,_._-中文 =image.jpg" ./image.jpg`,
+		`cp "s3://` + bucket + `/` + sourceFileName + `" ` + targetFilePath,
 	}
 	file := fs.NewFile(t, "prefix", fs.WithContent(strings.Join(content, "\n")))
 	defer file.Remove()
@@ -225,7 +227,7 @@ func TestRunSpecialCharactersInPrefix(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(`cp s3://` + bucket + `/special-chars_!@#$%^&_()_+{[_%5Cäè| __;'_,_._-中文 =/_!@#$%^&_()_+{[_%5Cäè| __;'_,_._-中文 =image.jpg ./image.jpg`),
+		0: equals(`cp s3://%v/%v %v`, bucket, sourceFileName, targetFilePath),
 	}, sortInput(true))
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{})

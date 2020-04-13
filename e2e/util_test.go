@@ -473,12 +473,7 @@ func isJSON(str string) bool {
 }
 
 func equals(format string, args ...interface{}) compareFunc {
-	expected := ""
-	if len(args) > 0 {
-		expected = fmt.Sprintf(format, args...)
-	} else {
-		expected = format
-	}
+	expected := fmt.Sprintf(format, args...)
 	return func(actual string) error {
 		if expected == actual {
 			return nil

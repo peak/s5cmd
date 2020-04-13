@@ -1,5 +1,12 @@
 # Changelog
 
+## not released yet
+
+#### Bugfixes
+
+- Fixed a transfer issue where the object path contains particular regex metacharacters. ([#111](https://github.com/peak/s5cmd/pull/111)) @brendan-matroid
+- Correctly parse object paths that contain whitespaces in run-mode. ([#111](https://github.com/peak/s5cmd/pull/111)) @brendan-matroid
+
 ## v1.0.0 - 1 Apr 2020
 
 This is a major release with many breaking changes.

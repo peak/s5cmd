@@ -74,6 +74,8 @@ github.com/johannesboyne/gofakes3/internal/goskipiter
 github.com/johannesboyne/gofakes3/internal/s3io
 # github.com/karrick/godirwalk v1.15.3
 github.com/karrick/godirwalk
+# github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
+github.com/kballard/go-shellquote
 # github.com/pkg/errors v0.9.1
 github.com/pkg/errors
 # github.com/pmezard/go-difflib v1.0.0

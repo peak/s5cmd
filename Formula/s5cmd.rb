@@ -29,6 +29,6 @@ class S5cmd < Formula
   end
 
   test do
-    system "#{bin}/s5cmd version"
+    system "#{bin}/s5cmd", "version"
   end
 end

@@ -16,6 +16,7 @@ import (
 // Filesystem is the Storage implementation of a local filesystem.
 type Filesystem struct{}
 
+// NewFilesystem creates a new local filesystem session.
 func NewFilesystem() *Filesystem {
 	return &Filesystem{}
 }

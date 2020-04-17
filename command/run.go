@@ -9,8 +9,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/urfave/cli/v2"
 	"github.com/kballard/go-shellquote"
+	"github.com/urfave/cli/v2"
 
 	"github.com/peak/s5cmd/parallel"
 )

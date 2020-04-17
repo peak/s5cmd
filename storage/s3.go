@@ -46,6 +46,7 @@ const (
 // Re-used AWS sessions dramatically improve performance.
 var cachedS3 *S3
 
+// Init creates a new global S3 session.
 func Init(opts S3Options) error {
 	s3, err := NewS3Storage(opts)
 	cachedS3 = s3

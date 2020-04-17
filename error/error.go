@@ -24,7 +24,7 @@ type Error struct {
 	Err error
 }
 
-// FullCommand returns the command string that occured at.
+// FullCommand returns the command string that occurred at.
 func (e *Error) FullCommand() string {
 	return fmt.Sprintf("%v %v %v", e.Op, e.Src, e.Dst)
 }
@@ -34,6 +34,7 @@ func (e *Error) Error() string {
 	return e.Err.Error()
 }
 
+// Unwrap unwraps the error.
 func (e *Error) Unwrap() error {
 	return e.Err
 }
@@ -67,11 +68,18 @@ func IsCancelation(err error) bool {
 }
 
 var (
-	ErrObjectExists     = fmt.Errorf("object already exists")
-	ErrObjectIsNewer    = fmt.Errorf("object is newer or same age")
+	// ErrObjectExists indicates a specified object already exists.
+	ErrObjectExists = fmt.Errorf("object already exists")
+
+	// ErrObjectExists indicates a specified object is newer or same age.
+	ErrObjectIsNewer = fmt.Errorf("object is newer or same age")
+
+	// ErrObjectExists indicates the sizes of objects match.
 	ErrObjectSizesMatch = fmt.Errorf("object size matches")
 )
 
+// IsWarning checks if given error is either ErrObjectExists,
+// ErrObjectIsNewer or ErrObjectSizesMatch.
 func IsWarning(err error) bool {
 	switch err {
 	case ErrObjectExists, ErrObjectIsNewer, ErrObjectSizesMatch:

@@ -96,7 +96,7 @@ func NewWaiter() *Waiter {
 	}
 }
 
-// Waits blocks until the WaitGroup counter is zero
+// Wait blocks until the WaitGroup counter is zero
 // and closes error channel.
 func (w *Waiter) Wait() {
 	w.wg.Wait()

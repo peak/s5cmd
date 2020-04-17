@@ -74,7 +74,7 @@ var (
 	// ErrObjectIsNewer indicates a specified object is newer or same age.
 	ErrObjectIsNewer = fmt.Errorf("object is newer or same age")
 
-	// ErrObjectExists indicates the sizes of objects match.
+	// ErrObjectSizesMatch indicates the sizes of objects match.
 	ErrObjectSizesMatch = fmt.Errorf("object size matches")
 )
 

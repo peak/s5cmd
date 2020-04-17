@@ -71,7 +71,7 @@ var (
 	// ErrObjectExists indicates a specified object already exists.
 	ErrObjectExists = fmt.Errorf("object already exists")
 
-	// ErrObjectExists indicates a specified object is newer or same age.
+	// ErrObjectIsNewer indicates a specified object is newer or same age.
 	ErrObjectIsNewer = fmt.Errorf("object is newer or same age")
 
 	// ErrObjectExists indicates the sizes of objects match.

@@ -2,6 +2,10 @@ package parallel
 
 import "syscall"
 
+const (
+	minOpenFilesLimit = 1000
+)
+
 var global *Manager
 
 // Init tries to increase the soft limit of open files and

@@ -6,8 +6,7 @@ import (
 )
 
 const (
-	minNumWorkers     = 2
-	minOpenFilesLimit = 1000
+	minNumWorkers = 2
 )
 
 // Task is a function type for parallel manager.

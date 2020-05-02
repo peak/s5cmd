@@ -803,6 +803,47 @@ func TestCopyDirToS3(t *testing.T) {
 	assert.Assert(t, ensureS3Object(s3client, bucket, "c/file2.txt", "this is the second test file"))
 }
 
+// cp --storage-class=GLACIER file s3://bucket/
+func TestCopySingleFileToS3WithStorageClassGlacier(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+
+	const (
+		// make sure that Put reads the file header, not the extension
+		filename             = "index.txt"
+		content              = "content"
+		expectedStorageClass = "GLACIER"
+	)
+
+	workdir := fs.NewDir(t, bucket, fs.WithFile(filename, content))
+	defer workdir.Remove()
+
+	srcpath := workdir.Join(filename)
+	dstpath := fmt.Sprintf("s3://%v/", bucket)
+
+	cmd := s5cmd("cp", "--storage-class=GLACIER", srcpath, dstpath)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: suffix(`cp %v %v%v`, srcpath, dstpath, filename),
+	})
+
+	// assert local filesystem
+	expected := fs.Expected(t, fs.WithFile(filename, content))
+	assert.Assert(t, fs.Equal(workdir.Path(), expected))
+
+	// assert S3
+	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content, ensureStorageClass(expectedStorageClass)))
+}
+
 // cp --flatten dir/ s3://bucket/
 func TestFlattenCopyDirToS3(t *testing.T) {
 	t.Parallel()

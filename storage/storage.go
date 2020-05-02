@@ -161,57 +161,33 @@ func (b Bucket) JSON() string {
 // StorageClass represents the storage used to store an object.
 type StorageClass string
 
-// ShortCode returns the short code of Storage Class.
+// ShortCode returns the short code of Amazon S3 Storage Class.
 func (s StorageClass) ShortCode() string {
 	var code string
 	switch s {
-	case StorageStandard:
-		code = ""
-	case StorageGlacier:
-		code = "G"
-	case StorageReducedRedundancy:
-		code = "R"
-	case StorageStandardIA:
-		code = "I"
+	case "STANDARD":
+		code = "ST"
+	case "REDUCED_REDUNDANCY":
+		code = "RR"
+	case "STANDARD_IA":
+		code = "SI"
+	case "ONEZONE_IA":
+		code = "OI"
+	case "INTELLIGENT_TIERING":
+		code = "IT"
+	case "GLACIER":
+		code = "GL"
+	case "DEEP_ARCHIVE":
+		code = "DA"
 	default:
-		code = "?"
+		code = " ?"
 	}
 	return code
 }
 
-// LookupClass looks up given class.
-func LookupClass(s string) StorageClass {
-	switch s {
-	case "", "STANDARD":
-		return StorageStandard
-	case "REDUCED_REDUNDANCY":
-		return StorageReducedRedundancy
-	case "GLACIER":
-		return StorageGlacier
-	case "STANDARD_IA":
-		return StorageStandardIA
-	default:
-		return StorageInvalid
-	}
+func (s StorageClass) IsGlacier() bool {
+	return s == "GLACIER"
 }
-
-const (
-	// StorageInvalid is a placeholder class if the class is not valid.
-	StorageInvalid StorageClass = "UNKNOWN"
-
-	// StorageStandard is a standard storage class type.
-	StorageStandard StorageClass = "STANDARD"
-
-	// StorageReducedRedundancy is a reduced redundancy storage class type.
-	StorageReducedRedundancy StorageClass = "REDUCED_REDUNDANCY"
-
-	// StorageGlacier is a glacier storage class type.
-	StorageGlacier StorageClass = "GLACIER"
-
-	// StorageStandardIA is a Standard Infrequent-Access storage
-	// class type.
-	StorageStandardIA StorageClass = "STANDARD_IA"
-)
 
 // notImplemented is a structure which is used on the unsupported operations.
 type notImplemented struct {

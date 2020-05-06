@@ -353,23 +353,25 @@ func (s *S3) Put(
 	concurrency int,
 	partSize int64,
 ) error {
-	storageClass := metadata["StorageClass"]
-	if storageClass == "" {
-		storageClass = string(StorageStandard)
-	}
 
 	contentType := metadata["ContentType"]
 	if contentType == "" {
 		contentType = "application/octet-stream"
 	}
 
-	_, err := s.uploader.UploadWithContext(ctx, &s3manager.UploadInput{
-		Bucket:       aws.String(to.Bucket),
-		Key:          aws.String(to.Path),
-		Body:         reader,
-		ContentType:  aws.String(contentType),
-		StorageClass: aws.String(storageClass),
-	}, func(u *s3manager.Uploader) {
+	input := &s3manager.UploadInput{
+		Bucket:      aws.String(to.Bucket),
+		Key:         aws.String(to.Path),
+		Body:        reader,
+		ContentType: aws.String(contentType),
+	}
+
+	storageClass := metadata["StorageClass"]
+	if storageClass != "" {
+		input.StorageClass = aws.String(storageClass)
+	}
+
+	_, err := s.uploader.UploadWithContext(ctx, input, func(u *s3manager.Uploader) {
 		u.PartSize = partSize
 		u.Concurrency = concurrency
 	})

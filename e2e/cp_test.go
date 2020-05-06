@@ -737,8 +737,7 @@ func TestCopySingleFileToS3JSON(t *testing.T) {
 			"destination": "s3://%v/testfile1.txt",
 			"object": {
 				"type": "file",
-				"size":19,
-				"storage_class": "STANDARD"
+				"size":19
 			}
 		}
 	`
@@ -802,6 +801,47 @@ func TestCopyDirToS3(t *testing.T) {
 	assert.Assert(t, ensureS3Object(s3client, bucket, "file1.txt", "this is the first test file"))
 	assert.Assert(t, ensureS3Object(s3client, bucket, "readme.md", "this is a readme file"))
 	assert.Assert(t, ensureS3Object(s3client, bucket, "c/file2.txt", "this is the second test file"))
+}
+
+// cp --storage-class=GLACIER file s3://bucket/
+func TestCopySingleFileToS3WithStorageClassGlacier(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+
+	const (
+		// make sure that Put reads the file header, not the extension
+		filename             = "index.txt"
+		content              = "content"
+		expectedStorageClass = "GLACIER"
+	)
+
+	workdir := fs.NewDir(t, bucket, fs.WithFile(filename, content))
+	defer workdir.Remove()
+
+	srcpath := workdir.Join(filename)
+	dstpath := fmt.Sprintf("s3://%v/", bucket)
+
+	cmd := s5cmd("cp", "--storage-class=GLACIER", srcpath, dstpath)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: suffix(`cp %v %v%v`, srcpath, dstpath, filename),
+	})
+
+	// assert local filesystem
+	expected := fs.Expected(t, fs.WithFile(filename, content))
+	assert.Assert(t, fs.Equal(workdir.Path(), expected))
+
+	// assert S3
+	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content, ensureStorageClass(expectedStorageClass)))
 }
 
 // cp --flatten dir/ s3://bucket/
@@ -1373,8 +1413,7 @@ func TestCopySingleS3ObjectToS3JSON(t *testing.T) {
 			"destination":"%v",
 			"object": {
 				"key": "%v",
-				"type":"file",
-				"storage_class":"STANDARD"
+				"type":"file"
 			}
 		}
 	`, src, dst, dst)
@@ -1727,8 +1766,7 @@ func TestCopyMultipleS3ObjectsToS3JSON(t *testing.T) {
 				"destination": "s3://%v/dst/readme.md",
 				"object": {
 					"key": "s3://%v/dst/readme.md",
-					"type": "file",
-					"storage_class": "STANDARD"
+					"type": "file"
 				}
 			}
 		`, bucket, bucket, bucket),
@@ -1740,8 +1778,7 @@ func TestCopyMultipleS3ObjectsToS3JSON(t *testing.T) {
 				"destination": "s3://%v/dst/testfile1.txt",
 				"object": {
 					"key": "s3://%v/dst/testfile1.txt",
-					"type": "file",
-					"storage_class": "STANDARD"
+					"type": "file"
 				}
 			}
 		`, bucket, bucket, bucket),

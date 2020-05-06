@@ -52,7 +52,7 @@ var moveCommand = &cli.Command{
 			ifSizeDiffer:  c.Bool("if-size-differ"),
 			ifSourceNewer: c.Bool("if-source-newer"),
 			flatten:       c.Bool("flatten"),
-			storageClass:  storage.LookupClass(c.String("storage-class")),
+			storageClass:  storage.StorageClass(c.String("storage-class")),
 		}
 
 		return copyCommand.Run(c.Context)

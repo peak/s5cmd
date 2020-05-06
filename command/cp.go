@@ -131,7 +131,7 @@ var copyCommand = &cli.Command{
 			ifSourceNewer:  c.Bool("if-source-newer"),
 			flatten:        c.Bool("flatten"),
 			followSymlinks: !c.Bool("no-follow-symlinks"),
-			storageClass:   storage.LookupClass(c.String("storage-class")),
+			storageClass:   storage.StorageClass(c.String("storage-class")),
 			concurrency:    c.Int("concurrency"),
 			partSize:       c.Int64("part-size") * megabytes,
 		}.Run(c.Context)
@@ -214,7 +214,7 @@ func (c Copy) Run(ctx context.Context) error {
 			continue
 		}
 
-		if object.StorageClass == storage.StorageGlacier {
+		if object.StorageClass.IsGlacier() {
 			err := fmt.Errorf("object '%v' is on Glacier storage", object)
 			printError(c.fullCommand, c.op, err)
 			continue
@@ -586,11 +586,6 @@ func getObject(ctx context.Context, url *url.URL) (*storage.Object, error) {
 func validate(c *cli.Context) error {
 	if c.Args().Len() != 2 {
 		return fmt.Errorf("expected source and destination arguments")
-	}
-
-	storageClass := storage.LookupClass(c.String("storage-class"))
-	if storageClass == storage.StorageInvalid {
-		return fmt.Errorf("invalid storage class")
 	}
 
 	ctx := c.Context

@@ -184,7 +184,8 @@ func createBucket(t *testing.T, client *s3.S3, bucket string) {
 var errS3NoSuchKey = fmt.Errorf("s3: no such key")
 
 type ensureOpts struct {
-	contentType *string
+	contentType  *string
+	storageClass *string
 }
 
 type ensureOption func(*ensureOpts)
@@ -192,6 +193,12 @@ type ensureOption func(*ensureOpts)
 func ensureContentType(contentType string) ensureOption {
 	return func(opts *ensureOpts) {
 		opts.contentType = &contentType
+	}
+}
+
+func ensureStorageClass(expected string) ensureOption {
+	return func(opts *ensureOpts) {
+		opts.storageClass = &expected
 	}
 }
 
@@ -235,7 +242,13 @@ func ensureS3Object(
 
 	if opts.contentType != nil {
 		if diff := cmp.Diff(opts.contentType, output.ContentType); diff != "" {
-			return fmt.Errorf("s3 %v/%v: (-want +got):\n%v", bucket, key, diff)
+			return fmt.Errorf("content-type of %v/%v: (-want +got):\n%v", bucket, key, diff)
+		}
+	}
+
+	if opts.storageClass != nil {
+		if diff := cmp.Diff(opts.storageClass, output.StorageClass); diff != "" {
+			return fmt.Errorf("storage-class of %v/%v: (-want +got):\n%v", bucket, key, diff)
 		}
 	}
 

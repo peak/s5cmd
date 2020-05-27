@@ -92,8 +92,10 @@ var copyCommandFlags = []cli.Flag{
 		Usage: "do not follow symbolic links",
 	},
 	&cli.StringFlag{
-		Name:  "storage-class",
-		Usage: "set storage class for target ('STANDARD','REDUCED_REDUNDANCY','GLACIER','STANDARD_IA')",
+		Name:        "storage-class",
+		Usage:       "set storage class for target ('STANDARD','REDUCED_REDUNDANCY','GLACIER','STANDARD_IA','ONEZONE_IA','INTELLIGENT_TIERING','DEEP_ARCHIVE')",
+		Value:       "STANDARD",
+		DefaultText: "STANDARD",
 	},
 	&cli.IntFlag{
 		Name:    "concurrency",

@@ -353,7 +353,6 @@ func (s *S3) Put(
 	concurrency int,
 	partSize int64,
 ) error {
-
 	contentType := metadata["ContentType"]
 	if contentType == "" {
 		contentType = "application/octet-stream"

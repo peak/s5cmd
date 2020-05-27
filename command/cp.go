@@ -22,6 +22,7 @@ import (
 const (
 	defaultCopyConcurrency = 5
 	defaultPartSize        = 50 // MiB
+	defaultStorageClass    = "STANDARD"
 	megabytes              = 1024 * 1024
 )
 
@@ -93,9 +94,9 @@ var copyCommandFlags = []cli.Flag{
 	},
 	&cli.StringFlag{
 		Name:        "storage-class",
+		Value:       defaultStorageClass,
+		DefaultText: defaultStorageClass,
 		Usage:       "set storage class for target ('STANDARD','REDUCED_REDUNDANCY','GLACIER','STANDARD_IA','ONEZONE_IA','INTELLIGENT_TIERING','DEEP_ARCHIVE')",
-		Value:       "STANDARD",
-		DefaultText: "STANDARD",
 	},
 	&cli.IntFlag{
 		Name:    "concurrency",

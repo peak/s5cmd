@@ -737,7 +737,8 @@ func TestCopySingleFileToS3JSON(t *testing.T) {
 			"destination": "s3://%v/testfile1.txt",
 			"object": {
 				"type": "file",
-				"size":19
+				"size":19,
+				"storage_class":"STANDARD"
 			}
 		}
 	`
@@ -1413,7 +1414,8 @@ func TestCopySingleS3ObjectToS3JSON(t *testing.T) {
 			"destination":"%v",
 			"object": {
 				"key": "%v",
-				"type":"file"
+				"type":"file",
+				"storage_class":"STANDARD"
 			}
 		}
 	`, src, dst, dst)
@@ -1766,7 +1768,8 @@ func TestCopyMultipleS3ObjectsToS3JSON(t *testing.T) {
 				"destination": "s3://%v/dst/readme.md",
 				"object": {
 					"key": "s3://%v/dst/readme.md",
-					"type": "file"
+					"type": "file",
+					"storage_class":"STANDARD"
 				}
 			}
 		`, bucket, bucket, bucket),
@@ -1778,7 +1781,8 @@ func TestCopyMultipleS3ObjectsToS3JSON(t *testing.T) {
 				"destination": "s3://%v/dst/testfile1.txt",
 				"object": {
 					"key": "s3://%v/dst/testfile1.txt",
-					"type": "file"
+					"type": "file",
+					"storage_class":"STANDARD"
 				}
 			}
 		`, bucket, bucket, bucket),

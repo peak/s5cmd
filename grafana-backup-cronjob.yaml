@@ -1,0 +1,59 @@
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: grafana-backup
+  namespace: default
+spec:
+  concurrencyPolicy: Forbid
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    metadata:
+      name: grafana-backup
+    spec:
+      template:
+        metadata:
+          annotations:
+            iam.amazonaws.com/role: arn:aws:iam::XXXXXX:role/kube2iam-staging-grafana-backup-bucket-writer-role
+        spec:
+          containers:
+          - command:
+            - sh
+            - -c
+            - ./watch.sh
+            env:
+            - name: AWS_REGION
+              value: eu-central-1
+            image: azman0101/s5cmd:latest
+            imagePullPolicy: Always
+            name: sync
+            resources: {}
+            terminationMessagePath: /dev/termination-log
+            terminationMessagePolicy: File
+            volumeMounts:
+            - mountPath: /_OUTPUT_
+              name: backup-directory
+          - env:
+            - name: GRAFANA_TOKEN
+              value: XXXXX
+            - name: GRAFANA_URL
+              value: http://kube-prometheus-grafana.monitoring:80
+            image: ysde/docker-grafana-backup-tool:latest
+            imagePullPolicy: Always
+            name: grafana-backup
+            resources: {}
+            terminationMessagePath: /dev/termination-log
+            terminationMessagePolicy: File
+            volumeMounts:
+            - mountPath: /opt/grafana-backup-tool/_OUTPUT_
+              name: backup-directory
+          dnsPolicy: ClusterFirst
+          restartPolicy: OnFailure
+          schedulerName: default-scheduler
+          securityContext: {}
+          terminationGracePeriodSeconds: 30
+          volumes:
+          - emptyDir: {}
+            name: backup-directory
+  schedule: 0 5 * * *
+  successfulJobsHistoryLimit: 3
+  suspend: false

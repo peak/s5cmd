@@ -1,0 +1,12 @@
+FROM golang:alpine
+RUN apk add git curl tar gzip file autoconf automake libtool gettext gettext-dev make g++ texinfo py3-pip
+RUN pip3 install awscli
+RUN set
+RUN git clone https://github.com/emcrisostomo/fswatch.git
+RUN cd fswatch && git checkout 1.14.0 && ./autogen.sh && ./configure && make -j && make install && cd ..
+RUN curl -LO https://github.com/peak/s5cmd/releases/download/v1.0.0/s5cmd_1.0.0_Linux-64bit.tar.gz
+RUN tar xvf s5cmd_1.0.0_Linux-64bit.tar.gz
+RUN mv s5cmd /usr/local/bin/
+RUN s5cmd version
+COPY watch.sh ./
+RUN chmod +x watch.sh

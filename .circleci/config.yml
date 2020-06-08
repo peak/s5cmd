@@ -1,14 +1,23 @@
-# Check https://circleci.com/docs/2.0/language-go/ for more details
 version: 2.1
 
 orbs:
   win: circleci/windows@2.2.0
 
 jobs:
-  build:
+  test_windows:
     executor: win/default
 
+    steps:
+      - checkout
+      - run: go mod verify
+      - run: go test -count=1 -mod=vendor ./...
+
+  test_unix:
+    docker:
+      - image: circleci/golang:1.14
+
     working_directory: /go/src/github.com/peak/s5cmd
+
     steps:
       - run: go get honnef.co/go/tools/cmd/staticcheck
       - run: go get mvdan.cc/unparam

@@ -1,16 +1,6 @@
 version: 2.1
 
-orbs:
-  win: circleci/windows@2.4.0
-
 jobs:
-  build-windows:
-    executor: win/default
-
-    steps:
-      - checkout
-      - run: go build -mod=vendor .
-
   build-unix:
     docker:
       - image: circleci/golang:1.14
@@ -52,6 +42,5 @@ workflows:
   build:
     jobs:
       - build-unix
-      - build-windows
       - test
       - qa

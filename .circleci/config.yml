@@ -1,7 +1,7 @@
 version: 2.1
 
 orbs:
-  win: circleci/windows@2.2.0
+  win: circleci/windows@2.4.0
 
 jobs:
   build_windows:
@@ -9,7 +9,6 @@ jobs:
 
     steps:
       - checkout
-      - run: go mod verify
       - run: go test -count=1 -mod=vendor ./...
 
   build_unix:

@@ -1,21 +1,56 @@
 on: [push, pull_request]
-name: Test
+name: CI
 jobs:
-  test:
+  build-windows:
     strategy:
       matrix:
-        go-version: [1.14.x]
-        platform: [ubuntu-latest, windows-latest]
-    runs-on: ${{ matrix.platform }}
+        go-version:
+          - 1.14
+        os:
+          - macos
+          - ubuntu
+          - windows
 
+    name: Build (${{ matrix.os }}/go-${{ matrix.go-version }})
+    runs-on: ${{ matrix.os }}-latest
     steps:
-    - name: Install Go
-      uses: actions/setup-go@v2
+    - uses: actions/checkout@v2
+    - uses: actions/setup-go@v2
       with:
         go-version: ${{ matrix.go-version }}
 
-    - name: Checkout code
-      uses: actions/checkout@v2
+    - name: Build
+      run: go build -mod=vendor .
+
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/setup-go@v2
+      with:
+        go-version: 1.14
 
     - name: Test
-      run: go test -mod=vendor ./...
+      run: make test
+
+  qa:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/setup-go@v2
+      with:
+        go-version: 1.14
+
+    - name: Check fmt
+      run: make check-fmt
+
+    - name: Check vet
+      run: make vet
+
+    - name: Staticcheck
+      run: make staticcheck
+
+    - name: Unparam
+      run: make unparam

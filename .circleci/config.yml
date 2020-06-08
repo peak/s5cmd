@@ -35,5 +35,5 @@ workflows:
   version: 2.1
   build:
     jobs:
-      test_unix
-      test_windows
+      - test_unix
+      - test_windows

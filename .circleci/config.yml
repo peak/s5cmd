@@ -1,36 +1,57 @@
 version: 2.1
 
+orbs:
+  win: circleci/windows@2.4.0
+
 jobs:
-  build_windows:
-    docker:
-      - image: winamd64/golang:1.14
+  build-windows:
+    executor: win/default
 
     steps:
       - checkout
-      - run: go test -count=1 -mod=vendor ./...
+      - run: go build -mod=vendor .
 
-  build_unix:
+  build-unix:
     docker:
       - image: circleci/golang:1.14
 
     working_directory: /go/src/github.com/peak/s5cmd
 
     steps:
+      - checkout
+      - run: go mod verify
+      - run: go build -mod=vendor .
+
+  test:
+    docker:
+      - image: circleci/golang:1.14
+
+    working_directory: /go/src/github.com/peak/s5cmd
+
+    steps:
+      - checkout
+      - run: make test
+
+  qa:
+    docker:
+      - image: circleci/golang:1.14
+
+    working_directory: /go/src/github.com/peak/s5cmd
+
+    steps:
+      - checkout
+      - run: make check-fmt
+      - run: make vet
       - run: go get honnef.co/go/tools/cmd/staticcheck
       - run: go get mvdan.cc/unparam
-
-      - checkout
-
-      - run: go mod verify
-      - run: make test
-      - run: make check-fmt
       - run: make staticcheck
-      - run: make vet
       - run: make unparam
 
 workflows:
   version: 2.1
   build:
     jobs:
-      - build_unix
-      - build_windows
+      - build-unix
+      - build-windows
+      - test
+      - qa

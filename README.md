@@ -27,7 +27,7 @@ storage services and local filesystems.
 
 ### Binaries
 
-The [Releases](https://github.com/peak/s5cmd/releases) page provides pre-build
+The [Releases](https://github.com/peak/s5cmd/releases) page provides pre-built
 binaries for Linux and macOS.
 
 ### Homebrew

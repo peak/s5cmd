@@ -300,14 +300,18 @@ func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata map[string]st
 	// SDK expects CopySource like "bucket[/key]"
 	copySource := strings.TrimPrefix(from.String(), "s3://")
 
-	storageClass := metadata["StorageClass"]
+	input := &s3.CopyObjectInput{
+		Bucket:     aws.String(to.Bucket),
+		Key:        aws.String(to.Path),
+		CopySource: aws.String(copySource),
+	}
 
-	_, err := s.api.CopyObject(&s3.CopyObjectInput{
-		Bucket:       aws.String(to.Bucket),
-		Key:          aws.String(to.Path),
-		CopySource:   aws.String(copySource),
-		StorageClass: aws.String(storageClass),
-	})
+	storageClass := metadata["StorageClass"]
+	if storageClass != "" {
+		input.StorageClass = aws.String(storageClass)
+	}
+
+	_, err := s.api.CopyObject(input)
 	return err
 }
 
@@ -353,7 +357,6 @@ func (s *S3) Put(
 	concurrency int,
 	partSize int64,
 ) error {
-
 	contentType := metadata["ContentType"]
 	if contentType == "" {
 		contentType = "application/octet-stream"

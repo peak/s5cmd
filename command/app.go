@@ -49,7 +49,7 @@ var app = &cli.App{
 		&cli.StringFlag{
 			Name:  "log",
 			Value: "info",
-			Usage: "log level: (verbose, info, error)",
+			Usage: "log level: (debug, info, error)",
 		},
 		&cli.BoolFlag{
 			Name:  "install-completion",

@@ -93,7 +93,7 @@ var copyCommandFlags = []cli.Flag{
 	},
 	&cli.StringFlag{
 		Name:  "storage-class",
-		Usage: "set storage class for target ('STANDARD','REDUCED_REDUNDANCY','GLACIER','STANDARD_IA')",
+		Usage: "set storage class for target ('STANDARD','REDUCED_REDUNDANCY','GLACIER','STANDARD_IA','ONEZONE_IA','INTELLIGENT_TIERING','DEEP_ARCHIVE')",
 	},
 	&cli.IntFlag{
 		Name:    "concurrency",

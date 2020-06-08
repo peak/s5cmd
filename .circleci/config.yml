@@ -4,7 +4,7 @@ orbs:
   win: circleci/windows@2.2.0
 
 jobs:
-  test_windows:
+  build_windows:
     executor: win/default
 
     steps:
@@ -12,7 +12,7 @@ jobs:
       - run: go mod verify
       - run: go test -count=1 -mod=vendor ./...
 
-  test_unix:
+  build_unix:
     docker:
       - image: circleci/golang:1.14
 
@@ -30,3 +30,10 @@ jobs:
       - run: make staticcheck
       - run: make vet
       - run: make unparam
+
+workflows:
+  version: 2.1
+  build:
+    jobs:
+      test_unix
+      test_windows

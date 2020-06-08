@@ -1,11 +1,9 @@
 version: 2.1
 
-orbs:
-  win: circleci/windows@2.4.0
-
 jobs:
   build_windows:
-    executor: win/default
+    docker:
+      - image: winamd64/golang:1.14
 
     steps:
       - checkout

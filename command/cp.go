@@ -160,6 +160,12 @@ type Copy struct {
 	partSize    int64
 }
 
+const fdlimitWarning = `
+WARNING: s5cmd is hitting the max open file limit allowed by your OS. Either
+increase the open file limit or try to decrease the number of workers with
+'-numworkers' parameter.
+`
+
 // Run starts copying given source objects to destination.
 func (c Copy) Run(ctx context.Context) error {
 	srcurl, err := url.New(c.src)
@@ -189,7 +195,7 @@ func (c Copy) Run(ctx context.Context) error {
 		defer close(errDoneCh)
 		for err := range waiter.Err() {
 			if strings.Contains(err.Error(), "too many open files") {
-				fmt.Println("WARNING You are hitting the max open file limit allowed by your OS. You can increase open file limit or try to decrease the number of workers with the parameter '-numworkers'")
+				fmt.Println(strings.TrimSpace(fdlimitWarning))
 				fmt.Printf("ERROR %v\n", err)
 
 				os.Exit(1)

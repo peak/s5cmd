@@ -10,6 +10,7 @@ builds:
     goos:
       - darwin
       - linux
+      - windows
     goarch:
       - 386
       - amd64
@@ -24,8 +25,12 @@ archives:
     replacements:
       darwin: macOS
       linux: Linux
+      windows: Windows
       386: 32bit
       amd64: 64bit
+    format_overrides:
+      - goos: windows
+        format: zip
 
 checksum:
   name_template: '{{ .ProjectName }}_checksums.txt'

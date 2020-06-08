@@ -1,17 +1,13 @@
 package parallel
 
-import "syscall"
-
-const (
-	minOpenFilesLimit = 1000
-)
+import "github.com/peak/s5cmd/parallel/fdlimit"
 
 var global *Manager
 
 // Init tries to increase the soft limit of open files and
 // creates new global ParallelManager.
 func Init(workercount int) {
-	adjustOpenFilesLimit()
+	_ = fdlimit.Raise()
 	global = New(workercount)
 }
 
@@ -21,24 +17,3 @@ func Close() { global.Close() }
 
 // Run runs global ParallelManager.
 func Run(task Task, waiter *Waiter) { global.Run(task, waiter) }
-
-// adjustOpenFilesLimit tries to increase the soft limit of open files.
-func adjustOpenFilesLimit() {
-	var rLimit syscall.Rlimit
-	err := syscall.Getrlimit(syscall.RLIMIT_NOFILE, &rLimit)
-	if err != nil {
-		return
-	}
-
-	if rLimit.Cur >= minOpenFilesLimit {
-		return
-	}
-
-	if rLimit.Max < minOpenFilesLimit {
-		return
-	}
-
-	rLimit.Cur = minOpenFilesLimit
-
-	_ = syscall.Setrlimit(syscall.RLIMIT_NOFILE, &rLimit)
-}

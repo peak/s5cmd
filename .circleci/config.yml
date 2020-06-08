@@ -1,20 +1,46 @@
-# Check https://circleci.com/docs/2.0/language-go/ for more details
-version: 2
+version: 2.1
+
 jobs:
-  build:
+  build-unix:
     docker:
       - image: circleci/golang:1.14
 
     working_directory: /go/src/github.com/peak/s5cmd
+
     steps:
+      - checkout
+      - run: go mod verify
+      - run: go build -mod=vendor .
+
+  test:
+    docker:
+      - image: circleci/golang:1.14
+
+    working_directory: /go/src/github.com/peak/s5cmd
+
+    steps:
+      - checkout
+      - run: make test
+
+  qa:
+    docker:
+      - image: circleci/golang:1.14
+
+    working_directory: /go/src/github.com/peak/s5cmd
+
+    steps:
+      - checkout
+      - run: make check-fmt
+      - run: make vet
       - run: go get honnef.co/go/tools/cmd/staticcheck
       - run: go get mvdan.cc/unparam
-
-      - checkout
-
-      - run: go mod verify
-      - run: make test
-      - run: make check-fmt
       - run: make staticcheck
-      - run: make vet
       - run: make unparam
+
+workflows:
+  version: 2.1
+  build:
+    jobs:
+      - build-unix
+      - test
+      - qa

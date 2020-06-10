@@ -23,7 +23,7 @@ jobs:
     - uses: actions/checkout@v2
 
     - name: Set var
-      run: export GITHUB_BRANCH=${GITHUB_BRANCH##*/} && echo Hello world $GITHUB_BRANCH
+      run: export GITHUB_BRANCH=$(basename $GITHUB_BRANCH) && echo Hello world $GITHUB_BRANCH
       env:
         GITHUB_BRANCH: ${{ github.ref }}
 

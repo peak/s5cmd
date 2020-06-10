@@ -22,11 +22,6 @@ jobs:
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
     - uses: actions/checkout@v2
 
-    - name: Set var
-      run: export GITHUB_BRANCH=$(basename $GITHUB_BRANCH) && echo Hello world $GITHUB_BRANCH
-      env:
-        GITHUB_BRANCH: ${{ github.ref }}
-
     - name: Build and push Docker images
       uses: docker/build-push-action@v1.1.0
       with:
@@ -39,9 +34,9 @@ jobs:
         # Docker repository to tag the image with
         repository: azman0101/s5cmd
         # Comma-delimited list of tags. These will be added to the registry/repository to form the image's tags
-        tags: ${{ env.GITHUB_BRANCH }}
+        tags: latest
         # Automatically tags the built image with the git reference as per the readme
-        # tag_with_ref: # optional
+        tag_with_ref: true # optional
         # Automatically tags the built image with the git short SHA as per the readme
         tag_with_sha: true # optional
         # Path to the build context

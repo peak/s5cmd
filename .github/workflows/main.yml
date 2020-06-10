@@ -6,7 +6,7 @@ name: CI
 # events but only for the master branch
 on:
   push:
-    branches: [ master ]
+    branches: [ master, feat/support-env-var-simple, feat/support-env-var-advanced ]
   pull_request:
     branches: [ master ]
 
@@ -21,7 +21,7 @@ jobs:
     steps:
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
     - uses: actions/checkout@v2
-      
+
     - name: Hello world
       run: echo Hello world $GITHUB_WORKSPACE $middle_name $Last_Name! && ls -lah $GITHUB_WORKSPACE
       env:
@@ -41,7 +41,7 @@ jobs:
         # Docker repository to tag the image with
         repository: azman0101/s5cmd
         # Comma-delimited list of tags. These will be added to the registry/repository to form the image's tags
-        tags: v1.0.0
+        tags:  ${{ github.ref }}
         # Automatically tags the built image with the git reference as per the readme
         # tag_with_ref: # optional
         # Automatically tags the built image with the git short SHA as per the readme

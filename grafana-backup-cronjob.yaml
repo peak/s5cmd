@@ -20,6 +20,7 @@ spec:
             - sh
             - -c
             - ./watch.sh
+            - "${ENV}"
             env:
             - name: AWS_REGION
               value: eu-central-1

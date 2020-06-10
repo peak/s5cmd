@@ -573,6 +573,9 @@ sends a separate delete request for each subcommand provided to `run.` Thus, the
 significant runtime difference between those two approaches.
 
 
+TODO:
+
+ * Add TTL backup management
 # LICENSE
 
 MIT. See [LICENSE](https://github.com/peak/s5cmd/blob/master/LICENSE).

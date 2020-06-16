@@ -82,27 +82,36 @@ parallel. `s5cmd` will create the destination directory if it is missing.
 
 `logs/` directory content will look like:
 
-`file1.gz file2.gz file3.gz`
+```
+$ tree
+.
+└── logs
+    ├── 18
+    │   └── file1.gz
+    └── 19
+        ├── file2.gz
+        └── originals
+            └── file3.gz
 
-ℹ️ `s5cmd` preserves the source directory structure by default. If you want to flatten
-the source directory structure, use the `--flatten` flag.
+4 directories, 3 files
+```
 
-    s5cmd cp 's3://bucket/logs/2020/03/*' logs/
+ℹ️ `s5cmd` preserves the source directory structure by default. If you want to
+flatten the source directory structure, use the `--flatten` flag.
 
-The above command will match the following objects:
+    s5cmd cp --flatten 's3://bucket/logs/2020/03/*' logs/
+
+`logs/` directory content will look like:
 
 ```
-s3://bucket/logs/2020/03/18/file1.gz
-s3://bucket/logs/2020/03/19/file2.gz
-s3://bucket/logs/2020/03/19/originals/file3.gz
-```
+$ tree
+.
+└── logs
+    ├── file1.gz
+    ├── file2.gz
+    └── file3.gz
 
-And will be saved as:
-
-```
-logs/18/file1.gz
-logs/19/file2.gz
-logs/19/originals/file3.gz
+1 directory, 3 files
 ```
 
 #### Upload a file to S3
@@ -113,7 +122,7 @@ logs/19/originals/file3.gz
 
     s5cmd cp directory/ s3://bucket/
 
-Will upload all files at given directory to S3 while keeping the folder hiearchy
+Will upload all files at given directory to S3 while keeping the folder hierarchy
 of the source.
 
 #### Delete an S3 object
@@ -141,7 +150,7 @@ they'll be deleted in a single request.
     s5cmd cp 's3://bucket/logs/2020/*' s3://bucket/logs/backup/
 
 Will copy all the matching objects to the given S3 prefix, respecting the source
-folder hiearchy.
+folder hierarchy.
 
 ⚠️ Copying objects (from S3 to S3) larger than 5GB is not supported yet. We have
 an [open ticket](https://github.com/peak/s5cmd/issues/29) to track the issue.
@@ -237,8 +246,8 @@ To avoid this problem, surround the wildcarded expression with single quotes.
 
 ## Output
 
-`s5cmd` supports both text and JSON outputs.
-* text format
+`s5cmd` supports both structured and unstructured outputs.
+* unstructured output
 
 ```shell
 $ s5cmd cp s3://bucket/testfile .

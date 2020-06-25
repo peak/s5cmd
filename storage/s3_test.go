@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"fmt"
+	"net/http"
 	urlpkg "net/url"
 	"os"
 	"testing"
@@ -266,44 +267,134 @@ func TestS3ListContextCancelled(t *testing.T) {
 	}
 }
 
-func TestS3RetryOnInternalError(t *testing.T) {
+func TestS3Retry(t *testing.T) {
+	testcases := []struct {
+		name string
+		err  error
+	}{
+		// Internal error
+		{
+			name: "InternalError",
+			err:  awserr.New("InternalError", "internal error", nil),
+		},
+
+		// Request errors
+		{
+			name: "RequestError",
+			err:  awserr.New(request.ErrCodeRequestError, "request error", nil),
+		},
+		{
+			name: "RequestFailureRequestError",
+			err: awserr.NewRequestFailure(
+				awserr.New(request.ErrCodeRequestError, "request failure: request error", nil),
+				400,
+				"0",
+			),
+		},
+		{
+			name: "RequestTimeout",
+			err:  awserr.New("RequestTimeout", "request timeout", nil),
+		},
+		{
+			name: "ResponseTimeout",
+			err:  awserr.New(request.ErrCodeResponseTimeout, "response timeout", nil),
+		},
+
+		// Throttling errors
+		{
+			name: "ProvisionedThroughputExceededException",
+			err:  awserr.New("ProvisionedThroughputExceededException", "provisioned throughput exceeded exception", nil),
+		},
+		{
+			name: "Throttling",
+			err:  awserr.New("Throttling", "throttling", nil),
+		},
+		{
+			name: "ThrottlingException",
+			err:  awserr.New("ThrottlingException", "throttling exception", nil),
+		},
+		{
+			name: "RequestLimitExceeded",
+			err:  awserr.New("RequestLimitExceeded", "request limit exceeded", nil),
+		},
+		{
+			name: "RequestThrottled",
+			err:  awserr.New("RequestThrottled", "request throttled", nil),
+		},
+		{
+			name: "RequestThrottledException",
+			err:  awserr.New("RequestThrottledException", "request throttled exception", nil),
+		},
+
+		// Expired credential errors
+		{
+			name: "ExpiredToken",
+			err:  awserr.New("ExpiredToken", "expired token", nil),
+		},
+		{
+			name: "ExpiredTokenException",
+			err:  awserr.New("ExpiredTokenException", "expired token exception", nil),
+		},
+
+		// Connection errors
+		{
+			name: "connection reset",
+			err:  fmt.Errorf("connection reset by peer"),
+		},
+		{
+			name: "broken pipe",
+			err:  fmt.Errorf("broken pipe"),
+		},
+
+		// Unknown errors
+		{
+			name: "an unknown error is also retried by SDK",
+			err:  fmt.Errorf("an error that is not known to the SDK"),
+		},
+	}
+
 	url, err := url.New("s3://bucket/key")
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 
 	const expectedRetry = 5
+	for _, tc := range testcases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			sess := unit.Session
+			sess.Config.Retryer = newCustomRetryer(expectedRetry)
 
-	sess := unit.Session
-	sess.Config.Retryer = newCustomRetryer(expectedRetry)
+			mockApi := s3.New(sess)
+			mockS3 := &S3{
+				api: mockApi,
+			}
 
-	mockApi := s3.New(sess)
-	mockS3 := &S3{
-		api: mockApi,
-	}
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+			mockApi.Handlers.Send.Clear() // mock sending
+			mockApi.Handlers.Unmarshal.Clear()
+			mockApi.Handlers.UnmarshalMeta.Clear()
+			mockApi.Handlers.ValidateResponse.Clear()
+			mockApi.Handlers.Unmarshal.PushBack(func(r *request.Request) {
+				r.Error = tc.err
+				r.HTTPResponse = &http.Response{StatusCode: 500}
+			})
 
-	mockApi.Handlers.Send.Clear() // mock sending
-	mockApi.Handlers.Unmarshal.Clear()
-	mockApi.Handlers.UnmarshalMeta.Clear()
-	mockApi.Handlers.ValidateResponse.Clear()
-	mockApi.Handlers.Unmarshal.PushBack(func(r *request.Request) {
-		r.Error = awserr.New("InternalError", "s3 api failed", nil)
-	})
+			retried := -1
+			// Add a request handler to the AfterRetry handler stack that is used by the
+			// SDK to be executed after the SDK has determined if it will retry.
+			mockApi.Handlers.AfterRetry.PushBack(func(_ *request.Request) {
+				retried++
+			})
 
-	retried := -1
-	// Add a request handler to the AfterRetry handler stack that is used by the
-	// SDK to be executed after the SDK has determined if it will retry.
-	mockApi.Handlers.AfterRetry.PushBack(func(_ *request.Request) {
-		retried++
-	})
+			for range mockS3.List(ctx, url, true) {
+			}
 
-	for range mockS3.List(ctx, url, true) {
-	}
-
-	if retried != expectedRetry {
-		t.Errorf("expected retry %v, got %v", expectedRetry, retried)
+			if retried != expectedRetry {
+				t.Errorf("expected retry %v, got %v", expectedRetry, retried)
+			}
+		})
 	}
 }

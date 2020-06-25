@@ -379,7 +379,7 @@ func TestS3Retry(t *testing.T) {
 			mockApi.Handlers.ValidateResponse.Clear()
 			mockApi.Handlers.Unmarshal.PushBack(func(r *request.Request) {
 				r.Error = tc.err
-				r.HTTPResponse = &http.Response{StatusCode: 500}
+				r.HTTPResponse = &http.Response{}
 			})
 
 			retried := -1

@@ -23,7 +23,14 @@ jobs:
     - run: go build -mod=vendor .
 
   test:
-    runs-on: [ubuntu-latest, windows]
+    strategy:
+      matrix:
+        os:
+          - macos
+          - ubuntu
+          - windows
+
+    runs-on: ${{ matrix.os }}-latest
 
     steps:
     - uses: actions/checkout@v2
@@ -34,7 +41,14 @@ jobs:
     - run: make test
 
   qa:
-    runs-on: [ubuntu-latest, windows]
+    strategy:
+      matrix:
+        os:
+          - macos
+          - ubuntu
+          - windows
+
+    runs-on: ${{ matrix.os }}-latest
 
     steps:
     - uses: actions/checkout@v2

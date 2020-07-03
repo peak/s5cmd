@@ -15,6 +15,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"sort"
 	"strings"
 	"testing"
@@ -134,7 +135,12 @@ func goBuildS5cmd() func() {
 		panic(err)
 	}
 
-	s5cmdPath = filepath.Join(tmpdir, "s5cmd")
+	s5cmd := "s5cmd"
+	if runtime.GOOS == "windows"{
+		s5cmd += ".exe"
+	}
+
+	s5cmdPath = filepath.Join(tmpdir, s5cmd)
 
 	workdir, err := os.Getwd()
 	if err != nil {

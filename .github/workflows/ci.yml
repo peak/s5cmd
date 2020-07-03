@@ -1,4 +1,4 @@
-on: [pull_request]
+on: [push, pull_request]
 name: CI
 jobs:
   build:
@@ -23,7 +23,7 @@ jobs:
     - run: go build -mod=vendor .
 
   test:
-    runs-on: ubuntu-latest
+    runs-on: [ubuntu-latest, windows]
 
     steps:
     - uses: actions/checkout@v2
@@ -34,7 +34,7 @@ jobs:
     - run: make test
 
   qa:
-    runs-on: ubuntu-latest
+    runs-on: [ubuntu-latest, windows]
 
     steps:
     - uses: actions/checkout@v2

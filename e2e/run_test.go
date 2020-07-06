@@ -54,7 +54,7 @@ func TestRunFromStdinWithErrors(t *testing.T) {
 
 	input := strings.NewReader(
 		strings.Join([]string{
-			"ls s3:/",
+			"ls s3/", // windows does not allow directory to contain substring `:/`
 			fmt.Sprintf("cp s3://%v/nonexistentobject .", bucket),
 		}, "\n"),
 	)
@@ -67,7 +67,7 @@ func TestRunFromStdinWithErrors(t *testing.T) {
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: contains(`ERROR "cp s3://%v/nonexistentobject nonexistentobject": NoSuchKey: status code: 404`, bucket),
-		1: equals(`ERROR "ls s3:/": given object not found`),
+		1: equals(`ERROR "ls s3/": given object not found`),
 	}, sortInput(true))
 }
 

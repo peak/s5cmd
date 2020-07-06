@@ -73,8 +73,17 @@ func setup(t *testing.T, options ...option) (*s3.S3, func(...string) icmd.Cmd, f
 	for _, option := range options {
 		option(opts)
 	}
+	// testdir := fs.NewDir() tries to create a new directory which
+	// has a prefix = [test function name][operation name]
+	// e.g., prefix' = "TestCopySingleS3ObjectToLocal/cp_s3://bucket/object_file"
+	// but on windows, directories cannot contain a colon
+	// so we replace them with hyphen
+	prefix := t.Name()
+	if runtime.GOOS == "windows"{
+		prefix = strings.ReplaceAll(prefix, ":", "-")
+	}
 
-	testdir := fs.NewDir(t, t.Name(), fs.WithDir("workdir", fs.WithMode(0700)))
+	testdir := fs.NewDir(t, prefix, fs.WithDir("workdir", fs.WithMode(0700)))
 	workdir := testdir.Join("workdir")
 
 	var (

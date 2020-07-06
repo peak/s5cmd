@@ -24,6 +24,7 @@ package e2e
 
 import (
 	"fmt"
+	"github.com/peak/s5cmd/strutil"
 	"path/filepath"
 	"testing"
 	"time"
@@ -688,6 +689,7 @@ func TestCopySingleFileToS3(t *testing.T) {
 	srcpath := workdir.Join(filename)
 	dstpath := fmt.Sprintf("s3://%v/", bucket)
 
+	srcpath = strutil.ForwardSlashify(srcpath)
 	cmd := s5cmd("cp", srcpath, dstpath)
 	result := icmd.RunCmd(cmd)
 
@@ -743,6 +745,7 @@ func TestCopySingleFileToS3JSON(t *testing.T) {
 	`
 
 	result.Assert(t, icmd.Success)
+	fpath = strutil.ForwardSlashify(fpath)
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: json(jsonText, fpath, bucket),
 	}, jsonCheck(true))
@@ -778,6 +781,7 @@ func TestCopyDirToS3(t *testing.T) {
 	workdir := fs.NewDir(t, t.Name(), folderLayout...)
 	defer workdir.Remove()
 	srcpath := workdir.Path()
+	srcpath = strutil.ForwardSlashify(srcpath)
 	dstpath := fmt.Sprintf("s3://%v/", bucket)
 
 	// this command ('s5cmd cp dir/ s3://bucket/') will run in 'walk' mode,
@@ -827,6 +831,7 @@ func TestCopySingleFileToS3WithStorageClassGlacier(t *testing.T) {
 	srcpath := workdir.Join(filename)
 	dstpath := fmt.Sprintf("s3://%v/", bucket)
 
+	srcpath = strutil.ForwardSlashify(srcpath)
 	cmd := s5cmd("cp", "--storage-class=GLACIER", srcpath, dstpath)
 	result := icmd.RunCmd(cmd)
 
@@ -867,6 +872,7 @@ func TestFlattenCopyDirToS3(t *testing.T) {
 	workdir := fs.NewDir(t, t.Name(), folderLayout...)
 	defer workdir.Remove()
 	srcpath := workdir.Path()
+	srcpath = strutil.ForwardSlashify(srcpath)
 	dstpath := fmt.Sprintf("s3://%v/", bucket)
 
 	// this command ('s5cmd cp dir/ s3://bucket/') will run in 'walk' mode,
@@ -920,6 +926,7 @@ func TestCopyMultipleFilesToS3Bucket(t *testing.T) {
 	workdir := fs.NewDir(t, "somedir", folderLayout...)
 	dstpath := fmt.Sprintf("s3://%v/", bucket)
 	srcpath := workdir.Path()
+	srcpath = strutil.ForwardSlashify(srcpath)
 	defer workdir.Remove()
 
 	cmd := s5cmd("cp", srcpath+"/*", dstpath)
@@ -978,6 +985,7 @@ func TestFlattenCopyMultipleFilesToS3Bucket(t *testing.T) {
 	workdir := fs.NewDir(t, "somedir", folderLayout...)
 	dstpath := fmt.Sprintf("s3://%v/", bucket)
 	srcpath := workdir.Path()
+	srcpath = strutil.ForwardSlashify(srcpath)
 	defer workdir.Remove()
 
 	cmd := s5cmd("cp", "--flatten", srcpath+"/*", dstpath)
@@ -1037,6 +1045,7 @@ func TestCopyMultipleFilesToS3WithPrefixWithoutSlash(t *testing.T) {
 	defer workdir.Remove()
 
 	src := fmt.Sprintf("%v/*", workdir.Path())
+	src = strutil.ForwardSlashify(src)
 	dst := fmt.Sprintf("s3://%v/prefix", bucket)
 
 	cmd := s5cmd("cp", src, dst)
@@ -1082,6 +1091,7 @@ func TestCopyMultipleFilesToS3WithPrefixWithSlash(t *testing.T) {
 
 	srcpath := workdir.Path()
 
+	srcpath = strutil.ForwardSlashify(srcpath)
 	src := fmt.Sprintf("%v/*", srcpath)
 	dst := fmt.Sprintf("s3://%v/prefix/", bucket)
 
@@ -1143,6 +1153,7 @@ func TestFlattenCopyMultipleFilesToS3WithPrefixWithSlash(t *testing.T) {
 
 	srcpath := workdir.Path()
 
+	srcpath = strutil.ForwardSlashify(srcpath)
 	src := fmt.Sprintf("%v/*", srcpath)
 	dst := fmt.Sprintf("s3://%v/prefix/", bucket)
 
@@ -1205,6 +1216,7 @@ func TestCopyLocalDirectoryToS3WithPrefixWithSlash(t *testing.T) {
 	src := fmt.Sprintf("%v/", workdir.Path())
 	dst := fmt.Sprintf("s3://%v/prefix/", bucket)
 
+	src = strutil.ForwardSlashify(src)
 	cmd := s5cmd("cp", src, dst)
 	result := icmd.RunCmd(cmd)
 
@@ -1267,6 +1279,7 @@ func TestFlattenCopyLocalDirectoryToS3WithPrefixWithSlash(t *testing.T) {
 	src := fmt.Sprintf("%v/", workdir.Path())
 	dst := fmt.Sprintf("s3://%v/prefix/", bucket)
 
+	src = strutil.ForwardSlashify(src)
 	cmd := s5cmd("cp", "--flatten", src, dst)
 	result := icmd.RunCmd(cmd)
 
@@ -1326,6 +1339,7 @@ func TestCopyLocalDirectoryToS3WithPrefixWithoutSlash(t *testing.T) {
 	src := fmt.Sprintf("%v/", workdir.Path())
 	dst := fmt.Sprintf("s3://%v/prefix", bucket)
 
+	src = strutil.ForwardSlashify(src)
 	cmd := s5cmd("cp", src, dst)
 	result := icmd.RunCmd(cmd)
 
@@ -2060,6 +2074,7 @@ func TestCopyS3ToLocal_Issue70(t *testing.T) {
 	srcpath := fmt.Sprintf("s3://%v/config/.local/*", bucket)
 	dstpath := filepath.Join(workdir.Path(), ".local")
 
+	dstpath = strutil.ForwardSlashify(dstpath)
 	cmd := s5cmd("cp", "-u", "-s", srcpath, dstpath)
 
 	result := icmd.RunCmd(cmd, withWorkingDir(workdir))

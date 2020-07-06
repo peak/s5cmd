@@ -2,12 +2,12 @@ package e2e
 
 import (
 	"fmt"
-	"path/filepath"
-	"testing"
-
+	"github.com/peak/s5cmd/strutil"
 	"gotest.tools/v3/assert"
 	"gotest.tools/v3/fs"
 	"gotest.tools/v3/icmd"
+	"path/filepath"
+	"testing"
 )
 
 // mv s3://bucket/key dir/
@@ -112,7 +112,7 @@ func TestMoveSingleFileToS3(t *testing.T) {
 	file := fs.NewFile(t, "", fs.WithContent(content))
 	defer file.Remove()
 
-	fpath := file.Path()
+	fpath := strutil.ForwardSlashify(file.Path())
 	filename := filepath.Base(file.Path())
 
 	dst := fmt.Sprintf("s3://%v/", bucket)
@@ -160,7 +160,8 @@ func TestMoveMultipleFilesToS3(t *testing.T) {
 	workdir := fs.NewDir(t, bucket, files...)
 	defer workdir.Remove()
 
-	src := workdir.Path()
+	src := strutil.ForwardSlashify(workdir.Path())
+
 	dst := fmt.Sprintf("s3://%v/", bucket)
 	cmd := s5cmd("mv", src+"/*", dst)
 	result := icmd.RunCmd(cmd)

@@ -43,7 +43,7 @@ func JSON(v interface{}) string {
 	return string(bytes)
 }
 
-// replaces all '\' with '/' on Windows OS
+// ForwardSlashify replaces all '\' with '/' on Windows OS
 func ForwardSlashify(str string) string{
 	if runtime.GOOS == "windows"{
 		return strings.ReplaceAll(str, "\\", "/")

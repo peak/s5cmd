@@ -48,7 +48,6 @@ type URL struct {
 
 // New creates a new URL from given path string.
 func New(s string) (*URL, error) {
-	s = strings.ReplaceAll(s, "\\", "/")
 	split := strings.Split(s, "://")
 
 	if len(split) == 1 {
@@ -61,6 +60,9 @@ func New(s string) (*URL, error) {
 			return nil, err
 		}
 
+		if runtime.GOOS == "windows" {
+			url.Path = filepath.ToSlash(url.Path)
+		}
 		return url, nil
 	}
 
@@ -159,23 +161,15 @@ func (u *URL) Dir() string {
 
 // Join joins string and returns new URL.
 func (u *URL) Join(s string) *URL {
-	joinfn := filepath.Join
-	if u.IsRemote() {
-		joinfn = path.Join
+	joinfn := path.Join
+
+	if runtime.GOOS == "windows" {
+		s = filepath.ToSlash(s)
 	}
 
 	clone := u.Clone()
 	clone.Path = joinfn(clone.Path, s)
-	// for local files, joinfn (==filepath.Join) will change
-	// delimiters of uri (clone.Path) although clone.Delimiter will
-	// remain unaffected.
-	// e.g., on windows:
-	// clone.Path = `testfile/myfolder`, s = `gopher.go`
-	// joinfn(clone.Path, s) == `testfile\myfolder\s3.go`
-	// although clone.Delimiter == `/`
-	if !u.IsRemote() && runtime.GOOS == "windows"{
-		clone.Path = strings.ReplaceAll(clone.Path, "\\", clone.Delimiter)
-	}
+
 	return clone
 }
 

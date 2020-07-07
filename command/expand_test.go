@@ -2,7 +2,7 @@ package command
 
 import (
 	"context"
-	"github.com/peak/s5cmd/strutil"
+	"path/filepath"
 	"reflect"
 	"sort"
 	"testing"
@@ -203,7 +203,7 @@ func TestExpandSource_Follow_Link_To_Single_File(t *testing.T) {
 	for obj := range ch {
 		expected = append(expected, obj.URL.Absolute())
 	}
-	workdirJoin := strutil.ForwardSlashify(workdir.Join("b/my_link"))
+	workdirJoin := filepath.ToSlash(workdir.Join("b/my_link"))
 	assert.Equal(t, []string{workdirJoin}, expected)
 }
 
@@ -263,9 +263,9 @@ func TestExpandSource_Follow_Link_To_Directory(t *testing.T) {
 	}
 	sort.Strings(expected)
 	assert.Equal(t, []string{
-		strutil.ForwardSlashify(workdir.Join("c/my_link/b/f3.txt")),
-		strutil.ForwardSlashify(workdir.Join("c/my_link/f1.txt")),
-		strutil.ForwardSlashify(workdir.Join("c/my_link/f2.txt")),
+		filepath.ToSlash(workdir.Join("c/my_link/b/f3.txt")),
+		filepath.ToSlash(workdir.Join("c/my_link/f1.txt")),
+		filepath.ToSlash(workdir.Join("c/my_link/f2.txt")),
 	}, expected)
 }
 
@@ -324,7 +324,7 @@ func TestExpandSource_Do_Not_Follow_Symlinks(t *testing.T) {
 	for obj := range ch {
 		expected = append(expected, obj.URL.Absolute())
 	}
-	workdirJoin := strutil.ForwardSlashify(workdir.Join("a/f1.txt"))
+	workdirJoin := filepath.ToSlash(workdir.Join("a/f1.txt"))
 	assert.Equal(t, []string{workdirJoin}, expected)
 }
 

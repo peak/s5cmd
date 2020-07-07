@@ -7,7 +7,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
-	"runtime"
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
@@ -521,14 +520,6 @@ func prepareRemoteDestination(
 	objname := srcurl.Base()
 	if isBatch && !flatten {
 		objname = srcurl.Relative()
-	}
-	// if local->remote operation is performed on windows, \ should be
-	// replaced with /
-	// otherwise destination will be of the form,
-	// e.g., s3://myBucket\my\local\file\path
-	os := runtime.GOOS
-	if os == "windows" && strings.Contains(objname, "\\"){
-		objname = strings.ReplaceAll(objname, "\\", "/")
 	}
 
 	if dsturl.IsPrefix() || dsturl.IsBucket() {

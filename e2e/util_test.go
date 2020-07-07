@@ -79,7 +79,7 @@ func setup(t *testing.T, options ...option) (*s3.S3, func(...string) icmd.Cmd, f
 	// but on windows, directories cannot contain a colon
 	// so we replace them with hyphen
 	prefix := t.Name()
-	if runtime.GOOS == "windows"{
+	if runtime.GOOS == "windows" {
 		prefix = strings.ReplaceAll(prefix, ":", "-")
 	}
 
@@ -145,7 +145,7 @@ func goBuildS5cmd() func() {
 	}
 
 	s5cmd := "s5cmd"
-	if runtime.GOOS == "windows"{
+	if runtime.GOOS == "windows" {
 		s5cmd += ".exe"
 	}
 

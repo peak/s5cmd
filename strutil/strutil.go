@@ -3,9 +3,7 @@ package strutil
 import (
 	"encoding/json"
 	"fmt"
-	"runtime"
 	"strconv"
-	"strings"
 )
 
 var humanDivisors = [...]struct {
@@ -41,12 +39,4 @@ func HumanizeBytes(b int64) string {
 func JSON(v interface{}) string {
 	bytes, _ := json.Marshal(v)
 	return string(bytes)
-}
-
-// ForwardSlashify replaces all '\' with '/' on Windows OS
-func ForwardSlashify(str string) string{
-	if runtime.GOOS == "windows"{
-		return strings.ReplaceAll(str, "\\", "/")
-	}
-	return str
 }

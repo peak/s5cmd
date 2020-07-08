@@ -112,7 +112,7 @@ func TestMoveSingleFileToS3(t *testing.T) {
 	file := fs.NewFile(t, "", fs.WithContent(content))
 	defer file.Remove()
 
-	fpath := file.Path()
+	fpath := filepath.ToSlash(file.Path())
 	filename := filepath.Base(file.Path())
 
 	dst := fmt.Sprintf("s3://%v/", bucket)
@@ -160,7 +160,8 @@ func TestMoveMultipleFilesToS3(t *testing.T) {
 	workdir := fs.NewDir(t, bucket, files...)
 	defer workdir.Remove()
 
-	src := workdir.Path()
+	src := filepath.ToSlash(workdir.Path())
+
 	dst := fmt.Sprintf("s3://%v/", bucket)
 	cmd := s5cmd("mv", src+"/*", dst)
 	result := icmd.RunCmd(cmd)

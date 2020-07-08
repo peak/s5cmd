@@ -395,6 +395,8 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 	size := obj.Size
 
 	if c.deleteSource {
+		// close the file before deleting
+		f.Close()
 		if err := srcClient.Delete(ctx, srcurl); err != nil {
 			return err
 		}

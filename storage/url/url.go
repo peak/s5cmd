@@ -7,6 +7,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 )
 
@@ -59,6 +60,9 @@ func New(s string) (*URL, error) {
 			return nil, err
 		}
 
+		if runtime.GOOS == "windows" {
+			url.Path = filepath.ToSlash(url.Path)
+		}
 		return url, nil
 	}
 
@@ -157,13 +161,13 @@ func (u *URL) Dir() string {
 
 // Join joins string and returns new URL.
 func (u *URL) Join(s string) *URL {
-	joinfn := filepath.Join
-	if u.IsRemote() {
-		joinfn = path.Join
+	if runtime.GOOS == "windows" {
+		s = filepath.ToSlash(s)
 	}
 
 	clone := u.Clone()
-	clone.Path = joinfn(clone.Path, s)
+	clone.Path = path.Join(clone.Path, s)
+
 	return clone
 }
 

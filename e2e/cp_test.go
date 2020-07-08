@@ -25,6 +25,7 @@ package e2e
 import (
 	"fmt"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -688,6 +689,7 @@ func TestCopySingleFileToS3(t *testing.T) {
 	srcpath := workdir.Join(filename)
 	dstpath := fmt.Sprintf("s3://%v/", bucket)
 
+	srcpath = filepath.ToSlash(srcpath)
 	cmd := s5cmd("cp", srcpath, dstpath)
 	result := icmd.RunCmd(cmd)
 
@@ -743,6 +745,7 @@ func TestCopySingleFileToS3JSON(t *testing.T) {
 	`
 
 	result.Assert(t, icmd.Success)
+	fpath = filepath.ToSlash(fpath)
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: json(jsonText, fpath, bucket),
 	}, jsonCheck(true))
@@ -778,6 +781,7 @@ func TestCopyDirToS3(t *testing.T) {
 	workdir := fs.NewDir(t, t.Name(), folderLayout...)
 	defer workdir.Remove()
 	srcpath := workdir.Path()
+	srcpath = filepath.ToSlash(srcpath)
 	dstpath := fmt.Sprintf("s3://%v/", bucket)
 
 	// this command ('s5cmd cp dir/ s3://bucket/') will run in 'walk' mode,
@@ -801,6 +805,53 @@ func TestCopyDirToS3(t *testing.T) {
 	assert.Assert(t, ensureS3Object(s3client, bucket, "file1.txt", "this is the first test file"))
 	assert.Assert(t, ensureS3Object(s3client, bucket, "readme.md", "this is a readme file"))
 	assert.Assert(t, ensureS3Object(s3client, bucket, "c/file2.txt", "this is the second test file"))
+}
+
+// cp dir/{file, folderWithBackslash} s3://bucket
+func TestCopyDirBackslashedToS3(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip()
+	}
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+
+	folderLayout := []fs.PathOp{
+		fs.WithFile("readme.md", `¯\_(ツ)_/¯`),
+		fs.WithDir(
+			"t\\est",
+			fs.WithFile("filetest.txt", "try reaching me on windows :-)"),
+		),
+	}
+	workdir := fs.NewDir(t, t.Name(), folderLayout...)
+	defer workdir.Remove()
+	srcpath := workdir.Path()
+	dstpath := fmt.Sprintf("s3://%v/", bucket)
+
+	cmd := s5cmd("cp", workdir.Path()+"/", dstpath)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`cp %v/readme.md %vreadme.md`, srcpath, dstpath),
+		1: equals(`cp %v/t\est/filetest.txt %vt\est/filetest.txt`, srcpath, dstpath),
+	}, sortInput(true))
+
+	// assert local filesystem
+	expected := fs.Expected(t, folderLayout...)
+	assert.Assert(t, fs.Equal(workdir.Path(), expected))
+
+	// assert s3
+	assert.Assert(t, ensureS3Object(s3client, bucket, "readme.md", `¯\_(ツ)_/¯`))
+	assert.Assert(t, ensureS3Object(s3client, bucket, "t\\est/filetest.txt", "try reaching me on windows :-)"))
+
 }
 
 // cp --storage-class=GLACIER file s3://bucket/
@@ -827,6 +878,7 @@ func TestCopySingleFileToS3WithStorageClassGlacier(t *testing.T) {
 	srcpath := workdir.Join(filename)
 	dstpath := fmt.Sprintf("s3://%v/", bucket)
 
+	srcpath = filepath.ToSlash(srcpath)
 	cmd := s5cmd("cp", "--storage-class=GLACIER", srcpath, dstpath)
 	result := icmd.RunCmd(cmd)
 
@@ -867,6 +919,7 @@ func TestFlattenCopyDirToS3(t *testing.T) {
 	workdir := fs.NewDir(t, t.Name(), folderLayout...)
 	defer workdir.Remove()
 	srcpath := workdir.Path()
+	srcpath = filepath.ToSlash(srcpath)
 	dstpath := fmt.Sprintf("s3://%v/", bucket)
 
 	// this command ('s5cmd cp dir/ s3://bucket/') will run in 'walk' mode,
@@ -920,6 +973,7 @@ func TestCopyMultipleFilesToS3Bucket(t *testing.T) {
 	workdir := fs.NewDir(t, "somedir", folderLayout...)
 	dstpath := fmt.Sprintf("s3://%v/", bucket)
 	srcpath := workdir.Path()
+	srcpath = filepath.ToSlash(srcpath)
 	defer workdir.Remove()
 
 	cmd := s5cmd("cp", srcpath+"/*", dstpath)
@@ -978,6 +1032,7 @@ func TestFlattenCopyMultipleFilesToS3Bucket(t *testing.T) {
 	workdir := fs.NewDir(t, "somedir", folderLayout...)
 	dstpath := fmt.Sprintf("s3://%v/", bucket)
 	srcpath := workdir.Path()
+	srcpath = filepath.ToSlash(srcpath)
 	defer workdir.Remove()
 
 	cmd := s5cmd("cp", "--flatten", srcpath+"/*", dstpath)
@@ -1037,6 +1092,7 @@ func TestCopyMultipleFilesToS3WithPrefixWithoutSlash(t *testing.T) {
 	defer workdir.Remove()
 
 	src := fmt.Sprintf("%v/*", workdir.Path())
+	src = filepath.ToSlash(src)
 	dst := fmt.Sprintf("s3://%v/prefix", bucket)
 
 	cmd := s5cmd("cp", src, dst)
@@ -1082,6 +1138,7 @@ func TestCopyMultipleFilesToS3WithPrefixWithSlash(t *testing.T) {
 
 	srcpath := workdir.Path()
 
+	srcpath = filepath.ToSlash(srcpath)
 	src := fmt.Sprintf("%v/*", srcpath)
 	dst := fmt.Sprintf("s3://%v/prefix/", bucket)
 
@@ -1143,6 +1200,7 @@ func TestFlattenCopyMultipleFilesToS3WithPrefixWithSlash(t *testing.T) {
 
 	srcpath := workdir.Path()
 
+	srcpath = filepath.ToSlash(srcpath)
 	src := fmt.Sprintf("%v/*", srcpath)
 	dst := fmt.Sprintf("s3://%v/prefix/", bucket)
 
@@ -1205,6 +1263,7 @@ func TestCopyLocalDirectoryToS3WithPrefixWithSlash(t *testing.T) {
 	src := fmt.Sprintf("%v/", workdir.Path())
 	dst := fmt.Sprintf("s3://%v/prefix/", bucket)
 
+	src = filepath.ToSlash(src)
 	cmd := s5cmd("cp", src, dst)
 	result := icmd.RunCmd(cmd)
 
@@ -1267,6 +1326,7 @@ func TestFlattenCopyLocalDirectoryToS3WithPrefixWithSlash(t *testing.T) {
 	src := fmt.Sprintf("%v/", workdir.Path())
 	dst := fmt.Sprintf("s3://%v/prefix/", bucket)
 
+	src = filepath.ToSlash(src)
 	cmd := s5cmd("cp", "--flatten", src, dst)
 	result := icmd.RunCmd(cmd)
 
@@ -1326,6 +1386,7 @@ func TestCopyLocalDirectoryToS3WithPrefixWithoutSlash(t *testing.T) {
 	src := fmt.Sprintf("%v/", workdir.Path())
 	dst := fmt.Sprintf("s3://%v/prefix", bucket)
 
+	src = filepath.ToSlash(src)
 	cmd := s5cmd("cp", src, dst)
 	result := icmd.RunCmd(cmd)
 
@@ -2060,6 +2121,7 @@ func TestCopyS3ToLocal_Issue70(t *testing.T) {
 	srcpath := fmt.Sprintf("s3://%v/config/.local/*", bucket)
 	dstpath := filepath.Join(workdir.Path(), ".local")
 
+	dstpath = filepath.ToSlash(dstpath)
 	cmd := s5cmd("cp", "-u", "-s", srcpath, dstpath)
 
 	result := icmd.RunCmd(cmd, withWorkingDir(workdir))

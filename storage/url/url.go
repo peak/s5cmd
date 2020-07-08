@@ -161,7 +161,6 @@ func (u *URL) Dir() string {
 
 // Join joins string and returns new URL.
 func (u *URL) Join(s string) *URL {
-
 	if runtime.GOOS == "windows" {
 		s = filepath.ToSlash(s)
 	}

@@ -2,13 +2,11 @@
 
 ## not released yet
 
-#### Bugfixes
-
-- fixed windows filepath issue. ([#178](https://github.com/peak/s5cmd/issues/178)) [@mrekim0](https://github.com/mrekim0)
-- windows tests pass.
 
 #### Bugfixes
 
+- Fixed windows filepath issue, where backslashes should be treated as the path delimiter. ([#178](https://github.com/peak/s5cmd/issues/178))
+- All tests pass on windows, by converting and treating file paths to UNIX filepath format.
 - Fixed a transfer issue where the object path contains particular regex metacharacters. ([#111](https://github.com/peak/s5cmd/pull/111)) [@brendan-matroid](https://github.com/brendan-matroid)
 - Correctly parse object paths that contain whitespaces in run-mode. ([#111](https://github.com/peak/s5cmd/pull/111)) [@brendan-matroid](https://github.com/brendan-matroid)
 

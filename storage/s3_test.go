@@ -1,12 +1,19 @@
 package storage
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	urlpkg "net/url"
 	"os"
+	"reflect"
 	"testing"
+
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+
+	"github.com/aws/aws-sdk-go/aws/awsutil"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -394,6 +401,200 @@ func TestS3Retry(t *testing.T) {
 
 			if retried != expectedRetry {
 				t.Errorf("expected retry %v, got %v", expectedRetry, retried)
+			}
+		})
+	}
+}
+
+// Credit to aws-sdk-go
+func val(i interface{}, s string) interface{} {
+	v, err := awsutil.ValuesAtPath(i, s)
+	if err != nil || len(v) == 0 {
+		return nil
+	}
+	if _, ok := v[0].(io.Reader); ok {
+		return v[0]
+	}
+
+	if rv := reflect.ValueOf(v[0]); rv.Kind() == reflect.Ptr {
+		return rv.Elem().Interface()
+	}
+
+	return v[0]
+}
+
+func setExpectedErrs(t *testing.T, expected string, got interface{}) {
+	if got == nil {
+		if expected != "" {
+			t.Errorf("Expected %q, but received %q", "", got)
+		}
+	} else if expected != got {
+		t.Errorf("Expected %q, but received %q", expected, got)
+	}
+}
+
+func TestS3CopyEncryptionRequest(t *testing.T) {
+	testcases := []struct {
+		name     string
+		sse      string
+		sseKeyId string
+		// expected
+		esse      string
+		esseKeyId string
+		err       error
+	}{
+		{
+			name: "aws:kms encryption with server side generated keys",
+			sse:  "aws:kms",
+			esse: "aws:kms",
+		},
+		{
+			name:      "aws:kms encryption with user provided key",
+			sse:       "aws:kms",
+			esse:      "aws:kms",
+			sseKeyId:  "sdkjn12SDdci#@#EFRFERTqW/ke",
+			esseKeyId: "sdkjn12SDdci#@#EFRFERTqW/ke",
+		},
+		{
+			name:     "unsupported encryption method [AES256]",
+			sse:      "AES256",
+			sseKeyId: "sdkjn12SDdci#@#EFRFERTqW/ke",
+			err:      fmt.Errorf("only server side kms encryption is supported"),
+		},
+		{
+			name:     "provide key without encryption flag",
+			sseKeyId: "1234567890",
+		},
+	}
+	const defaultReqErr = "request was canceled by the user"
+	u, err := url.New("s3://bucket/key")
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	for _, tc := range testcases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+
+			mockApi := s3.New(unit.Session)
+
+			mockApi.Handlers.Unmarshal.Clear()
+			mockApi.Handlers.UnmarshalMeta.Clear()
+			mockApi.Handlers.UnmarshalError.Clear()
+			mockApi.Handlers.Send.Clear()
+
+			mockApi.Handlers.Send.PushBack(func(r *request.Request) {
+
+				r.HTTPResponse = &http.Response{}
+				r.Error = fmt.Errorf(defaultReqErr)
+
+				params := r.Params
+				encrypt := val(params, "ServerSideEncryption")
+				key := val(params, "SSEKMSKeyId")
+
+				setExpectedErrs(t, tc.esse, encrypt)
+				setExpectedErrs(t, tc.esseKeyId, key)
+			})
+
+			mockS3 := &S3{
+				api: mockApi,
+			}
+
+			err = mockS3.Copy(context.Background(), u, u, map[string]string{
+				"encryptionMethod": tc.sse,
+				"encryptionKeyId":  tc.sseKeyId,
+			})
+
+			if err != nil && err.Error() == defaultReqErr {
+				return
+			}
+
+			if (err == nil || tc.err == nil) && tc.err != err {
+				t.Errorf("Expected %q, but received %q", tc.err, err)
+			} else if err.Error() != tc.err.Error() {
+				t.Errorf("Expected %q, but received %q", tc.err, err)
+			}
+		})
+	}
+}
+func TestS3PutEncryptionRequest(t *testing.T) {
+	testcases := []struct {
+		name     string
+		sse      string
+		sseKeyId string
+		// expected
+		esse      string
+		esseKeyId string
+		err       error
+	}{
+		{
+			name: "aws:kms encryption with server side generated keys",
+			sse:  "aws:kms",
+			esse: "aws:kms",
+		},
+		{
+			name:      "aws:kms encryption with user provided key",
+			sse:       "aws:kms",
+			esse:      "aws:kms",
+			sseKeyId:  "sdkjn12SDdci#@#EFRFERTqW/ke",
+			esseKeyId: "sdkjn12SDdci#@#EFRFERTqW/ke",
+		},
+		{
+			name:     "unsupported encryption method [AES256]",
+			sse:      "AES256",
+			sseKeyId: "sdkjn12SDdci#@#EFRFERTqW/ke",
+			err:      fmt.Errorf("only server side kms encryption is supported"),
+		},
+		{
+			name:     "provide key without encryption flag",
+			sseKeyId: "1234567890",
+		},
+	}
+	const defaultReqErr = "request was canceled by the user"
+	u, err := url.New("s3://bucket/key")
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	for _, tc := range testcases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+
+			mockApi := s3.New(unit.Session)
+
+			mockApi.Handlers.Unmarshal.Clear()
+			mockApi.Handlers.UnmarshalMeta.Clear()
+			mockApi.Handlers.UnmarshalError.Clear()
+			mockApi.Handlers.Send.Clear()
+
+			mockApi.Handlers.Send.PushBack(func(r *request.Request) {
+
+				r.HTTPResponse = &http.Response{}
+				r.Error = fmt.Errorf(defaultReqErr)
+
+				params := r.Params
+				encrypt := val(params, "ServerSideEncryption")
+				key := val(params, "SSEKMSKeyId")
+
+				setExpectedErrs(t, tc.esse, encrypt)
+				setExpectedErrs(t, tc.esseKeyId, key)
+			})
+
+			mockS3 := &S3{
+				uploader: s3manager.NewUploaderWithClient(mockApi),
+			}
+
+			err = mockS3.Put(context.Background(), bytes.NewReader([]byte("")), u, map[string]string{
+				"encryptionMethod": tc.sse,
+				"encryptionKeyId":  tc.sseKeyId,
+			}, 1, 5242880)
+
+			if err != nil && err.Error() == defaultReqErr {
+				return
+			}
+
+			if (err == nil || tc.err == nil) && tc.err != err {
+				t.Errorf("Expected %q, but received %q", tc.err, err)
+			} else if err.Error() != tc.err.Error() {
+				t.Errorf("Expected %q, but received %q", tc.err, err)
 			}
 		})
 	}

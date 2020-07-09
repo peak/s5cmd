@@ -20,9 +20,10 @@ import (
 )
 
 const (
-	defaultCopyConcurrency = 5
-	defaultPartSize        = 50 // MiB
-	megabytes              = 1024 * 1024
+	defaultCopyConcurrency  = 5
+	defaultPartSize         = 50 // MiB
+	defaultEncryptionMethod = "aws:kms"
+	megabytes               = 1024 * 1024
 )
 
 var copyHelpTemplate = `Name:
@@ -107,6 +108,21 @@ var copyCommandFlags = []cli.Flag{
 		Value:   defaultPartSize,
 		Usage:   "size of each part transferred between host and remote server, in MiB",
 	},
+	&cli.StringFlag{
+		Name:    "sse-encrypt",
+		Aliases: []string{"sse"},
+		Value:   defaultEncryptionMethod,
+		Usage:   "server side encryption",
+	},
+	&cli.StringFlag{
+		Name:    "key-id",
+		Aliases: []string{"kid"},
+		Usage:   "encryption key id",
+	},
+	&cli.StringFlag{
+		Name:  "acl",
+		Usage: "Access Control List",
+	},
 }
 
 var copyCommand = &cli.Command{
@@ -126,14 +142,17 @@ var copyCommand = &cli.Command{
 			fullCommand:  givenCommand(c),
 			deleteSource: false, // don't delete source
 			// flags
-			noClobber:      c.Bool("no-clobber"),
-			ifSizeDiffer:   c.Bool("if-size-differ"),
-			ifSourceNewer:  c.Bool("if-source-newer"),
-			flatten:        c.Bool("flatten"),
-			followSymlinks: !c.Bool("no-follow-symlinks"),
-			storageClass:   storage.StorageClass(c.String("storage-class")),
-			concurrency:    c.Int("concurrency"),
-			partSize:       c.Int64("part-size") * megabytes,
+			noClobber:        c.Bool("no-clobber"),
+			ifSizeDiffer:     c.Bool("if-size-differ"),
+			ifSourceNewer:    c.Bool("if-source-newer"),
+			flatten:          c.Bool("flatten"),
+			followSymlinks:   !c.Bool("no-follow-symlinks"),
+			storageClass:     storage.StorageClass(c.String("storage-class")),
+			concurrency:      c.Int("concurrency"),
+			partSize:         c.Int64("part-size") * megabytes,
+			encryptionMethod: c.String("sse-encrypt"),
+			encryptionKeyId:  c.String("key-id"),
+			acl:              c.String("acl"),
 		}.Run(c.Context)
 	},
 }
@@ -148,12 +167,15 @@ type Copy struct {
 	deleteSource bool
 
 	// flags
-	noClobber      bool
-	ifSizeDiffer   bool
-	ifSourceNewer  bool
-	flatten        bool
-	followSymlinks bool
-	storageClass   storage.StorageClass
+	noClobber        bool
+	ifSizeDiffer     bool
+	ifSourceNewer    bool
+	flatten          bool
+	followSymlinks   bool
+	storageClass     storage.StorageClass
+	encryptionMethod string
+	encryptionKeyId  string
+	acl              string
 
 	// s3 options
 	concurrency int
@@ -380,8 +402,11 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 	dstClient := storage.NewClient(dsturl)
 
 	metadata := map[string]string{
-		"StorageClass": string(c.storageClass),
-		"ContentType":  guessContentType(f),
+		"StorageClass":     string(c.storageClass),
+		"ContentType":      guessContentType(f),
+		"encryptionMethod": c.encryptionMethod,
+		"encryptionKeyId":  c.encryptionKeyId,
+		"acl":              c.acl,
 	}
 
 	err = dstClient.Put(ctx, f, dsturl, metadata, c.concurrency, c.partSize)
@@ -420,7 +445,10 @@ func (c Copy) doCopy(ctx context.Context, srcurl *url.URL, dsturl *url.URL) erro
 	srcClient := storage.NewClient(srcurl)
 
 	metadata := map[string]string{
-		"StorageClass": string(c.storageClass),
+		"StorageClass":     string(c.storageClass),
+		"encryptionMethod": c.encryptionMethod,
+		"encryptionKeyId":  c.encryptionKeyId,
+		"acl":              c.acl,
 	}
 
 	err := c.shouldOverride(ctx, srcurl, dsturl)

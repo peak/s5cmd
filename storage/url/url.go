@@ -161,14 +161,12 @@ func (u *URL) Dir() string {
 
 // Join joins string and returns new URL.
 func (u *URL) Join(s string) *URL {
-	joinfn := path.Join
-
 	if runtime.GOOS == "windows" {
 		s = filepath.ToSlash(s)
 	}
 
 	clone := u.Clone()
-	clone.Path = joinfn(clone.Path, s)
+	clone.Path = path.Join(clone.Path, s)
 
 	return clone
 }

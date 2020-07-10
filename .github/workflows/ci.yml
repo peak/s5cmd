@@ -41,14 +41,8 @@ jobs:
     - run: make test
 
   qa:
-    strategy:
-      matrix:
-        os:
-          - macos
-          - ubuntu
-          - windows
+    runs-on: windows-latest
 
-    runs-on: ${{ matrix.os }}-latest
 
     steps:
     - uses: actions/checkout@v2

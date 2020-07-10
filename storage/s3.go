@@ -294,6 +294,26 @@ func (s *S3) listObjects(ctx context.Context, url *url.URL) <-chan *Object {
 	return objCh
 }
 
+// setEncrytParams sets values of encryption flag pointers according
+// the to metadata provided.
+func setEncrytParams(sse, key **string, metadata map[string]string) error {
+	if sse == nil || key == nil {
+		return fmt.Errorf("parameters cannot be null")
+	}
+
+	encryptionMethod, encryptKey, err := validateEncryptParams(metadata)
+	if err != nil {
+		return err
+	}
+	if encryptionMethod != "" {
+		*sse = aws.String(encryptionMethod)
+		if encryptKey != "" {
+			*key = aws.String(encryptKey)
+		}
+	}
+	return nil
+}
+
 // Copy is a single-object copy operation which copies objects to S3
 // destination from another S3 source.
 func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata map[string]string) error {
@@ -310,8 +330,12 @@ func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata map[string]st
 	if storageClass != "" {
 		input.StorageClass = aws.String(storageClass)
 	}
+	err := setEncrytParams(&input.ServerSideEncryption, &input.SSEKMSKeyId, metadata)
+	if err != nil {
+		return err
+	}
 
-	_, err := s.api.CopyObject(input)
+	_, err = s.api.CopyObject(input)
 	return err
 }
 
@@ -374,12 +398,33 @@ func (s *S3) Put(
 		input.StorageClass = aws.String(storageClass)
 	}
 
-	_, err := s.uploader.UploadWithContext(ctx, input, func(u *s3manager.Uploader) {
+	err := setEncrytParams(&input.ServerSideEncryption, &input.SSEKMSKeyId, metadata)
+	if err != nil {
+		return err
+	}
+
+	_, err = s.uploader.UploadWithContext(ctx, input, func(u *s3manager.Uploader) {
 		u.PartSize = partSize
 		u.Concurrency = concurrency
 	})
 
 	return err
+}
+
+// validateEncryptParams validates encryption parameters and
+// returns corresponding values.
+func validateEncryptParams(metadata map[string]string) (encryptMethod, encryptKey string, err error) {
+	const currSupportedEnc = "aws:kms"
+	ssEncryption := metadata["encryptionMethod"]
+	if ssEncryption != "" {
+		if ssEncryption != currSupportedEnc {
+			err = fmt.Errorf("only server side kms encryption is supported")
+			return
+		}
+		encryptMethod = ssEncryption
+		encryptKey = metadata["encryptionKeyId"]
+	}
+	return
 }
 
 // chunk is an object identifier container which is used on MultiDelete

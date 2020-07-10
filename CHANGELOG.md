@@ -2,6 +2,8 @@
 
 ## not released yet
 
+#### Added
+- S3 server side kms encryption flag
 
 #### Bugfixes
 

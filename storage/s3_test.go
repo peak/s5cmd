@@ -444,6 +444,9 @@ func TestS3CopyEncryptionRequest(t *testing.T) {
 		err       error
 	}{
 		{
+			name: "no encryption, by default",
+		},
+		{
 			name: "aws:kms encryption with server side generated keys",
 			sse:  "aws:kms",
 			esse: "aws:kms",
@@ -526,6 +529,9 @@ func TestS3PutEncryptionRequest(t *testing.T) {
 		esseKeyId string
 		err       error
 	}{
+		{
+			name: "no encryption",
+		},
 		{
 			name: "aws:kms encryption with server side generated keys",
 			sse:  "aws:kms",

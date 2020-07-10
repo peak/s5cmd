@@ -294,7 +294,8 @@ func (s *S3) listObjects(ctx context.Context, url *url.URL) <-chan *Object {
 	return objCh
 }
 
-// setEncrytParams sets values of string pointers according to metadata provided.
+// setEncrytParams sets values of encryption flag pointers according
+// the to metadata provided.
 func setEncrytParams(sse, key **string, metadata map[string]string) error {
 	if sse == nil || key == nil {
 		return fmt.Errorf("parameters cannot be null")
@@ -310,6 +311,30 @@ func setEncrytParams(sse, key **string, metadata map[string]string) error {
 			*key = aws.String(encryptKey)
 		}
 	}
+	return nil
+}
+
+// setAcl sets value of acl flag pointer according to the metadata
+// provided.
+func setAcl(acl **string, metadata map[string]string) error {
+	if acl == nil {
+		return fmt.Errorf("acl reference cannot point to nil")
+	}
+	aclVal := metadata["acl"]
+	if aclVal == "" {
+		return nil
+	}
+
+	supportedActions := map[string]bool{
+		"private": true, "public-read": true,
+		"public-read-write": true, "authenticated-read": true,
+		"aws-exec-read": true, "bucket-owner-read": true,
+		"bucket-owner-full-control": true, "log-delivery-write": true,
+	}
+	if _, ok := supportedActions[aclVal]; !ok {
+		return fmt.Errorf("provided acl flag is not supported")
+	}
+	*acl = aws.String(aclVal)
 	return nil
 }
 
@@ -330,6 +355,11 @@ func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata map[string]st
 		input.StorageClass = aws.String(storageClass)
 	}
 	err := setEncrytParams(&input.ServerSideEncryption, &input.SSEKMSKeyId, metadata)
+	if err != nil {
+		return err
+	}
+
+	err = setAcl(&input.ACL, metadata)
 	if err != nil {
 		return err
 	}
@@ -398,6 +428,10 @@ func (s *S3) Put(
 	}
 
 	err := setEncrytParams(&input.ServerSideEncryption, &input.SSEKMSKeyId, metadata)
+	if err != nil {
+		return err
+	}
+	err = setAcl(&input.ACL, metadata)
 	if err != nil {
 		return err
 	}

@@ -20,10 +20,9 @@ import (
 )
 
 const (
-	defaultCopyConcurrency  = 5
-	defaultPartSize         = 50 // MiB
-	defaultEncryptionMethod = "aws:kms"
-	megabytes               = 1024 * 1024
+	defaultCopyConcurrency = 5
+	defaultPartSize        = 50 // MiB
+	megabytes              = 1024 * 1024
 )
 
 var copyHelpTemplate = `Name:
@@ -111,7 +110,6 @@ var copyCommandFlags = []cli.Flag{
 	&cli.StringFlag{
 		Name:    "sse-encrypt",
 		Aliases: []string{"sse"},
-		Value:   defaultEncryptionMethod,
 		Usage:   "server side encryption",
 	},
 	&cli.StringFlag{

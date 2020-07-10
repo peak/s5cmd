@@ -332,7 +332,7 @@ func setAcl(acl **string, metadata map[string]string) error {
 		"bucket-owner-full-control": true, "log-delivery-write": true,
 	}
 	if _, ok := supportedActions[aclVal]; !ok {
-		return fmt.Errorf("provided acl flag is not supported")
+		return fmt.Errorf("provided acl flag value is not supported")
 	}
 	*acl = aws.String(aclVal)
 	return nil

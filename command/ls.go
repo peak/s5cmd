@@ -53,6 +53,11 @@ var listCommand = &cli.Command{
 			Aliases: []string{"H"},
 			Usage:   "human-readable output for object sizes",
 		},
+		&cli.BoolFlag{
+			Name:    "storage-class",
+			Aliases: []string{"s"},
+			Usage:   "display full name of the object class",
+		},
 	},
 	Before: func(c *cli.Context) error {
 		if c.Args().Len() > 1 {
@@ -67,12 +72,14 @@ var listCommand = &cli.Command{
 
 		showEtag := c.Bool("etag")
 		humanize := c.Bool("humanize")
+		showStorageClass := c.Bool("storage-class")
 
 		return List(
 			c.Context,
 			c.Args().First(),
 			showEtag,
 			humanize,
+			showStorageClass,
 		)
 	},
 }
@@ -102,6 +109,7 @@ func List(
 	// flags
 	showEtag bool,
 	humanize bool,
+	showStorageClass bool,
 ) error {
 	srcurl, err := url.New(src)
 	if err != nil {
@@ -123,9 +131,10 @@ func List(
 		}
 
 		msg := ListMessage{
-			Object:        object,
-			showEtag:      showEtag,
-			showHumanized: humanize,
+			Object:           object,
+			showEtag:         showEtag,
+			showHumanized:    humanize,
+			showStorageClass: showStorageClass,
 		}
 
 		log.Info(msg)
@@ -138,8 +147,9 @@ func List(
 type ListMessage struct {
 	Object *storage.Object `json:"object"`
 
-	showEtag      bool
-	showHumanized bool
+	showEtag         bool
+	showHumanized    bool
+	showStorageClass bool
 }
 
 // humanize is a helper function to humanize bytes.
@@ -178,10 +188,15 @@ func (l ListMessage) String() string {
 		return s
 	}
 
+	stclass := l.Object.StorageClass.ShortCode()
+	if l.showStorageClass {
+		stclass = fmt.Sprintf("%v", l.Object.StorageClass)
+	}
+
 	s := fmt.Sprintf(
 		listFormat,
 		l.Object.ModTime.Format(dateFormat),
-		l.Object.StorageClass.ShortCode(),
+		stclass,
 		etag,
 		l.humanize(),
 		l.Object.URL.Relative(),

@@ -2,6 +2,8 @@
 
 ## not released yet
 
+#### Added
+- Option to show storage class. ([#165](https://github.com/peak/s5cmd/issues/165))
 
 #### Bugfixes
 

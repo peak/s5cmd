@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 
+	"gotest.tools/v3/assert"
+
 	"gotest.tools/v3/icmd"
 )
 
@@ -137,6 +139,30 @@ func TestListSingleWildcardS3Object(t *testing.T) {
 		1: suffix("322 testfile2.txt"),
 		2: suffix("330 testfile3.txt"),
 	}, alignment(true))
+}
+
+// ls -s bucket/object
+func TestListSingleWildcardS3Object2(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+	putFile(t, s3client, bucket, "testfile1.txt", "this is a file content")
+
+	cmd := s5cmd("ls -s", "s3://"+bucket+"/testfile1.txt")
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	// on mock s3 client, storage class short code is represented by `?`
+	// storage class full display is an empty string.
+	stclass := !strings.Contains(result.Stdout(), "?")
+
+	assert.Assert(t, stclass, "storage class must be fully displayed")
 }
 
 // ls bucket/*/object*.ext

@@ -1,15 +1,21 @@
 package storage
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	urlpkg "net/url"
 	"os"
+	"reflect"
 	"testing"
+
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/awstesting/unit"
 	"github.com/aws/aws-sdk-go/service/s3"
@@ -394,6 +400,175 @@ func TestS3Retry(t *testing.T) {
 
 			if retried != expectedRetry {
 				t.Errorf("expected retry %v, got %v", expectedRetry, retried)
+			}
+		})
+	}
+}
+
+// Credit to aws-sdk-go
+func val(i interface{}, s string) interface{} {
+	v, err := awsutil.ValuesAtPath(i, s)
+	if err != nil || len(v) == 0 {
+		return nil
+	}
+	if _, ok := v[0].(io.Reader); ok {
+		return v[0]
+	}
+
+	if rv := reflect.ValueOf(v[0]); rv.Kind() == reflect.Ptr {
+		return rv.Elem().Interface()
+	}
+
+	return v[0]
+}
+
+func setExpectedErrs(t *testing.T, expected string, got interface{}) {
+	if got == nil {
+		if expected != "" {
+			t.Errorf("Expected %q, but received %q", "", got)
+		}
+	} else if expected != got {
+		t.Errorf("Expected %q, but received %q", expected, got)
+	}
+}
+func TestS3AclFlagOnCopy(t *testing.T) {
+	testcases := []struct {
+		name string
+		acl  string
+		// expected
+		eAcl string
+		err  error
+	}{
+		{
+			name: "no acl flag",
+		},
+		{
+			name: "acl flag without value, flag should be ignored",
+		},
+		{
+			name: "acl flag with supported value",
+			acl:  "bucket-owner-full-control",
+			eAcl: "bucket-owner-full-control",
+		},
+		{
+			name: "acl flag with an unsupported value",
+			acl:  "bucket-owner-half-control",
+			err:  fmt.Errorf("provided acl flag value is not supported"),
+		},
+	}
+	const defaultReqErr = "request was canceled by the user"
+	u, err := url.New("s3://bucket/key")
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	for _, tc := range testcases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+
+			mockApi := s3.New(unit.Session)
+
+			mockApi.Handlers.Unmarshal.Clear()
+			mockApi.Handlers.UnmarshalMeta.Clear()
+			mockApi.Handlers.UnmarshalError.Clear()
+			mockApi.Handlers.Send.Clear()
+
+			mockApi.Handlers.Send.PushBack(func(r *request.Request) {
+
+				r.HTTPResponse = &http.Response{}
+				r.Error = fmt.Errorf(defaultReqErr)
+
+				aclVal := val(r.Params, "ACL")
+
+				setExpectedErrs(t, tc.eAcl, aclVal)
+			})
+
+			mockS3 := &S3{
+				api: mockApi,
+			}
+
+			err = mockS3.Copy(context.Background(), u, u, map[string]string{
+				"acl": tc.acl,
+			})
+
+			if err != nil && err.Error() == defaultReqErr {
+				return
+			}
+
+			if (err == nil || tc.err == nil) && tc.err != err {
+				t.Errorf("Expected %q, but received %q", tc.err, err)
+			} else if err.Error() != tc.err.Error() {
+				t.Errorf("Expected %q, but received %q", tc.err, err)
+			}
+		})
+	}
+}
+func TestS3AclFlagOnPut(t *testing.T) {
+	testcases := []struct {
+		name string
+		acl  string
+		// expected
+		eAcl string
+		err  error
+	}{
+		{
+			name: "no acl flag",
+		},
+		{
+			name: "acl flag without value, flag should be ignored",
+		},
+		{
+			name: "acl flag with supported value",
+			acl:  "bucket-owner-full-control",
+			eAcl: "bucket-owner-full-control",
+		},
+		{
+			name: "acl flag with an unsupported value",
+			acl:  "bucket-owner-half-control",
+			err:  fmt.Errorf("provided acl flag value is not supported"),
+		},
+	}
+	const defaultReqErr = "request was canceled by the user"
+	u, err := url.New("s3://bucket/key")
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	for _, tc := range testcases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+
+			mockApi := s3.New(unit.Session)
+
+			mockApi.Handlers.Unmarshal.Clear()
+			mockApi.Handlers.UnmarshalMeta.Clear()
+			mockApi.Handlers.UnmarshalError.Clear()
+			mockApi.Handlers.Send.Clear()
+
+			mockApi.Handlers.Send.PushBack(func(r *request.Request) {
+
+				r.HTTPResponse = &http.Response{}
+				r.Error = fmt.Errorf(defaultReqErr)
+
+				aclVal := val(r.Params, "ACL")
+
+				setExpectedErrs(t, tc.eAcl, aclVal)
+			})
+
+			mockS3 := &S3{
+				uploader: s3manager.NewUploaderWithClient(mockApi),
+			}
+
+			err = mockS3.Put(context.Background(), bytes.NewReader([]byte("")), u, map[string]string{
+				"acl": tc.acl,
+			}, 1, 5242880)
+
+			if err != nil && err.Error() == defaultReqErr {
+				return
+			}
+
+			if (err == nil || tc.err == nil) && tc.err != err {
+				t.Errorf("Expected %q, but received %q", tc.err, err)
+			} else if err.Error() != tc.err.Error() {
+				t.Errorf("Expected %q, but received %q", tc.err, err)
 			}
 		})
 	}

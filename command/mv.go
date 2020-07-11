@@ -53,6 +53,7 @@ var moveCommand = &cli.Command{
 			ifSourceNewer: c.Bool("if-source-newer"),
 			flatten:       c.Bool("flatten"),
 			storageClass:  storage.StorageClass(c.String("storage-class")),
+			acl:           c.String("acl"),
 		}
 
 		return copyCommand.Run(c.Context)

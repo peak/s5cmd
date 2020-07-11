@@ -107,6 +107,10 @@ var copyCommandFlags = []cli.Flag{
 		Value:   defaultPartSize,
 		Usage:   "size of each part transferred between host and remote server, in MiB",
 	},
+	&cli.StringFlag{
+		Name:  "acl",
+		Usage: "Access Control List",
+	},
 }
 
 var copyCommand = &cli.Command{
@@ -134,6 +138,7 @@ var copyCommand = &cli.Command{
 			storageClass:   storage.StorageClass(c.String("storage-class")),
 			concurrency:    c.Int("concurrency"),
 			partSize:       c.Int64("part-size") * megabytes,
+			acl:            c.String("acl"),
 		}.Run(c.Context)
 	},
 }
@@ -154,6 +159,7 @@ type Copy struct {
 	flatten        bool
 	followSymlinks bool
 	storageClass   storage.StorageClass
+	acl            string
 
 	// s3 options
 	concurrency int
@@ -382,6 +388,7 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 	metadata := map[string]string{
 		"StorageClass": string(c.storageClass),
 		"ContentType":  guessContentType(f),
+		"acl":          c.acl,
 	}
 
 	err = dstClient.Put(ctx, f, dsturl, metadata, c.concurrency, c.partSize)

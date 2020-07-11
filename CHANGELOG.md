@@ -2,6 +2,8 @@
 
 ## not released yet
 
+#### Added
+- Support for ACL flag. ([#26](https://github.com/peak/s5cmd/issues/26))
 
 #### Bugfixes
 

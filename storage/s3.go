@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -156,6 +157,10 @@ func (s *S3) listObjectsV2(ctx context.Context, url *url.URL) <-chan *Object {
 		defer close(objCh)
 		objectFound := false
 
+		// keep track of unix timestamp, which is used not to iterate
+		// files, which have already been passed through
+		snapshotUx := time.Now().Unix()
+
 		err := s.api.ListObjectsV2PagesWithContext(ctx, &listInput, func(p *s3.ListObjectsV2Output, lastPage bool) bool {
 			for _, c := range p.CommonPrefixes {
 				prefix := aws.StringValue(c.Prefix)
@@ -188,6 +193,12 @@ func (s *S3) listObjectsV2(ctx context.Context, url *url.URL) <-chan *Object {
 				newurl.Path = aws.StringValue(c.Key)
 				etag := aws.StringValue(c.ETag)
 				mod := aws.TimeValue(c.LastModified)
+
+				if mod.Unix() > snapshotUx {
+					objectFound = true
+					continue
+				}
+
 				objCh <- &Object{
 					URL:          newurl,
 					Etag:         strings.Trim(etag, `"`),

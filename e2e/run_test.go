@@ -66,7 +66,7 @@ func TestRunFromStdinWithErrors(t *testing.T) {
 	assertLines(t, result.Stdout(), map[int]compareFunc{})
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: contains(`ERROR "cp s3://%v/nonexistentobject nonexistentobject": NoSuchKey: status code: 404`, bucket),
+		0: contains(`ERROR "cp s3://%v/nonexistentobject .": no object found`, bucket),
 		1: equals(`ERROR "ls s3/": given object not found`),
 	}, sortInput(true))
 }

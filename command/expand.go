@@ -29,8 +29,10 @@ func expandSource(
 		isDir = obj.Type.IsDir()
 	}
 
-	// call storage.List for only walking operations.
-	if srcurl.HasGlob() || isDir {
+	// call storage.List for only walking operations
+	// or remote operations, since for the remote operations
+	// we would like to know if the object exists.
+	if srcurl.HasGlob() || isDir || srcurl.IsRemote() {
 		return client.List(ctx, srcurl, followSymlinks), nil
 	}
 
@@ -72,9 +74,6 @@ func expandSources(
 				}
 
 				for object := range objch {
-					if object.Err == storage.ErrNoObjectFound {
-						continue
-					}
 					ch <- object
 					objFound = true
 				}

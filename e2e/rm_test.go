@@ -259,6 +259,8 @@ func TestRemoveS3PrefixWithoutSlash(t *testing.T) {
 	const prefix = "prefix"
 	src := fmt.Sprintf("s3://%v/%v", bucket, prefix)
 
+	putFile(t, s3client, bucket, prefix, "this is a content.")
+
 	cmd := s5cmd("rm", src)
 	result := icmd.RunCmd(cmd)
 
@@ -269,6 +271,32 @@ func TestRemoveS3PrefixWithoutSlash(t *testing.T) {
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals("rm s3://%v/%v", bucket, prefix),
 	})
+}
+
+// rm s3://bucket/file.txt
+func TestRemoveS3NonExistentFile(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+
+	const key = "file.txt"
+	src := fmt.Sprintf("s3://%v/%v", bucket, key)
+
+	cmd := s5cmd("rm", src)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: equals(`ERROR "rm %s": no object found`, src),
+	})
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{})
 }
 
 // rm s3://bucket/prefix/
@@ -465,6 +493,7 @@ func TestVariadicRemoveS3Objects(t *testing.T) {
 		"file1.txt": "file1 content",
 		"file2.txt": "file2 content",
 		"file3.txt": "file3 content",
+		"file4.txt": "file4 content",
 	}
 
 	for filename, content := range filesToContent {

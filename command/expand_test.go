@@ -10,8 +10,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"gotest.tools/v3/fs"
 
-	"github.com/stretchr/testify/mock"
-
 	"github.com/peak/s5cmd/storage"
 	"github.com/peak/s5cmd/storage/url"
 )
@@ -108,6 +106,7 @@ func TestExpandSources(t *testing.T) {
 				"s3://bucket/file1.txt",
 				"s3://bucket/file2.txt",
 			},
+			wantError: storage.ErrNoObjectFound,
 		},
 		{
 			// if multiple source has no item.
@@ -151,9 +150,7 @@ func TestExpandSources(t *testing.T) {
 
 				ch := generateObjects(objects)
 
-				if src != "s3://bucket/key" {
-					client.On("List", mock.Anything, srcurl, mock.Anything).Once().Return(ch)
-				}
+				client.On("List", context.Background(), srcurl, false).Once().Return(ch)
 			}
 
 			gotChan := expandSources(context.Background(), client, false, srcurls...)

@@ -627,6 +627,11 @@ func (c *customRetryer) ShouldRetry(req *request.Request) bool {
 	if errHasCode(req.Error, "InternalError") {
 		return true
 	}
+
+	if errContains(req.Error, "use of closed network connection") {
+		return true
+	}
+
 	return c.DefaultRetryer.ShouldRetry(req)
 }
 
@@ -666,6 +671,22 @@ func errHasCode(err error, code string) bool {
 	var multiUploadErr s3manager.MultiUploadFailure
 	if errors.As(err, &multiUploadErr) {
 		return errHasCode(multiUploadErr.OrigErr(), code)
+	}
+
+	return false
+
+}
+
+func errContains(err error, msg string) bool {
+	if err == nil || msg == "" {
+		return false
+	}
+
+	var awsErr awserr.Error
+	if errors.As(err, &awsErr) {
+		if strings.Contains(awsErr.Error(), msg) {
+			return true
+		}
 	}
 
 	return false

@@ -245,6 +245,10 @@ func (s *S3) listObjects(ctx context.Context, url *url.URL) <-chan *Object {
 		defer close(objCh)
 		objectFound := false
 
+		// keep track of unix timestamp, which is used not to iterate
+		// files, which have already been passed through
+		snapshotUx := time.Now().Unix()
+
 		err := s.api.ListObjectsPagesWithContext(ctx, &listInput, func(p *s3.ListObjectsOutput, lastPage bool) bool {
 			for _, c := range p.CommonPrefixes {
 				prefix := aws.StringValue(c.Prefix)
@@ -277,6 +281,12 @@ func (s *S3) listObjects(ctx context.Context, url *url.URL) <-chan *Object {
 				newurl.Path = aws.StringValue(c.Key)
 				etag := aws.StringValue(c.ETag)
 				mod := aws.TimeValue(c.LastModified)
+
+				if mod.Unix() > snapshotUx {
+					objectFound = true
+					continue
+				}
+
 				objCh <- &Object{
 					URL:          newurl,
 					Etag:         strings.Trim(etag, `"`),

@@ -428,13 +428,12 @@ func assertEqual(t *testing.T, expected string, got interface{}) {
 	if got == nil {
 		if expected != "" {
 			t.Errorf("Expected %q, but received %q", "", got)
-			return
 		}
+		return
 	}
 
 	if expected != got {
 		t.Errorf("Expected %q, but received %q", expected, got)
-		return
 	}
 }
 

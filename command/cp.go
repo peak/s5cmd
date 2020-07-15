@@ -64,8 +64,10 @@ Examples:
 
 	10. Mirror an S3 prefix to target S3 prefix
 		 > s5cmd {{.HelpName}} -n -s -u s3://bucket/source-prefix/* s3://bucket/target-prefix/
+
 	11. Perform KMS Server Side Encryption of the object(s) at the destination
 		> s5cmd -sse aws:kms {{.HelpName}} s3://bucket/object s3://target-bucket/prefix/object
+
 	12. Perform KMS-SSE of the object(s) at the destination using customer managed Customer Master Key (CMK) key id
 		> s5cmd -sse aws:kms -sse-kms-key-id $0meR@nDomK(-Y s3://bucket/object s3://target-bucket/prefix/object
 `

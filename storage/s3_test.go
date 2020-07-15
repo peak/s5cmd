@@ -11,15 +11,13 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/aws/aws-sdk-go/service/s3/s3manager"
-
-	"github.com/aws/aws-sdk-go/aws/awsutil"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/awstesting/unit"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/google/go-cmp/cmp"
 
 	"github.com/peak/s5cmd/storage/url"
@@ -513,7 +511,8 @@ func TestS3CopyEncryptionRequest(t *testing.T) {
 
 			if (err == nil || tc.expectedErr == nil) && tc.expectedErr != err {
 				t.Errorf("Expected %q, but received %q", tc.expectedErr, err)
-			} else if err.Error() != tc.expectedErr.Error() {
+			}
+			if err.Error() != tc.expectedErr.Error() {
 				t.Errorf("Expected %q, but received %q", tc.expectedErr, err)
 			}
 		})
@@ -594,7 +593,8 @@ func TestS3PutEncryptionRequest(t *testing.T) {
 
 			if (err == nil || tc.expectedErr == nil) && tc.expectedErr != err {
 				t.Errorf("Expected %q, but received %q", tc.expectedErr, err)
-			} else if err.Error() != tc.expectedErr.Error() {
+			}
+			if err.Error() != tc.expectedErr.Error() {
 				t.Errorf("Expected %q, but received %q", tc.expectedErr, err)
 			}
 		})

@@ -159,7 +159,7 @@ func (s *S3) listObjectsV2(ctx context.Context, url *url.URL) <-chan *Object {
 
 		// keep track of unix timestamp, which is used not to iterate
 		// files, which have already been passed through
-		snapshotUx := time.Now().Unix()
+		now := time.Now().UTC().Unix()
 
 		err := s.api.ListObjectsV2PagesWithContext(ctx, &listInput, func(p *s3.ListObjectsV2Output, lastPage bool) bool {
 			for _, c := range p.CommonPrefixes {
@@ -194,7 +194,7 @@ func (s *S3) listObjectsV2(ctx context.Context, url *url.URL) <-chan *Object {
 				etag := aws.StringValue(c.ETag)
 				mod := aws.TimeValue(c.LastModified)
 
-				if mod.Unix() > snapshotUx {
+				if mod.UTC().Unix() > now {
 					objectFound = true
 					continue
 				}
@@ -247,7 +247,7 @@ func (s *S3) listObjects(ctx context.Context, url *url.URL) <-chan *Object {
 
 		// keep track of unix timestamp, which is used not to iterate
 		// files, which have already been passed through
-		snapshotUx := time.Now().Unix()
+		now := time.Now().UTC().Unix()
 
 		err := s.api.ListObjectsPagesWithContext(ctx, &listInput, func(p *s3.ListObjectsOutput, lastPage bool) bool {
 			for _, c := range p.CommonPrefixes {
@@ -282,7 +282,7 @@ func (s *S3) listObjects(ctx context.Context, url *url.URL) <-chan *Object {
 				etag := aws.StringValue(c.ETag)
 				mod := aws.TimeValue(c.LastModified)
 
-				if mod.Unix() > snapshotUx {
+				if mod.UTC().Unix() > now {
 					objectFound = true
 					continue
 				}

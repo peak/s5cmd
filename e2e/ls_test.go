@@ -140,7 +140,7 @@ func TestListSingleWildcardS3Object(t *testing.T) {
 }
 
 // ls -s bucket/object
-func TestListSingleWildcardS3Object2(t *testing.T) {
+func TestListS3ObjectsWithDashS(t *testing.T) {
 	t.Parallel()
 
 	bucket := s3BucketFromTestName(t)

@@ -2,8 +2,8 @@
 
 ## not released yet
 
-#### Added
-- Option to show storage class. ([#165](https://github.com/peak/s5cmd/issues/165))
+#### Features
+- Added an option to show full form of [storage class](https://aws.amazon.com/s3/storage-classes/) when listing objects. ([#165](https://github.com/peak/s5cmd/issues/165))
 
 #### Bugfixes
 

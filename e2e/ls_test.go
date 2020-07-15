@@ -4,8 +4,6 @@ import (
 	"strings"
 	"testing"
 
-	"gotest.tools/v3/assert"
-
 	"gotest.tools/v3/icmd"
 )
 
@@ -158,11 +156,7 @@ func TestListSingleWildcardS3Object2(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	// on mock s3 client, storage class short code is represented by `?`
-	// storage class full display is an empty string.
-	stclass := !strings.Contains(result.Stdout(), "?")
-
-	assert.Assert(t, stclass, "storage class must be fully displayed")
+	// TODO: test if full form of storage class is displayed (it can be done when and if gofakes3 supports storage classes)
 }
 
 // ls bucket/*/object*.ext

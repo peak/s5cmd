@@ -294,33 +294,9 @@ func (s *S3) listObjects(ctx context.Context, url *url.URL) <-chan *Object {
 	return objCh
 }
 
-// setAcl sets value of acl flag pointer according to the metadata
-// provided.
-func setAcl(acl **string, metadata map[string]string) error {
-	if acl == nil {
-		return fmt.Errorf("acl reference cannot point to nil")
-	}
-	aclVal := metadata["acl"]
-	if aclVal == "" {
-		return nil
-	}
-
-	supportedActions := map[string]bool{
-		"private": true, "public-read": true,
-		"public-read-write": true, "authenticated-read": true,
-		"aws-exec-read": true, "bucket-owner-read": true,
-		"bucket-owner-full-control": true, "log-delivery-write": true,
-	}
-	if _, ok := supportedActions[aclVal]; !ok {
-		return fmt.Errorf("provided acl flag value is not supported")
-	}
-	*acl = aws.String(aclVal)
-	return nil
-}
-
 // Copy is a single-object copy operation which copies objects to S3
 // destination from another S3 source.
-func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata map[string]string) error {
+func (s *S3) Copy(ctx context.Context, from, to *url.URL, _metadata map[string]string) error {
 	// SDK expects CopySource like "bucket[/key]"
 	copySource := strings.TrimPrefix(from.String(), "s3://")
 
@@ -329,18 +305,18 @@ func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata map[string]st
 		Key:        aws.String(to.Path),
 		CopySource: aws.String(copySource),
 	}
-
-	storageClass := metadata["StorageClass"]
+	metadata := Metadata(_metadata)
+	storageClass := metadata.StorageClass()
 	if storageClass != "" {
 		input.StorageClass = aws.String(storageClass)
 	}
 
-	err := setAcl(&input.ACL, metadata)
-	if err != nil {
-		return err
+	acl := metadata.ACL()
+	if acl != "" {
+		input.ACL = aws.String(acl)
 	}
 
-	_, err = s.api.CopyObject(input)
+	_, err := s.api.CopyObject(input)
 	return err
 }
 
@@ -382,11 +358,12 @@ func (s *S3) Put(
 	ctx context.Context,
 	reader io.Reader,
 	to *url.URL,
-	metadata map[string]string,
+	_metadata map[string]string,
 	concurrency int,
 	partSize int64,
 ) error {
-	contentType := metadata["ContentType"]
+	metadata := Metadata(_metadata)
+	contentType := metadata.ContentType()
 	if contentType == "" {
 		contentType = "application/octet-stream"
 	}
@@ -398,16 +375,16 @@ func (s *S3) Put(
 		ContentType: aws.String(contentType),
 	}
 
-	storageClass := metadata["StorageClass"]
+	storageClass := metadata.StorageClass()
 	if storageClass != "" {
 		input.StorageClass = aws.String(storageClass)
 	}
-	err := setAcl(&input.ACL, metadata)
-	if err != nil {
-		return err
+	acl := metadata.ACL()
+	if acl != "" {
+		input.ACL = aws.String(acl)
 	}
 
-	_, err = s.uploader.UploadWithContext(ctx, input, func(u *s3manager.Uploader) {
+	_, err := s.uploader.UploadWithContext(ctx, input, func(u *s3manager.Uploader) {
 		u.PartSize = partSize
 		u.Concurrency = concurrency
 	})
@@ -725,4 +702,25 @@ func (a *writeAtAdapter) Write(p []byte) (int, error) {
 
 	a.offset += int64(n)
 	return n, nil
+}
+
+type Metadata map[string]string
+
+func (m Metadata) SetACL(acl string) {
+	m["ACL"] = acl
+}
+func (m Metadata) ACL() string {
+	return m["ACL"]
+}
+func (m Metadata) SetStorageClass(class string) {
+	m["StorageClass"] = class
+}
+func (m Metadata) StorageClass() string {
+	return m["StorageClass"]
+}
+func (m Metadata) SetContentType(contentType string) {
+	m["ContentType"] = contentType
+}
+func (m Metadata) ContentType() string {
+	return m["ContentType"]
 }

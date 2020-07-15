@@ -422,7 +422,8 @@ func val(i interface{}, s string) interface{} {
 	return v[0]
 }
 
-func setExpectedErrs(t *testing.T, expected string, got interface{}) {
+// asserts equality; nil interface and empty string are considered equal.
+func assertEqual(t *testing.T, expected string, got interface{}) {
 	if got == nil {
 		if expected != "" {
 			t.Errorf("Expected %q, but received %q", "", got)
@@ -435,9 +436,9 @@ func TestS3AclFlagOnCopy(t *testing.T) {
 	testcases := []struct {
 		name string
 		acl  string
-		// expected
-		eAcl string
-		err  error
+
+		expectedAcl string
+		expectedErr error
 	}{
 		{
 			name: "no acl flag",
@@ -446,14 +447,9 @@ func TestS3AclFlagOnCopy(t *testing.T) {
 			name: "acl flag without value, flag should be ignored",
 		},
 		{
-			name: "acl flag with supported value",
-			acl:  "bucket-owner-full-control",
-			eAcl: "bucket-owner-full-control",
-		},
-		{
-			name: "acl flag with an unsupported value",
-			acl:  "bucket-owner-half-control",
-			err:  fmt.Errorf("provided acl flag value is not supported"),
+			name:        "acl flag with a value",
+			acl:         "bucket-owner-full-control",
+			expectedAcl: "bucket-owner-full-control",
 		},
 	}
 	const defaultReqErr = "request was canceled by the user"
@@ -479,7 +475,7 @@ func TestS3AclFlagOnCopy(t *testing.T) {
 
 				aclVal := val(r.Params, "ACL")
 
-				setExpectedErrs(t, tc.eAcl, aclVal)
+				assertEqual(t, tc.expectedAcl, aclVal)
 			})
 
 			mockS3 := &S3{
@@ -487,17 +483,17 @@ func TestS3AclFlagOnCopy(t *testing.T) {
 			}
 
 			err = mockS3.Copy(context.Background(), u, u, map[string]string{
-				"acl": tc.acl,
+				"ACL": tc.acl,
 			})
 
 			if err != nil && err.Error() == defaultReqErr {
 				return
 			}
 
-			if (err == nil || tc.err == nil) && tc.err != err {
-				t.Errorf("Expected %q, but received %q", tc.err, err)
-			} else if err.Error() != tc.err.Error() {
-				t.Errorf("Expected %q, but received %q", tc.err, err)
+			if (err == nil || tc.expectedErr == nil) && tc.expectedErr != err {
+				t.Errorf("Expected %q, but received %q", tc.expectedErr, err)
+			} else if err.Error() != tc.expectedErr.Error() {
+				t.Errorf("Expected %q, but received %q", tc.expectedErr, err)
 			}
 		})
 	}
@@ -506,9 +502,9 @@ func TestS3AclFlagOnPut(t *testing.T) {
 	testcases := []struct {
 		name string
 		acl  string
-		// expected
-		eAcl string
-		err  error
+
+		expectedAcl string
+		expectedErr error
 	}{
 		{
 			name: "no acl flag",
@@ -517,14 +513,9 @@ func TestS3AclFlagOnPut(t *testing.T) {
 			name: "acl flag without value, flag should be ignored",
 		},
 		{
-			name: "acl flag with supported value",
-			acl:  "bucket-owner-full-control",
-			eAcl: "bucket-owner-full-control",
-		},
-		{
-			name: "acl flag with an unsupported value",
-			acl:  "bucket-owner-half-control",
-			err:  fmt.Errorf("provided acl flag value is not supported"),
+			name:        "acl flag with a value",
+			acl:         "bucket-owner-full-control",
+			expectedAcl: "bucket-owner-full-control",
 		},
 	}
 	const defaultReqErr = "request was canceled by the user"
@@ -550,7 +541,7 @@ func TestS3AclFlagOnPut(t *testing.T) {
 
 				aclVal := val(r.Params, "ACL")
 
-				setExpectedErrs(t, tc.eAcl, aclVal)
+				assertEqual(t, tc.expectedAcl, aclVal)
 			})
 
 			mockS3 := &S3{
@@ -558,17 +549,17 @@ func TestS3AclFlagOnPut(t *testing.T) {
 			}
 
 			err = mockS3.Put(context.Background(), bytes.NewReader([]byte("")), u, map[string]string{
-				"acl": tc.acl,
+				"ACL": tc.acl,
 			}, 1, 5242880)
 
 			if err != nil && err.Error() == defaultReqErr {
 				return
 			}
 
-			if (err == nil || tc.err == nil) && tc.err != err {
-				t.Errorf("Expected %q, but received %q", tc.err, err)
-			} else if err.Error() != tc.err.Error() {
-				t.Errorf("Expected %q, but received %q", tc.err, err)
+			if (err == nil || tc.expectedErr == nil) && tc.expectedErr != err {
+				t.Errorf("Expected %q, but received %q", tc.expectedErr, err)
+			} else if err.Error() != tc.expectedErr.Error() {
+				t.Errorf("Expected %q, but received %q", tc.expectedErr, err)
 			}
 		})
 	}

@@ -2,8 +2,9 @@
 
 ## not released yet
 
-#### Added
-- Support for ACL flag. ([#26](https://github.com/peak/s5cmd/issues/26))
+#### Features
+- Add [access control lists (ACLs)](https://docs.aws.amazon.com/AmazonS3/latest/dev/acl-overview.html)
+support to enable managing access to buckets and objects. ([#26](https://github.com/peak/s5cmd/issues/26))
 
 #### Bugfixes
 

@@ -109,7 +109,7 @@ var copyCommandFlags = []cli.Flag{
 	},
 	&cli.StringFlag{
 		Name:  "acl",
-		Usage: "Access Control List",
+		Usage: "set acl for target: defines granted accesses and their types on different accounts/groups",
 	},
 }
 
@@ -388,7 +388,7 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 	metadata := map[string]string{
 		"StorageClass": string(c.storageClass),
 		"ContentType":  guessContentType(f),
-		"acl":          c.acl,
+		"ACL":          c.acl,
 	}
 
 	err = dstClient.Put(ctx, f, dsturl, metadata, c.concurrency, c.partSize)

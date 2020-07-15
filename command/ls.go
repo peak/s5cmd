@@ -188,7 +188,7 @@ func (l ListMessage) String() string {
 		return s
 	}
 
-	stclass := l.Object.StorageClass.ShortCode()
+	stclass := ""
 	if l.showStorageClass {
 		stclass = fmt.Sprintf("%v", l.Object.StorageClass)
 	}

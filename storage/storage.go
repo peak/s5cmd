@@ -161,30 +161,6 @@ func (b Bucket) JSON() string {
 // StorageClass represents the storage used to store an object.
 type StorageClass string
 
-// ShortCode returns the short code of Amazon S3 Storage Class.
-func (s StorageClass) ShortCode() string {
-	var code string
-	switch s {
-	case "STANDARD":
-		code = "ST"
-	case "REDUCED_REDUNDANCY":
-		code = "RR"
-	case "STANDARD_IA":
-		code = "SI"
-	case "ONEZONE_IA":
-		code = "OI"
-	case "INTELLIGENT_TIERING":
-		code = "IT"
-	case "GLACIER":
-		code = "GL"
-	case "DEEP_ARCHIVE":
-		code = "DA"
-	default:
-		code = " ?"
-	}
-	return code
-}
-
 func (s StorageClass) IsGlacier() bool {
 	return s == "GLACIER"
 }

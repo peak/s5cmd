@@ -263,8 +263,8 @@ func TestListS3ObjectsAndFolders(t *testing.T) {
 		3: suffix("DIR d/"),
 		4: suffix("DIR e/"),
 		5: suffix("DIR f/"),
-		6: suffix("? 298 report.gz"),
-		7: suffix("? 302 testfile1.txt"),
+		6: suffix("298 report.gz"),
+		7: suffix("302 testfile1.txt"),
 	}, alignment(true))
 }
 
@@ -291,7 +291,7 @@ func TestListS3ObjectsAndFoldersWithPrefix(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: suffix("DIR t/"),
-		1: suffix("? 302 testfile1.txt"),
+		1: suffix("302 testfile1.txt"),
 	}, alignment(true))
 }
 
@@ -362,8 +362,8 @@ func TestListS3ObjectsWithDashE(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: match(`^ \? \w+ \d+ testfile1.txt$`),
-		1: match(`^ \? \w+ \d+ testfile2.txt$`),
+		0: match(`^ \w+ \d+ testfile1.txt$`),
+		1: match(`^ \w+ \d+ testfile2.txt$`),
 	}, trimMatch(dateRe), alignment(true))
 }
 
@@ -387,7 +387,7 @@ func TestListS3ObjectsWithDashH(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: match(`^ \? 215.1K testfile1.txt$`),
-		1: match(`^ \? 264.0K testfile2.txt$`),
+		0: match(`^ 215.1K testfile1.txt$`),
+		1: match(`^ 264.0K testfile2.txt$`),
 	}, trimMatch(dateRe), alignment(true))
 }

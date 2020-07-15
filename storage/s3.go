@@ -294,29 +294,9 @@ func (s *S3) listObjects(ctx context.Context, url *url.URL) <-chan *Object {
 	return objCh
 }
 
-// setEncrytParams sets values of encryption flag pointers according
-// the to metadata provided.
-func setEncrytParams(sse, key **string, metadata map[string]string) error {
-	if sse == nil || key == nil {
-		return fmt.Errorf("parameters cannot be null")
-	}
-
-	encryptionMethod, encryptKey, err := validateEncryptParams(metadata)
-	if err != nil {
-		return err
-	}
-	if encryptionMethod != "" {
-		*sse = aws.String(encryptionMethod)
-		if encryptKey != "" {
-			*key = aws.String(encryptKey)
-		}
-	}
-	return nil
-}
-
 // Copy is a single-object copy operation which copies objects to S3
 // destination from another S3 source.
-func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata map[string]string) error {
+func (s *S3) Copy(ctx context.Context, from, to *url.URL, _metadata map[string]string) error {
 	// SDK expects CopySource like "bucket[/key]"
 	copySource := strings.TrimPrefix(from.String(), "s3://")
 
@@ -325,17 +305,23 @@ func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata map[string]st
 		Key:        aws.String(to.Path),
 		CopySource: aws.String(copySource),
 	}
+	metadata := Metadata(_metadata)
 
-	storageClass := metadata["StorageClass"]
+	storageClass := metadata.StorageClass()
 	if storageClass != "" {
 		input.StorageClass = aws.String(storageClass)
 	}
-	err := setEncrytParams(&input.ServerSideEncryption, &input.SSEKMSKeyId, metadata)
-	if err != nil {
-		return err
+
+	sseEncryption := metadata.SSE()
+	if sseEncryption != "" {
+		input.ServerSideEncryption = aws.String(sseEncryption)
+		sseKmsKeyId := metadata.SSEKeyId()
+		if sseKmsKeyId != "" {
+			input.SSEKMSKeyId = aws.String(sseKmsKeyId)
+		}
 	}
 
-	_, err = s.api.CopyObject(input)
+	_, err := s.api.CopyObject(input)
 	return err
 }
 
@@ -377,11 +363,12 @@ func (s *S3) Put(
 	ctx context.Context,
 	reader io.Reader,
 	to *url.URL,
-	metadata map[string]string,
+	_metadata map[string]string,
 	concurrency int,
 	partSize int64,
 ) error {
-	contentType := metadata["ContentType"]
+	metadata := Metadata(_metadata)
+	contentType := metadata.ContentType()
 	if contentType == "" {
 		contentType = "application/octet-stream"
 	}
@@ -393,38 +380,26 @@ func (s *S3) Put(
 		ContentType: aws.String(contentType),
 	}
 
-	storageClass := metadata["StorageClass"]
+	storageClass := metadata.StorageClass()
 	if storageClass != "" {
 		input.StorageClass = aws.String(storageClass)
 	}
 
-	err := setEncrytParams(&input.ServerSideEncryption, &input.SSEKMSKeyId, metadata)
-	if err != nil {
-		return err
+	sseEncryption := metadata.SSE()
+	if sseEncryption != "" {
+		input.ServerSideEncryption = aws.String(sseEncryption)
+		sseKmsKeyId := metadata.SSEKeyId()
+		if sseKmsKeyId != "" {
+			input.SSEKMSKeyId = aws.String(sseKmsKeyId)
+		}
 	}
 
-	_, err = s.uploader.UploadWithContext(ctx, input, func(u *s3manager.Uploader) {
+	_, err := s.uploader.UploadWithContext(ctx, input, func(u *s3manager.Uploader) {
 		u.PartSize = partSize
 		u.Concurrency = concurrency
 	})
 
 	return err
-}
-
-// validateEncryptParams validates encryption parameters and
-// returns corresponding values.
-func validateEncryptParams(metadata map[string]string) (encryptMethod, encryptKey string, err error) {
-	const currSupportedEnc = "aws:kms"
-	ssEncryption := metadata["encryptionMethod"]
-	if ssEncryption != "" {
-		if ssEncryption != currSupportedEnc {
-			err = fmt.Errorf("only server side kms encryption is supported")
-			return
-		}
-		encryptMethod = ssEncryption
-		encryptKey = metadata["encryptionKeyId"]
-	}
-	return
 }
 
 // chunk is an object identifier container which is used on MultiDelete
@@ -737,4 +712,37 @@ func (a *writeAtAdapter) Write(p []byte) (int, error) {
 
 	a.offset += int64(n)
 	return n, nil
+}
+
+type Metadata map[string]string
+
+func (m Metadata) SetACL(acl string) {
+	m["ACL"] = acl
+}
+func (m Metadata) ACL() string {
+	return m["ACL"]
+}
+func (m Metadata) SetStorageClass(class string) {
+	m["StorageClass"] = class
+}
+func (m Metadata) StorageClass() string {
+	return m["StorageClass"]
+}
+func (m Metadata) SetContentType(contentType string) {
+	m["ContentType"] = contentType
+}
+func (m Metadata) ContentType() string {
+	return m["ContentType"]
+}
+func (m Metadata) SetSSE(sse string) {
+	m["EncryptionMethod"] = sse
+}
+func (m Metadata) SSE() string {
+	return m["EncryptionMethod"]
+}
+func (m Metadata) SetSSEKeyId(kid string) {
+	m["EncryptionKeyId"] = kid
+}
+func (m Metadata) SSEKeyId() string {
+	return m["EncryptionKeyId"]
 }

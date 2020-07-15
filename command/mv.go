@@ -53,8 +53,8 @@ var moveCommand = &cli.Command{
 			ifSourceNewer:    c.Bool("if-source-newer"),
 			flatten:          c.Bool("flatten"),
 			storageClass:     storage.StorageClass(c.String("storage-class")),
-			encryptionMethod: c.String("sse-encrypt"),
-			encryptionKeyId:  c.String("key-id"),
+			encryptionMethod: c.String("sse"),
+			encryptionKeyId:  c.String("sse-kms-key-id"),
 		}
 
 		return copyCommand.Run(c.Context)

@@ -2,8 +2,9 @@
 
 ## not released yet
 
-#### Added
-- S3 server side kms encryption flag
+#### Features
+- Added Server-side Encryption (SSE) support for mv/cp operations. It uses customer master keys (CMKs) stored in AWS Key Management
+ Service (KMS).
 
 #### Bugfixes
 

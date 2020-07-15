@@ -423,7 +423,8 @@ func val(i interface{}, s string) interface{} {
 	return v[0]
 }
 
-func setExpectedErrs(t *testing.T, expected string, got interface{}) {
+// asserts equality; nil interface and empty string are considered equal.
+func assertEqual(t *testing.T, expected string, got interface{}) {
 	if got == nil {
 		if expected != "" {
 			t.Errorf("Expected %q, but received %q", "", got)
@@ -438,10 +439,10 @@ func TestS3CopyEncryptionRequest(t *testing.T) {
 		name     string
 		sse      string
 		sseKeyId string
-		// expected
-		esse      string
-		esseKeyId string
-		err       error
+
+		expectedSSE      string
+		expectedSSEKeyId string
+		expectedErr      error
 	}{
 		{
 			name: "no encryption, by default",
@@ -449,23 +450,19 @@ func TestS3CopyEncryptionRequest(t *testing.T) {
 		{
 			name: "aws:kms encryption with server side generated keys",
 			sse:  "aws:kms",
-			esse: "aws:kms",
+
+			expectedSSE: "aws:kms",
 		},
 		{
-			name:      "aws:kms encryption with user provided key",
-			sse:       "aws:kms",
-			esse:      "aws:kms",
-			sseKeyId:  "sdkjn12SDdci#@#EFRFERTqW/ke",
-			esseKeyId: "sdkjn12SDdci#@#EFRFERTqW/ke",
-		},
-		{
-			name:     "unsupported encryption method [AES256]",
-			sse:      "AES256",
+			name:     "aws:kms encryption with user provided key",
+			sse:      "aws:kms",
 			sseKeyId: "sdkjn12SDdci#@#EFRFERTqW/ke",
-			err:      fmt.Errorf("only server side kms encryption is supported"),
+
+			expectedSSE:      "aws:kms",
+			expectedSSEKeyId: "sdkjn12SDdci#@#EFRFERTqW/ke",
 		},
 		{
-			name:     "provide key without encryption flag",
+			name:     "provide key without encryption flag, shall be ignored",
 			sseKeyId: "1234567890",
 		},
 	}
@@ -491,11 +488,11 @@ func TestS3CopyEncryptionRequest(t *testing.T) {
 				r.Error = fmt.Errorf(defaultReqErr)
 
 				params := r.Params
-				encrypt := val(params, "ServerSideEncryption")
+				sse := val(params, "ServerSideEncryption")
 				key := val(params, "SSEKMSKeyId")
 
-				setExpectedErrs(t, tc.esse, encrypt)
-				setExpectedErrs(t, tc.esseKeyId, key)
+				assertEqual(t, tc.expectedSSE, sse)
+				assertEqual(t, tc.expectedSSEKeyId, key)
 			})
 
 			mockS3 := &S3{
@@ -503,18 +500,18 @@ func TestS3CopyEncryptionRequest(t *testing.T) {
 			}
 
 			err = mockS3.Copy(context.Background(), u, u, map[string]string{
-				"encryptionMethod": tc.sse,
-				"encryptionKeyId":  tc.sseKeyId,
+				"EncryptionMethod": tc.sse,
+				"EncryptionKeyId":  tc.sseKeyId,
 			})
 
 			if err != nil && err.Error() == defaultReqErr {
 				return
 			}
 
-			if (err == nil || tc.err == nil) && tc.err != err {
-				t.Errorf("Expected %q, but received %q", tc.err, err)
-			} else if err.Error() != tc.err.Error() {
-				t.Errorf("Expected %q, but received %q", tc.err, err)
+			if (err == nil || tc.expectedErr == nil) && tc.expectedErr != err {
+				t.Errorf("Expected %q, but received %q", tc.expectedErr, err)
+			} else if err.Error() != tc.expectedErr.Error() {
+				t.Errorf("Expected %q, but received %q", tc.expectedErr, err)
 			}
 		})
 	}
@@ -524,34 +521,29 @@ func TestS3PutEncryptionRequest(t *testing.T) {
 		name     string
 		sse      string
 		sseKeyId string
-		// expected
-		esse      string
-		esseKeyId string
-		err       error
+
+		expectedSSE      string
+		expectedSSEKeyId string
+		expectedErr      error
 	}{
 		{
 			name: "no encryption",
 		},
 		{
-			name: "aws:kms encryption with server side generated keys",
-			sse:  "aws:kms",
-			esse: "aws:kms",
+			name:        "aws:kms encryption with server side generated keys",
+			sse:         "aws:kms",
+			expectedSSE: "aws:kms",
 		},
 		{
-			name:      "aws:kms encryption with user provided key",
-			sse:       "aws:kms",
-			esse:      "aws:kms",
-			sseKeyId:  "sdkjn12SDdci#@#EFRFERTqW/ke",
-			esseKeyId: "sdkjn12SDdci#@#EFRFERTqW/ke",
-		},
-		{
-			name:     "unsupported encryption method [AES256]",
-			sse:      "AES256",
+			name:     "aws:kms encryption with user provided key",
+			sse:      "aws:kms",
 			sseKeyId: "sdkjn12SDdci#@#EFRFERTqW/ke",
-			err:      fmt.Errorf("only server side kms encryption is supported"),
+
+			expectedSSE:      "aws:kms",
+			expectedSSEKeyId: "sdkjn12SDdci#@#EFRFERTqW/ke",
 		},
 		{
-			name:     "provide key without encryption flag",
+			name:     "provide key without encryption flag, shall be ignored",
 			sseKeyId: "1234567890",
 		},
 	}
@@ -577,11 +569,11 @@ func TestS3PutEncryptionRequest(t *testing.T) {
 				r.Error = fmt.Errorf(defaultReqErr)
 
 				params := r.Params
-				encrypt := val(params, "ServerSideEncryption")
+				sse := val(params, "ServerSideEncryption")
 				key := val(params, "SSEKMSKeyId")
 
-				setExpectedErrs(t, tc.esse, encrypt)
-				setExpectedErrs(t, tc.esseKeyId, key)
+				assertEqual(t, tc.expectedSSE, sse)
+				assertEqual(t, tc.expectedSSEKeyId, key)
 			})
 
 			mockS3 := &S3{
@@ -589,18 +581,18 @@ func TestS3PutEncryptionRequest(t *testing.T) {
 			}
 
 			err = mockS3.Put(context.Background(), bytes.NewReader([]byte("")), u, map[string]string{
-				"encryptionMethod": tc.sse,
-				"encryptionKeyId":  tc.sseKeyId,
+				"EncryptionMethod": tc.sse,
+				"EncryptionKeyId":  tc.sseKeyId,
 			}, 1, 5242880)
 
 			if err != nil && err.Error() == defaultReqErr {
 				return
 			}
 
-			if (err == nil || tc.err == nil) && tc.err != err {
-				t.Errorf("Expected %q, but received %q", tc.err, err)
-			} else if err.Error() != tc.err.Error() {
-				t.Errorf("Expected %q, but received %q", tc.err, err)
+			if (err == nil || tc.expectedErr == nil) && tc.expectedErr != err {
+				t.Errorf("Expected %q, but received %q", tc.expectedErr, err)
+			} else if err.Error() != tc.expectedErr.Error() {
+				t.Errorf("Expected %q, but received %q", tc.expectedErr, err)
 			}
 		})
 	}

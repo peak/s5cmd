@@ -64,6 +64,10 @@ Examples:
 
 	10. Mirror an S3 prefix to target S3 prefix
 		 > s5cmd {{.HelpName}} -n -s -u s3://bucket/source-prefix/* s3://bucket/target-prefix/
+	11. Perform KMS Server Side Encryption of the object(s) at the destination
+		> s5cmd -sse aws:kms {{.HelpName}} s3://bucket/object s3://target-bucket/prefix/object
+	12. Perform KMS-SSE of the object(s) at the destination using customer managed Customer Master Key (CMK) key id
+		> s5cmd -sse aws:kms -sse-kms-key-id $0meR@nDomK(-Y s3://bucket/object s3://target-bucket/prefix/object
 `
 
 var copyCommandFlags = []cli.Flag{
@@ -108,14 +112,12 @@ var copyCommandFlags = []cli.Flag{
 		Usage:   "size of each part transferred between host and remote server, in MiB",
 	},
 	&cli.StringFlag{
-		Name:    "sse-encrypt",
-		Aliases: []string{"sse"},
-		Usage:   "server side encryption",
+		Name:  "sse",
+		Usage: "perform server side encryption of the data at its destination, e.g. aws:kms",
 	},
 	&cli.StringFlag{
-		Name:    "key-id",
-		Aliases: []string{"kid"},
-		Usage:   "encryption key id",
+		Name:  "sse-kms-key-id",
+		Usage: "customer master key (CMK) id for SSE-KMS encryption; leave it out if server-side generated key is desired",
 	},
 }
 
@@ -144,8 +146,8 @@ var copyCommand = &cli.Command{
 			storageClass:     storage.StorageClass(c.String("storage-class")),
 			concurrency:      c.Int("concurrency"),
 			partSize:         c.Int64("part-size") * megabytes,
-			encryptionMethod: c.String("sse-encrypt"),
-			encryptionKeyId:  c.String("key-id"),
+			encryptionMethod: c.String("sse"),
+			encryptionKeyId:  c.String("sse-kms-key-id"),
 		}.Run(c.Context)
 	},
 }
@@ -396,8 +398,8 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 	metadata := map[string]string{
 		"StorageClass":     string(c.storageClass),
 		"ContentType":      guessContentType(f),
-		"encryptionMethod": c.encryptionMethod,
-		"encryptionKeyId":  c.encryptionKeyId,
+		"EncryptionMethod": c.encryptionMethod,
+		"EncryptionKeyId":  c.encryptionKeyId,
 	}
 
 	err = dstClient.Put(ctx, f, dsturl, metadata, c.concurrency, c.partSize)
@@ -437,8 +439,8 @@ func (c Copy) doCopy(ctx context.Context, srcurl *url.URL, dsturl *url.URL) erro
 
 	metadata := map[string]string{
 		"StorageClass":     string(c.storageClass),
-		"encryptionMethod": c.encryptionMethod,
-		"encryptionKeyId":  c.encryptionKeyId,
+		"EncryptionMethod": c.encryptionMethod,
+		"EncryptionKeyId":  c.encryptionKeyId,
 	}
 
 	err := c.shouldOverride(ctx, srcurl, dsturl)

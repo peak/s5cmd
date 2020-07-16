@@ -572,7 +572,7 @@ func contains(format string, args ...interface{}) compareFunc {
 
 func lexicogIncreasingStrArr(length int) []string {
 	arr := make([]string, length)
-	for i, _ := range arr {
+	for i := range arr {
 		arr[i] = strconv.Itoa(i)
 	}
 	sort.Strings(arr)

@@ -47,8 +47,8 @@ const (
 var cachedS3 *S3
 
 // Init creates a new global S3 session.
-func Init(opts S3Options) error {
-	s3, err := NewS3Storage(opts)
+func Init(opts S3Options, destinationRegion string) error {
+	s3, err := NewS3Storage(opts, destinationRegion)
 	cachedS3 = s3
 	return err
 }
@@ -56,10 +56,11 @@ func Init(opts S3Options) error {
 // S3 is a storage type which interacts with S3API, DownloaderAPI and
 // UploaderAPI.
 type S3 struct {
-	api         s3iface.S3API
-	downloader  s3manageriface.DownloaderAPI
-	uploader    s3manageriface.UploaderAPI
-	endpointURL urlpkg.URL
+	api           s3iface.S3API
+	downloader    s3manageriface.DownloaderAPI
+	uploader      s3manageriface.UploaderAPI
+	endpointURL   urlpkg.URL
+	destinationS3 *S3
 }
 
 // S3Options stores configuration for S3 storage.
@@ -88,7 +89,7 @@ func parseEndpoint(endpoint string) (urlpkg.URL, error) {
 }
 
 // NewS3Storage creates new S3 session.
-func NewS3Storage(opts S3Options) (*S3, error) {
+func NewS3Storage(opts S3Options, dstRegion string) (*S3, error) {
 	endpointURL, err := parseEndpoint(opts.Endpoint)
 	if err != nil {
 		return nil, err
@@ -99,12 +100,30 @@ func NewS3Storage(opts S3Options) (*S3, error) {
 		return nil, err
 	}
 
-	return &S3{
+	s3Storage := &S3{
 		api:         s3.New(awsSession),
 		downloader:  s3manager.NewDownloader(awsSession),
 		uploader:    s3manager.NewUploader(awsSession),
 		endpointURL: endpointURL,
-	}, nil
+	}
+	if dstRegion == "" || dstRegion == aws.StringValue(awsSession.Config.Region) {
+		s3Storage.destinationS3 = s3Storage
+		return s3Storage, nil
+	}
+
+	dstOpts := opts
+	dstOpts.Region = dstRegion
+	dstSession, err := newSession(dstOpts)
+	if err != nil {
+		return nil, err
+	}
+	s3Storage.destinationS3 = &S3{
+		api:         s3.New(dstSession),
+		downloader:  s3manager.NewDownloader(dstSession),
+		uploader:    s3manager.NewUploader(dstSession),
+		endpointURL: endpointURL,
+	}
+	return s3Storage, nil
 }
 
 // Stat retrieves metadata from S3 object without returning the object itself.
@@ -311,7 +330,7 @@ func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata map[string]st
 		input.StorageClass = aws.String(storageClass)
 	}
 
-	_, err := s.api.CopyObject(input)
+	_, err := s.Api().CopyObject(input)
 	return err
 }
 
@@ -374,7 +393,7 @@ func (s *S3) Put(
 		input.StorageClass = aws.String(storageClass)
 	}
 
-	_, err := s.uploader.UploadWithContext(ctx, input, func(u *s3manager.Uploader) {
+	_, err := s.Uploader().UploadWithContext(ctx, input, func(u *s3manager.Uploader) {
 		u.PartSize = partSize
 		u.Concurrency = concurrency
 	})
@@ -692,4 +711,11 @@ func (a *writeAtAdapter) Write(p []byte) (int, error) {
 
 	a.offset += int64(n)
 	return n, nil
+}
+func (s *S3) Uploader() s3manageriface.UploaderAPI {
+	return s.destinationS3.uploader
+}
+
+func (s *S3) Api() s3iface.S3API {
+	return s.destinationS3.api
 }

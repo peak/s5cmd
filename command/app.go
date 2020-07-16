@@ -55,6 +55,14 @@ var app = &cli.App{
 			Name:  "install-completion",
 			Usage: "install completion for your shell",
 		},
+		&cli.StringFlag{
+			Name:  "source-region",
+			Usage: "connect to a specific region of the remote object storage service",
+		},
+		&cli.StringFlag{
+			Name:  "region",
+			Usage: "region of the destination bucket for cp/mv operations; default is source-region",
+		},
 	},
 	Before: func(c *cli.Context) error {
 		noVerifySSL := c.Bool("no-verify-ssl")
@@ -63,6 +71,8 @@ var app = &cli.App{
 		workerCount := c.Int("numworkers")
 		printJSON := c.Bool("json")
 		logLevel := c.String("log")
+		srcRegion := c.String("source-region")
+		dstRegion := c.String("region")
 
 		log.Init(logLevel, printJSON)
 		parallel.Init(workerCount)
@@ -75,9 +85,10 @@ var app = &cli.App{
 			MaxRetries:  retryCount,
 			Endpoint:    endpointURL,
 			NoVerifySSL: noVerifySSL,
+			Region:      srcRegion,
 		}
 
-		return storage.Init(s3opts)
+		return storage.Init(s3opts, dstRegion)
 	},
 	Action: func(c *cli.Context) error {
 		if c.Bool("install-completion") {

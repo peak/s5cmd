@@ -398,3 +398,55 @@ func TestS3Retry(t *testing.T) {
 		})
 	}
 }
+
+func TestInitWithDifferentSourceAndDestinationRegion(t *testing.T) {
+
+	testcases := []struct {
+		name              string
+		sourceRegion      string
+		destinationRegion string
+
+		expectedSessions int
+	}{
+		{
+			name:              "same source-region and region",
+			sourceRegion:      "eu-west-1",
+			destinationRegion: "eu-west-1",
+
+			expectedSessions: 1,
+		},
+		{
+			name:             "source-region and region not set",
+			expectedSessions: 1,
+		},
+		{
+			name:              "region set to default value of source-region",
+			destinationRegion: "us-east-1",
+			expectedSessions:  1,
+		},
+	}
+	for _, tc := range testcases {
+		tc := tc
+
+		t.Run(tc.name, func(t *testing.T) {
+
+			s3opts := S3Options{
+				Region: tc.sourceRegion,
+			}
+			s3Storage, err := NewS3Storage(s3opts, tc.destinationRegion)
+
+			if err != nil {
+				t.Error(err)
+			}
+			numOfSessions := 1
+			if s3Storage.destinationS3 != s3Storage {
+				numOfSessions++
+			}
+
+			if numOfSessions != tc.expectedSessions {
+				t.Errorf("Expected %q, got %q", tc.expectedSessions, numOfSessions)
+			}
+		})
+	}
+
+}

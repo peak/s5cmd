@@ -64,6 +64,12 @@ Examples:
 
 	10. Mirror an S3 prefix to target S3 prefix
 		 > s5cmd {{.HelpName}} -n -s -u s3://bucket/source-prefix/* s3://bucket/target-prefix/
+	
+	13. Copy S3 objects to another bucket in different region with default source region
+		> s5cmd -region eu-east-2 {{.HelpName}} s3://bucket/object s3://target-bucket/prefix/object
+	
+	14. Copy S3 objects to another bucket in different region with explicitly provided source region
+		> s5cmd -source-region us-west-1 -region eu-east-2 {{.HelpName}} s3://bucket/object s3://target-bucket/prefix/object
 `
 
 var copyCommandFlags = []cli.Flag{

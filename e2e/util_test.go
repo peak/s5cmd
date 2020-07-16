@@ -17,6 +17,7 @@ import (
 	"regexp"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -567,4 +568,13 @@ func contains(format string, args ...interface{}) compareFunc {
 		diff := cmp.Diff(expected, actual)
 		return fmt.Errorf("contains: (-want +got):\n%v", diff)
 	}
+}
+
+func lexicogIncreasingStrArr(length int) []string {
+	arr := make([]string, length)
+	for i, _ := range arr {
+		arr[i] = strconv.Itoa(i)
+	}
+	sort.Strings(arr)
+	return arr
 }

@@ -11,6 +11,8 @@ import (
 	"reflect"
 	"testing"
 
+	"gotest.tools/v3/assert"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/awsutil"
@@ -421,20 +423,6 @@ func val(i interface{}, s string) interface{} {
 	return v[0]
 }
 
-// asserts equality; nil interface and empty string are considered equal.
-func assertEqual(t *testing.T, expected string, got interface{}) {
-	if got == nil {
-		if expected != "" {
-			t.Errorf("Expected %q, but received %q", "", got)
-		}
-		return
-	}
-
-	if expected != got {
-		t.Errorf("Expected %q, but received %q", expected, got)
-	}
-}
-
 func TestS3CopyEncryptionRequest(t *testing.T) {
 	testcases := []struct {
 		name     string
@@ -467,7 +455,7 @@ func TestS3CopyEncryptionRequest(t *testing.T) {
 			sseKeyId: "1234567890",
 		},
 	}
-	const defaultReqErr = "request was canceled by the user"
+	defaultReqErr := fmt.Errorf("request was canceled by the user")
 	u, err := url.New("s3://bucket/key")
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -486,14 +474,18 @@ func TestS3CopyEncryptionRequest(t *testing.T) {
 			mockApi.Handlers.Send.PushBack(func(r *request.Request) {
 
 				r.HTTPResponse = &http.Response{}
-				r.Error = fmt.Errorf(defaultReqErr)
+				r.Error = defaultReqErr
 
 				params := r.Params
 				sse := val(params, "ServerSideEncryption")
 				key := val(params, "SSEKMSKeyId")
 
-				assertEqual(t, tc.expectedSSE, sse)
-				assertEqual(t, tc.expectedSSEKeyId, key)
+				if !(sse == nil && tc.expectedSSE == "") {
+					assert.Assert(t, cmp.Equal(sse, tc.expectedSSE))
+				}
+				if !(key == nil && tc.expectedSSEKeyId == "") {
+					assert.Assert(t, cmp.Equal(key, tc.expectedSSEKeyId))
+				}
 			})
 
 			mockS3 := &S3{
@@ -505,14 +497,14 @@ func TestS3CopyEncryptionRequest(t *testing.T) {
 				"EncryptionKeyId":  tc.sseKeyId,
 			})
 
-			if err != nil && err.Error() == defaultReqErr {
+			if err != nil && err == defaultReqErr {
 				return
 			}
 
 			if (err == nil || tc.expectedErr == nil) && tc.expectedErr != err {
 				t.Errorf("Expected %q, but received %q", tc.expectedErr, err)
 			}
-			if err.Error() != tc.expectedErr.Error() {
+			if err != tc.expectedErr {
 				t.Errorf("Expected %q, but received %q", tc.expectedErr, err)
 			}
 		})
@@ -549,7 +541,7 @@ func TestS3PutEncryptionRequest(t *testing.T) {
 			sseKeyId: "1234567890",
 		},
 	}
-	const defaultReqErr = "request was canceled by the user"
+	defaultReqErr := fmt.Errorf("request was canceled by the user")
 	u, err := url.New("s3://bucket/key")
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -568,14 +560,18 @@ func TestS3PutEncryptionRequest(t *testing.T) {
 			mockApi.Handlers.Send.PushBack(func(r *request.Request) {
 
 				r.HTTPResponse = &http.Response{}
-				r.Error = fmt.Errorf(defaultReqErr)
+				r.Error = defaultReqErr
 
 				params := r.Params
 				sse := val(params, "ServerSideEncryption")
 				key := val(params, "SSEKMSKeyId")
 
-				assertEqual(t, tc.expectedSSE, sse)
-				assertEqual(t, tc.expectedSSEKeyId, key)
+				if !(sse == nil && tc.expectedSSE == "") {
+					assert.Assert(t, cmp.Equal(sse, tc.expectedSSE))
+				}
+				if !(key == nil && tc.expectedSSEKeyId == "") {
+					assert.Assert(t, cmp.Equal(key, tc.expectedSSEKeyId))
+				}
 			})
 
 			mockS3 := &S3{
@@ -587,14 +583,14 @@ func TestS3PutEncryptionRequest(t *testing.T) {
 				"EncryptionKeyId":  tc.sseKeyId,
 			}, 1, 5242880)
 
-			if err != nil && err.Error() == defaultReqErr {
+			if err != nil && err == defaultReqErr {
 				return
 			}
 
 			if (err == nil || tc.expectedErr == nil) && tc.expectedErr != err {
 				t.Errorf("Expected %q, but received %q", tc.expectedErr, err)
 			}
-			if err.Error() != tc.expectedErr.Error() {
+			if err != tc.expectedErr {
 				t.Errorf("Expected %q, but received %q", tc.expectedErr, err)
 			}
 		})

@@ -161,7 +161,7 @@ func (f *Filesystem) walkDir(ctx context.Context, src *url.URL, followSymlinks b
 }
 
 // Copy copies given source to destination.
-func (f *Filesystem) Copy(ctx context.Context, src, dst *url.URL, _ map[string]string) error {
+func (f *Filesystem) Copy(ctx context.Context, src, dst *url.URL, _ Metadata) error {
 	if err := os.MkdirAll(dst.Dir(), os.ModePerm); err != nil {
 		return err
 	}
@@ -193,7 +193,7 @@ func (f *Filesystem) MultiDelete(ctx context.Context, urlch <-chan *url.URL) <-c
 }
 
 // Put is not supported for filesystem.
-func (f *Filesystem) Put(_ context.Context, _ io.Reader, _ *url.URL, _ map[string]string, _ int, _ int64) error {
+func (f *Filesystem) Put(_ context.Context, _ io.Reader, _ *url.URL, _ Metadata, _ int, _ int64) error {
 	return f.notimplemented("Put")
 }
 

@@ -296,7 +296,7 @@ func (s *S3) listObjects(ctx context.Context, url *url.URL) <-chan *Object {
 
 // Copy is a single-object copy operation which copies objects to S3
 // destination from another S3 source.
-func (s *S3) Copy(ctx context.Context, from, to *url.URL, _metadata map[string]string) error {
+func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata Metadata) error {
 	// SDK expects CopySource like "bucket[/key]"
 	copySource := strings.TrimPrefix(from.String(), "s3://")
 
@@ -305,7 +305,6 @@ func (s *S3) Copy(ctx context.Context, from, to *url.URL, _metadata map[string]s
 		Key:        aws.String(to.Path),
 		CopySource: aws.String(copySource),
 	}
-	metadata := Metadata(_metadata)
 
 	storageClass := metadata.StorageClass()
 	if storageClass != "" {
@@ -363,11 +362,10 @@ func (s *S3) Put(
 	ctx context.Context,
 	reader io.Reader,
 	to *url.URL,
-	_metadata map[string]string,
+	metadata Metadata,
 	concurrency int,
 	partSize int64,
 ) error {
-	metadata := Metadata(_metadata)
 	contentType := metadata.ContentType()
 	if contentType == "" {
 		contentType = "application/octet-stream"
@@ -712,37 +710,4 @@ func (a *writeAtAdapter) Write(p []byte) (int, error) {
 
 	a.offset += int64(n)
 	return n, nil
-}
-
-type Metadata map[string]string
-
-func (m Metadata) SetACL(acl string) {
-	m["ACL"] = acl
-}
-func (m Metadata) ACL() string {
-	return m["ACL"]
-}
-func (m Metadata) SetStorageClass(class string) {
-	m["StorageClass"] = class
-}
-func (m Metadata) StorageClass() string {
-	return m["StorageClass"]
-}
-func (m Metadata) SetContentType(contentType string) {
-	m["ContentType"] = contentType
-}
-func (m Metadata) ContentType() string {
-	return m["ContentType"]
-}
-func (m Metadata) SetSSE(sse string) {
-	m["EncryptionMethod"] = sse
-}
-func (m Metadata) SSE() string {
-	return m["EncryptionMethod"]
-}
-func (m Metadata) SetSSEKeyId(kid string) {
-	m["EncryptionKeyId"] = kid
-}
-func (m Metadata) SSEKeyId() string {
-	return m["EncryptionKeyId"]
 }

@@ -11,17 +11,15 @@ import (
 	"reflect"
 	"testing"
 
-	"gotest.tools/v3/assert"
-
-	"github.com/aws/aws-sdk-go/service/s3/s3manager"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/awstesting/unit"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/google/go-cmp/cmp"
+	"gotest.tools/v3/assert"
 
 	"github.com/peak/s5cmd/storage/url"
 )
@@ -430,7 +428,6 @@ func TestS3AclFlagOnCopy(t *testing.T) {
 		acl  string
 
 		expectedAcl string
-		expectedErr error
 	}{
 		{
 			name: "no acl flag",
@@ -482,15 +479,10 @@ func TestS3AclFlagOnCopy(t *testing.T) {
 				"ACL": tc.acl,
 			})
 
-			if err != nil && err == defaultReqErr {
-				return
-			}
-
-			if (err == nil || tc.expectedErr == nil) && tc.expectedErr != err {
-				t.Errorf("Expected %q, but received %q", tc.expectedErr, err)
-			}
-			if err != tc.expectedErr {
-				t.Errorf("Expected %q, but received %q", tc.expectedErr, err)
+			if err != nil {
+				if err != defaultReqErr {
+					t.Errorf("Expected %v, but received %q", nil, err)
+				}
 			}
 		})
 	}
@@ -501,7 +493,6 @@ func TestS3AclFlagOnPut(t *testing.T) {
 		acl  string
 
 		expectedAcl string
-		expectedErr error
 	}{
 		{
 			name: "no acl flag",
@@ -515,7 +506,7 @@ func TestS3AclFlagOnPut(t *testing.T) {
 			expectedAcl: "bucket-owner-full-control",
 		},
 	}
-	const defaultReqErr = "request was canceled by the user"
+	defaultReqErr := fmt.Errorf("request was canceled by the user")
 	u, err := url.New("s3://bucket/key")
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -534,7 +525,7 @@ func TestS3AclFlagOnPut(t *testing.T) {
 			mockApi.Handlers.Send.PushBack(func(r *request.Request) {
 
 				r.HTTPResponse = &http.Response{}
-				r.Error = fmt.Errorf(defaultReqErr)
+				r.Error = defaultReqErr
 
 				aclVal := val(r.Params, "ACL")
 
@@ -552,15 +543,10 @@ func TestS3AclFlagOnPut(t *testing.T) {
 				"ACL": tc.acl,
 			}, 1, 5242880)
 
-			if err != nil && err.Error() == defaultReqErr {
-				return
-			}
-
-			if (err == nil || tc.expectedErr == nil) && tc.expectedErr != err {
-				t.Errorf("Expected %q, but received %q", tc.expectedErr, err)
-			}
-			if err != tc.expectedErr {
-				t.Errorf("Expected %q, but received %q", tc.expectedErr, err)
+			if err != nil {
+				if err != defaultReqErr {
+					t.Errorf("Expected %v, but received %q", nil, err)
+				}
 			}
 		})
 	}

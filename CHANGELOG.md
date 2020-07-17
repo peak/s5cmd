@@ -2,9 +2,14 @@
 
 ## not released yet
 
+
+#### Breaking changes
+- Dropped storage class short codes display from default behaviour of `ls` operation. Instead, use `-s` flag with `ls`
+to see full names of the storage classes when listing objects.
+
 #### Features
-- Added cross-region transfer support using `source-region` and `region` flags. Ex, it can
-be used with cp/mv operations where source and destination buckets reside in different regions. ([#155](https://github.com/peak/s5cmd/issues/155))
+- Added cross-region transfer support using `source-region` and `region` flags. Ex, it can be used with cp/mv operations where source and destination buckets reside in different regions. ([#155](https://github.com/peak/s5cmd/issues/155))
+- Added an option to show full form of [storage class](https://aws.amazon.com/s3/storage-classes/) when listing objects. ([#165](https://github.com/peak/s5cmd/issues/165))
 
 #### Bugfixes
 

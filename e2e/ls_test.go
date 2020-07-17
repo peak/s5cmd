@@ -139,6 +139,26 @@ func TestListSingleWildcardS3Object(t *testing.T) {
 	}, alignment(true))
 }
 
+// ls -s bucket/object
+func TestListS3ObjectsWithDashS(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+	putFile(t, s3client, bucket, "testfile1.txt", "this is a file content")
+
+	cmd := s5cmd("ls -s", "s3://"+bucket+"/testfile1.txt")
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	// TODO: test if full form of storage class is displayed (it can be done when and if gofakes3 supports storage classes)
+}
+
 // ls bucket/*/object*.ext
 func TestListMultipleWildcardS3Object(t *testing.T) {
 	t.Parallel()
@@ -243,8 +263,8 @@ func TestListS3ObjectsAndFolders(t *testing.T) {
 		3: suffix("DIR d/"),
 		4: suffix("DIR e/"),
 		5: suffix("DIR f/"),
-		6: suffix("? 298 report.gz"),
-		7: suffix("? 302 testfile1.txt"),
+		6: suffix("298 report.gz"),
+		7: suffix("302 testfile1.txt"),
 	}, alignment(true))
 }
 
@@ -271,7 +291,7 @@ func TestListS3ObjectsAndFoldersWithPrefix(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: suffix("DIR t/"),
-		1: suffix("? 302 testfile1.txt"),
+		1: suffix("302 testfile1.txt"),
 	}, alignment(true))
 }
 
@@ -342,8 +362,8 @@ func TestListS3ObjectsWithDashE(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: match(`^ \? \w+ \d+ testfile1.txt$`),
-		1: match(`^ \? \w+ \d+ testfile2.txt$`),
+		0: match(`^ \w+ \d+ testfile1.txt$`),
+		1: match(`^ \w+ \d+ testfile2.txt$`),
 	}, trimMatch(dateRe), alignment(true))
 }
 
@@ -367,7 +387,7 @@ func TestListS3ObjectsWithDashH(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: match(`^ \? 215.1K testfile1.txt$`),
-		1: match(`^ \? 264.0K testfile2.txt$`),
+		0: match(`^ 215.1K testfile1.txt$`),
+		1: match(`^ 264.0K testfile2.txt$`),
 	}, trimMatch(dateRe), alignment(true))
 }

@@ -11,6 +11,8 @@ import (
 	"reflect"
 	"testing"
 
+	"gotest.tools/v3/assert"
+
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -422,16 +424,6 @@ func val(i interface{}, s string) interface{} {
 	return v[0]
 }
 
-// asserts equality; nil interface and empty string are considered equal.
-func assertEqual(t *testing.T, expected string, got interface{}) {
-	if got == nil {
-		if expected != "" {
-			t.Errorf("Expected %q, but received %q", "", got)
-		}
-	} else if expected != got {
-		t.Errorf("Expected %q, but received %q", expected, got)
-	}
-}
 func TestS3AclFlagOnCopy(t *testing.T) {
 	testcases := []struct {
 		name string
@@ -452,7 +444,7 @@ func TestS3AclFlagOnCopy(t *testing.T) {
 			expectedAcl: "bucket-owner-full-control",
 		},
 	}
-	const defaultReqErr = "request was canceled by the user"
+	defaultReqErr := fmt.Errorf("request was canceled by the user")
 	u, err := url.New("s3://bucket/key")
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -471,11 +463,15 @@ func TestS3AclFlagOnCopy(t *testing.T) {
 			mockApi.Handlers.Send.PushBack(func(r *request.Request) {
 
 				r.HTTPResponse = &http.Response{}
-				r.Error = fmt.Errorf(defaultReqErr)
+				r.Error = defaultReqErr
 
 				aclVal := val(r.Params, "ACL")
 
-				assertEqual(t, tc.expectedAcl, aclVal)
+				if aclVal == nil && tc.expectedAcl == "" {
+					return
+				}
+				assert.Assert(t, cmp.Equal(aclVal, tc.expectedAcl))
+
 			})
 
 			mockS3 := &S3{
@@ -486,7 +482,7 @@ func TestS3AclFlagOnCopy(t *testing.T) {
 				"ACL": tc.acl,
 			})
 
-			if err != nil && err.Error() == defaultReqErr {
+			if err != nil && err == defaultReqErr {
 				return
 			}
 
@@ -541,7 +537,10 @@ func TestS3AclFlagOnPut(t *testing.T) {
 
 				aclVal := val(r.Params, "ACL")
 
-				assertEqual(t, tc.expectedAcl, aclVal)
+				if aclVal == nil && tc.expectedAcl == "" {
+					return
+				}
+				assert.Assert(t, cmp.Equal(aclVal, tc.expectedAcl))
 			})
 
 			mockS3 := &S3{

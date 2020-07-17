@@ -348,8 +348,6 @@ func TestMoveWildcardTwoThousandS3ObjectsToS3(t *testing.T) {
 
 	assertLines(t, result.Stdout(), cmpFuncs, sortInput(true))
 
-	fmt.Println(result.Stdout())
-
 	// expect no s3 source objects
 	for srcfile, content := range filesToContent {
 		err := ensureS3Object(s3client, bucket, srcfile, content)

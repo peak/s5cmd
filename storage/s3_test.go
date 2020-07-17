@@ -11,8 +11,6 @@ import (
 	"reflect"
 	"testing"
 
-	"gotest.tools/v3/assert"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/awsutil"
@@ -21,6 +19,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/google/go-cmp/cmp"
+	"gotest.tools/v3/assert"
 
 	"github.com/peak/s5cmd/storage/url"
 )
@@ -431,7 +430,6 @@ func TestS3CopyEncryptionRequest(t *testing.T) {
 
 		expectedSSE      string
 		expectedSSEKeyId string
-		expectedErr      error
 	}{
 		{
 			name: "no encryption, by default",
@@ -497,15 +495,10 @@ func TestS3CopyEncryptionRequest(t *testing.T) {
 				"EncryptionKeyId":  tc.sseKeyId,
 			})
 
-			if err != nil && err == defaultReqErr {
-				return
-			}
-
-			if (err == nil || tc.expectedErr == nil) && tc.expectedErr != err {
-				t.Errorf("Expected %q, but received %q", tc.expectedErr, err)
-			}
-			if err != tc.expectedErr {
-				t.Errorf("Expected %q, but received %q", tc.expectedErr, err)
+			if err != nil {
+				if err != defaultReqErr {
+					t.Errorf("Expected %v, but received %q", nil, err)
+				}
 			}
 		})
 	}
@@ -518,7 +511,6 @@ func TestS3PutEncryptionRequest(t *testing.T) {
 
 		expectedSSE      string
 		expectedSSEKeyId string
-		expectedErr      error
 	}{
 		{
 			name: "no encryption",
@@ -583,15 +575,10 @@ func TestS3PutEncryptionRequest(t *testing.T) {
 				"EncryptionKeyId":  tc.sseKeyId,
 			}, 1, 5242880)
 
-			if err != nil && err == defaultReqErr {
-				return
-			}
-
-			if (err == nil || tc.expectedErr == nil) && tc.expectedErr != err {
-				t.Errorf("Expected %q, but received %q", tc.expectedErr, err)
-			}
-			if err != tc.expectedErr {
-				t.Errorf("Expected %q, but received %q", tc.expectedErr, err)
+			if err != nil {
+				if err != defaultReqErr {
+					t.Errorf("Expected %v, but received %q", nil, err)
+				}
 			}
 		})
 	}

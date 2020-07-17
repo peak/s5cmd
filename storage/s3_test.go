@@ -488,7 +488,8 @@ func TestS3AclFlagOnCopy(t *testing.T) {
 
 			if (err == nil || tc.expectedErr == nil) && tc.expectedErr != err {
 				t.Errorf("Expected %q, but received %q", tc.expectedErr, err)
-			} else if err.Error() != tc.expectedErr.Error() {
+			}
+			if err != tc.expectedErr {
 				t.Errorf("Expected %q, but received %q", tc.expectedErr, err)
 			}
 		})
@@ -557,7 +558,8 @@ func TestS3AclFlagOnPut(t *testing.T) {
 
 			if (err == nil || tc.expectedErr == nil) && tc.expectedErr != err {
 				t.Errorf("Expected %q, but received %q", tc.expectedErr, err)
-			} else if err.Error() != tc.expectedErr.Error() {
+			}
+			if err != tc.expectedErr {
 				t.Errorf("Expected %q, but received %q", tc.expectedErr, err)
 			}
 		})

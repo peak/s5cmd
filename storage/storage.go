@@ -205,6 +205,7 @@ type Metadata map[string]string
 func (m Metadata) SetACL(acl string) {
 	m["ACL"] = acl
 }
+
 func (m Metadata) ACL() string {
 	acl, ok := m["ACL"]
 	if !ok {
@@ -212,9 +213,11 @@ func (m Metadata) ACL() string {
 	}
 	return acl
 }
+
 func (m Metadata) SetStorageClass(class string) {
 	m["StorageClass"] = class
 }
+
 func (m Metadata) StorageClass() string {
 	stclass, ok := m["StorageClass"]
 	if !ok {
@@ -222,9 +225,11 @@ func (m Metadata) StorageClass() string {
 	}
 	return stclass
 }
+
 func (m Metadata) SetContentType(contentType string) {
 	m["ContentType"] = contentType
 }
+
 func (m Metadata) ContentType() string {
 	ctype, ok := m["ContentType"]
 	if !ok {

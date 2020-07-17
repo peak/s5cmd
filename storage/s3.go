@@ -31,6 +31,11 @@ var _ Storage = (*S3)(nil)
 
 var sentinelURL = urlpkg.URL{}
 
+var (
+	mutex            = &sync.Mutex{}
+	mapS3optsSession = map[S3Options]*session.Session{}
+)
+
 const (
 	// deleteObjectsMax is the max allowed objects to be deleted on single HTTP
 	// request.
@@ -42,16 +47,6 @@ const (
 	// Google Cloud Storage endpoint
 	gcsEndpoint = "storage.googleapis.com"
 )
-
-// Re-used AWS sessions dramatically improve performance.
-var cachedS3 *S3
-
-// Init creates a new global S3 session.
-func Init(opts S3Options, destinationRegion string) error {
-	s3, err := NewS3Storage(opts, destinationRegion)
-	cachedS3 = s3
-	return err
-}
 
 // S3 is a storage type which interacts with S3API, DownloaderAPI and
 // UploaderAPI.
@@ -89,13 +84,18 @@ func parseEndpoint(endpoint string) (urlpkg.URL, error) {
 }
 
 // NewS3Storage creates new S3 session.
-func NewS3Storage(opts S3Options, dstRegion string) (*S3, error) {
+func NewS3Storage(opts StorageOptions) (*S3, error) {
 	endpointURL, err := parseEndpoint(opts.Endpoint)
 	if err != nil {
 		return nil, err
 	}
 
-	awsSession, err := newSession(opts)
+	awsSession, err := newSession(S3Options{
+		Region:      opts.DestinationRegion,
+		Endpoint:    opts.Endpoint,
+		MaxRetries:  opts.MaxRetries,
+		NoVerifySSL: opts.NoVerifySSL,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -106,24 +106,27 @@ func NewS3Storage(opts S3Options, dstRegion string) (*S3, error) {
 		uploader:    s3manager.NewUploader(awsSession),
 		endpointURL: endpointURL,
 	}
-	if dstRegion == "" || dstRegion == aws.StringValue(awsSession.Config.Region) {
+	if opts.SourceRegion == "" || opts.SourceRegion == aws.StringValue(awsSession.Config.Region) {
 		s3Storage.destinationS3 = s3Storage
 		return s3Storage, nil
 	}
 
-	dstOpts := opts
-	dstOpts.Region = dstRegion
-	dstSession, err := newSession(dstOpts)
+	dstSession, err := newSession(S3Options{
+		Region:      opts.SourceRegion,
+		Endpoint:    opts.Endpoint,
+		MaxRetries:  opts.MaxRetries,
+		NoVerifySSL: opts.NoVerifySSL,
+	})
 	if err != nil {
 		return nil, err
 	}
-	s3Storage.destinationS3 = &S3{
-		api:         s3.New(dstSession),
-		downloader:  s3manager.NewDownloader(dstSession),
-		uploader:    s3manager.NewUploader(dstSession),
-		endpointURL: endpointURL,
-	}
-	return s3Storage, nil
+	return &S3{
+		api:           s3.New(dstSession),
+		downloader:    s3manager.NewDownloader(dstSession),
+		uploader:      s3manager.NewUploader(dstSession),
+		endpointURL:   endpointURL,
+		destinationS3: s3Storage,
+	}, nil
 }
 
 // Stat retrieves metadata from S3 object without returning the object itself.
@@ -561,6 +564,13 @@ func (s *S3) MakeBucket(ctx context.Context, name string) error {
 // NewAwsSession initializes a new AWS session with region fallback and custom
 // options.
 func newSession(opts S3Options) (*session.Session, error) {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	if sess, ok := mapS3optsSession[opts]; ok {
+		return sess, nil
+	}
+
 	awsCfg := aws.NewConfig()
 
 	endpointURL, err := parseEndpoint(opts.Endpoint)
@@ -623,7 +633,23 @@ func newSession(opts S3Options) (*session.Session, error) {
 		sess.Config.Region = aws.String(endpoints.UsEast1RegionID)
 	}
 
+	mapS3optsSession[opts] = sess
+
 	return sess, nil
+}
+
+// NumOfSessions returns number of sessions currently active.
+func NumOfSessions() int {
+	mutex.Lock()
+	defer mutex.Unlock()
+	return len(mapS3optsSession)
+}
+
+// RemoveAllSessions clears all existing sessions.
+func RemoveAllSessions() {
+	mutex.Lock()
+	defer mutex.Unlock()
+	mapS3optsSession = map[S3Options]*session.Session{}
 }
 
 // customRetryer wraps the SDK's built in DefaultRetryer adding additional

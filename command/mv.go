@@ -41,6 +41,17 @@ var moveCommand = &cli.Command{
 		return copyCommand.Before(c)
 	},
 	Action: func(c *cli.Context) error {
+
+		// get application level values for the flags if not provided
+		srcRegion := c.String("source-region")
+		if srcRegion == "" {
+			srcRegion = AppStorageOptions.SourceRegion
+		}
+		dstRegion := c.String("region")
+		if dstRegion == "" {
+			dstRegion = AppStorageOptions.DestinationRegion
+		}
+
 		copyCommand := Copy{
 			src:          c.Args().Get(0),
 			dst:          c.Args().Get(1),
@@ -53,6 +64,16 @@ var moveCommand = &cli.Command{
 			ifSourceNewer: c.Bool("if-source-newer"),
 			flatten:       c.Bool("flatten"),
 			storageClass:  storage.StorageClass(c.String("storage-class")),
+
+			StorageOptions: storage.StorageOptions{
+				Concurrency:       c.Int("concurrency"),
+				PartSize:          c.Int64("part-size") * megabytes,
+				SourceRegion:      srcRegion,
+				DestinationRegion: dstRegion,
+				MaxRetries:        AppStorageOptions.MaxRetries,
+				NoVerifySSL:       AppStorageOptions.NoVerifySSL,
+				Endpoint:          AppStorageOptions.Endpoint,
+			},
 		}
 
 		return copyCommand.Run(c.Context)

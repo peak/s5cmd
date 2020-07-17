@@ -19,6 +19,10 @@ const (
 	appName = "s5cmd"
 )
 
+// AppStorageOptions will be overridden by inner command flags
+// such as if provided `cp -region` will override s5cmd -region flag value.
+var AppStorageOptions storage.StorageOptions
+
 var app = &cli.App{
 	Name:  appName,
 	Usage: "Blazing fast S3 and local filesystem execution tool",
@@ -61,7 +65,7 @@ var app = &cli.App{
 		},
 		&cli.StringFlag{
 			Name:  "region",
-			Usage: "region of the destination bucket for cp/mv operations; default is source-region",
+			Usage: "(global) region of the destination bucket for cp/mv operations; default is source-region",
 		},
 	},
 	Before: func(c *cli.Context) error {
@@ -71,8 +75,6 @@ var app = &cli.App{
 		workerCount := c.Int("numworkers")
 		printJSON := c.Bool("json")
 		logLevel := c.String("log")
-		srcRegion := c.String("source-region")
-		dstRegion := c.String("region")
 
 		log.Init(logLevel, printJSON)
 		parallel.Init(workerCount)
@@ -81,14 +83,15 @@ var app = &cli.App{
 			return fmt.Errorf("retry count cannot be a negative value")
 		}
 
-		s3opts := storage.S3Options{
-			MaxRetries:  retryCount,
-			Endpoint:    endpointURL,
-			NoVerifySSL: noVerifySSL,
-			Region:      srcRegion,
+		AppStorageOptions = storage.StorageOptions{
+			MaxRetries:        retryCount,
+			Endpoint:          endpointURL,
+			NoVerifySSL:       noVerifySSL,
+			SourceRegion:      c.String("source-region"),
+			DestinationRegion: c.String("region"),
 		}
 
-		return storage.Init(s3opts, dstRegion)
+		return nil
 	},
 	Action: func(c *cli.Context) error {
 		if c.Bool("install-completion") {

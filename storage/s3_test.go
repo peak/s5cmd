@@ -14,6 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go/awstesting/unit"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/google/go-cmp/cmp"
+	"gotest.tools/v3/assert"
 
 	"github.com/peak/s5cmd/storage/url"
 )
@@ -75,6 +76,10 @@ func TestNewSessionWithRegionSetViaEnv(t *testing.T) {
 	}
 
 	const expectedRegion = "us-west-2"
+
+	if NumOfSessions() > 0 {
+		RemoveAllSessions()
+	}
 
 	os.Setenv("AWS_REGION", expectedRegion)
 	defer os.Unsetenv("AWS_REGION")
@@ -399,8 +404,10 @@ func TestS3Retry(t *testing.T) {
 	}
 }
 
-func TestInitWithDifferentSourceAndDestinationRegion(t *testing.T) {
+func TestNumOfSessions(t *testing.T) {
+	RemoveAllSessions()
 
+	const defaultRegion = "us-east-1"
 	testcases := []struct {
 		name              string
 		sourceRegion      string
@@ -408,6 +415,13 @@ func TestInitWithDifferentSourceAndDestinationRegion(t *testing.T) {
 
 		expectedSessions int
 	}{
+		{
+			name:              "different source-region and region",
+			sourceRegion:      "cn-north-1",
+			destinationRegion: "eu-central-1",
+
+			expectedSessions: 2,
+		},
 		{
 			name:              "same source-region and region",
 			sourceRegion:      "eu-west-1",
@@ -421,32 +435,38 @@ func TestInitWithDifferentSourceAndDestinationRegion(t *testing.T) {
 		},
 		{
 			name:              "region set to default value of source-region",
-			destinationRegion: "us-east-1",
+			destinationRegion: defaultRegion,
 			expectedSessions:  1,
 		},
 	}
+	const expectedTotalNumOfSessions = 5
 	for _, tc := range testcases {
 		tc := tc
 
 		t.Run(tc.name, func(t *testing.T) {
+			defer RemoveAllSessions()
 
-			s3opts := S3Options{
-				Region: tc.sourceRegion,
+			storageOpts := StorageOptions{
+				SourceRegion:      tc.sourceRegion,
+				DestinationRegion: tc.destinationRegion,
 			}
-			s3Storage, err := NewS3Storage(s3opts, tc.destinationRegion)
+			_, err := NewS3Storage(storageOpts)
 
 			if err != nil {
 				t.Error(err)
 			}
-			numOfSessions := 1
-			if s3Storage.destinationS3 != s3Storage {
-				numOfSessions++
-			}
 
-			if numOfSessions != tc.expectedSessions {
-				t.Errorf("Expected %q, got %q", tc.expectedSessions, numOfSessions)
-			}
+			assert.Equal(t, NumOfSessions(), tc.expectedSessions)
 		})
 	}
-
+	for _, tc := range testcases {
+		_, err := NewS3Storage(StorageOptions{
+			SourceRegion:      tc.sourceRegion,
+			DestinationRegion: tc.destinationRegion,
+		})
+		if err != nil {
+			t.Error(err)
+		}
+	}
+	assert.Equal(t, NumOfSessions(), expectedTotalNumOfSessions)
 }

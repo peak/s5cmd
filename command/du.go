@@ -79,7 +79,10 @@ func Size(
 		return err
 	}
 
-	client := storage.NewClient(srcurl)
+	client, err := storage.NewClient(srcurl, AppStorageOptions)
+	if err != nil {
+		return err
+	}
 
 	storageTotal := map[string]sizeAndCount{}
 	total := sizeAndCount{}

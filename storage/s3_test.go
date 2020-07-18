@@ -467,7 +467,7 @@ func TestS3AclFlagOnCopy(t *testing.T) {
 				if aclVal == nil && tc.expectedAcl == "" {
 					return
 				}
-				assert.Assert(t, cmp.Equal(aclVal, tc.expectedAcl))
+				assert.Equal(t, aclVal, tc.expectedAcl)
 
 			})
 
@@ -528,7 +528,7 @@ func TestS3AclFlagOnPut(t *testing.T) {
 				if aclVal == nil && tc.expectedAcl == "" {
 					return
 				}
-				assert.Assert(t, cmp.Equal(aclVal, tc.expectedAcl))
+				assert.Equal(t, aclVal, tc.expectedAcl)
 			})
 
 			mockS3 := &S3{

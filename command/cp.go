@@ -428,6 +428,7 @@ func (c Copy) doCopy(ctx context.Context, srcurl *url.URL, dsturl *url.URL) erro
 
 	metadata := map[string]string{
 		"StorageClass": string(c.storageClass),
+		"ACL":          c.acl,
 	}
 
 	err := c.shouldOverride(ctx, srcurl, dsturl)

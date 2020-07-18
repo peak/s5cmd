@@ -313,7 +313,7 @@ func TestMoveMultipleS3ObjectsToS3(t *testing.T) {
 }
 
 // mv s3://bucket/single*.blob* s3://bucket/single/
-func TestMoveWildcardTwoThousandS3ObjectsToS3(t *testing.T) {
+func TestMoveWildcardThousandAndTenS3ObjectsToS3(t *testing.T) {
 	t.Parallel()
 
 	bucket := s3BucketFromTestName(t)
@@ -325,7 +325,7 @@ func TestMoveWildcardTwoThousandS3ObjectsToS3(t *testing.T) {
 	src := fmt.Sprintf("s3://%v/single*.blob*", bucket)
 	dst := fmt.Sprintf("s3://%v/single/", bucket)
 
-	const numFiles = 2000
+	const numFiles = 1010
 
 	filesToContent := make(map[string]string, numFiles)
 	fileSuffixes := lexicogIncreasingStrArr(numFiles)

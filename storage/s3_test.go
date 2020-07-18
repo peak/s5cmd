@@ -5,10 +5,12 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	urlpkg "net/url"
 	"os"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -433,15 +435,11 @@ func TestS3AclFlagOnCopy(t *testing.T) {
 			name: "no acl flag",
 		},
 		{
-			name: "acl flag without value, flag should be ignored",
-		},
-		{
 			name:        "acl flag with a value",
 			acl:         "bucket-owner-full-control",
 			expectedAcl: "bucket-owner-full-control",
 		},
 	}
-	defaultReqErr := fmt.Errorf("request was canceled by the user")
 	u, err := url.New("s3://bucket/key")
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -459,8 +457,10 @@ func TestS3AclFlagOnCopy(t *testing.T) {
 
 			mockApi.Handlers.Send.PushBack(func(r *request.Request) {
 
-				r.HTTPResponse = &http.Response{}
-				r.Error = defaultReqErr
+				r.HTTPResponse = &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       ioutil.NopCloser(strings.NewReader("")),
+				}
 
 				aclVal := val(r.Params, "ACL")
 
@@ -480,9 +480,7 @@ func TestS3AclFlagOnCopy(t *testing.T) {
 			err = mockS3.Copy(context.Background(), u, u, metadata)
 
 			if err != nil {
-				if err != defaultReqErr {
-					t.Errorf("Expected %v, but received %q", nil, err)
-				}
+				t.Errorf("Expected %v, but received %q", nil, err)
 			}
 		})
 	}
@@ -498,15 +496,11 @@ func TestS3AclFlagOnPut(t *testing.T) {
 			name: "no acl flag",
 		},
 		{
-			name: "acl flag without value, flag should be ignored",
-		},
-		{
 			name:        "acl flag with a value",
 			acl:         "bucket-owner-full-control",
 			expectedAcl: "bucket-owner-full-control",
 		},
 	}
-	defaultReqErr := fmt.Errorf("request was canceled by the user")
 	u, err := url.New("s3://bucket/key")
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -524,8 +518,10 @@ func TestS3AclFlagOnPut(t *testing.T) {
 
 			mockApi.Handlers.Send.PushBack(func(r *request.Request) {
 
-				r.HTTPResponse = &http.Response{}
-				r.Error = defaultReqErr
+				r.HTTPResponse = &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       ioutil.NopCloser(strings.NewReader("")),
+				}
 
 				aclVal := val(r.Params, "ACL")
 
@@ -544,9 +540,7 @@ func TestS3AclFlagOnPut(t *testing.T) {
 			err = mockS3.Put(context.Background(), bytes.NewReader([]byte("")), u, metadata, 1, 5242880)
 
 			if err != nil {
-				if err != defaultReqErr {
-					t.Errorf("Expected %v, but received %q", nil, err)
-				}
+				t.Errorf("Expected %v, but received %q", nil, err)
 			}
 		})
 	}

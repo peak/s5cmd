@@ -482,10 +482,10 @@ func TestS3CopyEncryptionRequest(t *testing.T) {
 				key := val(params, "SSEKMSKeyId")
 
 				if !(sse == nil && tc.expectedSSE == "") {
-					assert.Assert(t, cmp.Equal(sse, tc.expectedSSE))
+					assert.Equal(t, sse, tc.expectedSSE)
 				}
 				if !(key == nil && tc.expectedSSEKeyId == "") {
-					assert.Assert(t, cmp.Equal(key, tc.expectedSSEKeyId))
+					assert.Equal(t, key, tc.expectedSSEKeyId)
 				}
 			})
 
@@ -560,10 +560,10 @@ func TestS3PutEncryptionRequest(t *testing.T) {
 				key := val(params, "SSEKMSKeyId")
 
 				if !(sse == nil && tc.expectedSSE == "") {
-					assert.Assert(t, cmp.Equal(sse, tc.expectedSSE))
+					assert.Equal(t, sse, tc.expectedSSE)
 				}
 				if !(key == nil && tc.expectedSSEKeyId == "") {
-					assert.Assert(t, cmp.Equal(key, tc.expectedSSEKeyId))
+					assert.Equal(t, key, tc.expectedSSEKeyId)
 				}
 			})
 

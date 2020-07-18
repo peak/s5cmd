@@ -178,8 +178,9 @@ func (e notImplemented) Error() string {
 
 type Metadata map[string]string
 
-func (m Metadata) SetACL(acl string) {
+func (m Metadata) SetACL(acl string) Metadata {
 	m["ACL"] = acl
+	return m
 }
 
 func (m Metadata) ACL() string {
@@ -190,8 +191,9 @@ func (m Metadata) ACL() string {
 	return acl
 }
 
-func (m Metadata) SetStorageClass(class string) {
+func (m Metadata) SetStorageClass(class string) Metadata {
 	m["StorageClass"] = class
+	return m
 }
 
 func (m Metadata) StorageClass() string {
@@ -202,8 +204,9 @@ func (m Metadata) StorageClass() string {
 	return stclass
 }
 
-func (m Metadata) SetContentType(contentType string) {
+func (m Metadata) SetContentType(contentType string) Metadata {
 	m["ContentType"] = contentType
+	return m
 }
 
 func (m Metadata) ContentType() string {
@@ -214,8 +217,9 @@ func (m Metadata) ContentType() string {
 	return ctype
 }
 
-func (m Metadata) SetSSE(sse string) {
+func (m Metadata) SetSSE(sse string) Metadata {
 	m["EncryptionMethod"] = sse
+	return m
 }
 
 func (m Metadata) SSE() string {
@@ -226,8 +230,9 @@ func (m Metadata) SSE() string {
 	return sse
 }
 
-func (m Metadata) SetSSEKeyId(kid string) {
+func (m Metadata) SetSSEKeyId(kid string) Metadata {
 	m["EncryptionKeyId"] = kid
+	return m
 }
 
 func (m Metadata) SSEKeyId() string {

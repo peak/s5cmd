@@ -490,10 +490,9 @@ func TestS3CopyEncryptionRequest(t *testing.T) {
 				api: mockApi,
 			}
 
-			err = mockS3.Copy(context.Background(), u, u, map[string]string{
-				"EncryptionMethod": tc.sse,
-				"EncryptionKeyId":  tc.sseKeyId,
-			})
+			metadata := Metadata{}.SetSSE(tc.sse).SetSSEKeyId(tc.sseKeyId)
+
+			err = mockS3.Copy(context.Background(), u, u, metadata)
 
 			if err != nil {
 				if err != defaultReqErr {
@@ -570,10 +569,9 @@ func TestS3PutEncryptionRequest(t *testing.T) {
 				uploader: s3manager.NewUploaderWithClient(mockApi),
 			}
 
-			err = mockS3.Put(context.Background(), bytes.NewReader([]byte("")), u, map[string]string{
-				"EncryptionMethod": tc.sse,
-				"EncryptionKeyId":  tc.sseKeyId,
-			}, 1, 5242880)
+			metadata := Metadata{}.SetSSE(tc.sse).SetSSEKeyId(tc.sseKeyId)
+
+			err = mockS3.Put(context.Background(), bytes.NewReader([]byte("")), u, metadata, 1, 5242880)
 
 			if err != nil {
 				if err != defaultReqErr {

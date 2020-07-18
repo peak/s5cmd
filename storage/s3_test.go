@@ -5,10 +5,12 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	urlpkg "net/url"
 	"os"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -453,7 +455,6 @@ func TestS3CopyEncryptionRequest(t *testing.T) {
 			sseKeyId: "1234567890",
 		},
 	}
-	defaultReqErr := fmt.Errorf("request was canceled by the user")
 	u, err := url.New("s3://bucket/key")
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -471,8 +472,10 @@ func TestS3CopyEncryptionRequest(t *testing.T) {
 
 			mockApi.Handlers.Send.PushBack(func(r *request.Request) {
 
-				r.HTTPResponse = &http.Response{}
-				r.Error = defaultReqErr
+				r.HTTPResponse = &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       ioutil.NopCloser(strings.NewReader("")),
+				}
 
 				params := r.Params
 				sse := val(params, "ServerSideEncryption")
@@ -495,9 +498,7 @@ func TestS3CopyEncryptionRequest(t *testing.T) {
 			err = mockS3.Copy(context.Background(), u, u, metadata)
 
 			if err != nil {
-				if err != defaultReqErr {
-					t.Errorf("Expected %v, but received %q", nil, err)
-				}
+				t.Errorf("Expected %v, but received %q", nil, err)
 			}
 		})
 	}
@@ -532,7 +533,6 @@ func TestS3PutEncryptionRequest(t *testing.T) {
 			sseKeyId: "1234567890",
 		},
 	}
-	defaultReqErr := fmt.Errorf("request was canceled by the user")
 	u, err := url.New("s3://bucket/key")
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -550,8 +550,10 @@ func TestS3PutEncryptionRequest(t *testing.T) {
 
 			mockApi.Handlers.Send.PushBack(func(r *request.Request) {
 
-				r.HTTPResponse = &http.Response{}
-				r.Error = defaultReqErr
+				r.HTTPResponse = &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       ioutil.NopCloser(strings.NewReader("")),
+				}
 
 				params := r.Params
 				sse := val(params, "ServerSideEncryption")
@@ -574,9 +576,7 @@ func TestS3PutEncryptionRequest(t *testing.T) {
 			err = mockS3.Put(context.Background(), bytes.NewReader([]byte("")), u, metadata, 1, 5242880)
 
 			if err != nil {
-				if err != defaultReqErr {
-					t.Errorf("Expected %v, but received %q", nil, err)
-				}
+				t.Errorf("Expected %v, but received %q", nil, err)
 			}
 		})
 	}

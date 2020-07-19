@@ -475,9 +475,9 @@ func TestS3AclFlagOnCopy(t *testing.T) {
 				api: mockApi,
 			}
 
-			metadata := Metadata{}.SetACL(tc.acl)
-
-			err = mockS3.Copy(context.Background(), u, u, metadata)
+			err = mockS3.Copy(context.Background(), u, u, map[string]string{
+				"ACL": tc.acl,
+			})
 
 			if err != nil {
 				t.Errorf("Expected %v, but received %q", nil, err)
@@ -535,9 +535,9 @@ func TestS3AclFlagOnPut(t *testing.T) {
 				uploader: s3manager.NewUploaderWithClient(mockApi),
 			}
 
-			metadata := Metadata{}.SetACL(tc.acl)
-
-			err = mockS3.Put(context.Background(), bytes.NewReader([]byte("")), u, metadata, 1, 5242880)
+			err = mockS3.Put(context.Background(), bytes.NewReader([]byte("")), u, map[string]string{
+				"ACL": tc.acl,
+			}, 1, 5242880)
 
 			if err != nil {
 				t.Errorf("Expected %v, but received %q", nil, err)

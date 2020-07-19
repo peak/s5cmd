@@ -385,10 +385,11 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 
 	dstClient := storage.NewClient(dsturl)
 
-	metadata := storage.Metadata{}.
-		SetStorageClass(string(c.storageClass)).
-		SetContentType(guessContentType(f)).
-		SetACL(c.acl)
+	metadata := map[string]string{
+		"StorageClass": string(c.storageClass),
+		"ContentType":  guessContentType(f),
+		"ACL":          c.acl,
+	}
 
 	err = dstClient.Put(ctx, f, dsturl, metadata, c.concurrency, c.partSize)
 	if err != nil {
@@ -425,9 +426,10 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 func (c Copy) doCopy(ctx context.Context, srcurl *url.URL, dsturl *url.URL) error {
 	srcClient := storage.NewClient(srcurl)
 
-	metadata := storage.Metadata{}.
-		SetStorageClass(string(c.storageClass)).
-		SetACL(c.acl)
+	metadata := map[string]string{
+		"StorageClass": string(c.storageClass),
+		"ACL":          c.acl,
+	}
 
 	err := c.shouldOverride(ctx, srcurl, dsturl)
 	if err != nil {

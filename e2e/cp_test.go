@@ -838,7 +838,6 @@ func TestCopyDirBackslashedToS3(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(`cp %v/readme.md %vreadme.md`, srcpath, dstpath),
 		1: equals(`cp %v/t\est/filetest.txt %vt\est/filetest.txt`, srcpath, dstpath),

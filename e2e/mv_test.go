@@ -313,49 +313,26 @@ func TestMoveMultipleS3ObjectsToS3(t *testing.T) {
 }
 
 // mv s3://bucket/single*.blob* s3://bucket/single/
-func TestMoveWildcardThousandAndTenS3ObjectsToS3(t *testing.T) {
+func TestMoveSourceAndDestinationMatchWildcardWithTenThousandAndOneS3ObjectsToS3(t *testing.T) {
 	t.Parallel()
 
+	const numFiles = 10001
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
+	s3client, s5cmd, cleanup := setup(t, withS3Backend("mem"))
 	defer cleanup()
 
 	createBucket(t, s3client, bucket)
 	src := fmt.Sprintf("s3://%v/single*.blob*", bucket)
-	dst := fmt.Sprintf("s3://%v/single/", bucket)
+	dst := fmt.Sprintf("s3://%v/single99999/", bucket)
 
-	const numFiles = 1010
-
-	filesToContent := make(map[string]string, numFiles)
-	fileSuffixes := lexicogIncreasingStrArr(numFiles)
-
-	cmpFuncs := make(map[int]compareFunc, numFiles)
-
-	for i, suff := range fileSuffixes {
-		filename := fmt.Sprintf("single%s.blob%d", suff, i)
-		contents := fmt.Sprintf("It is contents of file %d", i)
-
-		filesToContent[filename] = contents
-		putFile(t, s3client, bucket, filename, contents)
-
-		cmpFuncs[i] = equals("mv s3://%v/%v %v%v", bucket, filename, dst, filename)
+	for i := 0; i < numFiles; i++ {
+		filename := fmt.Sprintf("single%d.blob%d", i, i)
+		putFile(t, s3client, bucket, filename, "content")
 	}
+
 	cmd := s5cmd("mv", src, dst)
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Success)
-
-	assertLines(t, result.Stdout(), cmpFuncs, sortInput(true))
-
-	// expect no s3 source objects
-	for srcfile, content := range filesToContent {
-		err := ensureS3Object(s3client, bucket, srcfile, content)
-		assertError(t, err, errS3NoSuchKey)
-	}
-
-	// assert s3 destination objects
-	for filename, content := range filesToContent {
-		assert.Assert(t, ensureS3Object(s3client, bucket, "single/"+filename, content))
-	}
 }

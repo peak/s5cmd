@@ -311,28 +311,3 @@ func TestMoveMultipleS3ObjectsToS3(t *testing.T) {
 		assert.Assert(t, ensureS3Object(s3client, bucket, "dst/"+filename, content))
 	}
 }
-
-// mv s3://bucket/single*.blob* s3://bucket/single/
-func TestMoveSourceAndDestinationMatchWildcardWithTenThousandAndOneS3ObjectsToS3(t *testing.T) {
-	t.Parallel()
-
-	const numFiles = 10001
-	bucket := s3BucketFromTestName(t)
-
-	s3client, s5cmd, cleanup := setup(t, withS3Backend("mem"))
-	defer cleanup()
-
-	createBucket(t, s3client, bucket)
-	src := fmt.Sprintf("s3://%v/single*.blob*", bucket)
-	dst := fmt.Sprintf("s3://%v/single99999/", bucket)
-
-	for i := 0; i < numFiles; i++ {
-		filename := fmt.Sprintf("single%d.blob%d", i, i)
-		putFile(t, s3client, bucket, filename, "content")
-	}
-
-	cmd := s5cmd("mv", src, dst)
-	result := icmd.RunCmd(cmd)
-
-	result.Assert(t, icmd.Success)
-}

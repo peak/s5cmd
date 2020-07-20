@@ -284,7 +284,7 @@ func TestS3Retry(t *testing.T) {
 			err:  awserr.New(request.ErrCodeRequestError, "request error", nil),
 		},
 		{
-			name: "RequestError",
+			name: "UseOfClosedNetworkConnection",
 			err:  awserr.New(request.ErrCodeRequestError, "use of closed network connection", nil),
 		},
 		{

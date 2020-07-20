@@ -1,24 +1,29 @@
 package storage
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"math/rand"
 	"net/http"
 	urlpkg "net/url"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/awstesting/unit"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/google/go-cmp/cmp"
-	"github.com/stretchr/testify/assert"
+	"gotest.tools/v3/assert"
 
 	"github.com/peak/s5cmd/storage/url"
 )
@@ -399,6 +404,146 @@ func TestS3Retry(t *testing.T) {
 
 			if retried != expectedRetry {
 				t.Errorf("expected retry %v, got %v", expectedRetry, retried)
+			}
+		})
+	}
+}
+
+// Credit to aws-sdk-go
+func val(i interface{}, s string) interface{} {
+	v, err := awsutil.ValuesAtPath(i, s)
+	if err != nil || len(v) == 0 {
+		return nil
+	}
+	if _, ok := v[0].(io.Reader); ok {
+		return v[0]
+	}
+
+	if rv := reflect.ValueOf(v[0]); rv.Kind() == reflect.Ptr {
+		return rv.Elem().Interface()
+	}
+
+	return v[0]
+}
+
+func TestS3AclFlagOnCopy(t *testing.T) {
+	testcases := []struct {
+		name string
+		acl  string
+
+		expectedAcl string
+	}{
+		{
+			name: "no acl flag",
+		},
+		{
+			name:        "acl flag with a value",
+			acl:         "bucket-owner-full-control",
+			expectedAcl: "bucket-owner-full-control",
+		},
+	}
+	u, err := url.New("s3://bucket/key")
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	for _, tc := range testcases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+
+			mockApi := s3.New(unit.Session)
+
+			mockApi.Handlers.Unmarshal.Clear()
+			mockApi.Handlers.UnmarshalMeta.Clear()
+			mockApi.Handlers.UnmarshalError.Clear()
+			mockApi.Handlers.Send.Clear()
+
+			mockApi.Handlers.Send.PushBack(func(r *request.Request) {
+
+				r.HTTPResponse = &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       ioutil.NopCloser(strings.NewReader("")),
+				}
+
+				aclVal := val(r.Params, "ACL")
+
+				if aclVal == nil && tc.expectedAcl == "" {
+					return
+				}
+				assert.Equal(t, aclVal, tc.expectedAcl)
+
+			})
+
+			mockS3 := &S3{
+				api: mockApi,
+			}
+
+			metadata := NewMetadata().SetACL(tc.acl)
+
+			err = mockS3.Copy(context.Background(), u, u, metadata)
+
+			if err != nil {
+				t.Errorf("Expected %v, but received %q", nil, err)
+			}
+		})
+	}
+}
+
+func TestS3AclFlagOnPut(t *testing.T) {
+	testcases := []struct {
+		name string
+		acl  string
+
+		expectedAcl string
+	}{
+		{
+			name: "no acl flag",
+		},
+		{
+			name:        "acl flag with a value",
+			acl:         "bucket-owner-full-control",
+			expectedAcl: "bucket-owner-full-control",
+		},
+	}
+	u, err := url.New("s3://bucket/key")
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	for _, tc := range testcases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+
+			mockApi := s3.New(unit.Session)
+
+			mockApi.Handlers.Unmarshal.Clear()
+			mockApi.Handlers.UnmarshalMeta.Clear()
+			mockApi.Handlers.UnmarshalError.Clear()
+			mockApi.Handlers.Send.Clear()
+
+			mockApi.Handlers.Send.PushBack(func(r *request.Request) {
+
+				r.HTTPResponse = &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       ioutil.NopCloser(strings.NewReader("")),
+				}
+
+				aclVal := val(r.Params, "ACL")
+
+				if aclVal == nil && tc.expectedAcl == "" {
+					return
+				}
+				assert.Equal(t, aclVal, tc.expectedAcl)
+			})
+
+			mockS3 := &S3{
+				uploader: s3manager.NewUploaderWithClient(mockApi),
+			}
+
+			metadata := NewMetadata().SetACL(tc.acl)
+
+			err = mockS3.Put(context.Background(), bytes.NewReader([]byte("")), u, metadata, 1, 5242880)
+
+			if err != nil {
+				t.Errorf("Expected %v, but received %q", nil, err)
 			}
 		})
 	}

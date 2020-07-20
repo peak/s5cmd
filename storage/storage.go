@@ -33,13 +33,13 @@ type Storage interface {
 	// Copy src to dst, optionally setting the given metadata. Src and dst
 	// arguments are of the same type. If src is a remote type, server side
 	// copying will be used.
-	Copy(ctx context.Context, src, dst *url.URL, metadata map[string]string) error
+	Copy(ctx context.Context, src, dst *url.URL, metadata Metadata) error
 
 	// Get reads object content from src and writes to dst in parallel.
 	Get(ctx context.Context, src *url.URL, dst io.WriterAt, concurrency int, partSize int64) (int64, error)
 
 	// Put reads from src and writes content to dst.
-	Put(ctx context.Context, src io.Reader, dst *url.URL, metadata map[string]string, concurrency int, partSize int64) error
+	Put(ctx context.Context, src io.Reader, dst *url.URL, metadata Metadata, concurrency int, partSize int64) error
 
 	// Delete deletes the given src.
 	Delete(ctx context.Context, src *url.URL) error
@@ -174,4 +174,56 @@ type notImplemented struct {
 // Error returns the string representation of Error for notImplemented.
 func (e notImplemented) Error() string {
 	return fmt.Sprintf("%q is not supported on %q storage", e.method, e.apiType)
+}
+
+type Metadata map[string]string
+
+// NewMetadata will return an empty metadata object.
+func NewMetadata() Metadata {
+	return Metadata{}
+}
+
+func (m Metadata) ACL() string {
+	return m["ACL"]
+}
+
+func (m Metadata) SetACL(acl string) Metadata {
+	m["ACL"] = acl
+	return m
+}
+
+func (m Metadata) StorageClass() string {
+	return m["StorageClass"]
+}
+
+func (m Metadata) SetStorageClass(class string) Metadata {
+	m["StorageClass"] = class
+	return m
+}
+
+func (m Metadata) ContentType() string {
+	return m["ContentType"]
+}
+
+func (m Metadata) SetContentType(contentType string) Metadata {
+	m["ContentType"] = contentType
+	return m
+}
+
+func (m Metadata) SSE() string {
+	return m["EncryptionMethod"]
+}
+
+func (m Metadata) SetSSE(sse string) Metadata {
+	m["EncryptionMethod"] = sse
+	return m
+}
+
+func (m Metadata) SSEKeyID() string {
+	return m["EncryptionKeyID"]
+}
+
+func (m Metadata) SetSSEKeyID(kid string) Metadata {
+	m["EncryptionKeyID"] = kid
+	return m
 }

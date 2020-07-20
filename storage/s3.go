@@ -317,7 +317,7 @@ func (s *S3) listObjects(ctx context.Context, url *url.URL) <-chan *Object {
 
 // Copy is a single-object copy operation which copies objects to S3
 // destination from another S3 source.
-func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata map[string]string) error {
+func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata Metadata) error {
 	// SDK expects CopySource like "bucket[/key]"
 	copySource := strings.TrimPrefix(from.String(), "s3://")
 
@@ -326,10 +326,14 @@ func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata map[string]st
 		Key:        aws.String(to.Path),
 		CopySource: aws.String(copySource),
 	}
-
-	storageClass := metadata["StorageClass"]
+	storageClass := metadata.StorageClass()
 	if storageClass != "" {
 		input.StorageClass = aws.String(storageClass)
+	}
+
+	acl := metadata.ACL()
+	if acl != "" {
+		input.ACL = aws.String(acl)
 	}
 
 	_, err := s.api.CopyObject(input)
@@ -374,11 +378,11 @@ func (s *S3) Put(
 	ctx context.Context,
 	reader io.Reader,
 	to *url.URL,
-	metadata map[string]string,
+	metadata Metadata,
 	concurrency int,
 	partSize int64,
 ) error {
-	contentType := metadata["ContentType"]
+	contentType := metadata.ContentType()
 	if contentType == "" {
 		contentType = "application/octet-stream"
 	}
@@ -390,9 +394,13 @@ func (s *S3) Put(
 		ContentType: aws.String(contentType),
 	}
 
-	storageClass := metadata["StorageClass"]
+	storageClass := metadata.StorageClass()
 	if storageClass != "" {
 		input.StorageClass = aws.String(storageClass)
+	}
+	acl := metadata.ACL()
+	if acl != "" {
+		input.ACL = aws.String(acl)
 	}
 
 	_, err := s.uploader.UploadWithContext(ctx, input, func(u *s3manager.Uploader) {

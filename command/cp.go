@@ -107,6 +107,10 @@ var copyCommandFlags = []cli.Flag{
 		Value:   defaultPartSize,
 		Usage:   "size of each part transferred between host and remote server, in MiB",
 	},
+	&cli.StringFlag{
+		Name:  "acl",
+		Usage: "set acl for target: defines granted accesses and their types on different accounts/groups",
+	},
 }
 
 var copyCommand = &cli.Command{
@@ -134,6 +138,7 @@ var copyCommand = &cli.Command{
 			storageClass:   storage.StorageClass(c.String("storage-class")),
 			concurrency:    c.Int("concurrency"),
 			partSize:       c.Int64("part-size") * megabytes,
+			acl:            c.String("acl"),
 		}.Run(c.Context)
 	},
 }
@@ -154,6 +159,7 @@ type Copy struct {
 	flatten        bool
 	followSymlinks bool
 	storageClass   storage.StorageClass
+	acl            string
 
 	// s3 options
 	concurrency int
@@ -379,10 +385,10 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 
 	dstClient := storage.NewClient(dsturl)
 
-	metadata := map[string]string{
-		"StorageClass": string(c.storageClass),
-		"ContentType":  guessContentType(f),
-	}
+	metadata := storage.NewMetadata().
+		SetStorageClass(string(c.storageClass)).
+		SetContentType(guessContentType(f)).
+		SetACL(c.acl)
 
 	err = dstClient.Put(ctx, f, dsturl, metadata, c.concurrency, c.partSize)
 	if err != nil {
@@ -419,9 +425,9 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 func (c Copy) doCopy(ctx context.Context, srcurl *url.URL, dsturl *url.URL) error {
 	srcClient := storage.NewClient(srcurl)
 
-	metadata := map[string]string{
-		"StorageClass": string(c.storageClass),
-	}
+	metadata := storage.NewMetadata().
+		SetStorageClass(string(c.storageClass)).
+		SetACL(c.acl)
 
 	err := c.shouldOverride(ctx, srcurl, dsturl)
 	if err != nil {

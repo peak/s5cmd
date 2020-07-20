@@ -12,6 +12,8 @@ storage services and local filesystems.
 - List buckets and objects
 - Upload, download or delete objects
 - Move, copy or rename objects
+- Set Server Side Encryption using AWS Key Management Service (KMS)
+- Set Access Control List (ACL) for objects/files on the upload, copy, move. 
 - Print object contents to stdout
 - Create buckets
 - Summarize objects sizes, grouping by storage class
@@ -117,7 +119,15 @@ $ tree
 #### Upload a file to S3
 
     s5cmd cp object.gz s3://bucket/
+    
+- by setting server side encryption (*aws kms*) of the file:
+    
+    `s5cmd cp -sse aws:kms -sse-kms-key-id <your-kms-key-id> object.gz s3://bucket/`
+    
+- by setting Access Control List (*acl*) policy of the object:
 
+    `s5cmd cp -acl bucket-owner-full-control object.gz s3://bucket/`
+    
 #### Upload multiple files to S3
 
     s5cmd cp directory/ s3://bucket/

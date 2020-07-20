@@ -431,12 +431,14 @@ func TestS3CopyEncryptionRequest(t *testing.T) {
 		name     string
 		sse      string
 		sseKeyID string
+		acl      string
 
 		expectedSSE      string
 		expectedSSEKeyID string
+		expectedAcl      string
 	}{
 		{
-			name: "no encryption, by default",
+			name: "no encryption/no acl, by default",
 		},
 		{
 			name: "aws:kms encryption with server side generated keys",
@@ -456,7 +458,13 @@ func TestS3CopyEncryptionRequest(t *testing.T) {
 			name:     "provide key without encryption flag, shall be ignored",
 			sseKeyID: "1234567890",
 		},
+		{
+			name:        "acl flag with a value",
+			acl:         "bucket-owner-full-control",
+			expectedAcl: "bucket-owner-full-control",
+		},
 	}
+
 	u, err := url.New("s3://bucket/key")
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -489,13 +497,20 @@ func TestS3CopyEncryptionRequest(t *testing.T) {
 				if !(key == nil && tc.expectedSSEKeyID == "") {
 					assert.Equal(t, key, tc.expectedSSEKeyID)
 				}
+
+				aclVal := val(r.Params, "ACL")
+
+				if aclVal == nil && tc.expectedAcl == "" {
+					return
+				}
+				assert.Equal(t, aclVal, tc.expectedAcl)
 			})
 
 			mockS3 := &S3{
 				api: mockApi,
 			}
 
-			metadata := NewMetadata().SetSSE(tc.sse).SetSSEKeyID(tc.sseKeyID)
+			metadata := NewMetadata().SetSSE(tc.sse).SetSSEKeyID(tc.sseKeyID).SetACL(tc.acl)
 
 			err = mockS3.Copy(context.Background(), u, u, metadata)
 
@@ -511,12 +526,14 @@ func TestS3PutEncryptionRequest(t *testing.T) {
 		name     string
 		sse      string
 		sseKeyID string
+		acl      string
 
 		expectedSSE      string
 		expectedSSEKeyID string
+		expectedAcl      string
 	}{
 		{
-			name: "no encryption",
+			name: "no encryption, no acl flag",
 		},
 		{
 			name:        "aws:kms encryption with server side generated keys",
@@ -535,6 +552,11 @@ func TestS3PutEncryptionRequest(t *testing.T) {
 			name:     "provide key without encryption flag, shall be ignored",
 			sseKeyID: "1234567890",
 		},
+		{
+			name:        "acl flag with a value",
+			acl:         "bucket-owner-full-control",
+			expectedAcl: "bucket-owner-full-control",
+		},
 	}
 	u, err := url.New("s3://bucket/key")
 	if err != nil {
@@ -568,13 +590,20 @@ func TestS3PutEncryptionRequest(t *testing.T) {
 				if !(key == nil && tc.expectedSSEKeyID == "") {
 					assert.Equal(t, key, tc.expectedSSEKeyID)
 				}
+
+				aclVal := val(r.Params, "ACL")
+
+				if aclVal == nil && tc.expectedAcl == "" {
+					return
+				}
+				assert.Equal(t, aclVal, tc.expectedAcl)
 			})
 
 			mockS3 := &S3{
 				uploader: s3manager.NewUploaderWithClient(mockApi),
 			}
 
-			metadata := NewMetadata().SetSSE(tc.sse).SetSSEKeyID(tc.sseKeyID)
+			metadata := NewMetadata().SetSSE(tc.sse).SetSSEKeyID(tc.sseKeyID).SetACL(tc.acl)
 
 			err = mockS3.Put(context.Background(), bytes.NewReader([]byte("")), u, metadata, 1, 5242880)
 

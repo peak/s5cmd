@@ -121,6 +121,10 @@ var copyCommandFlags = []cli.Flag{
 		Name:  "sse-kms-key-id",
 		Usage: "customer master key (CMK) id for SSE-KMS encryption; leave it out if server-side generated key is desired",
 	},
+	&cli.StringFlag{
+		Name:  "acl",
+		Usage: "set acl for target: defines granted accesses and their types on different accounts/groups",
+	},
 }
 
 var copyCommand = &cli.Command{
@@ -150,6 +154,7 @@ var copyCommand = &cli.Command{
 			partSize:         c.Int64("part-size") * megabytes,
 			encryptionMethod: c.String("sse"),
 			encryptionKeyID:  c.String("sse-kms-key-id"),
+			acl:              c.String("acl"),
 		}.Run(c.Context)
 	},
 }
@@ -172,6 +177,7 @@ type Copy struct {
 	storageClass     storage.StorageClass
 	encryptionMethod string
 	encryptionKeyID  string
+	acl              string
 
 	// s3 options
 	concurrency int
@@ -401,7 +407,8 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 		SetContentType(guessContentType(f)).
 		SetStorageClass(string(c.storageClass)).
 		SetSSE(c.encryptionMethod).
-		SetSSEKeyID(c.encryptionKeyID)
+		SetSSEKeyID(c.encryptionKeyID).
+		SetACL(c.acl)
 
 	err = dstClient.Put(ctx, f, dsturl, metadata, c.concurrency, c.partSize)
 	if err != nil {
@@ -441,7 +448,8 @@ func (c Copy) doCopy(ctx context.Context, srcurl *url.URL, dsturl *url.URL) erro
 	metadata := storage.NewMetadata().
 		SetStorageClass(string(c.storageClass)).
 		SetSSE(c.encryptionMethod).
-		SetSSEKeyID(c.encryptionKeyID)
+		SetSSEKeyID(c.encryptionKeyID).
+		SetACL(c.acl)
 
 	err := c.shouldOverride(ctx, srcurl, dsturl)
 	if err != nil {

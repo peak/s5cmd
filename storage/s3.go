@@ -341,6 +341,11 @@ func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata Metadata) err
 		}
 	}
 
+	acl := metadata.ACL()
+	if acl != "" {
+		input.ACL = aws.String(acl)
+	}
+
 	_, err := s.api.CopyObject(input)
 	return err
 }
@@ -402,6 +407,10 @@ func (s *S3) Put(
 	storageClass := metadata.StorageClass()
 	if storageClass != "" {
 		input.StorageClass = aws.String(storageClass)
+	}
+	acl := metadata.ACL()
+	if acl != "" {
+		input.ACL = aws.String(acl)
 	}
 
 	sseEncryption := metadata.SSE()

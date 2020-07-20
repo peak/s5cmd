@@ -55,6 +55,7 @@ var moveCommand = &cli.Command{
 			storageClass:     storage.StorageClass(c.String("storage-class")),
 			encryptionMethod: c.String("sse"),
 			encryptionKeyID:  c.String("sse-kms-key-id"),
+			acl:              c.String("acl"),
 		}
 
 		return copyCommand.Run(c.Context)

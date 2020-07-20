@@ -690,7 +690,6 @@ func errContains(err error, msg string) bool {
 	}
 
 	return false
-
 }
 
 // IsCancelationError reports whether given error is a storage related

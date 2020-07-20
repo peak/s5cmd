@@ -178,42 +178,52 @@ func (e notImplemented) Error() string {
 
 type Metadata map[string]string
 
+// NewMetadata will return an empty metadata object.
+func NewMetadata() Metadata {
+	return Metadata{}
+}
+
 func (m Metadata) ACL() string {
-	acl, ok := m["ACL"]
-	if !ok {
-		return ""
-	}
-	return acl
+	return m["ACL"]
+}
+
+func (m Metadata) SetACL(acl string) Metadata {
+	m["ACL"] = acl
+	return m
 }
 
 func (m Metadata) StorageClass() string {
-	stclass, ok := m["StorageClass"]
-	if !ok {
-		return ""
-	}
-	return stclass
+	return m["StorageClass"]
+}
+
+func (m Metadata) SetStorageClass(class string) Metadata {
+	m["StorageClass"] = class
+	return m
 }
 
 func (m Metadata) ContentType() string {
-	ctype, ok := m["ContentType"]
-	if !ok {
-		return ""
-	}
-	return ctype
+	return m["ContentType"]
+}
+
+func (m Metadata) SetContentType(contentType string) Metadata {
+	m["ContentType"] = contentType
+	return m
 }
 
 func (m Metadata) SSE() string {
-	sse, ok := m["EncryptionMethod"]
-	if !ok {
-		return ""
-	}
-	return sse
+	return m["EncryptionMethod"]
+}
+
+func (m Metadata) SetSSE(sse string) Metadata {
+	m["EncryptionMethod"] = sse
+	return m
 }
 
 func (m Metadata) SSEKeyId() string {
-	sseKid, ok := m["EncryptionKeyId"]
-	if !ok {
-		return ""
-	}
-	return sseKid
+	return m["EncryptionKeyId"]
+}
+
+func (m Metadata) SetSSEKeyId(kid string) Metadata {
+	m["EncryptionKeyId"] = kid
+	return m
 }

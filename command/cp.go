@@ -66,10 +66,10 @@ Examples:
 		 > s5cmd {{.HelpName}} -n -s -u s3://bucket/source-prefix/* s3://bucket/target-prefix/
 
 	11. Perform KMS Server Side Encryption of the object(s) at the destination
-		> s5cmd -sse aws:kms {{.HelpName}} s3://bucket/object s3://target-bucket/prefix/object
+		> s5cmd {{.HelpName}} -sse aws:kms s3://bucket/object s3://target-bucket/prefix/object
 
 	12. Perform KMS-SSE of the object(s) at the destination using customer managed Customer Master Key (CMK) key id
-		> s5cmd -sse aws:kms -sse-kms-key-id $0meR@nDomK(-Y s3://bucket/object s3://target-bucket/prefix/object
+		> s5cmd {{.HelpName}} -sse aws:kms -sse-kms-key-id <your-kms-key-id> s3://bucket/object s3://target-bucket/prefix/object
 `
 
 var copyCommandFlags = []cli.Flag{
@@ -397,12 +397,11 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 
 	dstClient := storage.NewClient(dsturl)
 
-	metadata := storage.Metadata{
-		"StorageClass":     string(c.storageClass),
-		"ContentType":      guessContentType(f),
-		"EncryptionMethod": c.encryptionMethod,
-		"EncryptionKeyId":  c.encryptionKeyId,
-	}
+	metadata := storage.NewMetadata().
+		SetContentType(guessContentType(f)).
+		SetStorageClass(string(c.storageClass)).
+		SetSSE(c.encryptionMethod).
+		SetSSEKeyId(c.encryptionKeyId)
 
 	err = dstClient.Put(ctx, f, dsturl, metadata, c.concurrency, c.partSize)
 	if err != nil {
@@ -439,11 +438,10 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 func (c Copy) doCopy(ctx context.Context, srcurl *url.URL, dsturl *url.URL) error {
 	srcClient := storage.NewClient(srcurl)
 
-	metadata := storage.Metadata{
-		"StorageClass":     string(c.storageClass),
-		"EncryptionMethod": c.encryptionMethod,
-		"EncryptionKeyId":  c.encryptionKeyId,
-	}
+	metadata := storage.NewMetadata().
+		SetStorageClass(string(c.storageClass)).
+		SetSSE(c.encryptionMethod).
+		SetSSEKeyId(c.encryptionKeyId)
 
 	err := c.shouldOverride(ctx, srcurl, dsturl)
 	if err != nil {

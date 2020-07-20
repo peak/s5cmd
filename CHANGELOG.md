@@ -11,6 +11,8 @@ to see full names of the storage classes when listing objects.
 
 #### Bugfixes
 
+- Fixed infinite repetition issue on mv/cp operations which would occur
+ if the destination matched the source wildcard. ([#168](https://github.com/peak/s5cmd/issues/168))
 - Fixed windows filepath issue, where backslashes should be treated as the path delimiter. ([#178](https://github.com/peak/s5cmd/issues/178))
 - All tests pass on windows, by converting and treating file paths to UNIX filepath format.
 - Fixed a transfer issue where the object path contains particular regex metacharacters. ([#111](https://github.com/peak/s5cmd/pull/111)) [@brendan-matroid](https://github.com/brendan-matroid)

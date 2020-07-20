@@ -219,11 +219,11 @@ func (m Metadata) SetSSE(sse string) Metadata {
 	return m
 }
 
-func (m Metadata) SSEKeyId() string {
+func (m Metadata) SSEKeyID() string {
 	return m["EncryptionKeyId"]
 }
 
-func (m Metadata) SetSSEKeyId(kid string) Metadata {
+func (m Metadata) SetSSEKeyID(kid string) Metadata {
 	m["EncryptionKeyId"] = kid
 	return m
 }

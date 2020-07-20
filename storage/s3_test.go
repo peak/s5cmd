@@ -487,6 +487,7 @@ func TestS3AclFlagOnCopy(t *testing.T) {
 		})
 	}
 }
+
 func TestS3AclFlagOnPut(t *testing.T) {
 	testcases := []struct {
 		name string

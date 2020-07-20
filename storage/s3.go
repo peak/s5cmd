@@ -335,9 +335,9 @@ func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata Metadata) err
 	sseEncryption := metadata.SSE()
 	if sseEncryption != "" {
 		input.ServerSideEncryption = aws.String(sseEncryption)
-		sseKmsKeyId := metadata.SSEKeyId()
-		if sseKmsKeyId != "" {
-			input.SSEKMSKeyId = aws.String(sseKmsKeyId)
+		sseKmsKeyID := metadata.SSEKeyID()
+		if sseKmsKeyID != "" {
+			input.SSEKMSKeyId = aws.String(sseKmsKeyID)
 		}
 	}
 
@@ -407,9 +407,9 @@ func (s *S3) Put(
 	sseEncryption := metadata.SSE()
 	if sseEncryption != "" {
 		input.ServerSideEncryption = aws.String(sseEncryption)
-		sseKmsKeyId := metadata.SSEKeyId()
-		if sseKmsKeyId != "" {
-			input.SSEKMSKeyId = aws.String(sseKmsKeyId)
+		sseKmsKeyID := metadata.SSEKeyID()
+		if sseKmsKeyID != "" {
+			input.SSEKMSKeyId = aws.String(sseKmsKeyID)
 		}
 	}
 

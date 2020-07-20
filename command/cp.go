@@ -149,7 +149,7 @@ var copyCommand = &cli.Command{
 			concurrency:      c.Int("concurrency"),
 			partSize:         c.Int64("part-size") * megabytes,
 			encryptionMethod: c.String("sse"),
-			encryptionKeyId:  c.String("sse-kms-key-id"),
+			encryptionKeyID:  c.String("sse-kms-key-id"),
 		}.Run(c.Context)
 	},
 }
@@ -171,7 +171,7 @@ type Copy struct {
 	followSymlinks   bool
 	storageClass     storage.StorageClass
 	encryptionMethod string
-	encryptionKeyId  string
+	encryptionKeyID  string
 
 	// s3 options
 	concurrency int
@@ -401,7 +401,7 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 		SetContentType(guessContentType(f)).
 		SetStorageClass(string(c.storageClass)).
 		SetSSE(c.encryptionMethod).
-		SetSSEKeyId(c.encryptionKeyId)
+		SetSSEKeyID(c.encryptionKeyID)
 
 	err = dstClient.Put(ctx, f, dsturl, metadata, c.concurrency, c.partSize)
 	if err != nil {
@@ -441,7 +441,7 @@ func (c Copy) doCopy(ctx context.Context, srcurl *url.URL, dsturl *url.URL) erro
 	metadata := storage.NewMetadata().
 		SetStorageClass(string(c.storageClass)).
 		SetSSE(c.encryptionMethod).
-		SetSSEKeyId(c.encryptionKeyId)
+		SetSSEKeyID(c.encryptionKeyID)
 
 	err := c.shouldOverride(ctx, srcurl, dsturl)
 	if err != nil {

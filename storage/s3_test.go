@@ -430,10 +430,10 @@ func TestS3CopyEncryptionRequest(t *testing.T) {
 	testcases := []struct {
 		name     string
 		sse      string
-		sseKeyId string
+		sseKeyID string
 
 		expectedSSE      string
-		expectedSSEKeyId string
+		expectedSSEKeyID string
 	}{
 		{
 			name: "no encryption, by default",
@@ -447,14 +447,14 @@ func TestS3CopyEncryptionRequest(t *testing.T) {
 		{
 			name:     "aws:kms encryption with user provided key",
 			sse:      "aws:kms",
-			sseKeyId: "sdkjn12SDdci#@#EFRFERTqW/ke",
+			sseKeyID: "sdkjn12SDdci#@#EFRFERTqW/ke",
 
 			expectedSSE:      "aws:kms",
-			expectedSSEKeyId: "sdkjn12SDdci#@#EFRFERTqW/ke",
+			expectedSSEKeyID: "sdkjn12SDdci#@#EFRFERTqW/ke",
 		},
 		{
 			name:     "provide key without encryption flag, shall be ignored",
-			sseKeyId: "1234567890",
+			sseKeyID: "1234567890",
 		},
 	}
 	u, err := url.New("s3://bucket/key")
@@ -486,8 +486,8 @@ func TestS3CopyEncryptionRequest(t *testing.T) {
 				if !(sse == nil && tc.expectedSSE == "") {
 					assert.Equal(t, sse, tc.expectedSSE)
 				}
-				if !(key == nil && tc.expectedSSEKeyId == "") {
-					assert.Equal(t, key, tc.expectedSSEKeyId)
+				if !(key == nil && tc.expectedSSEKeyID == "") {
+					assert.Equal(t, key, tc.expectedSSEKeyID)
 				}
 			})
 
@@ -495,7 +495,7 @@ func TestS3CopyEncryptionRequest(t *testing.T) {
 				api: mockApi,
 			}
 
-			metadata := NewMetadata().SetSSE(tc.sse).SetSSEKeyId(tc.sseKeyId)
+			metadata := NewMetadata().SetSSE(tc.sse).SetSSEKeyID(tc.sseKeyID)
 
 			err = mockS3.Copy(context.Background(), u, u, metadata)
 
@@ -510,10 +510,10 @@ func TestS3PutEncryptionRequest(t *testing.T) {
 	testcases := []struct {
 		name     string
 		sse      string
-		sseKeyId string
+		sseKeyID string
 
 		expectedSSE      string
-		expectedSSEKeyId string
+		expectedSSEKeyID string
 	}{
 		{
 			name: "no encryption",
@@ -526,14 +526,14 @@ func TestS3PutEncryptionRequest(t *testing.T) {
 		{
 			name:     "aws:kms encryption with user provided key",
 			sse:      "aws:kms",
-			sseKeyId: "sdkjn12SDdci#@#EFRFERTqW/ke",
+			sseKeyID: "sdkjn12SDdci#@#EFRFERTqW/ke",
 
 			expectedSSE:      "aws:kms",
-			expectedSSEKeyId: "sdkjn12SDdci#@#EFRFERTqW/ke",
+			expectedSSEKeyID: "sdkjn12SDdci#@#EFRFERTqW/ke",
 		},
 		{
 			name:     "provide key without encryption flag, shall be ignored",
-			sseKeyId: "1234567890",
+			sseKeyID: "1234567890",
 		},
 	}
 	u, err := url.New("s3://bucket/key")
@@ -565,8 +565,8 @@ func TestS3PutEncryptionRequest(t *testing.T) {
 				if !(sse == nil && tc.expectedSSE == "") {
 					assert.Equal(t, sse, tc.expectedSSE)
 				}
-				if !(key == nil && tc.expectedSSEKeyId == "") {
-					assert.Equal(t, key, tc.expectedSSEKeyId)
+				if !(key == nil && tc.expectedSSEKeyID == "") {
+					assert.Equal(t, key, tc.expectedSSEKeyID)
 				}
 			})
 
@@ -574,7 +574,7 @@ func TestS3PutEncryptionRequest(t *testing.T) {
 				uploader: s3manager.NewUploaderWithClient(mockApi),
 			}
 
-			metadata := NewMetadata().SetSSE(tc.sse).SetSSEKeyId(tc.sseKeyId)
+			metadata := NewMetadata().SetSSE(tc.sse).SetSSEKeyID(tc.sseKeyID)
 
 			err = mockS3.Put(context.Background(), bytes.NewReader([]byte("")), u, metadata, 1, 5242880)
 

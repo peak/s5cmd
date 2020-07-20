@@ -220,10 +220,10 @@ func (m Metadata) SetSSE(sse string) Metadata {
 }
 
 func (m Metadata) SSEKeyID() string {
-	return m["EncryptionKeyId"]
+	return m["EncryptionKeyID"]
 }
 
 func (m Metadata) SetSSEKeyID(kid string) Metadata {
-	m["EncryptionKeyId"] = kid
+	m["EncryptionKeyID"] = kid
 	return m
 }

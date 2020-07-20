@@ -178,14 +178,52 @@ func (e notImplemented) Error() string {
 
 type Metadata map[string]string
 
+// NewMetadata will return an empty metadata object.
+func NewMetadata() Metadata {
+	return Metadata{}
+}
+
 func (m Metadata) ACL() string {
 	return m["ACL"]
+}
+
+func (m Metadata) SetACL(acl string) Metadata {
+	m["ACL"] = acl
+	return m
 }
 
 func (m Metadata) StorageClass() string {
 	return m["StorageClass"]
 }
 
+func (m Metadata) SetStorageClass(class string) Metadata {
+	m["StorageClass"] = class
+	return m
+}
+
 func (m Metadata) ContentType() string {
 	return m["ContentType"]
+}
+
+func (m Metadata) SetContentType(contentType string) Metadata {
+	m["ContentType"] = contentType
+	return m
+}
+
+func (m Metadata) SSE() string {
+	return m["EncryptionMethod"]
+}
+
+func (m Metadata) SetSSE(sse string) Metadata {
+	m["EncryptionMethod"] = sse
+	return m
+}
+
+func (m Metadata) SSEKeyId() string {
+	return m["EncryptionKeyId"]
+}
+
+func (m Metadata) SetSSEKeyId(kid string) Metadata {
+	m["EncryptionKeyId"] = kid
+	return m
 }

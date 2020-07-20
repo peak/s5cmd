@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math/rand"
 	"net/http"
 	urlpkg "net/url"
 	"os"
@@ -23,7 +24,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/google/go-cmp/cmp"
 	"gotest.tools/v3/assert"
-
 
 	"github.com/peak/s5cmd/storage/url"
 )
@@ -477,9 +477,9 @@ func TestS3AclFlagOnCopy(t *testing.T) {
 				api: mockApi,
 			}
 
-			err = mockS3.Copy(context.Background(), u, u, map[string]string{
-				"ACL": tc.acl,
-			})
+			metadata := NewMetadata().SetACL(tc.acl)
+
+			err = mockS3.Copy(context.Background(), u, u, metadata)
 
 			if err != nil {
 				t.Errorf("Expected %v, but received %q", nil, err)
@@ -537,15 +537,16 @@ func TestS3AclFlagOnPut(t *testing.T) {
 				uploader: s3manager.NewUploaderWithClient(mockApi),
 			}
 
-			err = mockS3.Put(context.Background(), bytes.NewReader([]byte("")), u, map[string]string{
-				"ACL": tc.acl,
-			}, 1, 5242880)
+			metadata := NewMetadata().SetACL(tc.acl)
+
+			err = mockS3.Put(context.Background(), bytes.NewReader([]byte("")), u, metadata, 1, 5242880)
 
 			if err != nil {
 				t.Errorf("Expected %v, but received %q", nil, err)
 			}
 		})
 	}
+}
 
 func TestS3listObjectsV2(t *testing.T) {
 	const (

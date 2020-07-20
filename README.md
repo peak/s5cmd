@@ -311,15 +311,15 @@ which is the source of the benchmarks to be presented.
 
 *Upload/download of single large file*
 
-![get/put performance graph](https://miro.medium.com/max/770/0*aWOwrmXJN9XXUHf9)
+![get/put performance graph](./doc/benchmark1.png)
 
 *Uploading large number of small-sized files*
 
-![multi-object upload performance graph](https://miro.medium.com/max/770/0*80gJDQySaSwU9qWQ)
+![multi-object upload performance graph](./doc/benchmark2.png)
 
 *Performance comparison on different hardware*
 
-![s3 upload speed graph](https://miro.medium.com/max/770/0*WTtb_pc9Lzdasd33)
+![s3 upload speed graph](./doc/benchmark3.png)
 
 *So, where does all this speed come from?*
 

@@ -12,6 +12,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -503,6 +504,7 @@ func TestS3CopyEncryptionRequest(t *testing.T) {
 		})
 	}
 }
+
 func TestS3PutEncryptionRequest(t *testing.T) {
 	testcases := []struct {
 		name     string
@@ -580,4 +582,85 @@ func TestS3PutEncryptionRequest(t *testing.T) {
 			}
 		})
 	}
+
+func TestS3listObjectsV2(t *testing.T) {
+	const (
+		numObjectsToReturn = 10100
+		numObjectsToIgnore = 1127
+
+		pre = "s3://bucket/key"
+	)
+
+	u, err := url.New(pre)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	mapReturnObjNameToModtime := map[string]time.Time{}
+	mapIgnoreObjNameToModtime := map[string]time.Time{}
+
+	s3objs := make([]*s3.Object, 0, numObjectsToIgnore+numObjectsToReturn)
+
+	for i := 0; i < numObjectsToReturn; i++ {
+		fname := fmt.Sprintf("%s/%d", pre, i)
+		now := time.Now()
+
+		mapReturnObjNameToModtime[pre+"/"+fname] = now
+		s3objs = append(s3objs, &s3.Object{
+			Key:          aws.String("key/" + fname),
+			LastModified: aws.Time(now),
+		})
+	}
+
+	for i := 0; i < numObjectsToIgnore; i++ {
+		fname := fmt.Sprintf("%s/%d", pre, numObjectsToReturn+i)
+		later := time.Now().Add(time.Second * 10)
+
+		mapIgnoreObjNameToModtime[pre+"/"+fname] = later
+		s3objs = append(s3objs, &s3.Object{
+			Key:          aws.String("key/" + fname),
+			LastModified: aws.Time(later),
+		})
+	}
+
+	// shuffle the objects array to remove possible assumptions about how objects
+	// are stored.
+	rand.Shuffle(len(s3objs), func(i, j int) {
+		s3objs[i], s3objs[j] = s3objs[j], s3objs[i]
+	})
+
+	mockApi := s3.New(unit.Session)
+
+	mockApi.Handlers.Unmarshal.Clear()
+	mockApi.Handlers.UnmarshalMeta.Clear()
+	mockApi.Handlers.UnmarshalError.Clear()
+	mockApi.Handlers.Send.Clear()
+
+	mockApi.Handlers.Send.PushBack(func(r *request.Request) {
+
+		r.HTTPResponse = &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       ioutil.NopCloser(strings.NewReader("")),
+		}
+
+		r.Data = &s3.ListObjectsV2Output{
+			Contents: s3objs,
+		}
+
+	})
+
+	mockS3 := &S3{
+		api: mockApi,
+	}
+
+	ouputCh := mockS3.listObjectsV2(context.Background(), u)
+
+	for obj := range ouputCh {
+		if _, ok := mapReturnObjNameToModtime[obj.String()]; ok {
+			delete(mapReturnObjNameToModtime, obj.String())
+			continue
+		}
+		t.Errorf("%v should not have been returned\n", obj)
+	}
+	assert.Equal(t, len(mapReturnObjNameToModtime), 0)
 }

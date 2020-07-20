@@ -397,7 +397,7 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 
 	dstClient := storage.NewClient(dsturl)
 
-	metadata := map[string]string{
+	metadata := storage.Metadata{
 		"StorageClass":     string(c.storageClass),
 		"ContentType":      guessContentType(f),
 		"EncryptionMethod": c.encryptionMethod,
@@ -439,7 +439,7 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 func (c Copy) doCopy(ctx context.Context, srcurl *url.URL, dsturl *url.URL) error {
 	srcClient := storage.NewClient(srcurl)
 
-	metadata := map[string]string{
+	metadata := storage.Metadata{
 		"StorageClass":     string(c.storageClass),
 		"EncryptionMethod": c.encryptionMethod,
 		"EncryptionKeyId":  c.encryptionKeyId,

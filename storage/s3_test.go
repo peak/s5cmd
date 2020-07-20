@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math/rand"
 	"net/http"
 	urlpkg "net/url"
 	"os"
@@ -582,6 +583,7 @@ func TestS3PutEncryptionRequest(t *testing.T) {
 			}
 		})
 	}
+}
 
 func TestS3listObjectsV2(t *testing.T) {
 	const (

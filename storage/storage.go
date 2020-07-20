@@ -179,25 +179,13 @@ func (e notImplemented) Error() string {
 type Metadata map[string]string
 
 func (m Metadata) ACL() string {
-	acl, ok := m["ACL"]
-	if !ok {
-		return ""
-	}
-	return acl
+	return m["ACL"]
 }
 
 func (m Metadata) StorageClass() string {
-	stclass, ok := m["StorageClass"]
-	if !ok {
-		return ""
-	}
-	return stclass
+	return m["StorageClass"]
 }
 
 func (m Metadata) ContentType() string {
-	ctype, ok := m["ContentType"]
-	if !ok {
-		return ""
-	}
-	return ctype
+	return m["ContentType"]
 }

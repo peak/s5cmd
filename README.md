@@ -120,13 +120,13 @@ $ tree
 
     s5cmd cp object.gz s3://bucket/
     
-- by setting server side encryption (*aws kms*) of the file:
+ by setting server side encryption (*aws kms*) of the file:
     
-    `s5cmd cp -sse aws:kms -sse-kms-key-id <your-kms-key-id> object.gz s3://bucket/`
-    
-- by setting Access Control List (*acl*) policy of the object:
+    s5cmd cp -sse aws:kms -sse-kms-key-id <your-kms-key-id> object.gz s3://bucket/
+        
+ by setting Access Control List (*acl*) policy of the object:
 
-    `s5cmd cp -acl bucket-owner-full-control object.gz s3://bucket/`
+    s5cmd cp -acl bucket-owner-full-control object.gz s3://bucket/
     
 #### Upload multiple files to S3
 

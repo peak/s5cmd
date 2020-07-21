@@ -430,15 +430,37 @@ func val(i interface{}, s string) interface{} {
 	return v[0]
 }
 
-func TestS3AclFlagOnCopy(t *testing.T) {
+func TestS3CopyEncryptionRequest(t *testing.T) {
 	testcases := []struct {
-		name string
-		acl  string
+		name     string
+		sse      string
+		sseKeyID string
+		acl      string
 
-		expectedAcl string
+		expectedSSE      string
+		expectedSSEKeyID string
+		expectedAcl      string
 	}{
 		{
-			name: "no acl flag",
+			name: "no encryption/no acl, by default",
+		},
+		{
+			name: "aws:kms encryption with server side generated keys",
+			sse:  "aws:kms",
+
+			expectedSSE: "aws:kms",
+		},
+		{
+			name:     "aws:kms encryption with user provided key",
+			sse:      "aws:kms",
+			sseKeyID: "sdkjn12SDdci#@#EFRFERTqW/ke",
+
+			expectedSSE:      "aws:kms",
+			expectedSSEKeyID: "sdkjn12SDdci#@#EFRFERTqW/ke",
+		},
+		{
+			name:     "provide key without encryption flag, shall be ignored",
+			sseKeyID: "1234567890",
 		},
 		{
 			name:        "acl flag with a value",
@@ -446,6 +468,7 @@ func TestS3AclFlagOnCopy(t *testing.T) {
 			expectedAcl: "bucket-owner-full-control",
 		},
 	}
+
 	u, err := url.New("s3://bucket/key")
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -468,20 +491,30 @@ func TestS3AclFlagOnCopy(t *testing.T) {
 					Body:       ioutil.NopCloser(strings.NewReader("")),
 				}
 
+				params := r.Params
+				sse := val(params, "ServerSideEncryption")
+				key := val(params, "SSEKMSKeyId")
+
+				if !(sse == nil && tc.expectedSSE == "") {
+					assert.Equal(t, sse, tc.expectedSSE)
+				}
+				if !(key == nil && tc.expectedSSEKeyID == "") {
+					assert.Equal(t, key, tc.expectedSSEKeyID)
+				}
+
 				aclVal := val(r.Params, "ACL")
 
 				if aclVal == nil && tc.expectedAcl == "" {
 					return
 				}
 				assert.Equal(t, aclVal, tc.expectedAcl)
-
 			})
 
 			mockS3 := &S3{
 				api: mockApi,
 			}
 
-			metadata := NewMetadata().SetACL(tc.acl)
+			metadata := NewMetadata().SetSSE(tc.sse).SetSSEKeyID(tc.sseKeyID).SetACL(tc.acl)
 
 			err = mockS3.Copy(context.Background(), u, u, metadata)
 
@@ -492,15 +525,36 @@ func TestS3AclFlagOnCopy(t *testing.T) {
 	}
 }
 
-func TestS3AclFlagOnPut(t *testing.T) {
+func TestS3PutEncryptionRequest(t *testing.T) {
 	testcases := []struct {
-		name string
-		acl  string
+		name     string
+		sse      string
+		sseKeyID string
+		acl      string
 
-		expectedAcl string
+		expectedSSE      string
+		expectedSSEKeyID string
+		expectedAcl      string
 	}{
 		{
-			name: "no acl flag",
+			name: "no encryption, no acl flag",
+		},
+		{
+			name:        "aws:kms encryption with server side generated keys",
+			sse:         "aws:kms",
+			expectedSSE: "aws:kms",
+		},
+		{
+			name:     "aws:kms encryption with user provided key",
+			sse:      "aws:kms",
+			sseKeyID: "sdkjn12SDdci#@#EFRFERTqW/ke",
+
+			expectedSSE:      "aws:kms",
+			expectedSSEKeyID: "sdkjn12SDdci#@#EFRFERTqW/ke",
+		},
+		{
+			name:     "provide key without encryption flag, shall be ignored",
+			sseKeyID: "1234567890",
 		},
 		{
 			name:        "acl flag with a value",
@@ -528,6 +582,17 @@ func TestS3AclFlagOnPut(t *testing.T) {
 				r.HTTPResponse = &http.Response{
 					StatusCode: http.StatusOK,
 					Body:       ioutil.NopCloser(strings.NewReader("")),
+				}
+
+				params := r.Params
+				sse := val(params, "ServerSideEncryption")
+				key := val(params, "SSEKMSKeyId")
+
+				if !(sse == nil && tc.expectedSSE == "") {
+					assert.Equal(t, sse, tc.expectedSSE)
+				}
+				if !(key == nil && tc.expectedSSEKeyID == "") {
+					assert.Equal(t, key, tc.expectedSSEKeyID)
 				}
 
 				aclVal := val(r.Params, "ACL")
@@ -542,7 +607,7 @@ func TestS3AclFlagOnPut(t *testing.T) {
 				uploader: s3manager.NewUploaderWithClient(mockApi),
 			}
 
-			metadata := NewMetadata().SetACL(tc.acl)
+			metadata := NewMetadata().SetSSE(tc.sse).SetSSEKeyID(tc.sseKeyID).SetACL(tc.acl)
 
 			err = mockS3.Put(context.Background(), bytes.NewReader([]byte("")), u, metadata, 1, 5242880)
 

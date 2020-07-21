@@ -326,9 +326,19 @@ func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata Metadata) err
 		Key:        aws.String(to.Path),
 		CopySource: aws.String(copySource),
 	}
+
 	storageClass := metadata.StorageClass()
 	if storageClass != "" {
 		input.StorageClass = aws.String(storageClass)
+	}
+
+	sseEncryption := metadata.SSE()
+	if sseEncryption != "" {
+		input.ServerSideEncryption = aws.String(sseEncryption)
+		sseKmsKeyID := metadata.SSEKeyID()
+		if sseKmsKeyID != "" {
+			input.SSEKMSKeyId = aws.String(sseKmsKeyID)
+		}
 	}
 
 	acl := metadata.ACL()
@@ -401,6 +411,15 @@ func (s *S3) Put(
 	acl := metadata.ACL()
 	if acl != "" {
 		input.ACL = aws.String(acl)
+	}
+
+	sseEncryption := metadata.SSE()
+	if sseEncryption != "" {
+		input.ServerSideEncryption = aws.String(sseEncryption)
+		sseKmsKeyID := metadata.SSEKeyID()
+		if sseKmsKeyID != "" {
+			input.SSEKMSKeyId = aws.String(sseKmsKeyID)
+		}
 	}
 
 	_, err := s.uploader.UploadWithContext(ctx, input, func(u *s3manager.Uploader) {

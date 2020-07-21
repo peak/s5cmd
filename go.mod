@@ -8,7 +8,7 @@ require (
 	github.com/google/go-cmp v0.4.0
 	github.com/hashicorp/go-multierror v1.0.0
 	github.com/iancoleman/strcase v0.0.0-20191112232945-16388991a334
-	github.com/johannesboyne/gofakes3 v0.0.0-20200716060623-6b2b4cb092cc
+	github.com/johannesboyne/gofakes3 v0.0.0-20200605082314-e89baa38acc1
 	github.com/karrick/godirwalk v1.15.3
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/kr/pretty v0.2.0 // indirect

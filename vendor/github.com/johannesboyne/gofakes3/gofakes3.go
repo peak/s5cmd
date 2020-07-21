@@ -432,6 +432,7 @@ func (g *GoFakeS3) writeGetOrHeadObjectResponse(obj *Object, w http.ResponseWrit
 	for mk, mv := range obj.Metadata {
 		w.Header().Set(mk, mv)
 	}
+	w.Header().Set("Last-Modified", formatHeaderTime(g.timeSource.Now()))
 	w.Header().Set("Accept-Ranges", "bytes")
 	w.Header().Set("ETag", `"`+hex.EncodeToString(obj.Hash)+`"`)
 

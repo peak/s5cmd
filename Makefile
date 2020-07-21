@@ -9,7 +9,7 @@ build:
 
 .PHONY: test
 test:
-	@go test -mod=vendor -count=1 -run=TestCopyMultipleFlatS3ObjectsToLocalJSON ./...
+	@go test -mod=vendor -count=1 ./...
 
 .PHONY: check
 check: vet staticcheck unparam check-fmt

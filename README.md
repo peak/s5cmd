@@ -311,15 +311,15 @@ which is the source of the benchmarks to be presented.
 
 *Upload/download of single large file*
 
-![get/put performance graph](./doc/benchmark1.png)
+<img src="./doc/benchmark1.png" alt="get/put performance graph" height="75%" width="75%">
 
 *Uploading large number of small-sized files*
 
-![multi-object upload performance graph](./doc/benchmark2.png)
+<img src="./doc/benchmark2.png" alt="multi-object upload performance graph" height="75%" width="75%">
 
 *Performance comparison on different hardware*
 
-![s3 upload speed graph](./doc/benchmark3.png)
+<img src="./doc/benchmark3.png" alt="s3 upload speed graph" height="75%" width="75%">
 
 *So, where does all this speed come from?*
 

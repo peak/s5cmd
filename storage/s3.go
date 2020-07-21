@@ -195,6 +195,7 @@ func (s *S3) listObjectsV2(ctx context.Context, url *url.URL) <-chan *Object {
 				mod := aws.TimeValue(c.LastModified)
 
 				if mod.UTC().Unix() > now {
+					fmt.Printf("** obj: %q, now: %v, modtime: %v\n", key, now, mod.UTC().Unix())
 					objectFound = true
 					continue
 				}

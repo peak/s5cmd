@@ -1,5 +1,7 @@
 module github.com/johannesboyne/gofakes3
 
+go 1.12
+
 require (
 	github.com/aws/aws-sdk-go v1.17.4
 	github.com/boltdb/bolt v1.3.1
@@ -14,5 +16,3 @@ require (
 	gopkg.in/mgo.v2 v2.0.0-20180705113604-9856a29383ce
 	gopkg.in/yaml.v2 v2.2.2 // indirect
 )
-
-go 1.13

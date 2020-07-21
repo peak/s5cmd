@@ -656,6 +656,11 @@ func (c *customRetryer) ShouldRetry(req *request.Request) bool {
 	if errHasCode(req.Error, "InternalError") {
 		return true
 	}
+
+	if errContains(req.Error, "use of closed network connection") {
+		return true
+	}
+
 	return c.DefaultRetryer.ShouldRetry(req)
 }
 
@@ -699,6 +704,21 @@ func errHasCode(err error, code string) bool {
 
 	return false
 
+}
+
+func errContains(err error, msg string) bool {
+	if err == nil || msg == "" {
+		return false
+	}
+
+	var awsErr awserr.Error
+	if errors.As(err, &awsErr) {
+		if strings.Contains(awsErr.Error(), msg) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // IsCancelationError reports whether given error is a storage related

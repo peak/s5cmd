@@ -1,6 +1,6 @@
 before:
   hooks:
-    - make
+    #- make
 builds:
   -
     binary: s5cmd

@@ -59,11 +59,14 @@ var moveCommand = &cli.Command{
 			fullCommand:  givenCommand(c),
 			deleteSource: true, // delete source
 			// flags
-			noClobber:     c.Bool("no-clobber"),
-			ifSizeDiffer:  c.Bool("if-size-differ"),
-			ifSourceNewer: c.Bool("if-source-newer"),
-			flatten:       c.Bool("flatten"),
-			storageClass:  storage.StorageClass(c.String("storage-class")),
+			noClobber:        c.Bool("no-clobber"),
+			ifSizeDiffer:     c.Bool("if-size-differ"),
+			ifSourceNewer:    c.Bool("if-source-newer"),
+			flatten:          c.Bool("flatten"),
+			storageClass:     storage.StorageClass(c.String("storage-class")),
+			encryptionMethod: c.String("sse"),
+			encryptionKeyID:  c.String("sse-kms-key-id"),
+			acl:              c.String("acl"),
 
 			StorageOptions: storage.StorageOptions{
 				Concurrency:       c.Int("concurrency"),

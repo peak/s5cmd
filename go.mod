@@ -22,4 +22,4 @@ require (
 	gotest.tools/v3 v3.0.2
 )
 
-replace github.com/johannesboyne/gofakes3 => github.com/igungor/gofakes3 v0.0.3
+replace github.com/johannesboyne/gofakes3 => github.com/igungor/gofakes3 v0.0.4

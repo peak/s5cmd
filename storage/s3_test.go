@@ -1,18 +1,27 @@
 package storage
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
+	"io/ioutil"
+	"math/rand"
 	"net/http"
 	urlpkg "net/url"
 	"os"
+	"reflect"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/awstesting/unit"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/google/go-cmp/cmp"
 	"gotest.tools/v3/assert"
 
@@ -289,6 +298,10 @@ func TestS3Retry(t *testing.T) {
 			err:  awserr.New(request.ErrCodeRequestError, "request error", nil),
 		},
 		{
+			name: "UseOfClosedNetworkConnection",
+			err:  awserr.New(request.ErrCodeRequestError, "use of closed network connection", nil),
+		},
+		{
 			name: "RequestFailureRequestError",
 			err: awserr.NewRequestFailure(
 				awserr.New(request.ErrCodeRequestError, "request failure: request error", nil),
@@ -469,4 +482,293 @@ func TestNumOfSessions(t *testing.T) {
 		}
 	}
 	assert.Equal(t, NumOfSessions(), expectedTotalNumOfSessions)
+}
+
+// Credit to aws-sdk-go
+func val(i interface{}, s string) interface{} {
+	v, err := awsutil.ValuesAtPath(i, s)
+	if err != nil || len(v) == 0 {
+		return nil
+	}
+	if _, ok := v[0].(io.Reader); ok {
+		return v[0]
+	}
+
+	if rv := reflect.ValueOf(v[0]); rv.Kind() == reflect.Ptr {
+		return rv.Elem().Interface()
+	}
+
+	return v[0]
+}
+
+func TestS3CopyEncryptionRequest(t *testing.T) {
+	testcases := []struct {
+		name     string
+		sse      string
+		sseKeyID string
+		acl      string
+
+		expectedSSE      string
+		expectedSSEKeyID string
+		expectedAcl      string
+	}{
+		{
+			name: "no encryption/no acl, by default",
+		},
+		{
+			name: "aws:kms encryption with server side generated keys",
+			sse:  "aws:kms",
+
+			expectedSSE: "aws:kms",
+		},
+		{
+			name:     "aws:kms encryption with user provided key",
+			sse:      "aws:kms",
+			sseKeyID: "sdkjn12SDdci#@#EFRFERTqW/ke",
+
+			expectedSSE:      "aws:kms",
+			expectedSSEKeyID: "sdkjn12SDdci#@#EFRFERTqW/ke",
+		},
+		{
+			name:     "provide key without encryption flag, shall be ignored",
+			sseKeyID: "1234567890",
+		},
+		{
+			name:        "acl flag with a value",
+			acl:         "bucket-owner-full-control",
+			expectedAcl: "bucket-owner-full-control",
+		},
+	}
+
+	u, err := url.New("s3://bucket/key")
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	for _, tc := range testcases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+
+			mockApi := s3.New(unit.Session)
+
+			mockApi.Handlers.Unmarshal.Clear()
+			mockApi.Handlers.UnmarshalMeta.Clear()
+			mockApi.Handlers.UnmarshalError.Clear()
+			mockApi.Handlers.Send.Clear()
+
+			mockApi.Handlers.Send.PushBack(func(r *request.Request) {
+
+				r.HTTPResponse = &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       ioutil.NopCloser(strings.NewReader("")),
+				}
+
+				params := r.Params
+				sse := val(params, "ServerSideEncryption")
+				key := val(params, "SSEKMSKeyId")
+
+				if !(sse == nil && tc.expectedSSE == "") {
+					assert.Equal(t, sse, tc.expectedSSE)
+				}
+				if !(key == nil && tc.expectedSSEKeyID == "") {
+					assert.Equal(t, key, tc.expectedSSEKeyID)
+				}
+
+				aclVal := val(r.Params, "ACL")
+
+				if aclVal == nil && tc.expectedAcl == "" {
+					return
+				}
+				assert.Equal(t, aclVal, tc.expectedAcl)
+			})
+
+			mockS3 := &S3{
+				api: mockApi,
+			}
+			mockS3.destinationS3 = mockS3
+
+			metadata := NewMetadata().SetSSE(tc.sse).SetSSEKeyID(tc.sseKeyID).SetACL(tc.acl)
+
+			err = mockS3.Copy(context.Background(), u, u, metadata)
+
+			if err != nil {
+				t.Errorf("Expected %v, but received %q", nil, err)
+			}
+		})
+	}
+}
+
+func TestS3PutEncryptionRequest(t *testing.T) {
+	testcases := []struct {
+		name     string
+		sse      string
+		sseKeyID string
+		acl      string
+
+		expectedSSE      string
+		expectedSSEKeyID string
+		expectedAcl      string
+	}{
+		{
+			name: "no encryption, no acl flag",
+		},
+		{
+			name:        "aws:kms encryption with server side generated keys",
+			sse:         "aws:kms",
+			expectedSSE: "aws:kms",
+		},
+		{
+			name:     "aws:kms encryption with user provided key",
+			sse:      "aws:kms",
+			sseKeyID: "sdkjn12SDdci#@#EFRFERTqW/ke",
+
+			expectedSSE:      "aws:kms",
+			expectedSSEKeyID: "sdkjn12SDdci#@#EFRFERTqW/ke",
+		},
+		{
+			name:     "provide key without encryption flag, shall be ignored",
+			sseKeyID: "1234567890",
+		},
+		{
+			name:        "acl flag with a value",
+			acl:         "bucket-owner-full-control",
+			expectedAcl: "bucket-owner-full-control",
+		},
+	}
+	u, err := url.New("s3://bucket/key")
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	for _, tc := range testcases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+
+			mockApi := s3.New(unit.Session)
+
+			mockApi.Handlers.Unmarshal.Clear()
+			mockApi.Handlers.UnmarshalMeta.Clear()
+			mockApi.Handlers.UnmarshalError.Clear()
+			mockApi.Handlers.Send.Clear()
+
+			mockApi.Handlers.Send.PushBack(func(r *request.Request) {
+
+				r.HTTPResponse = &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       ioutil.NopCloser(strings.NewReader("")),
+				}
+
+				params := r.Params
+				sse := val(params, "ServerSideEncryption")
+				key := val(params, "SSEKMSKeyId")
+
+				if !(sse == nil && tc.expectedSSE == "") {
+					assert.Equal(t, sse, tc.expectedSSE)
+				}
+				if !(key == nil && tc.expectedSSEKeyID == "") {
+					assert.Equal(t, key, tc.expectedSSEKeyID)
+				}
+
+				aclVal := val(r.Params, "ACL")
+
+				if aclVal == nil && tc.expectedAcl == "" {
+					return
+				}
+				assert.Equal(t, aclVal, tc.expectedAcl)
+			})
+
+			mockS3 := &S3{
+				uploader: s3manager.NewUploaderWithClient(mockApi),
+			}
+			mockS3.destinationS3 = mockS3
+
+			metadata := NewMetadata().SetSSE(tc.sse).SetSSEKeyID(tc.sseKeyID).SetACL(tc.acl)
+
+			err = mockS3.Put(context.Background(), bytes.NewReader([]byte("")), u, metadata, 1, 5242880)
+
+			if err != nil {
+				t.Errorf("Expected %v, but received %q", nil, err)
+			}
+		})
+	}
+}
+
+func TestS3listObjectsV2(t *testing.T) {
+	const (
+		numObjectsToReturn = 10100
+		numObjectsToIgnore = 1127
+
+		pre = "s3://bucket/key"
+	)
+
+	u, err := url.New(pre)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	mapReturnObjNameToModtime := map[string]time.Time{}
+	mapIgnoreObjNameToModtime := map[string]time.Time{}
+
+	s3objs := make([]*s3.Object, 0, numObjectsToIgnore+numObjectsToReturn)
+
+	for i := 0; i < numObjectsToReturn; i++ {
+		fname := fmt.Sprintf("%s/%d", pre, i)
+		now := time.Now()
+
+		mapReturnObjNameToModtime[pre+"/"+fname] = now
+		s3objs = append(s3objs, &s3.Object{
+			Key:          aws.String("key/" + fname),
+			LastModified: aws.Time(now),
+		})
+	}
+
+	for i := 0; i < numObjectsToIgnore; i++ {
+		fname := fmt.Sprintf("%s/%d", pre, numObjectsToReturn+i)
+		later := time.Now().Add(time.Second * 10)
+
+		mapIgnoreObjNameToModtime[pre+"/"+fname] = later
+		s3objs = append(s3objs, &s3.Object{
+			Key:          aws.String("key/" + fname),
+			LastModified: aws.Time(later),
+		})
+	}
+
+	// shuffle the objects array to remove possible assumptions about how objects
+	// are stored.
+	rand.Shuffle(len(s3objs), func(i, j int) {
+		s3objs[i], s3objs[j] = s3objs[j], s3objs[i]
+	})
+
+	mockApi := s3.New(unit.Session)
+
+	mockApi.Handlers.Unmarshal.Clear()
+	mockApi.Handlers.UnmarshalMeta.Clear()
+	mockApi.Handlers.UnmarshalError.Clear()
+	mockApi.Handlers.Send.Clear()
+
+	mockApi.Handlers.Send.PushBack(func(r *request.Request) {
+
+		r.HTTPResponse = &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       ioutil.NopCloser(strings.NewReader("")),
+		}
+
+		r.Data = &s3.ListObjectsV2Output{
+			Contents: s3objs,
+		}
+
+	})
+
+	mockS3 := &S3{
+		api: mockApi,
+	}
+
+	ouputCh := mockS3.listObjectsV2(context.Background(), u)
+
+	for obj := range ouputCh {
+		if _, ok := mapReturnObjNameToModtime[obj.String()]; ok {
+			delete(mapReturnObjNameToModtime, obj.String())
+			continue
+		}
+		t.Errorf("%v should not have been returned\n", obj)
+	}
+	assert.Equal(t, len(mapReturnObjNameToModtime), 0)
 }

@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -178,6 +179,10 @@ func (s *S3) listObjectsV2(ctx context.Context, url *url.URL) <-chan *Object {
 		defer close(objCh)
 		objectFound := false
 
+		// keep track of unix timestamp, which is used not to iterate
+		// files, which have already been passed through
+		now := time.Now().UTC().Unix()
+
 		err := s.api.ListObjectsV2PagesWithContext(ctx, &listInput, func(p *s3.ListObjectsV2Output, lastPage bool) bool {
 			for _, c := range p.CommonPrefixes {
 				prefix := aws.StringValue(c.Prefix)
@@ -210,6 +215,12 @@ func (s *S3) listObjectsV2(ctx context.Context, url *url.URL) <-chan *Object {
 				newurl.Path = aws.StringValue(c.Key)
 				etag := aws.StringValue(c.ETag)
 				mod := aws.TimeValue(c.LastModified)
+
+				if mod.UTC().Unix() > now {
+					objectFound = true
+					continue
+				}
+
 				objCh <- &Object{
 					URL:          newurl,
 					Etag:         strings.Trim(etag, `"`),
@@ -256,6 +267,10 @@ func (s *S3) listObjects(ctx context.Context, url *url.URL) <-chan *Object {
 		defer close(objCh)
 		objectFound := false
 
+		// keep track of unix timestamp, which is used not to iterate
+		// files, which have already been passed through
+		now := time.Now().UTC().Unix()
+
 		err := s.api.ListObjectsPagesWithContext(ctx, &listInput, func(p *s3.ListObjectsOutput, lastPage bool) bool {
 			for _, c := range p.CommonPrefixes {
 				prefix := aws.StringValue(c.Prefix)
@@ -288,6 +303,12 @@ func (s *S3) listObjects(ctx context.Context, url *url.URL) <-chan *Object {
 				newurl.Path = aws.StringValue(c.Key)
 				etag := aws.StringValue(c.ETag)
 				mod := aws.TimeValue(c.LastModified)
+
+				if mod.UTC().Unix() > now {
+					objectFound = true
+					continue
+				}
+
 				objCh <- &Object{
 					URL:          newurl,
 					Etag:         strings.Trim(etag, `"`),
@@ -318,7 +339,7 @@ func (s *S3) listObjects(ctx context.Context, url *url.URL) <-chan *Object {
 
 // Copy is a single-object copy operation which copies objects to S3
 // destination from another S3 source.
-func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata map[string]string) error {
+func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata Metadata) error {
 	// SDK expects CopySource like "bucket[/key]"
 	copySource := strings.TrimPrefix(from.String(), "s3://")
 
@@ -328,9 +349,23 @@ func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata map[string]st
 		CopySource: aws.String(copySource),
 	}
 
-	storageClass := metadata["StorageClass"]
+	storageClass := metadata.StorageClass()
 	if storageClass != "" {
 		input.StorageClass = aws.String(storageClass)
+	}
+
+	sseEncryption := metadata.SSE()
+	if sseEncryption != "" {
+		input.ServerSideEncryption = aws.String(sseEncryption)
+		sseKmsKeyID := metadata.SSEKeyID()
+		if sseKmsKeyID != "" {
+			input.SSEKMSKeyId = aws.String(sseKmsKeyID)
+		}
+	}
+
+	acl := metadata.ACL()
+	if acl != "" {
+		input.ACL = aws.String(acl)
 	}
 
 	_, err := s.Api().CopyObject(input)
@@ -375,11 +410,11 @@ func (s *S3) Put(
 	ctx context.Context,
 	reader io.Reader,
 	to *url.URL,
-	metadata map[string]string,
+	metadata Metadata,
 	concurrency int,
 	partSize int64,
 ) error {
-	contentType := metadata["ContentType"]
+	contentType := metadata.ContentType()
 	if contentType == "" {
 		contentType = "application/octet-stream"
 	}
@@ -391,9 +426,22 @@ func (s *S3) Put(
 		ContentType: aws.String(contentType),
 	}
 
-	storageClass := metadata["StorageClass"]
+	storageClass := metadata.StorageClass()
 	if storageClass != "" {
 		input.StorageClass = aws.String(storageClass)
+	}
+	acl := metadata.ACL()
+	if acl != "" {
+		input.ACL = aws.String(acl)
+	}
+
+	sseEncryption := metadata.SSE()
+	if sseEncryption != "" {
+		input.ServerSideEncryption = aws.String(sseEncryption)
+		sseKmsKeyID := metadata.SSEKeyID()
+		if sseKmsKeyID != "" {
+			input.SSEKMSKeyId = aws.String(sseKmsKeyID)
+		}
 	}
 
 	_, err := s.Uploader().UploadWithContext(ctx, input, func(u *s3manager.Uploader) {
@@ -672,6 +720,11 @@ func (c *customRetryer) ShouldRetry(req *request.Request) bool {
 	if errHasCode(req.Error, "InternalError") {
 		return true
 	}
+
+	if errContains(req.Error, "use of closed network connection") {
+		return true
+	}
+
 	return c.DefaultRetryer.ShouldRetry(req)
 }
 
@@ -715,6 +768,21 @@ func errHasCode(err error, code string) bool {
 
 	return false
 
+}
+
+func errContains(err error, msg string) bool {
+	if err == nil || msg == "" {
+		return false
+	}
+
+	var awsErr awserr.Error
+	if errors.As(err, &awsErr) {
+		if strings.Contains(awsErr.Error(), msg) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // IsCancelationError reports whether given error is a storage related

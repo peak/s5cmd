@@ -2,9 +2,26 @@
 
 # s5cmd
 
-`s5cmd` is a very fast S3 and local filesystem execution tool.
-![](./doc/usage.png)
+## Overview
+`s5cmd` is a very fast S3 and local filesystem execution tool. It comes with support
+for a multitude of operations including tab completion and wild card support 
+for files, which can be very handy for your object storage workflow while working 
+with large number of files.
+
+There are already other utilities to work with S3 and similar object storage
+services, thus it is natural to wonder what `s5cmd` has to offer that others don't.
+
+In short, *`s5cmd` offers a very fast speed.* 
+Thanks to [Joshua Robinson](https://github.com/joshuarobinson) for his
+study and experimentation on `s5cmd;` to quote his medium [post](https://medium.com/@joshua_robinson/s5cmd-for-high-performance-object-storage-7071352cc09d):
+> For uploads, s5cmd is 32x faster than s3cmd and 12x faster than aws-cli.
+>For downloads, s5cmd can saturate a 40Gbps link (~4.3 GB/s), whereas s3cmd
+>and aws-cli can only reach 85 MB/s and 375 MB/s respectively.
+
+If you would like to know more about performance of `s5cmd` and the 
+reasons for its fast speed, refer to [benchmarks](./README.md#Benchmarks) section
 ## Features
+![](./doc/usage.png)
 
 `s5cmd` supports wide range of object management tasks both for cloud
 storage services and local filesystems.
@@ -12,6 +29,8 @@ storage services and local filesystems.
 - List buckets and objects
 - Upload, download or delete objects
 - Move, copy or rename objects
+- Set Server Side Encryption using AWS Key Management Service (KMS)
+- Set Access Control List (ACL) for objects/files on the upload, copy, move. 
 - Print object contents to stdout
 - Create buckets
 - Summarize objects sizes, grouping by storage class
@@ -117,7 +136,15 @@ $ tree
 #### Upload a file to S3
 
     s5cmd cp object.gz s3://bucket/
+    
+ by setting server side encryption (*aws kms*) of the file:
+    
+    s5cmd cp -sse aws:kms -sse-kms-key-id <your-kms-key-id> object.gz s3://bucket/
+        
+ by setting Access Control List (*acl*) policy of the object:
 
+    s5cmd cp -acl bucket-owner-full-control object.gz s3://bucket/
+    
 #### Upload multiple files to S3
 
     s5cmd cp directory/ s3://bucket/
@@ -277,6 +304,30 @@ ERROR "cp s3://somebucket/file.txt file.txt": object already exists
       "error": "'cp s3://somebucket/file.txt file.txt': object already exists"
     }
 ```
+## Benchmarks
+Some benchmarks regarding the performance of `s5cmd` are introduced below. For more
+details refer to this [post](https://medium.com/@joshua_robinson/s5cmd-for-high-performance-object-storage-7071352cc09d)
+which is the source of the benchmarks to be presented.
+
+*Upload/download of single large file*
+
+<img src="./doc/benchmark1.png" alt="get/put performance graph" height="75%" width="75%">
+
+*Uploading large number of small-sized files*
+
+<img src="./doc/benchmark2.png" alt="multi-object upload performance graph" height="75%" width="75%">
+
+*Performance comparison on different hardware*
+
+<img src="./doc/benchmark3.png" alt="s3 upload speed graph" height="75%" width="75%">
+
+*So, where does all this speed come from?*
+
+There are mainly two reasons for this:
+- It is written in Go, a statically compiled language designed to make development
+of concurrent systems easy and make full utilization of multi-core processors.
+- *Parallelization.* `s5cmd` starts out with concurrent worker pools and parallelizes
+workloads as much as possible while trying to achieve maximum throughput.
 
 # LICENSE
 

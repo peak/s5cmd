@@ -1,22 +1,38 @@
 # Changelog
 
-## not released yet
+#### Features
+
+- Added cross-region transfer support using `source-region` and `region` flags. It can be used for cp/mv operations where source and destination buckets reside in different regions. ([#155](https://github.com/peak/s5cmd/issues/155))
+
+## v1.1.0 - 22 Jul 2020
+
+With this release, Windows is supported.
 
 
 #### Breaking changes
 - Dropped storage class short codes display from default behaviour of `ls` operation. Instead, use `-s` flag with `ls`
 to see full names of the storage classes when listing objects.
 
+
 #### Features
-- Added cross-region transfer support using `source-region` and `region` flags. Ex, it can be used with cp/mv operations where source and destination buckets reside in different regions. ([#155](https://github.com/peak/s5cmd/issues/155))
+- Added Server-side Encryption (SSE) support for mv/cp operations. It uses customer master keys (CMKs) managed by AWS Key Management Service. ([#18](https://github.com/peak/s5cmd/issues/18))
 - Added an option to show full form of [storage class](https://aws.amazon.com/s3/storage-classes/) when listing objects. ([#165](https://github.com/peak/s5cmd/issues/165))
+- Add [access control lists (ACLs)](https://docs.aws.amazon.com/AmazonS3/latest/dev/acl-overview.html)
+support to enable managing access to buckets and objects. ([#26](https://github.com/peak/s5cmd/issues/26))
+
 
 #### Bugfixes
 
+- Fixed infinite repetition issue on mv/cp operations which would occur
+ if the destination matched the source wildcard. ([#168](https://github.com/peak/s5cmd/issues/168))
 - Fixed windows filepath issue, where backslashes should be treated as the path delimiter. ([#178](https://github.com/peak/s5cmd/issues/178))
 - All tests pass on windows, by converting and treating file paths to UNIX filepath format.
 - Fixed a transfer issue where the object path contains particular regex metacharacters. ([#111](https://github.com/peak/s5cmd/pull/111)) [@brendan-matroid](https://github.com/brendan-matroid)
 - Correctly parse object paths that contain whitespaces in run-mode. ([#111](https://github.com/peak/s5cmd/pull/111)) [@brendan-matroid](https://github.com/brendan-matroid)
+
+
+#### Improvements
+- Retry when connection closed by S3 unexpectedly. ([#189](https://github.com/peak/s5cmd/pull/189)) [@eminugurkenar](https://github.com/eminugurkenar)
 
 ## v1.0.0 - 1 Apr 2020
 

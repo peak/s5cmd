@@ -64,6 +64,12 @@ Examples:
 
 	10. Mirror an S3 prefix to target S3 prefix
 		 > s5cmd {{.HelpName}} -n -s -u s3://bucket/source-prefix/* s3://bucket/target-prefix/
+
+	11. Perform KMS Server Side Encryption of the object(s) at the destination
+		> s5cmd {{.HelpName}} -sse aws:kms s3://bucket/object s3://target-bucket/prefix/object
+
+	12. Perform KMS-SSE of the object(s) at the destination using customer managed Customer Master Key (CMK) key id
+		> s5cmd {{.HelpName}} -sse aws:kms -sse-kms-key-id <your-kms-key-id> s3://bucket/object s3://target-bucket/prefix/object
 	
 	13. Copy S3 objects to another bucket in different region with default source region
 		> s5cmd {{.HelpName}} -region eu-east-2 s3://bucket/object s3://target-bucket/prefix/object
@@ -121,6 +127,18 @@ var copyCommandFlags = []cli.Flag{
 		Name:  "region",
 		Usage: "region of the destination bucket for cp/mv operations; default is source-region",
 	},
+	&cli.StringFlag{
+		Name:  "sse",
+		Usage: "perform server side encryption of the data at its destination, e.g. aws:kms",
+	},
+	&cli.StringFlag{
+		Name:  "sse-kms-key-id",
+		Usage: "customer master key (CMK) id for SSE-KMS encryption; leave it out if server-side generated key is desired",
+	},
+	&cli.StringFlag{
+		Name:  "acl",
+		Usage: "set acl for target: defines granted accesses and their types on different accounts/groups",
+	},
 }
 
 var copyCommand = &cli.Command{
@@ -151,12 +169,15 @@ var copyCommand = &cli.Command{
 			fullCommand:  givenCommand(c),
 			deleteSource: false, // don't delete source
 			// flags
-			noClobber:      c.Bool("no-clobber"),
-			ifSizeDiffer:   c.Bool("if-size-differ"),
-			ifSourceNewer:  c.Bool("if-source-newer"),
-			flatten:        c.Bool("flatten"),
-			followSymlinks: !c.Bool("no-follow-symlinks"),
-			storageClass:   storage.StorageClass(c.String("storage-class")),
+			noClobber:        c.Bool("no-clobber"),
+			ifSizeDiffer:     c.Bool("if-size-differ"),
+			ifSourceNewer:    c.Bool("if-source-newer"),
+			flatten:          c.Bool("flatten"),
+			followSymlinks:   !c.Bool("no-follow-symlinks"),
+			storageClass:     storage.StorageClass(c.String("storage-class")),
+			encryptionMethod: c.String("sse"),
+			encryptionKeyID:  c.String("sse-kms-key-id"),
+			acl:              c.String("acl"),
 
 			StorageOptions: storage.StorageOptions{
 				Concurrency:       c.Int("concurrency"),
@@ -181,12 +202,15 @@ type Copy struct {
 	deleteSource bool
 
 	// flags
-	noClobber      bool
-	ifSizeDiffer   bool
-	ifSourceNewer  bool
-	flatten        bool
-	followSymlinks bool
-	storageClass   storage.StorageClass
+	noClobber        bool
+	ifSizeDiffer     bool
+	ifSourceNewer    bool
+	flatten          bool
+	followSymlinks   bool
+	storageClass     storage.StorageClass
+	encryptionMethod string
+	encryptionKeyID  string
+	acl              string
 
 	// s3 options
 	storage.StorageOptions
@@ -423,10 +447,12 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 		return err
 	}
 
-	metadata := map[string]string{
-		"StorageClass": string(c.storageClass),
-		"ContentType":  guessContentType(f),
-	}
+	metadata := storage.NewMetadata().
+		SetContentType(guessContentType(f)).
+		SetStorageClass(string(c.storageClass)).
+		SetSSE(c.encryptionMethod).
+		SetSSEKeyID(c.encryptionKeyID).
+		SetACL(c.acl)
 
 	err = dstClient.Put(ctx, f, dsturl, metadata, c.Concurrency, c.PartSize)
 	if err != nil {
@@ -469,9 +495,11 @@ func (c Copy) doCopy(ctx context.Context, srcurl *url.URL, dsturl *url.URL) erro
 		return err
 	}
 
-	metadata := map[string]string{
-		"StorageClass": string(c.storageClass),
-	}
+	metadata := storage.NewMetadata().
+		SetStorageClass(string(c.storageClass)).
+		SetSSE(c.encryptionMethod).
+		SetSSEKeyID(c.encryptionKeyID).
+		SetACL(c.acl)
 
 	err = c.shouldOverride(ctx, srcurl, dsturl)
 	if err != nil {

@@ -25,6 +25,10 @@ support to enable managing access to buckets and objects. ([#26](https://github.
 - Fixed a transfer issue where the object path contains particular regex metacharacters. ([#111](https://github.com/peak/s5cmd/pull/111)) [@brendan-matroid](https://github.com/brendan-matroid)
 - Correctly parse object paths that contain whitespaces in run-mode. ([#111](https://github.com/peak/s5cmd/pull/111)) [@brendan-matroid](https://github.com/brendan-matroid)
 
+
+#### Improvements
+- Retry when connection closed by S3 unexpectedly. ([#189](https://github.com/peak/s5cmd/pull/189)) [@eminugurkenar](https://github.com/eminugurkenar)
+
 ## v1.0.0 - 1 Apr 2020
 
 This is a major release with many breaking changes.

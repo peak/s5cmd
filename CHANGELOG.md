@@ -1,7 +1,8 @@
 # Changelog
 
-## not released yet
+## v1.1.0 - 22 Jul 2020
 
+With this release, Windows is supported.
 
 #### Breaking changes
 - Dropped storage class short codes display from default behaviour of `ls` operation. Instead, use `-s` flag with `ls`
@@ -23,6 +24,10 @@ support to enable managing access to buckets and objects. ([#26](https://github.
 - All tests pass on windows, by converting and treating file paths to UNIX filepath format.
 - Fixed a transfer issue where the object path contains particular regex metacharacters. ([#111](https://github.com/peak/s5cmd/pull/111)) [@brendan-matroid](https://github.com/brendan-matroid)
 - Correctly parse object paths that contain whitespaces in run-mode. ([#111](https://github.com/peak/s5cmd/pull/111)) [@brendan-matroid](https://github.com/brendan-matroid)
+
+
+#### Improvements
+- Retry when connection closed by S3 unexpectedly. ([#189](https://github.com/peak/s5cmd/pull/189)) [@eminugurkenar](https://github.com/eminugurkenar)
 
 ## v1.0.0 - 1 Apr 2020
 

@@ -9,7 +9,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/hashicorp/go-multierror"
 	"github.com/urfave/cli/v2"
 
 	errorpkg "github.com/peak/s5cmd/error"
@@ -211,10 +210,8 @@ func (c Copy) Run(ctx context.Context) error {
 
 	waiter := parallel.NewWaiter()
 
-	var (
-		merror    error
-		errDoneCh = make(chan bool)
-	)
+	errDoneCh := make(chan bool)
+
 	go func() {
 		defer close(errDoneCh)
 		for err := range waiter.Err() {
@@ -224,7 +221,7 @@ func (c Copy) Run(ctx context.Context) error {
 
 				os.Exit(1)
 			}
-			merror = multierror.Append(merror, err)
+			printError(c.fullCommand, c.op, err)
 		}
 	}()
 
@@ -270,7 +267,7 @@ func (c Copy) Run(ctx context.Context) error {
 	waiter.Wait()
 	<-errDoneCh
 
-	return merror
+	return nil
 }
 
 func (c Copy) prepareCopyTask(

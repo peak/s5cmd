@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/hashicorp/go-multierror"
 	"github.com/urfave/cli/v2"
 
 	errorpkg "github.com/peak/s5cmd/error"
@@ -70,18 +69,28 @@ var listCommand = &cli.Command{
 			return ListBuckets(c.Context)
 		}
 
-		showEtag := c.Bool("etag")
-		humanize := c.Bool("humanize")
-		showStorageClass := c.Bool("storage-class")
-
-		return List(
-			c.Context,
-			c.Args().First(),
-			showEtag,
-			humanize,
-			showStorageClass,
-		)
+		return List{
+			src:         c.Args().First(),
+			op:          c.Command.Name,
+			fullCommand: givenCommand(c),
+			// flags
+			showEtag:         c.Bool("etag"),
+			humanize:         c.Bool("humanize"),
+			showStorageClass: c.Bool("storage-class"),
+		}.Run(c.Context)
 	},
+}
+
+// List holds list operation flags and states.
+type List struct {
+	src         string
+	op          string
+	fullCommand string
+
+	// flags
+	showEtag         bool
+	humanize         bool
+	showStorageClass bool
 }
 
 // ListBuckets prints all buckets.
@@ -102,23 +111,14 @@ func ListBuckets(ctx context.Context) error {
 	return nil
 }
 
-// List prints objects at given source.
-func List(
-	ctx context.Context,
-	src string,
-	// flags
-	showEtag bool,
-	humanize bool,
-	showStorageClass bool,
-) error {
-	srcurl, err := url.New(src)
+// Run prints objects at given source.
+func (l List) Run(ctx context.Context) error {
+	srcurl, err := url.New(l.src)
 	if err != nil {
 		return err
 	}
 
 	client := storage.NewClient(srcurl)
-
-	var merror error
 
 	for object := range client.List(ctx, srcurl, false) {
 		if errorpkg.IsCancelation(object.Err) {
@@ -126,21 +126,21 @@ func List(
 		}
 
 		if err := object.Err; err != nil {
-			merror = multierror.Append(merror, err)
+			printError(l.fullCommand, l.op, err)
 			continue
 		}
 
 		msg := ListMessage{
 			Object:           object,
-			showEtag:         showEtag,
-			showHumanized:    humanize,
-			showStorageClass: showStorageClass,
+			showEtag:         l.showEtag,
+			showHumanized:    l.humanize,
+			showStorageClass: l.showStorageClass,
 		}
 
 		log.Info(msg)
 	}
 
-	return merror
+	return nil
 }
 
 // ListMessage is a structure for logging ls results.

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/hashicorp/go-multierror"
 	"github.com/urfave/cli/v2"
 
 	errorpkg "github.com/peak/s5cmd/error"
@@ -95,14 +94,9 @@ func Delete(
 
 	resultch := client.MultiDelete(ctx, urlch)
 
-	var merror error
 	for obj := range resultch {
 		if err := obj.Err; err != nil {
-			if errorpkg.IsCancelation(obj.Err) {
-				continue
-			}
-
-			merror = multierror.Append(merror, obj.Err)
+			printError(fullCommand, op, obj.Err)
 			continue
 		}
 
@@ -113,7 +107,7 @@ func Delete(
 		log.Info(msg)
 	}
 
-	return merror
+	return nil
 }
 
 // newSources creates object URL list from given sources.

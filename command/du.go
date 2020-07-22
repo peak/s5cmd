@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/hashicorp/go-multierror"
 	"github.com/urfave/cli/v2"
 
 	errorpkg "github.com/peak/s5cmd/error"
@@ -55,26 +54,31 @@ var sizeCommand = &cli.Command{
 		return nil
 	},
 	Action: func(c *cli.Context) error {
-		groupByClass := c.Bool("group")
-		humanize := c.Bool("humanize")
-
-		return Size(
-			c.Context,
-			c.Args().First(),
-			groupByClass,
-			humanize,
-		)
+		return Size{
+			src:         c.Args().First(),
+			op:          c.Command.Name,
+			fullCommand: givenCommand(c),
+			// flags
+			groupByClass: c.Bool("group"),
+			humanize:     c.Bool("humanize"),
+		}.Run(c.Context)
 	},
 }
 
-// Size calculates disk usage of given source.
-func Size(
-	ctx context.Context,
-	src string,
-	groupByClass bool,
-	humanize bool,
-) error {
-	srcurl, err := url.New(src)
+// Size holds disk usage (du) operation flags and states.
+type Size struct {
+	src         string
+	op          string
+	fullCommand string
+
+	// flags
+	groupByClass bool
+	humanize     bool
+}
+
+// Run calculates disk usage of given source.
+func (sz Size) Run(ctx context.Context) error {
+	srcurl, err := url.New(sz.src)
 	if err != nil {
 		return err
 	}
@@ -84,15 +88,13 @@ func Size(
 	storageTotal := map[string]sizeAndCount{}
 	total := sizeAndCount{}
 
-	var merror error
-
 	for object := range client.List(ctx, srcurl, false) {
 		if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) {
 			continue
 		}
 
 		if err := object.Err; err != nil {
-			merror = multierror.Append(merror, err)
+			printError(sz.fullCommand, sz.op, err)
 			continue
 		}
 		storageClass := string(object.StorageClass)
@@ -103,12 +105,12 @@ func Size(
 		total.addObject(object)
 	}
 
-	if !groupByClass {
+	if !sz.groupByClass {
 		msg := SizeMessage{
 			Source:        srcurl.String(),
 			Count:         total.count,
 			Size:          total.size,
-			showHumanized: humanize,
+			showHumanized: sz.humanize,
 		}
 		log.Info(msg)
 		return nil
@@ -120,12 +122,12 @@ func Size(
 			StorageClass:  k,
 			Count:         v.count,
 			Size:          v.size,
-			showHumanized: humanize,
+			showHumanized: sz.humanize,
 		}
 		log.Info(msg)
 	}
 
-	return merror
+	return nil
 }
 
 // SizeMessage is the structure for logging disk usage.

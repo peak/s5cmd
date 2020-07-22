@@ -1,7 +1,8 @@
 # Changelog
 
-## not released yet
+## v1.1.0 - 22 Jul 2020
 
+With this release, Windows is supported.
 
 #### Breaking changes
 - Dropped storage class short codes display from default behaviour of `ls` operation. Instead, use `-s` flag with `ls`

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/hashicorp/go-multierror"
 	"github.com/urfave/cli/v2"
 
 	errorpkg "github.com/peak/s5cmd/error"
@@ -120,12 +121,15 @@ func (l List) Run(ctx context.Context) error {
 
 	client := storage.NewClient(srcurl)
 
+	var merror error
+
 	for object := range client.List(ctx, srcurl, false) {
 		if errorpkg.IsCancelation(object.Err) {
 			continue
 		}
 
 		if err := object.Err; err != nil {
+			merror = multierror.Append(merror, err)
 			printError(l.fullCommand, l.op, err)
 			continue
 		}
@@ -139,8 +143,12 @@ func (l List) Run(ctx context.Context) error {
 
 		log.Info(msg)
 	}
-
-	return nil
+	if merror != nil {
+		return errorpkg.ErrorResult{
+			Err: merror,
+		}
+	}
+	return merror
 }
 
 // ListMessage is a structure for logging ls results.

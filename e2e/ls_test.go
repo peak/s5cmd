@@ -310,7 +310,7 @@ func TestListNonexistingS3ObjectInGivenPrefix(t *testing.T) {
 	cmd := s5cmd("ls", "s3://"+bucket+pattern)
 	result := icmd.RunCmd(cmd)
 
-	result.Assert(t, icmd.Expected{ExitCode: 0})
+	result.Assert(t, icmd.Expected{ExitCode: 1})
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{})
 
@@ -333,12 +333,12 @@ func TestListNonexistingS3Object(t *testing.T) {
 	cmd := s5cmd("ls", "s3://"+bucket+"/nosuchobject")
 	result := icmd.RunCmd(cmd)
 
-	result.Assert(t, icmd.Expected{ExitCode: 0})
+	result.Assert(t, icmd.Expected{ExitCode: 1})
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{})
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: equals(`ERROR "ls s3://test-list-nonexisting-s-3-object/nosuchobject": no object found`),
+		0: equals(`ERROR "ls s3://%v/nosuchobject": no object found`, bucket),
 	}, strictLineCheck(false))
 }
 

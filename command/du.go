@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/hashicorp/go-multierror"
 	"github.com/urfave/cli/v2"
 
 	errorpkg "github.com/peak/s5cmd/error"
@@ -88,12 +89,15 @@ func (sz Size) Run(ctx context.Context) error {
 	storageTotal := map[string]sizeAndCount{}
 	total := sizeAndCount{}
 
+	var merror error
+
 	for object := range client.List(ctx, srcurl, false) {
 		if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) {
 			continue
 		}
 
 		if err := object.Err; err != nil {
+			merror = multierror.Append(merror, err)
 			printError(sz.fullCommand, sz.op, err)
 			continue
 		}
@@ -126,8 +130,12 @@ func (sz Size) Run(ctx context.Context) error {
 		}
 		log.Info(msg)
 	}
-
-	return nil
+	if merror != nil {
+		return errorpkg.ErrorResult{
+			Err: merror,
+		}
+	}
+	return merror
 }
 
 // SizeMessage is the structure for logging disk usage.

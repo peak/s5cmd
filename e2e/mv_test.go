@@ -311,3 +311,52 @@ func TestMoveMultipleS3ObjectsToS3(t *testing.T) {
 		assert.Assert(t, ensureS3Object(s3client, bucket, "dst/"+filename, content))
 	}
 }
+
+// mv --dry-run s3://bucket/* s3://bucket2/prefix/
+func TestMoveDashDryRunMultipleS3ObjectsToS3(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+
+	filesToContent := map[string]string{
+		"testfile1.txt":          "this is a test file 1",
+		"readme.md":              "this is a readme file",
+		"filename-with-hypen.gz": "file has hypen in its name",
+		"another_test_file.txt":  "yet another txt file. yatf.",
+	}
+
+	for filename, content := range filesToContent {
+		putFile(t, s3client, bucket, filename, content)
+	}
+
+	src := fmt.Sprintf("s3://%v/*", bucket)
+	dst := fmt.Sprintf("s3://%v/dst/", bucket)
+
+	cmd := s5cmd("mv", "--dry-run", src, dst)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals("mv s3://%v/another_test_file.txt %vanother_test_file.txt", bucket, dst),
+		1: equals("mv s3://%v/filename-with-hypen.gz %vfilename-with-hypen.gz", bucket, dst),
+		2: equals("mv s3://%v/readme.md %vreadme.md", bucket, dst),
+		3: equals("mv s3://%v/testfile1.txt %vtestfile1.txt", bucket, dst),
+	}, sortInput(true))
+
+	// expect no change on s3 source objects
+	for srcfile, content := range filesToContent {
+		assert.Assert(t, ensureS3Object(s3client, bucket, srcfile, content))
+	}
+
+	// assert no objects were copied to s3 destination
+	for filename, content := range filesToContent {
+		err := ensureS3Object(s3client, bucket, "dst/"+filename, content)
+		assertError(t, err, errS3NoSuchKey)
+	}
+}

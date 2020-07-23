@@ -34,6 +34,9 @@ Examples:
 
 	4. Delete all matching objects and a specific object
 		 > s5cmd {{.HelpName}} s3://bucketname/prefix/* s3://bucketname/object1.gz
+
+	5. Check what s5cmd will do, without actually doing so (check mode option)
+		> s5cmd {{.HelpName}} -dry-run s3://bucket/prefix/*
 `
 
 var deleteCommand = &cli.Command{
@@ -41,6 +44,12 @@ var deleteCommand = &cli.Command{
 	HelpName:           "rm",
 	Usage:              "remove objects",
 	CustomHelpTemplate: deleteHelpTemplate,
+	Flags: []cli.Flag{
+		&cli.BoolFlag{
+			Name:  "dry-run",
+			Usage: "show what commands will be executed without actually executing them",
+		},
+	},
 	Before: func(c *cli.Context) error {
 		if !c.Args().Present() {
 			return fmt.Errorf("expected at least 1 object to remove")
@@ -49,23 +58,28 @@ var deleteCommand = &cli.Command{
 		return sourcesHaveSameType(c.Args().Slice()...)
 	},
 	Action: func(c *cli.Context) error {
-		return Delete(
-			c.Context,
-			c.Command.Name,
-			givenCommand(c),
-			c.Args().Slice()...,
-		)
+		return Delete{
+			src:         c.Args().Slice(),
+			op:          c.Command.Name,
+			fullCommand: givenCommand(c),
+			dryRun:      c.Bool("dry-run"),
+		}.Run(c.Context)
 	},
 }
 
-// Delete remove given sources.
-func Delete(
-	ctx context.Context,
-	op string,
-	fullCommand string,
-	src ...string,
-) error {
-	srcurls, err := newURLs(src...)
+// Delete holds remove operation flags and states.
+type Delete struct {
+	src         []string
+	op          string
+	fullCommand string
+
+	// flags
+	dryRun bool
+}
+
+// Run removes given sources.
+func (d Delete) Run(ctx context.Context) error {
+	srcurls, err := newURLs(d.src...)
 	if err != nil {
 		return err
 	}
@@ -86,12 +100,22 @@ func Delete(
 			}
 
 			if err := object.Err; err != nil {
-				printError(fullCommand, op, err)
+				printError(d.fullCommand, d.op, err)
 				continue
 			}
 			urlch <- object.URL
 		}
 	}()
+	if d.dryRun {
+		for u := range urlch {
+			msg := log.InfoMessage{
+				Operation: d.op,
+				Source:    u,
+			}
+			log.Info(msg)
+		}
+		return nil
+	}
 
 	resultch := client.MultiDelete(ctx, urlch)
 
@@ -107,7 +131,7 @@ func Delete(
 		}
 
 		msg := log.InfoMessage{
-			Operation: op,
+			Operation: d.op,
 			Source:    obj.URL,
 		}
 		log.Info(msg)

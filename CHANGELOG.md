@@ -1,5 +1,8 @@
 # Changelog
 
+#### Features
+- Added `--dry-run` option for copy, move, and remove operations. It displays which commands will be executed without actually having a side effect. ([#90](https://github.com/peak/s5cmd/issues/90))
+
 ## v1.1.0 - 22 Jul 2020
 
 With this release, Windows is supported.

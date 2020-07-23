@@ -70,6 +70,9 @@ Examples:
 
 	12. Perform KMS-SSE of the object(s) at the destination using customer managed Customer Master Key (CMK) key id
 		> s5cmd {{.HelpName}} -sse aws:kms -sse-kms-key-id <your-kms-key-id> s3://bucket/object s3://target-bucket/prefix/object
+
+	13. Check what s5cmd will do, without actually doing so (check mode option)
+		> s5cmd {{.HelpName}} -dry-run dir/ s3://bucket/ 
 `
 
 var copyCommandFlags = []cli.Flag{
@@ -125,6 +128,10 @@ var copyCommandFlags = []cli.Flag{
 		Name:  "acl",
 		Usage: "set acl for target: defines granted accesses and their types on different accounts/groups",
 	},
+	&cli.BoolFlag{
+		Name:  "dry-run",
+		Usage: "show what commands will be executed without actually executing them",
+	},
 }
 
 var copyCommand = &cli.Command{
@@ -149,6 +156,7 @@ var copyCommand = &cli.Command{
 			ifSourceNewer:    c.Bool("if-source-newer"),
 			flatten:          c.Bool("flatten"),
 			followSymlinks:   !c.Bool("no-follow-symlinks"),
+			dryRun:           c.Bool("dry-run"),
 			storageClass:     storage.StorageClass(c.String("storage-class")),
 			concurrency:      c.Int("concurrency"),
 			partSize:         c.Int64("part-size") * megabytes,
@@ -174,6 +182,7 @@ type Copy struct {
 	ifSourceNewer    bool
 	flatten          bool
 	followSymlinks   bool
+	dryRun           bool
 	storageClass     storage.StorageClass
 	encryptionMethod string
 	encryptionKeyID  string
@@ -355,20 +364,23 @@ func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) 
 		return err
 	}
 
-	f, err := os.Create(dsturl.Absolute())
-	if err != nil {
-		return err
-	}
-	defer f.Close()
+	var size int64
+	if !c.dryRun {
+		f, err := os.Create(dsturl.Absolute())
+		if err != nil {
+			return err
+		}
+		defer f.Close()
 
-	size, err := srcClient.Get(ctx, srcurl, f, c.concurrency, c.partSize)
-	if err != nil {
-		_ = dstClient.Delete(ctx, dsturl)
-		return err
-	}
+		size, err = srcClient.Get(ctx, srcurl, f, c.concurrency, c.partSize)
+		if err != nil {
+			_ = dstClient.Delete(ctx, dsturl)
+			return err
+		}
 
-	if c.deleteSource {
-		_ = srcClient.Delete(ctx, srcurl)
+		if c.deleteSource {
+			_ = srcClient.Delete(ctx, srcurl)
+		}
 	}
 
 	msg := log.InfoMessage{
@@ -385,46 +397,50 @@ func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) 
 }
 
 func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) error {
-	// TODO(ig): use storage abstraction
-	f, err := os.Open(srcurl.Absolute())
-	if err != nil {
-		return err
-	}
-	defer f.Close()
 
-	err = c.shouldOverride(ctx, srcurl, dsturl)
-	if err != nil {
-		if errorpkg.IsWarning(err) {
-			printDebug(c.op, srcurl, dsturl, err)
-			return nil
-		}
-		return err
-	}
-
-	dstClient := storage.NewClient(dsturl)
-
-	metadata := storage.NewMetadata().
-		SetContentType(guessContentType(f)).
-		SetStorageClass(string(c.storageClass)).
-		SetSSE(c.encryptionMethod).
-		SetSSEKeyID(c.encryptionKeyID).
-		SetACL(c.acl)
-
-	err = dstClient.Put(ctx, f, dsturl, metadata, c.concurrency, c.partSize)
-	if err != nil {
-		return err
-	}
-
-	srcClient := storage.NewClient(srcurl)
-
-	obj, _ := srcClient.Stat(ctx, srcurl)
-	size := obj.Size
-
-	if c.deleteSource {
-		// close the file before deleting
-		f.Close()
-		if err := srcClient.Delete(ctx, srcurl); err != nil {
+	var size int64
+	if !c.dryRun {
+		// TODO(ig): use storage abstraction
+		f, err := os.Open(srcurl.Absolute())
+		if err != nil {
 			return err
+		}
+		defer f.Close()
+
+		err = c.shouldOverride(ctx, srcurl, dsturl)
+		if err != nil {
+			if errorpkg.IsWarning(err) {
+				printDebug(c.op, srcurl, dsturl, err)
+				return nil
+			}
+			return err
+		}
+
+		dstClient := storage.NewClient(dsturl)
+
+		metadata := storage.NewMetadata().
+			SetContentType(guessContentType(f)).
+			SetStorageClass(string(c.storageClass)).
+			SetSSE(c.encryptionMethod).
+			SetSSEKeyID(c.encryptionKeyID).
+			SetACL(c.acl)
+
+		err = dstClient.Put(ctx, f, dsturl, metadata, c.concurrency, c.partSize)
+		if err != nil {
+			return err
+		}
+
+		srcClient := storage.NewClient(srcurl)
+
+		obj, _ := srcClient.Stat(ctx, srcurl)
+		size = obj.Size
+
+		if c.deleteSource {
+			// close the file before deleting
+			f.Close()
+			if err := srcClient.Delete(ctx, srcurl); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -460,14 +476,16 @@ func (c Copy) doCopy(ctx context.Context, srcurl *url.URL, dsturl *url.URL) erro
 		return err
 	}
 
-	err = srcClient.Copy(ctx, srcurl, dsturl, metadata)
-	if err != nil {
-		return err
-	}
-
-	if c.deleteSource {
-		if err := srcClient.Delete(ctx, srcurl); err != nil {
+	if !c.dryRun {
+		err = srcClient.Copy(ctx, srcurl, dsturl, metadata)
+		if err != nil {
 			return err
+		}
+
+		if c.deleteSource {
+			if err := srcClient.Delete(ctx, srcurl); err != nil {
+				return err
+			}
 		}
 	}
 

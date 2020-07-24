@@ -32,46 +32,76 @@ var catCommand = &cli.Command{
 	Usage:              "print remote object's contents to stdout",
 	CustomHelpTemplate: catHelpTemplate,
 	Before: func(c *cli.Context) error {
+		op := c.Command.Name
+		fullCommand := givenCommand(c)
+
 		if c.Args().Len() != 1 {
-			return fmt.Errorf("expected only one argument")
+			err := fmt.Errorf("expected only one argument")
+			printError(fullCommand, op, err)
+			return err
 		}
 
 		src, err := url.New(c.Args().Get(0))
+
 		if err != nil {
+			printError(fullCommand, op, err)
 			return err
 		}
 
 		if !src.IsRemote() {
-			return fmt.Errorf("source must be a remote object")
+			err := fmt.Errorf("source must be a remote object")
+			printError(fullCommand, op, err)
+			return err
 		}
 
 		if src.IsBucket() || src.IsPrefix() {
-			return fmt.Errorf("remote source must be an object")
+			err := fmt.Errorf("remote source must be an object")
+			printError(fullCommand, op, err)
+			return err
 		}
 
 		if src.HasGlob() {
-			return fmt.Errorf("remote source %q can not contain glob characters", src)
+			err := fmt.Errorf("remote source %q can not contain glob characters", src)
+			printError(fullCommand, op, err)
+			return err
 		}
 
 		return nil
 	},
 	Action: func(c *cli.Context) error {
 		src, err := url.New(c.Args().Get(0))
+		op := c.Command.Name
+		fullCommand := givenCommand(c)
 		if err != nil {
+			printError(fullCommand, op, err)
 			return err
 		}
 
-		return Cat(c.Context, src)
+		return Cat{
+			src:         src,
+			op:          op,
+			fullCommand: fullCommand,
+		}.Run(c.Context)
 	},
 }
 
-// Cat prints content of given source to standard output.
-func Cat(ctx context.Context, src *url.URL) error {
-	client := storage.NewClient(src)
+// Cat holds cat operation flags and states.
+type Cat struct {
+	src         *url.URL
+	op          string
+	fullCommand string
+}
+
+// Run prints content of given source to standard output.
+func (c Cat) Run(ctx context.Context) error {
+	client := storage.NewClient(c.src)
 
 	// set concurrency to 1 for sequential write to 'stdout' and give a dummy 'partSize' since
 	// `storage.S3.Get()` ignores 'partSize' if concurrency is set to 1.
-	_, err := client.Get(ctx, src, sequentialWriterAt{w: os.Stdout}, 1, -1)
+	_, err := client.Get(ctx, c.src, sequentialWriterAt{w: os.Stdout}, 1, -1)
+	if err != nil {
+		printError(c.fullCommand, c.op, err)
+	}
 	return err
 }
 

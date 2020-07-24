@@ -42,11 +42,19 @@ var deleteCommand = &cli.Command{
 	Usage:              "remove objects",
 	CustomHelpTemplate: deleteHelpTemplate,
 	Before: func(c *cli.Context) error {
+		fullCommand := givenCommand(c)
+		op := c.Command.Name
 		if !c.Args().Present() {
-			return fmt.Errorf("expected at least 1 object to remove")
+			err := fmt.Errorf("expected at least 1 object to remove")
+			printError(fullCommand, op, err)
+			return err
 		}
 
-		return sourcesHaveSameType(c.Args().Slice()...)
+		err := sourcesHaveSameType(c.Args().Slice()...)
+		if err != nil {
+			printError(fullCommand, op, err)
+		}
+		return err
 	},
 	Action: func(c *cli.Context) error {
 		return Delete(
@@ -114,11 +122,6 @@ func Delete(
 		log.Info(msg)
 	}
 
-	if merror != nil {
-		return errorpkg.ErrorResult{
-			Err: merror,
-		}
-	}
 	return merror
 }
 

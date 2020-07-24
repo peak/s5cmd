@@ -143,11 +143,7 @@ func (l List) Run(ctx context.Context) error {
 
 		log.Info(msg)
 	}
-	if merror != nil {
-		return errorpkg.ErrorResult{
-			Err: merror,
-		}
-	}
+
 	return merror
 }
 

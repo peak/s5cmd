@@ -134,7 +134,11 @@ var copyCommand = &cli.Command{
 	Flags:              copyCommandFlags,
 	CustomHelpTemplate: copyHelpTemplate,
 	Before: func(c *cli.Context) error {
-		return validate(c)
+		err := validate(c)
+		if err != nil {
+			printError(givenCommand(c), c.Command.Name, err)
+		}
+		return err
 	},
 	Action: func(c *cli.Context) error {
 		return Copy{
@@ -194,11 +198,13 @@ increase the open file limit or try to decrease the number of workers with
 func (c Copy) Run(ctx context.Context) error {
 	srcurl, err := url.New(c.src)
 	if err != nil {
+		printError(c.fullCommand, c.op, err)
 		return err
 	}
 
 	dsturl, err := url.New(c.dst)
 	if err != nil {
+		printError(c.fullCommand, c.op, err)
 		return err
 	}
 
@@ -206,6 +212,7 @@ func (c Copy) Run(ctx context.Context) error {
 
 	objch, err := expandSource(ctx, client, c.followSymlinks, srcurl)
 	if err != nil {
+		printError(c.fullCommand, c.op, err)
 		return err
 	}
 
@@ -272,11 +279,6 @@ func (c Copy) Run(ctx context.Context) error {
 	waiter.Wait()
 	<-errDoneCh
 
-	if merror != nil {
-		return errorpkg.ErrorResult{
-			Err: merror,
-		}
-	}
 	return merror
 }
 

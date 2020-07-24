@@ -88,19 +88,3 @@ func IsWarning(err error) bool {
 
 	return false
 }
-
-// ErrorResult implements error interface
-// it can be used for scenarios where execution result returns
-// error, but when/where to log this error is conditional.
-type ErrorResult struct {
-	Err        error
-	DisplayErr bool
-}
-
-// Error represents conditional behaviour of error value.
-func (er ErrorResult) Error() string {
-	if er.DisplayErr {
-		return er.Err.Error()
-	}
-	return ""
-}

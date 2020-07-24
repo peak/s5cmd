@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"time"
 
 	"github.com/urfave/cli/v2"
 
+	"github.com/peak/s5cmd/statutil"
 	"github.com/peak/s5cmd/storage"
 	"github.com/peak/s5cmd/storage/url"
 )
@@ -66,12 +68,13 @@ var catCommand = &cli.Command{
 }
 
 // Cat prints content of given source to standard output.
-func Cat(ctx context.Context, src *url.URL) error {
+func Cat(ctx context.Context, src *url.URL) (err error) {
+	defer statutil.StatCollect("command=>Cat", time.Now(), &err)()
 	client := storage.NewClient(src)
 
 	// set concurrency to 1 for sequential write to 'stdout' and give a dummy 'partSize' since
 	// `storage.S3.Get()` ignores 'partSize' if concurrency is set to 1.
-	_, err := client.Get(ctx, src, sequentialWriterAt{w: os.Stdout}, 1, -1)
+	_, err = client.Get(ctx, src, sequentialWriterAt{w: os.Stdout}, 1, -1)
 	return err
 }
 

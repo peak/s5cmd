@@ -1,5 +1,8 @@
 # Changelog
 
+#### Features
+- Added `-stat` option for `s5cmd` and it displays program execution statistics before the end of the program output. ([#148](https://github.com/peak/s5cmd/issues/148))
+
 ## v1.1.0 - 22 Jul 2020
 
 With this release, Windows is supported.

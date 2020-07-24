@@ -3,10 +3,12 @@ package command
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/urfave/cli/v2"
 
 	"github.com/peak/s5cmd/log"
+	"github.com/peak/s5cmd/statutil"
 	"github.com/peak/s5cmd/storage"
 	"github.com/peak/s5cmd/storage/url"
 )
@@ -60,7 +62,8 @@ func MakeBucket(
 	ctx context.Context,
 	op string,
 	src string,
-) error {
+) (err error) {
+	defer statutil.StatCollect("MakeBucket", time.Now(), &err)()
 	bucket, err := url.New(src)
 	if err != nil {
 		return err

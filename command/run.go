@@ -8,11 +8,13 @@ import (
 	"io"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/kballard/go-shellquote"
 	"github.com/urfave/cli/v2"
 
 	"github.com/peak/s5cmd/parallel"
+	"github.com/peak/s5cmd/statutil"
 )
 
 var runHelpTemplate = `Name:
@@ -43,7 +45,8 @@ var runCommand = &cli.Command{
 		}
 		return nil
 	},
-	Action: func(c *cli.Context) error {
+	Action: func(c *cli.Context) (err error) {
+		defer statutil.StatCollect("runCommand.Action", time.Now(), &err)
 		reader := os.Stdin
 		if c.Args().Len() == 1 {
 			f, err := os.Open(c.Args().First())

@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/peak/s5cmd/statutil"
+
 	cmpinstall "github.com/posener/complete/cmd/install"
 	"github.com/urfave/cli/v2"
 
@@ -55,6 +57,10 @@ var app = &cli.App{
 			Name:  "install-completion",
 			Usage: "install completion for your shell",
 		},
+		&cli.BoolFlag{
+			Name:  "stat",
+			Usage: "collect statistics of program execution and display it at the end",
+		},
 	},
 	Before: func(c *cli.Context) error {
 		noVerifySSL := c.Bool("no-verify-ssl")
@@ -63,12 +69,17 @@ var app = &cli.App{
 		workerCount := c.Int("numworkers")
 		printJSON := c.Bool("json")
 		logLevel := c.String("log")
+		stat := c.Bool("stat")
 
 		log.Init(logLevel, printJSON)
 		parallel.Init(workerCount)
 
 		if retryCount < 0 {
 			return fmt.Errorf("retry count cannot be a negative value")
+		}
+
+		if stat {
+			statutil.InitStat()
 		}
 
 		s3opts := storage.S3Options{
@@ -104,6 +115,7 @@ var app = &cli.App{
 
 // Main is the entrypoint function to run given commands.
 func Main(ctx context.Context, args []string) error {
+	defer statutil.StatDisplay()
 	app.Commands = []*cli.Command{
 		listCommand,
 		copyCommand,

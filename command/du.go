@@ -3,12 +3,14 @@ package command
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/urfave/cli/v2"
 
 	errorpkg "github.com/peak/s5cmd/error"
 	"github.com/peak/s5cmd/log"
+	"github.com/peak/s5cmd/statutil"
 	"github.com/peak/s5cmd/storage"
 	"github.com/peak/s5cmd/storage/url"
 	"github.com/peak/s5cmd/strutil"
@@ -73,7 +75,8 @@ func Size(
 	src string,
 	groupByClass bool,
 	humanize bool,
-) error {
+) (err error) {
+	defer statutil.StatCollect("Size", time.Now(), &err)()
 	srcurl, err := url.New(src)
 	if err != nil {
 		return err

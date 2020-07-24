@@ -3,12 +3,14 @@ package command
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/urfave/cli/v2"
 
 	errorpkg "github.com/peak/s5cmd/error"
 	"github.com/peak/s5cmd/log"
+	"github.com/peak/s5cmd/statutil"
 	"github.com/peak/s5cmd/storage"
 	"github.com/peak/s5cmd/storage/url"
 )
@@ -64,7 +66,8 @@ func Delete(
 	op string,
 	fullCommand string,
 	src ...string,
-) error {
+) (err error) {
+	defer statutil.StatCollect("Delete", time.Now(), &err)()
 	srcurls, err := newURLs(src...)
 	if err != nil {
 		return err

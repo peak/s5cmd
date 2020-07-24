@@ -31,11 +31,22 @@ Examples:
 	2. Read commands from standard input and execute in parallel.
 		 > cat commands.txt | s5cmd {{.HelpName}}
 `
+var runCommandFlags = []cli.Flag{
+	&cli.StringFlag{
+		Name:  "source-region",
+		Usage: "[default] connect to a specific region of the remote object storage service",
+	},
+	&cli.StringFlag{
+		Name:  "region",
+		Usage: "[default] region of the destination bucket for cp/mv operations; defaulted to source-region",
+	},
+}
 
 var runCommand = &cli.Command{
 	Name:               "run",
 	HelpName:           "run",
 	Usage:              "run commands in batch",
+	Flags:              runCommandFlags, // to be passed to children subcommands
 	CustomHelpTemplate: runHelpTemplate,
 	Before: func(c *cli.Context) error {
 		if c.Args().Len() > 1 {

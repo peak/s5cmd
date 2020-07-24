@@ -61,13 +61,13 @@ var catCommand = &cli.Command{
 			return err
 		}
 
-		return Cat(c.Context, src)
+		return Cat(c.Context, src, storage.NewS3Options(c, true))
 	},
 }
 
 // Cat prints content of given source to standard output.
-func Cat(ctx context.Context, src *url.URL) error {
-	client, err := storage.NewClient(src, AppStorageOptions)
+func Cat(ctx context.Context, src *url.URL, s3Opts storage.S3Options) error {
+	client, err := storage.NewClient(src, s3Opts)
 	if err != nil {
 		return err
 	}

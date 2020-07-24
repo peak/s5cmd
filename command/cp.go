@@ -148,20 +148,9 @@ var copyCommand = &cli.Command{
 	Flags:              copyCommandFlags,
 	CustomHelpTemplate: copyHelpTemplate,
 	Before: func(c *cli.Context) error {
-		return validate(c, AppStorageOptions)
+		return validate(c, storage.NewS3Options(c, true))
 	},
 	Action: func(c *cli.Context) error {
-
-		// get application level values for the flags if not provided
-		srcRegion := c.String("source-region")
-		if srcRegion == "" {
-			srcRegion = AppStorageOptions.SourceRegion
-		}
-		dstRegion := c.String("region")
-		if dstRegion == "" {
-			dstRegion = AppStorageOptions.DestinationRegion
-		}
-
 		return Copy{
 			src:          c.Args().Get(0),
 			dst:          c.Args().Get(1),
@@ -179,15 +168,8 @@ var copyCommand = &cli.Command{
 			encryptionKeyID:  c.String("sse-kms-key-id"),
 			acl:              c.String("acl"),
 
-			StorageOptions: storage.StorageOptions{
-				Concurrency:       c.Int("concurrency"),
-				PartSize:          c.Int64("part-size") * megabytes,
-				SourceRegion:      srcRegion,
-				DestinationRegion: dstRegion,
-				MaxRetries:        AppStorageOptions.MaxRetries,
-				NoVerifySSL:       AppStorageOptions.NoVerifySSL,
-				Endpoint:          AppStorageOptions.Endpoint,
-			},
+			srcS3opts: storage.NewS3Options(c, true),
+			dstS3opts: storage.NewS3Options(c, false),
 		}.Run(c.Context)
 	},
 }
@@ -213,7 +195,10 @@ type Copy struct {
 	acl              string
 
 	// s3 options
-	storage.StorageOptions
+	concurrency int
+	partSize    int64
+	srcS3opts   storage.S3Options
+	dstS3opts   storage.S3Options
 }
 
 const fdlimitWarning = `
@@ -234,7 +219,7 @@ func (c Copy) Run(ctx context.Context) error {
 		return err
 	}
 
-	client, err := storage.NewClient(srcurl, c.StorageOptions)
+	client, err := storage.NewClient(srcurl, c.srcS3opts)
 	if err != nil {
 		return err
 	}
@@ -336,7 +321,7 @@ func (c Copy) prepareDownloadTask(
 	isBatch bool,
 ) func() error {
 	return func() error {
-		dsturl, err := prepareLocalDestination(ctx, srcurl, dsturl, c.flatten, isBatch, c.StorageOptions)
+		dsturl, err := prepareLocalDestination(ctx, srcurl, dsturl, c.flatten, isBatch, c.dstS3opts)
 		if err != nil {
 			return err
 		}
@@ -377,11 +362,11 @@ func (c Copy) prepareUploadTask(
 
 // doDownload is used to fetch a remote object and save as a local object.
 func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) error {
-	srcClient, err := storage.NewClient(srcurl, c.StorageOptions)
+	srcClient, err := storage.NewClient(srcurl, c.srcS3opts)
 	if err != nil {
 		return err
 	}
-	dstClient, err := storage.NewClient(dsturl, c.StorageOptions)
+	dstClient, err := storage.NewClient(dsturl, c.dstS3opts)
 	if err != nil {
 		return err
 	}
@@ -402,7 +387,7 @@ func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) 
 	}
 	defer f.Close()
 
-	size, err := srcClient.Get(ctx, srcurl, f, c.Concurrency, c.PartSize)
+	size, err := srcClient.Get(ctx, srcurl, f, c.concurrency, c.partSize)
 	if err != nil {
 		_ = dstClient.Delete(ctx, dsturl)
 		return err
@@ -442,7 +427,7 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 		return err
 	}
 
-	dstClient, err := storage.NewClient(dsturl, c.StorageOptions)
+	dstClient, err := storage.NewClient(dsturl, c.dstS3opts)
 	if err != nil {
 		return err
 	}
@@ -454,12 +439,12 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 		SetSSEKeyID(c.encryptionKeyID).
 		SetACL(c.acl)
 
-	err = dstClient.Put(ctx, f, dsturl, metadata, c.Concurrency, c.PartSize)
+	err = dstClient.Put(ctx, f, dsturl, metadata, c.concurrency, c.partSize)
 	if err != nil {
 		return err
 	}
 
-	srcClient, err := storage.NewClient(srcurl, c.StorageOptions)
+	srcClient, err := storage.NewClient(srcurl, c.srcS3opts)
 	if err != nil {
 		return err
 	}
@@ -490,7 +475,7 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 }
 
 func (c Copy) doCopy(ctx context.Context, srcurl *url.URL, dsturl *url.URL) error {
-	srcClient, err := storage.NewClient(srcurl, c.StorageOptions)
+	srcClient, err := storage.NewClient(srcurl, c.srcS3opts)
 	if err != nil {
 		return err
 	}
@@ -546,12 +531,12 @@ func (c Copy) shouldOverride(ctx context.Context, srcurl *url.URL, dsturl *url.U
 		return nil
 	}
 
-	srcObj, err := getObject(ctx, srcurl, c.StorageOptions)
+	srcObj, err := getObject(ctx, srcurl, c.srcS3opts)
 	if err != nil {
 		return err
 	}
 
-	dstObj, err := getObject(ctx, dsturl, c.StorageOptions)
+	dstObj, err := getObject(ctx, dsturl, c.dstS3opts)
 	if err != nil {
 		return err
 	}
@@ -614,7 +599,7 @@ func prepareLocalDestination(
 	dsturl *url.URL,
 	flatten bool,
 	isBatch bool,
-	storageOpts storage.StorageOptions,
+	s3opts storage.S3Options,
 ) (*url.URL, error) {
 	objname := srcurl.Base()
 	if isBatch && !flatten {
@@ -627,7 +612,7 @@ func prepareLocalDestination(
 		}
 	}
 
-	client, err := storage.NewClient(dsturl, storageOpts)
+	client, err := storage.NewClient(dsturl, s3opts)
 	if err != nil {
 		return nil, err
 	}
@@ -662,8 +647,8 @@ func prepareLocalDestination(
 
 // getObject checks if the object from given url exists. If no object is
 // found, error and returning object would be nil.
-func getObject(ctx context.Context, url *url.URL, storageOpts storage.StorageOptions) (*storage.Object, error) {
-	client, err := storage.NewClient(url, storageOpts)
+func getObject(ctx context.Context, url *url.URL, s3opts storage.S3Options) (*storage.Object, error) {
+	client, err := storage.NewClient(url, s3opts)
 	if err != nil {
 		return nil, err
 	}
@@ -676,7 +661,7 @@ func getObject(ctx context.Context, url *url.URL, storageOpts storage.StorageOpt
 	return obj, err
 }
 
-func validate(c *cli.Context, storageOpts storage.StorageOptions) error {
+func validate(c *cli.Context, srcS3opts storage.S3Options) error {
 	if c.Args().Len() != 2 {
 		return fmt.Errorf("expected source and destination arguments")
 	}
@@ -715,7 +700,7 @@ func validate(c *cli.Context, storageOpts storage.StorageOptions) error {
 	case srcurl.Type == dsturl.Type:
 		return validateCopy(srcurl, dsturl)
 	case dsturl.IsRemote():
-		return validateUpload(ctx, srcurl, dsturl, storageOpts)
+		return validateUpload(ctx, srcurl, dsturl, srcS3opts)
 	default:
 		return nil
 	}
@@ -730,8 +715,8 @@ func validateCopy(srcurl, dsturl *url.URL) error {
 	return fmt.Errorf("local->local copy operations are not permitted")
 }
 
-func validateUpload(ctx context.Context, srcurl, dsturl *url.URL, storageOpts storage.StorageOptions) error {
-	srcclient, err := storage.NewClient(srcurl, storageOpts)
+func validateUpload(ctx context.Context, srcurl, dsturl *url.URL, srcS3opts storage.S3Options) error {
+	srcclient, err := storage.NewClient(srcurl, srcS3opts)
 	if err != nil {
 		return err
 	}

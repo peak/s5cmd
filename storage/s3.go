@@ -24,6 +24,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager/s3manageriface"
+	"github.com/urfave/cli/v2"
 
 	"github.com/peak/s5cmd/storage/url"
 )
@@ -52,11 +53,10 @@ const (
 // S3 is a storage type which interacts with S3API, DownloaderAPI and
 // UploaderAPI.
 type S3 struct {
-	api           s3iface.S3API
-	downloader    s3manageriface.DownloaderAPI
-	uploader      s3manageriface.UploaderAPI
-	endpointURL   urlpkg.URL
-	destinationS3 *S3
+	api         s3iface.S3API
+	downloader  s3manageriface.DownloaderAPI
+	uploader    s3manageriface.UploaderAPI
+	endpointURL urlpkg.URL
 }
 
 // S3Options stores configuration for S3 storage.
@@ -65,6 +65,21 @@ type S3Options struct {
 	Endpoint    string
 	Region      string
 	NoVerifySSL bool
+}
+
+// NewS3Options returns new S3Options object by extracting
+// its fields from the provided context.
+func NewS3Options(c *cli.Context, isSrc bool) S3Options {
+	region := c.String("source-region")
+	if !isSrc && c.String("region") != "" {
+		region = c.String("region")
+	}
+	return S3Options{
+		MaxRetries:  c.Int("retry-count"),
+		Endpoint:    c.String("endpoint-url"),
+		NoVerifySSL: c.Bool("no-verify-ssl"),
+		Region:      region,
+	}
 }
 
 func parseEndpoint(endpoint string) (urlpkg.URL, error) {
@@ -85,48 +100,22 @@ func parseEndpoint(endpoint string) (urlpkg.URL, error) {
 }
 
 // NewS3Storage creates new S3 session.
-func NewS3Storage(opts StorageOptions) (*S3, error) {
+func NewS3Storage(opts S3Options) (*S3, error) {
 	endpointURL, err := parseEndpoint(opts.Endpoint)
 	if err != nil {
 		return nil, err
 	}
 
-	awsSession, err := newSession(S3Options{
-		Region:      opts.DestinationRegion,
-		Endpoint:    opts.Endpoint,
-		MaxRetries:  opts.MaxRetries,
-		NoVerifySSL: opts.NoVerifySSL,
-	})
+	awsSession, err := newSession(opts)
 	if err != nil {
 		return nil, err
 	}
 
-	s3Storage := &S3{
+	return &S3{
 		api:         s3.New(awsSession),
 		downloader:  s3manager.NewDownloader(awsSession),
 		uploader:    s3manager.NewUploader(awsSession),
 		endpointURL: endpointURL,
-	}
-	if opts.SourceRegion == "" || opts.SourceRegion == aws.StringValue(awsSession.Config.Region) {
-		s3Storage.destinationS3 = s3Storage
-		return s3Storage, nil
-	}
-
-	dstSession, err := newSession(S3Options{
-		Region:      opts.SourceRegion,
-		Endpoint:    opts.Endpoint,
-		MaxRetries:  opts.MaxRetries,
-		NoVerifySSL: opts.NoVerifySSL,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &S3{
-		api:           s3.New(dstSession),
-		downloader:    s3manager.NewDownloader(dstSession),
-		uploader:      s3manager.NewUploader(dstSession),
-		endpointURL:   endpointURL,
-		destinationS3: s3Storage,
 	}, nil
 }
 
@@ -368,7 +357,7 @@ func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata Metadata) err
 		input.ACL = aws.String(acl)
 	}
 
-	_, err := s.Api().CopyObject(input)
+	_, err := s.api.CopyObject(input)
 	return err
 }
 
@@ -444,7 +433,7 @@ func (s *S3) Put(
 		}
 	}
 
-	_, err := s.Uploader().UploadWithContext(ctx, input, func(u *s3manager.Uploader) {
+	_, err := s.uploader.UploadWithContext(ctx, input, func(u *s3manager.Uploader) {
 		u.PartSize = partSize
 		u.Concurrency = concurrency
 	})
@@ -805,11 +794,4 @@ func (a *writeAtAdapter) Write(p []byte) (int, error) {
 
 	a.offset += int64(n)
 	return n, nil
-}
-func (s *S3) Uploader() s3manageriface.UploaderAPI {
-	return s.destinationS3.uploader
-}
-
-func (s *S3) Api() s3iface.S3API {
-	return s.destinationS3.api
 }

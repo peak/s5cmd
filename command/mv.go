@@ -41,42 +41,25 @@ var moveCommand = &cli.Command{
 		return copyCommand.Before(c)
 	},
 	Action: func(c *cli.Context) error {
-
-		// get application level values for the flags if not provided
-		srcRegion := c.String("source-region")
-		if srcRegion == "" {
-			srcRegion = AppStorageOptions.SourceRegion
-		}
-		dstRegion := c.String("region")
-		if dstRegion == "" {
-			dstRegion = AppStorageOptions.DestinationRegion
-		}
-
 		copyCommand := Copy{
 			src:          c.Args().Get(0),
 			dst:          c.Args().Get(1),
 			op:           c.Command.Name,
 			fullCommand:  givenCommand(c),
-			deleteSource: true, // delete source
+			deleteSource: true, // don't delete source
 			// flags
 			noClobber:        c.Bool("no-clobber"),
 			ifSizeDiffer:     c.Bool("if-size-differ"),
 			ifSourceNewer:    c.Bool("if-source-newer"),
 			flatten:          c.Bool("flatten"),
+			followSymlinks:   !c.Bool("no-follow-symlinks"),
 			storageClass:     storage.StorageClass(c.String("storage-class")),
 			encryptionMethod: c.String("sse"),
 			encryptionKeyID:  c.String("sse-kms-key-id"),
 			acl:              c.String("acl"),
 
-			StorageOptions: storage.StorageOptions{
-				Concurrency:       c.Int("concurrency"),
-				PartSize:          c.Int64("part-size") * megabytes,
-				SourceRegion:      srcRegion,
-				DestinationRegion: dstRegion,
-				MaxRetries:        AppStorageOptions.MaxRetries,
-				NoVerifySSL:       AppStorageOptions.NoVerifySSL,
-				Endpoint:          AppStorageOptions.Endpoint,
-			},
+			srcS3opts: storage.NewS3Options(c, true),
+			dstS3opts: storage.NewS3Options(c, false),
 		}
 
 		return copyCommand.Run(c.Context)

@@ -51,6 +51,7 @@ var makeBucketCommand = &cli.Command{
 			c.Context,
 			c.Command.Name,
 			c.Args().First(),
+			storage.NewS3Options(c, true),
 		)
 	},
 }
@@ -60,13 +61,14 @@ func MakeBucket(
 	ctx context.Context,
 	op string,
 	src string,
+	s3opts storage.S3Options,
 ) error {
 	bucket, err := url.New(src)
 	if err != nil {
 		return err
 	}
 
-	client, err := storage.NewClient(bucket, AppStorageOptions)
+	client, err := storage.NewClient(bucket, s3opts)
 	if err != nil {
 		return err
 	}

@@ -67,7 +67,7 @@ var listCommand = &cli.Command{
 	},
 	Action: func(c *cli.Context) error {
 		if !c.Args().Present() {
-			return ListBuckets(c.Context)
+			return ListBuckets(c.Context, storage.NewS3Options(c, true))
 		}
 
 		showEtag := c.Bool("etag")
@@ -80,15 +80,16 @@ var listCommand = &cli.Command{
 			showEtag,
 			humanize,
 			showStorageClass,
+			storage.NewS3Options(c, true),
 		)
 	},
 }
 
 // ListBuckets prints all buckets.
-func ListBuckets(ctx context.Context) error {
+func ListBuckets(ctx context.Context, s3opts storage.S3Options) error {
 	// set as remote storage
 	url := &url.URL{Type: 0}
-	client, err := storage.NewClient(url, AppStorageOptions)
+	client, err := storage.NewClient(url, s3opts)
 	if err != nil {
 		return err
 	}
@@ -113,13 +114,14 @@ func List(
 	showEtag bool,
 	humanize bool,
 	showStorageClass bool,
+	s3opts storage.S3Options,
 ) error {
 	srcurl, err := url.New(src)
 	if err != nil {
 		return err
 	}
 
-	client, err := storage.NewClient(srcurl, AppStorageOptions)
+	client, err := storage.NewClient(srcurl, s3opts)
 	if err != nil {
 		return err
 	}

@@ -53,6 +53,7 @@ var deleteCommand = &cli.Command{
 			c.Context,
 			c.Command.Name,
 			givenCommand(c),
+			storage.NewS3Options(c, true),
 			c.Args().Slice()...,
 		)
 	},
@@ -63,6 +64,7 @@ func Delete(
 	ctx context.Context,
 	op string,
 	fullCommand string,
+	s3opts storage.S3Options,
 	src ...string,
 ) error {
 	srcurls, err := newURLs(src...)
@@ -71,7 +73,7 @@ func Delete(
 	}
 	srcurl := srcurls[0]
 
-	client, err := storage.NewClient(srcurl, AppStorageOptions)
+	client, err := storage.NewClient(srcurl, s3opts)
 	if err != nil {
 		return err
 	}

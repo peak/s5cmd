@@ -57,9 +57,9 @@ type Storage interface {
 
 // NewClient returns new Storage client from given url. Storage implementation
 // is inferred from the url.
-func NewClient(url *url.URL, storageOpts StorageOptions) (Storage, error) {
+func NewClient(url *url.URL, opts S3Options) (Storage, error) {
 	if url.IsRemote() {
-		return NewS3Storage(storageOpts)
+		return NewS3Storage(opts)
 	}
 
 	return NewFilesystem(), nil
@@ -174,16 +174,6 @@ type notImplemented struct {
 // Error returns the string representation of Error for notImplemented.
 func (e notImplemented) Error() string {
 	return fmt.Sprintf("%q is not supported on %q storage", e.method, e.apiType)
-}
-
-type StorageOptions struct {
-	NoVerifySSL       bool
-	Concurrency       int
-	MaxRetries        int
-	PartSize          int64
-	SourceRegion      string
-	DestinationRegion string
-	Endpoint          string
 }
 
 type Metadata map[string]string

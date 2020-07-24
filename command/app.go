@@ -9,7 +9,6 @@ import (
 
 	"github.com/peak/s5cmd/log"
 	"github.com/peak/s5cmd/parallel"
-	"github.com/peak/s5cmd/storage"
 )
 
 const (
@@ -18,10 +17,6 @@ const (
 
 	appName = "s5cmd"
 )
-
-// AppStorageOptions will be overridden by inner command flags
-// such as if provided `cp -region` will override s5cmd -region flag value.
-var AppStorageOptions storage.StorageOptions
 
 var app = &cli.App{
 	Name:  appName,
@@ -59,19 +54,9 @@ var app = &cli.App{
 			Name:  "install-completion",
 			Usage: "install completion for your shell",
 		},
-		&cli.StringFlag{
-			Name:  "source-region",
-			Usage: "connect to a specific region of the remote object storage service",
-		},
-		&cli.StringFlag{
-			Name:  "region",
-			Usage: "(global) region of the destination bucket for cp/mv operations; default is source-region",
-		},
 	},
 	Before: func(c *cli.Context) error {
-		noVerifySSL := c.Bool("no-verify-ssl")
 		retryCount := c.Int("retry-count")
-		endpointURL := c.String("endpoint-url")
 		workerCount := c.Int("numworkers")
 		printJSON := c.Bool("json")
 		logLevel := c.String("log")
@@ -81,14 +66,6 @@ var app = &cli.App{
 
 		if retryCount < 0 {
 			return fmt.Errorf("retry count cannot be a negative value")
-		}
-
-		AppStorageOptions = storage.StorageOptions{
-			MaxRetries:        retryCount,
-			Endpoint:          endpointURL,
-			NoVerifySSL:       noVerifySSL,
-			SourceRegion:      c.String("source-region"),
-			DestinationRegion: c.String("region"),
 		}
 
 		return nil

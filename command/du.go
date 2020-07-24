@@ -63,6 +63,7 @@ var sizeCommand = &cli.Command{
 			c.Args().First(),
 			groupByClass,
 			humanize,
+			storage.NewS3Options(c, true),
 		)
 	},
 }
@@ -73,13 +74,14 @@ func Size(
 	src string,
 	groupByClass bool,
 	humanize bool,
+	s3opts storage.S3Options,
 ) error {
 	srcurl, err := url.New(src)
 	if err != nil {
 		return err
 	}
 
-	client, err := storage.NewClient(srcurl, AppStorageOptions)
+	client, err := storage.NewClient(srcurl, s3opts)
 	if err != nil {
 		return err
 	}

@@ -420,7 +420,6 @@ func TestS3Retry(t *testing.T) {
 func TestNumOfSessions(t *testing.T) {
 	RemoveAllSessions()
 
-	const defaultRegion = "us-east-1"
 	testcases := []struct {
 		name              string
 		sourceRegion      string
@@ -446,39 +445,34 @@ func TestNumOfSessions(t *testing.T) {
 			name:             "source-region and region not set",
 			expectedSessions: 1,
 		},
-		{
-			name:              "region set to default value of source-region",
-			destinationRegion: defaultRegion,
-			expectedSessions:  1,
-		},
 	}
-	const expectedTotalNumOfSessions = 5
+	const expectedTotalNumOfSessions = 4
 	for _, tc := range testcases {
 		tc := tc
 
 		t.Run(tc.name, func(t *testing.T) {
 			defer RemoveAllSessions()
 
-			storageOpts := StorageOptions{
-				SourceRegion:      tc.sourceRegion,
-				DestinationRegion: tc.destinationRegion,
-			}
-			_, err := NewS3Storage(storageOpts)
-
-			if err != nil {
-				t.Error(err)
+			for _, r := range []string{tc.sourceRegion, tc.destinationRegion} {
+				_, err := NewS3Storage(S3Options{
+					Region: r,
+				})
+				if err != nil {
+					t.Error(err)
+				}
 			}
 
 			assert.Equal(t, NumOfSessions(), tc.expectedSessions)
 		})
 	}
 	for _, tc := range testcases {
-		_, err := NewS3Storage(StorageOptions{
-			SourceRegion:      tc.sourceRegion,
-			DestinationRegion: tc.destinationRegion,
-		})
-		if err != nil {
-			t.Error(err)
+		for _, r := range []string{tc.sourceRegion, tc.destinationRegion} {
+			_, err := NewS3Storage(S3Options{
+				Region: r,
+			})
+			if err != nil {
+				t.Error(err)
+			}
 		}
 	}
 	assert.Equal(t, NumOfSessions(), expectedTotalNumOfSessions)
@@ -584,7 +578,6 @@ func TestS3CopyEncryptionRequest(t *testing.T) {
 			mockS3 := &S3{
 				api: mockApi,
 			}
-			mockS3.destinationS3 = mockS3
 
 			metadata := NewMetadata().SetSSE(tc.sse).SetSSEKeyID(tc.sseKeyID).SetACL(tc.acl)
 
@@ -678,7 +671,6 @@ func TestS3PutEncryptionRequest(t *testing.T) {
 			mockS3 := &S3{
 				uploader: s3manager.NewUploaderWithClient(mockApi),
 			}
-			mockS3.destinationS3 = mockS3
 
 			metadata := NewMetadata().SetSSE(tc.sse).SetSSEKeyID(tc.sseKeyID).SetACL(tc.acl)
 

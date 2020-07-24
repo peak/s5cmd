@@ -31,26 +31,11 @@ var makeBucketCommand = &cli.Command{
 	Usage:              "make bucket",
 	CustomHelpTemplate: makeBucketHelpTemplate,
 	Before: func(c *cli.Context) error {
-		fullCommand := givenCommand(c)
-		op := c.Command.Name
-		if c.Args().Len() != 1 {
-			err := fmt.Errorf("expected only 1 argument")
-			printError(fullCommand, op, err)
-		}
-
-		src := c.Args().First()
-		bucket, err := url.New(src)
+		err := validateMBCommand(c)
 		if err != nil {
-			printError(fullCommand, op, err)
-			return err
+			printError(givenCommand(c), c.Command.Name, err)
 		}
-		if !bucket.IsBucket() {
-			err := fmt.Errorf("invalid s3 bucket")
-			printError(fullCommand, op, err)
-			return err
-		}
-
-		return nil
+		return err
 	},
 	Action: func(c *cli.Context) error {
 		return MakeBucket(
@@ -88,6 +73,23 @@ func MakeBucket(
 		Source:    bucket,
 	}
 	log.Info(msg)
+
+	return nil
+}
+
+func validateMBCommand(c *cli.Context) error {
+	if c.Args().Len() != 1 {
+		return fmt.Errorf("expected only 1 argument")
+	}
+
+	src := c.Args().First()
+	bucket, err := url.New(src)
+	if err != nil {
+		return err
+	}
+	if !bucket.IsBucket() {
+		return fmt.Errorf("invalid s3 bucket")
+	}
 
 	return nil
 }

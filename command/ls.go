@@ -60,10 +60,11 @@ var listCommand = &cli.Command{
 		},
 	},
 	Before: func(c *cli.Context) error {
-		if c.Args().Len() > 1 {
-			return fmt.Errorf("expected only 1 argument")
+		err := validateLSCommand(c)
+		if err != nil {
+			printError(givenCommand(c), c.Command.Name, err)
 		}
-		return nil
+		return err
 	},
 	Action: func(c *cli.Context) error {
 		if !c.Args().Present() {
@@ -211,4 +212,11 @@ func (l ListMessage) String() string {
 // JSON returns the JSON representation of ListMessage.
 func (l ListMessage) JSON() string {
 	return strutil.JSON(l.Object)
+}
+
+func validateLSCommand(c *cli.Context) error {
+	if c.Args().Len() > 1 {
+		return fmt.Errorf("expected only 1 argument")
+	}
+	return nil
 }

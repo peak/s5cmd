@@ -49,10 +49,11 @@ var sizeCommand = &cli.Command{
 		},
 	},
 	Before: func(c *cli.Context) error {
-		if c.Args().Len() != 1 {
-			return fmt.Errorf("expected only 1 argument")
+		err := validateDUCommand(c)
+		if err != nil {
+			printError(givenCommand(c), c.Command.Name, err)
 		}
-		return nil
+		return err
 	},
 	Action: func(c *cli.Context) error {
 		return Size{
@@ -179,4 +180,11 @@ type sizeAndCount struct {
 func (s *sizeAndCount) addObject(obj *storage.Object) {
 	s.size += obj.Size
 	s.count++
+}
+
+func validateDUCommand(c *cli.Context) error {
+	if c.Args().Len() != 1 {
+		return fmt.Errorf("expected only 1 argument")
+	}
+	return nil
 }

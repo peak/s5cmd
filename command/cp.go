@@ -134,7 +134,7 @@ var copyCommand = &cli.Command{
 	Flags:              copyCommandFlags,
 	CustomHelpTemplate: copyHelpTemplate,
 	Before: func(c *cli.Context) error {
-		err := validate(c)
+		err := validateCopyCommand(c)
 		if err != nil {
 			printError(givenCommand(c), c.Command.Name, err)
 		}
@@ -628,7 +628,7 @@ func getObject(ctx context.Context, url *url.URL) (*storage.Object, error) {
 	return obj, err
 }
 
-func validate(c *cli.Context) error {
+func validateCopyCommand(c *cli.Context) error {
 	if c.Args().Len() != 2 {
 		return fmt.Errorf("expected source and destination arguments")
 	}

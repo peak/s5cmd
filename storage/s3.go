@@ -33,10 +33,7 @@ var _ Storage = (*S3)(nil)
 
 var sentinelURL = urlpkg.URL{}
 
-var (
-	mutex            = &sync.Mutex{}
-	mapS3optsSession = map[S3Options]*session.Session{}
-)
+var allSessions = &Session{sessions: map[S3Options]*session.Session{}}
 
 const (
 	// deleteObjectsMax is the max allowed objects to be deleted on single HTTP
@@ -106,7 +103,7 @@ func NewS3Storage(opts S3Options) (*S3, error) {
 		return nil, err
 	}
 
-	awsSession, err := newSession(opts)
+	awsSession, err := Sessions().newSession(opts)
 	if err != nil {
 		return nil, err
 	}
@@ -598,13 +595,25 @@ func (s *S3) MakeBucket(ctx context.Context, name string) error {
 	return err
 }
 
+// Session holds session.Session according to s3Opts
+// and it synchronizes access/modification.
+type Session struct {
+	sync.Mutex
+	sessions map[S3Options]*session.Session
+}
+
+// Sessions returns allSessions singleton.
+func Sessions() *Session {
+	return allSessions
+}
+
 // NewAwsSession initializes a new AWS session with region fallback and custom
 // options.
-func newSession(opts S3Options) (*session.Session, error) {
-	mutex.Lock()
-	defer mutex.Unlock()
+func (s *Session) newSession(opts S3Options) (*session.Session, error) {
+	s.Lock()
+	defer s.Unlock()
 
-	if sess, ok := mapS3optsSession[opts]; ok {
+	if sess, ok := s.sessions[opts]; ok {
 		return sess, nil
 	}
 
@@ -670,23 +679,25 @@ func newSession(opts S3Options) (*session.Session, error) {
 		sess.Config.Region = aws.String(endpoints.UsEast1RegionID)
 	}
 
-	mapS3optsSession[opts] = sess
+	s.sessions[opts] = sess
 
 	return sess, nil
 }
 
 // NumOfSessions returns number of sessions currently active.
 func NumOfSessions() int {
-	mutex.Lock()
-	defer mutex.Unlock()
-	return len(mapS3optsSession)
+	s := Sessions()
+	s.Lock()
+	defer s.Unlock()
+	return len(s.sessions)
 }
 
-// RemoveAllSessions clears all existing sessions.
-func RemoveAllSessions() {
-	mutex.Lock()
-	defer mutex.Unlock()
-	mapS3optsSession = map[S3Options]*session.Session{}
+// ClearSessions clears all existing sessions.
+func ClearSessions() {
+	s := Sessions()
+	s.Lock()
+	defer s.Unlock()
+	s.sessions = map[S3Options]*session.Session{}
 }
 
 // customRetryer wraps the SDK's built in DefaultRetryer adding additional

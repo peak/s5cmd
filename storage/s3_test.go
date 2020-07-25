@@ -66,7 +66,7 @@ func TestNewSessionPathStyle(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 
 			opts := S3Options{Endpoint: tc.endpoint.Hostname()}
-			sess, err := newSession(opts)
+			sess, err := Sessions().newSession(opts)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -87,13 +87,13 @@ func TestNewSessionWithRegionSetViaEnv(t *testing.T) {
 	const expectedRegion = "us-west-2"
 
 	if NumOfSessions() > 0 {
-		RemoveAllSessions()
+		ClearSessions()
 	}
 
 	os.Setenv("AWS_REGION", expectedRegion)
 	defer os.Unsetenv("AWS_REGION")
 
-	sess, err := newSession(opts)
+	sess, err := Sessions().newSession(opts)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -418,7 +418,7 @@ func TestS3Retry(t *testing.T) {
 }
 
 func TestNumOfSessions(t *testing.T) {
-	RemoveAllSessions()
+	ClearSessions()
 
 	testcases := []struct {
 		name              string
@@ -451,7 +451,7 @@ func TestNumOfSessions(t *testing.T) {
 		tc := tc
 
 		t.Run(tc.name, func(t *testing.T) {
-			defer RemoveAllSessions()
+			defer ClearSessions()
 
 			for _, r := range []string{tc.sourceRegion, tc.destinationRegion} {
 				_, err := NewS3Storage(S3Options{

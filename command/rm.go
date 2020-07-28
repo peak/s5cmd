@@ -62,7 +62,7 @@ var deleteCommand = &cli.Command{
 			src:         c.Args().Slice(),
 			op:          c.Command.Name,
 			fullCommand: givenCommand(c),
-			dryRun:      c.Bool("dry-run"),
+			dryRun:      c.Bool("dry-run") || c.Bool("dry-run-all"),
 		}.Run(c.Context)
 	},
 }

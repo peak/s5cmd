@@ -156,7 +156,7 @@ var copyCommand = &cli.Command{
 			ifSourceNewer:    c.Bool("if-source-newer"),
 			flatten:          c.Bool("flatten"),
 			followSymlinks:   !c.Bool("no-follow-symlinks"),
-			dryRun:           c.Bool("dry-run"),
+			dryRun:           c.Bool("dry-run") || c.Bool("dry-run-all"),
 			storageClass:     storage.StorageClass(c.String("storage-class")),
 			concurrency:      c.Int("concurrency"),
 			partSize:         c.Int64("part-size") * megabytes,

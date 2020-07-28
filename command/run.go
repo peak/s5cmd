@@ -32,10 +32,19 @@ Examples:
 		 > cat commands.txt | s5cmd {{.HelpName}}
 `
 
+var runCommandFlags = []cli.Flag{
+	&cli.BoolFlag{
+		Name:    "dry-run-all",
+		Aliases: []string{"dry-run"},
+		Usage:   "check what s5cmd will do, without making it perform any operations with side effects",
+	},
+}
+
 var runCommand = &cli.Command{
 	Name:               "run",
 	HelpName:           "run",
 	Usage:              "run commands in batch",
+	Flags:              runCommandFlags,
 	CustomHelpTemplate: runHelpTemplate,
 	Before: func(c *cli.Context) error {
 		if c.Args().Len() > 1 {

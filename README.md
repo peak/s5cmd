@@ -37,6 +37,7 @@ storage services and local filesystems.
 - Wildcard support for all operations
 - Multiple arguments support for delete operation
 - Command file support to run commands in batches at very high execution speeds
+- Dry run support for operations that have a side effect.
 - [S3 Transfer Acceleration](https://docs.aws.amazon.com/AmazonS3/latest/dev/transfer-acceleration.html) support
 - Google Cloud Storage (and any other S3 API compatible service) support
 - Structured logging for querying command outputs
@@ -178,6 +179,11 @@ they'll be deleted in a single request.
 
 Will copy all the matching objects to the given S3 prefix, respecting the source
 folder hierarchy.
+
+`--dry-run` flag can be set to observe what operations will be performed without
+actually having `s5cmd` carry out those operations.
+
+    s5cmd cp --dry-run cp s3://bucket/pre/* s3://another-bucket/
 
 ⚠️ Copying objects (from S3 to S3) larger than 5GB is not supported yet. We have
 an [open ticket](https://github.com/peak/s5cmd/issues/29) to track the issue.

@@ -52,7 +52,7 @@ var moveCommand = &cli.Command{
 			ifSizeDiffer:     c.Bool("if-size-differ"),
 			ifSourceNewer:    c.Bool("if-source-newer"),
 			flatten:          c.Bool("flatten"),
-			dryRun:           c.Bool("dry-run"),
+			dryRun:           c.Bool("dry-run") || c.Bool("dry-run-all"),
 			storageClass:     storage.StorageClass(c.String("storage-class")),
 			encryptionMethod: c.String("sse"),
 			encryptionKeyID:  c.String("sse-kms-key-id"),

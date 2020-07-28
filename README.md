@@ -4,7 +4,7 @@
 
 ## Overview
 `s5cmd` is a very fast S3 and local filesystem execution tool. It comes with support
-for a multitude of operations including tab completion and wild card support 
+for a multitude of operations including tab completion and wildcard support 
 for files, which can be very handy for your object storage workflow while working 
 with large number of files.
 

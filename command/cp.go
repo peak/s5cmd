@@ -164,6 +164,8 @@ var copyCommand = &cli.Command{
 			flatten:          c.Bool("flatten"),
 			followSymlinks:   !c.Bool("no-follow-symlinks"),
 			storageClass:     storage.StorageClass(c.String("storage-class")),
+			concurrency:      c.Int("concurrency"),
+			partSize:         c.Int64("part-size") * megabytes,
 			encryptionMethod: c.String("sse"),
 			encryptionKeyID:  c.String("sse-kms-key-id"),
 			acl:              c.String("acl"),

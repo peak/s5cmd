@@ -33,12 +33,14 @@ Examples:
 `
 var runCommandFlags = []cli.Flag{
 	&cli.StringFlag{
-		Name:  "source-region",
-		Usage: "[default] connect to a specific region of the remote object storage service",
+		Name:    "default-source-region",
+		Aliases: []string{"source-region"},
+		Usage:   "connect to a specific region of the remote object storage service",
 	},
 	&cli.StringFlag{
-		Name:  "region",
-		Usage: "[default] region of the destination bucket for cp/mv operations; defaulted to source-region",
+		Name:    "default-region",
+		Aliases: []string{"region"},
+		Usage:   "region of the destination bucket for cp/mv operations; defaulted to source-region",
 	},
 }
 

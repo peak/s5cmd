@@ -159,9 +159,7 @@ func (s *S3) listObjectsV2(ctx context.Context, url *url.URL) <-chan *Object {
 		defer close(objCh)
 		objectFound := false
 
-		// keep track of unix timestamp, which is used not to iterate
-		// files, which have already been passed through
-		now := time.Now().UTC().Unix()
+		var now time.Time
 
 		err := s.api.ListObjectsV2PagesWithContext(ctx, &listInput, func(p *s3.ListObjectsV2Output, lastPage bool) bool {
 			for _, c := range p.CommonPrefixes {
@@ -179,6 +177,11 @@ func (s *S3) listObjectsV2(ctx context.Context, url *url.URL) <-chan *Object {
 
 				objectFound = true
 			}
+			// track the instant object iteration began,
+			// so it can be used to bypass objects created after this instant
+			if now.IsZero() {
+				now = time.Now().UTC()
+			}
 
 			for _, c := range p.Contents {
 				key := aws.StringValue(c.Key)
@@ -194,9 +197,9 @@ func (s *S3) listObjectsV2(ctx context.Context, url *url.URL) <-chan *Object {
 				newurl := url.Clone()
 				newurl.Path = aws.StringValue(c.Key)
 				etag := aws.StringValue(c.ETag)
-				mod := aws.TimeValue(c.LastModified)
+				mod := aws.TimeValue(c.LastModified).UTC()
 
-				if mod.UTC().Unix() > now {
+				if mod.After(now) {
 					objectFound = true
 					continue
 				}
@@ -247,9 +250,7 @@ func (s *S3) listObjects(ctx context.Context, url *url.URL) <-chan *Object {
 		defer close(objCh)
 		objectFound := false
 
-		// keep track of unix timestamp, which is used not to iterate
-		// files, which have already been passed through
-		now := time.Now().UTC().Unix()
+		var now time.Time
 
 		err := s.api.ListObjectsPagesWithContext(ctx, &listInput, func(p *s3.ListObjectsOutput, lastPage bool) bool {
 			for _, c := range p.CommonPrefixes {
@@ -267,6 +268,11 @@ func (s *S3) listObjects(ctx context.Context, url *url.URL) <-chan *Object {
 
 				objectFound = true
 			}
+			// track the instant object iteration began,
+			// so it can be used to bypass objects created after this instant
+			if now.IsZero() {
+				now = time.Now().UTC()
+			}
 
 			for _, c := range p.Contents {
 				key := aws.StringValue(c.Key)
@@ -282,9 +288,9 @@ func (s *S3) listObjects(ctx context.Context, url *url.URL) <-chan *Object {
 				newurl := url.Clone()
 				newurl.Path = aws.StringValue(c.Key)
 				etag := aws.StringValue(c.ETag)
-				mod := aws.TimeValue(c.LastModified)
+				mod := aws.TimeValue(c.LastModified).UTC()
 
-				if mod.UTC().Unix() > now {
+				if mod.After(now) {
 					objectFound = true
 					continue
 				}

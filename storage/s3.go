@@ -24,8 +24,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager/s3manageriface"
-	"github.com/urfave/cli/v2"
-
 	"github.com/peak/s5cmd/storage/url"
 )
 
@@ -33,7 +31,7 @@ var _ Storage = (*S3)(nil)
 
 var sentinelURL = urlpkg.URL{}
 
-var allSessions = &Session{sessions: map[S3Options]*session.Session{}}
+var allSessions = &s3Session{sessions: map[S3Options]*session.Session{}}
 
 const (
 	// deleteObjectsMax is the max allowed objects to be deleted on single HTTP
@@ -62,21 +60,6 @@ type S3Options struct {
 	Endpoint    string
 	Region      string
 	NoVerifySSL bool
-}
-
-// NewS3Options returns new S3Options object by extracting
-// its fields from the provided context.
-func NewS3Options(c *cli.Context, isSrc bool) S3Options {
-	region := c.String("source-region")
-	if !isSrc && c.String("region") != "" {
-		region = c.String("region")
-	}
-	return S3Options{
-		MaxRetries:  c.Int("retry-count"),
-		Endpoint:    c.String("endpoint-url"),
-		NoVerifySSL: c.Bool("no-verify-ssl"),
-		Region:      region,
-	}
 }
 
 func parseEndpoint(endpoint string) (urlpkg.URL, error) {
@@ -595,21 +578,21 @@ func (s *S3) MakeBucket(ctx context.Context, name string) error {
 	return err
 }
 
-// Session holds session.Session according to s3Opts
+// s3Session holds session.Session according to s3Opts
 // and it synchronizes access/modification.
-type Session struct {
+type s3Session struct {
 	sync.Mutex
 	sessions map[S3Options]*session.Session
 }
 
 // Sessions returns allSessions singleton.
-func Sessions() *Session {
+func Sessions() *s3Session {
 	return allSessions
 }
 
 // NewAwsSession initializes a new AWS session with region fallback and custom
 // options.
-func (s *Session) newSession(opts S3Options) (*session.Session, error) {
+func (s *s3Session) newSession(opts S3Options) (*session.Session, error) {
 	s.Lock()
 	defer s.Unlock()
 

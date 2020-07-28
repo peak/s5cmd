@@ -61,7 +61,7 @@ var catCommand = &cli.Command{
 			return err
 		}
 
-		return Cat(c.Context, src, storage.NewS3Options(c, true))
+		return Cat(c.Context, src, s3opts(c, true))
 	},
 }
 

@@ -67,7 +67,7 @@ var listCommand = &cli.Command{
 	},
 	Action: func(c *cli.Context) error {
 		if !c.Args().Present() {
-			return ListBuckets(c.Context, storage.NewS3Options(c, true))
+			return ListBuckets(c.Context, s3opts(c, true))
 		}
 
 		showEtag := c.Bool("etag")
@@ -80,7 +80,7 @@ var listCommand = &cli.Command{
 			showEtag,
 			humanize,
 			showStorageClass,
-			storage.NewS3Options(c, true),
+			s3opts(c, true),
 		)
 	},
 }

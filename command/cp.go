@@ -148,7 +148,7 @@ var copyCommand = &cli.Command{
 	Flags:              copyCommandFlags,
 	CustomHelpTemplate: copyHelpTemplate,
 	Before: func(c *cli.Context) error {
-		return validate(c, storage.NewS3Options(c, true))
+		return validate(c, s3opts(c, true))
 	},
 	Action: func(c *cli.Context) error {
 		return Copy{
@@ -168,8 +168,8 @@ var copyCommand = &cli.Command{
 			encryptionKeyID:  c.String("sse-kms-key-id"),
 			acl:              c.String("acl"),
 
-			srcS3opts: storage.NewS3Options(c, true),
-			dstS3opts: storage.NewS3Options(c, false),
+			srcS3opts: s3opts(c, true),
+			dstS3opts: s3opts(c, false),
 		}.Run(c.Context)
 	},
 }
@@ -480,6 +480,11 @@ func (c Copy) doCopy(ctx context.Context, srcurl *url.URL, dsturl *url.URL) erro
 		return err
 	}
 
+	dstClient, err := storage.NewClient(dsturl, c.dstS3opts)
+	if err != nil {
+		return err
+	}
+
 	metadata := storage.NewMetadata().
 		SetStorageClass(string(c.storageClass)).
 		SetSSE(c.encryptionMethod).
@@ -495,7 +500,7 @@ func (c Copy) doCopy(ctx context.Context, srcurl *url.URL, dsturl *url.URL) erro
 		return err
 	}
 
-	err = srcClient.Copy(ctx, srcurl, dsturl, metadata)
+	err = dstClient.Copy(ctx, srcurl, dsturl, metadata)
 	if err != nil {
 		return err
 	}

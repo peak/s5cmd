@@ -29,6 +29,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/peak/s5cmd/storage"
+
 	"gotest.tools/v3/assert"
 	"gotest.tools/v3/fs"
 	"gotest.tools/v3/icmd"
@@ -1436,6 +1438,60 @@ func TestCopySingleS3ObjectToS3(t *testing.T) {
 
 	// assert s3 destination object
 	assert.Assert(t, ensureS3Object(s3client, bucket, dstfilename, content))
+}
+
+// cp --source-region=us-east-2 --region=us-west-2 s3://bucket/object s3://bucket/object2
+func TestCopySingleS3ObjectToS3WithDifferentSourceAndDestinationRegion(t *testing.T) {
+	t.Parallel()
+
+	srcBucket := randomString(30)
+	dstBucket := randomString(30)
+
+	endpoint, workdir, cleanup := server(t, "bolt")
+	defer cleanup()
+
+	s5cmd := s5cmd(workdir, endpoint)
+
+	srcClient := s3client(t, storage.S3Options{
+		Endpoint:    endpoint,
+		Region:      "us-east-2",
+		NoVerifySSL: true,
+	})
+
+	dstClient := s3client(t, storage.S3Options{
+		Endpoint:    endpoint,
+		Region:      "us-west-2",
+		NoVerifySSL: true,
+	})
+
+	createBucket(t, srcClient, srcBucket)
+	createBucket(t, dstClient, dstBucket)
+
+	const (
+		filename    = "testfile1.txt"
+		dstfilename = "copy_" + filename
+		content     = "this is a file content"
+	)
+
+	putFile(t, srcClient, srcBucket, filename, content)
+
+	src := fmt.Sprintf("s3://%v/%v", srcBucket, filename)
+	dst := fmt.Sprintf("s3://%v/%v", dstBucket, dstfilename)
+
+	cmd := s5cmd("cp", "--source-region=us-east-2", "--region=us-west-2", src, dst)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`cp %v %v`, src, dst),
+	})
+
+	// assert s3 source object
+	assert.Assert(t, ensureS3Object(srcClient, srcBucket, filename, content))
+
+	// assert s3 destination object
+	assert.Assert(t, ensureS3Object(dstClient, dstBucket, dstfilename, content))
 }
 
 // --json cp s3://bucket/object s3://bucket2/object

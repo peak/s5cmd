@@ -51,7 +51,7 @@ var makeBucketCommand = &cli.Command{
 			c.Context,
 			c.Command.Name,
 			c.Args().First(),
-			storage.NewS3Options(c, true),
+			s3opts(c, true),
 		)
 	},
 }

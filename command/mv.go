@@ -58,8 +58,8 @@ var moveCommand = &cli.Command{
 			encryptionKeyID:  c.String("sse-kms-key-id"),
 			acl:              c.String("acl"),
 
-			srcS3opts: storage.NewS3Options(c, true),
-			dstS3opts: storage.NewS3Options(c, false),
+			srcS3opts: s3opts(c, true),
+			dstS3opts: s3opts(c, false),
 		}
 
 		return copyCommand.Run(c.Context)

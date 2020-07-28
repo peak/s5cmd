@@ -21,6 +21,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/peak/s5cmd/storage"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -73,6 +75,21 @@ func setup(t *testing.T, options ...option) (*s3.S3, func(...string) icmd.Cmd, f
 	for _, option := range options {
 		option(opts)
 	}
+
+	endpoint, workdir, cleanup := server(t, opts.s3backend)
+
+	client := s3client(t, storage.S3Options{
+		Endpoint:    endpoint,
+		Region:      "us-east-1",
+		NoVerifySSL: true,
+	})
+
+	return client, s5cmd(workdir, endpoint), cleanup
+}
+
+func server(t *testing.T, s3backend string) (string, string, func()) {
+	t.Helper()
+
 	// testdir := fs.NewDir() tries to create a new directory which
 	// has a prefix = [test function name][operation name]
 	// e.g., prefix' = "TestCopySingleS3ObjectToLocal/cp_s3://bucket/object_file"
@@ -86,25 +103,35 @@ func setup(t *testing.T, options ...option) (*s3.S3, func(...string) icmd.Cmd, f
 	testdir := fs.NewDir(t, prefix, fs.WithDir("workdir", fs.WithMode(0700)))
 	workdir := testdir.Join("workdir")
 
-	var (
-		s3LogLevel  = *flagTestLogLevel
-		awsLogLevel = aws.LogOff
-	)
+	s3LogLevel := *flagTestLogLevel
 
-	switch *flagTestLogLevel {
-	case "debug":
-		s3LogLevel = "info"
-		// aws has no level other than 'debug'
+	if *flagTestLogLevel == "debug" {
+		s3LogLevel = "info" // aws has no level other than 'debug'
+	}
+
+	endpoint, dbcleanup := s3ServerEndpoint(t, testdir, s3LogLevel, s3backend)
+
+	cleanup := func() {
+		testdir.Remove()
+		dbcleanup()
+	}
+
+	return endpoint, workdir, cleanup
+}
+
+func s3client(t *testing.T, options storage.S3Options) *s3.S3 {
+	t.Helper()
+
+	awsLogLevel := aws.LogOff
+	if *flagTestLogLevel == "debug" {
 		awsLogLevel = aws.LogDebug
 	}
 
-	endpoint, dbcleanup := s3ServerEndpoint(t, testdir, s3LogLevel, opts.s3backend)
-
 	s3Config := aws.NewConfig().
-		WithEndpoint(endpoint).
-		WithRegion("us-east-1").
+		WithEndpoint(options.Endpoint).
+		WithRegion(options.Region).
 		WithCredentials(credentials.NewStaticCredentials(defaultAccessKeyID, defaultSecretAccessKey, "")).
-		WithDisableSSL(true).
+		WithDisableSSL(options.NoVerifySSL).
 		WithS3ForcePathStyle(true).
 		WithCredentialsChainVerboseErrors(true).
 		WithLogLevel(awsLogLevel)
@@ -112,7 +139,11 @@ func setup(t *testing.T, options ...option) (*s3.S3, func(...string) icmd.Cmd, f
 	sess, err := session.NewSession(s3Config)
 	assert.NilError(t, err)
 
-	s5cmd := func(args ...string) icmd.Cmd {
+	return s3.New(sess)
+}
+
+func s5cmd(workdir, endpoint string) func(args ...string) icmd.Cmd {
+	return func(args ...string) icmd.Cmd {
 		endpoint := []string{"--endpoint-url", endpoint}
 		args = append(endpoint, args...)
 
@@ -129,13 +160,6 @@ func setup(t *testing.T, options ...option) (*s3.S3, func(...string) icmd.Cmd, f
 		cmd.Dir = workdir
 		return cmd
 	}
-
-	cleanup := func() {
-		testdir.Remove()
-		dbcleanup()
-	}
-
-	return s3.New(sess), s5cmd, cleanup
 }
 
 func goBuildS5cmd() func() {

@@ -9,7 +9,6 @@ import (
 	"math/rand"
 	"net/http"
 	urlpkg "net/url"
-	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -76,31 +75,6 @@ func TestNewSessionPathStyle(t *testing.T) {
 				t.Fatalf("expected: %v, got: %v", tc.expectPathStyle, got)
 			}
 		})
-	}
-}
-
-func TestNewSessionWithRegionSetViaEnv(t *testing.T) {
-	opts := S3Options{
-		Region: "",
-	}
-
-	const expectedRegion = "us-west-2"
-
-	if NumOfSessions() > 0 {
-		ClearSessions()
-	}
-
-	os.Setenv("AWS_REGION", expectedRegion)
-	defer os.Unsetenv("AWS_REGION")
-
-	sess, err := sessions.newSession(opts)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	got := aws.StringValue(sess.Config.Region)
-	if got != expectedRegion {
-		t.Fatalf("expected %v, got %v", expectedRegion, got)
 	}
 }
 
@@ -415,67 +389,6 @@ func TestS3Retry(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestNumOfSessions(t *testing.T) {
-	ClearSessions()
-
-	testcases := []struct {
-		name              string
-		sourceRegion      string
-		destinationRegion string
-
-		expectedSessions int
-	}{
-		{
-			name:              "different source-region and region",
-			sourceRegion:      "cn-north-1",
-			destinationRegion: "eu-central-1",
-
-			expectedSessions: 2,
-		},
-		{
-			name:              "same source-region and region",
-			sourceRegion:      "eu-west-1",
-			destinationRegion: "eu-west-1",
-
-			expectedSessions: 1,
-		},
-		{
-			name:             "source-region and region not set",
-			expectedSessions: 1,
-		},
-	}
-	const expectedTotalNumOfSessions = 4
-	for _, tc := range testcases {
-		tc := tc
-
-		t.Run(tc.name, func(t *testing.T) {
-			defer ClearSessions()
-
-			for _, r := range []string{tc.sourceRegion, tc.destinationRegion} {
-				_, err := NewS3Storage(S3Options{
-					Region: r,
-				})
-				if err != nil {
-					t.Error(err)
-				}
-			}
-
-			assert.Equal(t, NumOfSessions(), tc.expectedSessions)
-		})
-	}
-	for _, tc := range testcases {
-		for _, r := range []string{tc.sourceRegion, tc.destinationRegion} {
-			_, err := NewS3Storage(S3Options{
-				Region: r,
-			})
-			if err != nil {
-				t.Error(err)
-			}
-		}
-	}
-	assert.Equal(t, NumOfSessions(), expectedTotalNumOfSessions)
 }
 
 // Credit to aws-sdk-go

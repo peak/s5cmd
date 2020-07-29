@@ -477,11 +477,6 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 }
 
 func (c Copy) doCopy(ctx context.Context, srcurl *url.URL, dsturl *url.URL) error {
-	srcClient, err := storage.NewClient(srcurl, c.srcS3opts)
-	if err != nil {
-		return err
-	}
-
 	dstClient, err := storage.NewClient(dsturl, c.dstS3opts)
 	if err != nil {
 		return err
@@ -508,6 +503,10 @@ func (c Copy) doCopy(ctx context.Context, srcurl *url.URL, dsturl *url.URL) erro
 	}
 
 	if c.deleteSource {
+		srcClient, err := storage.NewClient(srcurl, c.srcS3opts)
+		if err != nil {
+			return err
+		}
 		if err := srcClient.Delete(ctx, srcurl); err != nil {
 			return err
 		}

@@ -668,22 +668,6 @@ func (s *s3Session) newSession(opts S3Options) (*session.Session, error) {
 	return sess, nil
 }
 
-// NumOfSessions returns number of sessions currently active.
-func NumOfSessions() int {
-	s := sessions
-	s.Lock()
-	defer s.Unlock()
-	return len(s.sessions)
-}
-
-// ClearSessions clears all existing sessions.
-func ClearSessions() {
-	s := sessions
-	s.Lock()
-	defer s.Unlock()
-	s.sessions = map[S3Options]*session.Session{}
-}
-
 // customRetryer wraps the SDK's built in DefaultRetryer adding additional
 // error codes. Such as, retry for S3 InternalError code.
 type customRetryer struct {

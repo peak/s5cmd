@@ -66,7 +66,7 @@ func TestNewSessionPathStyle(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 
 			opts := S3Options{Endpoint: tc.endpoint.Hostname()}
-			sess, err := Sessions().newSession(opts)
+			sess, err := sessions.newSession(opts)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -93,7 +93,7 @@ func TestNewSessionWithRegionSetViaEnv(t *testing.T) {
 	os.Setenv("AWS_REGION", expectedRegion)
 	defer os.Unsetenv("AWS_REGION")
 
-	sess, err := Sessions().newSession(opts)
+	sess, err := sessions.newSession(opts)
 	if err != nil {
 		t.Fatal(err)
 	}

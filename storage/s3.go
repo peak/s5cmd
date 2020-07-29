@@ -31,7 +31,7 @@ var _ Storage = (*S3)(nil)
 
 var sentinelURL = urlpkg.URL{}
 
-var allSessions = &s3Session{sessions: map[S3Options]*session.Session{}}
+var sessions = &s3Session{sessions: map[S3Options]*session.Session{}}
 
 const (
 	// deleteObjectsMax is the max allowed objects to be deleted on single HTTP
@@ -86,7 +86,7 @@ func NewS3Storage(opts S3Options) (*S3, error) {
 		return nil, err
 	}
 
-	awsSession, err := Sessions().newSession(opts)
+	awsSession, err := sessions.newSession(opts)
 	if err != nil {
 		return nil, err
 	}
@@ -591,11 +591,6 @@ type s3Session struct {
 	sessions map[S3Options]*session.Session
 }
 
-// Sessions returns allSessions singleton.
-func Sessions() *s3Session {
-	return allSessions
-}
-
 // NewAwsSession initializes a new AWS session with region fallback and custom
 // options.
 func (s *s3Session) newSession(opts S3Options) (*session.Session, error) {
@@ -675,7 +670,7 @@ func (s *s3Session) newSession(opts S3Options) (*session.Session, error) {
 
 // NumOfSessions returns number of sessions currently active.
 func NumOfSessions() int {
-	s := Sessions()
+	s := sessions
 	s.Lock()
 	defer s.Unlock()
 	return len(s.sessions)
@@ -683,7 +678,7 @@ func NumOfSessions() int {
 
 // ClearSessions clears all existing sessions.
 func ClearSessions() {
-	s := Sessions()
+	s := sessions
 	s.Lock()
 	defer s.Unlock()
 	s.sessions = map[S3Options]*session.Session{}

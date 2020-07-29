@@ -125,7 +125,7 @@ var copyCommandFlags = []cli.Flag{
 	},
 	&cli.StringFlag{
 		Name:  "region",
-		Usage: "region of the destination bucket for cp/mv operations; default is source-region",
+		Usage: "region of the destination bucket for cp/mv operations",
 	},
 	&cli.StringFlag{
 		Name:  "sse",
@@ -148,7 +148,7 @@ var copyCommand = &cli.Command{
 	Flags:              copyCommandFlags,
 	CustomHelpTemplate: copyHelpTemplate,
 	Before: func(c *cli.Context) error {
-		return validate(c, s3opts(c, true))
+		return validate(c, s3opts(c))
 	},
 	Action: func(c *cli.Context) error {
 		return Copy{
@@ -170,8 +170,8 @@ var copyCommand = &cli.Command{
 			encryptionKeyID:  c.String("sse-kms-key-id"),
 			acl:              c.String("acl"),
 
-			srcS3opts: s3opts(c, true),
-			dstS3opts: s3opts(c, false),
+			srcS3opts: s3opts(c),
+			dstS3opts: dstS3opts(c),
 		}.Run(c.Context)
 	},
 }

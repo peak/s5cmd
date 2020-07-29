@@ -63,7 +63,7 @@ var sizeCommand = &cli.Command{
 			c.Args().First(),
 			groupByClass,
 			humanize,
-			s3opts(c, true),
+			s3opts(c),
 		)
 	},
 }

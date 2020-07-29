@@ -53,7 +53,7 @@ var deleteCommand = &cli.Command{
 			c.Context,
 			c.Command.Name,
 			givenCommand(c),
-			s3opts(c, true),
+			s3opts(c),
 			c.Args().Slice()...,
 		)
 	},

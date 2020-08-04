@@ -731,7 +731,6 @@ func TestSessionCreateAndCachingWithDifferentRegions(t *testing.T) {
 			if region != nil && tc.expectedRegion != "" {
 				assert.Equal(t, region, tc.expectedRegion)
 			}
-
 		})
 
 		if tc.alreadyCreated {
@@ -750,6 +749,10 @@ func TestSessionCreateAndCachingWithDifferentRegions(t *testing.T) {
 		err = mockS3.MakeBucket(context.Background(), "test")
 
 		if err != nil {
+			if _, ok := err.(awserr.Error); ok {
+				// ignore aws response errors, we check request parameters only
+				continue
+			}
 			t.Error(err)
 		}
 	}

@@ -71,8 +71,8 @@ Examples:
 	12. Perform KMS-SSE of the object(s) at the destination using customer managed Customer Master Key (CMK) key id
 		> s5cmd {{.HelpName}} -sse aws:kms -sse-kms-key-id <your-kms-key-id> s3://bucket/object s3://target-bucket/prefix/object
 
-	13. Check what s5cmd will do, without actually doing so (check mode option)
-		> s5cmd {{.HelpName}} -dry-run dir/ s3://bucket/ 
+	13. Check what s5cmd will do, without actually doing so
+		> s5cmd {{.HelpName}} --dry-run dir/ s3://bucket/ 
 `
 
 var copyCommandFlags = []cli.Flag{

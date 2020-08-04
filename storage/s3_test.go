@@ -18,6 +18,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/aws/request"
+	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/awstesting/unit"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
@@ -676,4 +677,80 @@ func TestS3listObjectsV2(t *testing.T) {
 		t.Errorf("%v should not have been returned\n", obj)
 	}
 	assert.Equal(t, len(mapReturnObjNameToModtime), 0)
+}
+
+func TestSessionCreateAndCachingWithDifferentRegions(t *testing.T) {
+	const bucketRegionPath = "CreateBucketConfiguration.LocationConstraint"
+
+	testcases := []struct {
+		region         string
+		expectedRegion string // to check if `create session` request with specific region was executed
+
+		alreadyCreated bool // sessions should not be created again if they already have been created before
+	}{
+		{},
+		{
+			alreadyCreated: true,
+		},
+		{
+			region:         "eu-central-1",
+			expectedRegion: "eu-central-1",
+		},
+		{
+			region:         "eu-central-1",
+			expectedRegion: "eu-central-1",
+
+			alreadyCreated: true,
+		},
+	}
+
+	sess := map[string]*session.Session{}
+
+	for _, tc := range testcases {
+		awsSess, err := sessions.newSession(S3Options{
+			Region: tc.region,
+		})
+
+		if err != nil {
+			t.Error(err)
+		}
+
+		awsSess.Handlers.Unmarshal.Clear()
+		awsSess.Handlers.UnmarshalMeta.Clear()
+		awsSess.Handlers.UnmarshalError.Clear()
+		awsSess.Handlers.Send.Clear()
+
+		awsSess.Handlers.Send.PushBack(func(r *request.Request) {
+
+			r.HTTPResponse = &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       ioutil.NopCloser(strings.NewReader("")),
+			}
+
+			region := val(r.Params, bucketRegionPath)
+			if region != nil && tc.expectedRegion != "" {
+				assert.Equal(t, region, tc.expectedRegion)
+			}
+
+		})
+
+		if tc.alreadyCreated {
+			_, ok := sess[tc.region]
+			assert.Check(t, ok, "session should not have been created again")
+		} else {
+			sess[tc.region] = awsSess
+		}
+
+		mockApi := s3.New(awsSess)
+
+		mockS3 := &S3{
+			api: mockApi,
+		}
+
+		err = mockS3.MakeBucket(context.Background(), "test")
+
+		if err != nil {
+			t.Error(err)
+		}
+	}
 }

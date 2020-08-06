@@ -10,7 +10,7 @@ import (
 
 	errorpkg "github.com/peak/s5cmd/error"
 	"github.com/peak/s5cmd/log"
-	"github.com/peak/s5cmd/statutil"
+	"github.com/peak/s5cmd/log/stat"
 	"github.com/peak/s5cmd/storage"
 	"github.com/peak/s5cmd/storage/url"
 )
@@ -67,7 +67,7 @@ func Delete(
 	fullCommand string,
 	src ...string,
 ) (err error) {
-	defer statutil.StatCollect("Delete", time.Now(), &err)()
+	defer stat.Collect("Delete", time.Now(), &err)()
 	srcurls, err := newURLs(src...)
 	if err != nil {
 		return err

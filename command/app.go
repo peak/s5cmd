@@ -4,12 +4,11 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/peak/s5cmd/statutil"
-
 	cmpinstall "github.com/posener/complete/cmd/install"
 	"github.com/urfave/cli/v2"
 
 	"github.com/peak/s5cmd/log"
+	"github.com/peak/s5cmd/log/stat"
 	"github.com/peak/s5cmd/parallel"
 	"github.com/peak/s5cmd/storage"
 )
@@ -69,7 +68,7 @@ var app = &cli.App{
 		workerCount := c.Int("numworkers")
 		printJSON := c.Bool("json")
 		logLevel := c.String("log")
-		stat := c.Bool("stat")
+		isStat := c.Bool("stat")
 
 		log.Init(logLevel, printJSON)
 		parallel.Init(workerCount)
@@ -78,8 +77,8 @@ var app = &cli.App{
 			return fmt.Errorf("retry count cannot be a negative value")
 		}
 
-		if stat {
-			statutil.InitStat()
+		if isStat {
+			stat.InitStat()
 		}
 
 		s3opts := storage.S3Options{
@@ -102,6 +101,12 @@ var app = &cli.App{
 		return cli.ShowAppHelp(c)
 	},
 	After: func(c *cli.Context) error {
+		if c.Bool("stat") {
+			for _, s := range stat.Statistics() {
+				log.Info(s)
+			}
+		}
+
 		parallel.Close()
 		log.Close()
 		return nil
@@ -115,7 +120,6 @@ var app = &cli.App{
 
 // Main is the entrypoint function to run given commands.
 func Main(ctx context.Context, args []string) error {
-	defer statutil.StatDisplay()
 	app.Commands = []*cli.Command{
 		listCommand,
 		copyCommand,

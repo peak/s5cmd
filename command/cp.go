@@ -15,8 +15,8 @@ import (
 
 	errorpkg "github.com/peak/s5cmd/error"
 	"github.com/peak/s5cmd/log"
+	"github.com/peak/s5cmd/log/stat"
 	"github.com/peak/s5cmd/parallel"
-	"github.com/peak/s5cmd/statutil"
 	"github.com/peak/s5cmd/storage"
 	"github.com/peak/s5cmd/storage/url"
 )
@@ -194,7 +194,7 @@ increase the open file limit or try to decrease the number of workers with
 
 // Run starts copying given source objects to destination.
 func (c Copy) Run(ctx context.Context) (err error) {
-	defer statutil.StatCollect("Copy.Run", time.Now(), &err)()
+	defer stat.Collect("Copy.Run", time.Now(), &err)()
 	srcurl, err := url.New(c.src)
 	if err != nil {
 		return err
@@ -345,7 +345,7 @@ func (c Copy) prepareUploadTask(
 
 // doDownload is used to fetch a remote object and save as a local object.
 func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) (err error) {
-	defer statutil.StatCollect("Copy.doDownload", time.Now(), &err)()
+	defer stat.Collect("Copy.doDownload", time.Now(), &err)()
 	srcClient := storage.NewClient(srcurl)
 	dstClient := storage.NewClient(dsturl)
 
@@ -389,7 +389,7 @@ func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) 
 }
 
 func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) (err error) {
-	defer statutil.StatCollect("Copy.doUpload", time.Now(), &err)()
+	defer stat.Collect("Copy.doUpload", time.Now(), &err)()
 	// TODO(ig): use storage abstraction
 	f, err := os.Open(srcurl.Absolute())
 	if err != nil {
@@ -448,7 +448,7 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) (e
 }
 
 func (c Copy) doCopy(ctx context.Context, srcurl *url.URL, dsturl *url.URL) (err error) {
-	defer statutil.StatCollect("Copy.doCopy", time.Now(), &err)()
+	defer stat.Collect("Copy.doCopy", time.Now(), &err)()
 	srcClient := storage.NewClient(srcurl)
 
 	metadata := storage.NewMetadata().

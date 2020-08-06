@@ -8,7 +8,7 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"github.com/peak/s5cmd/log"
-	"github.com/peak/s5cmd/statutil"
+	"github.com/peak/s5cmd/log/stat"
 	"github.com/peak/s5cmd/storage"
 	"github.com/peak/s5cmd/storage/url"
 )
@@ -63,7 +63,7 @@ func MakeBucket(
 	op string,
 	src string,
 ) (err error) {
-	defer statutil.StatCollect("MakeBucket", time.Now(), &err)()
+	defer stat.Collect("MakeBucket", time.Now(), &err)()
 	bucket, err := url.New(src)
 	if err != nil {
 		return err

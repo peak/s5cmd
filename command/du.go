@@ -10,7 +10,7 @@ import (
 
 	errorpkg "github.com/peak/s5cmd/error"
 	"github.com/peak/s5cmd/log"
-	"github.com/peak/s5cmd/statutil"
+	"github.com/peak/s5cmd/log/stat"
 	"github.com/peak/s5cmd/storage"
 	"github.com/peak/s5cmd/storage/url"
 	"github.com/peak/s5cmd/strutil"
@@ -76,7 +76,7 @@ func Size(
 	groupByClass bool,
 	humanize bool,
 ) (err error) {
-	defer statutil.StatCollect("Size", time.Now(), &err)()
+	defer stat.Collect("Size", time.Now(), &err)()
 	srcurl, err := url.New(src)
 	if err != nil {
 		return err

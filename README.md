@@ -329,6 +329,54 @@ of concurrent systems easy and make full utilization of multi-core processors.
 - *Parallelization.* `s5cmd` starts out with concurrent worker pools and parallelizes
 workloads as much as possible while trying to achieve maximum throughput.
 
+# Advanced Usage
+
+Some of the advanced usage patterns provided below are inspired by the following [article](https://medium.com/@joshua_robinson/s5cmd-hits-v1-0-and-intro-to-advanced-usage-37ad02f7e895) (thank you! [@joshuarobinson](https://github.com/joshuarobinson))
+
+## Integrate s5cmd operations with Unix commands
+
+    s5cmd ls s3://bucket/pre/ | sort
+
+    s5cmd cat s3://bucket/file.txt | grep something
+
+## `Beast Mode s5cmd`
+
+`s5cmd` allows to pass in some file, containing list of operations to be performed, as an argument to the `run` command as illustrated in the [above](./README.md#L199) example. Alternatively, one can pipe in commands into 
+the `run:`
+
+    BUCKET=s5cmd-test; s5cmd ls s3://$BUCKET/*test | grep -v DIR | awk ‘{print $NF}’ | xargs -I {} echo “cp s3://$BUCKET/{} /local/directory/” | s5cmd run
+
+The above command performs two `s5cmd` invocations; first, searches for files with *test* suffix and then creates a *copy to local directory* command for each matching file and finally, pipes in those into the ` run.`
+
+Let's examine another usage instance, where we migrate files older than 
+30 days to a cloud object storage:
+
+    find /mnt/joshua/nachos/ -type f -mtime +30 | xargs -I{} echo “mv {} s3://joshuarobinson/backup/{}” | s5cmd run
+
+It is worth to mention that, `run` command should not be considered as a *silver bullet* for all operations. For example, assume we want to remove the following objects:
+
+    s3://bucket/prefix/2020/03/object1.gz
+    s3://bucket/prefix/2020/04/object1.gz
+    ...
+    s3://bucket/prefix/2020/09/object77.gz
+
+Rather than executing
+
+    rm s3://bucket/prefix/2020/03/object1.gz
+    rm s3://bucket/prefix/2020/04/object1.gz
+    ...
+    rm s3://bucket/prefix/2020/09/object77.gz
+
+with `run` command, it is better to just use
+
+    rm s3://bucket/prefix/2020/0*/object*.gz
+
+the latter sends single delete request per thousand objects, whereas using the former approach
+sends a separate delete request for each subcommand provided to `run.` Thus, there can be a
+significant runtime difference between those two approaches.
+
+
+
 # LICENSE
 
 MIT. See [LICENSE](https://github.com/peak/s5cmd/blob/master/LICENSE).

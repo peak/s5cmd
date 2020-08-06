@@ -344,14 +344,16 @@ Some of the advanced usage patterns provided below are inspired by the following
 `s5cmd` allows to pass in some file, containing list of operations to be performed, as an argument to the `run` command as illustrated in the [above](./README.md#L199) example. Alternatively, one can pipe in commands into 
 the `run:`
 
-    BUCKET=s5cmd-test; s5cmd ls s3://$BUCKET/*test | grep -v DIR | awk ‘{print $NF}’ | xargs -I {} echo “cp s3://$BUCKET/{} /local/directory/” | s5cmd run
+    BUCKET=s5cmd-test; s5cmd ls s3://$BUCKET/*test | grep -v DIR | awk ‘{print $NF}’ 
+    | xargs -I {} echo “cp s3://$BUCKET/{} /local/directory/” | s5cmd run
 
 The above command performs two `s5cmd` invocations; first, searches for files with *test* suffix and then creates a *copy to local directory* command for each matching file and finally, pipes in those into the ` run.`
 
 Let's examine another usage instance, where we migrate files older than 
 30 days to a cloud object storage:
 
-    find /mnt/joshua/nachos/ -type f -mtime +30 | xargs -I{} echo “mv {} s3://joshuarobinson/backup/{}” | s5cmd run
+    find /mnt/joshua/nachos/ -type f -mtime +30 | xargs -I{} echo “mv {} s3://joshuarobinson/backup/{}” 
+    | s5cmd run
 
 It is worth to mention that, `run` command should not be considered as a *silver bullet* for all operations. For example, assume we want to remove the following objects:
 

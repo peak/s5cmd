@@ -339,7 +339,7 @@ Some of the advanced usage patterns provided below are inspired by the following
 
     s5cmd cat s3://bucket/file.txt | grep something
 
-## `Beast Mode s5cmd`
+## Beast Mode s5cmd
 
 `s5cmd` allows to pass in some file, containing list of operations to be performed, as an argument to the `run` command as illustrated in the [above](./README.md#L199) example. Alternatively, one can pipe in commands into 
 the `run:`

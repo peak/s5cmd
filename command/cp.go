@@ -310,7 +310,7 @@ func (c Copy) prepareDownloadTask(
 	isBatch bool,
 ) func() error {
 	return func() error {
-		dsturl, err := prepareLocalDestination(ctx, srcurl, dsturl, c.flatten, isBatch)
+		dsturl, err := prepareLocalDestination(ctx, srcurl, dsturl, c.flatten, isBatch, c.dryRun)
 		if err != nil {
 			return err
 		}
@@ -582,13 +582,14 @@ func prepareLocalDestination(
 	dsturl *url.URL,
 	flatten bool,
 	isBatch bool,
+	dryRun bool,
 ) (*url.URL, error) {
 	objname := srcurl.Base()
 	if isBatch && !flatten {
 		objname = srcurl.Relative()
 	}
 
-	if isBatch {
+	if isBatch && !dryRun {
 		if err := os.MkdirAll(dsturl.Absolute(), os.ModePerm); err != nil {
 			return nil, err
 		}
@@ -603,15 +604,20 @@ func prepareLocalDestination(
 
 	if isBatch && !flatten {
 		dsturl = dsturl.Join(objname)
-		if err := os.MkdirAll(dsturl.Dir(), os.ModePerm); err != nil {
+		if dryRun {
+			// dryRun => no side effects.
+		} else if err := os.MkdirAll(dsturl.Dir(), os.ModePerm); err != nil {
 			return nil, err
 		}
 	}
 
 	if err == storage.ErrGivenObjectNotFound {
-		if err := os.MkdirAll(dsturl.Dir(), os.ModePerm); err != nil {
+		if dryRun {
+			// dryRun => no side effects.
+		} else if err := os.MkdirAll(dsturl.Dir(), os.ModePerm); err != nil {
 			return nil, err
 		}
+
 		if strings.HasSuffix(dsturl.Absolute(), "/") {
 			dsturl = dsturl.Join(objname)
 		}

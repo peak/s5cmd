@@ -668,6 +668,12 @@ func (s *s3Session) newSession(opts S3Options) (*session.Session, error) {
 	return sess, nil
 }
 
+func (s *s3Session) clear() {
+	s.Lock()
+	defer s.Unlock()
+	s.sessions = map[S3Options]*session.Session{}
+}
+
 // customRetryer wraps the SDK's built in DefaultRetryer adding additional
 // error codes. Such as, retry for S3 InternalError code.
 type customRetryer struct {

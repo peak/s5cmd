@@ -9,6 +9,7 @@ import (
 	"math/rand"
 	"net/http"
 	urlpkg "net/url"
+	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -76,6 +77,28 @@ func TestNewSessionPathStyle(t *testing.T) {
 				t.Fatalf("expected: %v, got: %v", tc.expectPathStyle, got)
 			}
 		})
+	}
+}
+
+func TestNewSessionWithRegionSetViaEnv(t *testing.T) {
+	opts := S3Options{
+		Region: "",
+	}
+	sessions.clear()
+
+	const expectedRegion = "us-west-2"
+
+	os.Setenv("AWS_REGION", expectedRegion)
+	defer os.Unsetenv("AWS_REGION")
+
+	sess, err := sessions.newSession(opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got := aws.StringValue(sess.Config.Region)
+	if got != expectedRegion {
+		t.Fatalf("expected %v, got %v", expectedRegion, got)
 	}
 }
 

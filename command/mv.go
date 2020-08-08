@@ -46,7 +46,7 @@ var moveCommand = &cli.Command{
 			dst:          c.Args().Get(1),
 			op:           c.Command.Name,
 			fullCommand:  givenCommand(c),
-			deleteSource: true, // don't delete source
+			deleteSource: true, // delete source
 			// flags
 			noClobber:        c.Bool("no-clobber"),
 			ifSizeDiffer:     c.Bool("if-size-differ"),

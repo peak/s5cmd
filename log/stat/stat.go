@@ -1,8 +1,10 @@
 package stat
 
 import (
+	"bytes"
 	"fmt"
 	"sync"
+	"text/tabwriter"
 	"time"
 
 	"github.com/peak/s5cmd/strutil"
@@ -26,7 +28,7 @@ func InitStat() {
 	enabled = true
 	for i := range stats {
 		stats[i] = syncMap{
-			mu:          sync.Mutex{},
+			Mutex:       sync.Mutex{},
 			mapStrInt64: map[string]int64{},
 		}
 	}
@@ -34,31 +36,23 @@ func InitStat() {
 
 // syncMap is a statically typed and synchronized map.
 type syncMap struct {
-	mu          sync.Mutex
+	sync.Mutex
 	mapStrInt64 map[string]int64
 }
 
 func (s *syncMap) add(key string, val int64) {
-	s.mu.Lock()
+	s.Lock()
+	defer s.Unlock()
+
 	s.mapStrInt64[key] += val
-	s.mu.Unlock()
 }
 
-// Stat implements log.Message interface.
+// Stat is for storing a particular statistics.
 type Stat struct {
 	Visited     string  `json:"visited"`
 	SuccVisits  int64   `json:"success visits"`
 	ErrVisits   int64   `json:"error visits"`
 	AvgExecTime float64 `json:"avg. execution time"`
-}
-
-func (s Stat) String() string {
-	return fmt.Sprintf("visited %q %d time with %d ERROR and %d SUCCESS returns; average execution time: %f msec.",
-		s.Visited, s.ErrVisits+s.SuccVisits, s.ErrVisits, s.SuccVisits, s.AvgExecTime)
-}
-
-func (s Stat) JSON() string {
-	return strutil.JSON(s)
 }
 
 // Collect collects function execution data.
@@ -75,8 +69,30 @@ func Collect(path string, t time.Time, err *error) func() {
 	}
 }
 
+// Stats implements log.Message interface.
+type Stats []Stat
+
+func (s Stats) String() string {
+	b := bytes.Buffer{}
+
+	w := tabwriter.NewWriter(&b, 5, 0, 5, ' ', tabwriter.AlignRight)
+
+	fmt.Fprintf(w, "\n%s\t%s\t%s\t%s\t%s\t\n", "Operation", "Total", "Error", "Success", "Duration(ms)")
+	fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t\n", "=========", "=====", "=====", "=======", "============")
+	for _, stat := range s {
+		fmt.Fprintf(w, "%s\t%d\t%d\t%d\t%f\t\n", stat.Visited, stat.ErrVisits+stat.SuccVisits, stat.ErrVisits, stat.SuccVisits, stat.AvgExecTime)
+	}
+
+	w.Flush()
+	return b.String()
+}
+
+func (s Stats) JSON() string {
+	return strutil.JSON(s)
+}
+
 // Statistics will return statistics that has been collected so far.
-func Statistics() []Stat {
+func Statistics() Stats {
 	if !enabled {
 		return make([]Stat, 0)
 	}

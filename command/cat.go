@@ -69,7 +69,7 @@ var catCommand = &cli.Command{
 
 // Cat prints content of given source to standard output.
 func Cat(ctx context.Context, src *url.URL) (err error) {
-	defer stat.Collect("command=>Cat", time.Now(), &err)()
+	defer stat.Collect("Cat", time.Now(), &err)()
 	client := storage.NewClient(src)
 
 	// set concurrency to 1 for sequential write to 'stdout' and give a dummy 'partSize' since

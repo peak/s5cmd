@@ -78,5 +78,5 @@ func TestAppDashStat(t *testing.T) {
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Expected{ExitCode: 0})
-	assert.Assert(t, strings.Contains(result.Stdout(), "visited"))
+	assert.Assert(t, strings.Contains(result.Stdout(), "Duration(ms)"))
 }

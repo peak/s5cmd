@@ -67,7 +67,10 @@ func TestNewSessionPathStyle(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 
 			opts := S3Options{Endpoint: tc.endpoint.Hostname()}
-			sess, err := sessions.newSession(opts)
+			Init(opts)
+			sess, err := sessionSingle.newSession(sessOptions{
+				S3Options: opts,
+			})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -81,17 +84,16 @@ func TestNewSessionPathStyle(t *testing.T) {
 }
 
 func TestNewSessionWithRegionSetViaEnv(t *testing.T) {
-	opts := S3Options{
-		Region: "",
-	}
-	sessions.clear()
+	opts := sessOptions{}
+
+	sessionSingle.clear()
 
 	const expectedRegion = "us-west-2"
 
 	os.Setenv("AWS_REGION", expectedRegion)
 	defer os.Unsetenv("AWS_REGION")
 
-	sess, err := sessions.newSession(opts)
+	sess, err := sessionSingle.newSession(opts)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -702,81 +704,41 @@ func TestS3listObjectsV2(t *testing.T) {
 	assert.Equal(t, len(mapReturnObjNameToModtime), 0)
 }
 
-func TestSessionCreateAndCachingWithDifferentRegions(t *testing.T) {
+func TestSessionCreateAndCachingWithDifferentBuckets(t *testing.T) {
 	const bucketRegionPath = "CreateBucketConfiguration.LocationConstraint"
 
 	testcases := []struct {
-		region         string
-		expectedRegion string // to check if `create session` request with specific region was executed
-
+		bucket         string
 		alreadyCreated bool // sessions should not be created again if they already have been created before
 	}{
-		{},
 		{
+			bucket: "bucket",
+		},
+		{
+			bucket:         "bucket",
 			alreadyCreated: true,
 		},
 		{
-			region:         "eu-central-1",
-			expectedRegion: "eu-central-1",
-		},
-		{
-			region:         "eu-central-1",
-			expectedRegion: "eu-central-1",
-
-			alreadyCreated: true,
+			bucket: "test-bucket",
 		},
 	}
 
 	sess := map[string]*session.Session{}
 
 	for _, tc := range testcases {
-		awsSess, err := sessions.newSession(S3Options{
-			Region: tc.region,
+		awsSess, err := sessionSingle.newSession(sessOptions{
+			bucket: bucket(tc.bucket),
 		})
 
 		if err != nil {
 			t.Error(err)
 		}
-
-		awsSess.Handlers.Unmarshal.Clear()
-		awsSess.Handlers.UnmarshalMeta.Clear()
-		awsSess.Handlers.UnmarshalError.Clear()
-		awsSess.Handlers.Send.Clear()
-
-		awsSess.Handlers.Send.PushBack(func(r *request.Request) {
-
-			r.HTTPResponse = &http.Response{
-				StatusCode: http.StatusOK,
-				Body:       ioutil.NopCloser(strings.NewReader("")),
-			}
-
-			region := val(r.Params, bucketRegionPath)
-			if region != nil && tc.expectedRegion != "" {
-				assert.Equal(t, region, tc.expectedRegion)
-			}
-		})
 
 		if tc.alreadyCreated {
-			_, ok := sess[tc.region]
+			_, ok := sess[tc.bucket]
 			assert.Check(t, ok, "session should not have been created again")
 		} else {
-			sess[tc.region] = awsSess
-		}
-
-		mockApi := s3.New(awsSess)
-
-		mockS3 := &S3{
-			api: mockApi,
-		}
-
-		err = mockS3.MakeBucket(context.Background(), "test")
-
-		if err != nil {
-			if _, ok := err.(awserr.Error); ok {
-				// ignore aws response errors, we check request parameters only
-				continue
-			}
-			t.Error(err)
+			sess[tc.bucket] = awsSess
 		}
 	}
 }

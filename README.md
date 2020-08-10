@@ -179,12 +179,6 @@ they'll be deleted in a single request.
 Will copy all the matching objects to the given S3 prefix, respecting the source
 folder hierarchy.
 
-If source and destination buckets reside on different regions:
-
-    s5cmd cp --source-region=us-east-2 --region=eu-central-1 s3://bucket1/file.txt s3://bucket2/
-    
-`--region` flag is for the bucket destination region, if not set, it will default to `--source-region`
-
 ⚠️ Copying objects (from S3 to S3) larger than 5GB is not supported yet. We have
 an [open ticket](https://github.com/peak/s5cmd/issues/29) to track the issue.
 
@@ -224,14 +218,6 @@ mv s3://bucket/2020/03/18/file1.gz s3://bucket/2020/03/18/original/file.gz
 # list all buckets
 ls # inline comments are OK too
 ```
-
-For batch operations it is possible to set a generic source and destination regions for buckets. For instance,
-
-    s5cmd run --source-region=<some region> --region=<another region> commands.txt
-    
-For each subcommand in the `commands.txt` file, source and destionation regions will 
-default to the flags set in the `run` command;
-subcommands can overwrite these global flags by providing of their own.
 
 ### Specifying credentials
 

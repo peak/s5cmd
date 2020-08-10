@@ -6,9 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/peak/s5cmd/storage"
-
 	"gotest.tools/v3/fs"
 	"gotest.tools/v3/icmd"
 )
@@ -231,60 +228,6 @@ func TestRunSpecialCharactersInPrefix(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(`cp s3://%v/%v %v`, bucket, sourceFileName, targetFilePath),
-	}, sortInput(true))
-
-	assertLines(t, result.Stderr(), map[int]compareFunc{})
-}
-
-func TestRunFromFileWithMultipleSourceAndDestinationRegions(t *testing.T) {
-	t.Parallel()
-
-	const numOfRegions = 4
-
-	var buckets [numOfRegions]string
-	for i := range buckets {
-		buckets[i] = randomString(30)
-	}
-
-	endpoint, workdir, cleanup := server(t, "bolt")
-	defer cleanup()
-
-	s5cmd := s5cmd(workdir, endpoint)
-
-	regions := [numOfRegions]string{"us-east-2", "eu-east-1", "eu-central-2", "us-west-1"}
-	clients := [5]*s3.S3{}
-	for i, r := range regions {
-		clients[i] = s3client(t, storage.S3Options{
-			Endpoint:    endpoint,
-			Region:      r,
-			NoVerifySSL: true,
-		})
-	}
-	for i := 0; i < numOfRegions; i++ {
-		createBucket(t, clients[i], buckets[i])
-
-		filename := fmt.Sprintf("file%d.txt", i)
-		putFile(t, clients[i], buckets[i], filename, "content")
-	}
-
-	filecontent := strings.Join([]string{
-		fmt.Sprintf("ls s3://%v/file0.txt", buckets[0]),
-		fmt.Sprintf("cp s3://%v/file1.txt s3://%v/", buckets[1], buckets[2]),
-		fmt.Sprintf("mv s3://%v/file2.txt s3://%v/", buckets[2], buckets[3]),
-	}, "\n")
-
-	file := fs.NewFile(t, "prefix", fs.WithContent(filecontent))
-	defer file.Remove()
-
-	cmd := s5cmd("run", "--source-region=us-east-2", file.Path())
-	result := icmd.RunCmd(cmd)
-
-	result.Assert(t, icmd.Success)
-
-	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: suffix("file0.txt"),
-		1: equals("cp s3://%v/file1.txt s3://%v/file1.txt", buckets[1], buckets[2]),
-		2: equals("mv s3://%v/file2.txt s3://%v/file2.txt", buckets[2], buckets[3]),
 	}, sortInput(true))
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{})

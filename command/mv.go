@@ -41,9 +41,12 @@ var moveCommand = &cli.Command{
 		return copyCommand.Before(c)
 	},
 	Action: func(c *cli.Context) error {
+		src := c.Args().Get(0)
+		dst := c.Args().Get(1)
+
 		copyCommand := Copy{
-			src:          c.Args().Get(0),
-			dst:          c.Args().Get(1),
+			src:          src,
+			dst:          dst,
 			op:           c.Command.Name,
 			fullCommand:  givenCommand(c),
 			deleteSource: true, // delete source
@@ -57,9 +60,6 @@ var moveCommand = &cli.Command{
 			encryptionMethod: c.String("sse"),
 			encryptionKeyID:  c.String("sse-kms-key-id"),
 			acl:              c.String("acl"),
-
-			srcS3opts: s3opts(c),
-			dstS3opts: dstS3opts(c),
 		}
 
 		return copyCommand.Run(c.Context)

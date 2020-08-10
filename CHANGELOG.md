@@ -2,7 +2,7 @@
 
 #### Features
 
-- Added cross-region transfer support using `source-region` and `region` flags. It can be used for cp/mv operations where source and destination buckets reside in different regions. ([#155](https://github.com/peak/s5cmd/issues/155))
+- Added cross-region transfer support. It can be used for cp/mv operations where source and destination buckets reside in different regions. ([#155](https://github.com/peak/s5cmd/issues/155))
 
 ## v1.1.0 - 22 Jul 2020
 

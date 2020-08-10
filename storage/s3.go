@@ -31,8 +31,6 @@ var _ Storage = (*S3)(nil)
 
 var sentinelURL = urlpkg.URL{}
 
-var sessions = &s3Session{sessions: map[S3Options]*session.Session{}}
-
 const (
 	// deleteObjectsMax is the max allowed objects to be deleted on single HTTP
 	// request.
@@ -44,6 +42,19 @@ const (
 	// Google Cloud Storage endpoint
 	gcsEndpoint = "storage.googleapis.com"
 )
+
+var (
+	s3OptionSingle S3Options
+	sessionSingle  s3Session
+)
+
+func Init(opts S3Options) {
+	s3OptionSingle = opts
+	sessionSingle = s3Session{
+		Mutex:    sync.Mutex{},
+		sessions: map[bucket]*session.Session{},
+	}
+}
 
 // S3 is a storage type which interacts with S3API, DownloaderAPI and
 // UploaderAPI.
@@ -58,7 +69,6 @@ type S3 struct {
 type S3Options struct {
 	MaxRetries  int
 	Endpoint    string
-	Region      string
 	NoVerifySSL bool
 }
 
@@ -80,13 +90,16 @@ func parseEndpoint(endpoint string) (urlpkg.URL, error) {
 }
 
 // NewS3Storage creates new S3 session.
-func NewS3Storage(opts S3Options) (*S3, error) {
-	endpointURL, err := parseEndpoint(opts.Endpoint)
+func NewS3Storage(url *url.URL) (*S3, error) {
+	endpointURL, err := parseEndpoint(s3OptionSingle.Endpoint)
 	if err != nil {
 		return nil, err
 	}
 
-	awsSession, err := sessions.newSession(opts)
+	awsSession, err := sessionSingle.newSession(sessOptions{
+		S3Options: s3OptionSingle,
+		bucket:    bucket(url.Bucket),
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -584,20 +597,27 @@ func (s *S3) MakeBucket(ctx context.Context, name string) error {
 	return err
 }
 
+type bucket string
+
 // s3Session holds session.Session according to s3Opts
 // and it synchronizes access/modification.
 type s3Session struct {
 	sync.Mutex
-	sessions map[S3Options]*session.Session
+	sessions map[bucket]*session.Session
+}
+
+type sessOptions struct {
+	S3Options
+	bucket
 }
 
 // NewAwsSession initializes a new AWS session with region fallback and custom
 // options.
-func (s *s3Session) newSession(opts S3Options) (*session.Session, error) {
+func (s *s3Session) newSession(opts sessOptions) (*session.Session, error) {
 	s.Lock()
 	defer s.Unlock()
 
-	if sess, ok := s.sessions[opts]; ok {
+	if sess, ok := s.sessions[opts.bucket]; ok {
 		return sess, nil
 	}
 
@@ -631,10 +651,6 @@ func (s *s3Session) newSession(opts S3Options) (*session.Session, error) {
 		WithS3UseAccelerate(useAccelerate).
 		WithHTTPClient(httpClient)
 
-	if opts.Region != "" {
-		awsCfg.WithRegion(opts.Region)
-	}
-
 	awsCfg.Retryer = newCustomRetryer(opts.MaxRetries)
 
 	useSharedConfig := session.SharedConfigEnable
@@ -663,7 +679,17 @@ func (s *s3Session) newSession(opts S3Options) (*session.Session, error) {
 		sess.Config.Region = aws.String(endpoints.UsEast1RegionID)
 	}
 
-	s.sessions[opts] = sess
+	// get region of the bucket and create session accordingly
+	if opts.bucket != "" {
+		region, err := s3manager.GetBucketRegion(context.Background(), sess, string(opts.bucket), "")
+		if err != nil {
+			return nil, err
+		}
+
+		sess.Config.Region = aws.String(region)
+	}
+
+	s.sessions[opts.bucket] = sess
 
 	return sess, nil
 }
@@ -671,7 +697,7 @@ func (s *s3Session) newSession(opts S3Options) (*session.Session, error) {
 func (s *s3Session) clear() {
 	s.Lock()
 	defer s.Unlock()
-	s.sessions = map[S3Options]*session.Session{}
+	s.sessions = map[bucket]*session.Session{}
 }
 
 // customRetryer wraps the SDK's built in DefaultRetryer adding additional

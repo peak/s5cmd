@@ -26,6 +26,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/endpoints"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/google/go-cmp/cmp"
@@ -80,7 +81,6 @@ func setup(t *testing.T, options ...option) (*s3.S3, func(...string) icmd.Cmd, f
 
 	client := s3client(t, storage.S3Options{
 		Endpoint:    endpoint,
-		Region:      "us-east-1",
 		NoVerifySSL: true,
 	})
 
@@ -129,7 +129,7 @@ func s3client(t *testing.T, options storage.S3Options) *s3.S3 {
 
 	s3Config := aws.NewConfig().
 		WithEndpoint(options.Endpoint).
-		WithRegion(options.Region).
+		WithRegion(endpoints.UsEast1RegionID).
 		WithCredentials(credentials.NewStaticCredentials(defaultAccessKeyID, defaultSecretAccessKey, "")).
 		WithDisableSSL(options.NoVerifySSL).
 		WithS3ForcePathStyle(true).

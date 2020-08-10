@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/peak/s5cmd/storage"
+
 	cmpinstall "github.com/posener/complete/cmd/install"
 	"github.com/urfave/cli/v2"
 
@@ -56,7 +58,9 @@ var app = &cli.App{
 		},
 	},
 	Before: func(c *cli.Context) error {
+		noVerifySSL := c.Bool("no-verify-ssl")
 		retryCount := c.Int("retry-count")
+		endpointURL := c.String("endpoint-url")
 		workerCount := c.Int("numworkers")
 		printJSON := c.Bool("json")
 		logLevel := c.String("log")
@@ -67,6 +71,12 @@ var app = &cli.App{
 		if retryCount < 0 {
 			return fmt.Errorf("retry count cannot be a negative value")
 		}
+
+		storage.Init(storage.S3Options{
+			MaxRetries:  retryCount,
+			Endpoint:    endpointURL,
+			NoVerifySSL: noVerifySSL,
+		})
 
 		return nil
 	},

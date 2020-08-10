@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"time"
 
 	"github.com/urfave/cli/v2"
 
@@ -57,7 +56,9 @@ var catCommand = &cli.Command{
 
 		return nil
 	},
-	Action: func(c *cli.Context) error {
+	Action: func(c *cli.Context) (err error) {
+		defer stat.Collect(c.Command.FullName(), &err)()
+
 		src, err := url.New(c.Args().Get(0))
 		if err != nil {
 			return err
@@ -68,13 +69,12 @@ var catCommand = &cli.Command{
 }
 
 // Cat prints content of given source to standard output.
-func Cat(ctx context.Context, src *url.URL) (err error) {
-	defer stat.Collect("Cat", time.Now(), &err)()
+func Cat(ctx context.Context, src *url.URL) error {
 	client := storage.NewClient(src)
 
 	// set concurrency to 1 for sequential write to 'stdout' and give a dummy 'partSize' since
 	// `storage.S3.Get()` ignores 'partSize' if concurrency is set to 1.
-	_, err = client.Get(ctx, src, sequentialWriterAt{w: os.Stdout}, 1, -1)
+	_, err := client.Get(ctx, src, sequentialWriterAt{w: os.Stdout}, 1, -1)
 	return err
 }
 

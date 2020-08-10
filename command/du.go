@@ -3,7 +3,6 @@ package command
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/urfave/cli/v2"
@@ -56,7 +55,9 @@ var sizeCommand = &cli.Command{
 		}
 		return nil
 	},
-	Action: func(c *cli.Context) error {
+	Action: func(c *cli.Context) (err error) {
+		defer stat.Collect(c.Command.FullName(), &err)()
+
 		groupByClass := c.Bool("group")
 		humanize := c.Bool("humanize")
 
@@ -75,8 +76,7 @@ func Size(
 	src string,
 	groupByClass bool,
 	humanize bool,
-) (err error) {
-	defer stat.Collect("Size", time.Now(), &err)()
+) error {
 	srcurl, err := url.New(src)
 	if err != nil {
 		return err

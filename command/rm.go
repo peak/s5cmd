@@ -3,7 +3,6 @@ package command
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/urfave/cli/v2"
@@ -50,7 +49,9 @@ var deleteCommand = &cli.Command{
 
 		return sourcesHaveSameType(c.Args().Slice()...)
 	},
-	Action: func(c *cli.Context) error {
+	Action: func(c *cli.Context) (err error) {
+		defer stat.Collect(c.Command.FullName(), &err)()
+
 		return Delete(
 			c.Context,
 			c.Command.Name,
@@ -66,8 +67,7 @@ func Delete(
 	op string,
 	fullCommand string,
 	src ...string,
-) (err error) {
-	defer stat.Collect("Delete", time.Now(), &err)()
+) error {
 	srcurls, err := newURLs(src...)
 	if err != nil {
 		return err

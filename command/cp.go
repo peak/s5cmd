@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/urfave/cli/v2"
@@ -138,7 +137,9 @@ var copyCommand = &cli.Command{
 	Before: func(c *cli.Context) error {
 		return validate(c)
 	},
-	Action: func(c *cli.Context) error {
+	Action: func(c *cli.Context) (err error) {
+		defer stat.Collect(c.Command.FullName(), &err)()
+
 		return Copy{
 			src:          c.Args().Get(0),
 			dst:          c.Args().Get(1),
@@ -193,8 +194,7 @@ increase the open file limit or try to decrease the number of workers with
 `
 
 // Run starts copying given source objects to destination.
-func (c Copy) Run(ctx context.Context) (err error) {
-	defer stat.Collect("Copy.Run", time.Now(), &err)()
+func (c Copy) Run(ctx context.Context) error {
 	srcurl, err := url.New(c.src)
 	if err != nil {
 		return err
@@ -344,12 +344,11 @@ func (c Copy) prepareUploadTask(
 }
 
 // doDownload is used to fetch a remote object and save as a local object.
-func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) (err error) {
-	defer stat.Collect("Copy.doDownload", time.Now(), &err)()
+func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) error {
 	srcClient := storage.NewClient(srcurl)
 	dstClient := storage.NewClient(dsturl)
 
-	err = c.shouldOverride(ctx, srcurl, dsturl)
+	err := c.shouldOverride(ctx, srcurl, dsturl)
 	if err != nil {
 		// FIXME(ig): rename
 		if errorpkg.IsWarning(err) {
@@ -388,8 +387,7 @@ func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) 
 	return nil
 }
 
-func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) (err error) {
-	defer stat.Collect("Copy.doUpload", time.Now(), &err)()
+func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) error {
 	// TODO(ig): use storage abstraction
 	f, err := os.Open(srcurl.Absolute())
 	if err != nil {
@@ -447,8 +445,7 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) (e
 	return nil
 }
 
-func (c Copy) doCopy(ctx context.Context, srcurl *url.URL, dsturl *url.URL) (err error) {
-	defer stat.Collect("Copy.doCopy", time.Now(), &err)()
+func (c Copy) doCopy(ctx context.Context, srcurl *url.URL, dsturl *url.URL) error {
 	srcClient := storage.NewClient(srcurl)
 
 	metadata := storage.NewMetadata().
@@ -457,7 +454,7 @@ func (c Copy) doCopy(ctx context.Context, srcurl *url.URL, dsturl *url.URL) (err
 		SetSSEKeyID(c.encryptionKeyID).
 		SetACL(c.acl)
 
-	err = c.shouldOverride(ctx, srcurl, dsturl)
+	err := c.shouldOverride(ctx, srcurl, dsturl)
 	if err != nil {
 		if errorpkg.IsWarning(err) {
 			printDebug(c.op, srcurl, dsturl, err)

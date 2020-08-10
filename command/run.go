@@ -8,12 +8,10 @@ import (
 	"io"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/kballard/go-shellquote"
 	"github.com/urfave/cli/v2"
 
-	"github.com/peak/s5cmd/log/stat"
 	"github.com/peak/s5cmd/parallel"
 )
 
@@ -46,7 +44,6 @@ var runCommand = &cli.Command{
 		return nil
 	},
 	Action: func(c *cli.Context) (err error) {
-		defer stat.Collect("runCommand.Action", time.Now(), &err)
 		reader := os.Stdin
 		if c.Args().Len() == 1 {
 			f, err := os.Open(c.Args().First())

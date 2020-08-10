@@ -25,7 +25,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager/s3manageriface"
 
-	"github.com/peak/s5cmd/log/stat"
 	"github.com/peak/s5cmd/storage/url"
 )
 
@@ -110,8 +109,7 @@ func NewS3Storage(opts S3Options) (*S3, error) {
 }
 
 // Stat retrieves metadata from S3 object without returning the object itself.
-func (s *S3) Stat(ctx context.Context, url *url.URL) (obj *Object, err error) {
-	defer stat.Collect("S3.stat", time.Now(), &err)()
+func (s *S3) Stat(ctx context.Context, url *url.URL) (*Object, error) {
 	output, err := s.api.HeadObjectWithContext(ctx, &s3.HeadObjectInput{
 		Bucket: aws.String(url.Bucket),
 		Key:    aws.String(url.Path),
@@ -325,8 +323,7 @@ func (s *S3) listObjects(ctx context.Context, url *url.URL) <-chan *Object {
 
 // Copy is a single-object copy operation which copies objects to S3
 // destination from another S3 source.
-func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata Metadata) (err error) {
-	defer stat.Collect("S3.Copy", time.Now(), &err)()
+func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata Metadata) error {
 	// SDK expects CopySource like "bucket[/key]"
 	copySource := strings.TrimPrefix(from.String(), "s3://")
 
@@ -355,7 +352,7 @@ func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata Metadata) (er
 		input.ACL = aws.String(acl)
 	}
 
-	_, err = s.api.CopyObject(input)
+	_, err := s.api.CopyObject(input)
 	return err
 }
 
@@ -368,8 +365,7 @@ func (s *S3) Get(
 	to io.WriterAt,
 	concurrency int,
 	partSize int64,
-) (res int64, err error) {
-	defer stat.Collect("S3.Get", time.Now(), &err)()
+) (int64, error) {
 	if concurrency == 1 {
 		resp, err := s.api.GetObjectWithContext(ctx, &s3.GetObjectInput{
 			Bucket: aws.String(from.Bucket),
@@ -401,8 +397,7 @@ func (s *S3) Put(
 	metadata Metadata,
 	concurrency int,
 	partSize int64,
-) (err error) {
-	defer stat.Collect("S3.Put", time.Now(), &err)()
+) error {
 	contentType := metadata.ContentType()
 	if contentType == "" {
 		contentType = "application/octet-stream"
@@ -433,7 +428,7 @@ func (s *S3) Put(
 		}
 	}
 
-	_, err = s.uploader.UploadWithContext(ctx, input, func(u *s3manager.Uploader) {
+	_, err := s.uploader.UploadWithContext(ctx, input, func(u *s3manager.Uploader) {
 		u.PartSize = partSize
 		u.Concurrency = concurrency
 	})
@@ -489,8 +484,7 @@ func (s *S3) calculateChunks(ch <-chan *url.URL) <-chan chunk {
 }
 
 // Delete is a single object delete operation.
-func (s *S3) Delete(ctx context.Context, url *url.URL) (err error) {
-	defer stat.Collect("S3.Delete", time.Now(), &err)()
+func (s *S3) Delete(ctx context.Context, url *url.URL) error {
 	chunk := chunk{
 		Bucket: url.Bucket,
 		Keys: []*s3.ObjectIdentifier{
@@ -592,9 +586,8 @@ func (s *S3) ListBuckets(ctx context.Context, prefix string) ([]Bucket, error) {
 }
 
 // MakeBucket creates an S3 bucket with the given name.
-func (s *S3) MakeBucket(ctx context.Context, name string) (err error) {
-	defer stat.Collect("S3.MakeBucket", time.Now(), &err)()
-	_, err = s.api.CreateBucketWithContext(ctx, &s3.CreateBucketInput{
+func (s *S3) MakeBucket(ctx context.Context, name string) error {
+	_, err := s.api.CreateBucketWithContext(ctx, &s3.CreateBucketInput{
 		Bucket: aws.String(name),
 	})
 	return err
@@ -602,8 +595,7 @@ func (s *S3) MakeBucket(ctx context.Context, name string) (err error) {
 
 // NewAwsSession initializes a new AWS session with region fallback and custom
 // options.
-func newSession(opts S3Options) (sess *session.Session, err error) {
-	defer stat.Collect("newSession", time.Now(), &err)()
+func newSession(opts S3Options) (*session.Session, error) {
 	awsCfg := aws.NewConfig()
 
 	endpointURL, err := parseEndpoint(opts.Endpoint)
@@ -652,7 +644,7 @@ func newSession(opts S3Options) (sess *session.Session, err error) {
 		}
 	}
 
-	sess, err = session.NewSessionWithOptions(
+	sess, err := session.NewSessionWithOptions(
 		session.Options{
 			Config:            *awsCfg,
 			SharedConfigState: useSharedConfig,

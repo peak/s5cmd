@@ -3,7 +3,6 @@ package command
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/urfave/cli/v2"
 
@@ -48,7 +47,9 @@ var makeBucketCommand = &cli.Command{
 
 		return nil
 	},
-	Action: func(c *cli.Context) error {
+	Action: func(c *cli.Context) (err error) {
+		defer stat.Collect(c.Command.FullName(), &err)()
+
 		return MakeBucket(
 			c.Context,
 			c.Command.Name,
@@ -62,8 +63,7 @@ func MakeBucket(
 	ctx context.Context,
 	op string,
 	src string,
-) (err error) {
-	defer stat.Collect("MakeBucket", time.Now(), &err)()
+) error {
 	bucket, err := url.New(src)
 	if err != nil {
 		return err

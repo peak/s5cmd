@@ -1,7 +1,9 @@
 package command
 
 import (
+	"github.com/peak/s5cmd/log/stat"
 	"github.com/peak/s5cmd/storage"
+
 	"github.com/urfave/cli/v2"
 )
 
@@ -40,7 +42,9 @@ var moveCommand = &cli.Command{
 	Before: func(c *cli.Context) error {
 		return copyCommand.Before(c)
 	},
-	Action: func(c *cli.Context) error {
+	Action: func(c *cli.Context) (err error) {
+		defer stat.Collect(c.Command.FullName(), &err)()
+
 		copyCommand := Copy{
 			src:          c.Args().Get(0),
 			dst:          c.Args().Get(1),

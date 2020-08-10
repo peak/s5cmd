@@ -78,5 +78,10 @@ func TestAppDashStat(t *testing.T) {
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Expected{ExitCode: 0})
-	assert.Assert(t, strings.Contains(result.Stdout(), "Duration(ms)"))
+
+	out := result.Stdout()
+
+	assert.Assert(t, strings.Contains(out, "Operation"))
+	assert.Assert(t, strings.Contains(out, "Total"))
+	assert.Assert(t, strings.Contains(out, "========="))
 }

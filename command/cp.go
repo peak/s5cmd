@@ -70,12 +70,7 @@ Examples:
 
 	12. Perform KMS-SSE of the object(s) at the destination using customer managed Customer Master Key (CMK) key id
 		> s5cmd {{.HelpName}} -sse aws:kms -sse-kms-key-id <your-kms-key-id> s3://bucket/object s3://target-bucket/prefix/object
-	
-	13. Copy S3 objects to another bucket in different region with default source region
-		> s5cmd {{.HelpName}} -region eu-east-2 s3://bucket/object s3://target-bucket/prefix/object
-	
-	14. Copy S3 objects to another bucket in different region with explicitly provided source region
-		> s5cmd {{.HelpName}} -source-region us-west-1 -region eu-east-2 s3://bucket/object s3://target-bucket/prefix/object
+
 `
 
 var copyCommandFlags = []cli.Flag{
@@ -118,14 +113,6 @@ var copyCommandFlags = []cli.Flag{
 		Aliases: []string{"p"},
 		Value:   defaultPartSize,
 		Usage:   "size of each part transferred between host and remote server, in MiB",
-	},
-	&cli.StringFlag{
-		Name:  "source-region",
-		Usage: "connect to a specific region of the remote object storage service",
-	},
-	&cli.StringFlag{
-		Name:  "region",
-		Usage: "region of the destination bucket for cp/mv operations",
 	},
 	&cli.StringFlag{
 		Name:  "sse",

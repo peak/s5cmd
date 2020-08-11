@@ -58,10 +58,9 @@ var sizeCommand = &cli.Command{
 		groupByClass := c.Bool("group")
 		humanize := c.Bool("humanize")
 
-		src := c.Args().First()
 		return Size(
 			c.Context,
-			src,
+			c.Args().First(),
 			groupByClass,
 			humanize,
 		)

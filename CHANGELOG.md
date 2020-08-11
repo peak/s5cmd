@@ -2,12 +2,11 @@
 
 #### Features
 
-- Added cross-region transfer support. It can be used for cp/mv operations where source and destination buckets reside in different regions. ([#155](https://github.com/peak/s5cmd/issues/155))
+- Added cross-region transfer support. Bucket regions are inferred, thus, supporting cross-region transfers and multiple regions in batch mode. ([#155](https://github.com/peak/s5cmd/issues/155))
 
 ## v1.1.0 - 22 Jul 2020
 
 With this release, Windows is supported.
-
 
 #### Breaking changes
 - Dropped storage class short codes display from default behaviour of `ls` operation. Instead, use `-s` flag with `ls`

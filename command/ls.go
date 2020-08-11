@@ -73,11 +73,10 @@ var listCommand = &cli.Command{
 		showEtag := c.Bool("etag")
 		humanize := c.Bool("humanize")
 		showStorageClass := c.Bool("storage-class")
-		src := c.Args().First()
 
 		return List(
 			c.Context,
-			src,
+			c.Args().First(),
 			showEtag,
 			humanize,
 			showStorageClass,

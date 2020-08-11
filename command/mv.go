@@ -41,12 +41,9 @@ var moveCommand = &cli.Command{
 		return copyCommand.Before(c)
 	},
 	Action: func(c *cli.Context) error {
-		src := c.Args().Get(0)
-		dst := c.Args().Get(1)
-
 		copyCommand := Copy{
-			src:          src,
-			dst:          dst,
+			src:          c.Args().Get(0),
+			dst:          c.Args().Get(1),
 			op:           c.Command.Name,
 			fullCommand:  givenCommand(c),
 			deleteSource: true, // delete source

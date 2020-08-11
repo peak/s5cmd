@@ -89,7 +89,7 @@ var listCommand = &cli.Command{
 func ListBuckets(ctx context.Context) error {
 	// set as remote storage
 	url := &url.URL{Type: 0}
-	client, err := storage.NewClient(url)
+	client, err := storage.NewClient(ctx, url)
 	if err != nil {
 		return err
 	}
@@ -120,7 +120,7 @@ func List(
 		return err
 	}
 
-	client, err := storage.NewClient(srcurl)
+	client, err := storage.NewClient(ctx, srcurl)
 	if err != nil {
 		return err
 	}

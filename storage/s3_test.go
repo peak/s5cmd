@@ -68,7 +68,7 @@ func TestNewSessionPathStyle(t *testing.T) {
 
 			opts := S3Options{Endpoint: tc.endpoint.Hostname()}
 			Init(opts)
-			sess, err := sessionSingle.newSession(sessOptions{
+			sess, err := sessionSingle.newSession(context.Background(), sessOptions{
 				S3Options: opts,
 			})
 			if err != nil {
@@ -93,7 +93,7 @@ func TestNewSessionWithRegionSetViaEnv(t *testing.T) {
 	os.Setenv("AWS_REGION", expectedRegion)
 	defer os.Unsetenv("AWS_REGION")
 
-	sess, err := sessionSingle.newSession(opts)
+	sess, err := sessionSingle.newSession(context.Background(), opts)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -726,7 +726,7 @@ func TestSessionCreateAndCachingWithDifferentBuckets(t *testing.T) {
 	sess := map[string]*session.Session{}
 
 	for _, tc := range testcases {
-		awsSess, err := sessionSingle.newSession(sessOptions{
+		awsSess, err := sessionSingle.newSession(context.Background(), sessOptions{
 			bucket: bucket(tc.bucket),
 		})
 

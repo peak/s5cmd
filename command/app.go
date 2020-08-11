@@ -4,13 +4,12 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/peak/s5cmd/storage"
-
 	cmpinstall "github.com/posener/complete/cmd/install"
 	"github.com/urfave/cli/v2"
 
 	"github.com/peak/s5cmd/log"
 	"github.com/peak/s5cmd/parallel"
+	"github.com/peak/s5cmd/storage"
 )
 
 const (

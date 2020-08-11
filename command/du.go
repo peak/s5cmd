@@ -80,7 +80,7 @@ func Size(
 		return err
 	}
 
-	client, err := storage.NewClient(srcurl)
+	client, err := storage.NewClient(ctx, srcurl)
 	if err != nil {
 		return err
 	}

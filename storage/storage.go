@@ -57,9 +57,9 @@ type Storage interface {
 
 // NewClient returns new Storage client from given url. Storage implementation
 // is inferred from the url.
-func NewClient(url *url.URL) (Storage, error) {
+func NewClient(ctx context.Context, url *url.URL) (Storage, error) {
 	if url.IsRemote() {
-		return NewS3Storage(url)
+		return NewS3Storage(ctx, url)
 	}
 
 	return NewFilesystem(), nil

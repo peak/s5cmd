@@ -71,7 +71,7 @@ func Delete(
 	}
 	srcurl := srcurls[0]
 
-	client, err := storage.NewClient(srcurl)
+	client, err := storage.NewClient(ctx, srcurl)
 	if err != nil {
 		return err
 	}

@@ -70,7 +70,6 @@ Examples:
 
 	12. Perform KMS-SSE of the object(s) at the destination using customer managed Customer Master Key (CMK) key id
 		> s5cmd {{.HelpName}} -sse aws:kms -sse-kms-key-id <your-kms-key-id> s3://bucket/object s3://target-bucket/prefix/object
-
 `
 
 var copyCommandFlags = []cli.Flag{
@@ -206,7 +205,7 @@ func (c Copy) Run(ctx context.Context) error {
 		return err
 	}
 
-	client, err := storage.NewClient(srcurl)
+	client, err := storage.NewClient(ctx, srcurl)
 	if err != nil {
 		return err
 	}
@@ -349,11 +348,11 @@ func (c Copy) prepareUploadTask(
 
 // doDownload is used to fetch a remote object and save as a local object.
 func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) error {
-	srcClient, err := storage.NewClient(srcurl)
+	srcClient, err := storage.NewClient(ctx, srcurl)
 	if err != nil {
 		return err
 	}
-	dstClient, err := storage.NewClient(dsturl)
+	dstClient, err := storage.NewClient(ctx, dsturl)
 	if err != nil {
 		return err
 	}
@@ -414,7 +413,7 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 		return err
 	}
 
-	dstClient, err := storage.NewClient(dsturl)
+	dstClient, err := storage.NewClient(ctx, dsturl)
 	if err != nil {
 		return err
 	}
@@ -431,7 +430,7 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 		return err
 	}
 
-	srcClient, err := storage.NewClient(srcurl)
+	srcClient, err := storage.NewClient(ctx, srcurl)
 	if err != nil {
 		return err
 	}
@@ -462,7 +461,7 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 }
 
 func (c Copy) doCopy(ctx context.Context, srcurl *url.URL, dsturl *url.URL) error {
-	dstClient, err := storage.NewClient(dsturl)
+	dstClient, err := storage.NewClient(ctx, dsturl)
 	if err != nil {
 		return err
 	}
@@ -488,7 +487,7 @@ func (c Copy) doCopy(ctx context.Context, srcurl *url.URL, dsturl *url.URL) erro
 	}
 
 	if c.deleteSource {
-		srcClient, err := storage.NewClient(srcurl)
+		srcClient, err := storage.NewClient(ctx, srcurl)
 		if err != nil {
 			return err
 		}
@@ -602,7 +601,7 @@ func prepareLocalDestination(
 		}
 	}
 
-	client, err := storage.NewClient(dsturl)
+	client, err := storage.NewClient(ctx, dsturl)
 	if err != nil {
 		return nil, err
 	}
@@ -638,7 +637,7 @@ func prepareLocalDestination(
 // getObject checks if the object from given url exists. If no object is
 // found, error and returning object would be nil.
 func getObject(ctx context.Context, url *url.URL) (*storage.Object, error) {
-	client, err := storage.NewClient(url)
+	client, err := storage.NewClient(ctx, url)
 	if err != nil {
 		return nil, err
 	}
@@ -706,7 +705,7 @@ func validateCopy(srcurl, dsturl *url.URL) error {
 }
 
 func validateUpload(ctx context.Context, srcurl, dsturl *url.URL) error {
-	srcclient, err := storage.NewClient(srcurl)
+	srcclient, err := storage.NewClient(ctx, srcurl)
 	if err != nil {
 		return err
 	}

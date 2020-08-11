@@ -90,13 +90,13 @@ func parseEndpoint(endpoint string) (urlpkg.URL, error) {
 }
 
 // NewS3Storage creates new S3 session.
-func NewS3Storage(url *url.URL) (*S3, error) {
+func NewS3Storage(ctx context.Context, url *url.URL) (*S3, error) {
 	endpointURL, err := parseEndpoint(s3OptionSingle.Endpoint)
 	if err != nil {
 		return nil, err
 	}
 
-	awsSession, err := sessionSingle.newSession(sessOptions{
+	awsSession, err := sessionSingle.newSession(ctx, sessOptions{
 		S3Options: s3OptionSingle,
 		bucket:    bucket(url.Bucket),
 	})
@@ -613,7 +613,7 @@ type sessOptions struct {
 
 // NewAwsSession initializes a new AWS session with region fallback and custom
 // options.
-func (s *s3Session) newSession(opts sessOptions) (*session.Session, error) {
+func (s *s3Session) newSession(ctx context.Context, opts sessOptions) (*session.Session, error) {
 	s.Lock()
 	defer s.Unlock()
 
@@ -681,7 +681,7 @@ func (s *s3Session) newSession(opts sessOptions) (*session.Session, error) {
 
 	// get region of the bucket and create session accordingly
 	if opts.bucket != "" {
-		region, err := s3manager.GetBucketRegion(context.Background(), sess, string(opts.bucket), "")
+		region, err := s3manager.GetBucketRegion(ctx, sess, string(opts.bucket), "")
 		if err != nil {
 			return nil, err
 		}

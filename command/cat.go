@@ -67,7 +67,7 @@ var catCommand = &cli.Command{
 
 // Cat prints content of given source to standard output.
 func Cat(ctx context.Context, src *url.URL) error {
-	client, err := storage.NewClient(src)
+	client, err := storage.NewClient(ctx, src)
 	if err != nil {
 		return err
 	}

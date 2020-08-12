@@ -1,5 +1,9 @@
 # Changelog
 
+#### Features
+
+- Added cross-region transfer support. Bucket regions are inferred, thus, supporting cross-region transfers and multiple regions in batch mode. ([#155](https://github.com/peak/s5cmd/issues/155))
+
 ## v1.1.0 - 22 Jul 2020
 
 With this release, Windows is supported.

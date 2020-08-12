@@ -79,7 +79,10 @@ func Size(
 		return err
 	}
 
-	client := storage.NewClient(srcurl)
+	client, err := storage.NewClient(srcurl)
+	if err != nil {
+		return err
+	}
 
 	storageTotal := map[string]sizeAndCount{}
 	total := sizeAndCount{}
@@ -92,6 +95,10 @@ func Size(
 		}
 
 		if err := object.Err; err != nil {
+			if _, ok := storage.RetryableErr(srcurl, err); ok {
+				return Size(ctx, src, groupByClass, humanize)
+			}
+
 			merror = multierror.Append(merror, err)
 			continue
 		}

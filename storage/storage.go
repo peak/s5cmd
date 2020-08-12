@@ -57,12 +57,33 @@ type Storage interface {
 
 // NewClient returns new Storage client from given url. Storage implementation
 // is inferred from the url.
-func NewClient(url *url.URL) Storage {
+func NewClient(url *url.URL) (Storage, error) {
 	if url.IsRemote() {
-		return cachedS3
+		return NewS3Storage(url)
 	}
 
-	return NewFilesystem()
+	return NewFilesystem(), nil
+}
+
+// RetryableErr checks whether the error from client of
+// the given url is fixable or not. If so, it returns a new
+// client.
+func RetryableErr(url *url.URL, err error) (Storage, bool) {
+	if !url.IsRemote() {
+		return nil, false
+	}
+
+	region, err := getRegion(err)
+	if err != nil {
+		return nil, false
+	}
+	client, err := NewS3Storage(url, func(opt *sessOptions) {
+		opt.region = region
+	})
+	if err != nil {
+		return nil, false
+	}
+	return client, true
 }
 
 // Object is a generic type which contains metadata for storage items.

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	urlpkg "net/url"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -42,15 +43,32 @@ const (
 
 	// Google Cloud Storage endpoint
 	gcsEndpoint = "storage.googleapis.com"
+
+	defaultRegion = "us-east-1"
 )
 
-// Re-used AWS sessions dramatically improve performance.
-var cachedS3 *S3
+var (
+	defaultSession *session.Session
+
+	s3OptionSingle S3Options
+	sessionSingle  s3Session
+)
 
 // Init creates a new global S3 session.
 func Init(opts S3Options) error {
-	s3, err := NewS3Storage(opts)
-	cachedS3 = s3
+	s3OptionSingle = opts
+	sessionSingle = s3Session{
+		Mutex:    sync.Mutex{},
+		sessions: map[bucket]*session.Session{},
+	}
+
+	sess, err := newSession(sessOptions{
+		S3Options: opts,
+		region:    defaultRegion,
+	})
+	if err == nil {
+		defaultSession = sess
+	}
 	return err
 }
 
@@ -67,7 +85,6 @@ type S3 struct {
 type S3Options struct {
 	MaxRetries  int
 	Endpoint    string
-	Region      string
 	NoVerifySSL bool
 }
 
@@ -89,13 +106,21 @@ func parseEndpoint(endpoint string) (urlpkg.URL, error) {
 }
 
 // NewS3Storage creates new S3 session.
-func NewS3Storage(opts S3Options) (*S3, error) {
-	endpointURL, err := parseEndpoint(opts.Endpoint)
+func NewS3Storage(u *url.URL, options ...func(opt *sessOptions)) (*S3, error) {
+	endpointURL, err := parseEndpoint(s3OptionSingle.Endpoint)
 	if err != nil {
 		return nil, err
 	}
 
-	awsSession, err := newSession(opts)
+	sessOpts := sessOptions{
+		S3Options: s3OptionSingle,
+		bucket:    bucket(u.Bucket),
+	}
+	for _, opt := range options {
+		opt(&sessOpts)
+	}
+
+	awsSession, err := sessionSingle.newSession(sessOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -593,9 +618,59 @@ func (s *S3) MakeBucket(ctx context.Context, name string) error {
 	return err
 }
 
-// NewAwsSession initializes a new AWS session with region fallback and custom
-// options.
-func newSession(opts S3Options) (*session.Session, error) {
+type bucket string
+
+// s3Session holds session.Session for each bucket
+// and it synchronizes access/modification.
+type s3Session struct {
+	sync.Mutex
+	sessions map[bucket]*session.Session
+}
+
+type sessOptions struct {
+	S3Options
+	bucket
+
+	region string
+}
+
+func (s *s3Session) newSession(opts sessOptions) (*session.Session, error) {
+	s.Lock()
+	defer s.Unlock()
+
+	if sess, ok := s.sessions[opts.bucket]; ok {
+		return sess, nil
+	}
+
+	if opts.bucket == "" {
+		sess, err := newSession(sessOptions{
+			S3Options: opts.S3Options,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		if aws.StringValue(sess.Config.Region) == defaultRegion {
+			s.sessions[opts.bucket] = defaultSession
+			return defaultSession, nil
+		}
+
+		s.sessions[opts.bucket] = sess
+		return sess, nil
+	}
+
+	if opts.region != "" {
+		sess, err := newSession(opts)
+		if err != nil {
+			return nil, err
+		}
+		s.sessions[opts.bucket] = sess
+		return sess, nil
+	}
+	return defaultSession, nil
+}
+
+func newSession(opts sessOptions) (*session.Session, error) {
 	awsCfg := aws.NewConfig()
 
 	endpointURL, err := parseEndpoint(opts.Endpoint)
@@ -626,8 +701,8 @@ func newSession(opts S3Options) (*session.Session, error) {
 		WithS3UseAccelerate(useAccelerate).
 		WithHTTPClient(httpClient)
 
-	if opts.Region != "" {
-		awsCfg.WithRegion(opts.Region)
+	if opts.region != "" {
+		awsCfg.WithRegion(opts.region)
 	}
 
 	awsCfg.Retryer = newCustomRetryer(opts.MaxRetries)
@@ -766,4 +841,22 @@ func (a *writeAtAdapter) Write(p []byte) (int, error) {
 
 	a.offset += int64(n)
 	return n, nil
+}
+
+// getRegion extracts correct region of the bucket
+// from the provided error.
+func getRegion(err error) (string, error) {
+	if awsErr, ok := err.(s3.RequestFailure); ok {
+
+		re := regexp.MustCompile("expecting '.*'")
+
+		match := re.FindString(awsErr.Error())
+
+		if match != "" {
+			region := strings.Trim(strings.Split(match, " ")[1], "'")
+			return region, nil
+		}
+		return "", err
+	}
+	return "", err
 }

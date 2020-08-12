@@ -47,10 +47,11 @@ var runCommand = &cli.Command{
 	Flags:              runCommandFlags,
 	CustomHelpTemplate: runHelpTemplate,
 	Before: func(c *cli.Context) error {
-		if c.Args().Len() > 1 {
-			return fmt.Errorf("expected only 1 file")
+		err := validateRunCommand(c)
+		if err != nil {
+			printError(givenCommand(c), c.Command.Name, err)
 		}
-		return nil
+		return err
 	},
 	Action: func(c *cli.Context) error {
 		reader := os.Stdin
@@ -192,4 +193,11 @@ func (s *Scanner) Err() error {
 	}
 
 	return s.Scanner.Err()
+}
+
+func validateRunCommand(c *cli.Context) error {
+	if c.Args().Len() > 1 {
+		return fmt.Errorf("expected only 1 file")
+	}
+	return nil
 }

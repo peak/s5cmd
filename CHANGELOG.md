@@ -1,7 +1,14 @@
 # Changelog
 
+## not released yet
+
 #### Features
 - Added `--dry-run` option for run, copy, move and remove operations. It displays which commands will be executed without actually having a side effect. ([#90](https://github.com/peak/s5cmd/issues/90))
+
+#### Improvements
+
+- For some operations errors were printed at the end of the program execution. Now, errors are displayed immediately after being detected. ([#136](https://github.com/peak/s5cmd/issues/136))
+
 
 ## v1.1.0 - 22 Jul 2020
 

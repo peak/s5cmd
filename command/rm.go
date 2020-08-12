@@ -36,7 +36,7 @@ Examples:
 		 > s5cmd {{.HelpName}} s3://bucketname/prefix/* s3://bucketname/object1.gz
 
 	5. Check what s5cmd will do, without actually doing so (check mode option)
-		> s5cmd {{.HelpName}} -dry-run s3://bucket/prefix/*
+		> s5cmd {{.HelpName}} --dry-run s3://bucket/prefix/*
 `
 
 var deleteCommand = &cli.Command{
@@ -51,11 +51,11 @@ var deleteCommand = &cli.Command{
 		},
 	},
 	Before: func(c *cli.Context) error {
-		if !c.Args().Present() {
-			return fmt.Errorf("expected at least 1 object to remove")
+		err := validateRMCommand(c)
+		if err != nil {
+			printError(givenCommand(c), c.Command.Name, err)
 		}
-
-		return sourcesHaveSameType(c.Args().Slice()...)
+		return err
 	},
 	Action: func(c *cli.Context) error {
 		return Delete{
@@ -127,6 +127,7 @@ func (d Delete) Run(ctx context.Context) error {
 			}
 
 			merror = multierror.Append(merror, obj.Err)
+			printError(d.fullCommand, d.op, obj.Err)
 			continue
 		}
 
@@ -178,4 +179,12 @@ func sourcesHaveSameType(sources ...string) error {
 		}
 	}
 	return nil
+}
+
+func validateRMCommand(c *cli.Context) error {
+	if !c.Args().Present() {
+		return fmt.Errorf("expected at least 1 object to remove")
+	}
+
+	return sourcesHaveSameType(c.Args().Slice()...)
 }

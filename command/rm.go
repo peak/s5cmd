@@ -43,11 +43,11 @@ var deleteCommand = &cli.Command{
 	Usage:              "remove objects",
 	CustomHelpTemplate: deleteHelpTemplate,
 	Before: func(c *cli.Context) error {
-		if !c.Args().Present() {
-			return fmt.Errorf("expected at least 1 object to remove")
+		err := validateRMCommand(c)
+		if err != nil {
+			printError(givenCommand(c), c.Command.Name, err)
 		}
-
-		return sourcesHaveSameType(c.Args().Slice()...)
+		return err
 	},
 	Action: func(c *cli.Context) (err error) {
 		defer stat.Collect(c.Command.FullName(), &err)()
@@ -106,6 +106,7 @@ func Delete(
 			}
 
 			merror = multierror.Append(merror, obj.Err)
+			printError(fullCommand, op, obj.Err)
 			continue
 		}
 
@@ -157,4 +158,12 @@ func sourcesHaveSameType(sources ...string) error {
 		}
 	}
 	return nil
+}
+
+func validateRMCommand(c *cli.Context) error {
+	if !c.Args().Present() {
+		return fmt.Errorf("expected at least 1 object to remove")
+	}
+
+	return sourcesHaveSameType(c.Args().Slice()...)
 }

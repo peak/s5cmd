@@ -134,7 +134,11 @@ var copyCommand = &cli.Command{
 	Flags:              copyCommandFlags,
 	CustomHelpTemplate: copyHelpTemplate,
 	Before: func(c *cli.Context) error {
-		return validate(c)
+		err := validateCopyCommand(c)
+		if err != nil {
+			printError(givenCommand(c), c.Command.Name, err)
+		}
+		return err
 	},
 	Action: func(c *cli.Context) error {
 		return Copy{
@@ -194,11 +198,13 @@ increase the open file limit or try to decrease the number of workers with
 func (c Copy) Run(ctx context.Context) error {
 	srcurl, err := url.New(c.src)
 	if err != nil {
+		printError(c.fullCommand, c.op, err)
 		return err
 	}
 
 	dsturl, err := url.New(c.dst)
 	if err != nil {
+		printError(c.fullCommand, c.op, err)
 		return err
 	}
 
@@ -215,6 +221,7 @@ func (c Copy) Run(ctx context.Context) error {
 		}
 	}
 	if err != nil {
+		printError(c.fullCommand, c.op, err)
 		return err
 	}
 
@@ -224,6 +231,7 @@ func (c Copy) Run(ctx context.Context) error {
 		merror    error
 		errDoneCh = make(chan bool)
 	)
+
 	go func() {
 		defer close(errDoneCh)
 		for err := range waiter.Err() {
@@ -233,6 +241,7 @@ func (c Copy) Run(ctx context.Context) error {
 
 				os.Exit(1)
 			}
+			printError(c.fullCommand, c.op, err)
 			merror = multierror.Append(merror, err)
 		}
 	}()
@@ -674,7 +683,7 @@ func getObject(ctx context.Context, url *url.URL) (*storage.Object, error) {
 	return obj, err
 }
 
-func validate(c *cli.Context) error {
+func validateCopyCommand(c *cli.Context) error {
 	if c.Args().Len() != 2 {
 		return fmt.Errorf("expected source and destination arguments")
 	}

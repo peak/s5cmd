@@ -68,7 +68,9 @@ var app = &cli.App{
 		parallel.Init(workerCount)
 
 		if retryCount < 0 {
-			return fmt.Errorf("retry count cannot be a negative value")
+			err := fmt.Errorf("retry count cannot be a negative value")
+			printError(givenCommand(c), c.Command.Name, err)
+			return err
 		}
 
 		s3opts := storage.S3Options{
@@ -94,11 +96,6 @@ var app = &cli.App{
 		parallel.Close()
 		log.Close()
 		return nil
-	},
-	ExitErrHandler: func(c *cli.Context, err error) {
-		if err != nil {
-			printError(givenCommand(c), c.Command.Name, err)
-		}
 	},
 }
 

@@ -338,7 +338,7 @@ func TestListNonexistingS3Object(t *testing.T) {
 	assertLines(t, result.Stdout(), map[int]compareFunc{})
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: equals(`ERROR "ls s3://test-list-nonexisting-s-3-object/nosuchobject": no object found`),
+		0: equals(`ERROR "ls s3://%v/nosuchobject": no object found`, bucket),
 	}, strictLineCheck(false))
 }
 

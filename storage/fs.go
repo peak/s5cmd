@@ -14,11 +14,15 @@ import (
 )
 
 // Filesystem is the Storage implementation of a local filesystem.
-type Filesystem struct{}
+type Filesystem struct {
+	dryRun bool
+}
 
 // NewFilesystem creates a new local filesystem session.
-func NewFilesystem() *Filesystem {
-	return &Filesystem{}
+func NewFilesystem(opts Options) *Filesystem {
+	return &Filesystem{
+		dryRun: opts.DryRun,
+	}
 }
 
 // Stat returns the Object structure describing object.
@@ -162,6 +166,10 @@ func (f *Filesystem) walkDir(ctx context.Context, src *url.URL, followSymlinks b
 
 // Copy copies given source to destination.
 func (f *Filesystem) Copy(ctx context.Context, src, dst *url.URL, _ Metadata) error {
+	if f.dryRun {
+		return nil
+	}
+
 	if err := os.MkdirAll(dst.Dir(), os.ModePerm); err != nil {
 		return err
 	}
@@ -171,6 +179,10 @@ func (f *Filesystem) Copy(ctx context.Context, src, dst *url.URL, _ Metadata) er
 
 // Delete deletes given file.
 func (f *Filesystem) Delete(ctx context.Context, url *url.URL) error {
+	if f.dryRun {
+		return nil
+	}
+
 	return os.Remove(url.Absolute())
 }
 
@@ -208,8 +220,29 @@ func (f *Filesystem) ListBuckets(_ context.Context, _ string) ([]Bucket, error) 
 }
 
 // MakeBucket is not supported for filesytem.
-func (f *Filesystem) MakeBucket(_ context.Context, _ string) error {
-	return f.notimplemented("MakeBucket")
+func (f *Filesystem) Make(ctx context.Context, opts MakeOpts) (ReadCloserFile, error) {
+	if f.dryRun {
+		return ReadCloserFile{}, nil
+	}
+
+	if opts.Directory {
+		return ReadCloserFile{}, os.MkdirAll(opts.Path, os.ModePerm)
+	}
+
+	file, err := os.Create(opts.Path)
+	if err != nil {
+		return ReadCloserFile{}, err
+	}
+	return ReadCloserFile{f: file}, nil
+}
+
+func (f *Filesystem) Scan(ctx context.Context, src *url.URL) (ReadCloserFile, error) {
+	file, err := os.Open(src.Absolute())
+	if err != nil {
+		return ReadCloserFile{}, err
+	}
+
+	return ReadCloserFile{f: file}, nil
 }
 
 func (f *Filesystem) notimplemented(method string) error {

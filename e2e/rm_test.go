@@ -592,3 +592,45 @@ func TestRemoveMultipleMixedObjects(t *testing.T) {
 	// assert s3 object
 	assert.Assert(t, ensureS3Object(s3client, bucket, objectname, content))
 }
+
+// --dry-run rm s3://bucket/*
+func TestRemoveMultipleS3ObjectsDryRun(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+
+	filesToContent := map[string]string{
+		"testfile1.txt":          "this is a test file 1",
+		"readme.md":              "this is a readme file",
+		"filename-with-hypen.gz": "file has hypen in its name",
+		"another_test_file.txt":  "yet another txt file. yatf.",
+	}
+
+	for filename, content := range filesToContent {
+		putFile(t, s3client, bucket, filename, content)
+	}
+
+	cmd := s5cmd("--dry-run", "rm", "s3://"+bucket+"/*")
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{})
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`rm s3://%v/another_test_file.txt`, bucket),
+		1: equals(`rm s3://%v/filename-with-hypen.gz`, bucket),
+		2: equals(`rm s3://%v/readme.md`, bucket),
+		3: equals(`rm s3://%v/testfile1.txt`, bucket),
+	}, sortInput(true))
+
+	// assert s3 objects were not removed
+	for filename, content := range filesToContent {
+		assert.Assert(t, ensureS3Object(s3client, bucket, filename, content))
+	}
+}

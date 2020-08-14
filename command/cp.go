@@ -364,11 +364,25 @@ func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) 
 		return err
 	}
 
-	f, err := os.Create(dsturl.Absolute())
+	//err = dstClient.Make(ctx, dsturl.Absolute(), false)
+	//if err != nil {
+	//	return err
+	//}
+	//
+	//rc, err := dstClient.Scan(ctx, dsturl)
+	//if err != nil {
+	//	return err
+	//}
+	//defer rc.Close()
+
+	r, err := dstClient.Make(ctx, storage.MakeOpts{
+		Path: dsturl.Absolute(),
+	})
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+
+	f, _ := r.File()
 
 	size, err := srcClient.Get(ctx, srcurl, f, c.concurrency, c.partSize)
 	if err != nil {
@@ -394,12 +408,17 @@ func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) 
 }
 
 func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) error {
-	// TODO(ig): use storage abstraction
-	f, err := os.Open(srcurl.Absolute())
+	srcClient := storage.NewClient(srcurl)
+
+	r, err := srcClient.Scan(ctx, srcurl)
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+
+	f, err := r.File()
+	if err != nil {
+		return err
+	}
 
 	err = c.shouldOverride(ctx, srcurl, dsturl)
 	if err != nil {
@@ -423,8 +442,6 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 	if err != nil {
 		return err
 	}
-
-	srcClient := storage.NewClient(srcurl)
 
 	obj, _ := srcClient.Stat(ctx, srcurl)
 	size := obj.Size
@@ -579,13 +596,17 @@ func prepareLocalDestination(
 		objname = srcurl.Relative()
 	}
 
+	client := storage.NewClient(dsturl)
+
 	if isBatch {
-		if err := os.MkdirAll(dsturl.Absolute(), os.ModePerm); err != nil {
+		_, err := client.Make(ctx, storage.MakeOpts{
+			Path:      dsturl.Absolute(),
+			Directory: true,
+		})
+		if err != nil {
 			return nil, err
 		}
 	}
-
-	client := storage.NewClient(dsturl)
 
 	obj, err := client.Stat(ctx, dsturl)
 	if err != nil && err != storage.ErrGivenObjectNotFound {
@@ -594,13 +615,21 @@ func prepareLocalDestination(
 
 	if isBatch && !flatten {
 		dsturl = dsturl.Join(objname)
-		if err := os.MkdirAll(dsturl.Dir(), os.ModePerm); err != nil {
+		_, err := client.Make(ctx, storage.MakeOpts{
+			Path:      dsturl.Dir(),
+			Directory: true,
+		})
+		if err != nil {
 			return nil, err
 		}
 	}
 
 	if err == storage.ErrGivenObjectNotFound {
-		if err := os.MkdirAll(dsturl.Dir(), os.ModePerm); err != nil {
+		_, err := client.Make(ctx, storage.MakeOpts{
+			Path:      dsturl.Dir(),
+			Directory: true,
+		})
+		if err != nil {
 			return nil, err
 		}
 		if strings.HasSuffix(dsturl.Absolute(), "/") {

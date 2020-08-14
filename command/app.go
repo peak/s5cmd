@@ -55,9 +55,14 @@ var app = &cli.App{
 			Name:  "install-completion",
 			Usage: "install completion for your shell",
 		},
+		&cli.BoolFlag{
+			Name:  "dry-run",
+			Usage: "fake run; show what commands will be executed without actually executing them",
+		},
 	},
 	Before: func(c *cli.Context) error {
 		noVerifySSL := c.Bool("no-verify-ssl")
+		dryRun := c.Bool("dry-run")
 		retryCount := c.Int("retry-count")
 		endpointURL := c.String("endpoint-url")
 		workerCount := c.Int("numworkers")
@@ -73,10 +78,11 @@ var app = &cli.App{
 			return err
 		}
 
-		s3opts := storage.S3Options{
+		s3opts := storage.Options{
 			MaxRetries:  retryCount,
 			Endpoint:    endpointURL,
 			NoVerifySSL: noVerifySSL,
+			DryRun:      dryRun,
 		}
 
 		return storage.Init(s3opts)

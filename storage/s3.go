@@ -48,7 +48,9 @@ const (
 var cachedS3 *S3
 
 // Init creates a new global S3 session.
-func Init(opts S3Options) error {
+func Init(opts Options) error {
+	optionSingle = opts
+
 	s3, err := NewS3Storage(opts)
 	cachedS3 = s3
 	return err
@@ -61,14 +63,8 @@ type S3 struct {
 	downloader  s3manageriface.DownloaderAPI
 	uploader    s3manageriface.UploaderAPI
 	endpointURL urlpkg.URL
-}
 
-// S3Options stores configuration for S3 storage.
-type S3Options struct {
-	MaxRetries  int
-	Endpoint    string
-	Region      string
-	NoVerifySSL bool
+	dryRun bool
 }
 
 func parseEndpoint(endpoint string) (urlpkg.URL, error) {
@@ -89,7 +85,7 @@ func parseEndpoint(endpoint string) (urlpkg.URL, error) {
 }
 
 // NewS3Storage creates new S3 session.
-func NewS3Storage(opts S3Options) (*S3, error) {
+func NewS3Storage(opts Options) (*S3, error) {
 	endpointURL, err := parseEndpoint(opts.Endpoint)
 	if err != nil {
 		return nil, err
@@ -105,6 +101,7 @@ func NewS3Storage(opts S3Options) (*S3, error) {
 		downloader:  s3manager.NewDownloader(awsSession),
 		uploader:    s3manager.NewUploader(awsSession),
 		endpointURL: endpointURL,
+		dryRun:      opts.DryRun,
 	}, nil
 }
 
@@ -324,6 +321,10 @@ func (s *S3) listObjects(ctx context.Context, url *url.URL) <-chan *Object {
 // Copy is a single-object copy operation which copies objects to S3
 // destination from another S3 source.
 func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata Metadata) error {
+	if s.dryRun {
+		return nil
+	}
+
 	// SDK expects CopySource like "bucket[/key]"
 	copySource := strings.TrimPrefix(from.String(), "s3://")
 
@@ -356,6 +357,17 @@ func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata Metadata) err
 	return err
 }
 
+func (s *S3) Scan(ctx context.Context, src *url.URL) (ReadCloserFile, error) {
+	resp, err := s.api.GetObjectWithContext(ctx, &s3.GetObjectInput{
+		Bucket: aws.String(src.Bucket),
+		Key:    aws.String(src.Path),
+	})
+	if err != nil {
+		return ReadCloserFile{}, err
+	}
+	return ReadCloserFile{rc: resp.Body}, nil
+}
+
 // Get is a multipart download operation which downloads S3 objects into any
 // destination that implements io.WriterAt interface.
 // Makes a single 'GetObject' call if 'concurrency' is 1 and ignores 'partSize'.
@@ -366,17 +378,8 @@ func (s *S3) Get(
 	concurrency int,
 	partSize int64,
 ) (int64, error) {
-	if concurrency == 1 {
-		resp, err := s.api.GetObjectWithContext(ctx, &s3.GetObjectInput{
-			Bucket: aws.String(from.Bucket),
-			Key:    aws.String(from.Path),
-		})
-		if err != nil {
-			return 0, err
-		}
-		defer resp.Body.Close()
-
-		return io.Copy(&writeAtAdapter{w: to}, resp.Body)
+	if s.dryRun {
+		return 0, nil
 	}
 
 	return s.downloader.DownloadWithContext(ctx, to, &s3.GetObjectInput{
@@ -398,6 +401,10 @@ func (s *S3) Put(
 	concurrency int,
 	partSize int64,
 ) error {
+	if s.dryRun {
+		return nil
+	}
+
 	contentType := metadata.ContentType()
 	if contentType == "" {
 		contentType = "application/octet-stream"
@@ -503,6 +510,15 @@ func (s *S3) Delete(ctx context.Context, url *url.URL) error {
 // doDelete deletes the given keys given by chunk. Results are piggybacked via
 // the Object container.
 func (s *S3) doDelete(ctx context.Context, chunk chunk, resultch chan *Object) {
+	if s.dryRun {
+		for _, k := range chunk.Keys {
+			key := fmt.Sprintf("s3://%v/%v", chunk.Bucket, aws.StringValue(k.Key))
+			url, _ := url.New(key)
+			resultch <- &Object{URL: url}
+		}
+		return
+	}
+
 	bucket := chunk.Bucket
 	o, err := s.api.DeleteObjectsWithContext(ctx, &s3.DeleteObjectsInput{
 		Bucket: aws.String(bucket),
@@ -586,16 +602,20 @@ func (s *S3) ListBuckets(ctx context.Context, prefix string) ([]Bucket, error) {
 }
 
 // MakeBucket creates an S3 bucket with the given name.
-func (s *S3) MakeBucket(ctx context.Context, name string) error {
+func (s *S3) Make(ctx context.Context, opts MakeOpts) (ReadCloserFile, error) {
+	if s.dryRun {
+		return ReadCloserFile{}, nil
+	}
+
 	_, err := s.api.CreateBucketWithContext(ctx, &s3.CreateBucketInput{
-		Bucket: aws.String(name),
+		Bucket: aws.String(opts.Path),
 	})
-	return err
+	return ReadCloserFile{}, err
 }
 
 // NewAwsSession initializes a new AWS session with region fallback and custom
 // options.
-func newSession(opts S3Options) (*session.Session, error) {
+func newSession(opts Options) (*session.Session, error) {
 	awsCfg := aws.NewConfig()
 
 	endpointURL, err := parseEndpoint(opts.Endpoint)
@@ -750,20 +770,4 @@ func errContains(err error, msg string) bool {
 // cancelation error.
 func IsCancelationError(err error) bool {
 	return errHasCode(err, request.CanceledErrorCode)
-}
-
-// writerAtAdapter is an 'io.Writer' adapter for 'io.WriterAt'.
-type writeAtAdapter struct {
-	w      io.WriterAt
-	offset int64
-}
-
-func (a *writeAtAdapter) Write(p []byte) (int, error) {
-	n, err := a.w.WriteAt(p, a.offset)
-	if err != nil {
-		return n, err
-	}
-
-	a.offset += int64(n)
-	return n, nil
 }

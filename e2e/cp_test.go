@@ -24,6 +24,7 @@ package e2e
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -2700,4 +2701,89 @@ func TestCopyWithNoFollowSymlink(t *testing.T) {
 
 	// assert s3 objects
 	assert.Assert(t, ensureS3Object(s3client, bucket, "prefix/a/f1.txt", fileContent))
+}
+
+// --dry-run cp dir/ s3://bucket/
+func TestCopyDirToS3DryRun(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+
+	folderLayout := []fs.PathOp{
+		fs.WithFile("file1.txt", "content"),
+		fs.WithDir(
+			"c",
+			fs.WithFile("file2.txt", "content"),
+		),
+	}
+
+	workdir := fs.NewDir(t, t.Name(), folderLayout...)
+	defer workdir.Remove()
+
+	srcpath := filepath.ToSlash(workdir.Path())
+	dstpath := fmt.Sprintf("s3://%v/", bucket)
+
+	cmd := s5cmd("--dry-run", "cp", workdir.Path()+"/", dstpath)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`cp %v/c/file2.txt %vc/file2.txt`, srcpath, dstpath),
+		1: equals(`cp %v/file1.txt %vfile1.txt`, srcpath, dstpath),
+	}, sortInput(true))
+
+	// assert no change in s3
+	objs := []string{"c/file2.txt", "file1.txt"}
+	for _, obj := range objs {
+		err := ensureS3Object(s3client, bucket, obj, "content")
+		assertError(t, err, errS3NoSuchKey)
+	}
+
+	// assert local filesystem
+	expected := fs.Expected(t, folderLayout...)
+	assert.Assert(t, fs.Equal(workdir.Path(), expected))
+}
+
+// --dry-run cp s3://bucket/* dir/
+func TestCopyS3ToDirDryRun(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+
+	files := [...]string{"c/file2.txt", "file1.txt"}
+
+	putFile(t, s3client, bucket, files[0], "content")
+	putFile(t, s3client, bucket, files[1], "content")
+
+	srcpath := fmt.Sprintf("s3://%s", bucket)
+
+	cmd := s5cmd("--dry-run", "cp", srcpath+"/*", "dir/")
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals("cp %v/c/file2.txt dir/%s", srcpath, files[0]),
+		1: equals("cp %v/file1.txt dir/%s", srcpath, files[1]),
+	}, sortInput(true))
+
+	// not even outermost directory should be created
+	_, err := os.Stat(cmd.Dir + "/dir")
+	assert.Assert(t, os.IsNotExist(err))
+
+	// assert s3
+	for _, f := range files {
+		assert.Assert(t, ensureS3Object(s3client, bucket, f, "content"))
+	}
 }

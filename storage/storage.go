@@ -4,6 +4,7 @@ package storage
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -19,6 +20,8 @@ var (
 
 	// ErrNoObjectFound indicates there are no objects found from a given directory.
 	ErrNoObjectFound = fmt.Errorf("no object found")
+
+	optionSingle Options
 )
 
 // Storage is an interface for storage operations.
@@ -52,7 +55,9 @@ type Storage interface {
 	ListBuckets(ctx context.Context, prefix string) ([]Bucket, error)
 
 	// MakeBucket creates given bucket.
-	MakeBucket(ctx context.Context, bucket string) error
+	Make(ctx context.Context, opts MakeOpts) (ReadCloserFile, error)
+
+	Scan(ctx context.Context, src *url.URL) (ReadCloserFile, error)
 }
 
 // NewClient returns new Storage client from given url. Storage implementation
@@ -62,7 +67,16 @@ func NewClient(url *url.URL) Storage {
 		return cachedS3
 	}
 
-	return NewFilesystem()
+	return NewFilesystem(optionSingle)
+}
+
+// Options stores configuration for storage.
+type Options struct {
+	MaxRetries  int
+	Endpoint    string
+	Region      string
+	NoVerifySSL bool
+	DryRun      bool
 }
 
 // Object is a generic type which contains metadata for storage items.
@@ -226,4 +240,28 @@ func (m Metadata) SSEKeyID() string {
 func (m Metadata) SetSSEKeyID(kid string) Metadata {
 	m["EncryptionKeyID"] = kid
 	return m
+}
+
+type ReadCloserFile struct {
+	rc io.ReadCloser
+	f  *os.File
+}
+
+func (rcf *ReadCloserFile) ReadCloser() (io.ReadCloser, error) {
+	if rcf.rc == nil {
+		return nil, errors.New("404, ReadCloser not found")
+	}
+	return rcf.rc, nil
+}
+
+func (rcf *ReadCloserFile) File() (*os.File, error) {
+	if rcf.f == nil {
+		return nil, errors.New("404, File not found")
+	}
+	return rcf.f, nil
+}
+
+type MakeOpts struct {
+	Path      string
+	Directory bool
 }

@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"gotest.tools/v3/assert"
+
 	"gotest.tools/v3/fs"
 	"gotest.tools/v3/icmd"
 )
@@ -231,4 +233,53 @@ func TestRunSpecialCharactersInPrefix(t *testing.T) {
 	}, sortInput(true))
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{})
+}
+
+func TestRunDryRun(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+
+	files := [...]string{"cpfile.txt", "mvfile.txt", "rmfile.txt"}
+	for _, f := range files {
+		putFile(t, s3client, bucket, f, "content")
+	}
+
+	filecontent := []string{
+		fmt.Sprintf("cp s3://%v/%s s3://%v/cp_%s", bucket, files[0], bucket, files[0]),
+		fmt.Sprintf("mv s3://%v/%s s3://%v/mv_%s", bucket, files[1], bucket, files[1]),
+		fmt.Sprintf("rm s3://%v/%s", bucket, files[2]),
+	}
+
+	file := fs.NewFile(t, "prefix", fs.WithContent(strings.Join(filecontent, "\n")))
+	defer file.Remove()
+
+	cmd := s5cmd("--dry-run", "run", file.Path())
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(filecontent[0]),
+		1: equals(filecontent[1]),
+		2: equals(filecontent[2]),
+	}, sortInput(true))
+
+	// ensure no side effect for copy operation
+	err := ensureS3Object(s3client, bucket, "cp_"+files[0], "content")
+	assertError(t, err, errS3NoSuchKey)
+
+	// ensure no side effect for move operation
+	assert.Assert(t, ensureS3Object(s3client, bucket, files[1], "content"))
+
+	err = ensureS3Object(s3client, bucket, "mv_"+files[1], "content")
+	assertError(t, err, errS3NoSuchKey)
+
+	// ensure no side effect for remove operation
+	assert.Assert(t, ensureS3Object(s3client, bucket, files[2], "content"))
 }

@@ -234,8 +234,13 @@ func TestRunSpecialCharactersInPrefix(t *testing.T) {
 	assertLines(t, result.Stderr(), map[int]compareFunc{})
 }
 
-func TestRunDryRunAll(t *testing.T) {
+func TestRunDryRun(t *testing.T) {
 	t.Parallel()
+
+	const (
+		content = "content"
+		pre     = "prefix"
+	)
 
 	bucket := s3BucketFromTestName(t)
 
@@ -246,39 +251,82 @@ func TestRunDryRunAll(t *testing.T) {
 
 	files := [...]string{"cpfile.txt", "mvfile.txt", "rmfile.txt"}
 	for _, f := range files {
-		putFile(t, s3client, bucket, f, "content")
+		putFile(t, s3client, bucket, f, content)
 	}
 
-	filecontent := []string{
-		fmt.Sprintf("cp s3://%v/%s s3://%v/cp_%s", bucket, files[0], bucket, files[0]),
-		fmt.Sprintf("mv s3://%v/%s s3://%v/mv_%s", bucket, files[1], bucket, files[1]),
-		fmt.Sprintf("rm s3://%v/%s", bucket, files[2]),
+	testcases := []struct {
+		filecontent []string
+		expectedOut map[int]compareFunc // if different output is expected than the command itself
+
+		runFlag string
+	}{
+		{
+			filecontent: []string{
+				fmt.Sprintf("cp s3://%v/%s s3://%v/%s", bucket, files[0], bucket, pre+files[0]),
+				fmt.Sprintf("mv s3://%v/%s s3://%v/%s", bucket, files[1], bucket, pre+files[1]),
+				fmt.Sprintf("rm s3://%v/%s", bucket, files[2]),
+			},
+			runFlag: "--dry-run-all",
+		},
+		{
+			filecontent: []string{
+				fmt.Sprintf("cp s3://%v/%s s3://%v/%s", bucket, files[0], bucket, pre+files[0]),
+				fmt.Sprintf("mv s3://%v/%s s3://%v/%s", bucket, files[1], bucket, pre+files[1]),
+				fmt.Sprintf("rm s3://%v/%s", bucket, files[2]),
+			},
+			runFlag: "--dry-run",
+		},
+		{
+			filecontent: []string{
+				fmt.Sprintf("cp --dry-run s3://%v/%s s3://%v/%s", bucket, files[0], bucket, pre+files[0]),
+			},
+			expectedOut: map[int]compareFunc{
+				0: equals(fmt.Sprintf("cp s3://%v/%s s3://%v/%s", bucket, files[0], bucket, pre+files[0])),
+			},
+			runFlag: "--dry-run-all",
+		},
+		{
+			filecontent: []string{
+				fmt.Sprintf("cp --dry-run s3://%v/%s s3://%v/%s", bucket, files[0], bucket, pre+files[0]),
+			},
+			expectedOut: map[int]compareFunc{
+				0: equals(fmt.Sprintf("cp s3://%v/%s s3://%v/%s", bucket, files[0], bucket, pre+files[0])),
+			},
+			runFlag: "--dry-run",
+		},
 	}
 
-	file := fs.NewFile(t, "prefix", fs.WithContent(strings.Join(filecontent, "\n")))
-	defer file.Remove()
+	for _, tc := range testcases {
+		tc := tc
+		file := fs.NewFile(t, "prefix", fs.WithContent(strings.Join(tc.filecontent, "\n")))
 
-	cmd := s5cmd("run", "--dry-run", file.Path())
-	result := icmd.RunCmd(cmd)
+		cmd := s5cmd("run", tc.runFlag, file.Path())
+		result := icmd.RunCmd(cmd)
 
-	result.Assert(t, icmd.Success)
+		result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(filecontent[0]),
-		1: equals(filecontent[1]),
-		2: equals(filecontent[2]),
-	}, sortInput(true))
+		expectedLines := map[int]compareFunc{}
+		for i, c := range tc.filecontent {
+			expectedLines[i] = equals(c)
 
-	// ensure no side effect for copy operation
-	err := ensureS3Object(s3client, bucket, "cp_"+files[0], "content")
-	assertError(t, err, errS3NoSuchKey)
+			// ensure no copy to destination
+			if strings.HasPrefix(c, "cp") || strings.HasPrefix(c, "mv") {
+				err := ensureS3Object(s3client, bucket, pre+files[i], content)
+				assertError(t, err, errS3NoSuchKey)
+			}
 
-	// ensure no side effect for move operation
-	assert.Assert(t, ensureS3Object(s3client, bucket, files[1], "content"))
+			// ensure no delete
+			if strings.HasPrefix(c, "rm") || strings.HasPrefix(c, "mv") {
+				assert.Assert(t, ensureS3Object(s3client, bucket, files[i], content))
+			}
+		}
 
-	err = ensureS3Object(s3client, bucket, "mv_"+files[1], "content")
-	assertError(t, err, errS3NoSuchKey)
+		if tc.expectedOut != nil {
+			assertLines(t, result.Stdout(), tc.expectedOut, sortInput(true))
+		} else {
+			assertLines(t, result.Stdout(), expectedLines, sortInput(true))
+		}
 
-	// ensure no side effect for remove operation
-	assert.Assert(t, ensureS3Object(s3client, bucket, files[2], "content"))
+		file.Remove()
+	}
 }

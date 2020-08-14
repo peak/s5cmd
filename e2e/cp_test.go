@@ -2744,6 +2744,10 @@ func TestCopyDashDryRunDirToS3(t *testing.T) {
 		err := ensureS3Object(s3client, bucket, obj, "content")
 		assertError(t, err, errS3NoSuchKey)
 	}
+
+	// assert local filesystem
+	expected := fs.Expected(t, folderLayout...)
+	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 }
 
 // cp --dry-run s3://bucket/* dir/
@@ -2757,8 +2761,10 @@ func TestCopyDashDryRunS3ToDir(t *testing.T) {
 
 	createBucket(t, s3client, bucket)
 
-	putFile(t, s3client, bucket, "file1.txt", "content")
-	putFile(t, s3client, bucket, "c/file2.txt", "content")
+	files := [...]string{"c/file2.txt", "file1.txt"}
+
+	putFile(t, s3client, bucket, files[0], "content")
+	putFile(t, s3client, bucket, files[1], "content")
 
 	srcpath := fmt.Sprintf("s3://%s", bucket)
 
@@ -2768,11 +2774,16 @@ func TestCopyDashDryRunS3ToDir(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals("cp %v/c/file2.txt dir/c/file2.txt", srcpath),
-		1: equals("cp %v/file1.txt dir/file1.txt", srcpath),
+		0: equals("cp %v/c/file2.txt dir/%s", srcpath, files[0]),
+		1: equals("cp %v/file1.txt dir/%s", srcpath, files[1]),
 	}, sortInput(true))
 
 	// not even outermost directory should be created
 	_, err := os.Stat(cmd.Dir + "/dir")
 	assert.Assert(t, os.IsNotExist(err))
+
+	// assert s3
+	for _, f := range files {
+		assert.Assert(t, ensureS3Object(s3client, bucket, f, "content"))
+	}
 }

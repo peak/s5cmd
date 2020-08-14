@@ -35,7 +35,7 @@ Examples:
 	4. Delete all matching objects and a specific object
 		 > s5cmd {{.HelpName}} s3://bucketname/prefix/* s3://bucketname/object1.gz
 
-	5. Check what s5cmd will do, without actually doing so (check mode option)
+	5. Check what s5cmd will do, without actually doing so
 		> s5cmd {{.HelpName}} --dry-run s3://bucket/prefix/*
 `
 

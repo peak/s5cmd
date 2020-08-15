@@ -357,6 +357,7 @@ func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata Metadata) err
 	return err
 }
 
+// Scan scans/reads given source.
 func (s *S3) Scan(ctx context.Context, src *url.URL) (ReadCloserFile, error) {
 	resp, err := s.api.GetObjectWithContext(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(src.Bucket),
@@ -601,7 +602,7 @@ func (s *S3) ListBuckets(ctx context.Context, prefix string) ([]Bucket, error) {
 	return buckets, nil
 }
 
-// MakeBucket creates an S3 bucket with the given name.
+// Make creates an S3 bucket with the given name.
 func (s *S3) Make(ctx context.Context, opts MakeOpts) (ReadCloserFile, error) {
 	if s.dryRun {
 		return ReadCloserFile{}, nil

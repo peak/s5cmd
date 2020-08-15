@@ -364,17 +364,6 @@ func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) 
 		return err
 	}
 
-	//err = dstClient.Make(ctx, dsturl.Absolute(), false)
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//rc, err := dstClient.Scan(ctx, dsturl)
-	//if err != nil {
-	//	return err
-	//}
-	//defer rc.Close()
-
 	r, err := dstClient.Make(ctx, storage.MakeOpts{
 		Path: dsturl.Absolute(),
 	})
@@ -382,7 +371,11 @@ func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) 
 		return err
 	}
 
-	f, _ := r.File()
+	f, err := r.File()
+	if err != nil {
+		return err
+	}
+	defer f.Close()
 
 	size, err := srcClient.Get(ctx, srcurl, f, c.concurrency, c.partSize)
 	if err != nil {
@@ -419,6 +412,8 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 	if err != nil {
 		return err
 	}
+
+	defer f.Close()
 
 	err = c.shouldOverride(ctx, srcurl, dsturl)
 	if err != nil {

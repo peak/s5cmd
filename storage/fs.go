@@ -19,9 +19,9 @@ type Filesystem struct {
 }
 
 // NewFilesystem creates a new local filesystem session.
-func NewFilesystem(opts Options) *Filesystem {
+func NewFilesystem() *Filesystem {
 	return &Filesystem{
-		dryRun: opts.DryRun,
+		dryRun: optionSingle.DryRun,
 	}
 }
 
@@ -219,10 +219,10 @@ func (f *Filesystem) ListBuckets(_ context.Context, _ string) ([]Bucket, error) 
 	return nil, f.notimplemented("ListBuckets")
 }
 
-// MakeBucket is not supported for filesytem.
+// Make creates dir/file based on options passed.
 func (f *Filesystem) Make(ctx context.Context, opts MakeOpts) (ReadCloserFile, error) {
 	if f.dryRun {
-		return ReadCloserFile{}, nil
+		return ReadCloserFile{f: &os.File{}}, nil
 	}
 
 	if opts.Directory {
@@ -236,6 +236,7 @@ func (f *Filesystem) Make(ctx context.Context, opts MakeOpts) (ReadCloserFile, e
 	return ReadCloserFile{f: file}, nil
 }
 
+// Scan scans/reads given source.
 func (f *Filesystem) Scan(ctx context.Context, src *url.URL) (ReadCloserFile, error) {
 	file, err := os.Open(src.Absolute())
 	if err != nil {

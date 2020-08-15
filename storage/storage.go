@@ -54,9 +54,10 @@ type Storage interface {
 	// filtered.
 	ListBuckets(ctx context.Context, prefix string) ([]Bucket, error)
 
-	// MakeBucket creates given bucket.
+	// Make creates bucket for remote operations and dir/file for local.
 	Make(ctx context.Context, opts MakeOpts) (ReadCloserFile, error)
 
+	// Scan scans/reads given source.
 	Scan(ctx context.Context, src *url.URL) (ReadCloserFile, error)
 }
 
@@ -67,7 +68,7 @@ func NewClient(url *url.URL) Storage {
 		return cachedS3
 	}
 
-	return NewFilesystem(optionSingle)
+	return NewFilesystem()
 }
 
 // Options stores configuration for storage.

@@ -339,6 +339,17 @@ Some of the advanced usage patterns provided below are inspired by the following
 
     s5cmd cat s3://bucket/file.txt | grep something
 
+For a more practical scenario, let's say we have an [avocado prices](https://www.kaggle.com/neuromusic/avocado-prices) dataset, and we would like to take a peek at the few lines of the data by fetching only the necessary bytes.
+
+    $ s5cmd cat s3://bucket/avocado.csv.gz | gunzip | xsv slice --len 5 | xsv table
+        Date        AveragePrice  Total Volume  4046     4225       4770   Total Bags  Small Bags  Large Bags  XLarge Bags  type          year  region
+    0   2015-12-27  1.33          64236.62      1036.74  54454.85   48.16  8696.87     8603.62     93.25       0.0          conventional  2015  Albany
+    1   2015-12-20  1.35          54876.98      674.28   44638.81   58.33  9505.56     9408.07     97.49       0.0          conventional  2015  Albany
+    2   2015-12-13  0.93          118220.22     794.7    109149.67  130.5  8145.35     8042.21     103.14      0.0          conventional  2015  Albany
+    3   2015-12-06  1.08          78992.15      1132.0   71976.41   72.58  5811.16     5677.4      133.76      0.0          conventional  2015  Albany
+    4   2015-11-29  1.28          51039.6       941.48   43838.39   75.78  6183.95     5986.26     197.69      0.0          conventional  2015  Albany
+
+
 ## Beast Mode s5cmd
 
 `s5cmd` allows to pass in some file, containing list of operations to be performed, as an argument to the `run` command as illustrated in the [above](./README.md#L199) example. Alternatively, one can pipe in commands into 

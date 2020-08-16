@@ -702,6 +702,11 @@ func TestS3listObjectsV2(t *testing.T) {
 func TestSessionCreateAndCachingWithDifferentBuckets(t *testing.T) {
 	t.Parallel()
 
+	err := Init(S3Options{})
+	if err != nil {
+		t.Error(err)
+	}
+
 	testcases := []struct {
 		bucket         string
 		alreadyCreated bool // sessions should not be created again if they already have been created before
@@ -719,10 +724,9 @@ func TestSessionCreateAndCachingWithDifferentBuckets(t *testing.T) {
 	}
 
 	sess := map[string]*session.Session{}
-
 	for _, tc := range testcases {
 		awsSess, err := sessionSingle.newSession(sessOptions{
-			bucket: bucket(tc.bucket),
+			bucket: tc.bucket,
 		})
 
 		if err != nil {

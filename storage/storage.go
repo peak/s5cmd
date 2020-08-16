@@ -65,10 +65,10 @@ func NewClient(url *url.URL) (Storage, error) {
 	return NewFilesystem(), nil
 }
 
-// RetryableErr checks whether the error from client of
+// retryableErr checks whether the error from client of
 // the given url is fixable or not. If so, it returns a new
 // client.
-func RetryableErr(url *url.URL, err error) (Storage, bool) {
+func retryableErr(url *url.URL, err error) (*S3, bool) {
 	if !url.IsRemote() {
 		return nil, false
 	}

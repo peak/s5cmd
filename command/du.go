@@ -101,10 +101,6 @@ func (sz Size) Run(ctx context.Context) error {
 		}
 
 		if err := object.Err; err != nil {
-			if _, ok := storage.RetryableErr(srcurl, err); ok {
-				return sz.Run(ctx)
-			}
-
 			merror = multierror.Append(merror, err)
 			printError(sz.fullCommand, sz.op, err)
 			continue

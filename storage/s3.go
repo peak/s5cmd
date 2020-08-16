@@ -48,28 +48,34 @@ const (
 )
 
 var (
-	defaultSession *session.Session
-
-	s3OptionSingle S3Options
 	sessionSingle  s3Session
+	s3OptionSingle S3Options
 )
 
 // Init creates a new global S3 session.
 func Init(opts S3Options) error {
 	s3OptionSingle = opts
 	sessionSingle = s3Session{
-		Mutex:    sync.Mutex{},
-		sessions: map[bucket]*session.Session{},
+		Mutex:          sync.Mutex{},
+		bucketToRegion: map[string]string{},
+		regionToSess:   map[string]*session.Session{},
 	}
+
+	sessionSingle.Lock()
+	defer sessionSingle.Unlock()
 
 	sess, err := newSession(sessOptions{
 		S3Options: opts,
-		region:    defaultRegion,
 	})
-	if err == nil {
-		defaultSession = sess
+	if err != nil {
+		return err
 	}
-	return err
+
+	region := aws.StringValue(sess.Config.Region)
+	sessionSingle.regionToSess[region] = sess
+	sessionSingle.regionToSess[""] = sess // default session
+
+	return nil
 }
 
 // S3 is a storage type which interacts with S3API, DownloaderAPI and
@@ -114,7 +120,7 @@ func NewS3Storage(u *url.URL, options ...func(opt *sessOptions)) (*S3, error) {
 
 	sessOpts := sessOptions{
 		S3Options: s3OptionSingle,
-		bucket:    bucket(u.Bucket),
+		bucket:    u.Bucket,
 	}
 	for _, opt := range options {
 		opt(&sessOpts)
@@ -139,11 +145,21 @@ func (s *S3) Stat(ctx context.Context, url *url.URL) (*Object, error) {
 		Bucket: aws.String(url.Bucket),
 		Key:    aws.String(url.Path),
 	})
+
 	if err != nil {
-		if errHasCode(err, "NotFound") {
-			return nil, ErrGivenObjectNotFound
+		if newS3, ok := retryableErr(url, err); ok {
+			output, err = newS3.api.HeadObjectWithContext(ctx, &s3.HeadObjectInput{
+				Bucket: aws.String(url.Bucket),
+				Key:    aws.String(url.Path),
+			})
 		}
-		return nil, err
+		// if err is either not retryable or persists after retry
+		if err != nil {
+			if errHasCode(err, "NotFound") {
+				return nil, ErrGivenObjectNotFound
+			}
+			return nil, err
+		}
 	}
 
 	etag := aws.StringValue(output.ETag)
@@ -184,7 +200,7 @@ func (s *S3) listObjectsV2(ctx context.Context, url *url.URL) <-chan *Object {
 
 		var now time.Time
 
-		err := s.api.ListObjectsV2PagesWithContext(ctx, &listInput, func(p *s3.ListObjectsV2Output, lastPage bool) bool {
+		f := func(p *s3.ListObjectsV2Output, lastPage bool) bool {
 			for _, c := range p.CommonPrefixes {
 				prefix := aws.StringValue(c.Prefix)
 				if !url.Match(prefix) {
@@ -240,11 +256,19 @@ func (s *S3) listObjectsV2(ctx context.Context, url *url.URL) <-chan *Object {
 			}
 
 			return !lastPage
-		})
+		}
+
+		err := s.api.ListObjectsV2PagesWithContext(ctx, &listInput, f)
 
 		if err != nil {
-			objCh <- &Object{Err: err}
-			return
+			if newS3, ok := retryableErr(url, err); ok {
+				err = newS3.api.ListObjectsV2PagesWithContext(ctx, &listInput, f)
+			}
+			// if error is not retryable or persists after retry
+			if err != nil {
+				objCh <- &Object{Err: err}
+				return
+			}
 		}
 
 		if !objectFound {
@@ -378,6 +402,13 @@ func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata Metadata) err
 	}
 
 	_, err := s.api.CopyObject(input)
+	if err != nil {
+		if newS3, ok := retryableErr(to, err); ok {
+			_, err = newS3.api.CopyObject(input)
+			return err
+		}
+	}
+
 	return err
 }
 
@@ -391,26 +422,41 @@ func (s *S3) Get(
 	concurrency int,
 	partSize int64,
 ) (int64, error) {
+	getObjIn := &s3.GetObjectInput{
+		Bucket: aws.String(from.Bucket),
+		Key:    aws.String(from.Path),
+	}
+
 	if concurrency == 1 {
-		resp, err := s.api.GetObjectWithContext(ctx, &s3.GetObjectInput{
-			Bucket: aws.String(from.Bucket),
-			Key:    aws.String(from.Path),
-		})
+		resp, err := s.api.GetObjectWithContext(ctx, getObjIn)
+
 		if err != nil {
-			return 0, err
+			if newS3, ok := retryableErr(from, err); ok {
+				resp, err = newS3.api.GetObjectWithContext(ctx, getObjIn)
+			}
+			if err != nil {
+				return 0, err
+			}
 		}
 		defer resp.Body.Close()
 
 		return io.Copy(&writeAtAdapter{w: to}, resp.Body)
 	}
 
-	return s.downloader.DownloadWithContext(ctx, to, &s3.GetObjectInput{
-		Bucket: aws.String(from.Bucket),
-		Key:    aws.String(from.Path),
-	}, func(u *s3manager.Downloader) {
+	f := func(u *s3manager.Downloader) {
 		u.PartSize = partSize
 		u.Concurrency = concurrency
-	})
+	}
+
+	n, err := s.downloader.DownloadWithContext(ctx, to, getObjIn, f)
+	if err != nil {
+		if newS3, ok := retryableErr(from, err); ok {
+			return newS3.downloader.DownloadWithContext(ctx, to, getObjIn, f)
+		}
+		return n, err
+	}
+
+	return n, nil
 }
 
 // Put is a multipart upload operation to upload resources, which implements
@@ -453,12 +499,20 @@ func (s *S3) Put(
 		}
 	}
 
-	_, err := s.uploader.UploadWithContext(ctx, input, func(u *s3manager.Uploader) {
+	f := func(u *s3manager.Uploader) {
 		u.PartSize = partSize
 		u.Concurrency = concurrency
-	})
+	}
 
-	return err
+	_, err := s.uploader.UploadWithContext(ctx, input, f)
+	if err != nil {
+		if newS3, ok := retryableErr(to, err); ok {
+			_, err = newS3.uploader.UploadWithContext(ctx, input, f)
+		}
+		return err
+	}
+
+	return nil
 }
 
 // chunk is an object identifier container which is used on MultiDelete
@@ -533,9 +587,21 @@ func (s *S3) doDelete(ctx context.Context, chunk chunk, resultch chan *Object) {
 		Bucket: aws.String(bucket),
 		Delete: &s3.Delete{Objects: chunk.Keys},
 	})
+
 	if err != nil {
-		resultch <- &Object{Err: err}
-		return
+		key := fmt.Sprintf("s3://%v/%v", bucket, aws.StringValue(chunk.Keys[0].Key))
+		u, _ := url.New(key)
+
+		if newS3, ok := retryableErr(u, err); ok {
+			o, err = newS3.api.DeleteObjectsWithContext(ctx, &s3.DeleteObjectsInput{
+				Bucket: aws.String(bucket),
+				Delete: &s3.Delete{Objects: chunk.Keys},
+			})
+		}
+		if err != nil {
+			resultch <- &Object{Err: err}
+			return
+		}
 	}
 
 	for _, d := range o.Deleted {
@@ -618,19 +684,19 @@ func (s *S3) MakeBucket(ctx context.Context, name string) error {
 	return err
 }
 
-type bucket string
-
 // s3Session holds session.Session for each bucket
 // and it synchronizes access/modification.
 type s3Session struct {
 	sync.Mutex
-	sessions map[bucket]*session.Session
+
+	bucketToRegion map[string]string
+	regionToSess   map[string]*session.Session
 }
 
 type sessOptions struct {
 	S3Options
-	bucket
 
+	bucket string
 	region string
 }
 
@@ -638,36 +704,45 @@ func (s *s3Session) newSession(opts sessOptions) (*session.Session, error) {
 	s.Lock()
 	defer s.Unlock()
 
-	if sess, ok := s.sessions[opts.bucket]; ok {
-		return sess, nil
+	// session that's is not region-specific
+	if opts.bucket == "" {
+		return sessionSingle.regionToSess[""], nil
 	}
 
-	if opts.bucket == "" {
+	region := opts.region
+	if region == "" {
+		region = sessionSingle.bucketToRegion[opts.bucket]
+	}
+
+	// region is either given, or we 'remember' it.
+	if region != "" {
+		sessionSingle.bucketToRegion[opts.bucket] = region
+		if _, ok := sessionSingle.regionToSess[region]; !ok {
+			sess, err := newSession(sessOptions{
+				S3Options: s3OptionSingle,
+				region:    region,
+			})
+			if err != nil {
+				return nil, err
+			}
+			sessionSingle.regionToSess[region] = sess
+		}
+		return sessionSingle.regionToSess[region], nil
+	}
+
+	// given a bucket and region cannot be inferred:
+	// for this scenario create session with region 'us-east-1'
+	if _, ok := sessionSingle.regionToSess[defaultRegion]; !ok {
 		sess, err := newSession(sessOptions{
-			S3Options: opts.S3Options,
+			S3Options: s3OptionSingle,
+			region:    defaultRegion,
 		})
 		if err != nil {
 			return nil, err
 		}
-
-		if aws.StringValue(sess.Config.Region) == defaultRegion {
-			s.sessions[opts.bucket] = defaultSession
-			return defaultSession, nil
-		}
-
-		s.sessions[opts.bucket] = sess
-		return sess, nil
+		sessionSingle.regionToSess[defaultRegion] = sess
 	}
-
-	if opts.region != "" {
-		sess, err := newSession(opts)
-		if err != nil {
-			return nil, err
-		}
-		s.sessions[opts.bucket] = sess
-		return sess, nil
-	}
-	return defaultSession, nil
+	return sessionSingle.regionToSess[defaultRegion], nil
 }
 
 func newSession(opts sessOptions) (*session.Session, error) {

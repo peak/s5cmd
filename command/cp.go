@@ -215,12 +215,6 @@ func (c Copy) Run(ctx context.Context) error {
 
 	objch, err := expandSource(ctx, client, c.followSymlinks, srcurl)
 	if err != nil {
-		if newClient, ok := storage.RetryableErr(srcurl, err); ok {
-			client = newClient
-			objch, err = expandSource(ctx, client, c.followSymlinks, srcurl)
-		}
-	}
-	if err != nil {
 		printError(c.fullCommand, c.op, err)
 		return err
 	}
@@ -388,12 +382,6 @@ func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) 
 
 	size, err := srcClient.Get(ctx, srcurl, f, c.concurrency, c.partSize)
 	if err != nil {
-		if newClient, ok := storage.RetryableErr(srcurl, err); ok {
-			srcClient = newClient
-			size, err = srcClient.Get(ctx, srcurl, f, c.concurrency, c.partSize)
-		}
-	}
-	if err != nil {
 		_ = dstClient.Delete(ctx, dsturl)
 		return err
 	}
@@ -445,12 +433,6 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 		SetACL(c.acl)
 
 	err = dstClient.Put(ctx, f, dsturl, metadata, c.concurrency, c.partSize)
-	if err != nil {
-		if newClient, ok := storage.RetryableErr(dsturl, err); ok {
-			dstClient = newClient
-			err = dstClient.Put(ctx, f, dsturl, metadata, c.concurrency, c.partSize)
-		}
-	}
 	if err != nil {
 		return err
 	}
@@ -507,12 +489,6 @@ func (c Copy) doCopy(ctx context.Context, srcurl *url.URL, dsturl *url.URL) erro
 	}
 
 	err = srcClient.Copy(ctx, srcurl, dsturl, metadata)
-	if err != nil {
-		if newClient, ok := storage.RetryableErr(srcurl, err); ok {
-			srcClient = newClient
-			err = srcClient.Copy(ctx, srcurl, dsturl, metadata)
-		}
-	}
 	if err != nil {
 		return err
 	}
@@ -670,12 +646,6 @@ func getObject(ctx context.Context, url *url.URL) (*storage.Object, error) {
 	}
 
 	obj, err := client.Stat(ctx, url)
-	if err != nil {
-		if newClient, ok := storage.RetryableErr(url, err); ok {
-			client = newClient
-			obj, err = client.Stat(ctx, url)
-		}
-	}
 	if err == storage.ErrGivenObjectNotFound {
 		return nil, nil
 	}
@@ -748,12 +718,6 @@ func validateUpload(ctx context.Context, srcurl, dsturl *url.URL) error {
 	}
 
 	obj, err := srcclient.Stat(ctx, srcurl)
-	if err != nil {
-		if newClient, ok := storage.RetryableErr(srcurl, err); ok {
-			srcclient = newClient
-			obj, err = srcclient.Stat(ctx, srcurl)
-		}
-	}
 	if err != nil {
 		return err
 	}

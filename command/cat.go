@@ -73,12 +73,10 @@ func (c Cat) Run(ctx context.Context) error {
 	// `storage.S3.Get()` ignores 'partSize' if concurrency is set to 1.
 	_, err = client.Get(ctx, c.src, sequentialWriterAt{w: os.Stdout}, 1, -1)
 	if err != nil {
-		if _, ok := storage.RetryableErr(c.src, err); ok {
-			return c.Run(ctx)
-		}
 		printError(c.fullCommand, c.op, err)
+		return err
 	}
-	return err
+	return nil
 }
 
 type sequentialWriterAt struct {

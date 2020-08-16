@@ -78,8 +78,6 @@ func Delete(
 
 	objChan := expandSources(ctx, client, false, srcurls...)
 
-	var retry bool
-
 	// do object->url transformation
 	urlch := make(chan *url.URL)
 	go func() {
@@ -91,11 +89,6 @@ func Delete(
 			}
 
 			if err := object.Err; err != nil {
-				if _, ok := storage.RetryableErr(srcurl, err); ok {
-					retry = true
-					break
-				}
-
 				printError(fullCommand, op, err)
 				continue
 			}
@@ -122,10 +115,6 @@ func Delete(
 			Source:    obj.URL,
 		}
 		log.Info(msg)
-	}
-
-	if retry {
-		return Delete(ctx, op, fullCommand, src...)
 	}
 
 	return merror

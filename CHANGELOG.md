@@ -1,5 +1,11 @@
 # Changelog
 
+## not released yet
+
+#### Improvements
+
+- For some operations errors were printed at the end of the program execution. Now, errors are displayed immediately after being detected. ([#136](https://github.com/peak/s5cmd/issues/136))
+
 ## v1.1.0 - 22 Jul 2020
 
 With this release, Windows is supported.

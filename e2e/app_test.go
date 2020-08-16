@@ -74,7 +74,7 @@ func TestAppDashStat(t *testing.T) {
 	_, s5cmd, cleanup := setup(t)
 	defer cleanup()
 
-	cmd := s5cmd("-stat")
+	cmd := s5cmd("--stat", "ls")
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Expected{ExitCode: 0})

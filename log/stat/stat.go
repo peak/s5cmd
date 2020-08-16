@@ -3,6 +3,7 @@ package stat
 import (
 	"bytes"
 	"fmt"
+	"strings"
 	"sync"
 	"text/tabwriter"
 
@@ -47,9 +48,9 @@ func (s *syncMap) add(key string, val int64) {
 
 // Stat is for storing a particular statistics.
 type Stat struct {
-	Visited    string `json:"visited"`
-	SuccVisits int64  `json:"success visits"`
-	ErrVisits  int64  `json:"error visits"`
+	Visited    string `json:"operation"`
+	SuccVisits int64  `json:"success"`
+	ErrVisits  int64  `json:"error"`
 }
 
 // Collect collects function execution data.
@@ -69,6 +70,10 @@ func Collect(path string, err *error) func() {
 type Stats []Stat
 
 func (s Stats) String() string {
+	if len(s) == 0 {
+		return ""
+	}
+
 	b := bytes.Buffer{}
 
 	w := tabwriter.NewWriter(&b, 5, 0, 5, ' ', tabwriter.AlignRight)
@@ -84,7 +89,12 @@ func (s Stats) String() string {
 }
 
 func (s Stats) JSON() string {
-	return strutil.JSON(s)
+	builder := strings.Builder{}
+	for _, stat := range s {
+		builder.WriteString(strutil.JSON(stat) + "\n")
+	}
+
+	return builder.String()
 }
 
 // Statistics will return statistics that has been collected so far.

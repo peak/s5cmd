@@ -67,6 +67,7 @@ func Delete(
 ) error {
 	srcurls, err := newURLs(src...)
 	if err != nil {
+		printError(fullCommand, op, err)
 		return err
 	}
 	srcurl := srcurls[0]

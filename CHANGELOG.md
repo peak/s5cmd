@@ -3,7 +3,7 @@
 ## not released yet
 
 #### Features
-- Added `-stat` option for `s5cmd` and it displays program execution statistics before the end of the program output. ([#148](https://github.com/peak/s5cmd/issues/148))
+- Added `--stat` option for `s5cmd` and it displays program execution statistics before the end of the program output. ([#148](https://github.com/peak/s5cmd/issues/148))
 
 #### Improvements
 

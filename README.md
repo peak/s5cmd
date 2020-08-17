@@ -334,10 +334,15 @@ workloads as much as possible while trying to achieve maximum throughput.
 Some of the advanced usage patterns provided below are inspired by the following [article](https://medium.com/@joshua_robinson/s5cmd-hits-v1-0-and-intro-to-advanced-usage-37ad02f7e895) (thank you! [@joshuarobinson](https://github.com/joshuarobinson))
 
 ## Integrate s5cmd operations with Unix commands
+Assume we have a set of objects on S3, and we would like to list them in sorted fashion according to object names.
 
-    s5cmd ls s3://bucket/pre/ | sort
-
-    s5cmd cat s3://bucket/file.txt | grep something
+    $ s5cmd ls s3://bucket/reports/ | sort -k 4
+    2020/08/17 09:34:33              1364 antalya.csv
+    2020/08/17 09:34:33                 0 batman.csv
+    2020/08/17 09:34:33             23114 istanbul.csv
+    2020/08/17 09:34:33             26154 izmir.csv
+    2020/08/17 09:34:33               112 samsun.csv
+    2020/08/17 09:34:33             12552 van.csv
 
 For a more practical scenario, let's say we have an [avocado prices](https://www.kaggle.com/neuromusic/avocado-prices) dataset, and we would like to take a peek at the few lines of the data by fetching only the necessary bytes.
 

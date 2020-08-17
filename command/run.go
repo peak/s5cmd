@@ -44,7 +44,7 @@ var runCommand = &cli.Command{
 		}
 		return err
 	},
-	Action: func(c *cli.Context) (err error) {
+	Action: func(c *cli.Context) error {
 		reader := os.Stdin
 		if c.Args().Len() == 1 {
 			f, err := os.Open(c.Args().First())

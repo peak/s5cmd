@@ -83,5 +83,5 @@ func TestAppDashStat(t *testing.T) {
 
 	assert.Assert(t, strings.Contains(out, "Operation"))
 	assert.Assert(t, strings.Contains(out, "Total"))
-	assert.Assert(t, strings.Contains(out, "========="))
+	assert.Assert(t, strings.Contains(out, "Error"))
 }

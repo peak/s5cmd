@@ -70,16 +70,11 @@ func Collect(path string, err *error) func() {
 type Stats []Stat
 
 func (s Stats) String() string {
-	if len(s) == 0 {
-		return ""
-	}
-
 	b := bytes.Buffer{}
 
 	w := tabwriter.NewWriter(&b, 5, 0, 5, ' ', tabwriter.AlignRight)
 
 	fmt.Fprintf(w, "\n%s\t%s\t%s\t%s\t\n", "Operation", "Total", "Error", "Success")
-	fmt.Fprintf(w, "%s\t%s\t%s\t%s\t\n", "=========", "=====", "=====", "=======")
 	for _, stat := range s {
 		fmt.Fprintf(w, "%s\t%d\t%d\t%d\t\n", stat.Visited, stat.ErrVisits+stat.SuccVisits, stat.ErrVisits, stat.SuccVisits)
 	}

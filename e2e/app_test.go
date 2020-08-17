@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"gotest.tools/v3/assert"
-
 	"gotest.tools/v3/icmd"
 )
 
@@ -81,7 +80,6 @@ func TestAppDashStat(t *testing.T) {
 
 	out := result.Stdout()
 
-	assert.Assert(t, strings.Contains(out, "Operation"))
-	assert.Assert(t, strings.Contains(out, "Total"))
-	assert.Assert(t, strings.Contains(out, "Error"))
+	tsv := fmt.Sprintf("%s\t%s\t%s\t%s\t", "Operation", "Total", "Error", "Success")
+	assert.Assert(t, strings.Contains(out, tsv))
 }

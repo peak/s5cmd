@@ -95,10 +95,10 @@ func (s Stats) JSON() string {
 // Statistics will return statistics that has been collected so far.
 func Statistics() Stats {
 	if !enabled {
-		return make([]Stat, 0)
+		return Stats{}
 	}
 
-	result := make([]Stat, 0)
+	var result Stats
 	for op, total := range stats[totalCount].mapStrInt64 {
 		success := stats[succCount].mapStrInt64[op]
 

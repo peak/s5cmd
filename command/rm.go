@@ -3,6 +3,7 @@ package command
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/urfave/cli/v2"
@@ -70,34 +71,19 @@ func Delete(
 		printError(fullCommand, op, err)
 		return err
 	}
-	srcurl := srcurls[0]
 
-	client, err := storage.NewClient(srcurl)
-	if err != nil {
-		return err
-	}
+	resultch := make(chan *storage.Object)
 
-	objChan := expandSources(ctx, client, false, srcurls...)
-
-	// do object->url transformation
-	urlch := make(chan *url.URL)
+	var wg sync.WaitGroup
 	go func() {
-		defer close(urlch)
+		defer close(resultch)
 
-		for object := range objChan {
-			if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) {
-				continue
-			}
-
-			if err := object.Err; err != nil {
-				printError(fullCommand, op, err)
-				continue
-			}
-			urlch <- object.URL
+		for _, srcurl := range srcurls {
+			wg.Add(1)
+			go doDelete(ctx, srcurl, op, fullCommand, resultch, &wg)
 		}
+		wg.Wait()
 	}()
-
-	resultch := client.MultiDelete(ctx, urlch)
 
 	var merror error
 	for obj := range resultch {
@@ -119,6 +105,52 @@ func Delete(
 	}
 
 	return merror
+}
+
+func doDelete(
+	ctx context.Context,
+	src *url.URL,
+	op string,
+	fullCommand string,
+	ch chan<- *storage.Object,
+	wg *sync.WaitGroup,
+) {
+	defer wg.Done()
+
+	objChan, err := expandSource(ctx, false, src)
+	if err != nil {
+		ch <- &storage.Object{Err: err}
+		return
+	}
+
+	// do object->url transformation
+	urlch := make(chan *url.URL)
+	go func() {
+		defer close(urlch)
+
+		for object := range objChan {
+			if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) {
+				continue
+			}
+
+			if err := object.Err; err != nil {
+				printError(fullCommand, op, err)
+				continue
+			}
+			urlch <- object.URL
+		}
+	}()
+
+	client, err := storage.NewClient(src)
+	if err != nil {
+		ch <- &storage.Object{Err: err}
+		return
+	}
+
+	resultch := client.MultiDelete(ctx, urlch)
+	for obj := range resultch {
+		ch <- obj
+	}
 }
 
 // newSources creates object URL list from given sources.

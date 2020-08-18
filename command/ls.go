@@ -68,7 +68,11 @@ var listCommand = &cli.Command{
 	},
 	Action: func(c *cli.Context) error {
 		if !c.Args().Present() {
-			return ListBuckets(c.Context)
+			err := ListBuckets(c.Context)
+			if err != nil {
+				printError(givenCommand(c), c.Command.Name, err)
+			}
+			return err
 		}
 
 		return List{
@@ -117,6 +121,7 @@ func ListBuckets(ctx context.Context) error {
 func (l List) Run(ctx context.Context) error {
 	srcurl, err := url.New(l.src)
 	if err != nil {
+		printError(l.fullCommand, l.op, err)
 		return err
 	}
 

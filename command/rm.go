@@ -81,6 +81,7 @@ type Delete struct {
 func (d Delete) Run(ctx context.Context) error {
 	srcurls, err := newURLs(d.src...)
 	if err != nil {
+		printError(d.fullCommand, d.op, err)
 		return err
 	}
 	srcurl := srcurls[0]

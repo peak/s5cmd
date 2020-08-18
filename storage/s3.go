@@ -923,12 +923,14 @@ func (a *writeAtAdapter) Write(p []byte) (int, error) {
 func getRegion(err error) (string, error) {
 	if awsErr, ok := err.(s3.RequestFailure); ok {
 
-		re := regexp.MustCompile("expecting '.*'")
+		r := "the region '.*' is wrong; expecting '.*'"
+		re := regexp.MustCompile(r)
 
 		match := re.FindString(awsErr.Error())
 
 		if match != "" {
-			region := strings.Trim(strings.Split(match, " ")[1], "'")
+			tokens := strings.Split(match, " ")
+			region := strings.Trim(tokens[len(tokens)-1], "'")
 			return region, nil
 		}
 		return "", err

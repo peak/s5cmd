@@ -124,6 +124,7 @@ func ListBuckets(ctx context.Context) error {
 func (l List) Run(ctx context.Context) error {
 	srcurl, err := url.New(l.src)
 	if err != nil {
+		printError(l.fullCommand, l.op, err)
 		return err
 	}
 

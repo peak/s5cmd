@@ -38,7 +38,11 @@ var moveCommand = &cli.Command{
 	Flags:              copyCommandFlags, // move and copy commands share the same flags
 	CustomHelpTemplate: moveHelpTemplate,
 	Before: func(c *cli.Context) error {
-		return copyCommand.Before(c)
+		err := copyCommand.Before(c)
+		if err != nil {
+			printError(givenCommand(c), c.Command.Name, err)
+		}
+		return err
 	},
 	Action: func(c *cli.Context) error {
 		copyCommand := Copy{

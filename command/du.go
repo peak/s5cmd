@@ -9,6 +9,7 @@ import (
 
 	errorpkg "github.com/peak/s5cmd/error"
 	"github.com/peak/s5cmd/log"
+	"github.com/peak/s5cmd/log/stat"
 	"github.com/peak/s5cmd/storage"
 	"github.com/peak/s5cmd/storage/url"
 	"github.com/peak/s5cmd/strutil"
@@ -55,7 +56,9 @@ var sizeCommand = &cli.Command{
 		}
 		return err
 	},
-	Action: func(c *cli.Context) error {
+	Action: func(c *cli.Context) (err error) {
+		defer stat.Collect(c.Command.FullName(), &err)()
+
 		return Size{
 			src:         c.Args().First(),
 			op:          c.Command.Name,

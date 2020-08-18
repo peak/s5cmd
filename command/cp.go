@@ -14,6 +14,7 @@ import (
 
 	errorpkg "github.com/peak/s5cmd/error"
 	"github.com/peak/s5cmd/log"
+	"github.com/peak/s5cmd/log/stat"
 	"github.com/peak/s5cmd/parallel"
 	"github.com/peak/s5cmd/storage"
 	"github.com/peak/s5cmd/storage/url"
@@ -140,7 +141,9 @@ var copyCommand = &cli.Command{
 		}
 		return err
 	},
-	Action: func(c *cli.Context) error {
+	Action: func(c *cli.Context) (err error) {
+		defer stat.Collect(c.Command.FullName(), &err)()
+
 		return Copy{
 			src:          c.Args().Get(0),
 			dst:          c.Args().Get(1),

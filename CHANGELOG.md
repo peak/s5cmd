@@ -2,6 +2,9 @@
 
 ## not released yet
 
+#### Features
+- Added `--stat` option for `s5cmd` and it displays program execution statistics before the end of the program output. ([#148](https://github.com/peak/s5cmd/issues/148))
+
 #### Improvements
 
 - For some operations errors were printed at the end of the program execution. Now, errors are displayed immediately after being detected. ([#136](https://github.com/peak/s5cmd/issues/136))

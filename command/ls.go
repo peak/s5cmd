@@ -9,6 +9,7 @@ import (
 
 	errorpkg "github.com/peak/s5cmd/error"
 	"github.com/peak/s5cmd/log"
+	"github.com/peak/s5cmd/log/stat"
 	"github.com/peak/s5cmd/storage"
 	"github.com/peak/s5cmd/storage/url"
 	"github.com/peak/s5cmd/strutil"
@@ -66,7 +67,9 @@ var listCommand = &cli.Command{
 		}
 		return err
 	},
-	Action: func(c *cli.Context) error {
+	Action: func(c *cli.Context) (err error) {
+		defer stat.Collect(c.Command.FullName(), &err)()
+
 		if !c.Args().Present() {
 			err := ListBuckets(c.Context)
 			if err != nil {

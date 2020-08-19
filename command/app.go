@@ -66,10 +66,7 @@ var app = &cli.App{
 		},
 	},
 	Before: func(c *cli.Context) error {
-		noVerifySSL := c.Bool("no-verify-ssl")
-		dryRun := c.Bool("dry-run")
 		retryCount := c.Int("retry-count")
-		endpointURL := c.String("endpoint-url")
 		workerCount := c.Int("numworkers")
 		printJSON := c.Bool("json")
 		logLevel := c.String("log")
@@ -88,14 +85,7 @@ var app = &cli.App{
 			stat.InitStat()
 		}
 
-		s3opts := storage.Options{
-			MaxRetries:  retryCount,
-			Endpoint:    endpointURL,
-			NoVerifySSL: noVerifySSL,
-			DryRun:      dryRun,
-		}
-
-		return storage.Init(s3opts)
+		return storage.Init(NewStorageOpts(c))
 	},
 	Action: func(c *cli.Context) error {
 		if c.Bool("install-completion") {

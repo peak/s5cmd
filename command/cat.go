@@ -55,12 +55,7 @@ var catCommand = &cli.Command{
 			op:          op,
 			fullCommand: fullCommand,
 
-			storageOpts: storage.Options{
-				MaxRetries:  c.Int("retry-count"),
-				Endpoint:    c.String("endpoint-url"),
-				NoVerifySSL: c.Bool("no-verify-ssl"),
-				DryRun:      c.Bool("dry-run"),
-			},
+			storageOpts: NewStorageOpts(c),
 		}.Run(c.Context)
 	},
 }

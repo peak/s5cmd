@@ -119,6 +119,16 @@ var app = &cli.App{
 	},
 }
 
+// NewStorageOpts creates storage.Options object from the given context.
+func NewStorageOpts(c *cli.Context) storage.Options {
+	return storage.Options{
+		MaxRetries:  c.Int("retry-count"),
+		Endpoint:    c.String("endpoint-url"),
+		NoVerifySSL: c.Bool("no-verify-ssl"),
+		DryRun:      c.Bool("dry-run"),
+	}
+}
+
 // Main is the entrypoint function to run given commands.
 func Main(ctx context.Context, args []string) error {
 	app.Commands = []*cli.Command{

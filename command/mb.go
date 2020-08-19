@@ -46,12 +46,7 @@ var makeBucketCommand = &cli.Command{
 			op:          c.Command.Name,
 			fullCommand: givenCommand(c),
 
-			storageOpts: storage.Options{
-				MaxRetries:  c.Int("retry-count"),
-				Endpoint:    c.String("endpoint-url"),
-				NoVerifySSL: c.Bool("no-verify-ssl"),
-				DryRun:      c.Bool("dry-run"),
-			},
+			storageOpts: NewStorageOpts(c),
 		}.Run(c.Context)
 	},
 }

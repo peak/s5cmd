@@ -135,13 +135,7 @@ var copyCommand = &cli.Command{
 	Flags:              copyCommandFlags,
 	CustomHelpTemplate: copyHelpTemplate,
 	Before: func(c *cli.Context) error {
-		err := validateCopyCommand(c,
-			storage.Options{
-				MaxRetries:  c.Int("retry-count"),
-				Endpoint:    c.String("endpoint-url"),
-				NoVerifySSL: c.Bool("no-verify-ssl"),
-				DryRun:      c.Bool("dry-run"),
-			})
+		err := validateCopyCommand(c, NewStorageOpts(c))
 		if err != nil {
 			printError(givenCommand(c), c.Command.Name, err)
 		}
@@ -169,12 +163,7 @@ var copyCommand = &cli.Command{
 			encryptionKeyID:  c.String("sse-kms-key-id"),
 			acl:              c.String("acl"),
 
-			storageOpts: storage.Options{
-				MaxRetries:  c.Int("retry-count"),
-				Endpoint:    c.String("endpoint-url"),
-				NoVerifySSL: c.Bool("no-verify-ssl"),
-				DryRun:      c.Bool("dry-run"),
-			},
+			storageOpts: NewStorageOpts(c),
 		}.Run(c.Context)
 	},
 }

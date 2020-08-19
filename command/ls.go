@@ -69,6 +69,14 @@ var listCommand = &cli.Command{
 	},
 	Action: func(c *cli.Context) (err error) {
 		defer stat.Collect(c.Command.FullName(), &err)()
+		if !c.Args().Present() {
+			err := ListBuckets(c.Context, NewStorageOpts(c))
+			if err != nil {
+				printError(givenCommand(c), c.Command.Name, err)
+			}
+			return err
+		}
+
 		return List{
 			src:         c.Args().First(),
 			op:          c.Command.Name,
@@ -98,10 +106,10 @@ type List struct {
 }
 
 // ListBuckets prints all buckets.
-func (l List) ListBuckets(ctx context.Context) error {
+func ListBuckets(ctx context.Context, storageOpts storage.Options) error {
 	// set as remote storage
 	url := &url.URL{Type: 0}
-	client, err := storage.NewClient(url, l.storageOpts)
+	client, err := storage.NewClient(url, storageOpts)
 	if err != nil {
 		return err
 	}
@@ -120,15 +128,6 @@ func (l List) ListBuckets(ctx context.Context) error {
 
 // Run prints objects at given source.
 func (l List) Run(ctx context.Context) error {
-	if l.src == "" {
-		err := l.ListBuckets(ctx)
-		if err != nil {
-			printError(l.fullCommand, l.op, err)
-			return err
-		}
-		return nil
-	}
-
 	srcurl, err := url.New(l.src)
 	if err != nil {
 		printError(l.fullCommand, l.op, err)

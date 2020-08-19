@@ -41,7 +41,7 @@ var makeBucketCommand = &cli.Command{
 	Action: func(c *cli.Context) (err error) {
 		defer stat.Collect(c.Command.FullName(), &err)()
 
-		return Bucket{
+		return MakeBucket{
 			src:         c.Args().First(),
 			op:          c.Command.Name,
 			fullCommand: givenCommand(c),
@@ -51,7 +51,7 @@ var makeBucketCommand = &cli.Command{
 	},
 }
 
-type Bucket struct {
+type MakeBucket struct {
 	src         string
 	op          string
 	fullCommand string
@@ -61,7 +61,7 @@ type Bucket struct {
 
 // Run creates bucket.
 
-func (b Bucket) Run(ctx context.Context) error {
+func (b MakeBucket) Run(ctx context.Context) error {
 	bucket, err := url.New(b.src)
 	if err != nil {
 		printError(b.fullCommand, b.op, err)
@@ -74,9 +74,7 @@ func (b Bucket) Run(ctx context.Context) error {
 		return err
 	}
 
-	_, err = client.Make(ctx, storage.MakeOpts{
-		Path: bucket.Bucket,
-	})
+	_, err = client.Make(ctx, bucket.Bucket, false)
 	if err != nil {
 		printError(b.fullCommand, b.op, err)
 		return err

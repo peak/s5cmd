@@ -52,7 +52,7 @@ type Storage interface {
 	ListBuckets(ctx context.Context, prefix string) ([]Bucket, error)
 
 	// Make creates bucket for remote operations and dir/file for local.
-	Make(ctx context.Context, opts MakeOpts) (ReadCloserFile, error)
+	Make(ctx context.Context, path string, isDirectory bool) (ReadCloserFile, error)
 
 	// Open opens the given source. Return value can be either a readable and/or writable.
 	Open(ctx context.Context, src *url.URL) (ReadCloserFile, error)

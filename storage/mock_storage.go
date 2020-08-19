@@ -104,20 +104,20 @@ func (_m *MockStorage) ListBuckets(ctx context.Context, prefix string) ([]Bucket
 	return r0, r1
 }
 
-// Make provides a mock function with given fields: ctx, opts
-func (_m *MockStorage) Make(ctx context.Context, opts MakeOpts) (ReadCloserFile, error) {
-	ret := _m.Called(ctx, opts)
+// Make provides a mock function with given fields: ctx, path, isDirectory
+func (_m *MockStorage) Make(ctx context.Context, path string, isDirectory bool) (ReadCloserFile, error) {
+	ret := _m.Called(ctx, path, isDirectory)
 
 	var r0 ReadCloserFile
-	if rf, ok := ret.Get(0).(func(context.Context, MakeOpts) ReadCloserFile); ok {
-		r0 = rf(ctx, opts)
+	if rf, ok := ret.Get(0).(func(context.Context, string, bool) ReadCloserFile); ok {
+		r0 = rf(ctx, path, isDirectory)
 	} else {
 		r0 = ret.Get(0).(ReadCloserFile)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, MakeOpts) error); ok {
-		r1 = rf(ctx, opts)
+	if rf, ok := ret.Get(1).(func(context.Context, string, bool) error); ok {
+		r1 = rf(ctx, path, isDirectory)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -136,20 +136,6 @@ func (_m *MockStorage) MultiDelete(ctx context.Context, urls <-chan *url.URL) <-
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(<-chan *Object)
 		}
-	}
-
-	return r0
-}
-
-// Put provides a mock function with given fields: ctx, src, dst, metadata, concurrency, partSize
-func (_m *MockStorage) Put(ctx context.Context, src io.Reader, dst *url.URL, metadata Metadata, concurrency int, partSize int64) error {
-	ret := _m.Called(ctx, src, dst, metadata, concurrency, partSize)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, io.Reader, *url.URL, Metadata, int, int64) error); ok {
-		r0 = rf(ctx, src, dst, metadata, concurrency, partSize)
-	} else {
-		r0 = ret.Error(0)
 	}
 
 	return r0
@@ -174,6 +160,20 @@ func (_m *MockStorage) Open(ctx context.Context, src *url.URL) (ReadCloserFile, 
 	}
 
 	return r0, r1
+}
+
+// Put provides a mock function with given fields: ctx, src, dst, metadata, concurrency, partSize
+func (_m *MockStorage) Put(ctx context.Context, src io.Reader, dst *url.URL, metadata Metadata, concurrency int, partSize int64) error {
+	ret := _m.Called(ctx, src, dst, metadata, concurrency, partSize)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, io.Reader, *url.URL, Metadata, int, int64) error); ok {
+		r0 = rf(ctx, src, dst, metadata, concurrency, partSize)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
 }
 
 // Stat provides a mock function with given fields: ctx, src

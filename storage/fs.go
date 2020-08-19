@@ -220,16 +220,16 @@ func (f *Filesystem) ListBuckets(_ context.Context, _ string) ([]Bucket, error) 
 }
 
 // Make creates dir/file based on options passed.
-func (f *Filesystem) Make(ctx context.Context, opts MakeOpts) (ReadCloserFile, error) {
+func (f *Filesystem) Make(ctx context.Context, path string, isDirectory bool) (ReadCloserFile, error) {
 	if f.dryRun {
 		return ReadCloserFile{f: &os.File{}}, nil
 	}
 
-	if opts.Directory {
-		return ReadCloserFile{}, os.MkdirAll(opts.Path, os.ModePerm)
+	if isDirectory {
+		return ReadCloserFile{}, os.MkdirAll(path, os.ModePerm)
 	}
 
-	file, err := os.Create(opts.Path)
+	file, err := os.Create(path)
 	if err != nil {
 		return ReadCloserFile{}, err
 	}

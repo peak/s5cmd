@@ -380,9 +380,7 @@ func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) 
 		return err
 	}
 
-	r, err := dstClient.Make(ctx, storage.MakeOpts{
-		Path: dsturl.Absolute(),
-	})
+	r, err := dstClient.Make(ctx, dsturl.Absolute(), false)
 	if err != nil {
 		return err
 	}
@@ -623,10 +621,7 @@ func prepareLocalDestination(
 	}
 
 	if isBatch {
-		_, err := client.Make(ctx, storage.MakeOpts{
-			Path:      dsturl.Absolute(),
-			Directory: true,
-		})
+		_, err := client.Make(ctx, dsturl.Absolute(), true)
 		if err != nil {
 			return nil, err
 		}
@@ -639,20 +634,14 @@ func prepareLocalDestination(
 
 	if isBatch && !flatten {
 		dsturl = dsturl.Join(objname)
-		_, err := client.Make(ctx, storage.MakeOpts{
-			Path:      dsturl.Dir(),
-			Directory: true,
-		})
+		_, err := client.Make(ctx, dsturl.Dir(), true)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	if err == storage.ErrGivenObjectNotFound {
-		_, err := client.Make(ctx, storage.MakeOpts{
-			Path:      dsturl.Dir(),
-			Directory: true,
-		})
+		_, err := client.Make(ctx, dsturl.Dir(), true)
 		if err != nil {
 			return nil, err
 		}

@@ -604,13 +604,13 @@ func (s *S3) ListBuckets(ctx context.Context, prefix string) ([]Bucket, error) {
 }
 
 // Make creates an S3 bucket with the given name.
-func (s *S3) Make(ctx context.Context, opts MakeOpts) (ReadCloserFile, error) {
+func (s *S3) Make(ctx context.Context, path string, _ bool) (ReadCloserFile, error) {
 	if s.dryRun {
 		return ReadCloserFile{}, nil
 	}
 
 	_, err := s.api.CreateBucketWithContext(ctx, &s3.CreateBucketInput{
-		Bucket: aws.String(opts.Path),
+		Bucket: aws.String(path),
 	})
 	return ReadCloserFile{}, err
 }

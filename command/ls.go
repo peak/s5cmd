@@ -67,10 +67,6 @@ var listCommand = &cli.Command{
 		return err
 	},
 	Action: func(c *cli.Context) error {
-		if !c.Args().Present() {
-			return ListBuckets(c.Context)
-		}
-
 		return List{
 			src:         c.Args().First(),
 			op:          c.Command.Name,
@@ -79,6 +75,13 @@ var listCommand = &cli.Command{
 			showEtag:         c.Bool("etag"),
 			humanize:         c.Bool("humanize"),
 			showStorageClass: c.Bool("storage-class"),
+
+			storageOpts: storage.Options{
+				MaxRetries:  c.Int("retry-count"),
+				Endpoint:    c.String("endpoint-url"),
+				NoVerifySSL: c.Bool("no-verify-ssl"),
+				DryRun:      c.Bool("dry-run"),
+			},
 		}.Run(c.Context)
 	},
 }
@@ -93,13 +96,18 @@ type List struct {
 	showEtag         bool
 	humanize         bool
 	showStorageClass bool
+
+	storageOpts storage.Options
 }
 
 // ListBuckets prints all buckets.
-func ListBuckets(ctx context.Context) error {
+func (l List) ListBuckets(ctx context.Context) error {
 	// set as remote storage
 	url := &url.URL{Type: 0}
-	client := storage.NewClient(url)
+	client, err := storage.NewClient(url, l.storageOpts)
+	if err != nil {
+		return err
+	}
 
 	buckets, err := client.ListBuckets(ctx, "")
 	if err != nil {
@@ -115,12 +123,25 @@ func ListBuckets(ctx context.Context) error {
 
 // Run prints objects at given source.
 func (l List) Run(ctx context.Context) error {
+	if l.src == "" {
+		err := l.ListBuckets(ctx)
+		if err != nil {
+			printError(l.fullCommand, l.op, err)
+			return err
+		}
+		return nil
+	}
+
 	srcurl, err := url.New(l.src)
 	if err != nil {
 		return err
 	}
 
-	client := storage.NewClient(srcurl)
+	client, err := storage.NewClient(srcurl, l.storageOpts)
+	if err != nil {
+		printError(l.fullCommand, l.op, err)
+		return err
+	}
 
 	var merror error
 

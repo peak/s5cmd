@@ -155,8 +155,8 @@ func (_m *MockStorage) Put(ctx context.Context, src io.Reader, dst *url.URL, met
 	return r0
 }
 
-// Scan provides a mock function with given fields: ctx, src
-func (_m *MockStorage) Scan(ctx context.Context, src *url.URL) (ReadCloserFile, error) {
+// Open provides a mock function with given fields: ctx, src
+func (_m *MockStorage) Open(ctx context.Context, src *url.URL) (ReadCloserFile, error) {
 	ret := _m.Called(ctx, src)
 
 	var r0 ReadCloserFile

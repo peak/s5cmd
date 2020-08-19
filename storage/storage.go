@@ -20,8 +20,6 @@ var (
 
 	// ErrNoObjectFound indicates there are no objects found from a given directory.
 	ErrNoObjectFound = fmt.Errorf("no object found")
-
-	optionSingle Options
 )
 
 // Storage is an interface for storage operations.
@@ -57,18 +55,18 @@ type Storage interface {
 	// Make creates bucket for remote operations and dir/file for local.
 	Make(ctx context.Context, opts MakeOpts) (ReadCloserFile, error)
 
-	// Scan scans/reads given source.
-	Scan(ctx context.Context, src *url.URL) (ReadCloserFile, error)
+	// Open opens the given source. Return value can be either a readable and/or writable.
+	Open(ctx context.Context, src *url.URL) (ReadCloserFile, error)
 }
 
 // NewClient returns new Storage client from given url. Storage implementation
 // is inferred from the url.
-func NewClient(url *url.URL) Storage {
+func NewClient(url *url.URL, opts Options) (Storage, error) {
 	if url.IsRemote() {
-		return cachedS3
+		return NewS3Storage(opts, cachedSession)
 	}
 
-	return NewFilesystem()
+	return NewFilesystem(opts), nil
 }
 
 // Options stores configuration for storage.

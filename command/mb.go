@@ -38,40 +38,55 @@ var makeBucketCommand = &cli.Command{
 		return err
 	},
 	Action: func(c *cli.Context) error {
-		return MakeBucket(
-			c.Context,
-			c.Command.Name,
-			givenCommand(c),
-			c.Args().First(),
-		)
+
+		return Bucket{
+			src:         c.Args().First(),
+			op:          c.Command.Name,
+			fullCommand: givenCommand(c),
+
+			storageOpts: storage.Options{
+				MaxRetries:  c.Int("retry-count"),
+				Endpoint:    c.String("endpoint-url"),
+				NoVerifySSL: c.Bool("no-verify-ssl"),
+				DryRun:      c.Bool("dry-run"),
+			},
+		}.Run(c.Context)
 	},
 }
 
-// MakeBucket creates bucket.
-func MakeBucket(
-	ctx context.Context,
-	op string,
-	fullCommand string,
-	src string,
-) error {
-	bucket, err := url.New(src)
+type Bucket struct {
+	src         string
+	op          string
+	fullCommand string
+
+	storageOpts storage.Options
+}
+
+// Run creates bucket.
+
+func (b Bucket) Run(ctx context.Context) error {
+	bucket, err := url.New(b.src)
 	if err != nil {
-		printError(fullCommand, op, err)
+		printError(b.fullCommand, b.op, err)
 		return err
 	}
 
-	client := storage.NewClient(bucket)
+	client, err := storage.NewClient(bucket, b.storageOpts)
+	if err != nil {
+		printError(b.fullCommand, b.op, err)
+		return err
+	}
 
 	_, err = client.Make(ctx, storage.MakeOpts{
 		Path: bucket.Bucket,
 	})
 	if err != nil {
-		printError(fullCommand, op, err)
+		printError(b.fullCommand, b.op, err)
 		return err
 	}
 
 	msg := log.InfoMessage{
-		Operation: op,
+		Operation: b.op,
 		Source:    bucket,
 	}
 	log.Info(msg)

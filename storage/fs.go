@@ -19,9 +19,9 @@ type Filesystem struct {
 }
 
 // NewFilesystem creates a new local filesystem session.
-func NewFilesystem() *Filesystem {
+func NewFilesystem(opts Options) *Filesystem {
 	return &Filesystem{
-		dryRun: optionSingle.DryRun,
+		dryRun: opts.DryRun,
 	}
 }
 
@@ -236,8 +236,8 @@ func (f *Filesystem) Make(ctx context.Context, opts MakeOpts) (ReadCloserFile, e
 	return ReadCloserFile{f: file}, nil
 }
 
-// Scan scans/reads given source.
-func (f *Filesystem) Scan(ctx context.Context, src *url.URL) (ReadCloserFile, error) {
+// Open opens the given source. Return value can be either a readable and/or writable.
+func (f *Filesystem) Open(_ context.Context, src *url.URL) (ReadCloserFile, error) {
 	file, err := os.Open(src.Absolute())
 	if err != nil {
 		return ReadCloserFile{}, err

@@ -45,15 +45,19 @@ const (
 )
 
 // Re-used AWS sessions dramatically improve performance.
-var cachedS3 *S3
+var cachedSession func() *session.Session
 
 // Init creates a new global S3 session.
 func Init(opts Options) error {
-	optionSingle = opts
+	sess, err := newSession(opts)
+	if err != nil {
+		return err
+	}
 
-	s3, err := NewS3Storage(opts)
-	cachedS3 = s3
-	return err
+	cachedSession = func() *session.Session {
+		return sess
+	}
+	return nil
 }
 
 // S3 is a storage type which interacts with S3API, DownloaderAPI and
@@ -85,16 +89,13 @@ func parseEndpoint(endpoint string) (urlpkg.URL, error) {
 }
 
 // NewS3Storage creates new S3 session.
-func NewS3Storage(opts Options) (*S3, error) {
+func NewS3Storage(opts Options, sessProvider func() *session.Session) (*S3, error) {
 	endpointURL, err := parseEndpoint(opts.Endpoint)
 	if err != nil {
 		return nil, err
 	}
 
-	awsSession, err := newSession(opts)
-	if err != nil {
-		return nil, err
-	}
+	awsSession := sessProvider()
 
 	return &S3{
 		api:         s3.New(awsSession),
@@ -357,8 +358,8 @@ func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata Metadata) err
 	return err
 }
 
-// Scan scans/reads given source.
-func (s *S3) Scan(ctx context.Context, src *url.URL) (ReadCloserFile, error) {
+// Open opens the given source. Return value can be either a readable and/or writable.
+func (s *S3) Open(ctx context.Context, src *url.URL) (ReadCloserFile, error) {
 	resp, err := s.api.GetObjectWithContext(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(src.Bucket),
 		Key:    aws.String(src.Path),

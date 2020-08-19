@@ -134,7 +134,13 @@ var copyCommand = &cli.Command{
 	Flags:              copyCommandFlags,
 	CustomHelpTemplate: copyHelpTemplate,
 	Before: func(c *cli.Context) error {
-		err := validateCopyCommand(c)
+		err := validateCopyCommand(c,
+			storage.Options{
+				MaxRetries:  c.Int("retry-count"),
+				Endpoint:    c.String("endpoint-url"),
+				NoVerifySSL: c.Bool("no-verify-ssl"),
+				DryRun:      c.Bool("dry-run"),
+			})
 		if err != nil {
 			printError(givenCommand(c), c.Command.Name, err)
 		}
@@ -159,6 +165,13 @@ var copyCommand = &cli.Command{
 			encryptionMethod: c.String("sse"),
 			encryptionKeyID:  c.String("sse-kms-key-id"),
 			acl:              c.String("acl"),
+
+			storageOpts: storage.Options{
+				MaxRetries:  c.Int("retry-count"),
+				Endpoint:    c.String("endpoint-url"),
+				NoVerifySSL: c.Bool("no-verify-ssl"),
+				DryRun:      c.Bool("dry-run"),
+			},
 		}.Run(c.Context)
 	},
 }
@@ -186,6 +199,7 @@ type Copy struct {
 	// s3 options
 	concurrency int
 	partSize    int64
+	storageOpts storage.Options
 }
 
 const fdlimitWarning = `
@@ -208,7 +222,11 @@ func (c Copy) Run(ctx context.Context) error {
 		return err
 	}
 
-	client := storage.NewClient(srcurl)
+	client, err := storage.NewClient(srcurl, c.storageOpts)
+	if err != nil {
+		printError(c.fullCommand, c.op, err)
+		return err
+	}
 
 	objch, err := expandSource(ctx, client, c.followSymlinks, srcurl)
 	if err != nil {
@@ -310,7 +328,7 @@ func (c Copy) prepareDownloadTask(
 	isBatch bool,
 ) func() error {
 	return func() error {
-		dsturl, err := prepareLocalDestination(ctx, srcurl, dsturl, c.flatten, isBatch)
+		dsturl, err := prepareLocalDestination(ctx, srcurl, dsturl, c.flatten, isBatch, c.storageOpts)
 		if err != nil {
 			return err
 		}
@@ -351,10 +369,16 @@ func (c Copy) prepareUploadTask(
 
 // doDownload is used to fetch a remote object and save as a local object.
 func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) error {
-	srcClient := storage.NewClient(srcurl)
-	dstClient := storage.NewClient(dsturl)
+	srcClient, err := storage.NewClient(srcurl, c.storageOpts)
+	if err != nil {
+		return err
+	}
+	dstClient, err := storage.NewClient(dsturl, c.storageOpts)
+	if err != nil {
+		return err
+	}
 
-	err := c.shouldOverride(ctx, srcurl, dsturl)
+	err = c.shouldOverride(ctx, srcurl, dsturl)
 	if err != nil {
 		// FIXME(ig): rename
 		if errorpkg.IsWarning(err) {
@@ -401,9 +425,12 @@ func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) 
 }
 
 func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) error {
-	srcClient := storage.NewClient(srcurl)
+	srcClient, err := storage.NewClient(srcurl, c.storageOpts)
+	if err != nil {
+		return err
+	}
 
-	r, err := srcClient.Scan(ctx, srcurl)
+	r, err := srcClient.Open(ctx, srcurl)
 	if err != nil {
 		return err
 	}
@@ -424,7 +451,10 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 		return err
 	}
 
-	dstClient := storage.NewClient(dsturl)
+	dstClient, err := storage.NewClient(dsturl, c.storageOpts)
+	if err != nil {
+		return err
+	}
 
 	metadata := storage.NewMetadata().
 		SetContentType(guessContentType(f)).
@@ -464,7 +494,10 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 }
 
 func (c Copy) doCopy(ctx context.Context, srcurl *url.URL, dsturl *url.URL) error {
-	srcClient := storage.NewClient(srcurl)
+	srcClient, err := storage.NewClient(srcurl, c.storageOpts)
+	if err != nil {
+		return err
+	}
 
 	metadata := storage.NewMetadata().
 		SetStorageClass(string(c.storageClass)).
@@ -472,7 +505,7 @@ func (c Copy) doCopy(ctx context.Context, srcurl *url.URL, dsturl *url.URL) erro
 		SetSSEKeyID(c.encryptionKeyID).
 		SetACL(c.acl)
 
-	err := c.shouldOverride(ctx, srcurl, dsturl)
+	err = c.shouldOverride(ctx, srcurl, dsturl)
 	if err != nil {
 		if errorpkg.IsWarning(err) {
 			printDebug(c.op, srcurl, dsturl, err)
@@ -517,12 +550,12 @@ func (c Copy) shouldOverride(ctx context.Context, srcurl *url.URL, dsturl *url.U
 		return nil
 	}
 
-	srcObj, err := getObject(ctx, srcurl)
+	srcObj, err := getObject(ctx, srcurl, c.storageOpts)
 	if err != nil {
 		return err
 	}
 
-	dstObj, err := getObject(ctx, dsturl)
+	dstObj, err := getObject(ctx, dsturl, c.storageOpts)
 	if err != nil {
 		return err
 	}
@@ -585,13 +618,17 @@ func prepareLocalDestination(
 	dsturl *url.URL,
 	flatten bool,
 	isBatch bool,
+	storageOpts storage.Options,
 ) (*url.URL, error) {
 	objname := srcurl.Base()
 	if isBatch && !flatten {
 		objname = srcurl.Relative()
 	}
 
-	client := storage.NewClient(dsturl)
+	client, err := storage.NewClient(dsturl, storageOpts)
+	if err != nil {
+		return nil, err
+	}
 
 	if isBatch {
 		_, err := client.Make(ctx, storage.MakeOpts{
@@ -641,8 +678,11 @@ func prepareLocalDestination(
 
 // getObject checks if the object from given url exists. If no object is
 // found, error and returning object would be nil.
-func getObject(ctx context.Context, url *url.URL) (*storage.Object, error) {
-	client := storage.NewClient(url)
+func getObject(ctx context.Context, url *url.URL, storageOpts storage.Options) (*storage.Object, error) {
+	client, err := storage.NewClient(url, storageOpts)
+	if err != nil {
+		return nil, err
+	}
 
 	obj, err := client.Stat(ctx, url)
 	if err == storage.ErrGivenObjectNotFound {
@@ -652,7 +692,7 @@ func getObject(ctx context.Context, url *url.URL) (*storage.Object, error) {
 	return obj, err
 }
 
-func validateCopyCommand(c *cli.Context) error {
+func validateCopyCommand(c *cli.Context, storageOpts storage.Options) error {
 	if c.Args().Len() != 2 {
 		return fmt.Errorf("expected source and destination arguments")
 	}
@@ -691,7 +731,7 @@ func validateCopyCommand(c *cli.Context) error {
 	case srcurl.Type == dsturl.Type:
 		return validateCopy(srcurl, dsturl)
 	case dsturl.IsRemote():
-		return validateUpload(ctx, srcurl, dsturl)
+		return validateUpload(ctx, srcurl, dsturl, storageOpts)
 	default:
 		return nil
 	}
@@ -706,8 +746,11 @@ func validateCopy(srcurl, dsturl *url.URL) error {
 	return fmt.Errorf("local->local copy operations are not permitted")
 }
 
-func validateUpload(ctx context.Context, srcurl, dsturl *url.URL) error {
-	srcclient := storage.NewClient(srcurl)
+func validateUpload(ctx context.Context, srcurl, dsturl *url.URL, storageOpts storage.Options) error {
+	srcclient, err := storage.NewClient(srcurl, storageOpts)
+	if err != nil {
+		return err
+	}
 
 	if srcurl.HasGlob() {
 		return nil

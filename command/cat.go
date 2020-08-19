@@ -51,6 +51,13 @@ var catCommand = &cli.Command{
 			src:         src,
 			op:          op,
 			fullCommand: fullCommand,
+
+			storageOpts: storage.Options{
+				MaxRetries:  c.Int("retry-count"),
+				Endpoint:    c.String("endpoint-url"),
+				NoVerifySSL: c.Bool("no-verify-ssl"),
+				DryRun:      c.Bool("dry-run"),
+			},
 		}.Run(c.Context)
 	},
 }
@@ -60,13 +67,19 @@ type Cat struct {
 	src         *url.URL
 	op          string
 	fullCommand string
+
+	storageOpts storage.Options
 }
 
 // Run prints content of given source to standard output.
 func (c Cat) Run(ctx context.Context) error {
-	client := storage.NewClient(c.src)
+	client, err := storage.NewClient(c.src, c.storageOpts)
+	if err != nil {
+		printError(c.fullCommand, c.op, err)
+		return err
+	}
 
-	r, err := client.Scan(ctx, c.src)
+	r, err := client.Open(ctx, c.src)
 	if err != nil {
 		printError(c.fullCommand, c.op, err)
 		return err

@@ -60,6 +60,13 @@ var moveCommand = &cli.Command{
 			encryptionMethod: c.String("sse"),
 			encryptionKeyID:  c.String("sse-kms-key-id"),
 			acl:              c.String("acl"),
+
+			storageOpts: storage.Options{
+				MaxRetries:  c.Int("retry-count"),
+				Endpoint:    c.String("endpoint-url"),
+				NoVerifySSL: c.Bool("no-verify-ssl"),
+				DryRun:      c.Bool("dry-run"),
+			},
 		}
 
 		return copyCommand.Run(c.Context)

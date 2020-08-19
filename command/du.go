@@ -63,6 +63,13 @@ var sizeCommand = &cli.Command{
 			// flags
 			groupByClass: c.Bool("group"),
 			humanize:     c.Bool("humanize"),
+
+			storageOpts: storage.Options{
+				MaxRetries:  c.Int("retry-count"),
+				Endpoint:    c.String("endpoint-url"),
+				NoVerifySSL: c.Bool("no-verify-ssl"),
+				DryRun:      c.Bool("dry-run"),
+			},
 		}.Run(c.Context)
 	},
 }
@@ -76,6 +83,8 @@ type Size struct {
 	// flags
 	groupByClass bool
 	humanize     bool
+
+	storageOpts storage.Options
 }
 
 // Run calculates disk usage of given source.
@@ -85,7 +94,11 @@ func (sz Size) Run(ctx context.Context) error {
 		return err
 	}
 
-	client := storage.NewClient(srcurl)
+	client, err := storage.NewClient(srcurl, sz.storageOpts)
+	if err != nil {
+		printError(sz.fullCommand, sz.op, err)
+		return err
+	}
 
 	storageTotal := map[string]sizeAndCount{}
 	total := sizeAndCount{}

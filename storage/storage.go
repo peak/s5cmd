@@ -4,7 +4,6 @@ package storage
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -248,14 +247,14 @@ type ReadCloserFile struct {
 
 func (rcf *ReadCloserFile) ReadCloser() (io.ReadCloser, error) {
 	if rcf.rc == nil {
-		return nil, errors.New("404, ReadCloser not found")
+		return nil, os.ErrNotExist
 	}
 	return rcf.rc, nil
 }
 
 func (rcf *ReadCloserFile) File() (*os.File, error) {
 	if rcf.f == nil {
-		return nil, errors.New("404, File not found")
+		return nil, os.ErrNotExist
 	}
 	return rcf.f, nil
 }

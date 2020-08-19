@@ -3,8 +3,10 @@ package e2e
 import (
 	"fmt"
 	"strconv"
+	"strings"
 	"testing"
 
+	"gotest.tools/v3/assert"
 	"gotest.tools/v3/icmd"
 )
 
@@ -65,4 +67,19 @@ func TestAppRetryCount(t *testing.T) {
 			})
 		})
 	}
+}
+
+func TestAppDashStat(t *testing.T) {
+	_, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	cmd := s5cmd("--stat", "ls")
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Expected{ExitCode: 0})
+
+	out := result.Stdout()
+
+	tsv := fmt.Sprintf("%s\t%s\t%s\t%s\t", "Operation", "Total", "Error", "Success")
+	assert.Assert(t, strings.Contains(out, tsv))
 }

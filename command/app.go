@@ -8,6 +8,7 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"github.com/peak/s5cmd/log"
+	"github.com/peak/s5cmd/log/stat"
 	"github.com/peak/s5cmd/parallel"
 	"github.com/peak/s5cmd/storage"
 )
@@ -59,6 +60,10 @@ var app = &cli.App{
 			Name:  "dry-run",
 			Usage: "fake run; show what commands will be executed without actually executing them",
 		},
+		&cli.BoolFlag{
+			Name:  "stat",
+			Usage: "collect statistics of program execution and display it at the end",
+		},
 	},
 	Before: func(c *cli.Context) error {
 		noVerifySSL := c.Bool("no-verify-ssl")
@@ -68,6 +73,7 @@ var app = &cli.App{
 		workerCount := c.Int("numworkers")
 		printJSON := c.Bool("json")
 		logLevel := c.String("log")
+		isStat := c.Bool("stat")
 
 		log.Init(logLevel, printJSON)
 		parallel.Init(workerCount)
@@ -76,6 +82,10 @@ var app = &cli.App{
 			err := fmt.Errorf("retry count cannot be a negative value")
 			printError(givenCommand(c), c.Command.Name, err)
 			return err
+		}
+
+		if isStat {
+			stat.InitStat()
 		}
 
 		s3opts := storage.Options{
@@ -99,6 +109,10 @@ var app = &cli.App{
 		return cli.ShowAppHelp(c)
 	},
 	After: func(c *cli.Context) error {
+		if c.Bool("stat") {
+			log.Info(stat.Statistics())
+		}
+
 		parallel.Close()
 		log.Close()
 		return nil

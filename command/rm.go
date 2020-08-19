@@ -9,6 +9,7 @@ import (
 
 	errorpkg "github.com/peak/s5cmd/error"
 	"github.com/peak/s5cmd/log"
+	"github.com/peak/s5cmd/log/stat"
 	"github.com/peak/s5cmd/storage"
 	"github.com/peak/s5cmd/storage/url"
 )
@@ -48,7 +49,8 @@ var deleteCommand = &cli.Command{
 		}
 		return err
 	},
-	Action: func(c *cli.Context) error {
+	Action: func(c *cli.Context) (err error) {
+		defer stat.Collect(c.Command.FullName(), &err)()
 		return Delete{
 			src:         c.Args().Slice(),
 			op:          c.Command.Name,
@@ -77,6 +79,7 @@ type Delete struct {
 func (d Delete) Run(ctx context.Context) error {
 	srcurls, err := newURLs(d.src...)
 	if err != nil {
+		printError(d.fullCommand, d.op, err)
 		return err
 	}
 	srcurl := srcurls[0]

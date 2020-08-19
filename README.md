@@ -354,6 +354,72 @@ of concurrent systems easy and make full utilization of multi-core processors.
 - *Parallelization.* `s5cmd` starts out with concurrent worker pools and parallelizes
 workloads as much as possible while trying to achieve maximum throughput.
 
+# Advanced Usage
+
+Some of the advanced usage patterns provided below are inspired by the following [article](https://medium.com/@joshua_robinson/s5cmd-hits-v1-0-and-intro-to-advanced-usage-37ad02f7e895) (thank you! [@joshuarobinson](https://github.com/joshuarobinson))
+
+## Integrate s5cmd operations with Unix commands
+Assume we have a set of objects on S3, and we would like to list them in sorted fashion according to object names.
+
+    $ s5cmd ls s3://bucket/reports/ | sort -k 4
+    2020/08/17 09:34:33              1364 antalya.csv
+    2020/08/17 09:34:33                 0 batman.csv
+    2020/08/17 09:34:33             23114 istanbul.csv
+    2020/08/17 09:34:33             26154 izmir.csv
+    2020/08/17 09:34:33               112 samsun.csv
+    2020/08/17 09:34:33             12552 van.csv
+
+For a more practical scenario, let's say we have an [avocado prices](https://www.kaggle.com/neuromusic/avocado-prices) dataset, and we would like to take a peek at the few lines of the data by fetching only the necessary bytes.
+
+    $ s5cmd cat s3://bucket/avocado.csv.gz | gunzip | xsv slice --len 5 | xsv table
+        Date        AveragePrice  Total Volume  4046     4225       4770   Total Bags  Small Bags  Large Bags  XLarge Bags  type          year  region
+    0   2015-12-27  1.33          64236.62      1036.74  54454.85   48.16  8696.87     8603.62     93.25       0.0          conventional  2015  Albany
+    1   2015-12-20  1.35          54876.98      674.28   44638.81   58.33  9505.56     9408.07     97.49       0.0          conventional  2015  Albany
+    2   2015-12-13  0.93          118220.22     794.7    109149.67  130.5  8145.35     8042.21     103.14      0.0          conventional  2015  Albany
+    3   2015-12-06  1.08          78992.15      1132.0   71976.41   72.58  5811.16     5677.4      133.76      0.0          conventional  2015  Albany
+    4   2015-11-29  1.28          51039.6       941.48   43838.39   75.78  6183.95     5986.26     197.69      0.0          conventional  2015  Albany
+
+
+## Beast Mode s5cmd
+
+`s5cmd` allows to pass in some file, containing list of operations to be performed, as an argument to the `run` command as illustrated in the [above](./README.md#L199) example. Alternatively, one can pipe in commands into 
+the `run:`
+
+    BUCKET=s5cmd-test; s5cmd ls s3://$BUCKET/*test | grep -v DIR | awk ‘{print $NF}’ 
+    | xargs -I {} echo “cp s3://$BUCKET/{} /local/directory/” | s5cmd run
+
+The above command performs two `s5cmd` invocations; first, searches for files with *test* suffix and then creates a *copy to local directory* command for each matching file and finally, pipes in those into the ` run.`
+
+Let's examine another usage instance, where we migrate files older than 
+30 days to a cloud object storage:
+
+    find /mnt/joshua/nachos/ -type f -mtime +30 | xargs -I{} echo “mv {} s3://joshuarobinson/backup/{}” 
+    | s5cmd run
+
+It is worth to mention that, `run` command should not be considered as a *silver bullet* for all operations. For example, assume we want to remove the following objects:
+
+    s3://bucket/prefix/2020/03/object1.gz
+    s3://bucket/prefix/2020/04/object1.gz
+    ...
+    s3://bucket/prefix/2020/09/object77.gz
+
+Rather than executing
+
+    rm s3://bucket/prefix/2020/03/object1.gz
+    rm s3://bucket/prefix/2020/04/object1.gz
+    ...
+    rm s3://bucket/prefix/2020/09/object77.gz
+
+with `run` command, it is better to just use
+
+    rm s3://bucket/prefix/2020/0*/object*.gz
+
+the latter sends single delete request per thousand objects, whereas using the former approach
+sends a separate delete request for each subcommand provided to `run.` Thus, there can be a
+significant runtime difference between those two approaches.
+
+
+
 # LICENSE
 
 MIT. See [LICENSE](https://github.com/peak/s5cmd/blob/master/LICENSE).

@@ -4,10 +4,14 @@
 
 #### Features
 - Added global `--dry-run` option. It displays which command(s) will be executed without actually having a side effect. ([#90](https://github.com/peak/s5cmd/issues/90))
+- Added `--stat` option for `s5cmd` and it displays program execution statistics before the end of the program output. ([#148](https://github.com/peak/s5cmd/issues/148))
 
 #### Improvements
 
 - For some operations errors were printed at the end of the program execution. Now, errors are displayed immediately after being detected. ([#136](https://github.com/peak/s5cmd/issues/136))
+
+#### Bugfixes
+- Fixed error reporting issue, where some errors from the `ls` operation were not printed.
 
 ## v1.1.0 - 22 Jul 2020
 

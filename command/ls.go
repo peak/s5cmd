@@ -9,6 +9,7 @@ import (
 
 	errorpkg "github.com/peak/s5cmd/error"
 	"github.com/peak/s5cmd/log"
+	"github.com/peak/s5cmd/log/stat"
 	"github.com/peak/s5cmd/storage"
 	"github.com/peak/s5cmd/storage/url"
 	"github.com/peak/s5cmd/strutil"
@@ -66,7 +67,8 @@ var listCommand = &cli.Command{
 		}
 		return err
 	},
-	Action: func(c *cli.Context) error {
+	Action: func(c *cli.Context) (err error) {
+		defer stat.Collect(c.Command.FullName(), &err)()
 		return List{
 			src:         c.Args().First(),
 			op:          c.Command.Name,
@@ -134,6 +136,7 @@ func (l List) Run(ctx context.Context) error {
 
 	srcurl, err := url.New(l.src)
 	if err != nil {
+		printError(l.fullCommand, l.op, err)
 		return err
 	}
 

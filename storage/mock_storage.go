@@ -4,7 +4,6 @@ package storage
 
 import (
 	context "context"
-	io "io"
 
 	mock "github.com/stretchr/testify/mock"
 
@@ -44,27 +43,6 @@ func (_m *MockStorage) Delete(ctx context.Context, src *url.URL) error {
 	return r0
 }
 
-// Get provides a mock function with given fields: ctx, src, dst, concurrency, partSize
-func (_m *MockStorage) Get(ctx context.Context, src *url.URL, dst io.WriterAt, concurrency int, partSize int64) (int64, error) {
-	ret := _m.Called(ctx, src, dst, concurrency, partSize)
-
-	var r0 int64
-	if rf, ok := ret.Get(0).(func(context.Context, *url.URL, io.WriterAt, int, int64) int64); ok {
-		r0 = rf(ctx, src, dst, concurrency, partSize)
-	} else {
-		r0 = ret.Get(0).(int64)
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, *url.URL, io.WriterAt, int, int64) error); ok {
-		r1 = rf(ctx, src, dst, concurrency, partSize)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // List provides a mock function with given fields: ctx, src, followSymlinks
 func (_m *MockStorage) List(ctx context.Context, src *url.URL, followSymlinks bool) <-chan *Object {
 	ret := _m.Called(ctx, src, followSymlinks)
@@ -81,50 +59,6 @@ func (_m *MockStorage) List(ctx context.Context, src *url.URL, followSymlinks bo
 	return r0
 }
 
-// ListBuckets provides a mock function with given fields: ctx, prefix
-func (_m *MockStorage) ListBuckets(ctx context.Context, prefix string) ([]Bucket, error) {
-	ret := _m.Called(ctx, prefix)
-
-	var r0 []Bucket
-	if rf, ok := ret.Get(0).(func(context.Context, string) []Bucket); ok {
-		r0 = rf(ctx, prefix)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]Bucket)
-		}
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
-		r1 = rf(ctx, prefix)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// Make provides a mock function with given fields: ctx, path, isDirectory
-func (_m *MockStorage) Make(ctx context.Context, path string, isDirectory bool) (ReadCloserFile, error) {
-	ret := _m.Called(ctx, path, isDirectory)
-
-	var r0 ReadCloserFile
-	if rf, ok := ret.Get(0).(func(context.Context, string, bool) ReadCloserFile); ok {
-		r0 = rf(ctx, path, isDirectory)
-	} else {
-		r0 = ret.Get(0).(ReadCloserFile)
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, string, bool) error); ok {
-		r1 = rf(ctx, path, isDirectory)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // MultiDelete provides a mock function with given fields: ctx, urls
 func (_m *MockStorage) MultiDelete(ctx context.Context, urls <-chan *url.URL) <-chan *Object {
 	ret := _m.Called(ctx, urls)
@@ -136,41 +70,6 @@ func (_m *MockStorage) MultiDelete(ctx context.Context, urls <-chan *url.URL) <-
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(<-chan *Object)
 		}
-	}
-
-	return r0
-}
-
-// Open provides a mock function with given fields: ctx, src
-func (_m *MockStorage) Open(ctx context.Context, src *url.URL) (ReadCloserFile, error) {
-	ret := _m.Called(ctx, src)
-
-	var r0 ReadCloserFile
-	if rf, ok := ret.Get(0).(func(context.Context, *url.URL) ReadCloserFile); ok {
-		r0 = rf(ctx, src)
-	} else {
-		r0 = ret.Get(0).(ReadCloserFile)
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, *url.URL) error); ok {
-		r1 = rf(ctx, src)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// Put provides a mock function with given fields: ctx, src, dst, metadata, concurrency, partSize
-func (_m *MockStorage) Put(ctx context.Context, src io.Reader, dst *url.URL, metadata Metadata, concurrency int, partSize int64) error {
-	ret := _m.Called(ctx, src, dst, metadata, concurrency, partSize)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, io.Reader, *url.URL, Metadata, int, int64) error); ok {
-		r0 = rf(ctx, src, dst, metadata, concurrency, partSize)
-	} else {
-		r0 = ret.Error(0)
 	}
 
 	return r0

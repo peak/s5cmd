@@ -71,26 +71,26 @@ type Cat struct {
 
 // Run prints content of given source to standard output.
 func (c Cat) Run(ctx context.Context) error {
-	client, err := storage.NewClient(c.src, c.storageOpts)
+	client, err := storage.NewRemoteClient(c.src, c.storageOpts)
 	if err != nil {
 		printError(c.fullCommand, c.op, err)
 		return err
 	}
 
-	r, err := client.Open(ctx, c.src)
+	rc, err := client.Read(ctx, c.src)
 	if err != nil {
 		printError(c.fullCommand, c.op, err)
-		return err
-	}
-
-	rc, err := r.ReadCloser()
-	if err != nil {
 		return err
 	}
 	defer rc.Close()
 
 	_, err = io.Copy(os.Stdout, rc)
-	return err
+	if err != nil {
+		printError(c.fullCommand, c.op, err)
+		return err
+	}
+
+	return nil
 }
 
 func validateCatCommand(c *cli.Context) error {

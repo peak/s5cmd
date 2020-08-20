@@ -28,6 +28,13 @@ import (
 	"github.com/peak/s5cmd/storage/url"
 )
 
+func TestS3ImplementsStorageInterface(t *testing.T) {
+	var i interface{} = new(S3)
+	if _, ok := i.(Storage); !ok {
+		t.Errorf("expected %t to implement Storage interface", i)
+	}
+}
+
 func TestNewSessionPathStyle(t *testing.T) {
 	testcases := []struct {
 		name            string

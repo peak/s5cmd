@@ -68,14 +68,13 @@ func (b MakeBucket) Run(ctx context.Context) error {
 		return err
 	}
 
-	client, err := storage.NewClient(bucket, b.storageOpts)
+	client, err := storage.NewRemoteClient(bucket, b.storageOpts)
 	if err != nil {
 		printError(b.fullCommand, b.op, err)
 		return err
 	}
 
-	_, err = client.Make(ctx, bucket.Bucket, false)
-	if err != nil {
+	if err := client.MakeBucket(ctx, bucket.Bucket); err != nil {
 		printError(b.fullCommand, b.op, err)
 		return err
 	}

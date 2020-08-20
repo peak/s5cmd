@@ -3,7 +3,6 @@ package storage
 import (
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 
@@ -16,13 +15,6 @@ import (
 // Filesystem is the Storage implementation of a local filesystem.
 type Filesystem struct {
 	dryRun bool
-}
-
-// NewFilesystem creates a new local filesystem session.
-func NewFilesystem(opts Options) *Filesystem {
-	return &Filesystem{
-		dryRun: opts.DryRun,
-	}
 }
 
 // Stat returns the Object structure describing object.
@@ -111,7 +103,7 @@ func (f *Filesystem) expandGlob(ctx context.Context, src *url.URL, followSymlink
 	return ch
 }
 
-func walkDir(ctx context.Context, storage Storage, src *url.URL, followSymlinks bool, fn func(o *Object)) {
+func walkDir(ctx context.Context, fs *Filesystem, src *url.URL, followSymlinks bool, fn func(o *Object)) {
 	//skip if symlink is pointing to a dir and --no-follow-symlink
 	if !ShouldProcessUrl(src, followSymlinks) {
 		return
@@ -135,7 +127,7 @@ func walkDir(ctx context.Context, storage Storage, src *url.URL, followSymlinks 
 				return nil
 			}
 
-			obj, err := storage.Stat(ctx, fileurl)
+			obj, err := fs.Stat(ctx, fileurl)
 
 			if err != nil {
 				return err
@@ -204,53 +196,31 @@ func (f *Filesystem) MultiDelete(ctx context.Context, urlch <-chan *url.URL) <-c
 	return resultch
 }
 
-// Put is not supported for filesystem.
-func (f *Filesystem) Put(_ context.Context, _ io.Reader, _ *url.URL, _ Metadata, _ int, _ int64) error {
-	return f.notimplemented("Put")
-}
-
-// Get is not supported for filesystem.
-func (f *Filesystem) Get(_ context.Context, _ *url.URL, _ io.WriterAt, _ int, _ int64) (int64, error) {
-	return 0, f.notimplemented("Get")
-}
-
-// ListBuckets is not supported for filesystem.
-func (f *Filesystem) ListBuckets(_ context.Context, _ string) ([]Bucket, error) {
-	return nil, f.notimplemented("ListBuckets")
-}
-
-// Make creates dir/file based on options passed.
-func (f *Filesystem) Make(ctx context.Context, path string, isDirectory bool) (ReadCloserFile, error) {
+// MkdirAll calls os.MkdirAll.
+func (f *Filesystem) MkdirAll(path string) error {
 	if f.dryRun {
-		return ReadCloserFile{f: &os.File{}}, nil
+		return nil
 	}
-
-	if isDirectory {
-		return ReadCloserFile{}, os.MkdirAll(path, os.ModePerm)
-	}
-
-	file, err := os.Create(path)
-	if err != nil {
-		return ReadCloserFile{}, err
-	}
-	return ReadCloserFile{f: file}, nil
+	return os.MkdirAll(path, os.ModePerm)
 }
 
-// Open opens the given source. Return value can be either a readable and/or writable.
-func (f *Filesystem) Open(_ context.Context, src *url.URL) (ReadCloserFile, error) {
-	file, err := os.Open(src.Absolute())
-	if err != nil {
-		return ReadCloserFile{}, err
+// Create creates a new os.File.
+func (f *Filesystem) Create(path string) (*os.File, error) {
+	if f.dryRun {
+		return &os.File{}, nil
 	}
 
-	return ReadCloserFile{f: file}, nil
+	return os.Create(path)
 }
 
-func (f *Filesystem) notimplemented(method string) error {
-	return notImplemented{
-		apiType: "filesystem",
-		method:  method,
+// Open opens the given source.
+func (f *Filesystem) Open(path string) (*os.File, error) {
+	file, err := os.OpenFile(path, os.O_RDWR, 0644)
+	if err != nil {
+		return nil, err
 	}
+
+	return file, nil
 }
 
 func sendObject(ctx context.Context, obj *Object, ch chan *Object) {

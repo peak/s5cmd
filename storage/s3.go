@@ -28,8 +28,6 @@ import (
 	"github.com/peak/s5cmd/storage/url"
 )
 
-var _ Storage = (*S3)(nil)
-
 var sentinelURL = urlpkg.URL{}
 
 const (
@@ -89,7 +87,7 @@ func parseEndpoint(endpoint string) (urlpkg.URL, error) {
 }
 
 // NewS3Storage creates new S3 session.
-func NewS3Storage(opts Options, sessProvider func() *session.Session) (*S3, error) {
+func newS3Storage(opts Options, sessProvider func() *session.Session) (*S3, error) {
 	endpointURL, err := parseEndpoint(opts.Endpoint)
 	if err != nil {
 		return nil, err
@@ -358,16 +356,16 @@ func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata Metadata) err
 	return err
 }
 
-// Open opens the given source. Return value can be either a readable and/or writable.
-func (s *S3) Open(ctx context.Context, src *url.URL) (ReadCloserFile, error) {
+// Read fetches the remote object and returns its contents as an io.ReadCloser.
+func (s *S3) Read(ctx context.Context, src *url.URL) (io.ReadCloser, error) {
 	resp, err := s.api.GetObjectWithContext(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(src.Bucket),
 		Key:    aws.String(src.Path),
 	})
 	if err != nil {
-		return ReadCloserFile{}, err
+		return nil, err
 	}
-	return ReadCloserFile{rc: resp.Body}, nil
+	return resp.Body, nil
 }
 
 // Get is a multipart download operation which downloads S3 objects into any
@@ -603,16 +601,16 @@ func (s *S3) ListBuckets(ctx context.Context, prefix string) ([]Bucket, error) {
 	return buckets, nil
 }
 
-// Make creates an S3 bucket with the given name.
-func (s *S3) Make(ctx context.Context, path string, _ bool) (ReadCloserFile, error) {
+// MakeBucket creates an S3 bucket with the given name.
+func (s *S3) MakeBucket(ctx context.Context, name string) error {
 	if s.dryRun {
-		return ReadCloserFile{}, nil
+		return nil
 	}
 
 	_, err := s.api.CreateBucketWithContext(ctx, &s3.CreateBucketInput{
-		Bucket: aws.String(path),
+		Bucket: aws.String(name),
 	})
-	return ReadCloserFile{}, err
+	return err
 }
 
 // NewAwsSession initializes a new AWS session with region fallback and custom

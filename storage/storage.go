@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"time"
 
@@ -21,7 +20,8 @@ var (
 	ErrNoObjectFound = fmt.Errorf("no object found")
 )
 
-// Storage is an interface for storage operations.
+// Storage is an interface for storage operations that is common
+//to local filesystem and remote object storage.
 type Storage interface {
 	// Stat returns the Object structure describing object. If src is not
 	// found, ErrGivenObjectNotFound is returned.
@@ -30,42 +30,31 @@ type Storage interface {
 	// List the objects and directories/prefixes in the src.
 	List(ctx context.Context, src *url.URL, followSymlinks bool) <-chan *Object
 
-	// Copy src to dst, optionally setting the given metadata. Src and dst
-	// arguments are of the same type. If src is a remote type, server side
-	// copying will be used.
-	Copy(ctx context.Context, src, dst *url.URL, metadata Metadata) error
-
-	// Get reads object content from src and writes to dst in parallel.
-	Get(ctx context.Context, src *url.URL, dst io.WriterAt, concurrency int, partSize int64) (int64, error)
-
-	// Put reads from src and writes content to dst.
-	Put(ctx context.Context, src io.Reader, dst *url.URL, metadata Metadata, concurrency int, partSize int64) error
-
 	// Delete deletes the given src.
 	Delete(ctx context.Context, src *url.URL) error
 
 	// MultiDelete deletes all items returned from given urls in batches.
 	MultiDelete(ctx context.Context, urls <-chan *url.URL) <-chan *Object
 
-	// ListBuckets returns bucket list. If prefix is given, results will be
-	// filtered.
-	ListBuckets(ctx context.Context, prefix string) ([]Bucket, error)
-
-	// Make creates bucket for remote operations and dir/file for local.
-	Make(ctx context.Context, path string, isDirectory bool) (ReadCloserFile, error)
-
-	// Open opens the given source. Return value can be either a readable and/or writable.
-	Open(ctx context.Context, src *url.URL) (ReadCloserFile, error)
+	// Copy src to dst, optionally setting the given metadata. Src and dst
+	// arguments are of the same type. If src is a remote type, server side
+	// copying will be used.
+	Copy(ctx context.Context, src, dst *url.URL, metadata Metadata) error
 }
 
-// NewClient returns new Storage client from given url. Storage implementation
-// is inferred from the url.
+func NewLocalClient(opts Options) *Filesystem {
+	return &Filesystem{dryRun: opts.DryRun}
+}
+
+func NewRemoteClient(_ *url.URL, opts Options) (*S3, error) {
+	return newS3Storage(opts, cachedSession)
+}
+
 func NewClient(url *url.URL, opts Options) (Storage, error) {
 	if url.IsRemote() {
-		return NewS3Storage(opts, cachedSession)
+		return NewRemoteClient(url, opts)
 	}
-
-	return NewFilesystem(opts), nil
+	return NewLocalClient(opts), nil
 }
 
 // Options stores configuration for storage.
@@ -238,28 +227,4 @@ func (m Metadata) SSEKeyID() string {
 func (m Metadata) SetSSEKeyID(kid string) Metadata {
 	m["EncryptionKeyID"] = kid
 	return m
-}
-
-type ReadCloserFile struct {
-	rc io.ReadCloser
-	f  *os.File
-}
-
-func (rcf *ReadCloserFile) ReadCloser() (io.ReadCloser, error) {
-	if rcf.rc == nil {
-		return nil, os.ErrNotExist
-	}
-	return rcf.rc, nil
-}
-
-func (rcf *ReadCloserFile) File() (*os.File, error) {
-	if rcf.f == nil {
-		return nil, os.ErrNotExist
-	}
-	return rcf.f, nil
-}
-
-type MakeOpts struct {
-	Path      string
-	Directory bool
 }

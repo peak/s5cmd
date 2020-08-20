@@ -198,7 +198,7 @@ func TestExpandSource_Follow_Link_To_Single_File(t *testing.T) {
 	workdirUrl, _ := url.New(workdir.Join("b/my_link"))
 
 	//follow symbolic links
-	ch, _ := expandSource(ctx, storage.NewFilesystem(storage.Options{}), true, workdirUrl)
+	ch, _ := expandSource(ctx, storage.NewLocalClient(storage.Options{}), true, workdirUrl)
 	var expected []string
 	for obj := range ch {
 		expected = append(expected, obj.URL.Absolute())
@@ -226,7 +226,7 @@ func TestExpandSource_Do_Not_Follow_Link_To_Single_File(t *testing.T) {
 	workdirUrl, _ := url.New(workdir.Join("b/my_link"))
 
 	//do not follow symbolic links
-	ch, _ := expandSource(ctx, storage.NewFilesystem(storage.Options{}), false, workdirUrl)
+	ch, _ := expandSource(ctx, storage.NewLocalClient(storage.Options{}), false, workdirUrl)
 	var expected []string
 	for obj := range ch {
 		expected = append(expected, obj.URL.Absolute())
@@ -256,7 +256,7 @@ func TestExpandSource_Follow_Link_To_Directory(t *testing.T) {
 	workdirUrl, _ := url.New(workdir.Join("c/my_link"))
 
 	//follow symbolic links
-	ch, _ := expandSource(ctx, storage.NewFilesystem(storage.Options{}), true, workdirUrl)
+	ch, _ := expandSource(ctx, storage.NewLocalClient(storage.Options{}), true, workdirUrl)
 	var expected []string
 	for obj := range ch {
 		expected = append(expected, obj.URL.Absolute())
@@ -291,7 +291,7 @@ func TestExpandSource_Do_Not_Follow_Link_To_Directory(t *testing.T) {
 	workdirUrl, _ := url.New(workdir.Join("c/my_link"))
 
 	//do not follow symbolic links
-	ch, _ := expandSource(ctx, storage.NewFilesystem(storage.Options{}), false, workdirUrl)
+	ch, _ := expandSource(ctx, storage.NewLocalClient(storage.Options{}), false, workdirUrl)
 	var expected []string
 	for obj := range ch {
 		expected = append(expected, obj.URL.Absolute())
@@ -319,7 +319,7 @@ func TestExpandSource_Do_Not_Follow_Symlinks(t *testing.T) {
 	workdirUrl, _ := url.New(workdir.Path())
 
 	//do not follow symbolic links
-	ch, _ := expandSource(ctx, storage.NewFilesystem(storage.Options{}), false, workdirUrl)
+	ch, _ := expandSource(ctx, storage.NewLocalClient(storage.Options{}), false, workdirUrl)
 	var expected []string
 	for obj := range ch {
 		expected = append(expected, obj.URL.Absolute())

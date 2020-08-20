@@ -613,7 +613,7 @@ func (s *S3) MakeBucket(ctx context.Context, name string) error {
 	return err
 }
 
-// NewAwsSession initializes a new AWS session with region fallback and custom
+// newSession initializes a new AWS session with region fallback and custom
 // options.
 func newSession(opts Options) (*session.Session, error) {
 	awsCfg := aws.NewConfig()

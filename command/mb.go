@@ -51,6 +51,7 @@ var makeBucketCommand = &cli.Command{
 	},
 }
 
+// MakeBucket holds bucket creation operation flags and states.
 type MakeBucket struct {
 	src         string
 	op          string
@@ -59,8 +60,7 @@ type MakeBucket struct {
 	storageOpts storage.Options
 }
 
-// Run creates bucket.
-
+// Run creates a bucket.
 func (b MakeBucket) Run(ctx context.Context) error {
 	bucket, err := url.New(b.src)
 	if err != nil {

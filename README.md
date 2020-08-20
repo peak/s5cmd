@@ -239,7 +239,7 @@ will output
     cp s3://bucket/pre/last.txt s3://anohter-bucket/last.txt
 
 however, those copy operations will not be performed. It is displaying what 
-`s5cmd` will when ran without `--dry-run`
+`s5cmd` will do when ran without `--dry-run`
 
 Note that `--dry-run` can be used with any operation that has a side effect, i.e.,
 cp, mv, rm, mb ...

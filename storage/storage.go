@@ -21,7 +21,7 @@ var (
 )
 
 // Storage is an interface for storage operations that is common
-//to local filesystem and remote object storage.
+// to local filesystem and remote object storage.
 type Storage interface {
 	// Stat returns the Object structure describing object. If src is not
 	// found, ErrGivenObjectNotFound is returned.

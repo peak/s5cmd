@@ -698,7 +698,7 @@ func newCustomRetryer(maxRetries int) *customRetryer {
 // ShouldRetry overrides the SDK's built in DefaultRetryer adding customization
 // to retry S3 InternalError code.
 func (c *customRetryer) ShouldRetry(req *request.Request) bool {
-	if errHasCode(req.Error, "InternalError") {
+	if errHasCode(req.Error, "InternalError") || errHasCode(req.Error, "RequestTimeTooSkewed") {
 		return true
 	}
 

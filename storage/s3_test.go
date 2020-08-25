@@ -320,6 +320,10 @@ func TestS3Retry(t *testing.T) {
 			name: "ResponseTimeout",
 			err:  awserr.New(request.ErrCodeResponseTimeout, "response timeout", nil),
 		},
+		{
+			name: "RequestTimeTooSkewed",
+			err:  awserr.New("RequestTimeTooSkewed", "The difference between the request time and the server's time is too large.", nil),
+		},
 
 		// Throttling errors
 		{

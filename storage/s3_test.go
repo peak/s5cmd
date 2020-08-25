@@ -28,6 +28,13 @@ import (
 	"github.com/peak/s5cmd/storage/url"
 )
 
+func TestS3ImplementsStorageInterface(t *testing.T) {
+	var i interface{} = new(S3)
+	if _, ok := i.(Storage); !ok {
+		t.Errorf("expected %t to implement Storage interface", i)
+	}
+}
+
 func TestNewSessionPathStyle(t *testing.T) {
 	testcases := []struct {
 		name            string
@@ -65,7 +72,7 @@ func TestNewSessionPathStyle(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 
-			opts := S3Options{Endpoint: tc.endpoint.Hostname()}
+			opts := Options{Endpoint: tc.endpoint.Hostname()}
 			sess, err := newSession(opts)
 			if err != nil {
 				t.Fatal(err)
@@ -80,7 +87,7 @@ func TestNewSessionPathStyle(t *testing.T) {
 }
 
 func TestNewSessionWithRegionSetViaEnv(t *testing.T) {
-	opts := S3Options{
+	opts := Options{
 		Region: "",
 	}
 

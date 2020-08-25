@@ -51,31 +51,39 @@ var deleteCommand = &cli.Command{
 	},
 	Action: func(c *cli.Context) (err error) {
 		defer stat.Collect(c.Command.FullName(), &err)()
-
-		return Delete(
-			c.Context,
-			c.Command.Name,
-			givenCommand(c),
-			c.Args().Slice()...,
-		)
+		return Delete{
+			src:         c.Args().Slice(),
+			op:          c.Command.Name,
+			fullCommand: givenCommand(c),
+			storageOpts: NewStorageOpts(c),
+		}.Run(c.Context)
 	},
 }
 
-// Delete remove given sources.
-func Delete(
-	ctx context.Context,
-	op string,
-	fullCommand string,
-	src ...string,
-) error {
-	srcurls, err := newURLs(src...)
+// Delete holds delete operation flags and states.
+type Delete struct {
+	src         []string
+	op          string
+	fullCommand string
+
+	// storage options
+	storageOpts storage.Options
+}
+
+// Run remove given sources.
+func (d Delete) Run(ctx context.Context) error {
+	srcurls, err := newURLs(d.src...)
 	if err != nil {
-		printError(fullCommand, op, err)
+		printError(d.fullCommand, d.op, err)
 		return err
 	}
 	srcurl := srcurls[0]
 
-	client := storage.NewClient(srcurl)
+	client, err := storage.NewClient(srcurl, d.storageOpts)
+	if err != nil {
+		printError(d.fullCommand, d.op, err)
+		return err
+	}
 
 	objChan := expandSources(ctx, client, false, srcurls...)
 
@@ -90,7 +98,7 @@ func Delete(
 			}
 
 			if err := object.Err; err != nil {
-				printError(fullCommand, op, err)
+				printError(d.fullCommand, d.op, err)
 				continue
 			}
 			urlch <- object.URL
@@ -107,12 +115,12 @@ func Delete(
 			}
 
 			merror = multierror.Append(merror, obj.Err)
-			printError(fullCommand, op, obj.Err)
+			printError(d.fullCommand, d.op, obj.Err)
 			continue
 		}
 
 		msg := log.InfoMessage{
-			Operation: op,
+			Operation: d.op,
 			Source:    obj.URL,
 		}
 		log.Info(msg)

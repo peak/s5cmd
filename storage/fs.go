@@ -3,7 +3,6 @@ package storage
 import (
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 
@@ -14,11 +13,8 @@ import (
 )
 
 // Filesystem is the Storage implementation of a local filesystem.
-type Filesystem struct{}
-
-// NewFilesystem creates a new local filesystem session.
-func NewFilesystem() *Filesystem {
-	return &Filesystem{}
+type Filesystem struct {
+	dryRun bool
 }
 
 // Stat returns the Object structure describing object.
@@ -107,7 +103,7 @@ func (f *Filesystem) expandGlob(ctx context.Context, src *url.URL, followSymlink
 	return ch
 }
 
-func walkDir(ctx context.Context, storage Storage, src *url.URL, followSymlinks bool, fn func(o *Object)) {
+func walkDir(ctx context.Context, fs *Filesystem, src *url.URL, followSymlinks bool, fn func(o *Object)) {
 	//skip if symlink is pointing to a dir and --no-follow-symlink
 	if !ShouldProcessUrl(src, followSymlinks) {
 		return
@@ -131,7 +127,7 @@ func walkDir(ctx context.Context, storage Storage, src *url.URL, followSymlinks 
 				return nil
 			}
 
-			obj, err := storage.Stat(ctx, fileurl)
+			obj, err := fs.Stat(ctx, fileurl)
 
 			if err != nil {
 				return err
@@ -162,6 +158,10 @@ func (f *Filesystem) walkDir(ctx context.Context, src *url.URL, followSymlinks b
 
 // Copy copies given source to destination.
 func (f *Filesystem) Copy(ctx context.Context, src, dst *url.URL, _ Metadata) error {
+	if f.dryRun {
+		return nil
+	}
+
 	if err := os.MkdirAll(dst.Dir(), os.ModePerm); err != nil {
 		return err
 	}
@@ -171,6 +171,10 @@ func (f *Filesystem) Copy(ctx context.Context, src, dst *url.URL, _ Metadata) er
 
 // Delete deletes given file.
 func (f *Filesystem) Delete(ctx context.Context, url *url.URL) error {
+	if f.dryRun {
+		return nil
+	}
+
 	return os.Remove(url.Absolute())
 }
 
@@ -192,31 +196,31 @@ func (f *Filesystem) MultiDelete(ctx context.Context, urlch <-chan *url.URL) <-c
 	return resultch
 }
 
-// Put is not supported for filesystem.
-func (f *Filesystem) Put(_ context.Context, _ io.Reader, _ *url.URL, _ Metadata, _ int, _ int64) error {
-	return f.notimplemented("Put")
-}
-
-// Get is not supported for filesystem.
-func (f *Filesystem) Get(_ context.Context, _ *url.URL, _ io.WriterAt, _ int, _ int64) (int64, error) {
-	return 0, f.notimplemented("Get")
-}
-
-// ListBuckets is not supported for filesystem.
-func (f *Filesystem) ListBuckets(_ context.Context, _ string) ([]Bucket, error) {
-	return nil, f.notimplemented("ListBuckets")
-}
-
-// MakeBucket is not supported for filesytem.
-func (f *Filesystem) MakeBucket(_ context.Context, _ string) error {
-	return f.notimplemented("MakeBucket")
-}
-
-func (f *Filesystem) notimplemented(method string) error {
-	return notImplemented{
-		apiType: "filesystem",
-		method:  method,
+// MkdirAll calls os.MkdirAll.
+func (f *Filesystem) MkdirAll(path string) error {
+	if f.dryRun {
+		return nil
 	}
+	return os.MkdirAll(path, os.ModePerm)
+}
+
+// Create creates a new os.File.
+func (f *Filesystem) Create(path string) (*os.File, error) {
+	if f.dryRun {
+		return &os.File{}, nil
+	}
+
+	return os.Create(path)
+}
+
+// Open opens the given source.
+func (f *Filesystem) Open(path string) (*os.File, error) {
+	file, err := os.OpenFile(path, os.O_RDWR, 0644)
+	if err != nil {
+		return nil, err
+	}
+
+	return file, nil
 }
 
 func sendObject(ctx context.Context, obj *Object, ch chan *Object) {

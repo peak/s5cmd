@@ -66,6 +66,8 @@ var sizeCommand = &cli.Command{
 			// flags
 			groupByClass: c.Bool("group"),
 			humanize:     c.Bool("humanize"),
+
+			storageOpts: NewStorageOpts(c),
 		}.Run(c.Context)
 	},
 }
@@ -79,6 +81,8 @@ type Size struct {
 	// flags
 	groupByClass bool
 	humanize     bool
+
+	storageOpts storage.Options
 }
 
 // Run calculates disk usage of given source.
@@ -88,7 +92,11 @@ func (sz Size) Run(ctx context.Context) error {
 		return err
 	}
 
-	client := storage.NewClient(srcurl)
+	client, err := storage.NewClient(srcurl, sz.storageOpts)
+	if err != nil {
+		printError(sz.fullCommand, sz.op, err)
+		return err
+	}
 
 	storageTotal := map[string]sizeAndCount{}
 	total := sizeAndCount{}

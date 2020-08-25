@@ -37,6 +37,7 @@ storage services and local filesystems.
 - Wildcard support for all operations
 - Multiple arguments support for delete operation
 - Command file support to run commands in batches at very high execution speeds
+- Dry run support
 - [S3 Transfer Acceleration](https://docs.aws.amazon.com/AmazonS3/latest/dev/transfer-acceleration.html) support
 - Google Cloud Storage (and any other S3 API compatible service) support
 - Structured logging for querying command outputs
@@ -218,6 +219,30 @@ mv s3://bucket/2020/03/18/file1.gz s3://bucket/2020/03/18/original/file.gz
 # list all buckets
 ls # inline comments are OK too
 ```
+
+### Dry run
+`--dry-run` flag will output what operations will be performed without actually 
+carrying out those operations.
+
+    s3://bucket/pre/file1.gz
+    ...
+    s3://bucket/last.txt
+
+running
+
+    s5cmd --dry-run cp s3://bucket/pre/* s3://another-bucket/
+
+will output
+
+    cp s3://bucket/pre/file1.gz s3://another-bucket/file1.gz
+    ...
+    cp s3://bucket/pre/last.txt s3://anohter-bucket/last.txt
+
+however, those copy operations will not be performed. It is displaying what 
+`s5cmd` will do when ran without `--dry-run`
+
+Note that `--dry-run` can be used with any operation that has a side effect, i.e.,
+cp, mv, rm, mb ...
 
 ### Specifying credentials
 

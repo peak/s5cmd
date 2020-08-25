@@ -69,9 +69,8 @@ var listCommand = &cli.Command{
 	},
 	Action: func(c *cli.Context) (err error) {
 		defer stat.Collect(c.Command.FullName(), &err)()
-
 		if !c.Args().Present() {
-			err := ListBuckets(c.Context)
+			err := ListBuckets(c.Context, NewStorageOpts(c))
 			if err != nil {
 				printError(givenCommand(c), c.Command.Name, err)
 			}
@@ -86,6 +85,8 @@ var listCommand = &cli.Command{
 			showEtag:         c.Bool("etag"),
 			humanize:         c.Bool("humanize"),
 			showStorageClass: c.Bool("storage-class"),
+
+			storageOpts: NewStorageOpts(c),
 		}.Run(c.Context)
 	},
 }
@@ -100,13 +101,18 @@ type List struct {
 	showEtag         bool
 	humanize         bool
 	showStorageClass bool
+
+	storageOpts storage.Options
 }
 
 // ListBuckets prints all buckets.
-func ListBuckets(ctx context.Context) error {
+func ListBuckets(ctx context.Context, storageOpts storage.Options) error {
 	// set as remote storage
 	url := &url.URL{Type: 0}
-	client := storage.NewClient(url)
+	client, err := storage.NewRemoteClient(url, storageOpts)
+	if err != nil {
+		return err
+	}
 
 	buckets, err := client.ListBuckets(ctx, "")
 	if err != nil {
@@ -128,7 +134,11 @@ func (l List) Run(ctx context.Context) error {
 		return err
 	}
 
-	client := storage.NewClient(srcurl)
+	client, err := storage.NewClient(srcurl, l.storageOpts)
+	if err != nil {
+		printError(l.fullCommand, l.op, err)
+		return err
+	}
 
 	var merror error
 

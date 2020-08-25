@@ -57,14 +57,16 @@ var app = &cli.App{
 			Usage: "install completion for your shell",
 		},
 		&cli.BoolFlag{
+			Name:  "dry-run",
+			Usage: "fake run; show what commands will be executed without actually executing them",
+		},
+		&cli.BoolFlag{
 			Name:  "stat",
 			Usage: "collect statistics of program execution and display it at the end",
 		},
 	},
 	Before: func(c *cli.Context) error {
-		noVerifySSL := c.Bool("no-verify-ssl")
 		retryCount := c.Int("retry-count")
-		endpointURL := c.String("endpoint-url")
 		workerCount := c.Int("numworkers")
 		printJSON := c.Bool("json")
 		logLevel := c.String("log")
@@ -83,13 +85,7 @@ var app = &cli.App{
 			stat.InitStat()
 		}
 
-		s3opts := storage.S3Options{
-			MaxRetries:  retryCount,
-			Endpoint:    endpointURL,
-			NoVerifySSL: noVerifySSL,
-		}
-
-		return storage.Init(s3opts)
+		return storage.Init(NewStorageOpts(c))
 	},
 	Action: func(c *cli.Context) error {
 		if c.Bool("install-completion") {
@@ -111,6 +107,16 @@ var app = &cli.App{
 		log.Close()
 		return nil
 	},
+}
+
+// NewStorageOpts creates storage.Options object from the given context.
+func NewStorageOpts(c *cli.Context) storage.Options {
+	return storage.Options{
+		MaxRetries:  c.Int("retry-count"),
+		Endpoint:    c.String("endpoint-url"),
+		NoVerifySSL: c.Bool("no-verify-ssl"),
+		DryRun:      c.Bool("dry-run"),
+	}
 }
 
 // Main is the entrypoint function to run given commands.

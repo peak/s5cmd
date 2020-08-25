@@ -54,6 +54,8 @@ var catCommand = &cli.Command{
 			src:         src,
 			op:          op,
 			fullCommand: fullCommand,
+
+			storageOpts: NewStorageOpts(c),
 		}.Run(c.Context)
 	},
 }
@@ -63,28 +65,32 @@ type Cat struct {
 	src         *url.URL
 	op          string
 	fullCommand string
+
+	storageOpts storage.Options
 }
 
 // Run prints content of given source to standard output.
 func (c Cat) Run(ctx context.Context) error {
-	client := storage.NewClient(c.src)
-
-	// set concurrency to 1 for sequential write to 'stdout' and give a dummy 'partSize' since
-	// `storage.S3.Get()` ignores 'partSize' if concurrency is set to 1.
-	_, err := client.Get(ctx, c.src, sequentialWriterAt{w: os.Stdout}, 1, -1)
+	client, err := storage.NewRemoteClient(c.src, c.storageOpts)
 	if err != nil {
 		printError(c.fullCommand, c.op, err)
+		return err
 	}
-	return err
-}
 
-type sequentialWriterAt struct {
-	w io.Writer
-}
+	rc, err := client.Read(ctx, c.src)
+	if err != nil {
+		printError(c.fullCommand, c.op, err)
+		return err
+	}
+	defer rc.Close()
 
-func (sw sequentialWriterAt) WriteAt(p []byte, offset int64) (int, error) {
-	// ignore 'offset' because we forced sequential downloads
-	return sw.w.Write(p)
+	_, err = io.Copy(os.Stdout, rc)
+	if err != nil {
+		printError(c.fullCommand, c.op, err)
+		return err
+	}
+
+	return nil
 }
 
 func validateCatCommand(c *cli.Context) error {

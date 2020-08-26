@@ -1,6 +1,7 @@
 package command
 
 import (
+	"io"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -38,7 +39,7 @@ func TestGuessContentType(t *testing.T) {
 						</body>
 					</html>
 					`,
-			expectedContentType: "text/plain; charset=utf-8",
+			expectedContentType: "text/html; charset=utf-8",
 		},
 	}
 
@@ -52,6 +53,7 @@ func TestGuessContentType(t *testing.T) {
 
 		if tc.content != "" {
 			f.WriteString(tc.content)
+			f.Seek(0, io.SeekStart)
 		}
 
 		assert.Equal(t, tc.expectedContentType, guessContentType(f))

@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"mime"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
@@ -736,16 +738,21 @@ func validateUpload(ctx context.Context, srcurl, dsturl *url.URL, storageOpts st
 	return nil
 }
 
-func guessContentType(rs io.ReadSeeker) string {
-	defer rs.Seek(0, io.SeekStart)
+// guessContentType gets content type of the file.
+func guessContentType(file *os.File) string {
+	contentType := mime.TypeByExtension(filepath.Ext(file.Name()))
+	if contentType == "" {
+		defer file.Seek(0, io.SeekStart)
 
-	const bufsize = 512
-	buf, err := ioutil.ReadAll(io.LimitReader(rs, bufsize))
-	if err != nil {
-		return ""
+		const bufsize = 512
+		buf, err := ioutil.ReadAll(io.LimitReader(file, bufsize))
+		if err != nil {
+			return ""
+		}
+
+		return http.DetectContentType(buf)
 	}
-
-	return http.DetectContentType(buf)
+	return contentType
 }
 
 func givenCommand(c *cli.Context) string {

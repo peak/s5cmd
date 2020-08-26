@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"time"
 
@@ -21,7 +20,8 @@ var (
 	ErrNoObjectFound = fmt.Errorf("no object found")
 )
 
-// Storage is an interface for storage operations.
+// Storage is an interface for storage operations that is common
+// to local filesystem and remote object storage.
 type Storage interface {
 	// Stat returns the Object structure describing object. If src is not
 	// found, ErrGivenObjectNotFound is returned.
@@ -30,60 +30,41 @@ type Storage interface {
 	// List the objects and directories/prefixes in the src.
 	List(ctx context.Context, src *url.URL, followSymlinks bool) <-chan *Object
 
-	// Copy src to dst, optionally setting the given metadata. Src and dst
-	// arguments are of the same type. If src is a remote type, server side
-	// copying will be used.
-	Copy(ctx context.Context, src, dst *url.URL, metadata Metadata) error
-
-	// Get reads object content from src and writes to dst in parallel.
-	Get(ctx context.Context, src *url.URL, dst io.WriterAt, concurrency int, partSize int64) (int64, error)
-
-	// Put reads from src and writes content to dst.
-	Put(ctx context.Context, src io.Reader, dst *url.URL, metadata Metadata, concurrency int, partSize int64) error
-
 	// Delete deletes the given src.
 	Delete(ctx context.Context, src *url.URL) error
 
 	// MultiDelete deletes all items returned from given urls in batches.
 	MultiDelete(ctx context.Context, urls <-chan *url.URL) <-chan *Object
 
-	// ListBuckets returns bucket list. If prefix is given, results will be
-	// filtered.
-	ListBuckets(ctx context.Context, prefix string) ([]Bucket, error)
-
-	// MakeBucket creates given bucket.
-	MakeBucket(ctx context.Context, bucket string) error
+	// Copy src to dst, optionally setting the given metadata. Src and dst
+	// arguments are of the same type. If src is a remote type, server side
+	// copying will be used.
+	Copy(ctx context.Context, src, dst *url.URL, metadata Metadata) error
 }
 
-// NewClient returns new Storage client from given url. Storage implementation
-// is inferred from the url.
-func NewClient(url *url.URL) (Storage, error) {
+func NewLocalClient(opts Options) *Filesystem {
+	return &Filesystem{dryRun: opts.DryRun}
+}
+
+func NewRemoteClient(_ *url.URL, opts Options) (*S3, error) {
+	return newS3Storage(opts)
+}
+
+func NewClient(url *url.URL, opts Options) (Storage, error) {
 	if url.IsRemote() {
-		return NewS3Storage(url)
+		return NewRemoteClient(url, opts)
 	}
-
-	return NewFilesystem(), nil
+	return NewLocalClient(opts), nil
 }
 
-// retryableErr checks whether the error from client of
-// the given url is fixable or not. If so, it returns a new
-// client.
-func retryableErr(url *url.URL, err error) (*S3, bool) {
-	if !url.IsRemote() {
-		return nil, false
-	}
-
-	region, err := getRegion(err)
-	if err != nil {
-		return nil, false
-	}
-	client, err := NewS3Storage(url, func(opt *sessOptions) {
-		opt.region = region
-	})
-	if err != nil {
-		return nil, false
-	}
-	return client, true
+// Options stores configuration for storage.
+type Options struct {
+	MaxRetries  int
+	Endpoint    string
+	Bucket      string
+	Region      string
+	NoVerifySSL bool
+	DryRun      bool
 }
 
 // Object is a generic type which contains metadata for storage items.

@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"gotest.tools/v3/fs"
 
+	"github.com/peak/s5cmd/storage"
 	"github.com/peak/s5cmd/storage/url"
 )
 
@@ -31,7 +32,7 @@ func TestExpandSource_Follow_Link_To_Single_File(t *testing.T) {
 	workdirUrl, _ := url.New(workdir.Join("b/my_link"))
 
 	//follow symbolic links
-	ch, _ := expandSource(ctx, true, workdirUrl)
+	ch, _ := expandSource(ctx, true, workdirUrl, storage.Options{})
 	var expected []string
 	for obj := range ch {
 		expected = append(expected, obj.URL.Absolute())
@@ -59,7 +60,7 @@ func TestExpandSource_Do_Not_Follow_Link_To_Single_File(t *testing.T) {
 	workdirUrl, _ := url.New(workdir.Join("b/my_link"))
 
 	//do not follow symbolic links
-	ch, _ := expandSource(ctx, false, workdirUrl)
+	ch, _ := expandSource(ctx, false, workdirUrl, storage.Options{})
 	var expected []string
 	for obj := range ch {
 		expected = append(expected, obj.URL.Absolute())
@@ -89,7 +90,7 @@ func TestExpandSource_Follow_Link_To_Directory(t *testing.T) {
 	workdirUrl, _ := url.New(workdir.Join("c/my_link"))
 
 	//follow symbolic links
-	ch, _ := expandSource(ctx, true, workdirUrl)
+	ch, _ := expandSource(ctx, true, workdirUrl, storage.Options{})
 	var expected []string
 	for obj := range ch {
 		expected = append(expected, obj.URL.Absolute())
@@ -124,7 +125,7 @@ func TestExpandSource_Do_Not_Follow_Link_To_Directory(t *testing.T) {
 	workdirUrl, _ := url.New(workdir.Join("c/my_link"))
 
 	//do not follow symbolic links
-	ch, _ := expandSource(ctx, false, workdirUrl)
+	ch, _ := expandSource(ctx, false, workdirUrl, storage.Options{})
 	var expected []string
 	for obj := range ch {
 		expected = append(expected, obj.URL.Absolute())
@@ -152,7 +153,7 @@ func TestExpandSource_Do_Not_Follow_Symlinks(t *testing.T) {
 	workdirUrl, _ := url.New(workdir.Path())
 
 	//do not follow symbolic links
-	ch, _ := expandSource(ctx, false, workdirUrl)
+	ch, _ := expandSource(ctx, false, workdirUrl, storage.Options{})
 	var expected []string
 	for obj := range ch {
 		expected = append(expected, obj.URL.Absolute())

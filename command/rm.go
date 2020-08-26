@@ -10,6 +10,7 @@ import (
 
 	errorpkg "github.com/peak/s5cmd/error"
 	"github.com/peak/s5cmd/log"
+	"github.com/peak/s5cmd/log/stat"
 	"github.com/peak/s5cmd/storage"
 	"github.com/peak/s5cmd/storage/url"
 )
@@ -49,26 +50,32 @@ var deleteCommand = &cli.Command{
 		}
 		return err
 	},
-	Action: func(c *cli.Context) error {
-		return Delete(
-			c.Context,
-			c.Command.Name,
-			givenCommand(c),
-			c.Args().Slice()...,
-		)
+	Action: func(c *cli.Context) (err error) {
+		defer stat.Collect(c.Command.FullName(), &err)()
+		return Delete{
+			src:         c.Args().Slice(),
+			op:          c.Command.Name,
+			fullCommand: givenCommand(c),
+			storageOpts: NewStorageOpts(c),
+		}.Run(c.Context)
 	},
 }
 
-// Delete remove given sources.
-func Delete(
-	ctx context.Context,
-	op string,
-	fullCommand string,
-	src ...string,
-) error {
-	srcurls, err := newURLs(src...)
+// Delete holds delete operation flags and states.
+type Delete struct {
+	src         []string
+	op          string
+	fullCommand string
+
+	// storage options
+	storageOpts storage.Options
+}
+
+// Run remove given sources.
+func (d Delete) Run(ctx context.Context) error {
+	srcurls, err := newURLs(d.src...)
 	if err != nil {
-		printError(fullCommand, op, err)
+		printError(d.fullCommand, d.op, err)
 		return err
 	}
 
@@ -80,9 +87,9 @@ func Delete(
 
 		for _, srcurl := range srcurls {
 			wg.Add(1)
-			go doDelete(ctx, srcurl, op, fullCommand, resultch, &wg)
+			go doDelete(ctx, srcurl, d.op, d.fullCommand, resultch, &wg, d.storageOpts)
+			wg.Wait()
 		}
-		wg.Wait()
 	}()
 
 	var merror error
@@ -93,12 +100,12 @@ func Delete(
 			}
 
 			merror = multierror.Append(merror, obj.Err)
-			printError(fullCommand, op, obj.Err)
+			printError(d.fullCommand, d.op, obj.Err)
 			continue
 		}
 
 		msg := log.InfoMessage{
-			Operation: op,
+			Operation: d.op,
 			Source:    obj.URL,
 		}
 		log.Info(msg)
@@ -114,10 +121,11 @@ func doDelete(
 	fullCommand string,
 	ch chan<- *storage.Object,
 	wg *sync.WaitGroup,
+	storageOpts storage.Options,
 ) {
 	defer wg.Done()
 
-	objChan, err := expandSource(ctx, false, src)
+	objChan, err := expandSource(ctx, false, src, storageOpts)
 	if err != nil {
 		ch <- &storage.Object{Err: err}
 		return
@@ -141,7 +149,7 @@ func doDelete(
 		}
 	}()
 
-	client, err := storage.NewClient(src)
+	client, err := storage.NewClient(src, storageOpts)
 	if err != nil {
 		ch <- &storage.Object{Err: err}
 		return

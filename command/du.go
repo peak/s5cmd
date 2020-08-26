@@ -9,6 +9,7 @@ import (
 
 	errorpkg "github.com/peak/s5cmd/error"
 	"github.com/peak/s5cmd/log"
+	"github.com/peak/s5cmd/log/stat"
 	"github.com/peak/s5cmd/storage"
 	"github.com/peak/s5cmd/storage/url"
 	"github.com/peak/s5cmd/strutil"
@@ -55,7 +56,9 @@ var sizeCommand = &cli.Command{
 		}
 		return err
 	},
-	Action: func(c *cli.Context) error {
+	Action: func(c *cli.Context) (err error) {
+		defer stat.Collect(c.Command.FullName(), &err)()
+
 		return Size{
 			src:         c.Args().First(),
 			op:          c.Command.Name,
@@ -63,6 +66,8 @@ var sizeCommand = &cli.Command{
 			// flags
 			groupByClass: c.Bool("group"),
 			humanize:     c.Bool("humanize"),
+
+			storageOpts: NewStorageOpts(c),
 		}.Run(c.Context)
 	},
 }
@@ -76,6 +81,8 @@ type Size struct {
 	// flags
 	groupByClass bool
 	humanize     bool
+
+	storageOpts storage.Options
 }
 
 // Run calculates disk usage of given source.
@@ -85,8 +92,9 @@ func (sz Size) Run(ctx context.Context) error {
 		return err
 	}
 
-	client, err := storage.NewClient(srcurl)
+	client, err := storage.NewClient(srcurl, sz.storageOpts)
 	if err != nil {
+		printError(sz.fullCommand, sz.op, err)
 		return err
 	}
 

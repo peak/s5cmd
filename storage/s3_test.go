@@ -29,6 +29,13 @@ import (
 	"github.com/peak/s5cmd/storage/url"
 )
 
+func TestS3ImplementsStorageInterface(t *testing.T) {
+	var i interface{} = new(S3)
+	if _, ok := i.(Storage); !ok {
+		t.Errorf("expected %t to implement Storage interface", i)
+	}
+}
+
 func TestNewSessionPathStyle(t *testing.T) {
 	testcases := []struct {
 		name            string
@@ -66,10 +73,8 @@ func TestNewSessionPathStyle(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 
-			opts := S3Options{Endpoint: tc.endpoint.Hostname()}
-			sess, err := newSession(sessOptions{
-				S3Options: opts,
-			})
+			opts := Options{Endpoint: tc.endpoint.Hostname()}
+			sess, err := newSession(opts)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -83,12 +88,16 @@ func TestNewSessionPathStyle(t *testing.T) {
 }
 
 func TestNewSessionWithRegionSetViaEnv(t *testing.T) {
+	opts := Options{
+		Region: "",
+	}
+
 	const expectedRegion = "us-west-2"
 
 	os.Setenv("AWS_REGION", expectedRegion)
 	defer os.Unsetenv("AWS_REGION")
 
-	sess, err := newSession(sessOptions{})
+	sess, err := newSession(opts)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -311,6 +320,10 @@ func TestS3Retry(t *testing.T) {
 		{
 			name: "ResponseTimeout",
 			err:  awserr.New(request.ErrCodeResponseTimeout, "response timeout", nil),
+		},
+		{
+			name: "RequestTimeTooSkewed",
+			err:  awserr.New("RequestTimeTooSkewed", "The difference between the request time and the server's time is too large.", nil),
 		},
 
 		// Throttling errors
@@ -702,11 +715,6 @@ func TestS3listObjectsV2(t *testing.T) {
 func TestSessionCreateAndCachingWithDifferentBuckets(t *testing.T) {
 	t.Parallel()
 
-	err := Init(S3Options{})
-	if err != nil {
-		t.Error(err)
-	}
-
 	testcases := []struct {
 		bucket         string
 		alreadyCreated bool // sessions should not be created again if they already have been created before
@@ -725,9 +733,7 @@ func TestSessionCreateAndCachingWithDifferentBuckets(t *testing.T) {
 
 	sess := map[string]*session.Session{}
 	for _, tc := range testcases {
-		awsSess, err := sessionSingle.newSession(sessOptions{
-			bucket: tc.bucket,
-		})
+		awsSess, err := cachedSessions(Options{Bucket: tc.bucket})
 
 		if err != nil {
 			t.Error(err)

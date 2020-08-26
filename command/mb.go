@@ -7,6 +7,7 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"github.com/peak/s5cmd/log"
+	"github.com/peak/s5cmd/log/stat"
 	"github.com/peak/s5cmd/storage"
 	"github.com/peak/s5cmd/storage/url"
 )
@@ -37,42 +38,49 @@ var makeBucketCommand = &cli.Command{
 		}
 		return err
 	},
-	Action: func(c *cli.Context) error {
-		return MakeBucket(
-			c.Context,
-			c.Command.Name,
-			givenCommand(c),
-			c.Args().First(),
-		)
+	Action: func(c *cli.Context) (err error) {
+		defer stat.Collect(c.Command.FullName(), &err)()
+
+		return MakeBucket{
+			src:         c.Args().First(),
+			op:          c.Command.Name,
+			fullCommand: givenCommand(c),
+
+			storageOpts: NewStorageOpts(c),
+		}.Run(c.Context)
 	},
 }
 
-// MakeBucket creates bucket.
-func MakeBucket(
-	ctx context.Context,
-	op string,
-	fullCommand string,
-	src string,
-) error {
-	bucket, err := url.New(src)
+// MakeBucket holds bucket creation operation flags and states.
+type MakeBucket struct {
+	src         string
+	op          string
+	fullCommand string
+
+	storageOpts storage.Options
+}
+
+// Run creates a bucket.
+func (b MakeBucket) Run(ctx context.Context) error {
+	bucket, err := url.New(b.src)
 	if err != nil {
-		printError(fullCommand, op, err)
+		printError(b.fullCommand, b.op, err)
 		return err
 	}
 
-	client, err := storage.NewClient(&url.URL{})
+	client, err := storage.NewRemoteClient(bucket, b.storageOpts)
 	if err != nil {
+		printError(b.fullCommand, b.op, err)
 		return err
 	}
 
-	err = client.MakeBucket(ctx, bucket.Bucket)
-	if err != nil {
-		printError(fullCommand, op, err)
+	if err := client.MakeBucket(ctx, bucket.Bucket); err != nil {
+		printError(b.fullCommand, b.op, err)
 		return err
 	}
 
 	msg := log.InfoMessage{
-		Operation: op,
+		Operation: b.op,
 		Source:    bucket,
 	}
 	log.Info(msg)

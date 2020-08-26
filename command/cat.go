@@ -8,6 +8,7 @@ import (
 
 	"github.com/urfave/cli/v2"
 
+	"github.com/peak/s5cmd/log/stat"
 	"github.com/peak/s5cmd/storage"
 	"github.com/peak/s5cmd/storage/url"
 )
@@ -38,7 +39,9 @@ var catCommand = &cli.Command{
 		}
 		return err
 	},
-	Action: func(c *cli.Context) error {
+	Action: func(c *cli.Context) (err error) {
+		defer stat.Collect(c.Command.FullName(), &err)()
+
 		src, err := url.New(c.Args().Get(0))
 		op := c.Command.Name
 		fullCommand := givenCommand(c)
@@ -51,6 +54,8 @@ var catCommand = &cli.Command{
 			src:         src,
 			op:          op,
 			fullCommand: fullCommand,
+
+			storageOpts: NewStorageOpts(c),
 		}.Run(c.Context)
 	},
 }
@@ -60,32 +65,32 @@ type Cat struct {
 	src         *url.URL
 	op          string
 	fullCommand string
+
+	storageOpts storage.Options
 }
 
 // Run prints content of given source to standard output.
 func (c Cat) Run(ctx context.Context) error {
-	client, err := storage.NewClient(c.src)
-	if err != nil {
-		return err
-	}
-
-	// set concurrency to 1 for sequential write to 'stdout' and give a dummy 'partSize' since
-	// `storage.S3.Get()` ignores 'partSize' if concurrency is set to 1.
-	_, err = client.Get(ctx, c.src, sequentialWriterAt{w: os.Stdout}, 1, -1)
+	client, err := storage.NewRemoteClient(c.src, c.storageOpts)
 	if err != nil {
 		printError(c.fullCommand, c.op, err)
 		return err
 	}
+
+	rc, err := client.Read(ctx, c.src)
+	if err != nil {
+		printError(c.fullCommand, c.op, err)
+		return err
+	}
+	defer rc.Close()
+
+	_, err = io.Copy(os.Stdout, rc)
+	if err != nil {
+		printError(c.fullCommand, c.op, err)
+		return err
+	}
+
 	return nil
-}
-
-type sequentialWriterAt struct {
-	w io.Writer
-}
-
-func (sw sequentialWriterAt) WriteAt(p []byte, offset int64) (int, error) {
-	// ignore 'offset' because we forced sequential downloads
-	return sw.w.Write(p)
 }
 
 func validateCatCommand(c *cli.Context) error {

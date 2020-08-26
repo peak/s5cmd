@@ -14,8 +14,9 @@ func expandSource(
 	ctx context.Context,
 	followSymlinks bool,
 	srcurl *url.URL,
+	storageOpts storage.Options,
 ) (<-chan *storage.Object, error) {
-	client, err := storage.NewClient(srcurl)
+	client, err := storage.NewClient(srcurl, storageOpts)
 	if err != nil {
 		return nil, err
 	}

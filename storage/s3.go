@@ -916,22 +916,6 @@ func IsCancelationError(err error) bool {
 	return errHasCode(err, request.CanceledErrorCode)
 }
 
-// writerAtAdapter is an 'io.Writer' adapter for 'io.WriterAt'.
-type writeAtAdapter struct {
-	w      io.WriterAt
-	offset int64
-}
-
-func (a *writeAtAdapter) Write(p []byte) (int, error) {
-	n, err := a.w.WriteAt(p, a.offset)
-	if err != nil {
-		return n, err
-	}
-
-	a.offset += int64(n)
-	return n, nil
-}
-
 // getRegion extracts correct region of the bucket
 // from the provided error.
 func getRegion(err error) (string, error) {

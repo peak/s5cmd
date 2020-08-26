@@ -88,8 +88,8 @@ func (d Delete) Run(ctx context.Context) error {
 		for _, srcurl := range srcurls {
 			wg.Add(1)
 			go doDelete(ctx, srcurl, d.op, d.fullCommand, resultch, &wg, d.storageOpts)
-			wg.Wait()
 		}
+		wg.Wait()
 	}()
 
 	var merror error

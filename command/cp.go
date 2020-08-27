@@ -3,12 +3,7 @@ package command
 import (
 	"context"
 	"fmt"
-	"io"
-	"io/ioutil"
-	"mime"
-	"net/http"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
@@ -413,12 +408,12 @@ func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) 
 func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) error {
 	srcClient := storage.NewLocalClient(c.storageOpts)
 
-	file, err := srcClient.Open(srcurl.Absolute())
+	freader, err := srcClient.Reader(srcurl)
 	if err != nil {
 		return err
 	}
 
-	defer file.Close()
+	defer freader.Close()
 
 	err = c.shouldOverride(ctx, srcurl, dsturl)
 	if err != nil {
@@ -435,13 +430,13 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 	}
 
 	metadata := storage.NewMetadata().
-		SetContentType(guessContentType(file)).
+		SetContentType(freader.ContentType()).
 		SetStorageClass(string(c.storageClass)).
 		SetSSE(c.encryptionMethod).
 		SetSSEKeyID(c.encryptionKeyID).
 		SetACL(c.acl)
 
-	err = dstClient.Put(ctx, file, dsturl, metadata, c.concurrency, c.partSize)
+	err = dstClient.Put(ctx, freader, dsturl, metadata, c.concurrency, c.partSize)
 	if err != nil {
 		return err
 	}
@@ -451,7 +446,7 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 
 	if c.deleteSource {
 		// close the file before deleting
-		file.Close()
+		freader.Close()
 		if err := srcClient.Delete(ctx, srcurl); err != nil {
 			return err
 		}
@@ -736,23 +731,6 @@ func validateUpload(ctx context.Context, srcurl, dsturl *url.URL, storageOpts st
 	}
 
 	return nil
-}
-
-// guessContentType gets content type of the file.
-func guessContentType(file *os.File) string {
-	contentType := mime.TypeByExtension(filepath.Ext(file.Name()))
-	if contentType == "" {
-		defer file.Seek(0, io.SeekStart)
-
-		const bufsize = 512
-		buf, err := ioutil.ReadAll(io.LimitReader(file, bufsize))
-		if err != nil {
-			return ""
-		}
-
-		return http.DetectContentType(buf)
-	}
-	return contentType
 }
 
 func givenCommand(c *cli.Context) string {

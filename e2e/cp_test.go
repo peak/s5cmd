@@ -23,6 +23,7 @@
 package e2e
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -2786,4 +2787,42 @@ func TestCopyS3ToDirDryRun(t *testing.T) {
 	for _, f := range files {
 		assert.Assert(t, ensureS3Object(s3client, bucket, f, "content"))
 	}
+}
+
+// cp - s3://bucket/object
+func TestCopyStdinPipeToS3(t *testing.T) {
+	const (
+		srcFileName = "-"
+		dstFileName = "cloud"
+		content     = "Hi, please take me to S3. I want to live in the clouds :)"
+	)
+
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+
+	reader := bytes.NewBufferString(content)
+
+	dstpath := fmt.Sprintf("s3://%v/%v", bucket, dstFileName)
+
+	cmd := s5cmd("cp", srcFileName, dstpath)
+
+	result := icmd.RunCmd(cmd, icmd.WithStdin(reader))
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`cp %v %v`, srcFileName, dstpath),
+	})
+
+	// assert that all was read from the fake stdin
+	assert.Equal(t, 0, reader.Len())
+
+	// assert s3 object
+	assert.Assert(t, ensureS3Object(s3client, bucket, dstFileName, content))
 }

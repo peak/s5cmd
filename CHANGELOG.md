@@ -3,6 +3,7 @@
 ## not released yet
 
 #### Features
+- Added `-` option to `cp` so that it can take in a piped input from the standard input. ([#182](https://github.com/peak/s5cmd/issues/182))
 - Added global `--dry-run` option. It displays which command(s) will be executed without actually having a side effect. ([#90](https://github.com/peak/s5cmd/issues/90))
 - Added `--stat` option for `s5cmd` and it displays program execution statistics before the end of the program output. ([#148](https://github.com/peak/s5cmd/issues/148))
 

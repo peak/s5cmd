@@ -145,7 +145,12 @@ $ tree
  by setting Access Control List (*acl*) policy of the object:
 
     s5cmd cp -acl bucket-owner-full-control object.gz s3://bucket/
-    
+
+#### Upload contents of a piped input to S3
+
+    > curl https://example.com | s5cmd cp - s3://bucket/example
+    cp - s3://bucket/example
+
 #### Upload multiple files to S3
 
     s5cmd cp directory/ s3://bucket/

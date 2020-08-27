@@ -110,6 +110,11 @@ func (u *URL) IsRemote() bool {
 	return u.Type == remoteObject
 }
 
+// IsStdin notes whether this url is os.Stdin.
+func (u *URL) IsStdin() bool {
+	return u.Path == "-"
+}
+
 // IsPrefix reports whether the remote object is an S3 prefix, and does not
 // look like an object.
 func (u *URL) IsPrefix() bool {

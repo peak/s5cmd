@@ -1,5 +1,8 @@
-FROM golang:1.14-alpine
-WORKDIR $GOPATH/src/s5cmd/
-COPY . .
-RUN go build -o s5cmd main.go
-CMD ["./s5cmd"]
+FROM golang:1.14-alpine as build
+COPY . /s5cmd/
+RUN cd /s5cmd/ && \
+    go build -o s5cmd main.go
+
+FROM alpine:3.12
+COPY --from=build /s5cmd/s5cmd .
+ENTRYPOINT ["./s5cmd"]

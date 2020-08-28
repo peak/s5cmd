@@ -95,8 +95,25 @@ func newS3Storage(opts Options, sessProvider func() *session.Session) (*S3, erro
 
 	awsSession := sessProvider()
 
+	// for copy operation aws-sdk-go expects a valid
+	// deserializable response and thus tries to unmarshal request.HTTPResponse.Body
+	// into an xml and this stage causes
+	// 'SerializationError: empty response payload status code: 200'
+	// if the response body is empty.
+	// For our tests, we need the following handler.
+	s3api := s3.New(awsSession)
+	s3api.Handlers.Unmarshal.PushBack(func(r *request.Request) {
+		if r.Error != nil {
+			if awsErr, ok := r.Error.(awserr.Error); ok {
+				if awsErr.Code() == request.ErrCodeSerialization {
+					r.Error = nil
+				}
+			}
+		}
+	})
+
 	return &S3{
-		api:         s3.New(awsSession),
+		api:         s3api,
 		downloader:  s3manager.NewDownloader(awsSession),
 		uploader:    s3manager.NewUploader(awsSession),
 		endpointURL: endpointURL,
@@ -702,10 +719,6 @@ func (c *customRetryer) ShouldRetry(req *request.Request) bool {
 		return true
 	}
 
-	if errContains(req.Error, "use of closed network connection") {
-		return true
-	}
-
 	return c.DefaultRetryer.ShouldRetry(req)
 }
 
@@ -749,21 +762,6 @@ func errHasCode(err error, code string) bool {
 
 	return false
 
-}
-
-func errContains(err error, msg string) bool {
-	if err == nil || msg == "" {
-		return false
-	}
-
-	var awsErr awserr.Error
-	if errors.As(err, &awsErr) {
-		if strings.Contains(awsErr.Error(), msg) {
-			return true
-		}
-	}
-
-	return false
 }
 
 // IsCancelationError reports whether given error is a storage related

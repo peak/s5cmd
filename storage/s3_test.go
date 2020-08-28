@@ -520,6 +520,15 @@ func TestS3CopyEncryptionRequest(t *testing.T) {
 				}
 				assert.Equal(t, aclVal, tc.expectedAcl)
 			})
+			mockApi.Handlers.Unmarshal.PushBack(func(r *request.Request) {
+				if r.Error != nil {
+					if awsErr, ok := r.Error.(awserr.Error); ok {
+						if awsErr.Code() == request.ErrCodeSerialization {
+							r.Error = nil
+						}
+					}
+				}
+			})
 
 			mockS3 := &S3{
 				api: mockApi,

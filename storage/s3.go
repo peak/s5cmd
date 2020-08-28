@@ -702,7 +702,7 @@ func (c *customRetryer) ShouldRetry(req *request.Request) bool {
 		return true
 	}
 
-	if errContains(req.Error, "use of closed network connection") {
+	if errContains(req.Error, "use of closed network connection") || errContains(req.Error, "connection reset by peer") {
 		return true
 	}
 

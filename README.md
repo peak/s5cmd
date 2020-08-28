@@ -67,6 +67,12 @@ installed.
 ⚠️ Please note that building from `master` is not guaranteed to be stable since
 development happens on `master` branch.
 
+### Docker Container
+
+    $ git clone https://github.com/peak/s5cmd && cd s5cmd
+    $ docker build -t s5cmd .
+    $ docker run --rm -v ~/.aws:/root/.aws s5cmd <S3 operation>
+
 ## Usage
 
 `s5cmd` supports multiple-level wildcards for all S3 operations. This is

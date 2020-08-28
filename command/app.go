@@ -128,7 +128,6 @@ func Main(ctx context.Context, args []string) error {
 		moveCommand,
 		makeBucketCommand,
 		sizeCommand,
-		catCommand,
 		runCommand,
 		versionCommand,
 	}

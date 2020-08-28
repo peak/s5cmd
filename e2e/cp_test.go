@@ -28,6 +28,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -2825,4 +2826,81 @@ func TestCopyStdinPipeToS3(t *testing.T) {
 
 	// assert s3 object
 	assert.Assert(t, ensureS3Object(s3client, bucket, dstFileName, content))
+}
+
+// cp s3://bucket/object -
+func TestCopyS3ObjectToStdout(t *testing.T) {
+	const (
+		bucket   = "bucket"
+		filename = "file.txt"
+	)
+
+	src := fmt.Sprintf("s3://%v/%v", bucket, filename)
+	contents, expected := getSequentialFileContent()
+
+	testcases := []struct {
+		name      string
+		cmd       []string
+		expected  map[int]compareFunc
+		assertOps []assertOp
+	}{
+		{
+			name: "cat remote object",
+			cmd: []string{
+				"cp",
+				src,
+				"-",
+			},
+			expected: expected,
+		},
+		{
+			name: "cat remote object with json flag",
+			cmd: []string{
+				"--json",
+				"cp",
+				src,
+				"-",
+			},
+			expected: expected,
+			assertOps: []assertOp{
+				jsonCheck(true),
+			},
+		},
+	}
+	for _, tc := range testcases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			s3client, s5cmd, cleanup := setup(t)
+			defer cleanup()
+
+			createBucket(t, s3client, bucket)
+			putFile(t, s3client, bucket, filename, contents)
+
+			cmd := s5cmd(tc.cmd...)
+			result := icmd.RunCmd(cmd)
+
+			result.Assert(t, icmd.Success)
+
+			assertLines(t, result.Stdout(), tc.expected)
+		})
+	}
+
+}
+
+// getSequentialFileContent creates a string with 64666688 in size (~61.670 MB)
+func getSequentialFileContent() (string, map[int]compareFunc) {
+	sb := strings.Builder{}
+	expectedLines := make(map[int]compareFunc)
+
+	for i := 0; i < 1000000; i++ {
+		line := fmt.Sprintf(`{ "line": "%d", "id": "i%d", data: "some event %d" }`, i, i, i)
+		sb.WriteString(line)
+		sb.WriteString("\n")
+
+		expectedLines[i] = equals(line)
+	}
+
+	return sb.String(), expectedLines
 }

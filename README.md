@@ -376,7 +376,7 @@ Assume we have a set of objects on S3, and we would like to list them in sorted 
 
 For a more practical scenario, let's say we have an [avocado prices](https://www.kaggle.com/neuromusic/avocado-prices) dataset, and we would like to take a peek at the few lines of the data by fetching only the necessary bytes.
 
-    $ s5cmd cat s3://bucket/avocado.csv.gz | gunzip | xsv slice --len 5 | xsv table
+    $ s5cmd cp s3://bucket/avocado.csv.gz - | gunzip | xsv slice --len 5 | xsv table
         Date        AveragePrice  Total Volume  4046     4225       4770   Total Bags  Small Bags  Large Bags  XLarge Bags  type          year  region
     0   2015-12-27  1.33          64236.62      1036.74  54454.85   48.16  8696.87     8603.62     93.25       0.0          conventional  2015  Albany
     1   2015-12-20  1.35          54876.98      674.28   44638.81   58.33  9505.56     9408.07     97.49       0.0          conventional  2015  Albany

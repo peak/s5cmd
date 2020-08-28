@@ -28,27 +28,42 @@ type FileReader interface {
 	ContentType() string
 }
 
-// stdin implements FileReader interface.
-// it is a wrapper for os.Stdin to treat it as a local file.
-type stdin struct {
+// FileWriter is abstraction of writing to local.
+type FileWriter interface {
+	io.WriteCloser
+	io.WriterAt
+}
+
+// stdInOut implements FileReader and FileWriter interfaces.
+// it is a wrapper for os.Stdin and os.Stdout so that they can be
+// treated as a local file with security for operations.
+type stdInOut struct {
 	file *os.File
 }
 
-func (s *stdin) Read(p []byte) (n int, err error) {
+func (s *stdInOut) Write(p []byte) (n int, err error) {
+	return s.file.Write(p)
+}
+
+func (s *stdInOut) WriteAt(p []byte, off int64) (n int, err error) {
+	return s.file.WriteAt(p, off)
+}
+
+func (s *stdInOut) Read(p []byte) (n int, err error) {
 	return s.file.Read(p)
 }
 
-func (s *stdin) Close() error {
+func (s *stdInOut) Close() error {
 	return nil
 }
 
-func (s *stdin) ContentType() string {
+func (s *stdInOut) ContentType() string {
 	// piped read from os.Stdin is a plain text.
 	return "text/plain; charset=utf-8"
 }
 
-// localFile implements FileReader and wraps local file
-// with support for content type inference.
+// localFile implements FileReader and FileWriter
+// and wraps local file.
 type localFile struct {
 	*os.File
 }
@@ -73,7 +88,7 @@ func (f *localFile) ContentType() string {
 func (f *Filesystem) Stat(_ context.Context, url *url.URL) (*Object, error) {
 	var stat os.FileInfo
 
-	if url.IsStdin() {
+	if url.IsStdinOut() {
 		st, err := os.Stdin.Stat()
 		if err != nil {
 			return nil, err
@@ -234,7 +249,7 @@ func (f *Filesystem) Copy(_ context.Context, src, dst *url.URL, _ Metadata) erro
 
 // Delete deletes given file.
 func (f *Filesystem) Delete(_ context.Context, url *url.URL) error {
-	if f.dryRun {
+	if f.dryRun || url.IsStdinOut() {
 		return nil
 	}
 
@@ -267,19 +282,10 @@ func (f *Filesystem) MkdirAll(path string) error {
 	return os.MkdirAll(path, os.ModePerm)
 }
 
-// Create creates a new os.File.
-func (f *Filesystem) Create(path string) (*os.File, error) {
-	if f.dryRun {
-		return &os.File{}, nil
-	}
-
-	return os.Create(path)
-}
-
 // Reader returns a FileReader for the given url.
 func (f *Filesystem) Reader(u *url.URL) (FileReader, error) {
-	if u.IsStdin() {
-		return &stdin{file: os.Stdin}, nil
+	if u.IsStdinOut() {
+		return &stdInOut{file: os.Stdin}, nil
 	}
 
 	file, err := os.OpenFile(u.Absolute(), os.O_RDWR, 0644)
@@ -288,6 +294,18 @@ func (f *Filesystem) Reader(u *url.URL) (FileReader, error) {
 	}
 
 	return &localFile{file}, nil
+}
+
+// Writer returns a FileWriter for the given url.
+func (f *Filesystem) Writer(u *url.URL) (FileWriter, error) {
+	if u.IsStdinOut() {
+		return &stdInOut{file: os.Stdout}, nil
+	}
+	if f.dryRun {
+		return &os.File{}, nil
+	}
+
+	return os.Create(u.Absolute())
 }
 
 func sendObject(ctx context.Context, obj *Object, ch chan *Object) {

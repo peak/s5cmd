@@ -356,16 +356,18 @@ func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata Metadata) err
 	return err
 }
 
-// Read fetches the remote object and returns its contents as an io.ReadCloser.
-func (s *S3) Read(ctx context.Context, src *url.URL) (io.ReadCloser, error) {
+// Write fetches the remote object and writes its contents to
+// the provided writer.
+func (s *S3) Write(ctx context.Context, src *url.URL, dst io.Writer) error {
 	resp, err := s.api.GetObjectWithContext(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(src.Bucket),
 		Key:    aws.String(src.Path),
 	})
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return resp.Body, nil
+	_, err = io.Copy(dst, resp.Body)
+	return err
 }
 
 // Get is a multipart download operation which downloads S3 objects into any

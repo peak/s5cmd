@@ -110,8 +110,8 @@ func (u *URL) IsRemote() bool {
 	return u.Type == remoteObject
 }
 
-// IsStdin notes whether this url is os.Stdin.
-func (u *URL) IsStdin() bool {
+// IsStdinOut notes whether this url is os.Stdin/os.Stdout.
+func (u *URL) IsStdinOut() bool {
 	return u.Path == "-"
 }
 

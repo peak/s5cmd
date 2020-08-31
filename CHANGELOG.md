@@ -11,6 +11,7 @@
 - For some operations errors were printed at the end of the program execution. Now, errors are displayed immediately after being detected. ([#136](https://github.com/peak/s5cmd/issues/136))
 
 #### Bugfixes
+- Fixed incorrect MIME type inference for `cp`, give priority to file extension for type inference. ([#214](https://github.com/peak/s5cmd/issues/214))
 - Fixed error reporting issue, where some errors from the `ls` operation were not printed.
 
 ## v1.1.0 - 22 Jul 2020

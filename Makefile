@@ -3,9 +3,13 @@ default: all
 .PHONY: all
 all: clean build test check
 
+VERSION := `git describe --abbrev=0 --tags || echo "0.0.0"`
+BUILD := `git rev-parse --short HEAD`
+LDFLAGS=-ldflags "-X=github.com/peak/s5cmd/version.Version=$(VERSION) -X=github.com/peak/s5cmd/version.GitCommit=$(BUILD)"
+
 .PHONY: build
 build:
-	@go build ${GCFLAGS} -ldflags "${LDFLAGS}" .
+	@go build ${GCFLAGS} ${LDFLAGS} -mod=vendor .
 
 .PHONY: test
 test:

@@ -29,6 +29,13 @@ import (
 	"github.com/peak/s5cmd/storage/url"
 )
 
+func TestS3ImplementsStorageInterface(t *testing.T) {
+	var i interface{} = new(S3)
+	if _, ok := i.(Storage); !ok {
+		t.Errorf("expected %t to implement Storage interface", i)
+	}
+}
+
 func TestNewSessionPathStyle(t *testing.T) {
 	testcases := []struct {
 		name            string
@@ -66,11 +73,8 @@ func TestNewSessionPathStyle(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 
-			opts := S3Options{Endpoint: tc.endpoint.Hostname()}
-			Init(opts)
-			sess, err := sessionSingle.newSession(context.Background(), sessOptions{
-				S3Options: opts,
-			})
+			opts := Options{Endpoint: tc.endpoint.Hostname()}
+			sess, err := cachedSessions().newSession(context.Background(), opts)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -84,16 +88,14 @@ func TestNewSessionPathStyle(t *testing.T) {
 }
 
 func TestNewSessionWithRegionSetViaEnv(t *testing.T) {
-	opts := sessOptions{}
-
-	sessionSingle.clear()
+	cachedSessions().clear()
 
 	const expectedRegion = "us-west-2"
 
 	os.Setenv("AWS_REGION", expectedRegion)
 	defer os.Unsetenv("AWS_REGION")
 
-	sess, err := sessionSingle.newSession(context.Background(), opts)
+	sess, err := cachedSessions().newSession(context.Background(), Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -302,6 +304,10 @@ func TestS3Retry(t *testing.T) {
 			err:  awserr.New(request.ErrCodeRequestError, "use of closed network connection", nil),
 		},
 		{
+			name: "ConnectionResetByPeer",
+			err:  awserr.New(request.ErrCodeRequestError, "connection reset by peer", nil),
+		},
+		{
 			name: "RequestFailureRequestError",
 			err: awserr.NewRequestFailure(
 				awserr.New(request.ErrCodeRequestError, "request failure: request error", nil),
@@ -316,6 +322,10 @@ func TestS3Retry(t *testing.T) {
 		{
 			name: "ResponseTimeout",
 			err:  awserr.New(request.ErrCodeResponseTimeout, "response timeout", nil),
+		},
+		{
+			name: "RequestTimeTooSkewed",
+			err:  awserr.New("RequestTimeTooSkewed", "The difference between the request time and the server's time is too large.", nil),
 		},
 
 		// Throttling errors
@@ -705,7 +715,6 @@ func TestS3listObjectsV2(t *testing.T) {
 }
 
 func TestSessionCreateAndCachingWithDifferentBuckets(t *testing.T) {
-	const bucketRegionPath = "CreateBucketConfiguration.LocationConstraint"
 
 	testcases := []struct {
 		bucket         string
@@ -726,8 +735,8 @@ func TestSessionCreateAndCachingWithDifferentBuckets(t *testing.T) {
 	sess := map[string]*session.Session{}
 
 	for _, tc := range testcases {
-		awsSess, err := sessionSingle.newSession(context.Background(), sessOptions{
-			bucket: bucket(tc.bucket),
+		awsSess, err := cachedSessions().newSession(context.Background(), Options{
+			bucket: tc.bucket,
 		})
 
 		if err != nil {

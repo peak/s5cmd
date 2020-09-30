@@ -8,6 +8,7 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"github.com/peak/s5cmd/log"
+	"github.com/peak/s5cmd/log/stat"
 	"github.com/peak/s5cmd/parallel"
 	"github.com/peak/s5cmd/storage"
 )
@@ -55,14 +56,21 @@ var app = &cli.App{
 			Name:  "install-completion",
 			Usage: "install completion for your shell",
 		},
+		&cli.BoolFlag{
+			Name:  "dry-run",
+			Usage: "fake run; show what commands will be executed without actually executing them",
+		},
+		&cli.BoolFlag{
+			Name:  "stat",
+			Usage: "collect statistics of program execution and display it at the end",
+		},
 	},
 	Before: func(c *cli.Context) error {
-		noVerifySSL := c.Bool("no-verify-ssl")
 		retryCount := c.Int("retry-count")
-		endpointURL := c.String("endpoint-url")
 		workerCount := c.Int("numworkers")
 		printJSON := c.Bool("json")
 		logLevel := c.String("log")
+		isStat := c.Bool("stat")
 
 		log.Init(logLevel, printJSON)
 		parallel.Init(workerCount)
@@ -73,11 +81,9 @@ var app = &cli.App{
 			return err
 		}
 
-		storage.Init(storage.S3Options{
-			MaxRetries:  retryCount,
-			Endpoint:    endpointURL,
-			NoVerifySSL: noVerifySSL,
-		})
+		if isStat {
+			stat.InitStat()
+		}
 
 		return nil
 	},
@@ -93,10 +99,24 @@ var app = &cli.App{
 		return cli.ShowAppHelp(c)
 	},
 	After: func(c *cli.Context) error {
+		if c.Bool("stat") {
+			log.Info(stat.Statistics())
+		}
+
 		parallel.Close()
 		log.Close()
 		return nil
 	},
+}
+
+// NewStorageOpts creates storage.Options object from the given context.
+func NewStorageOpts(c *cli.Context) storage.Options {
+	return storage.Options{
+		MaxRetries:  c.Int("retry-count"),
+		Endpoint:    c.String("endpoint-url"),
+		NoVerifySSL: c.Bool("no-verify-ssl"),
+		DryRun:      c.Bool("dry-run"),
+	}
 }
 
 // Main is the entrypoint function to run given commands.

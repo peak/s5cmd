@@ -79,7 +79,7 @@ func setup(t *testing.T, options ...option) (*s3.S3, func(...string) icmd.Cmd, f
 
 	endpoint, workdir, cleanup := server(t, opts.s3backend)
 
-	client := s3client(t, storage.S3Options{
+	client := s3client(t, storage.Options{
 		Endpoint:    endpoint,
 		NoVerifySSL: true,
 	})
@@ -119,7 +119,7 @@ func server(t *testing.T, s3backend string) (string, string, func()) {
 	return endpoint, workdir, cleanup
 }
 
-func s3client(t *testing.T, options storage.S3Options) *s3.S3 {
+func s3client(t *testing.T, options storage.Options) *s3.S3 {
 	t.Helper()
 
 	awsLogLevel := aws.LogOff

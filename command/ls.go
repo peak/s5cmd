@@ -9,6 +9,7 @@ import (
 
 	errorpkg "github.com/peak/s5cmd/error"
 	"github.com/peak/s5cmd/log"
+	"github.com/peak/s5cmd/log/stat"
 	"github.com/peak/s5cmd/storage"
 	"github.com/peak/s5cmd/storage/url"
 	"github.com/peak/s5cmd/strutil"
@@ -66,9 +67,10 @@ var listCommand = &cli.Command{
 		}
 		return err
 	},
-	Action: func(c *cli.Context) error {
+	Action: func(c *cli.Context) (err error) {
+		defer stat.Collect(c.Command.FullName(), &err)()
 		if !c.Args().Present() {
-			err := ListBuckets(c.Context)
+			err := ListBuckets(c.Context, NewStorageOpts(c))
 			if err != nil {
 				printError(givenCommand(c), c.Command.Name, err)
 			}
@@ -83,6 +85,8 @@ var listCommand = &cli.Command{
 			showEtag:         c.Bool("etag"),
 			humanize:         c.Bool("humanize"),
 			showStorageClass: c.Bool("storage-class"),
+
+			storageOpts: NewStorageOpts(c),
 		}.Run(c.Context)
 	},
 }
@@ -97,13 +101,15 @@ type List struct {
 	showEtag         bool
 	humanize         bool
 	showStorageClass bool
+
+	storageOpts storage.Options
 }
 
 // ListBuckets prints all buckets.
-func ListBuckets(ctx context.Context) error {
+func ListBuckets(ctx context.Context, storageOpts storage.Options) error {
 	// set as remote storage
 	url := &url.URL{Type: 0}
-	client, err := storage.NewClient(ctx, url)
+	client, err := storage.NewRemoteClient(ctx, url, storageOpts)
 	if err != nil {
 		return err
 	}
@@ -128,8 +134,9 @@ func (l List) Run(ctx context.Context) error {
 		return err
 	}
 
-	client, err := storage.NewClient(ctx, srcurl)
+	client, err := storage.NewClient(ctx, srcurl, l.storageOpts)
 	if err != nil {
+		printError(l.fullCommand, l.op, err)
 		return err
 	}
 

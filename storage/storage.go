@@ -50,7 +50,6 @@ func NewRemoteClient(ctx context.Context, url *url.URL, opts Options) (*S3, erro
 	newOpts := Options{
 		MaxRetries:  opts.MaxRetries,
 		Endpoint:    opts.Endpoint,
-		Region:      opts.Region,
 		NoVerifySSL: opts.NoVerifySSL,
 		DryRun:      opts.DryRun,
 		bucket:      url.Bucket,
@@ -69,7 +68,6 @@ func NewClient(ctx context.Context, url *url.URL, opts Options) (Storage, error)
 type Options struct {
 	MaxRetries  int
 	Endpoint    string
-	Region      string
 	NoVerifySSL bool
 	DryRun      bool
 	bucket      string

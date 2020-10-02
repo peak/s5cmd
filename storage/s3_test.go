@@ -74,7 +74,7 @@ func TestNewSessionPathStyle(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 
 			opts := Options{Endpoint: tc.endpoint.Hostname()}
-			sess, err := cachedSessions().newSession(context.Background(), opts)
+			sess, err := sessionProvider.newSession(context.Background(), opts)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -88,14 +88,14 @@ func TestNewSessionPathStyle(t *testing.T) {
 }
 
 func TestNewSessionWithRegionSetViaEnv(t *testing.T) {
-	cachedSessions().clear()
+	sessionProvider.clear()
 
 	const expectedRegion = "us-west-2"
 
 	os.Setenv("AWS_REGION", expectedRegion)
 	defer os.Unsetenv("AWS_REGION")
 
-	sess, err := cachedSessions().newSession(context.Background(), Options{})
+	sess, err := sessionProvider.newSession(context.Background(), Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -735,7 +735,7 @@ func TestSessionCreateAndCachingWithDifferentBuckets(t *testing.T) {
 	sess := map[string]*session.Session{}
 
 	for _, tc := range testcases {
-		awsSess, err := cachedSessions().newSession(context.Background(), Options{
+		awsSess, err := sessionProvider.newSession(context.Background(), Options{
 			bucket: tc.bucket,
 		})
 

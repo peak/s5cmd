@@ -42,17 +42,13 @@ const (
 )
 
 // Re-used AWS sessions dramatically improve performance.
-var cachedSessions func() *s3Session
+var sessionProvider *s3Session
 
 // Init creates a new global S3 session.
 func init() {
-	s3Sess := &s3Session{
+	sessionProvider = &s3Session{
 		Mutex:    sync.Mutex{},
 		sessions: map[Options]*session.Session{},
-	}
-
-	cachedSessions = func() *s3Session {
-		return s3Sess
 	}
 }
 
@@ -84,13 +80,13 @@ func parseEndpoint(endpoint string) (urlpkg.URL, error) {
 }
 
 // NewS3Storage creates new S3 session.
-func newS3Storage(ctx context.Context, opts Options, s3sessProvider func() *s3Session) (*S3, error) {
+func newS3Storage(ctx context.Context, opts Options, sessionProvider *s3Session) (*S3, error) {
 	endpointURL, err := parseEndpoint(opts.Endpoint)
 	if err != nil {
 		return nil, err
 	}
 
-	awsSession, err := s3sessProvider().newSession(ctx, opts)
+	awsSession, err := sessionProvider.newSession(ctx, opts)
 	if err != nil {
 		return nil, err
 	}

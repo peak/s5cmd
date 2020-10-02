@@ -54,7 +54,7 @@ func NewRemoteClient(ctx context.Context, url *url.URL, opts Options) (*S3, erro
 		DryRun:      opts.DryRun,
 		bucket:      url.Bucket,
 	}
-	return newS3Storage(ctx, newOpts, cachedSessions)
+	return newS3Storage(ctx, newOpts, sessionProvider)
 }
 
 func NewClient(ctx context.Context, url *url.URL, opts Options) (Storage, error) {

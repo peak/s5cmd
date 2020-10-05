@@ -80,7 +80,7 @@ func parseEndpoint(endpoint string) (urlpkg.URL, error) {
 }
 
 // NewS3Storage creates new S3 session.
-func newS3Storage(ctx context.Context, opts Options, sessionProvider *s3Session) (*S3, error) {
+func newS3Storage(ctx context.Context, opts Options) (*S3, error) {
 	endpointURL, err := parseEndpoint(opts.Endpoint)
 	if err != nil {
 		return nil, err

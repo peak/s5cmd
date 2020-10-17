@@ -42,14 +42,9 @@ const (
 )
 
 // Re-used AWS sessions dramatically improve performance.
-var sessionProvider *s3Session
-
-// Init creates a new global S3 session.
-func init() {
-	sessionProvider = &s3Session{
-		Mutex:    sync.Mutex{},
-		sessions: map[Options]*session.Session{},
-	}
+var sessionProvider = &s3Session{
+	Mutex:    sync.Mutex{},
+	sessions: map[Options]*session.Session{},
 }
 
 // S3 is a storage type which interacts with S3API, DownloaderAPI and

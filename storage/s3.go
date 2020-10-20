@@ -43,7 +43,6 @@ const (
 
 // Re-used AWS sessions dramatically improve performance.
 var sessionProvider = &s3Session{
-	Mutex:    sync.Mutex{},
 	sessions: map[Options]*session.Session{},
 }
 

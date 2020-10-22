@@ -60,6 +60,7 @@ var moveCommand = &cli.Command{
 			ifSizeDiffer:     c.Bool("if-size-differ"),
 			ifSourceNewer:    c.Bool("if-source-newer"),
 			flatten:          c.Bool("flatten"),
+			followSymlinks:   !c.Bool("no-follow-symlinks"),
 			storageClass:     storage.StorageClass(c.String("storage-class")),
 			encryptionMethod: c.String("sse"),
 			encryptionKeyID:  c.String("sse-kms-key-id"),

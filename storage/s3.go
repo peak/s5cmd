@@ -24,7 +24,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager/s3manageriface"
-
 	"github.com/peak/s5cmd/storage/url"
 )
 
@@ -43,19 +42,8 @@ const (
 )
 
 // Re-used AWS sessions dramatically improve performance.
-var cachedSession func() *session.Session
-
-// Init creates a new global S3 session.
-func Init(opts Options) error {
-	sess, err := newSession(opts)
-	if err != nil {
-		return err
-	}
-
-	cachedSession = func() *session.Session {
-		return sess
-	}
-	return nil
+var sessionProvider = &s3Session{
+	sessions: map[Options]*session.Session{},
 }
 
 // S3 is a storage type which interacts with S3API, DownloaderAPI and
@@ -65,8 +53,7 @@ type S3 struct {
 	downloader  s3manageriface.DownloaderAPI
 	uploader    s3manageriface.UploaderAPI
 	endpointURL urlpkg.URL
-
-	dryRun bool
+	dryRun      bool
 }
 
 func parseEndpoint(endpoint string) (urlpkg.URL, error) {
@@ -87,13 +74,16 @@ func parseEndpoint(endpoint string) (urlpkg.URL, error) {
 }
 
 // NewS3Storage creates new S3 session.
-func newS3Storage(opts Options, sessProvider func() *session.Session) (*S3, error) {
+func newS3Storage(ctx context.Context, opts Options) (*S3, error) {
 	endpointURL, err := parseEndpoint(opts.Endpoint)
 	if err != nil {
 		return nil, err
 	}
 
-	awsSession := sessProvider()
+	awsSession, err := sessionProvider.newSession(ctx, opts)
+	if err != nil {
+		return nil, err
+	}
 
 	// for copy operation aws-sdk-go expects a valid
 	// deserializable response and thus tries to unmarshal request.HTTPResponse.Body
@@ -200,6 +190,12 @@ func (s *S3) listObjectsV2(ctx context.Context, url *url.URL) <-chan *Object {
 					continue
 				}
 
+				mod := aws.TimeValue(c.LastModified).UTC()
+				if mod.After(now) {
+					objectFound = true
+					continue
+				}
+
 				var objtype os.FileMode
 				if strings.HasSuffix(key, "/") {
 					objtype = os.ModeDir
@@ -208,12 +204,6 @@ func (s *S3) listObjectsV2(ctx context.Context, url *url.URL) <-chan *Object {
 				newurl := url.Clone()
 				newurl.Path = aws.StringValue(c.Key)
 				etag := aws.StringValue(c.ETag)
-				mod := aws.TimeValue(c.LastModified).UTC()
-
-				if mod.After(now) {
-					objectFound = true
-					continue
-				}
 
 				objCh <- &Object{
 					URL:          newurl,
@@ -291,6 +281,12 @@ func (s *S3) listObjects(ctx context.Context, url *url.URL) <-chan *Object {
 					continue
 				}
 
+				mod := aws.TimeValue(c.LastModified).UTC()
+				if mod.After(now) {
+					objectFound = true
+					continue
+				}
+
 				var objtype os.FileMode
 				if strings.HasSuffix(key, "/") {
 					objtype = os.ModeDir
@@ -299,12 +295,6 @@ func (s *S3) listObjects(ctx context.Context, url *url.URL) <-chan *Object {
 				newurl := url.Clone()
 				newurl.Path = aws.StringValue(c.Key)
 				etag := aws.StringValue(c.ETag)
-				mod := aws.TimeValue(c.LastModified).UTC()
-
-				if mod.After(now) {
-					objectFound = true
-					continue
-				}
 
 				objCh <- &Object{
 					URL:          newurl,
@@ -630,9 +620,23 @@ func (s *S3) MakeBucket(ctx context.Context, name string) error {
 	return err
 }
 
+// s3Session holds session.Session according to s3Opts
+// and it synchronizes access/modification.
+type s3Session struct {
+	sync.Mutex
+	sessions map[Options]*session.Session
+}
+
 // newSession initializes a new AWS session with region fallback and custom
 // options.
-func newSession(opts Options) (*session.Session, error) {
+func (s *s3Session) newSession(ctx context.Context, opts Options) (*session.Session, error) {
+	s.Lock()
+	defer s.Unlock()
+
+	if sess, ok := s.sessions[opts]; ok {
+		return sess, nil
+	}
+
 	awsCfg := aws.NewConfig()
 
 	endpointURL, err := parseEndpoint(opts.Endpoint)
@@ -663,10 +667,6 @@ func newSession(opts Options) (*session.Session, error) {
 		WithS3UseAccelerate(useAccelerate).
 		WithHTTPClient(httpClient)
 
-	if opts.Region != "" {
-		awsCfg.WithRegion(opts.Region)
-	}
-
 	awsCfg.Retryer = newCustomRetryer(opts.MaxRetries)
 
 	useSharedConfig := session.SharedConfigEnable
@@ -695,7 +695,27 @@ func newSession(opts Options) (*session.Session, error) {
 		sess.Config.Region = aws.String(endpoints.UsEast1RegionID)
 	}
 
+	// get region of the bucket and create session accordingly
+	// if the region is not provided, it means we want region-independent session
+	// for operations such as listing buckets, making a new bucket, ...
+	if opts.bucket != "" {
+		region, err := s3manager.GetBucketRegion(ctx, sess, opts.bucket, "")
+		if err != nil {
+			return nil, err
+		}
+
+		sess.Config.Region = aws.String(region)
+	}
+
+	s.sessions[opts] = sess
+
 	return sess, nil
+}
+
+func (s *s3Session) clear() {
+	s.Lock()
+	defer s.Unlock()
+	s.sessions = map[Options]*session.Session{}
 }
 
 // customRetryer wraps the SDK's built in DefaultRetryer adding additional

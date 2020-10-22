@@ -92,7 +92,7 @@ func (sz Size) Run(ctx context.Context) error {
 		return err
 	}
 
-	client, err := storage.NewClient(srcurl, sz.storageOpts)
+	client, err := storage.NewClient(ctx, srcurl, sz.storageOpts)
 	if err != nil {
 		printError(sz.fullCommand, sz.op, err)
 		return err

@@ -109,7 +109,7 @@ type List struct {
 func ListBuckets(ctx context.Context, storageOpts storage.Options) error {
 	// set as remote storage
 	url := &url.URL{Type: 0}
-	client, err := storage.NewRemoteClient(url, storageOpts)
+	client, err := storage.NewRemoteClient(ctx, url, storageOpts)
 	if err != nil {
 		return err
 	}
@@ -134,7 +134,7 @@ func (l List) Run(ctx context.Context) error {
 		return err
 	}
 
-	client, err := storage.NewClient(srcurl, l.storageOpts)
+	client, err := storage.NewClient(ctx, srcurl, l.storageOpts)
 	if err != nil {
 		printError(l.fullCommand, l.op, err)
 		return err

@@ -46,13 +46,20 @@ func NewLocalClient(opts Options) *Filesystem {
 	return &Filesystem{dryRun: opts.DryRun}
 }
 
-func NewRemoteClient(_ *url.URL, opts Options) (*S3, error) {
-	return newS3Storage(opts, cachedSession)
+func NewRemoteClient(ctx context.Context, url *url.URL, opts Options) (*S3, error) {
+	newOpts := Options{
+		MaxRetries:  opts.MaxRetries,
+		Endpoint:    opts.Endpoint,
+		NoVerifySSL: opts.NoVerifySSL,
+		DryRun:      opts.DryRun,
+		bucket:      url.Bucket,
+	}
+	return newS3Storage(ctx, newOpts)
 }
 
-func NewClient(url *url.URL, opts Options) (Storage, error) {
+func NewClient(ctx context.Context, url *url.URL, opts Options) (Storage, error) {
 	if url.IsRemote() {
-		return NewRemoteClient(url, opts)
+		return NewRemoteClient(ctx, url, opts)
 	}
 	return NewLocalClient(opts), nil
 }
@@ -61,9 +68,9 @@ func NewClient(url *url.URL, opts Options) (Storage, error) {
 type Options struct {
 	MaxRetries  int
 	Endpoint    string
-	Region      string
 	NoVerifySSL bool
 	DryRun      bool
+	bucket      string
 }
 
 // Object is a generic type which contains metadata for storage items.

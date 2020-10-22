@@ -173,6 +173,12 @@ func (s *S3) listObjectsV2(ctx context.Context, url *url.URL) <-chan *Object {
 					continue
 				}
 
+				mod := aws.TimeValue(c.LastModified).UTC()
+				if mod.After(now) {
+					objectFound = true
+					continue
+				}
+
 				var objtype os.FileMode
 				if strings.HasSuffix(key, "/") {
 					objtype = os.ModeDir
@@ -181,12 +187,6 @@ func (s *S3) listObjectsV2(ctx context.Context, url *url.URL) <-chan *Object {
 				newurl := url.Clone()
 				newurl.Path = aws.StringValue(c.Key)
 				etag := aws.StringValue(c.ETag)
-				mod := aws.TimeValue(c.LastModified).UTC()
-
-				if mod.After(now) {
-					objectFound = true
-					continue
-				}
 
 				objCh <- &Object{
 					URL:          newurl,
@@ -264,6 +264,12 @@ func (s *S3) listObjects(ctx context.Context, url *url.URL) <-chan *Object {
 					continue
 				}
 
+				mod := aws.TimeValue(c.LastModified).UTC()
+				if mod.After(now) {
+					objectFound = true
+					continue
+				}
+
 				var objtype os.FileMode
 				if strings.HasSuffix(key, "/") {
 					objtype = os.ModeDir
@@ -272,12 +278,6 @@ func (s *S3) listObjects(ctx context.Context, url *url.URL) <-chan *Object {
 				newurl := url.Clone()
 				newurl.Path = aws.StringValue(c.Key)
 				etag := aws.StringValue(c.ETag)
-				mod := aws.TimeValue(c.LastModified).UTC()
-
-				if mod.After(now) {
-					objectFound = true
-					continue
-				}
 
 				objCh <- &Object{
 					URL:          newurl,

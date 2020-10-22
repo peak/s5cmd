@@ -216,7 +216,7 @@ func (c Copy) Run(ctx context.Context) error {
 		return err
 	}
 
-	client, err := storage.NewClient(srcurl, c.storageOpts)
+	client, err := storage.NewClient(ctx, srcurl, c.storageOpts)
 	if err != nil {
 		printError(c.fullCommand, c.op, err)
 		return err
@@ -363,7 +363,7 @@ func (c Copy) prepareUploadTask(
 
 // doDownload is used to fetch a remote object and save as a local object.
 func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) error {
-	srcClient, err := storage.NewRemoteClient(srcurl, c.storageOpts)
+	srcClient, err := storage.NewRemoteClient(ctx, srcurl, c.storageOpts)
 	if err != nil {
 		return err
 	}
@@ -429,7 +429,7 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 		return err
 	}
 
-	dstClient, err := storage.NewRemoteClient(dsturl, c.storageOpts)
+	dstClient, err := storage.NewRemoteClient(ctx, dsturl, c.storageOpts)
 	if err != nil {
 		return err
 	}
@@ -472,7 +472,7 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 }
 
 func (c Copy) doCopy(ctx context.Context, srcurl, dsturl *url.URL) error {
-	srcClient, err := storage.NewClient(srcurl, c.storageOpts)
+	dstClient, err := storage.NewClient(ctx, dsturl, c.storageOpts)
 	if err != nil {
 		return err
 	}
@@ -492,12 +492,16 @@ func (c Copy) doCopy(ctx context.Context, srcurl, dsturl *url.URL) error {
 		return err
 	}
 
-	err = srcClient.Copy(ctx, srcurl, dsturl, metadata)
+	err = dstClient.Copy(ctx, srcurl, dsturl, metadata)
 	if err != nil {
 		return err
 	}
 
 	if c.deleteSource {
+		srcClient, err := storage.NewClient(ctx, srcurl, c.storageOpts)
+		if err != nil {
+			return err
+		}
 		if err := srcClient.Delete(ctx, srcurl); err != nil {
 			return err
 		}
@@ -528,7 +532,7 @@ func (c Copy) shouldOverride(ctx context.Context, srcurl *url.URL, dsturl *url.U
 		return nil
 	}
 
-	srcClient, err := storage.NewClient(srcurl, c.storageOpts)
+	srcClient, err := storage.NewClient(ctx, srcurl, c.storageOpts)
 	if err != nil {
 		return err
 	}
@@ -538,7 +542,7 @@ func (c Copy) shouldOverride(ctx context.Context, srcurl *url.URL, dsturl *url.U
 		return err
 	}
 
-	dstClient, err := storage.NewClient(dsturl, c.storageOpts)
+	dstClient, err := storage.NewClient(ctx, dsturl, c.storageOpts)
 	if err != nil {
 		return err
 	}

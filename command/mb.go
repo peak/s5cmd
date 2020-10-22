@@ -68,7 +68,7 @@ func (b MakeBucket) Run(ctx context.Context) error {
 		return err
 	}
 
-	client, err := storage.NewRemoteClient(bucket, b.storageOpts)
+	client, err := storage.NewRemoteClient(ctx, &url.URL{}, b.storageOpts)
 	if err != nil {
 		printError(b.fullCommand, b.op, err)
 		return err

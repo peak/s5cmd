@@ -79,7 +79,7 @@ func (d Delete) Run(ctx context.Context) error {
 	}
 	srcurl := srcurls[0]
 
-	client, err := storage.NewClient(srcurl, d.storageOpts)
+	client, err := storage.NewClient(ctx, srcurl, d.storageOpts)
 	if err != nil {
 		printError(d.fullCommand, d.op, err)
 		return err

@@ -71,7 +71,7 @@ type Cat struct {
 
 // Run prints content of given source to standard output.
 func (c Cat) Run(ctx context.Context) error {
-	client, err := storage.NewRemoteClient(c.src, c.storageOpts)
+	client, err := storage.NewRemoteClient(ctx, c.src, c.storageOpts)
 	if err != nil {
 		printError(c.fullCommand, c.op, err)
 		return err

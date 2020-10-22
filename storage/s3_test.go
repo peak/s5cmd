@@ -19,6 +19,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/aws/request"
+	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/awstesting/unit"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
@@ -73,7 +74,7 @@ func TestNewSessionPathStyle(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 
 			opts := Options{Endpoint: tc.endpoint.Hostname()}
-			sess, err := newSession(opts)
+			sess, err := sessionProvider.newSession(context.Background(), opts)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -87,16 +88,14 @@ func TestNewSessionPathStyle(t *testing.T) {
 }
 
 func TestNewSessionWithRegionSetViaEnv(t *testing.T) {
-	opts := Options{
-		Region: "",
-	}
+	sessionProvider.clear()
 
 	const expectedRegion = "us-west-2"
 
 	os.Setenv("AWS_REGION", expectedRegion)
 	defer os.Unsetenv("AWS_REGION")
 
-	sess, err := newSession(opts)
+	sess, err := sessionProvider.newSession(context.Background(), Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -713,4 +712,42 @@ func TestS3listObjectsV2(t *testing.T) {
 		t.Errorf("%v should not have been returned\n", obj)
 	}
 	assert.Equal(t, len(mapReturnObjNameToModtime), 0)
+}
+
+func TestSessionCreateAndCachingWithDifferentBuckets(t *testing.T) {
+
+	testcases := []struct {
+		bucket         string
+		alreadyCreated bool // sessions should not be created again if they already have been created before
+	}{
+		{
+			bucket: "bucket",
+		},
+		{
+			bucket:         "bucket",
+			alreadyCreated: true,
+		},
+		{
+			bucket: "test-bucket",
+		},
+	}
+
+	sess := map[string]*session.Session{}
+
+	for _, tc := range testcases {
+		awsSess, err := sessionProvider.newSession(context.Background(), Options{
+			bucket: tc.bucket,
+		})
+
+		if err != nil {
+			t.Error(err)
+		}
+
+		if tc.alreadyCreated {
+			_, ok := sess[tc.bucket]
+			assert.Check(t, ok, "session should not have been created again")
+		} else {
+			sess[tc.bucket] = awsSess
+		}
+	}
 }

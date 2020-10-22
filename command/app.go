@@ -85,7 +85,7 @@ var app = &cli.App{
 			stat.InitStat()
 		}
 
-		return storage.Init(NewStorageOpts(c))
+		return nil
 	},
 	Action: func(c *cli.Context) error {
 		if c.Bool("install-completion") {

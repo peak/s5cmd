@@ -85,25 +85,8 @@ func newS3Storage(ctx context.Context, opts Options) (*S3, error) {
 		return nil, err
 	}
 
-	// for copy operation aws-sdk-go expects a valid
-	// deserializable response and thus tries to unmarshal request.HTTPResponse.Body
-	// into an xml and this stage causes
-	// 'SerializationError: empty response payload status code: 200'
-	// if the response body is empty.
-	// For our tests, we need the following handler.
-	s3api := s3.New(awsSession)
-	s3api.Handlers.Unmarshal.PushBack(func(r *request.Request) {
-		if r.Error != nil {
-			if awsErr, ok := r.Error.(awserr.Error); ok {
-				if awsErr.Code() == request.ErrCodeSerialization {
-					r.Error = nil
-				}
-			}
-		}
-	})
-
 	return &S3{
-		api:         s3api,
+		api:         s3.New(awsSession),
 		downloader:  s3manager.NewDownloader(awsSession),
 		uploader:    s3manager.NewUploader(awsSession),
 		endpointURL: endpointURL,

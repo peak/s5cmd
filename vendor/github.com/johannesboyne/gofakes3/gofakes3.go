@@ -539,19 +539,33 @@ func (g *GoFakeS3) createObject(bucket, object string, w http.ResponseWriter, r 
 		return err
 	}
 
-	if _, ok := meta["X-Amz-Copy-Source"]; ok {
-		return g.copyObject(bucket, object, meta, w, r)
-	}
+	var (
+		size int64
+		body = r.Body
+	)
 
-	contentLength := r.Header.Get("Content-Length")
-	if contentLength == "" {
-		return ErrMissingContentLength
-	}
+	// S3 to S3 copy operations has Content-Length=0 header. First, we need to
+	// fetch the original object from the given source and copy it to the
+	// destination.
+	copySource := r.Header.Get(copySourceHeader)
+	if copySource != "" {
+		parts := strings.SplitN(copySource, "/", 2)
+		srcBucket := parts[0]
+		srcKey := parts[1]
 
-	size, err := strconv.ParseInt(contentLength, 10, 64)
-	if err != nil || size < 0 {
-		w.WriteHeader(http.StatusBadRequest) // XXX: no code for this, according to s3tests
-		return nil
+		src, err := g.storage.GetObject(srcBucket, srcKey, nil)
+		if err != nil {
+			return err
+		}
+		size = src.Size
+
+		body = src.Contents
+	} else {
+		var err error
+		size, err = strconv.ParseInt(r.Header.Get("Content-Length"), 10, 64)
+		if err != nil || size <= 0 {
+			return ErrMissingContentLength
+		}
 	}
 
 	if len(object) > KeySizeLimit {
@@ -569,8 +583,8 @@ func (g *GoFakeS3) createObject(bucket, object string, w http.ResponseWriter, r 
 
 	// hashingReader is still needed to get the ETag even if integrityCheck
 	// is set to false:
-	rdr, err := newHashingReader(r.Body, md5Base64)
-	defer r.Body.Close()
+	rdr, err := newHashingReader(body, md5Base64)
+	defer body.Close()
 	if err != nil {
 		return err
 	}
@@ -578,6 +592,13 @@ func (g *GoFakeS3) createObject(bucket, object string, w http.ResponseWriter, r 
 	result, err := g.storage.PutObject(bucket, object, meta, rdr, size)
 	if err != nil {
 		return err
+	}
+
+	if copySource != "" {
+		return g.xmlEncoder(w).Encode(CopyObjectResult{
+			ETag:         `"` + hex.EncodeToString(rdr.Sum(nil)) + `"`,
+			LastModified: NewContentTime(g.timeSource.Now()),
+		})
 	}
 
 	if result.VersionID != "" {

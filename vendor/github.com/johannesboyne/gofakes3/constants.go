@@ -41,4 +41,6 @@ const (
 
 	// From the docs: "Part numbers can be any number from 1 to 10,000, inclusive."
 	MaxUploadPartNumber = 10000
+
+	copySourceHeader = "X-Amz-Copy-Source"
 )

@@ -5,8 +5,9 @@ jobs:
     strategy:
       matrix:
         go-version:
-          - 1.14.4
-          - 1.13.12
+          - 1.15.x
+          - 1.14.x
+          - 1.13.x
         os:
           - macos
           - ubuntu
@@ -20,34 +21,44 @@ jobs:
       with:
         go-version: ${{ matrix.go-version }}
 
-    - run: go build -mod=vendor .
+    - run: make build
 
   test:
     strategy:
       matrix:
+        go-version:
+          - 1.15.x
+          - 1.14.x
+          - 1.13.x
         os:
           - macos
           - ubuntu
           - windows
 
+    name: test (${{ matrix.os }}/go-${{ matrix.go-version }})
     runs-on: ${{ matrix.os }}-latest
-
     steps:
     - uses: actions/checkout@v2
     - uses: actions/setup-go@v2
       with:
-        go-version: 1.14.4
+        go-version: ${{ matrix.go-version }}
 
     - run: make test
 
   qa:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go-version:
+          - 1.15.x
+        os:
+          - ubuntu
 
+    runs-on: ${{ matrix.os }}-latest
     steps:
     - uses: actions/checkout@v2
     - uses: actions/setup-go@v2
       with:
-        go-version: 1.14.4
+        go-version: ${{ matrix.go-version }}
 
     - run: make check-fmt
     - run: make vet

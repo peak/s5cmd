@@ -2,6 +2,7 @@ package command
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/hashicorp/go-multierror"
@@ -13,6 +14,8 @@ import (
 	"github.com/peak/s5cmd/storage"
 	"github.com/peak/s5cmd/storage/url"
 )
+
+var ErrDifferentBucket = errors.New("more than one bucket detected")
 
 var deleteHelpTemplate = `Name:
 	{{.HelpName}} - {{.Usage}}
@@ -77,6 +80,11 @@ func (d Delete) Run(ctx context.Context) error {
 		printError(d.fullCommand, d.op, err)
 		return err
 	}
+	if err := srcURLsBucketVal(srcurls); err != nil {
+		printError(d.fullCommand, d.op, err)
+		return err
+	}
+
 	srcurl := srcurls[0]
 
 	client, err := storage.NewClient(ctx, srcurl, d.storageOpts)
@@ -140,6 +148,22 @@ func newURLs(sources ...string) ([]*url.URL, error) {
 		urls = append(urls, srcurl)
 	}
 	return urls, nil
+}
+
+// srcURLsBucketVal checks whether given urls all correspond to the same
+// bucket or not.
+func srcURLsBucketVal(urls []*url.URL) error {
+	var firstBucket string
+	for i, u := range urls {
+		if i == 0 {
+			firstBucket = u.Bucket
+			continue
+		}
+		if u.Bucket != firstBucket {
+			return ErrDifferentBucket
+		}
+	}
+	return nil
 }
 
 // sourcesHaveSameType check if given sources share the same object types.

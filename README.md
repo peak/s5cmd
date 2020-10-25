@@ -175,7 +175,17 @@ s3://bucket/logs/2020/03/19/originals/file3.gz
 ```
 
 `s5cmd` utilizes S3 delete batch API. If matching objects are up to 1000,
-they'll be deleted in a single request.
+they'll be deleted in a single request. However, it should be noted that commands such as 
+
+    s5cmd rm s3://bucket-foo/object s3://bucket-bar/object
+
+are not supported by `s5cmd` and result in error (since we have 2 different buckets), as it is in odds with the benefit of performing batch delete requests. Thus, if in need, one can use `s5cmd run` mode for this case, i.e, 
+
+    $ s5cmd run
+    rm s3://bucket-foo/object 
+    rm s3://bucket-bar/object
+
+more details and examples on `s5cmd run` are presented in a [later section](./README.md#L208).
 
 #### Copy objects from S3 to S3
 

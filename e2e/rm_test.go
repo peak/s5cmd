@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/peak/s5cmd/command"
+
 	"gotest.tools/v3/assert"
 	"gotest.tools/v3/fs"
 	"gotest.tools/v3/icmd"
@@ -499,6 +501,37 @@ func TestVariadicRemoveS3Objects(t *testing.T) {
 		err := ensureS3Object(s3client, bucket, filename, content)
 		assertError(t, err, errS3NoSuchKey)
 	}
+}
+
+// rm s3://bucket/object s3://someOtherBucket/object2
+func TestVariadicRemoveS3ObjectsFromDifferentBuckets(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	bucket := s3BucketFromTestName(t)
+	someOtherBucket := "someotherbucket" + randomString(20)
+
+	createBucket(t, s3client, bucket)
+	createBucket(t, s3client, someOtherBucket)
+
+	putFile(t, s3client, bucket, "file1", "content1")
+	putFile(t, s3client, someOtherBucket, "file2", "content2")
+
+	cmd := s5cmd(
+		"rm",
+		"s3://"+bucket+"/file1",
+		"s3://"+someOtherBucket+"/file2",
+	)
+	result := icmd.RunCmd(cmd)
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: contains(command.ErrDifferentBucket.Error()),
+	})
+
+	assert.NilError(t, ensureS3Object(s3client, bucket, "file1", "content1"))
+	assert.NilError(t, ensureS3Object(s3client, someOtherBucket, "file2", "content2"))
 }
 
 // rm s3://bucket/prefix/* s3://bucket/object

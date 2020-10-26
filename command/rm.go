@@ -2,7 +2,6 @@ package command
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/hashicorp/go-multierror"
@@ -78,12 +77,6 @@ func (d Delete) Run(ctx context.Context) error {
 		printError(d.fullCommand, d.op, err)
 		return err
 	}
-	if !hasSameBuckets(srcurls) {
-		err := errors.New("one rm command cannot be used for object removal of more than one bucket")
-		printError(d.fullCommand, d.op, err)
-		return err
-	}
-
 	srcurl := srcurls[0]
 
 	client, err := storage.NewClient(ctx, srcurl, d.storageOpts)
@@ -197,5 +190,17 @@ func validateRMCommand(c *cli.Context) error {
 		return fmt.Errorf("expected at least 1 object to remove")
 	}
 
-	return sourcesHaveSameType(c.Args().Slice()...)
+	src := c.Args().Slice()
+	if err := sourcesHaveSameType(src...); err != nil {
+		return err
+	}
+
+	srcurls, err := newURLs(src...)
+	if err != nil {
+		return err
+	}
+	if !hasSameBuckets(srcurls) {
+		return fmt.Errorf("one rm command cannot be used for object removal of more than one bucket")
+	}
+	return nil
 }

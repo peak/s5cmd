@@ -505,7 +505,7 @@ func TestVariadicRemoveS3Objects(t *testing.T) {
 func TestVariadicRemoveS3ObjectsFromDifferentBuckets(t *testing.T) {
 	t.Parallel()
 
-	const errStrDifferentBucket = "more than one bucket detected"
+	const errStrDifferentBucket = "one rm command cannot be used for object removal of more than one bucket"
 
 	s3client, s5cmd, cleanup := setup(t)
 	defer cleanup()

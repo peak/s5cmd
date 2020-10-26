@@ -79,7 +79,7 @@ func (d Delete) Run(ctx context.Context) error {
 		return err
 	}
 	if !hasSameBuckets(srcurls) {
-		err := errors.New("more than one bucket detected")
+		err := errors.New("one rm command cannot be used for object removal of more than one bucket")
 		printError(d.fullCommand, d.op, err)
 		return err
 	}

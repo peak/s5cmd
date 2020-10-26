@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/peak/s5cmd/command"
-
 	"gotest.tools/v3/assert"
 	"gotest.tools/v3/fs"
 	"gotest.tools/v3/icmd"
@@ -507,6 +505,8 @@ func TestVariadicRemoveS3Objects(t *testing.T) {
 func TestVariadicRemoveS3ObjectsFromDifferentBuckets(t *testing.T) {
 	t.Parallel()
 
+	const errStrDifferentBucket = "more than one bucket detected"
+
 	s3client, s5cmd, cleanup := setup(t)
 	defer cleanup()
 
@@ -527,7 +527,7 @@ func TestVariadicRemoveS3ObjectsFromDifferentBuckets(t *testing.T) {
 	result := icmd.RunCmd(cmd)
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: contains(command.ErrDifferentBucket.Error()),
+		0: contains(errStrDifferentBucket),
 	})
 
 	assert.NilError(t, ensureS3Object(s3client, bucket, "file1", "content1"))

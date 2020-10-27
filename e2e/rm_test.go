@@ -271,37 +271,6 @@ func TestRemoveS3PrefixWithoutSlash(t *testing.T) {
 	})
 }
 
-// rm s3://bucket/prefix/
-func TestRemoveS3Prefix(t *testing.T) {
-	t.Parallel()
-
-	bucket := s3BucketFromTestName(t)
-
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
-
-	createBucket(t, s3client, bucket)
-
-	const (
-		filename = "file.txt"
-		content  = "test file"
-	)
-
-	putFile(t, s3client, bucket, filename, content)
-
-	const prefix = "prefix/"
-	src := fmt.Sprintf("s3://%v/%v", bucket, prefix)
-
-	cmd := s5cmd("rm", src)
-	result := icmd.RunCmd(cmd)
-
-	result.Assert(t, icmd.Expected{ExitCode: 1})
-
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: equals(`ERROR "rm %v": source argument must contain wildcard character`, src),
-	})
-}
-
 // rm file
 func TestRemoveSingleLocalFile(t *testing.T) {
 	t.Parallel()
@@ -499,39 +468,6 @@ func TestVariadicRemoveS3Objects(t *testing.T) {
 		err := ensureS3Object(s3client, bucket, filename, content)
 		assertError(t, err, errS3NoSuchKey)
 	}
-}
-
-// rm s3://bucket/object s3://someOtherBucket/object2
-func TestVariadicRemoveS3ObjectsFromDifferentBuckets(t *testing.T) {
-	t.Parallel()
-
-	const errStrDifferentBucket = "one rm command cannot be used for object removal of more than one bucket"
-
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
-
-	bucket := s3BucketFromTestName(t)
-	someOtherBucket := "someotherbucket" + randomString(20)
-
-	createBucket(t, s3client, bucket)
-	createBucket(t, s3client, someOtherBucket)
-
-	putFile(t, s3client, bucket, "file1", "content1")
-	putFile(t, s3client, someOtherBucket, "file2", "content2")
-
-	cmd := s5cmd(
-		"rm",
-		"s3://"+bucket+"/file1",
-		"s3://"+someOtherBucket+"/file2",
-	)
-	result := icmd.RunCmd(cmd)
-
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: contains(errStrDifferentBucket),
-	})
-
-	assert.NilError(t, ensureS3Object(s3client, bucket, "file1", "content1"))
-	assert.NilError(t, ensureS3Object(s3client, someOtherBucket, "file2", "content2"))
 }
 
 // rm s3://bucket/prefix/* s3://bucket/object

@@ -14,6 +14,12 @@ import (
 	"github.com/peak/s5cmd/storage/url"
 )
 
+const (
+	errStrBucketOrPrefix   = "s3 bucket/prefix cannot be used for delete operations (forgot wildcard character?)"
+	errStrLocalAndRemote   = "arguments cannot have both local and remote sources"
+	errStrDifferentBuckets = "one rm command cannot be used for object removal of more than one bucket"
+)
+
 var deleteHelpTemplate = `Name:
 	{{.HelpName}} - {{.Usage}}
 
@@ -142,34 +148,24 @@ func newURLs(sources ...string) ([]*url.URL, error) {
 	return urls, nil
 }
 
-// hasSameBuckets checks whether given urls all correspond to the same
-// bucket or not.
-func hasSameBuckets(urls []*url.URL) bool {
-	var firstBucket string
-	for i, u := range urls {
-		if i == 0 {
-			firstBucket = u.Bucket
-			continue
-		}
-		if u.Bucket != firstBucket {
-			return false
-		}
+func validateRMCommand(c *cli.Context) error {
+	if !c.Args().Present() {
+		return fmt.Errorf("expected at least 1 object to remove")
 	}
-	return true
-}
 
-// sourcesHaveSameType check if given sources share the same object types.
-func sourcesHaveSameType(sources ...string) error {
-	var hasRemote, hasLocal bool
-	for _, src := range sources {
-		srcurl, err := url.New(src)
-		if err != nil {
-			return err
-		}
+	srcurls, err := newURLs(c.Args().Slice()...)
+	if err != nil {
+		return err
+	}
 
+	var (
+		firstBucket         string
+		hasRemote, hasLocal bool
+	)
+	for i, srcurl := range srcurls {
 		// we don't operate on S3 prefixes for copy and delete operations.
 		if srcurl.IsBucket() || srcurl.IsPrefix() {
-			return fmt.Errorf("source argument must contain wildcard character")
+			return fmt.Errorf(errStrBucketOrPrefix)
 		}
 
 		if srcurl.IsRemote() {
@@ -179,28 +175,16 @@ func sourcesHaveSameType(sources ...string) error {
 		}
 
 		if hasLocal && hasRemote {
-			return fmt.Errorf("arguments cannot have both local and remote sources")
+			return fmt.Errorf(errStrLocalAndRemote)
+		}
+		if i == 0 {
+			firstBucket = srcurl.Bucket
+			continue
+		}
+		if srcurl.Bucket != firstBucket {
+			return fmt.Errorf(errStrDifferentBuckets)
 		}
 	}
-	return nil
-}
 
-func validateRMCommand(c *cli.Context) error {
-	if !c.Args().Present() {
-		return fmt.Errorf("expected at least 1 object to remove")
-	}
-
-	src := c.Args().Slice()
-	if err := sourcesHaveSameType(src...); err != nil {
-		return err
-	}
-
-	srcurls, err := newURLs(src...)
-	if err != nil {
-		return err
-	}
-	if !hasSameBuckets(srcurls) {
-		return fmt.Errorf("one rm command cannot be used for object removal of more than one bucket")
-	}
 	return nil
 }

@@ -1,16 +1,19 @@
 package command
 
 import (
+	"flag"
 	"testing"
+
+	"github.com/urfave/cli/v2"
 )
 
-func TestSourcesHaveSameType(t *testing.T) {
+func TestValidateRMCommand(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name    string
-		sources []string
-		wantErr bool
+		name           string
+		sources        []string
+		expectedErrStr string
 	}{
 		{
 			name: "error_if_local_and_remote_mixed",
@@ -18,7 +21,7 @@ func TestSourcesHaveSameType(t *testing.T) {
 				"s3://bucket/key",
 				"filename.txt",
 			},
-			wantErr: true,
+			expectedErrStr: errStrLocalAndRemote,
 		},
 		{
 			name: "error_if_sources_have_bucket",
@@ -26,14 +29,14 @@ func TestSourcesHaveSameType(t *testing.T) {
 				"s3://bucket/key",
 				"s3://bucket",
 			},
-			wantErr: true,
+			expectedErrStr: errStrBucketOrPrefix,
 		},
 		{
 			name: "error_if_sources_have_s3_prefix",
 			sources: []string{
 				"s3://bucket/prefix/",
 			},
-			wantErr: true,
+			expectedErrStr: errStrBucketOrPrefix,
 		},
 		{
 			name: "success",
@@ -42,14 +45,28 @@ func TestSourcesHaveSameType(t *testing.T) {
 				"s3://bucket/wildcard/*.txt",
 			},
 		},
+		{
+			name: "error_if_different_buckets",
+			sources: []string{
+				"s3://bucket/object",
+				"s3://someotherbucket/object",
+			},
+			expectedErrStr: errStrDifferentBuckets,
+		},
 	}
 	for _, tc := range tests {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
+			flagset := flag.NewFlagSet("rm", flag.ExitOnError)
+			if err := flagset.Parse(tc.sources); err != nil {
+				t.Error(err)
+			}
+			ctx := cli.NewContext(app, flagset, nil)
 
-			if err := sourcesHaveSameType(tc.sources...); (err != nil) != tc.wantErr {
-				t.Errorf("checkSources() error = %v, wantErr %v", err, tc.wantErr)
+			err := validateRMCommand(ctx)
+			if (err != nil && err.Error() != tc.expectedErrStr) ||
+				(err == nil && tc.expectedErrStr != "") {
+				t.Errorf("expected_got = %v, error_expected = %v", err, tc.expectedErrStr)
 			}
 		})
 	}

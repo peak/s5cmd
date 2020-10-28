@@ -14,12 +14,6 @@ import (
 	"github.com/peak/s5cmd/storage/url"
 )
 
-const (
-	errStrBucketOrPrefix   = "s3 bucket/prefix cannot be used for delete operations (forgot wildcard character?)"
-	errStrLocalAndRemote   = "arguments cannot have both local and remote sources"
-	errStrDifferentBuckets = "one rm command cannot be used for object removal of more than one bucket"
-)
-
 var deleteHelpTemplate = `Name:
 	{{.HelpName}} - {{.Usage}}
 
@@ -165,7 +159,7 @@ func validateRMCommand(c *cli.Context) error {
 	for i, srcurl := range srcurls {
 		// we don't operate on S3 prefixes for copy and delete operations.
 		if srcurl.IsBucket() || srcurl.IsPrefix() {
-			return fmt.Errorf(errStrBucketOrPrefix)
+			return fmt.Errorf("s3 bucket/prefix cannot be used for delete operations (forgot wildcard character?)")
 		}
 
 		if srcurl.IsRemote() {
@@ -175,14 +169,14 @@ func validateRMCommand(c *cli.Context) error {
 		}
 
 		if hasLocal && hasRemote {
-			return fmt.Errorf(errStrLocalAndRemote)
+			return fmt.Errorf("arguments cannot have both local and remote sources")
 		}
 		if i == 0 {
 			firstBucket = srcurl.Bucket
 			continue
 		}
 		if srcurl.Bucket != firstBucket {
-			return fmt.Errorf(errStrDifferentBuckets)
+			return fmt.Errorf("one rm command cannot be used for object removal of more than one bucket")
 		}
 	}
 

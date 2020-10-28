@@ -21,7 +21,7 @@ func TestValidateRMCommand(t *testing.T) {
 				"s3://bucket/key",
 				"filename.txt",
 			},
-			expectedErrStr: errStrLocalAndRemote,
+			expectedErrStr: "arguments cannot have both local and remote sources",
 		},
 		{
 			name: "error_if_sources_have_bucket",
@@ -29,14 +29,14 @@ func TestValidateRMCommand(t *testing.T) {
 				"s3://bucket/key",
 				"s3://bucket",
 			},
-			expectedErrStr: errStrBucketOrPrefix,
+			expectedErrStr: "s3 bucket/prefix cannot be used for delete operations (forgot wildcard character?)",
 		},
 		{
 			name: "error_if_sources_have_s3_prefix",
 			sources: []string{
 				"s3://bucket/prefix/",
 			},
-			expectedErrStr: errStrBucketOrPrefix,
+			expectedErrStr: "s3 bucket/prefix cannot be used for delete operations (forgot wildcard character?)",
 		},
 		{
 			name: "success",
@@ -51,7 +51,7 @@ func TestValidateRMCommand(t *testing.T) {
 				"s3://bucket/object",
 				"s3://someotherbucket/object",
 			},
-			expectedErrStr: errStrDifferentBuckets,
+			expectedErrStr: "one rm command cannot be used for object removal of more than one bucket",
 		},
 	}
 	for _, tc := range tests {

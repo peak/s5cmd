@@ -10,6 +10,7 @@
 #### Improvements
 - AWS S3 `RequestTimeTooSkewed` request error was not retryable before, it is now. ([205](https://github.com/peak/s5cmd/issues/205))
 - For some operations errors were printed at the end of the program execution. Now, errors are displayed immediately after being detected. ([#136](https://github.com/peak/s5cmd/issues/136))
+- From now on, docker images will be published on Docker Hub. ([#238](https://github.com/peak/s5cmd/issues/238))
 
 #### Bugfixes
 - Fixed incorrect MIME type inference for `cp`, give priority to file extension for type inference. ([#214](https://github.com/peak/s5cmd/issues/214))

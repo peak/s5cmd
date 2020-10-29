@@ -51,7 +51,7 @@ func TestValidateRMCommand(t *testing.T) {
 				"s3://bucket/object",
 				"s3://someotherbucket/object",
 			},
-			expectedErrStr: "one rm command cannot be used for object removal of more than one bucket",
+			expectedErrStr: "removal of objects with different buckets in a single command is not allowed",
 		},
 	}
 	for _, tc := range tests {

@@ -176,7 +176,7 @@ func validateRMCommand(c *cli.Context) error {
 			continue
 		}
 		if srcurl.Bucket != firstBucket {
-			return fmt.Errorf("one rm command cannot be used for object removal of more than one bucket")
+			return fmt.Errorf("removal of objects with different buckets in a single command is not allowed")
 		}
 	}
 

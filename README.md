@@ -1,4 +1,4 @@
-[![Go Report](https://goreportcard.com/badge/github.com/peak/s5cmd)](https://goreportcard.com/report/github.com/peak/s5cmd)
+[![Go Report](https://goreportcard.com/badge/github.com/peak/s5cmd)](https://goreportcard.com/report/github.com/peak/s5cmd) ![Github Actions Status](https://github.com/peak/s5cmd/workflows/CI/badge.svg)
 
 # s5cmd
 
@@ -433,7 +433,6 @@ with `run` command, it is better to just use
 the latter sends single delete request per thousand objects, whereas using the former approach
 sends a separate delete request for each subcommand provided to `run.` Thus, there can be a
 significant runtime difference between those two approaches.
-
 
 
 # LICENSE

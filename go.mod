@@ -3,7 +3,7 @@ module github.com/peak/s5cmd
 go 1.13
 
 require (
-	github.com/aws/aws-sdk-go v1.29.14
+	github.com/aws/aws-sdk-go v1.35.13
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/google/go-cmp v0.4.0
 	github.com/hashicorp/go-multierror v1.0.0
@@ -22,4 +22,4 @@ require (
 	gotest.tools/v3 v3.0.2
 )
 
-replace github.com/johannesboyne/gofakes3 => github.com/igungor/gofakes3 v0.0.4
+replace github.com/johannesboyne/gofakes3 => github.com/igungor/gofakes3 v0.0.5

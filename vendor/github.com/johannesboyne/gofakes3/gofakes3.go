@@ -560,6 +560,7 @@ func (g *GoFakeS3) createObject(bucket, object string, w http.ResponseWriter, r 
 		size = src.Size
 
 		body = src.Contents
+
 	} else {
 		var err error
 		size, err = strconv.ParseInt(r.Header.Get("Content-Length"), 10, 64)

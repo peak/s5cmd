@@ -68,7 +68,7 @@ github.com/hashicorp/go-multierror
 github.com/iancoleman/strcase
 # github.com/jmespath/go-jmespath v0.4.0
 github.com/jmespath/go-jmespath
-# github.com/johannesboyne/gofakes3 v0.0.0-20200716060623-6b2b4cb092cc
+# github.com/johannesboyne/gofakes3 v0.0.0-20191228161223-9aee1c78a252 => github.com/igungor/gofakes3 v0.0.5
 github.com/johannesboyne/gofakes3
 github.com/johannesboyne/gofakes3/backend/s3bolt
 github.com/johannesboyne/gofakes3/backend/s3mem
@@ -96,7 +96,7 @@ github.com/shabbyrobe/gocovmerge
 github.com/shurcooL/sanitized_anchor_name
 # github.com/stretchr/objx v0.1.0
 github.com/stretchr/objx
-# github.com/stretchr/testify v1.5.1
+# github.com/stretchr/testify v1.4.0
 github.com/stretchr/testify/assert
 github.com/stretchr/testify/mock
 # github.com/termie/go-shutil v0.0.0-20140729215957-bcacb06fecae

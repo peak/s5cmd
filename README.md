@@ -4,21 +4,21 @@
 
 ## Overview
 `s5cmd` is a very fast S3 and local filesystem execution tool. It comes with support
-for a multitude of operations including tab completion and wildcard support 
-for files, which can be very handy for your object storage workflow while working 
+for a multitude of operations including tab completion and wildcard support
+for files, which can be very handy for your object storage workflow while working
 with large number of files.
 
 There are already other utilities to work with S3 and similar object storage
 services, thus it is natural to wonder what `s5cmd` has to offer that others don't.
 
-In short, *`s5cmd` offers a very fast speed.* 
+In short, *`s5cmd` offers a very fast speed.*
 Thanks to [Joshua Robinson](https://github.com/joshuarobinson) for his
 study and experimentation on `s5cmd;` to quote his medium [post](https://medium.com/@joshua_robinson/s5cmd-for-high-performance-object-storage-7071352cc09d):
 > For uploads, s5cmd is 32x faster than s3cmd and 12x faster than aws-cli.
 >For downloads, s5cmd can saturate a 40Gbps link (~4.3 GB/s), whereas s3cmd
 >and aws-cli can only reach 85 MB/s and 375 MB/s respectively.
 
-If you would like to know more about performance of `s5cmd` and the 
+If you would like to know more about performance of `s5cmd` and the
 reasons for its fast speed, refer to [benchmarks](./README.md#Benchmarks) section
 ## Features
 ![](./doc/usage.png)
@@ -30,7 +30,7 @@ storage services and local filesystems.
 - Upload, download or delete objects
 - Move, copy or rename objects
 - Set Server Side Encryption using AWS Key Management Service (KMS)
-- Set Access Control List (ACL) for objects/files on the upload, copy, move. 
+- Set Access Control List (ACL) for objects/files on the upload, copy, move.
 - Print object contents to stdout
 - Create buckets
 - Summarize objects sizes, grouping by storage class
@@ -148,15 +148,15 @@ $ tree
 #### Upload a file to S3
 
     s5cmd cp object.gz s3://bucket/
-    
+
  by setting server side encryption (*aws kms*) of the file:
-    
+
     s5cmd cp -sse aws:kms -sse-kms-key-id <your-kms-key-id> object.gz s3://bucket/
-        
+
  by setting Access Control List (*acl*) policy of the object:
 
     s5cmd cp -acl bucket-owner-full-control object.gz s3://bucket/
-    
+
 #### Upload multiple files to S3
 
     s5cmd cp directory/ s3://bucket/
@@ -180,14 +180,14 @@ s3://bucket/logs/2020/03/19/originals/file3.gz
 ```
 
 `s5cmd` utilizes S3 delete batch API. If matching objects are up to 1000,
-they'll be deleted in a single request. However, it should be noted that commands such as 
+they'll be deleted in a single request. However, it should be noted that commands such as
 
     s5cmd rm s3://bucket-foo/object s3://bucket-bar/object
 
-are not supported by `s5cmd` and result in error (since we have 2 different buckets), as it is in odds with the benefit of performing batch delete requests. Thus, if in need, one can use `s5cmd run` mode for this case, i.e, 
+are not supported by `s5cmd` and result in error (since we have 2 different buckets), as it is in odds with the benefit of performing batch delete requests. Thus, if in need, one can use `s5cmd run` mode for this case, i.e,
 
     $ s5cmd run
-    rm s3://bucket-foo/object 
+    rm s3://bucket-foo/object
     rm s3://bucket-bar/object
 
 more details and examples on `s5cmd run` are presented in a [later section](./README.md#L208).
@@ -242,7 +242,7 @@ ls # inline comments are OK too
 ```
 
 ### Dry run
-`--dry-run` flag will output what operations will be performed without actually 
+`--dry-run` flag will output what operations will be performed without actually
 carrying out those operations.
 
     s3://bucket/pre/file1.gz
@@ -259,7 +259,7 @@ will output
     ...
     cp s3://bucket/pre/last.txt s3://anohter-bucket/last.txt
 
-however, those copy operations will not be performed. It is displaying what 
+however, those copy operations will not be performed. It is displaying what
 `s5cmd` will do when ran without `--dry-run`
 
 Note that `--dry-run` can be used with any operation that has a side effect, i.e.,
@@ -337,18 +337,18 @@ ERROR "cp s3://somebucket/file.txt file.txt": object already exists
 * If `--json` flag is provided:
 
 ```json
-    {
-      "operation": "cp",
-      "success": true,
-      "source": "s3://bucket/testfile",
-      "destination": "testfile",
-      "object": "[object]"
-    }
-    {
-      "operation": "cp",
-      "job": "cp s3://somebucket/file.txt file.txt",
-      "error": "'cp s3://somebucket/file.txt file.txt': object already exists"
-    }
+{
+    "operation": "cp",
+    "success": true,
+    "source": "s3://bucket/testfile",
+    "destination": "testfile",
+    "object": "[object]"
+}
+{
+    "operation": "cp",
+    "job": "cp s3://somebucket/file.txt file.txt",
+    "error": "'cp s3://somebucket/file.txt file.txt': object already exists"
+}
 ```
 ## Benchmarks
 Some benchmarks regarding the performance of `s5cmd` are introduced below. For more
@@ -403,18 +403,18 @@ For a more practical scenario, let's say we have an [avocado prices](https://www
 
 ## Beast Mode s5cmd
 
-`s5cmd` allows to pass in some file, containing list of operations to be performed, as an argument to the `run` command as illustrated in the [above](./README.md#L199) example. Alternatively, one can pipe in commands into 
+`s5cmd` allows to pass in some file, containing list of operations to be performed, as an argument to the `run` command as illustrated in the [above](./README.md#L199) example. Alternatively, one can pipe in commands into
 the `run:`
 
-    BUCKET=s5cmd-test; s5cmd ls s3://$BUCKET/*test | grep -v DIR | awk ‘{print $NF}’ 
+    BUCKET=s5cmd-test; s5cmd ls s3://$BUCKET/*test | grep -v DIR | awk ‘{print $NF}’
     | xargs -I {} echo “cp s3://$BUCKET/{} /local/directory/” | s5cmd run
 
 The above command performs two `s5cmd` invocations; first, searches for files with *test* suffix and then creates a *copy to local directory* command for each matching file and finally, pipes in those into the ` run.`
 
-Let's examine another usage instance, where we migrate files older than 
+Let's examine another usage instance, where we migrate files older than
 30 days to a cloud object storage:
 
-    find /mnt/joshua/nachos/ -type f -mtime +30 | xargs -I{} echo “mv {} s3://joshuarobinson/backup/{}” 
+    find /mnt/joshua/nachos/ -type f -mtime +30 | xargs -I{} echo “mv {} s3://joshuarobinson/backup/{}”
     | s5cmd run
 
 It is worth to mention that, `run` command should not be considered as a *silver bullet* for all operations. For example, assume we want to remove the following objects:

@@ -30,7 +30,7 @@ Examples:
 var catCommand = &cli.Command{
 	Name:               "cat",
 	HelpName:           "cat",
-	Usage:              "print remote object's contents to stdout",
+	Usage:              "print remote object content",
 	CustomHelpTemplate: catHelpTemplate,
 	Before: func(c *cli.Context) error {
 		err := validateCatCommand(c)

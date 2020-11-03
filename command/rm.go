@@ -142,18 +142,24 @@ func newURLs(sources ...string) ([]*url.URL, error) {
 	return urls, nil
 }
 
-// sourcesHaveSameType check if given sources share the same object types.
-func sourcesHaveSameType(sources ...string) error {
-	var hasRemote, hasLocal bool
-	for _, src := range sources {
-		srcurl, err := url.New(src)
-		if err != nil {
-			return err
-		}
+func validateRMCommand(c *cli.Context) error {
+	if !c.Args().Present() {
+		return fmt.Errorf("expected at least 1 object to remove")
+	}
 
+	srcurls, err := newURLs(c.Args().Slice()...)
+	if err != nil {
+		return err
+	}
+
+	var (
+		firstBucket         string
+		hasRemote, hasLocal bool
+	)
+	for i, srcurl := range srcurls {
 		// we don't operate on S3 prefixes for copy and delete operations.
 		if srcurl.IsBucket() || srcurl.IsPrefix() {
-			return fmt.Errorf("source argument must contain wildcard character")
+			return fmt.Errorf("s3 bucket/prefix cannot be used for delete operations (forgot wildcard character?)")
 		}
 
 		if srcurl.IsRemote() {
@@ -165,14 +171,14 @@ func sourcesHaveSameType(sources ...string) error {
 		if hasLocal && hasRemote {
 			return fmt.Errorf("arguments cannot have both local and remote sources")
 		}
+		if i == 0 {
+			firstBucket = srcurl.Bucket
+			continue
+		}
+		if srcurl.Bucket != firstBucket {
+			return fmt.Errorf("removal of objects with different buckets in a single command is not allowed")
+		}
 	}
+
 	return nil
-}
-
-func validateRMCommand(c *cli.Context) error {
-	if !c.Args().Present() {
-		return fmt.Errorf("expected at least 1 object to remove")
-	}
-
-	return sourcesHaveSameType(c.Args().Slice()...)
 }

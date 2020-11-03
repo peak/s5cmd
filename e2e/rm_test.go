@@ -271,37 +271,6 @@ func TestRemoveS3PrefixWithoutSlash(t *testing.T) {
 	})
 }
 
-// rm s3://bucket/prefix/
-func TestRemoveS3Prefix(t *testing.T) {
-	t.Parallel()
-
-	bucket := s3BucketFromTestName(t)
-
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
-
-	createBucket(t, s3client, bucket)
-
-	const (
-		filename = "file.txt"
-		content  = "test file"
-	)
-
-	putFile(t, s3client, bucket, filename, content)
-
-	const prefix = "prefix/"
-	src := fmt.Sprintf("s3://%v/%v", bucket, prefix)
-
-	cmd := s5cmd("rm", src)
-	result := icmd.RunCmd(cmd)
-
-	result.Assert(t, icmd.Expected{ExitCode: 1})
-
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: equals(`ERROR "rm %v": source argument must contain wildcard character`, src),
-	})
-}
-
 // rm file
 func TestRemoveSingleLocalFile(t *testing.T) {
 	t.Parallel()

@@ -69,10 +69,10 @@ Examples:
 		 > s5cmd {{.HelpName}} -n -s -u s3://bucket/source-prefix/* s3://bucket/target-prefix/
 
 	11. Perform KMS Server Side Encryption of the object(s) at the destination
-		> s5cmd {{.HelpName}} -sse aws:kms s3://bucket/object s3://target-bucket/prefix/object
+		> s5cmd {{.HelpName}} --sse aws:kms s3://bucket/object s3://target-bucket/prefix/object
 
 	12. Perform KMS-SSE of the object(s) at the destination using customer managed Customer Master Key (CMK) key id
-		> s5cmd {{.HelpName}} -sse aws:kms -sse-kms-key-id <your-kms-key-id> s3://bucket/object s3://target-bucket/prefix/object
+		> s5cmd {{.HelpName}} --sse aws:kms --sse-kms-key-id <your-kms-key-id> s3://bucket/object s3://target-bucket/prefix/object
 `
 
 var copyCommandFlags = []cli.Flag{

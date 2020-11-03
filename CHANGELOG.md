@@ -8,6 +8,7 @@
 - Added cross-region transfer support. Bucket regions are inferred, thus, supporting cross-region transfers and multiple regions in batch mode. ([#155](https://github.com/peak/s5cmd/issues/155))
 
 #### Improvements
+- Requests to different buckets not allowed in `rm` batch operation, i.e., throw an error.
 - AWS S3 `RequestTimeTooSkewed` request error was not retryable before, it is now. ([205](https://github.com/peak/s5cmd/issues/205))
 - For some operations errors were printed at the end of the program execution. Now, errors are displayed immediately after being detected. ([#136](https://github.com/peak/s5cmd/issues/136))
 - From now on, docker images will be published on Docker Hub. ([#238](https://github.com/peak/s5cmd/issues/238))

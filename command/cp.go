@@ -65,7 +65,7 @@ Examples:
 	09. Copy files in a directory to S3 prefix if not found on target
 		 > s5cmd {{.HelpName}} -n -s -u dir/ s3://bucket/target-prefix/
 
-	10. Copy files in a S3 prefix to another S3 prefix if not found on target
+	10. Copy files in an S3 prefix to another S3 prefix if not found on target
 		 > s5cmd {{.HelpName}} -n -s -u s3://bucket/source-prefix/* s3://bucket/target-prefix/
 
 	11. Perform KMS Server Side Encryption of the object(s) at the destination

@@ -1,5 +1,5 @@
+name: ci
 on: [push, pull_request]
-name: CI
 jobs:
   build:
     strategy:

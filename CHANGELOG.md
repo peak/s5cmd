@@ -1,6 +1,8 @@
 # Changelog
 
-## not released yet
+## v1.2.0 - 05 Nov 2020
+
+With this release, `s5cmd` automatically determines region information of destination buckets.
 
 #### Features
 - Added global `--dry-run` option. It displays which command(s) will be executed without actually having a side effect. ([#90](https://github.com/peak/s5cmd/issues/90))

@@ -1,6 +1,6 @@
 # Changelog
 
-## v1.2.0 - 05 Nov 2020
+## v1.2.0 - 5 Nov 2020
 
 With this release, `s5cmd` automatically determines region information of destination buckets.
 

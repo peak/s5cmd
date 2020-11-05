@@ -5,31 +5,37 @@
 With this release, `s5cmd` automatically determines region information of destination buckets.
 
 #### Features
+
 - Added global `--dry-run` option. It displays which command(s) will be executed without actually having a side effect. ([#90](https://github.com/peak/s5cmd/issues/90))
 - Added `--stat` option for `s5cmd` and it displays program execution statistics before the end of the program output. ([#148](https://github.com/peak/s5cmd/issues/148))
 - Added cross-region transfer support. Bucket regions are inferred, thus, supporting cross-region transfers and multiple regions in batch mode. ([#155](https://github.com/peak/s5cmd/issues/155))
 
+#### Bugfixes
+
+- Fixed incorrect MIME type inference for `cp`, give priority to file extension for type inference. ([#214](https://github.com/peak/s5cmd/issues/214))
+- Fixed error reporting issue, where some errors from the `ls` operation were not printed.
+
 #### Improvements
+
 - Requests to different buckets not allowed in `rm` batch operation, i.e., throw an error.
 - AWS S3 `RequestTimeTooSkewed` request error was not retryable before, it is now. ([205](https://github.com/peak/s5cmd/issues/205))
 - For some operations errors were printed at the end of the program execution. Now, errors are displayed immediately after being detected. ([#136](https://github.com/peak/s5cmd/issues/136))
 - From now on, docker images will be published on Docker Hub. ([#238](https://github.com/peak/s5cmd/issues/238))
 - Changed misleading 'mirroring' examples in the help text of `cp`. ([#213](https://github.com/peak/s5cmd/issues/213))
 
-#### Bugfixes
-- Fixed incorrect MIME type inference for `cp`, give priority to file extension for type inference. ([#214](https://github.com/peak/s5cmd/issues/214))
-- Fixed error reporting issue, where some errors from the `ls` operation were not printed.
 
 ## v1.1.0 - 22 Jul 2020
 
 With this release, Windows is supported.
 
 #### Breaking changes
+
 - Dropped storage class short codes display from default behaviour of `ls` operation. Instead, use `-s` flag with `ls`
 to see full names of the storage classes when listing objects.
 
 
 #### Features
+
 - Added Server-side Encryption (SSE) support for mv/cp operations. It uses customer master keys (CMKs) managed by AWS Key Management Service. ([#18](https://github.com/peak/s5cmd/issues/18))
 - Added an option to show full form of [storage class](https://aws.amazon.com/s3/storage-classes/) when listing objects. ([#165](https://github.com/peak/s5cmd/issues/165))
 - Add [access control lists (ACLs)](https://docs.aws.amazon.com/AmazonS3/latest/dev/acl-overview.html)
@@ -47,6 +53,7 @@ support to enable managing access to buckets and objects. ([#26](https://github.
 
 
 #### Improvements
+
 - Retry when connection closed by S3 unexpectedly. ([#189](https://github.com/peak/s5cmd/pull/189)) [@eminugurkenar](https://github.com/eminugurkenar)
 
 ## v1.0.0 - 1 Apr 2020

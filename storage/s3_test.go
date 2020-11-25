@@ -106,7 +106,7 @@ func TestNewSessionWithRegionSetViaEnv(t *testing.T) {
 	}
 }
 
-func TestS3ListSuccess(t *testing.T) {
+func TestS3ListURL(t *testing.T) {
 	url, err := url.New("s3://bucket/key")
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -366,17 +366,17 @@ func TestS3Retry(t *testing.T) {
 
 		// Connection errors
 		{
-			name: "connection reset",
+			name: "ConnectionReset",
 			err:  fmt.Errorf("connection reset by peer"),
 		},
 		{
-			name: "broken pipe",
+			name: "BrokenPipe",
 			err:  fmt.Errorf("broken pipe"),
 		},
 
 		// Unknown errors
 		{
-			name: "an unknown error is also retried by SDK",
+			name: "UnknownSDKError",
 			err:  fmt.Errorf("an error that is not known to the SDK"),
 		},
 	}
@@ -425,23 +425,6 @@ func TestS3Retry(t *testing.T) {
 			}
 		})
 	}
-}
-
-// Credit to aws-sdk-go
-func val(i interface{}, s string) interface{} {
-	v, err := awsutil.ValuesAtPath(i, s)
-	if err != nil || len(v) == 0 {
-		return nil
-	}
-	if _, ok := v[0].(io.Reader); ok {
-		return v[0]
-	}
-
-	if rv := reflect.ValueOf(v[0]); rv.Kind() == reflect.Ptr {
-		return rv.Elem().Interface()
-	}
-
-	return v[0]
 }
 
 func TestS3CopyEncryptionRequest(t *testing.T) {
@@ -506,8 +489,8 @@ func TestS3CopyEncryptionRequest(t *testing.T) {
 				}
 
 				params := r.Params
-				sse := val(params, "ServerSideEncryption")
-				key := val(params, "SSEKMSKeyId")
+				sse := valueAtPath(params, "ServerSideEncryption")
+				key := valueAtPath(params, "SSEKMSKeyId")
 
 				if !(sse == nil && tc.expectedSSE == "") {
 					assert.Equal(t, sse, tc.expectedSSE)
@@ -516,7 +499,7 @@ func TestS3CopyEncryptionRequest(t *testing.T) {
 					assert.Equal(t, key, tc.expectedSSEKeyID)
 				}
 
-				aclVal := val(r.Params, "ACL")
+				aclVal := valueAtPath(r.Params, "ACL")
 
 				if aclVal == nil && tc.expectedAcl == "" {
 					return
@@ -608,8 +591,8 @@ func TestS3PutEncryptionRequest(t *testing.T) {
 				}
 
 				params := r.Params
-				sse := val(params, "ServerSideEncryption")
-				key := val(params, "SSEKMSKeyId")
+				sse := valueAtPath(params, "ServerSideEncryption")
+				key := valueAtPath(params, "SSEKMSKeyId")
 
 				if !(sse == nil && tc.expectedSSE == "") {
 					assert.Equal(t, sse, tc.expectedSSE)
@@ -618,7 +601,7 @@ func TestS3PutEncryptionRequest(t *testing.T) {
 					assert.Equal(t, key, tc.expectedSSEKeyID)
 				}
 
-				aclVal := val(r.Params, "ACL")
+				aclVal := valueAtPath(r.Params, "ACL")
 
 				if aclVal == nil && tc.expectedAcl == "" {
 					return
@@ -695,7 +678,6 @@ func TestS3listObjectsV2(t *testing.T) {
 	mockApi.Handlers.Send.Clear()
 
 	mockApi.Handlers.Send.PushBack(func(r *request.Request) {
-
 		r.HTTPResponse = &http.Response{
 			StatusCode: http.StatusOK,
 			Body:       ioutil.NopCloser(strings.NewReader("")),
@@ -704,7 +686,6 @@ func TestS3listObjectsV2(t *testing.T) {
 		r.Data = &s3.ListObjectsV2Output{
 			Contents: s3objs,
 		}
-
 	})
 
 	mockS3 := &S3{
@@ -724,21 +705,13 @@ func TestS3listObjectsV2(t *testing.T) {
 }
 
 func TestSessionCreateAndCachingWithDifferentBuckets(t *testing.T) {
-
 	testcases := []struct {
 		bucket         string
 		alreadyCreated bool // sessions should not be created again if they already have been created before
 	}{
-		{
-			bucket: "bucket",
-		},
-		{
-			bucket:         "bucket",
-			alreadyCreated: true,
-		},
-		{
-			bucket: "test-bucket",
-		},
+		{bucket: "bucket"},
+		{bucket: "bucket", alreadyCreated: true},
+		{bucket: "test-bucket"},
 	}
 
 	sess := map[string]*session.Session{}
@@ -747,7 +720,6 @@ func TestSessionCreateAndCachingWithDifferentBuckets(t *testing.T) {
 		awsSess, err := sessionProvider.newSession(context.Background(), Options{
 			bucket: tc.bucket,
 		})
-
 		if err != nil {
 			t.Error(err)
 		}
@@ -759,4 +731,20 @@ func TestSessionCreateAndCachingWithDifferentBuckets(t *testing.T) {
 			sess[tc.bucket] = awsSess
 		}
 	}
+}
+
+func valueAtPath(i interface{}, s string) interface{} {
+	v, err := awsutil.ValuesAtPath(i, s)
+	if err != nil || len(v) == 0 {
+		return nil
+	}
+	if _, ok := v[0].(io.Reader); ok {
+		return v[0]
+	}
+
+	if rv := reflect.ValueOf(v[0]); rv.Kind() == reflect.Ptr {
+		return rv.Elem().Interface()
+	}
+
+	return v[0]
 }

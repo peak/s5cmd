@@ -24,6 +24,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager/s3manageriface"
+	"github.com/peak/s5cmd/log"
 	"github.com/peak/s5cmd/storage/url"
 )
 
@@ -678,16 +679,25 @@ func (s *s3Session) newSession(ctx context.Context, opts Options) (*session.Sess
 		sess.Config.Region = aws.String(endpoints.UsEast1RegionID)
 	}
 
-	// get region of the bucket and create session accordingly
-	// if the region is not provided, it means we want region-independent session
-	// for operations such as listing buckets, making a new bucket, ...
+	// get region of the bucket and create session accordingly. if the region
+	// is not provided, it means we want region-independent session
+	// for operations such as listing buckets, making a new bucket etc.
 	if opts.bucket != "" {
-		region, err := s3manager.GetBucketRegion(ctx, sess, opts.bucket, "")
+		region, err := s3manager.GetBucketRegion(ctx, sess, opts.bucket, "", func(r *request.Request) {
+			r.Config.Credentials = sess.Config.Credentials
+		})
 		if err != nil {
-			return nil, err
+			if errHasCode(err, "NotFound") {
+				return nil, err
+			}
+			// don't deny any request to the service if region auto-fetching
+			// receives an error. Delegate error handling to command execution.
+			err = fmt.Errorf("session: fetching region failed: %v", err)
+			msg := log.ErrorMessage{Err: err.Error()}
+			log.Error(msg)
+		} else {
+			sess.Config.Region = aws.String(region)
 		}
-
-		sess.Config.Region = aws.String(region)
 	}
 
 	s.sessions[opts] = sess

@@ -61,7 +61,7 @@ func TestRemoveSingleS3ObjectJSON(t *testing.T) {
 
 	putFile(t, s3client, bucket, filename, content)
 
-	cmd := s5cmd("-json", "rm", "s3://"+bucket+"/"+filename)
+	cmd := s5cmd("--json", "rm", "s3://"+bucket+"/"+filename)
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Success)
@@ -148,7 +148,7 @@ func TestRemoveMultipleS3ObjectsJSON(t *testing.T) {
 		putFile(t, s3client, bucket, filename, content)
 	}
 
-	cmd := s5cmd("-json", "rm", "s3://"+bucket+"/*")
+	cmd := s5cmd("--json", "rm", "s3://"+bucket+"/*")
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Success)

@@ -49,7 +49,7 @@ func TestListBucketsJSON(t *testing.T) {
 	createBucket(t, s3client, bucketPrefix+"-4")
 	createBucket(t, s3client, bucketPrefix+"-3")
 
-	cmd := s5cmd("-json", "ls")
+	cmd := s5cmd("--json", "ls")
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Success)
@@ -103,7 +103,7 @@ func TestListSingleS3ObjectJSON(t *testing.T) {
 	putFile(t, s3client, bucket, "testfile1.txt", "this is a file content")
 	putFile(t, s3client, bucket, "testfile2.txt", "this is also a file content")
 
-	cmd := s5cmd("-json", "ls", "s3://"+bucket+"/testfile1.txt")
+	cmd := s5cmd("--json", "ls", "s3://"+bucket+"/testfile1.txt")
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Success)

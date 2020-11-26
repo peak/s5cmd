@@ -45,7 +45,7 @@ func TestDiskUsageSingleS3ObjectJSON(t *testing.T) {
 	putFile(t, s3client, bucket, "testfile1.txt", "this is a file content")
 	putFile(t, s3client, bucket, "testfile2.txt", "this is also a file content")
 
-	cmd := s5cmd("-json", "du", "s3://"+bucket+"/testfile1.txt")
+	cmd := s5cmd("--json", "du", "s3://"+bucket+"/testfile1.txt")
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Success)

@@ -7,23 +7,19 @@ import (
 	"github.com/peak/s5cmd/strutil"
 )
 
-type JSONMarshaler interface {
-	JSON() string
-}
-
 // Message is an interface to print structured logs.
 type Message interface {
 	fmt.Stringer
-	JSONMarshaler
+	JSON() string
 }
 
 // InfoMessage is a generic message structure for successful operations.
 type InfoMessage struct {
-	Operation   string        `json:"operation"`
-	Success     bool          `json:"success"`
-	Source      *url.URL      `json:"source"`
-	Destination *url.URL      `json:"destination,omitempty"`
-	Object      JSONMarshaler `json:"object,omitempty"`
+	Operation   string   `json:"operation"`
+	Success     bool     `json:"success"`
+	Source      *url.URL `json:"source"`
+	Destination *url.URL `json:"destination,omitempty"`
+	Object      Message  `json:"object,omitempty"`
 }
 
 // String is the string representation of InfoMessage.

@@ -62,10 +62,10 @@ Examples:
 	08. Copy matching S3 objects to another bucket
 		 > s5cmd {{.HelpName}} s3://bucket/*.gz s3://target-bucket/prefix/
 
-	09. Mirror a directory to target S3 prefix
+	09. Copy files in a directory to S3 prefix if not found on target
 		 > s5cmd {{.HelpName}} -n -s -u dir/ s3://bucket/target-prefix/
 
-	10. Mirror an S3 prefix to target S3 prefix
+	10. Copy files in an S3 prefix to another S3 prefix if not found on target
 		 > s5cmd {{.HelpName}} -n -s -u s3://bucket/source-prefix/* s3://bucket/target-prefix/
 
 	11. Perform KMS Server Side Encryption of the object(s) at the destination

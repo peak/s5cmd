@@ -130,7 +130,7 @@ func TestCopySingleS3ObjectToLocalJSON(t *testing.T) {
 
 	putFile(t, s3client, bucket, filename, content)
 
-	cmd := s5cmd("-json", "cp", "s3://"+bucket+"/"+filename, ".")
+	cmd := s5cmd("--json", "cp", "s3://"+bucket+"/"+filename, ".")
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Success)
@@ -392,7 +392,7 @@ func TestCopyMultipleFlatS3ObjectsToLocalJSON(t *testing.T) {
 		putFile(t, s3client, bucket, filename, content)
 	}
 
-	cmd := s5cmd("-json", "cp", "--flatten", "s3://"+bucket+"/*", ".")
+	cmd := s5cmd("--json", "cp", "--flatten", "s3://"+bucket+"/*", ".")
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Success)
@@ -729,7 +729,7 @@ func TestCopySingleFileToS3JSON(t *testing.T) {
 
 	fpath := workdir.Join(filename)
 
-	cmd := s5cmd("-json", "cp", fpath, "s3://"+bucket+"/")
+	cmd := s5cmd("--json", "cp", fpath, "s3://"+bucket+"/")
 	result := icmd.RunCmd(cmd)
 
 	jsonText := `
@@ -1461,7 +1461,7 @@ func TestCopySingleS3ObjectToS3JSON(t *testing.T) {
 	src := fmt.Sprintf("s3://%v/%v", bucket, filename)
 	dst := fmt.Sprintf("s3://%v/%v", bucket, dstfilename)
 
-	cmd := s5cmd("-json", "cp", src, dst)
+	cmd := s5cmd("--json", "cp", src, dst)
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Success)
@@ -1813,7 +1813,7 @@ func TestCopyMultipleS3ObjectsToS3JSON(t *testing.T) {
 	src := fmt.Sprintf("s3://%v/*", bucket)
 	dst := fmt.Sprintf("s3://%v/dst/", bucket)
 
-	cmd := s5cmd("-json", "cp", src, dst)
+	cmd := s5cmd("--json", "cp", src, dst)
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Success)
@@ -1955,7 +1955,7 @@ func TestCopyS3ToLocalWithSameFilenameWithNoClobber(t *testing.T) {
 	// upload a modified version of the file
 	putFile(t, s3client, bucket, filename, content+"\n")
 
-	cmd := s5cmd("-log=debug", "cp", "-n", "s3://"+bucket+"/"+filename, ".")
+	cmd := s5cmd("--log=debug", "cp", "-n", "s3://"+bucket+"/"+filename, ".")
 	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
 
 	result.Assert(t, icmd.Success)
@@ -2078,7 +2078,7 @@ func TestCopyS3ToLocalWithSameFilenameDontOverrideIfS3ObjectIsOlder(t *testing.T
 	workdir := fs.NewDir(t, t.Name(), fs.WithFile(filename, content, timestamp))
 	defer workdir.Remove()
 
-	cmd := s5cmd("-log=debug", "cp", "-n", "-u", "s3://"+bucket+"/"+filename, ".")
+	cmd := s5cmd("--log=debug", "cp", "-n", "-u", "s3://"+bucket+"/"+filename, ".")
 	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
 
 	// '-n' prevents overriding the file, but '-s' overrides '-n' if the file
@@ -2214,7 +2214,7 @@ func TestCopyLocalFileToS3WithSameFilenameWithNoClobber(t *testing.T) {
 	workdir := fs.NewDir(t, t.Name(), fs.WithFile(filename, newContent))
 	defer workdir.Remove()
 
-	cmd := s5cmd("-log=debug", "cp", "-n", filename, "s3://"+bucket)
+	cmd := s5cmd("--log=debug", "cp", "-n", filename, "s3://"+bucket)
 	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
 
 	result.Assert(t, icmd.Success)
@@ -2386,7 +2386,7 @@ func TestCopyLocalFileToS3WithSameFilenameDontOverrideIfS3ObjectIsOlder(t *testi
 	workdir := fs.NewDir(t, t.Name(), fs.WithFile(filename, expectedContent, timestamp))
 	defer workdir.Remove()
 
-	cmd := s5cmd("-log=debug", "cp", "-n", "-u", filename, "s3://"+bucket)
+	cmd := s5cmd("--log=debug", "cp", "-n", "-u", filename, "s3://"+bucket)
 	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
 
 	// '-n' prevents overriding the file, but '-u' overrides '-n' if the file

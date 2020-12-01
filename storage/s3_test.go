@@ -707,6 +707,7 @@ func TestS3listObjectsV2(t *testing.T) {
 }
 
 func TestSessionCreateAndCachingWithDifferentBuckets(t *testing.T) {
+	log.Init("error", false)
 	testcases := []struct {
 		bucket         string
 		alreadyCreated bool // sessions should not be created again if they already have been created before

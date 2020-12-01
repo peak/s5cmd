@@ -604,8 +604,8 @@ func (s *S3) MakeBucket(ctx context.Context, name string) error {
 	return err
 }
 
-// s3Session holds session.Session according to s3Opts
-// and it synchronizes access/modification.
+// SessionCache holds session.Session according to s3Opts and it synchronizes
+// access/modification.
 type SessionCache struct {
 	sync.Mutex
 	sessions map[Options]*session.Session

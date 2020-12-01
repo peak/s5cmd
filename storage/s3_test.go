@@ -762,8 +762,7 @@ func TestSessionAutoRegion(t *testing.T) {
 	unitSession := func() *session.Session {
 		return session.Must(session.NewSession(&aws.Config{
 			Credentials: credentials.NewStaticCredentials("AKID", "SECRET", "SESSION"),
-			// Region:      aws.String("mock-region"),
-			SleepDelay: func(time.Duration) {},
+			SleepDelay:  func(time.Duration) {},
 		}))
 	}
 

@@ -18,6 +18,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/awsutil"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/awstesting/unit"
@@ -26,6 +27,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"gotest.tools/v3/assert"
 
+	"github.com/peak/s5cmd/log"
 	"github.com/peak/s5cmd/storage/url"
 )
 
@@ -74,7 +76,7 @@ func TestNewSessionPathStyle(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 
 			opts := Options{Endpoint: tc.endpoint.Hostname()}
-			sess, err := sessionProvider.newSession(context.Background(), opts)
+			sess, err := globalSessionCache.newSession(context.Background(), opts)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -88,14 +90,14 @@ func TestNewSessionPathStyle(t *testing.T) {
 }
 
 func TestNewSessionWithRegionSetViaEnv(t *testing.T) {
-	sessionProvider.clear()
+	globalSessionCache.clear()
 
 	const expectedRegion = "us-west-2"
 
 	os.Setenv("AWS_REGION", expectedRegion)
 	defer os.Unsetenv("AWS_REGION")
 
-	sess, err := sessionProvider.newSession(context.Background(), Options{})
+	sess, err := globalSessionCache.newSession(context.Background(), Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -717,7 +719,7 @@ func TestSessionCreateAndCachingWithDifferentBuckets(t *testing.T) {
 	sess := map[string]*session.Session{}
 
 	for _, tc := range testcases {
-		awsSess, err := sessionProvider.newSession(context.Background(), Options{
+		awsSess, err := globalSessionCache.newSession(context.Background(), Options{
 			bucket: tc.bucket,
 		})
 		if err != nil {
@@ -730,6 +732,111 @@ func TestSessionCreateAndCachingWithDifferentBuckets(t *testing.T) {
 		} else {
 			sess[tc.bucket] = awsSess
 		}
+	}
+}
+
+func TestSessionAutoRegionValidateCredentials(t *testing.T) {
+	awsSess := unit.Session
+	awsSess.Handlers.Unmarshal.Clear()
+	awsSess.Handlers.Send.Clear()
+	awsSess.Handlers.Send.PushBack(func(r *request.Request) {
+		header := http.Header{}
+		header.Set("X-Amz-Bucket-Region", "")
+		r.HTTPResponse = &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     header,
+		}
+
+		if r.Config.Credentials != awsSess.Config.Credentials {
+			t.Error("session credentials are expected to be used during HeadBucket request")
+		}
+	})
+
+	_ = setSessionRegion(context.Background(), awsSess, "bucket")
+}
+
+func TestSessionAutoRegion(t *testing.T) {
+	log.Init("error", false)
+
+	unitSession := func() *session.Session {
+		return session.Must(session.NewSession(&aws.Config{
+			Credentials: credentials.NewStaticCredentials("AKID", "SECRET", "SESSION"),
+			// Region:      aws.String("mock-region"),
+			SleepDelay: func(time.Duration) {},
+		}))
+	}
+
+	testcases := []struct {
+		name              string
+		bucket            string
+		region            string
+		status            int
+		expectedRegion    string
+		expectedErrorCode string
+	}{
+		{
+			name:           "NoLocationConstraint",
+			bucket:         "bucket",
+			region:         "",
+			status:         http.StatusOK,
+			expectedRegion: "us-east-1",
+		},
+		{
+			name:           "LocationConstraintDefaultRegion",
+			bucket:         "bucket",
+			region:         "us-east-1",
+			status:         http.StatusOK,
+			expectedRegion: "us-east-1",
+		},
+		{
+			name:           "LocationConstraintAnotherRegion",
+			bucket:         "bucket",
+			region:         "us-west-2",
+			status:         http.StatusOK,
+			expectedRegion: "us-west-2",
+		},
+		{
+			name:              "BucketNotFoundErrorMustFail",
+			bucket:            "bucket",
+			status:            http.StatusNotFound,
+			expectedRegion:    "us-east-1",
+			expectedErrorCode: "NotFound",
+		},
+		{
+			name:           "AccessDeniedErrorMustNotFail",
+			bucket:         "bucket",
+			status:         http.StatusForbidden,
+			expectedRegion: "us-east-1",
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			awsSess := unitSession()
+			awsSess.Handlers.Unmarshal.Clear()
+			awsSess.Handlers.Send.Clear()
+			awsSess.Handlers.Send.PushBack(func(r *request.Request) {
+				header := http.Header{}
+				if tc.region != "" {
+					header.Set("X-Amz-Bucket-Region", tc.region)
+				}
+				r.HTTPResponse = &http.Response{
+					StatusCode: tc.status,
+					Header:     header,
+					Body:       ioutil.NopCloser(strings.NewReader("")),
+				}
+			})
+
+			err := setSessionRegion(context.Background(), awsSess, tc.bucket)
+			if tc.expectedErrorCode != "" && !errHasCode(err, tc.expectedErrorCode) {
+				t.Errorf("expected error code: %v, got error: %v", tc.expectedErrorCode, err)
+				return
+			}
+
+			if expected, got := tc.expectedRegion, aws.StringValue(awsSess.Config.Region); expected != got {
+				t.Errorf("expected: %v, got: %v", expected, got)
+			}
+		})
 	}
 }
 

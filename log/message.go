@@ -3,7 +3,6 @@ package log
 import (
 	"fmt"
 
-	"github.com/peak/s5cmd/storage"
 	"github.com/peak/s5cmd/storage/url"
 	"github.com/peak/s5cmd/strutil"
 )
@@ -16,11 +15,11 @@ type Message interface {
 
 // InfoMessage is a generic message structure for successful operations.
 type InfoMessage struct {
-	Operation   string          `json:"operation"`
-	Success     bool            `json:"success"`
-	Source      *url.URL        `json:"source"`
-	Destination *url.URL        `json:"destination,omitempty"`
-	Object      *storage.Object `json:"object,omitempty"`
+	Operation   string   `json:"operation"`
+	Success     bool     `json:"success"`
+	Source      *url.URL `json:"source"`
+	Destination *url.URL `json:"destination,omitempty"`
+	Object      Message  `json:"object,omitempty"`
 }
 
 // String is the string representation of InfoMessage.

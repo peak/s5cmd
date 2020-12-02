@@ -24,6 +24,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager/s3manageriface"
+	"github.com/peak/s5cmd/log"
 	"github.com/peak/s5cmd/storage/url"
 )
 
@@ -42,7 +43,7 @@ const (
 )
 
 // Re-used AWS sessions dramatically improve performance.
-var sessionProvider = &s3Session{
+var globalSessionCache = &SessionCache{
 	sessions: map[Options]*session.Session{},
 }
 
@@ -80,7 +81,7 @@ func newS3Storage(ctx context.Context, opts Options) (*S3, error) {
 		return nil, err
 	}
 
-	awsSession, err := sessionProvider.newSession(ctx, opts)
+	awsSession, err := globalSessionCache.newSession(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -603,20 +604,20 @@ func (s *S3) MakeBucket(ctx context.Context, name string) error {
 	return err
 }
 
-// s3Session holds session.Session according to s3Opts
-// and it synchronizes access/modification.
-type s3Session struct {
+// SessionCache holds session.Session according to s3Opts and it synchronizes
+// access/modification.
+type SessionCache struct {
 	sync.Mutex
 	sessions map[Options]*session.Session
 }
 
 // newSession initializes a new AWS session with region fallback and custom
 // options.
-func (s *s3Session) newSession(ctx context.Context, opts Options) (*session.Session, error) {
-	s.Lock()
-	defer s.Unlock()
+func (sc *SessionCache) newSession(ctx context.Context, opts Options) (*session.Session, error) {
+	sc.Lock()
+	defer sc.Unlock()
 
-	if sess, ok := s.sessions[opts]; ok {
+	if sess, ok := sc.sessions[opts]; ok {
 		return sess, nil
 	}
 
@@ -674,31 +675,49 @@ func (s *s3Session) newSession(ctx context.Context, opts Options) (*session.Sess
 		return nil, err
 	}
 
-	if aws.StringValue(sess.Config.Region) == "" {
-		sess.Config.Region = aws.String(endpoints.UsEast1RegionID)
+	// get region of the bucket and create session accordingly. if the region
+	// is not provided, it means we want region-independent session
+	// for operations such as listing buckets, making a new bucket etc.
+	if err := setSessionRegion(ctx, sess, opts.bucket); err != nil {
+		return nil, err
 	}
 
-	// get region of the bucket and create session accordingly
-	// if the region is not provided, it means we want region-independent session
-	// for operations such as listing buckets, making a new bucket, ...
-	if opts.bucket != "" {
-		region, err := s3manager.GetBucketRegion(ctx, sess, opts.bucket, "")
-		if err != nil {
-			return nil, err
-		}
-
-		sess.Config.Region = aws.String(region)
-	}
-
-	s.sessions[opts] = sess
+	sc.sessions[opts] = sess
 
 	return sess, nil
 }
 
-func (s *s3Session) clear() {
-	s.Lock()
-	defer s.Unlock()
-	s.sessions = map[Options]*session.Session{}
+func (sc *SessionCache) clear() {
+	sc.Lock()
+	defer sc.Unlock()
+	sc.sessions = map[Options]*session.Session{}
+}
+
+func setSessionRegion(ctx context.Context, sess *session.Session, bucket string) error {
+	if aws.StringValue(sess.Config.Region) == "" {
+		sess.Config.Region = aws.String(endpoints.UsEast1RegionID)
+	}
+
+	if bucket == "" {
+		return nil
+	}
+
+	region, err := s3manager.GetBucketRegion(ctx, sess, bucket, "", func(r *request.Request) {
+		r.Config.Credentials = sess.Config.Credentials
+	})
+	if err != nil {
+		if errHasCode(err, "NotFound") {
+			return err
+		}
+		// don't deny any request to the service if region auto-fetching
+		// receives an error. Delegate error handling to command execution.
+		err = fmt.Errorf("session: fetching region failed: %v", err)
+		msg := log.ErrorMessage{Err: err.Error()}
+		log.Error(msg)
+	} else {
+		sess.Config.Region = aws.String(region)
+	}
+	return nil
 }
 
 // customRetryer wraps the SDK's built in DefaultRetryer adding additional
@@ -715,8 +734,8 @@ func newCustomRetryer(maxRetries int) *customRetryer {
 	}
 }
 
-// ShouldRetry overrides the SDK's built in DefaultRetryer adding customization
-// to retry S3 InternalError code.
+// ShouldRetry overrides SDK's built in DefaultRetryer, adding custom retry
+// logics that are not included in the SDK.
 func (c *customRetryer) ShouldRetry(req *request.Request) bool {
 	if errHasCode(req.Error, "InternalError") || errHasCode(req.Error, "RequestTimeTooSkewed") {
 		return true

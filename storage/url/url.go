@@ -260,7 +260,7 @@ func (u *URL) SetRelative(base string) {
 	u.relativePath, _ = filepath.Rel(dir, u.Absolute())
 }
 
-// Match checks if given key matches with the object.
+// Match reports whether if given key matches with the object.
 func (u *URL) Match(key string) bool {
 	if !u.filterRegex.MatchString(key) {
 		return false
@@ -288,7 +288,7 @@ func (u *URL) MarshalJSON() ([]byte, error) {
 	return json.Marshal(u.String())
 }
 
-// HasGlob checks if a string contains any wildcard chars.
+// HasGlob reports whether if a string contains any wildcard chars.
 func (u *URL) HasGlob() bool {
 	return hasGlobCharacter(u.Path)
 }
@@ -343,7 +343,7 @@ func parseNonBatch(prefix string, key string) string {
 	return trimmedKey
 }
 
-// hasGlobCharacter checks if a string contains any wildcard chars.
+// hasGlobCharacter reports whether if a string contains any wildcard chars.
 func hasGlobCharacter(s string) bool {
 	return strings.ContainsAny(s, globCharacters)
 }

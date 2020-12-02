@@ -18,6 +18,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/awsutil"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/awstesting/unit"
@@ -26,6 +27,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"gotest.tools/v3/assert"
 
+	"github.com/peak/s5cmd/log"
 	"github.com/peak/s5cmd/storage/url"
 )
 
@@ -74,7 +76,7 @@ func TestNewSessionPathStyle(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 
 			opts := Options{Endpoint: tc.endpoint.Hostname()}
-			sess, err := sessionProvider.newSession(context.Background(), opts)
+			sess, err := globalSessionCache.newSession(context.Background(), opts)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -88,14 +90,14 @@ func TestNewSessionPathStyle(t *testing.T) {
 }
 
 func TestNewSessionWithRegionSetViaEnv(t *testing.T) {
-	sessionProvider.clear()
+	globalSessionCache.clear()
 
 	const expectedRegion = "us-west-2"
 
 	os.Setenv("AWS_REGION", expectedRegion)
 	defer os.Unsetenv("AWS_REGION")
 
-	sess, err := sessionProvider.newSession(context.Background(), Options{})
+	sess, err := globalSessionCache.newSession(context.Background(), Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -106,7 +108,7 @@ func TestNewSessionWithRegionSetViaEnv(t *testing.T) {
 	}
 }
 
-func TestS3ListSuccess(t *testing.T) {
+func TestS3ListURL(t *testing.T) {
 	url, err := url.New("s3://bucket/key")
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -366,17 +368,17 @@ func TestS3Retry(t *testing.T) {
 
 		// Connection errors
 		{
-			name: "connection reset",
+			name: "ConnectionReset",
 			err:  fmt.Errorf("connection reset by peer"),
 		},
 		{
-			name: "broken pipe",
+			name: "BrokenPipe",
 			err:  fmt.Errorf("broken pipe"),
 		},
 
 		// Unknown errors
 		{
-			name: "an unknown error is also retried by SDK",
+			name: "UnknownSDKError",
 			err:  fmt.Errorf("an error that is not known to the SDK"),
 		},
 	}
@@ -425,23 +427,6 @@ func TestS3Retry(t *testing.T) {
 			}
 		})
 	}
-}
-
-// Credit to aws-sdk-go
-func val(i interface{}, s string) interface{} {
-	v, err := awsutil.ValuesAtPath(i, s)
-	if err != nil || len(v) == 0 {
-		return nil
-	}
-	if _, ok := v[0].(io.Reader); ok {
-		return v[0]
-	}
-
-	if rv := reflect.ValueOf(v[0]); rv.Kind() == reflect.Ptr {
-		return rv.Elem().Interface()
-	}
-
-	return v[0]
 }
 
 func TestS3CopyEncryptionRequest(t *testing.T) {
@@ -506,8 +491,8 @@ func TestS3CopyEncryptionRequest(t *testing.T) {
 				}
 
 				params := r.Params
-				sse := val(params, "ServerSideEncryption")
-				key := val(params, "SSEKMSKeyId")
+				sse := valueAtPath(params, "ServerSideEncryption")
+				key := valueAtPath(params, "SSEKMSKeyId")
 
 				if !(sse == nil && tc.expectedSSE == "") {
 					assert.Equal(t, sse, tc.expectedSSE)
@@ -516,7 +501,7 @@ func TestS3CopyEncryptionRequest(t *testing.T) {
 					assert.Equal(t, key, tc.expectedSSEKeyID)
 				}
 
-				aclVal := val(r.Params, "ACL")
+				aclVal := valueAtPath(r.Params, "ACL")
 
 				if aclVal == nil && tc.expectedAcl == "" {
 					return
@@ -608,8 +593,8 @@ func TestS3PutEncryptionRequest(t *testing.T) {
 				}
 
 				params := r.Params
-				sse := val(params, "ServerSideEncryption")
-				key := val(params, "SSEKMSKeyId")
+				sse := valueAtPath(params, "ServerSideEncryption")
+				key := valueAtPath(params, "SSEKMSKeyId")
 
 				if !(sse == nil && tc.expectedSSE == "") {
 					assert.Equal(t, sse, tc.expectedSSE)
@@ -618,7 +603,7 @@ func TestS3PutEncryptionRequest(t *testing.T) {
 					assert.Equal(t, key, tc.expectedSSEKeyID)
 				}
 
-				aclVal := val(r.Params, "ACL")
+				aclVal := valueAtPath(r.Params, "ACL")
 
 				if aclVal == nil && tc.expectedAcl == "" {
 					return
@@ -695,7 +680,6 @@ func TestS3listObjectsV2(t *testing.T) {
 	mockApi.Handlers.Send.Clear()
 
 	mockApi.Handlers.Send.PushBack(func(r *request.Request) {
-
 		r.HTTPResponse = &http.Response{
 			StatusCode: http.StatusOK,
 			Body:       ioutil.NopCloser(strings.NewReader("")),
@@ -704,7 +688,6 @@ func TestS3listObjectsV2(t *testing.T) {
 		r.Data = &s3.ListObjectsV2Output{
 			Contents: s3objs,
 		}
-
 	})
 
 	mockS3 := &S3{
@@ -724,30 +707,22 @@ func TestS3listObjectsV2(t *testing.T) {
 }
 
 func TestSessionCreateAndCachingWithDifferentBuckets(t *testing.T) {
-
+	log.Init("error", false)
 	testcases := []struct {
 		bucket         string
 		alreadyCreated bool // sessions should not be created again if they already have been created before
 	}{
-		{
-			bucket: "bucket",
-		},
-		{
-			bucket:         "bucket",
-			alreadyCreated: true,
-		},
-		{
-			bucket: "test-bucket",
-		},
+		{bucket: "bucket"},
+		{bucket: "bucket", alreadyCreated: true},
+		{bucket: "test-bucket"},
 	}
 
 	sess := map[string]*session.Session{}
 
 	for _, tc := range testcases {
-		awsSess, err := sessionProvider.newSession(context.Background(), Options{
+		awsSess, err := globalSessionCache.newSession(context.Background(), Options{
 			bucket: tc.bucket,
 		})
-
 		if err != nil {
 			t.Error(err)
 		}
@@ -759,4 +734,124 @@ func TestSessionCreateAndCachingWithDifferentBuckets(t *testing.T) {
 			sess[tc.bucket] = awsSess
 		}
 	}
+}
+
+func TestSessionAutoRegionValidateCredentials(t *testing.T) {
+	awsSess := unit.Session
+	awsSess.Handlers.Unmarshal.Clear()
+	awsSess.Handlers.Send.Clear()
+	awsSess.Handlers.Send.PushBack(func(r *request.Request) {
+		header := http.Header{}
+		header.Set("X-Amz-Bucket-Region", "")
+		r.HTTPResponse = &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     header,
+		}
+
+		if r.Config.Credentials != awsSess.Config.Credentials {
+			t.Error("session credentials are expected to be used during HeadBucket request")
+		}
+	})
+
+	_ = setSessionRegion(context.Background(), awsSess, "bucket")
+}
+
+func TestSessionAutoRegion(t *testing.T) {
+	log.Init("error", false)
+
+	unitSession := func() *session.Session {
+		return session.Must(session.NewSession(&aws.Config{
+			Credentials: credentials.NewStaticCredentials("AKID", "SECRET", "SESSION"),
+			SleepDelay:  func(time.Duration) {},
+		}))
+	}
+
+	testcases := []struct {
+		name              string
+		bucket            string
+		region            string
+		status            int
+		expectedRegion    string
+		expectedErrorCode string
+	}{
+		{
+			name:           "NoLocationConstraint",
+			bucket:         "bucket",
+			region:         "",
+			status:         http.StatusOK,
+			expectedRegion: "us-east-1",
+		},
+		{
+			name:           "LocationConstraintDefaultRegion",
+			bucket:         "bucket",
+			region:         "us-east-1",
+			status:         http.StatusOK,
+			expectedRegion: "us-east-1",
+		},
+		{
+			name:           "LocationConstraintAnotherRegion",
+			bucket:         "bucket",
+			region:         "us-west-2",
+			status:         http.StatusOK,
+			expectedRegion: "us-west-2",
+		},
+		{
+			name:              "BucketNotFoundErrorMustFail",
+			bucket:            "bucket",
+			status:            http.StatusNotFound,
+			expectedRegion:    "us-east-1",
+			expectedErrorCode: "NotFound",
+		},
+		{
+			name:           "AccessDeniedErrorMustNotFail",
+			bucket:         "bucket",
+			status:         http.StatusForbidden,
+			expectedRegion: "us-east-1",
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			awsSess := unitSession()
+			awsSess.Handlers.Unmarshal.Clear()
+			awsSess.Handlers.Send.Clear()
+			awsSess.Handlers.Send.PushBack(func(r *request.Request) {
+				header := http.Header{}
+				if tc.region != "" {
+					header.Set("X-Amz-Bucket-Region", tc.region)
+				}
+				r.HTTPResponse = &http.Response{
+					StatusCode: tc.status,
+					Header:     header,
+					Body:       ioutil.NopCloser(strings.NewReader("")),
+				}
+			})
+
+			err := setSessionRegion(context.Background(), awsSess, tc.bucket)
+			if tc.expectedErrorCode != "" && !errHasCode(err, tc.expectedErrorCode) {
+				t.Errorf("expected error code: %v, got error: %v", tc.expectedErrorCode, err)
+				return
+			}
+
+			if expected, got := tc.expectedRegion, aws.StringValue(awsSess.Config.Region); expected != got {
+				t.Errorf("expected: %v, got: %v", expected, got)
+			}
+		})
+	}
+}
+
+func valueAtPath(i interface{}, s string) interface{} {
+	v, err := awsutil.ValuesAtPath(i, s)
+	if err != nil || len(v) == 0 {
+		return nil
+	}
+	if _, ok := v[0].(io.Reader); ok {
+		return v[0]
+	}
+
+	if rv := reflect.ValueOf(v[0]); rv.Kind() == reflect.Ptr {
+		return rv.Elem().Interface()
+	}
+
+	return v[0]
 }

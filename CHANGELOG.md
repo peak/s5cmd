@@ -1,5 +1,15 @@
 # Changelog
 
+## not released yet
+
+
+## v1.2.1 - 2 Dec 2020
+
+#### Bugfixes
+
+- Fixed a bug where HeadBucket request fails during region information retrieval. ([#251](https://github.com/peak/s5cmd/issues/251), [#252](https://github.com/peak/s5cmd/issues/252))
+
+
 ## v1.2.0 - 5 Nov 2020
 
 With this release, `s5cmd` automatically determines region information of destination buckets.

@@ -2,26 +2,24 @@
 class S5cmd < Formula
   desc "Parallel S3 and local filesystem execution tool"
   homepage "https://github.com/peak/s5cmd"
-  version "1.2.0"
+  version "1.2.1"
   bottle :unneeded
 
   if OS.mac?
-    url "https://github.com/peak/s5cmd/releases/download/v1.2.0/s5cmd_1.2.0_macOS-64bit.tar.gz"
-    sha256 "acab3f12b76e703f62be35dfb603269618eaafcfe1d6039fc6877df88ff7d0af"
-  elsif OS.linux?
-    if Hardware::CPU.intel?
-      url "https://github.com/peak/s5cmd/releases/download/v1.2.0/s5cmd_1.2.0_Linux-64bit.tar.gz"
-      sha256 "ae6f16aa76a3bbb4203fe4533d866d15555905c415e82841f1394ea55770b9dc"
-    end
-    if Hardware::CPU.arm?
-      if Hardware::CPU.is_64_bit?
-        url "https://github.com/peak/s5cmd/releases/download/v1.2.0/s5cmd_1.2.0_Linux-arm64.tar.gz"
-        sha256 "783db5d163c49826283e12b57112b60458055da30cac445ec62ead14edf0deeb"
-      else
-        url "https://github.com/peak/s5cmd/releases/download/v1.2.0/s5cmd_1.2.0_Linux-armv6.tar.gz"
-        sha256 "5e371311adc5fd5310f36a68702270d58e682cc9abd1f08058a5e28345a2c6b8"
-      end
-    end
+    url "https://github.com/peak/s5cmd/releases/download/v1.2.1/s5cmd_1.2.1_macOS-64bit.tar.gz"
+    sha256 "419b0f38823c64becdd61ccfc22e53b64f7983484f529ffd9a6f67a8cad1fa3a"
+  end
+  if OS.linux? && Hardware::CPU.intel?
+    url "https://github.com/peak/s5cmd/releases/download/v1.2.1/s5cmd_1.2.1_Linux-64bit.tar.gz"
+    sha256 "b4c598c810b914b2e8a1949976459e02b5ce6413371a19ba2b5b5e8492139895"
+  end
+  if OS.linux? && Hardware::CPU.arm? && !Hardware::CPU.is_64_bit?
+    url "https://github.com/peak/s5cmd/releases/download/v1.2.1/s5cmd_1.2.1_Linux-armv6.tar.gz"
+    sha256 "08e4969e60cae061e25aa322fd385aa25843ff85fb2c0dde3d583e3bc022a510"
+  end
+  if OS.linux? && Hardware::CPU.arm? && Hardware::CPU.is_64_bit?
+    url "https://github.com/peak/s5cmd/releases/download/v1.2.1/s5cmd_1.2.1_Linux-arm64.tar.gz"
+    sha256 "7d8f269540e9f28c7ec6490ca0f7b0348b40046239c1aac08d9b30e95b605961"
   end
 
   def install

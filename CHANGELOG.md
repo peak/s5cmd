@@ -3,7 +3,11 @@
 ## not released yet
 
 
-## v1.2.1 - 2 Dec 2020
+## v1.2.1 - 3 Dec 2020
+
+#### Improvements
+
+- Statically link `s5cmd` in Docker image ([#250](https://github.com/peak/s5cmd/issues/250))
 
 #### Bugfixes
 

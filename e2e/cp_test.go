@@ -2402,6 +2402,48 @@ func TestCopyLocalFileToS3WithSameFilenameDontOverrideIfS3ObjectIsOlder(t *testi
 	assert.NilError(t, ensureS3Object(s3client, bucket, filename, content))
 }
 
+// cp file s3://bucket/
+func TestCopyLocalFileToS3WithFilePermissions(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	const (
+		filename = "testfile1.txt"
+		content  = "this is the content"
+	)
+
+	fileModes := []os.FileMode{0400, 0440, 0444, 0600, 0640, 0644, 0700, 0750, 0755}
+
+	for _, fileMode := range fileModes {
+		s3client, s5cmd, cleanup := setup(t)
+		defer cleanup()
+
+		createBucket(t, s3client, bucket)
+
+		workdir := fs.NewDir(t, t.Name(), fs.WithFile(filename, content, fs.WithMode(fileMode)))
+		defer workdir.Remove()
+
+		dstpath := fmt.Sprintf("s3://%v/%v", bucket, filename)
+
+		cmd := s5cmd("cp", filename, dstpath)
+		result := icmd.RunCmd(cmd, withWorkingDir(workdir))
+
+		result.Assert(t, icmd.Success)
+
+		assertLines(t, result.Stdout(), map[int]compareFunc{
+			0: equals(`cp %v %v`, filename, dstpath),
+		})
+
+		// assert local filesystem
+		expected := fs.Expected(t, fs.WithFile(filename, content, fs.WithMode(fileMode)))
+		assert.Assert(t, fs.Equal(workdir.Path(), expected))
+
+		// assert s3 object
+		assert.Assert(t, ensureS3Object(s3client, bucket, filename, content))
+	}
+}
+
 // cp file s3://bucket/object
 func TestCopyLocalFileToS3WithCustomName(t *testing.T) {
 	t.Parallel()

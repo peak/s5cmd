@@ -215,7 +215,7 @@ func (f *Filesystem) Create(path string) (*os.File, error) {
 
 // Open opens the given source.
 func (f *Filesystem) Open(path string) (*os.File, error) {
-	file, err := os.OpenFile(path, os.O_RDWR, 0644)
+	file, err := os.OpenFile(path, os.O_RDONLY, 0644)
 	if err != nil {
 		return nil, err
 	}

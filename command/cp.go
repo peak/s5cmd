@@ -384,7 +384,6 @@ func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) 
 	if err != nil {
 		return err
 	}
-
 	defer file.Close()
 
 	size, err := srcClient.Get(ctx, srcurl, file, c.concurrency, c.partSize)
@@ -417,7 +416,6 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 	if err != nil {
 		return err
 	}
-
 	defer file.Close()
 
 	err = c.shouldOverride(ctx, srcurl, dsturl)

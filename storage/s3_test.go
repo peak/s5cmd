@@ -286,7 +286,7 @@ func TestS3ListContextCancelled(t *testing.T) {
 }
 
 func TestS3Retry(t *testing.T) {
-	log.Init("error", false)
+	log.Init("debug", false)
 
 	testcases := []struct {
 		name string

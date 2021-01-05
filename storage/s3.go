@@ -744,8 +744,8 @@ func (c *customRetryer) ShouldRetry(req *request.Request) bool {
 
 	if shouldRetry && req.Error != nil {
 		err := fmt.Errorf("retryable error: %v", req.Error)
-		msg := log.ErrorMessage{Err: err.Error()}
-		log.Error(msg)
+		msg := log.DebugMessage{Err: err.Error()}
+		log.Debug(msg)
 	}
 
 	return shouldRetry

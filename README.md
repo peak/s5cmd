@@ -309,6 +309,7 @@ server-side throttling errors. Non-retriable errors, such as `invalid
 credentials`, `authorization errors` etc, will not be retried. By default,
 `s5cmd` will retry 10 times for up to a minute. Number of retries are adjustable
 via `--retry-count` flag.
+ℹ️ Enable debug level logging for displaying retryable errors.
 
 ## Using wildcards
 

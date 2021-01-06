@@ -737,11 +737,18 @@ func newCustomRetryer(maxRetries int) *customRetryer {
 // ShouldRetry overrides SDK's built in DefaultRetryer, adding custom retry
 // logics that are not included in the SDK.
 func (c *customRetryer) ShouldRetry(req *request.Request) bool {
-	if errHasCode(req.Error, "InternalError") || errHasCode(req.Error, "RequestTimeTooSkewed") {
-		return true
+	shouldRetry := errHasCode(req.Error, "InternalError") || errHasCode(req.Error, "RequestTimeTooSkewed")
+	if !shouldRetry {
+		shouldRetry = c.DefaultRetryer.ShouldRetry(req)
 	}
 
-	return c.DefaultRetryer.ShouldRetry(req)
+	if shouldRetry && req.Error != nil {
+		err := fmt.Errorf("retryable error: %v", req.Error)
+		msg := log.DebugMessage{Err: err.Error()}
+		log.Debug(msg)
+	}
+
+	return shouldRetry
 }
 
 var insecureHTTPClient = &http.Client{

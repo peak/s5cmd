@@ -310,6 +310,8 @@ credentials`, `authorization errors` etc, will not be retried. By default,
 `s5cmd` will retry 10 times for up to a minute. Number of retries are adjustable
 via `--retry-count` flag.
 
+ℹ️ Enable debug level logging for displaying retryable errors.
+
 ## Using wildcards
 
 Most shells can attempt to expand wildcards before passing the arguments to

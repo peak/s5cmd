@@ -10,8 +10,6 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
-
-	"github.com/thoas/go-funk"
 )
 
 const (
@@ -182,10 +180,10 @@ func (u *URL) remoteURL() string {
 
 	if u.Path != "" {
 		pathElements := regexp.MustCompile(`/`).Split(u.Path, -1)
-		encodedElements := funk.Map(pathElements, func(element string) string {
-			return url.QueryEscape(element)
-		}).([]string)
-		s += "/" + strings.Join(encodedElements, `/`)
+		for i, element := range pathElements {
+			pathElements[i] = url.QueryEscape(element)
+		}
+		s += "/" + strings.Join(pathElements, `/`)
 	}
 
 	return s

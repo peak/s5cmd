@@ -4,11 +4,14 @@ package url
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"path"
 	"path/filepath"
 	"regexp"
 	"runtime"
 	"strings"
+
+	"github.com/thoas/go-funk"
 )
 
 const (
@@ -178,7 +181,11 @@ func (u *URL) remoteURL() string {
 	}
 
 	if u.Path != "" {
-		s += "/" + u.Path
+		pathElements := regexp.MustCompile(`/`).Split(u.Path, -1)
+		encodedElements := funk.Map(pathElements, func(element string) string {
+			return url.QueryEscape(element)
+		}).([]string)
+		s += "/" + strings.Join(encodedElements, `/`)
 	}
 
 	return s

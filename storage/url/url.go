@@ -4,7 +4,6 @@ package url
 import (
 	"encoding/json"
 	"fmt"
-	"net/url"
 	"path"
 	"path/filepath"
 	"regexp"
@@ -179,11 +178,7 @@ func (u *URL) remoteURL() string {
 	}
 
 	if u.Path != "" {
-		pathElements := regexp.MustCompile(`/`).Split(u.Path, -1)
-		for i, element := range pathElements {
-			pathElements[i] = url.QueryEscape(element)
-		}
-		s += "/" + strings.Join(pathElements, `/`)
+		s += "/" + u.Path
 	}
 
 	return s

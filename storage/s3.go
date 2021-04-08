@@ -9,7 +9,6 @@ import (
 	"net/http"
 	urlpkg "net/url"
 	"os"
-	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -349,7 +348,7 @@ func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata Metadata) err
 }
 
 func escapeKey(sourceKey string) string {
-	sourceKeyElements := regexp.MustCompile(`/`).Split(sourceKey, -1)
+	sourceKeyElements := strings.Split(sourceKey, "/")
 	for i, element := range sourceKeyElements {
 		sourceKeyElements[i] = urlpkg.QueryEscape(element)
 	}

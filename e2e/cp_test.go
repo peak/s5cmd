@@ -1679,10 +1679,10 @@ func TestCopyAllObjectsIntoAnotherBucketIncludingSpecialCharacter(t *testing.T) 
 	result := icmd.RunCmd(cmd)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(`cp s3://%v/sub&@$/test+1.txt s3://%v/sub&@$/test+1.txt`, srcbucket, dst),
-		1: equals(`cp s3://%v/sub/this-is-normal-file.txt s3://%v/sub/this-is-normal-file.txt`, srcbucket, dst),
-		2: equals(`cp s3://%v/sub:,?/test; =2.txt s3://%v/sub:,?/test; =2.txt`, srcbucket, dst),
-		3: equals(`cp s3://%v/test&@$:,?;= 3.txt s3://%v/test&@$:,?;= 3.txt`, srcbucket, dst),
+		0: equals(`cp s3://%v/sub&@$/test+1.txt s3://%v/sub&@$/test+1.txt`, srcbucket, dstbucket),
+		1: equals(`cp s3://%v/sub/this-is-normal-file.txt s3://%v/sub/this-is-normal-file.txt`, srcbucket, dstbucket),
+		2: equals(`cp s3://%v/sub:,?/test; =2.txt s3://%v/sub:,?/test; =2.txt`, srcbucket, dstbucket),
+		3: equals(`cp s3://%v/test&@$:,?;= 3.txt s3://%v/test&@$:,?;= 3.txt`, srcbucket, dstbucket),
 	}, sortInput(true))
 }
 

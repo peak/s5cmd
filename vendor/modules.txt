@@ -47,8 +47,6 @@ github.com/aws/aws-sdk-go/service/s3/s3manager
 github.com/aws/aws-sdk-go/service/s3/s3manager/s3manageriface
 github.com/aws/aws-sdk-go/service/sts
 github.com/aws/aws-sdk-go/service/sts/stsiface
-# github.com/boltdb/bolt v1.3.1
-github.com/boltdb/bolt
 # github.com/cpuguy83/go-md2man/v2 v2.0.0-20190314233015-f79a8a8ca69d
 github.com/cpuguy83/go-md2man/v2/md2man
 # github.com/davecgh/go-spew v1.1.1
@@ -68,7 +66,7 @@ github.com/hashicorp/go-multierror
 github.com/iancoleman/strcase
 # github.com/jmespath/go-jmespath v0.4.0
 github.com/jmespath/go-jmespath
-# github.com/johannesboyne/gofakes3 v0.0.0-20191228161223-9aee1c78a252 => github.com/igungor/gofakes3 v0.0.5
+# github.com/johannesboyne/gofakes3 v0.0.0-20210415062230-4b6b67a85d38
 github.com/johannesboyne/gofakes3
 github.com/johannesboyne/gofakes3/backend/s3bolt
 github.com/johannesboyne/gofakes3/backend/s3mem
@@ -90,7 +88,7 @@ github.com/posener/complete/cmd/install
 github.com/russross/blackfriday/v2
 # github.com/ryszard/goskiplist v0.0.0-20150312221310-2dfbae5fcf46
 github.com/ryszard/goskiplist/skiplist
-# github.com/shabbyrobe/gocovmerge v0.0.0-20180507124511-f6ea450bfb63
+# github.com/shabbyrobe/gocovmerge v0.0.0-20190829150210-3e036491d500
 github.com/shabbyrobe/gocovmerge
 # github.com/shurcooL/sanitized_anchor_name v1.0.0
 github.com/shurcooL/sanitized_anchor_name
@@ -103,11 +101,14 @@ github.com/stretchr/testify/mock
 github.com/termie/go-shutil
 # github.com/urfave/cli/v2 v2.2.0
 github.com/urfave/cli/v2
-# golang.org/x/sys v0.0.0-20190422165155-953cdadca894
+# go.etcd.io/bbolt v1.3.5
+go.etcd.io/bbolt
+# golang.org/x/sys v0.0.0-20210119212857-b64e53b001e4
+golang.org/x/sys/internal/unsafeheader
 golang.org/x/sys/unix
-# golang.org/x/tools v0.0.0-20190624222133-a101b041ded4
+# golang.org/x/tools v0.1.0
 golang.org/x/tools/cover
-# golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543
+# golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1
 golang.org/x/xerrors
 golang.org/x/xerrors/internal
 # gopkg.in/mgo.v2 v2.0.0-20180705113604-9856a29383ce

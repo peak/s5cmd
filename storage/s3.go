@@ -316,7 +316,7 @@ func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata Metadata) err
 	}
 
 	// SDK expects CopySource like "bucket[/key]"
-	copySource := escapeKey(strings.TrimPrefix(from.String(), "s3://"))
+	copySource := from.GetCopySource()
 
 	input := &s3.CopyObjectInput{
 		Bucket:     aws.String(to.Bucket),
@@ -345,14 +345,6 @@ func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata Metadata) err
 
 	_, err := s.api.CopyObject(input)
 	return err
-}
-
-func escapeKey(sourceKey string) string {
-	sourceKeyElements := strings.Split(sourceKey, "/")
-	for i, element := range sourceKeyElements {
-		sourceKeyElements[i] = urlpkg.QueryEscape(element)
-	}
-	return strings.Join(sourceKeyElements, `/`)
 }
 
 // Read fetches the remote object and returns its contents as an io.ReadCloser.

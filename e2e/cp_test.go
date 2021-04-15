@@ -1678,6 +1678,7 @@ func TestCopyAllObjectsIntoAnotherBucketIncludingSpecialCharacter(t *testing.T) 
 	cmd := s5cmd("cp", src, dst)
 	result := icmd.RunCmd(cmd)
 
+	result.Assert(t, icmd.Success)
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(`cp s3://%v/sub&@$/test+1.txt s3://%v/sub&@$/test+1.txt`, srcbucket, dstbucket),
 		1: equals(`cp s3://%v/sub/this-is-normal-file.txt s3://%v/sub/this-is-normal-file.txt`, srcbucket, dstbucket),

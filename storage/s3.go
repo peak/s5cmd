@@ -651,8 +651,6 @@ func (sc *SessionCache) newSession(ctx context.Context, opts Options) (*session.
 		WithS3UseAccelerate(useAccelerate).
 		WithHTTPClient(httpClient)
 
-	awsCfg.Retryer = newCustomRetryer(opts.MaxRetries)
-
 	useSharedConfig := session.SharedConfigEnable
 	{
 		// Reverse of what the SDK does: if AWS_SDK_LOAD_CONFIG is 0 (or a
@@ -681,6 +679,9 @@ func (sc *SessionCache) newSession(ctx context.Context, opts Options) (*session.
 	if err := setSessionRegion(ctx, sess, opts.bucket); err != nil {
 		return nil, err
 	}
+
+	// Apply custom retry logic for the bulk of the operations
+	awsCfg.Retryer = newCustomRetryer(opts.MaxRetries)
 
 	sc.sessions[opts] = sess
 

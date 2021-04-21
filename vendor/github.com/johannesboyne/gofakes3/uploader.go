@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math/big"
 	"net/url"
-	"strings"
 	"sync"
 	"time"
 
@@ -500,7 +499,7 @@ func (mpu *multipartUpload) Reassemble(input *CompleteMultipartUploadRequest) (b
 		}
 
 		upPart := mpu.parts[inPart.PartNumber]
-		if strings.Trim(inPart.ETag, "\"") != strings.Trim(upPart.ETag, "\"") {
+		if inPart.ETag != upPart.ETag {
 			return nil, "", ErrorMessagef(ErrInvalidPart, "unexpected part etag for number %d in complete request", inPart.PartNumber)
 		}
 

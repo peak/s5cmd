@@ -316,7 +316,7 @@ func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata Metadata) err
 	}
 
 	// SDK expects CopySource like "bucket[/key]"
-	copySource := from.GetCopySource()
+	copySource := from.EscapedPath()
 
 	input := &s3.CopyObjectInput{
 		Bucket:     aws.String(to.Bucket),

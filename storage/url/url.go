@@ -349,11 +349,11 @@ func hasGlobCharacter(s string) bool {
 	return strings.ContainsAny(s, globCharacters)
 }
 
-func (u *URL) GetCopySource() string {
+func (u *URL) EscapedPath() string {
 	sourceKey := strings.TrimPrefix(u.String(), "s3://")
 	sourceKeyElements := strings.Split(sourceKey, "/")
 	for i, element := range sourceKeyElements {
 		sourceKeyElements[i] = url.QueryEscape(element)
 	}
-	return strings.Join(sourceKeyElements, `/`)
+	return strings.Join(sourceKeyElements, "/")
 }

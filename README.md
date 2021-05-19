@@ -59,7 +59,7 @@ For macOS, a [homebrew](https://brew.sh) tap is provided:
 
 ### Build from source
 
-You can build `s5cmd` from source if you have [Go](https://golang.org/dl/) 1.13+
+You can build `s5cmd` from source if you have [Go](https://golang.org/dl/) 1.14+
 installed.
 
     go get github.com/peak/s5cmd

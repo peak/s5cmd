@@ -22,7 +22,7 @@ func TestAppRetryCount(t *testing.T) {
 		{
 			name:             "retry_count_negative",
 			retry:            -1,
-			expectedError:    fmt.Errorf(`ERROR " ": retry count cannot be a negative value`),
+			expectedError:    fmt.Errorf(`ERROR retry count cannot be a negative value`),
 			expectedExitCode: 1,
 		},
 		{

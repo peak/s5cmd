@@ -2,6 +2,16 @@
 
 ## not released yet
 
+#### Improvements
+
+- If retryable errors are received during command execution, users now can see what's happening under the hood. ([#261](https://github.com/peak/s5cmd/pull/261))
+- Update documentation about the AWS_PROFILE environment variable. ([#275](https://github.com/peak/s5cmd/pull/275)) [@davebiffuk](https://github.com/davebiffuk)
+
+#### Bugfixes
+
+- Fixed a bug where write-bit was required to upload a file. ([#258](https://github.com/peak/s5cmd/issues/258))
+- Fixed a bug where object could not be found if S3 key contains certain special characters. ([#279](https://github.com/peak/s5cmd/issues/279)) [@khacminh](https://github.com/khacminh)
+
 
 ## v1.2.1 - 3 Dec 2020
 

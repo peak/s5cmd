@@ -11,6 +11,7 @@
 
 - Fixed a bug where write-bit was required to upload a file. ([#258](https://github.com/peak/s5cmd/issues/258))
 - Fixed a bug where object could not be found if S3 key contains certain special characters. ([#279](https://github.com/peak/s5cmd/issues/279)) [@khacminh](https://github.com/khacminh)
+- `s5cmd exits with code `1` if given command is not found. It was `0` before. ([#295](https://github.com/peak/s5cmd/issues/295))
 
 
 ## v1.2.1 - 3 Dec 2020

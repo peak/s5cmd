@@ -87,6 +87,17 @@ var app = &cli.App{
 
 		return nil
 	},
+	CommandNotFound: func(c *cli.Context, command string) {
+		msg := log.ErrorMessage{
+			Command: command,
+			Err:     "command not found",
+		}
+		log.Error(msg)
+
+		// After callback is not called if app exists with cli.Exit.
+		parallel.Close()
+		log.Close()
+	},
 	Action: func(c *cli.Context) error {
 		if c.Bool("install-completion") {
 			if cmpinstall.IsInstalled(appName) {
@@ -94,6 +105,12 @@ var app = &cli.App{
 			}
 
 			return cmpinstall.Install(appName)
+		}
+
+		args := c.Args()
+		if args.Present() {
+			cli.ShowCommandHelp(c, args.First())
+			return cli.Exit("", 1)
 		}
 
 		return cli.ShowAppHelp(c)

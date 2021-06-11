@@ -76,10 +76,24 @@ func TestAppDashStat(t *testing.T) {
 	cmd := s5cmd("--stat", "ls")
 	result := icmd.RunCmd(cmd)
 
-	result.Assert(t, icmd.Expected{ExitCode: 0})
+	result.Assert(t, icmd.Success)
 
 	out := result.Stdout()
 
 	tsv := fmt.Sprintf("%s\t%s\t%s\t%s\t", "Operation", "Total", "Error", "Success")
 	assert.Assert(t, strings.Contains(out, tsv))
+}
+
+func TestAppUnknownCommand(t *testing.T) {
+	_, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	cmd := s5cmd("unknown-command")
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Expected{ExitCode: 1})
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: equals(`ERROR "unknown-command": command not found`),
+	})
 }

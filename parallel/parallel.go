@@ -14,6 +14,7 @@ type Task func() error
 
 // Manager is a structure for running tasks in parallel.
 type Manager struct {
+	Size      int
 	wg        *sync.WaitGroup
 	semaphore chan bool
 }
@@ -29,6 +30,7 @@ func New(workercount int) *Manager {
 	}
 
 	return &Manager{
+		Size:      workercount,
 		wg:        &sync.WaitGroup{},
 		semaphore: make(chan bool, workercount),
 	}

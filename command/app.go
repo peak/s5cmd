@@ -150,6 +150,7 @@ func Main(ctx context.Context, args []string) error {
 		moveCommand,
 		makeBucketCommand,
 		removeBucketCommand,
+		selectCommand,
 		sizeCommand,
 		catCommand,
 		runCommand,

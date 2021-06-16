@@ -17,3 +17,7 @@ func Close() { global.Close() }
 
 // Run runs global ParallelManager.
 func Run(task Task, waiter *Waiter) { global.Run(task, waiter) }
+
+func Size() int {
+	return global.Size
+}

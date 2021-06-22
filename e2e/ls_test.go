@@ -151,7 +151,7 @@ func TestListS3ObjectsWithDashS(t *testing.T) {
 	createBucket(t, s3client, bucket)
 	putFile(t, s3client, bucket, "testfile1.txt", "this is a file content")
 
-	cmd := s5cmd("ls -s", "s3://"+bucket+"/testfile1.txt")
+	cmd := s5cmd("ls", "-s", "s3://"+bucket+"/testfile1.txt")
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Success)

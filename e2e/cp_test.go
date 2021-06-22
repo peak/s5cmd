@@ -1646,6 +1646,47 @@ func TestCopySingleS3ObjectIntoAnotherBucketWithPrefix(t *testing.T) {
 	assert.Assert(t, ensureS3Object(s3client, bucket, "prefix/"+filename, content))
 }
 
+// cp s3://bucket/* s3://dstbucket/
+func TestCopyAllObjectsIntoAnotherBucketIncludingSpecialCharacter(t *testing.T) {
+	t.Parallel()
+
+	const (
+		srcbucket = "bucket"
+		dstbucket = "dstbucket"
+	)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, srcbucket)
+	createBucket(t, s3client, dstbucket)
+
+	filesToContent := map[string]string{
+		"sub&@$/test+1.txt":           "this is a test file 1",
+		"sub:,?/test; =2.txt":         "this is a test file 2",
+		"test&@$:,?;= 3.txt":          "this is a test file 3",
+		"sub/this-is-normal-file.txt": "this is a normal file",
+	}
+
+	for filename, content := range filesToContent {
+		putFile(t, s3client, srcbucket, filename, content)
+	}
+
+	src := fmt.Sprintf("s3://%v/*", srcbucket)
+	dst := fmt.Sprintf("s3://%v/", dstbucket)
+
+	cmd := s5cmd("cp", src, dst)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`cp s3://%v/sub&@$/test+1.txt s3://%v/sub&@$/test+1.txt`, srcbucket, dstbucket),
+		1: equals(`cp s3://%v/sub/this-is-normal-file.txt s3://%v/sub/this-is-normal-file.txt`, srcbucket, dstbucket),
+		2: equals(`cp s3://%v/sub:,?/test; =2.txt s3://%v/sub:,?/test; =2.txt`, srcbucket, dstbucket),
+		3: equals(`cp s3://%v/test&@$:,?;= 3.txt s3://%v/test&@$:,?;= 3.txt`, srcbucket, dstbucket),
+	}, sortInput(true))
+}
+
 // cp s3://bucket/* s3://bucket/prefix/
 func TestCopyMultipleS3ObjectsToS3WithPrefix(t *testing.T) {
 	t.Parallel()

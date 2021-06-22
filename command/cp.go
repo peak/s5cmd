@@ -785,5 +785,10 @@ func guessContentType(file *os.File) string {
 }
 
 func givenCommand(c *cli.Context) string {
-	return fmt.Sprintf("%v %v", c.Command.FullName(), strings.Join(c.Args().Slice(), " "))
+	cmd := c.Command.FullName()
+	if c.Args().Len() > 0 {
+		cmd = fmt.Sprintf("%v %v", cmd, strings.Join(c.Args().Slice(), " "))
+	}
+
+	return cmd
 }

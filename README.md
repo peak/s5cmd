@@ -59,7 +59,7 @@ For macOS, a [homebrew](https://brew.sh) tap is provided:
 
 ### Build from source
 
-You can build `s5cmd` from source if you have [Go](https://golang.org/dl/) 1.13+
+You can build `s5cmd` from source if you have [Go](https://golang.org/dl/) 1.14+
 installed.
 
     go get github.com/peak/s5cmd
@@ -271,7 +271,8 @@ cp, mv, rm, mb ...
 requests to AWS. Credentials can be provided in a variety of ways:
 
 - Environment variables
-- AWS credentials file
+- AWS credentials file, including profile selection via `AWS_PROFILE` environment
+  variable
 - If `s5cmd` runs on an Amazon EC2 instance, EC2 IAM role
 - If `s5cmd` runs on EKS, Kube IAM role
 

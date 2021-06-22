@@ -2,12 +2,15 @@ package command
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
 
+	"github.com/hashicorp/go-multierror"
 	"github.com/urfave/cli/v2"
 
+	errorpkg "github.com/peak/s5cmd/error"
 	"github.com/peak/s5cmd/log/stat"
 	"github.com/peak/s5cmd/parallel"
 	"github.com/peak/s5cmd/storage"
@@ -40,7 +43,7 @@ var selectCommandFlags = []cli.Flag{
 		Value: "NONE",
 	},
 	&cli.StringFlag{
-		Name: "format",
+		Name:  "format",
 		Usage: "Format of input data in storage",
 		Value: "JSON",
 	},
@@ -104,40 +107,86 @@ func (s Select) Run(ctx context.Context) error {
 		return err
 	}
 
-	// TODO: fix prefix support?
+	ctx, cancel := context.WithCancel(ctx)
+
 	objch, err := expandSource(ctx, client, false, srcurl)
 	if err != nil {
 		printError(s.fullCommand, s.op, err)
 		return err
 	}
 
-	err = s.doSelect(ctx, objch)
-	if err != nil {
-		printError(s.fullCommand, s.op, err)
+	var merror error
+
+	waiter := parallel.NewWaiter()
+	errDoneCh := make(chan bool)
+	writeDoneCh := make(chan bool)
+	resultCh := make(chan json.RawMessage, 128)
+
+	go func() {
+		defer close(errDoneCh)
+		for err := range waiter.Err() {
+			printError(s.fullCommand, s.op, err)
+			merror = multierror.Append(merror, err)
+		}
+	}()
+
+	go func() {
+		defer close(writeDoneCh)
+		var fatalError error
+		for {
+			record, ok := <-resultCh
+			if !ok {
+				break
+			}
+			if fatalError != nil {
+				// Drain the channel.
+				continue
+			}
+			if _, err := os.Stdout.Write(append(record, '\n')); err != nil {
+				// Stop reading upstream. Notably useful for EPIPE.
+				cancel()
+				printError(s.fullCommand, s.op, err)
+				fatalError = err
+			}
+		}
+	}()
+
+	for object := range objch {
+		if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) {
+			continue
+		}
+
+		if err := object.Err; err != nil {
+			printError(s.fullCommand, s.op, err)
+			continue
+		}
+
+		if object.StorageClass.IsGlacier() {
+			err := fmt.Errorf("object '%v' is on Glacier storage", object)
+			printError(s.fullCommand, s.op, err)
+			continue
+		}
+
+		task := s.prepareTask(ctx, client, object.URL, resultCh)
+		parallel.Run(task, waiter)
 	}
-	return err
+
+	waiter.Wait()
+	<-errDoneCh
+
+	return merror
 }
 
-// doSelect
-func (s Select) doSelect(ctx context.Context, objch <-chan *storage.Object) error {
-	// set as remote storage
-	url := &url.URL{Type: 0}
-	client, err := storage.NewRemoteClient(ctx, url, s.storageOpts)
-	if err != nil {
-		return err
-	}
+func (s Select) prepareTask(ctx context.Context, client *storage.S3, url *url.URL, resultCh chan<- json.RawMessage) func() error {
+	return func() error {
+		query := &storage.SelectQuery{
+			ExpressionType:  "SQL",
+			Expression:      s.query,
+			CompressionType: s.compressionType,
+		}
 
-	query := storage.Query{
-		ExpressionType:  "SQL",
-		Expression:      s.query,
-		CompressionType: s.compressionType,
+		return client.Select(ctx, url, query, resultCh)
 	}
-	err = client.Select(ctx, objch, os.Stdout, &query, parallel.Size())
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
 
 func validateSelectCommand(c *cli.Context) error {

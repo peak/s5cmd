@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/urfave/cli/v2"
 
@@ -24,7 +25,7 @@ Options:
 	{{end}}
 Examples:
 	01. Search for all JSON objects with the foo property set to 'bar' and spit them into stdout
-		 > s5cmd {{.HelpName}} --compression-type gzip --query "SELECT * FROM S3Object s WHERE s.foo='bar'" s3://bucket/*
+		 > s5cmd {{.HelpName}} --compression gzip --query "SELECT * FROM S3Object s WHERE s.foo='bar'" s3://bucket/*
 `
 
 var selectCommandFlags = []cli.Flag{
@@ -34,8 +35,14 @@ var selectCommandFlags = []cli.Flag{
 		Usage:   "SQL expression to use to select from the objects",
 	},
 	&cli.StringFlag{
-		Name:  "compression-type",
+		Name:  "compression",
 		Usage: "Type of compression used in storage",
+		Value: "NONE",
+	},
+	&cli.StringFlag{
+		Name: "format",
+		Usage: "Format of input data in storage",
+		Value: "JSON",
 	},
 }
 
@@ -61,7 +68,7 @@ var selectCommand = &cli.Command{
 			fullCommand: givenCommand(c),
 			// flags
 			query:           c.String("query"),
-			compressionType: c.String("compression-type"),
+			compressionType: c.String("compression"),
 
 			storageOpts: NewStorageOpts(c),
 		}.Run(c.Context)
@@ -130,16 +137,6 @@ func (s Select) doSelect(ctx context.Context, objch <-chan *storage.Object) erro
 		return err
 	}
 
-	// msg := log.InfoMessage{
-	// 	Operation:   c.op,
-	// 	Source:      srcurl,
-	// 	Destination: dsturl,
-	// 	Object: &storage.Object{
-	// 		Size: size,
-	// 	},
-	// }
-	// log.Info(msg)
-
 	return nil
 }
 
@@ -157,6 +154,10 @@ func validateSelectCommand(c *cli.Context) error {
 
 	if !srcurl.IsRemote() {
 		return fmt.Errorf("source must be remote")
+	}
+
+	if strings.ToUpper(c.String("format")) != "JSON" {
+		return fmt.Errorf("only json supported")
 	}
 
 	return nil

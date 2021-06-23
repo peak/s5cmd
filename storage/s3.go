@@ -15,8 +15,6 @@ import (
 	"sync"
 	"time"
 
-	// "github.com/segmentio/encoding/json"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/client"
@@ -413,7 +411,6 @@ func (s *S3) selectStream(resp *s3.SelectObjectContentOutput, resultch chan<- *S
 	}()
 
 	decoder := json.NewDecoder(reader)
-	// decoder.DontCopyRawMessage()
 	for {
 		var record json.RawMessage
 		err := decoder.Decode(&record)
@@ -480,16 +477,6 @@ type Query struct {
 	CompressionType string
 }
 
-func writev(to io.Writer, vector ...[]byte) (err error) {
-	for _, vec := range vector {
-		_, err = to.Write(vec)
-		if err != nil {
-			break
-		}
-	}
-	return
-}
-
 func (s *S3) Select(ctx context.Context, objch <-chan *Object, to io.Writer, query *Query, concurrency int) error {
 	if s.dryRun {
 		return nil
@@ -507,10 +494,6 @@ func (s *S3) Select(ctx context.Context, objch <-chan *Object, to io.Writer, que
 		OutputSerialization: &s3.OutputSerialization{
 			JSON: &s3.JSONOutput{},
 		},
-		// RequestProgress: &s3.RequestProgress{
-		// 	// TODO: conditionally enable? for larger objects? ?
-		// 	Enabled: false,
-		// },
 	}
 
 	workerCtx, cancel := context.WithCancel(ctx)
@@ -541,7 +524,7 @@ func (s *S3) Select(ctx context.Context, objch <-chan *Object, to io.Writer, que
 			if fatalError != nil {
 				continue
 			}
-			if err := writev(to, record.Record, []byte{'\n'}); err != nil {
+			if _, err := to.Write(append(record.Record, '\n')); err != nil {
 				cancel()
 				fatalError = err
 				os.Stderr.Write([]byte(fmt.Sprintf("error writing: %v\n", err)))

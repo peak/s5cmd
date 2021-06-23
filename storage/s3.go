@@ -678,7 +678,7 @@ func (sc *SessionCache) newSession(ctx context.Context, opts Options) (*session.
 	// get region of the bucket and create session accordingly. if the region
 	// is not provided, it means we want region-independent session
 	// for operations such as listing buckets, making a new bucket etc.
-	// Only get region when it is specified
+	// only get bucket region when it is not specified.
 	if len(opts.region) > 0 {
 		sess.Config.Region = aws.String(opts.region)
 	} else {

@@ -39,12 +39,12 @@ var selectCommandFlags = []cli.Flag{
 	},
 	&cli.StringFlag{
 		Name:  "compression",
-		Usage: "Type of compression used in storage",
+		Usage: "input compression format",
 		Value: "NONE",
 	},
 	&cli.StringFlag{
 		Name:  "format",
-		Usage: "Format of input data in storage",
+		Usage: "input data format",
 		Value: "JSON",
 	},
 }
@@ -52,7 +52,7 @@ var selectCommandFlags = []cli.Flag{
 var selectCommand = &cli.Command{
 	Name:               "select",
 	HelpName:           "select",
-	Usage:              "select objects containing JSON using a SQL query",
+	Usage:              "run SQL queries on objects",
 	Flags:              selectCommandFlags,
 	CustomHelpTemplate: selectHelpTemplate,
 	Before: func(c *cli.Context) error {

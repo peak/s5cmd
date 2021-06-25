@@ -108,6 +108,24 @@ func TestNewSessionWithRegionSetViaEnv(t *testing.T) {
 	}
 }
 
+func TestNewSessionWithNoSignRequest(t *testing.T) {
+	globalSessionCache.clear()
+
+	sess, err := globalSessionCache.newSession(context.Background(), Options{
+		NoSignRequest: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got := sess.Config.Credentials
+	expected := credentials.AnonymousCredentials
+
+	if expected != got {
+		t.Fatalf("expected %v, got %v", expected, got)
+	}
+}
+
 func TestS3ListURL(t *testing.T) {
 	url, err := url.New("s3://bucket/key")
 	if err != nil {

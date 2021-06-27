@@ -66,7 +66,7 @@ var app = &cli.App{
 		},
 		&cli.BoolFlag{
 			Name:  "no-sign-request",
-			Usage: "do not sign requests",
+			Usage: "do not sign requests: credentials will not be loaded if --no-sign-request is provided",
 		},
 	},
 	Before: func(c *cli.Context) error {

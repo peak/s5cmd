@@ -2,6 +2,10 @@
 
 ## not released yet
 
+#### Features
+
+- Added global `--no-sign-request` flag. API requests won't be signed and credentials won't be used if this option is provided. It is useful for accessing public buckets. ([#285](https://github.com/peak/s5cmd/issues/285))
+
 #### Improvements
 
 - If retryable errors are received during command execution, users now can see what's happening under the hood. ([#261](https://github.com/peak/s5cmd/pull/261))

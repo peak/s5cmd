@@ -129,12 +129,12 @@ var copyCommandFlags = []cli.Flag{
 		Usage: "set acl for target: defines granted accesses and their types on different accounts/groups",
 	},
 	&cli.StringFlag{
-		Name:  "src-region",
-		Usage: "set the region of source bucket: only useful when the correct region info cannot be fetched",
+		Name:  "source-region",
+		Usage: "set the region of source bucket; the region of the source bucket will be automatically discovered if --source-region is not specified",
 	},
 	&cli.StringFlag{
-		Name:  "dst-region",
-		Usage: "set the region of destination bucket: only useful when the correct region info cannot be fetched",
+		Name:  "destination-region",
+		Usage: "set the region of destination bucket: the region of the destination bucket will be automatically discovered if --source-region is not specified",
 	},
 }
 
@@ -173,8 +173,8 @@ var copyCommand = &cli.Command{
 			encryptionKeyID:  c.String("sse-kms-key-id"),
 			acl:              c.String("acl"),
 			// region settings
-			srcRegion: c.String("src-region"),
-			dstRegion: c.String("dst-region"),
+			srcRegion:        c.String("source-region"),
+			dstRegion:        c.String("destination-region"),
 
 			storageOpts: NewStorageOpts(c),
 		}.Run(c.Context)

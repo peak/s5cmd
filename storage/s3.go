@@ -17,6 +17,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/client"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/endpoints"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -622,6 +623,11 @@ func (sc *SessionCache) newSession(ctx context.Context, opts Options) (*session.
 	}
 
 	awsCfg := aws.NewConfig()
+
+	if opts.NoSignRequest {
+		// do not sign requests when making service API calls
+		awsCfg.Credentials = credentials.AnonymousCredentials
+	}
 
 	endpointURL, err := parseEndpoint(opts.Endpoint)
 	if err != nil {

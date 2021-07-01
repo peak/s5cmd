@@ -47,31 +47,34 @@ Examples:
 	03. Download all S3 objects to a directory
 		 > s5cmd {{.HelpName}} s3://bucket/* target-directory/
 
-	04. Upload a file to S3 bucket
+	04. Download an S3 object from a public bucket
+		 > s5cmd --no-sign-request {{.HelpName}} s3://bucket/prefix/object.gz .
+
+	05. Upload a file to S3 bucket
 		 > s5cmd {{.HelpName}} myfile.gz s3://bucket/
 
-	05. Upload matching files to S3 bucket
+	06. Upload matching files to S3 bucket
 		 > s5cmd {{.HelpName}} dir/*.gz s3://bucket/
 
-	06. Upload all files in a directory to S3 bucket recursively
+	07. Upload all files in a directory to S3 bucket recursively
 		 > s5cmd {{.HelpName}} dir/ s3://bucket/
 
-	07. Copy S3 object to another bucket
+	08. Copy S3 object to another bucket
 		 > s5cmd {{.HelpName}} s3://bucket/object s3://target-bucket/prefix/object
 
-	08. Copy matching S3 objects to another bucket
+	09. Copy matching S3 objects to another bucket
 		 > s5cmd {{.HelpName}} s3://bucket/*.gz s3://target-bucket/prefix/
 
-	09. Copy files in a directory to S3 prefix if not found on target
+	10. Copy files in a directory to S3 prefix if not found on target
 		 > s5cmd {{.HelpName}} -n -s -u dir/ s3://bucket/target-prefix/
 
-	10. Copy files in an S3 prefix to another S3 prefix if not found on target
+	11. Copy files in an S3 prefix to another S3 prefix if not found on target
 		 > s5cmd {{.HelpName}} -n -s -u s3://bucket/source-prefix/* s3://bucket/target-prefix/
 
-	11. Perform KMS Server Side Encryption of the object(s) at the destination
+	12. Perform KMS Server Side Encryption of the object(s) at the destination
 		> s5cmd {{.HelpName}} --sse aws:kms s3://bucket/object s3://target-bucket/prefix/object
 
-	12. Perform KMS-SSE of the object(s) at the destination using customer managed Customer Master Key (CMK) key id
+	13. Perform KMS-SSE of the object(s) at the destination using customer managed Customer Master Key (CMK) key id
 		> s5cmd {{.HelpName}} --sse aws:kms --sse-kms-key-id <your-kms-key-id> s3://bucket/object s3://target-bucket/prefix/object
 `
 

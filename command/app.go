@@ -64,6 +64,10 @@ var app = &cli.App{
 			Name:  "stat",
 			Usage: "collect statistics of program execution and display it at the end",
 		},
+		&cli.BoolFlag{
+			Name:  "no-sign-request",
+			Usage: "do not sign requests: credentials will not be loaded if --no-sign-request is provided",
+		},
 	},
 	Before: func(c *cli.Context) error {
 		retryCount := c.Int("retry-count")
@@ -129,10 +133,11 @@ var app = &cli.App{
 // NewStorageOpts creates storage.Options object from the given context.
 func NewStorageOpts(c *cli.Context) storage.Options {
 	return storage.Options{
-		MaxRetries:  c.Int("retry-count"),
-		Endpoint:    c.String("endpoint-url"),
-		NoVerifySSL: c.Bool("no-verify-ssl"),
-		DryRun:      c.Bool("dry-run"),
+		MaxRetries:    c.Int("retry-count"),
+		Endpoint:      c.String("endpoint-url"),
+		NoVerifySSL:   c.Bool("no-verify-ssl"),
+		DryRun:        c.Bool("dry-run"),
+		NoSignRequest: c.Bool("no-sign-request"),
 	}
 }
 

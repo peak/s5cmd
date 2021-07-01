@@ -36,6 +36,9 @@ Examples:
 
 	4. List all objects that matches a wildcard
 		 > s5cmd {{.HelpName}} s3://bucket/prefix/*/*.gz
+
+	5. List all objects in a public bucket
+		 > s5cmd --no-sign-request {{.HelpName}} s3://bucket/*
 `
 
 var listCommand = &cli.Command{

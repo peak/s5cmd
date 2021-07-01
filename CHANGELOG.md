@@ -1,6 +1,6 @@
 # Changelog
 
-## not released yet
+## v1.3.0 - 1 Jul 2021
 
 #### Features
 

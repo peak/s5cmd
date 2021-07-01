@@ -48,7 +48,7 @@ changelog:
       - Merge branch
 
 brews:
-  - github:
+  - tap:
       owner: peak
       name: s5cmd
     folder: Formula

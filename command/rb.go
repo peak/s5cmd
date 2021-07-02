@@ -85,22 +85,3 @@ func (b RemoveBucket) Run(ctx context.Context) error {
 
 	return nil
 }
-
-/*
-func validateRBCommand(c *cli.Context) error {
-	if c.Args().Len() != 1 {
-		return fmt.Errorf("expected only 1 argument")
-	}
-
-	src := c.Args().First()
-	bucket, err := url.New(src)
-	if err != nil {
-		return err
-	}
-	if !bucket.IsBucket() {
-		return fmt.Errorf("invalid s3 bucket")
-	}
-
-	return nil
-}
-*/

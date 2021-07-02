@@ -30,7 +30,7 @@ var removeBucketCommand = &cli.Command{
 	Usage:              "remove bucket",
 	CustomHelpTemplate: removeBucketHelpTemplate,
 	Before: func(c *cli.Context) error {
-		err := validateMBCommand(c)
+		err := validateMBCommand(c)	//uses same validation function with make bucket command.
 		if err != nil {
 			printError(givenCommand(c), c.Command.Name, err)
 		}

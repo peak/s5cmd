@@ -32,7 +32,7 @@ storage services and local filesystems.
 - Set Server Side Encryption using AWS Key Management Service (KMS)
 - Set Access Control List (ACL) for objects/files on the upload, copy, move.
 - Print object contents to stdout
-- Create buckets
+- Create or remove buckets
 - Summarize objects sizes, grouping by storage class
 - Wildcard support for all operations
 - Multiple arguments support for delete operation

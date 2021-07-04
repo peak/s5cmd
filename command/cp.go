@@ -137,7 +137,7 @@ var copyCommandFlags = []cli.Flag{
 	},
 	&cli.StringFlag{
 		Name:  "destination-region",
-		Usage: "set the region of destination bucket: the region of the destination bucket will be automatically discovered if --source-region is not specified",
+		Usage: "set the region of destination bucket: the region of the destination bucket will be automatically discovered if --destination-region is not specified",
 	},
 }
 

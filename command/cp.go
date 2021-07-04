@@ -235,8 +235,8 @@ func (c Copy) Run(ctx context.Context) error {
 	}
 
 	// override source region if set
-	if len(c.srcRegion) > 0 {
-		c.storageOpts = c.storageOpts.SetRegion(c.srcRegion)
+	if c.srcRegion != "" {
+		c.storageOpts.SetRegion(c.srcRegion)
 	}
 	client, err := storage.NewClient(ctx, srcurl, c.storageOpts)
 	if err != nil {
@@ -450,8 +450,8 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 	}
 
 	// override destination region if set
-	if len(c.dstRegion) > 0 {
-		c.storageOpts = c.storageOpts.SetRegion(c.dstRegion)
+	if c.dstRegion != "" {
+		c.storageOpts.SetRegion(c.dstRegion)
 	}
 	dstClient, err := storage.NewRemoteClient(ctx, dsturl, c.storageOpts)
 	if err != nil {
@@ -497,8 +497,8 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 
 func (c Copy) doCopy(ctx context.Context, srcurl, dsturl *url.URL) error {
 	// override destination region if set
-	if len(c.dstRegion) > 0 {
-		c.storageOpts = c.storageOpts.SetRegion(c.dstRegion)
+	if c.dstRegion != "" {
+		c.storageOpts.SetRegion(c.dstRegion)
 	}
 	dstClient, err := storage.NewClient(ctx, dsturl, c.storageOpts)
 	if err != nil {

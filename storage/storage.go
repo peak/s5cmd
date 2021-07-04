@@ -77,9 +77,8 @@ type Options struct {
 	region      string
 }
 
-func (o Options) SetRegion(region string) Options {
+func (o *Options) SetRegion(region string) {
 	o.region = region
-	return o
 }
 
 // Object is a generic type which contains metadata for storage items.

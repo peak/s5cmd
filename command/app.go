@@ -149,6 +149,7 @@ func Main(ctx context.Context, args []string) error {
 		deleteCommand,
 		moveCommand,
 		makeBucketCommand,
+		removeBucketCommand,
 		sizeCommand,
 		catCommand,
 		runCommand,

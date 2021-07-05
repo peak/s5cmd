@@ -605,6 +605,18 @@ func (s *S3) MakeBucket(ctx context.Context, name string) error {
 	return err
 }
 
+// RemoveBucket removes an S3 bucket with the given name.
+func (s *S3) RemoveBucket(ctx context.Context, name string) error {
+	if s.dryRun {
+		return nil
+	}
+
+	_, err := s.api.DeleteBucketWithContext(ctx, &s3.DeleteBucketInput{
+		Bucket: aws.String(name),
+	})
+	return err
+}
+
 // SessionCache holds session.Session according to s3Opts and it synchronizes
 // access/modification.
 type SessionCache struct {

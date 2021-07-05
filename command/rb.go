@@ -2,6 +2,7 @@ package command
 
 import (
 	"context"
+
 	"github.com/urfave/cli/v2"
 
 	"github.com/peak/s5cmd/log"
@@ -14,14 +15,14 @@ var removeBucketHelpTemplate = `Name:
 	{{.HelpName}} - {{.Usage}}
 
 Usage:
-	{{.HelpName}} bucketName
+	{{.HelpName}} bucketname
 
 Options:
 	{{range .VisibleFlags}}{{.}}
 	{{end}}
 Examples:
 	1. Deletes S3 bucket with given name
-		 > s5cmd {{.HelpName}} bucketName
+		 > s5cmd {{.HelpName}} bucketname
 `
 
 var removeBucketCommand = &cli.Command{
@@ -30,7 +31,7 @@ var removeBucketCommand = &cli.Command{
 	Usage:              "remove bucket",
 	CustomHelpTemplate: removeBucketHelpTemplate,
 	Before: func(c *cli.Context) error {
-		err := validateMBCommand(c)	//uses same validation function with make bucket command.
+		err := validateMBCommand(c) // uses same validation function with make bucket command.
 		if err != nil {
 			printError(givenCommand(c), c.Command.Name, err)
 		}
@@ -58,7 +59,7 @@ type RemoveBucket struct {
 	storageOpts storage.Options
 }
 
-// Run creates a bucket.
+// Run removes a bucket.
 func (b RemoveBucket) Run(ctx context.Context) error {
 	bucket, err := url.New(b.src)
 	if err != nil {

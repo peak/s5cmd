@@ -2,16 +2,17 @@ package e2e
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
-	"testing"
 
 	"gotest.tools/v3/icmd"
 )
 
 func TestRemoveBucketSuccess(t *testing.T) {
 
-	//t.Parallel()
+	t.Parallel()
 	s3client, s5cmd, cleanup := setup(t)
 	defer cleanup()
 
@@ -49,7 +50,6 @@ func TestRemoveBucketSuccessJson(t *testing.T) {
 	cmd := s5cmd("--json", "rb", src)
 	result := icmd.RunCmd(cmd)
 
-
 	result.Assert(t, icmd.Success)
 
 	jsonText := `
@@ -63,8 +63,6 @@ func TestRemoveBucketSuccessJson(t *testing.T) {
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: json(jsonText, src),
 	}, jsonCheck(true))
-
-
 
 	_, err := s3client.HeadBucket(&s3.HeadBucketInput{Bucket: aws.String(bucketName)})
 	if err == nil {
@@ -80,7 +78,6 @@ func TestRemoveBucketFailure(t *testing.T) {
 	bucketName := "invalid/bucket/name"
 	src := fmt.Sprintf("s3://%s", bucketName)
 	cmd := s5cmd("rb", src)
-
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Expected{ExitCode: 1})
@@ -90,7 +87,7 @@ func TestRemoveBucketFailure(t *testing.T) {
 	})
 }
 
-func TestMakeBucketFailureJson(t *testing.T) {
+func TestRemoveBucketFailureJson(t *testing.T) {
 	t.Parallel()
 	_, s5cmd, cleanup := setup(t)
 	defer cleanup()
@@ -98,7 +95,6 @@ func TestMakeBucketFailureJson(t *testing.T) {
 	bucketName := "invalid/bucket/name"
 	src := fmt.Sprintf("s3://%s", bucketName)
 	cmd := s5cmd("--json", "rb", src)
-
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Expected{ExitCode: 1})
@@ -108,21 +104,18 @@ func TestMakeBucketFailureJson(t *testing.T) {
 	}, jsonCheck(true))
 }
 
-
 func TestRemoveBucketWithObject(t *testing.T) {
-
+	t.Parallel()
 	const (
 		bucket      = "test-bucket"
 		fileContent = "this is a file content"
-		fileName = "file1.txt"
+		fileName    = "file1.txt"
 	)
 
-	t.Parallel()
 	s3client, s5cmd, cleanup := setup(t)
 	defer cleanup()
 
 	createBucket(t, s3client, bucket)
-
 	putFile(t, s3client, bucket, fileName, fileContent)
 
 	bucketName := fmt.Sprintf("s3://%v", bucket)

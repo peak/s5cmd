@@ -122,7 +122,9 @@ func TestRemoveBucketWithObject(t *testing.T) {
 	cmd := s5cmd("rb", bucketName)
 	result := icmd.RunCmd(cmd)
 
-	expected := fmt.Sprintf(`ERROR "rb %v"`, bucketName) //error due to non-empty bucket.
+	result.Assert(t, icmd.Expected{ExitCode: 1})
+
+	expected := fmt.Sprintf(`ERROR "rb %v": BucketNotEmpty:`, bucketName) // error due to non-empty bucket.
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: match(expected),

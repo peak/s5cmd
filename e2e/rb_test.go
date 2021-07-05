@@ -30,7 +30,6 @@ func TestRemoveBucketSuccess(t *testing.T) {
 	})
 
 	_, err := s3client.HeadBucket(&s3.HeadBucketInput{Bucket: aws.String(bucketName)})
-	fmt.Println(err)
 
 	if err == nil {
 		t.Errorf("bucket still exists after remove bucket operation\n")
@@ -136,4 +135,3 @@ func TestRemoveBucketWithObject(t *testing.T) {
 		0: match(expected),
 	})
 }
-

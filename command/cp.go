@@ -131,6 +131,10 @@ var copyCommandFlags = []cli.Flag{
 		Name:  "acl",
 		Usage: "set acl for target: defines granted accesses and their types on different accounts/groups",
 	},
+	&cli.BoolFlag{
+		Name:  "force-glacier-transfer",
+		Usage: "omit checks for glacier objects",
+	},
 }
 
 var copyCommand = &cli.Command{
@@ -156,17 +160,18 @@ var copyCommand = &cli.Command{
 			fullCommand:  givenCommand(c),
 			deleteSource: false, // don't delete source
 			// flags
-			noClobber:        c.Bool("no-clobber"),
-			ifSizeDiffer:     c.Bool("if-size-differ"),
-			ifSourceNewer:    c.Bool("if-source-newer"),
-			flatten:          c.Bool("flatten"),
-			followSymlinks:   !c.Bool("no-follow-symlinks"),
-			storageClass:     storage.StorageClass(c.String("storage-class")),
-			concurrency:      c.Int("concurrency"),
-			partSize:         c.Int64("part-size") * megabytes,
-			encryptionMethod: c.String("sse"),
-			encryptionKeyID:  c.String("sse-kms-key-id"),
-			acl:              c.String("acl"),
+			noClobber:            c.Bool("no-clobber"),
+			ifSizeDiffer:         c.Bool("if-size-differ"),
+			ifSourceNewer:        c.Bool("if-source-newer"),
+			flatten:              c.Bool("flatten"),
+			followSymlinks:       !c.Bool("no-follow-symlinks"),
+			storageClass:         storage.StorageClass(c.String("storage-class")),
+			concurrency:          c.Int("concurrency"),
+			partSize:             c.Int64("part-size") * megabytes,
+			encryptionMethod:     c.String("sse"),
+			encryptionKeyID:      c.String("sse-kms-key-id"),
+			acl:                  c.String("acl"),
+			forceGlacierTransfer: c.Bool("force-glacier-transfer"),
 
 			storageOpts: NewStorageOpts(c),
 		}.Run(c.Context)
@@ -183,15 +188,16 @@ type Copy struct {
 	deleteSource bool
 
 	// flags
-	noClobber        bool
-	ifSizeDiffer     bool
-	ifSourceNewer    bool
-	flatten          bool
-	followSymlinks   bool
-	storageClass     storage.StorageClass
-	encryptionMethod string
-	encryptionKeyID  string
-	acl              string
+	noClobber            bool
+	ifSizeDiffer         bool
+	ifSourceNewer        bool
+	flatten              bool
+	followSymlinks       bool
+	storageClass         storage.StorageClass
+	encryptionMethod     string
+	encryptionKeyID      string
+	acl                  string
+	forceGlacierTransfer bool
 
 	// s3 options
 	concurrency int
@@ -268,7 +274,9 @@ func (c Copy) Run(ctx context.Context) error {
 			continue
 		}
 
-		if object.StorageClass.IsGlacier() {
+		// if force glacier transfer flag is set, it will omit check for the if block
+		// if not set, then it will check whether the object is glacier.
+		if !c.forceGlacierTransfer && object.StorageClass.IsGlacier() {
 			err := fmt.Errorf("object '%v' is on Glacier storage", object)
 			printError(c.fullCommand, c.op, err)
 			continue

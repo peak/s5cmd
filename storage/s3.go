@@ -446,7 +446,7 @@ func (s *S3) Select(ctx context.Context, url *url.URL, query *SelectQuery, resul
 		var record json.RawMessage
 		err := decoder.Decode(&record)
 		if err == io.EOF {
-			return nil
+			break
 		}
 		if err != nil {
 			return err

@@ -84,8 +84,6 @@ type Select struct {
 	op          string
 	fullCommand string
 
-	deleteSource bool
-
 	query           string
 	compressionType string
 
@@ -108,6 +106,7 @@ func (s Select) Run(ctx context.Context) error {
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
 	objch, err := expandSource(ctx, client, false, srcurl)
 	if err != nil {

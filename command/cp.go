@@ -135,6 +135,14 @@ var copyCommandFlags = []cli.Flag{
 		Name:  "force-glacier-transfer",
 		Usage: "omit checks for glacier objects",
 	},
+	&cli.StringFlag{
+		Name:  "source-region",
+		Usage: "set the region of source bucket; the region of the source bucket will be automatically discovered if --source-region is not specified",
+	},
+	&cli.StringFlag{
+		Name:  "destination-region",
+		Usage: "set the region of destination bucket: the region of the destination bucket will be automatically discovered if --destination-region is not specified",
+	},
 }
 
 var copyCommand = &cli.Command{
@@ -172,6 +180,9 @@ var copyCommand = &cli.Command{
 			encryptionKeyID:      c.String("sse-kms-key-id"),
 			acl:                  c.String("acl"),
 			forceGlacierTransfer: c.Bool("force-glacier-transfer"),
+			// region settings
+			srcRegion: c.String("source-region"),
+			dstRegion: c.String("destination-region"),
 
 			storageOpts: NewStorageOpts(c),
 		}.Run(c.Context)
@@ -199,6 +210,10 @@ type Copy struct {
 	acl                  string
 	forceGlacierTransfer bool
 
+	// region settings
+	srcRegion string
+	dstRegion string
+
 	// s3 options
 	concurrency int
 	partSize    int64
@@ -225,6 +240,10 @@ func (c Copy) Run(ctx context.Context) error {
 		return err
 	}
 
+	// override source region if set
+	if c.srcRegion != "" {
+		c.storageOpts.SetRegion(c.srcRegion)
+	}
 	client, err := storage.NewClient(ctx, srcurl, c.storageOpts)
 	if err != nil {
 		printError(c.fullCommand, c.op, err)
@@ -438,6 +457,10 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 		return err
 	}
 
+	// override destination region if set
+	if c.dstRegion != "" {
+		c.storageOpts.SetRegion(c.dstRegion)
+	}
 	dstClient, err := storage.NewRemoteClient(ctx, dsturl, c.storageOpts)
 	if err != nil {
 		return err
@@ -481,6 +504,10 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 }
 
 func (c Copy) doCopy(ctx context.Context, srcurl, dsturl *url.URL) error {
+	// override destination region if set
+	if c.dstRegion != "" {
+		c.storageOpts.SetRegion(c.dstRegion)
+	}
 	dstClient, err := storage.NewClient(ctx, dsturl, c.storageOpts)
 	if err != nil {
 		return err

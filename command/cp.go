@@ -133,7 +133,7 @@ var copyCommandFlags = []cli.Flag{
 	},
 	&cli.BoolFlag{
 		Name:  "force-glacier-transfer",
-		Usage: "omit checks for glacier objects",
+		Usage: "try to copy files which is restored from GLACIER storage class",
 	},
 	&cli.StringFlag{
 		Name:  "source-region",
@@ -293,9 +293,8 @@ func (c Copy) Run(ctx context.Context) error {
 			continue
 		}
 
-		// if force glacier transfer flag is set, it will omit check for the if block
-		// if not set, then it will check whether the object is glacier.
-		if !c.forceGlacierTransfer && object.StorageClass.IsGlacier() {
+		
+		if object.StorageClass.IsGlacier() && !c.forceGlacierTransfer {
 			err := fmt.Errorf("object '%v' is on Glacier storage", object)
 			printError(c.fullCommand, c.op, err)
 			continue

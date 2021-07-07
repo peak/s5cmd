@@ -2,6 +2,7 @@ package command
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/peak/s5cmd/storage"
@@ -16,28 +17,35 @@ func expandSource(
 	client storage.Storage,
 	followSymlinks bool,
 	srcurl *url.URL,
+	isRaw bool,
 ) (<-chan *storage.Object, error) {
-	var isDir bool
-	// if the source is local, we send a Stat call to know if  we have
-	// directory or file to walk. For remote storage, we don't want to send
-	// Stat since it doesn't have any folder semantics.
-	if !srcurl.HasGlob() && !srcurl.IsRemote() {
-		obj, err := client.Stat(ctx, srcurl)
-		if err != nil {
-			return nil, err
-		}
-		isDir = obj.Type.IsDir()
-	}
 
-	// call storage.List for only walking operations.
-	if srcurl.HasGlob() || isDir {
-		return client.List(ctx, srcurl, followSymlinks), nil
+	// If wildcard operations are disabled, then program deals with 1 file.
+	// Therefore, there is no need to check the directory operations.
+	if !isRaw {
+		var isDir bool
+		// if the source is local, we send a Stat call to know if  we have
+		// directory or file to walk. For remote storage, we don't want to send
+		// Stat since it doesn't have any folder semantics.
+		if !srcurl.HasGlob() && !srcurl.IsRemote() {
+			obj, err := client.Stat(ctx, srcurl)
+			if err != nil {
+				return nil, err
+			}
+			isDir = obj.Type.IsDir()
+		}
+
+		// call storage.List for only walking operations.
+		if srcurl.HasGlob() || isDir {
+			return client.List(ctx, srcurl, followSymlinks), nil
+		}
 	}
 
 	ch := make(chan *storage.Object, 1)
 	if storage.ShouldProcessUrl(srcurl, followSymlinks) {
 		ch <- &storage.Object{URL: srcurl}
 	}
+	fmt.Println("len(ch)=", len(ch))
 	close(ch)
 	return ch, nil
 }
@@ -50,6 +58,7 @@ func expandSources(
 	ctx context.Context,
 	client storage.Storage,
 	followSymlinks bool,
+	isRaw bool,
 	srcurls ...*url.URL,
 ) <-chan *storage.Object {
 	ch := make(chan *storage.Object)
@@ -65,7 +74,7 @@ func expandSources(
 			go func(origSrc *url.URL) {
 				defer wg.Done()
 
-				objch, err := expandSource(ctx, client, followSymlinks, origSrc)
+				objch, err := expandSource(ctx, client, followSymlinks, origSrc, isRaw)
 				if err != nil {
 					ch <- &storage.Object{Err: err}
 					return

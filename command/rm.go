@@ -85,7 +85,9 @@ func (d Delete) Run(ctx context.Context) error {
 		return err
 	}
 
-	objChan := expandSources(ctx, client, false, srcurls...)
+	// Add raw section to here. Changed expandSource function to handle the
+	// raw flag.
+	objChan := expandSources(ctx, client, false, false, srcurls...)
 
 	// do object->url transformation
 	urlch := make(chan *url.URL)

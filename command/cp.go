@@ -139,6 +139,10 @@ var copyCommandFlags = []cli.Flag{
 		Name:  "destination-region",
 		Usage: "set the region of destination bucket: the region of the destination bucket will be automatically discovered if --destination-region is not specified",
 	},
+	&cli.BoolFlag{
+		Name:  "raw",
+		Usage: "disable the wildcard operations, useful with filenames that contains glob characters.",
+	},
 }
 
 var copyCommand = &cli.Command{
@@ -175,9 +179,11 @@ var copyCommand = &cli.Command{
 			encryptionMethod: c.String("sse"),
 			encryptionKeyID:  c.String("sse-kms-key-id"),
 			acl:              c.String("acl"),
+			raw:              c.Bool("raw"),
+
 			// region settings
-			srcRegion:        c.String("source-region"),
-			dstRegion:        c.String("destination-region"),
+			srcRegion: c.String("source-region"),
+			dstRegion: c.String("destination-region"),
 
 			storageOpts: NewStorageOpts(c),
 		}.Run(c.Context)
@@ -203,6 +209,7 @@ type Copy struct {
 	encryptionMethod string
 	encryptionKeyID  string
 	acl              string
+	raw              bool
 
 	// region settings
 	srcRegion string
@@ -223,12 +230,16 @@ increase the open file limit or try to decrease the number of workers with
 // Run starts copying given source objects to destination.
 func (c Copy) Run(ctx context.Context) error {
 	srcurl, err := url.New(c.src)
+	fmt.Printf("srcurl : %#v\n", srcurl)
+
 	if err != nil {
 		printError(c.fullCommand, c.op, err)
 		return err
 	}
 
 	dsturl, err := url.New(c.dst)
+	fmt.Printf("dsturl : %#v\n", dsturl)
+
 	if err != nil {
 		printError(c.fullCommand, c.op, err)
 		return err
@@ -244,7 +255,7 @@ func (c Copy) Run(ctx context.Context) error {
 		return err
 	}
 
-	objch, err := expandSource(ctx, client, c.followSymlinks, srcurl)
+	objch, err := expandSource(ctx, client, c.followSymlinks, srcurl, c.raw)
 	if err != nil {
 		printError(c.fullCommand, c.op, err)
 		return err
@@ -271,6 +282,7 @@ func (c Copy) Run(ctx context.Context) error {
 		}
 	}()
 
+	// use raw flag to handle glob operations.
 	isBatch := srcurl.HasGlob()
 	if !isBatch && !srcurl.IsRemote() {
 		obj, _ := client.Stat(ctx, srcurl)
@@ -278,6 +290,7 @@ func (c Copy) Run(ctx context.Context) error {
 	}
 
 	for object := range objch {
+		fmt.Printf("object is %#v\n", object.URL)
 		if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) {
 			continue
 		}
@@ -348,7 +361,7 @@ func (c Copy) prepareDownloadTask(
 		if err != nil {
 			return err
 		}
-
+		fmt.Println("I am here 1.")
 		err = c.doDownload(ctx, srcurl, dsturl)
 		if err != nil {
 			return &errorpkg.Error{
@@ -385,6 +398,7 @@ func (c Copy) prepareUploadTask(
 
 // doDownload is used to fetch a remote object and save as a local object.
 func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) error {
+	fmt.Println("I am inside doDownload.")
 	srcClient, err := storage.NewRemoteClient(ctx, srcurl, c.storageOpts)
 	if err != nil {
 		return err
@@ -403,6 +417,8 @@ func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) 
 	}
 
 	file, err := dstClient.Create(dsturl.Absolute())
+	fmt.Println("dsturl.Absolute()=", dsturl.Absolute())
+	fmt.Println("file create error is ", err)
 	if err != nil {
 		return err
 	}
@@ -640,6 +656,7 @@ func prepareLocalDestination(
 	isBatch bool,
 	storageOpts storage.Options,
 ) (*url.URL, error) {
+	fmt.Println("I am here prepare local destination.")
 	objname := srcurl.Base()
 	if isBatch && !flatten {
 		objname = srcurl.Relative()
@@ -649,6 +666,7 @@ func prepareLocalDestination(
 
 	if isBatch {
 		err := client.MkdirAll(dsturl.Absolute())
+		fmt.Println("Error in mkdirAll=", err)
 		if err != nil {
 			return nil, err
 		}
@@ -660,8 +678,14 @@ func prepareLocalDestination(
 	}
 
 	if isBatch && !flatten {
+		fmt.Println(objname)
 		dsturl = dsturl.Join(objname)
+		fmt.Println("dsturl=", dsturl)
+		fmt.Println(dsturl.Dir())
+		fmt.Println("dsturl.Dir()=", dsturl.Dir())
+
 		err := client.MkdirAll(dsturl.Dir())
+		fmt.Println("Error in mkdirAll2=", err)
 		if err != nil {
 			return nil, err
 		}
@@ -669,6 +693,7 @@ func prepareLocalDestination(
 
 	if err == storage.ErrGivenObjectNotFound {
 		err := client.MkdirAll(dsturl.Dir())
+		fmt.Println("Error in mkdirAll3=", err)
 		if err != nil {
 			return nil, err
 		}

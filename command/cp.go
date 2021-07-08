@@ -283,7 +283,8 @@ func (c Copy) Run(ctx context.Context) error {
 	}()
 
 	// use raw flag to handle glob operations.
-	isBatch := srcurl.HasGlob()
+	isBatch := !c.raw && srcurl.HasGlob()
+	fmt.Println("isBatch", isBatch)
 	if !isBatch && !srcurl.IsRemote() {
 		obj, _ := client.Stat(ctx, srcurl)
 		isBatch = obj != nil && obj.Type.IsDir()
@@ -656,7 +657,6 @@ func prepareLocalDestination(
 	isBatch bool,
 	storageOpts storage.Options,
 ) (*url.URL, error) {
-	fmt.Println("I am here prepare local destination.")
 	objname := srcurl.Base()
 	if isBatch && !flatten {
 		objname = srcurl.Relative()
@@ -666,7 +666,6 @@ func prepareLocalDestination(
 
 	if isBatch {
 		err := client.MkdirAll(dsturl.Absolute())
-		fmt.Println("Error in mkdirAll=", err)
 		if err != nil {
 			return nil, err
 		}
@@ -678,14 +677,8 @@ func prepareLocalDestination(
 	}
 
 	if isBatch && !flatten {
-		fmt.Println(objname)
 		dsturl = dsturl.Join(objname)
-		fmt.Println("dsturl=", dsturl)
-		fmt.Println(dsturl.Dir())
-		fmt.Println("dsturl.Dir()=", dsturl.Dir())
-
 		err := client.MkdirAll(dsturl.Dir())
-		fmt.Println("Error in mkdirAll2=", err)
 		if err != nil {
 			return nil, err
 		}
@@ -693,7 +686,6 @@ func prepareLocalDestination(
 
 	if err == storage.ErrGivenObjectNotFound {
 		err := client.MkdirAll(dsturl.Dir())
-		fmt.Println("Error in mkdirAll3=", err)
 		if err != nil {
 			return nil, err
 		}

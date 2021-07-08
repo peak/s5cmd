@@ -44,7 +44,7 @@ var selectCommandFlags = []cli.Flag{
 	},
 	&cli.StringFlag{
 		Name:  "format",
-		Usage: "input data format",
+		Usage: "input data format (only JSON supported for the moment)",
 		Value: "JSON",
 	},
 }

@@ -2,7 +2,6 @@ package command
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"github.com/peak/s5cmd/storage"
@@ -20,7 +19,7 @@ func expandSource(
 	isRaw bool,
 ) (<-chan *storage.Object, error) {
 
-	// If wildcard operations are disabled, then program deals with 1 file.
+	// If wildcard operations are disabled (raw flag is set), then program deals with 1 file.
 	// Therefore, there is no need to check the directory operations.
 	if !isRaw {
 		var isDir bool
@@ -45,7 +44,6 @@ func expandSource(
 	if storage.ShouldProcessUrl(srcurl, followSymlinks) {
 		ch <- &storage.Object{URL: srcurl}
 	}
-	fmt.Println("len(ch)=", len(ch))
 	close(ch)
 	return ch, nil
 }

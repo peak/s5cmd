@@ -230,7 +230,6 @@ increase the open file limit or try to decrease the number of workers with
 // Run starts copying given source objects to destination.
 func (c Copy) Run(ctx context.Context) error {
 	srcurl, err := url.New(c.src)
-	fmt.Printf("srcurl : %#v\n", srcurl)
 
 	if err != nil {
 		printError(c.fullCommand, c.op, err)
@@ -238,7 +237,6 @@ func (c Copy) Run(ctx context.Context) error {
 	}
 
 	dsturl, err := url.New(c.dst)
-	fmt.Printf("dsturl : %#v\n", dsturl)
 
 	if err != nil {
 		printError(c.fullCommand, c.op, err)
@@ -284,14 +282,12 @@ func (c Copy) Run(ctx context.Context) error {
 
 	// use raw flag to handle glob operations.
 	isBatch := !c.raw && srcurl.HasGlob()
-	fmt.Println("isBatch", isBatch)
 	if !isBatch && !srcurl.IsRemote() {
 		obj, _ := client.Stat(ctx, srcurl)
 		isBatch = obj != nil && obj.Type.IsDir()
 	}
 
 	for object := range objch {
-		fmt.Printf("object is %#v\n", object.URL)
 		if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) {
 			continue
 		}
@@ -362,7 +358,6 @@ func (c Copy) prepareDownloadTask(
 		if err != nil {
 			return err
 		}
-		fmt.Println("I am here 1.")
 		err = c.doDownload(ctx, srcurl, dsturl)
 		if err != nil {
 			return &errorpkg.Error{
@@ -399,7 +394,6 @@ func (c Copy) prepareUploadTask(
 
 // doDownload is used to fetch a remote object and save as a local object.
 func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) error {
-	fmt.Println("I am inside doDownload.")
 	srcClient, err := storage.NewRemoteClient(ctx, srcurl, c.storageOpts)
 	if err != nil {
 		return err
@@ -418,8 +412,6 @@ func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) 
 	}
 
 	file, err := dstClient.Create(dsturl.Absolute())
-	fmt.Println("dsturl.Absolute()=", dsturl.Absolute())
-	fmt.Println("file create error is ", err)
 	if err != nil {
 		return err
 	}

@@ -374,7 +374,6 @@ func (s *S3) Get(
 		return 0, nil
 	}
 
-	fmt.Printf("from is %#v\n", *from)
 	return s.downloader.DownloadWithContext(ctx, to, &s3.GetObjectInput{
 		Bucket: aws.String(from.Bucket),
 		Key:    aws.String(from.Path),

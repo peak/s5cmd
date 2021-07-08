@@ -133,7 +133,7 @@ var copyCommandFlags = []cli.Flag{
 	},
 	&cli.BoolFlag{
 		Name:  "force-glacier-transfer",
-		Usage: "try to copy files which is restored from GLACIER storage class",
+		Usage: "force transfer of GLACIER objects whether they are restored or not",
 	},
 	&cli.StringFlag{
 		Name:  "source-region",
@@ -293,7 +293,6 @@ func (c Copy) Run(ctx context.Context) error {
 			continue
 		}
 
-		
 		if object.StorageClass.IsGlacier() && !c.forceGlacierTransfer {
 			err := fmt.Errorf("object '%v' is on Glacier storage", object)
 			printError(c.fullCommand, c.op, err)

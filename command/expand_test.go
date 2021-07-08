@@ -4,6 +4,7 @@ import (
 	"context"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"sort"
 	"testing"
 
@@ -329,72 +330,80 @@ func TestExpandSource_Do_Not_Follow_Symlinks(t *testing.T) {
 }
 
 func TestExpandSourceWithRawFlagTrue(t *testing.T) {
-	ctx := context.Background()
-	fileContent := "CAFEBABE"
-	folderLayout := []fs.PathOp{
-		fs.WithDir(
-			"a",
-			fs.WithFile("file*.txt", fileContent),
-			fs.WithFile("file*1.txt", fileContent),
-			fs.WithFile("file*2.txt", fileContent),
-			fs.WithFile("file*file*.txt", fileContent),
-		),
-		fs.WithDir(
-			"c",
-			fs.WithFile("file*5*5.txt", fileContent),
-		),
+	// windows does not have support filenames with *.
+	if runtime.GOOS != "windows" {
+		ctx := context.Background()
+		fileContent := "CAFEBABE"
+		folderLayout := []fs.PathOp{
+			fs.WithDir(
+				"a",
+				fs.WithFile("file*.txt", fileContent),
+				fs.WithFile("file*1.txt", fileContent),
+				fs.WithFile("file*2.txt", fileContent),
+				fs.WithFile("file*file*.txt", fileContent),
+			),
+			fs.WithDir(
+				"c",
+				fs.WithFile("file*5*5.txt", fileContent),
+			),
+		}
+
+		workdir := fs.NewDir(t, t.Name(), folderLayout...)
+		defer workdir.Remove()
+
+		workdirUrl, _ := url.New(workdir.Join("a/file*.txt"))
+
+		//do not follow symbolic links
+		ch, _ := expandSource(ctx, storage.NewLocalClient(storage.Options{}), false, workdirUrl, true) // set raw flag to true
+		assert.Equal(t, len(ch), 1)
+		var expected []string
+		for obj := range ch {
+			expected = append(expected, obj.URL.Absolute())
+		}
+		workdirJoin := filepath.ToSlash(workdir.Join("a/file*.txt"))
+		assert.Equal(t, []string{workdirJoin}, expected)
 	}
 
-	workdir := fs.NewDir(t, t.Name(), folderLayout...)
-	defer workdir.Remove()
-
-	workdirUrl, _ := url.New(workdir.Join("a/file*.txt"))
-
-	//do not follow symbolic links
-	ch, _ := expandSource(ctx, storage.NewLocalClient(storage.Options{}), false, workdirUrl, true) // set raw flag to true
-	assert.Equal(t, len(ch), 1)
-	var expected []string
-	for obj := range ch {
-		expected = append(expected, obj.URL.Absolute())
-	}
-	workdirJoin := filepath.ToSlash(workdir.Join("a/file*.txt"))
-	assert.Equal(t, []string{workdirJoin}, expected)
 }
 
 func TestExpandSourceWithRawFlagFalse(t *testing.T) {
-	ctx := context.Background()
-	fileContent := "CAFEBABE"
-	folderLayout := []fs.PathOp{
-		fs.WithDir(
-			"a",
-			fs.WithFile("file*.txt", fileContent),
-			fs.WithFile("file*1.txt", fileContent),
-			fs.WithFile("file*2.txt", fileContent),
-			fs.WithFile("file*file*.txt", fileContent),
-		),
-		fs.WithDir(
-			"c",
-			fs.WithFile("file*5*5.txt", fileContent),
-		),
+	// windows does not have support filenames with *.
+	if runtime.GOOS != "windows" {
+		ctx := context.Background()
+		fileContent := "CAFEBABE"
+		folderLayout := []fs.PathOp{
+			fs.WithDir(
+				"a",
+				fs.WithFile("file*.txt", fileContent),
+				fs.WithFile("file*1.txt", fileContent),
+				fs.WithFile("file*2.txt", fileContent),
+				fs.WithFile("file*file*.txt", fileContent),
+			),
+			fs.WithDir(
+				"c",
+				fs.WithFile("file*5*5.txt", fileContent),
+			),
+		}
+
+		workdir := fs.NewDir(t, t.Name(), folderLayout...)
+		defer workdir.Remove()
+
+		workdirUrl, _ := url.New(workdir.Join("a/file*.txt"))
+
+		// do not follow symbolic links and set raw flag to false.
+		ch, _ := expandSource(ctx, storage.NewLocalClient(storage.Options{}), false, workdirUrl, false) // set raw flag to false
+		var expected []string
+		for obj := range ch {
+			expected = append(expected, obj.URL.Absolute())
+		}
+		assert.Equal(t, []string{
+			filepath.ToSlash(workdir.Join("a/file*.txt")),
+			filepath.ToSlash(workdir.Join("a/file*1.txt")),
+			filepath.ToSlash(workdir.Join("a/file*2.txt")),
+			filepath.ToSlash(workdir.Join("a/file*file*.txt")),
+		}, expected)
 	}
 
-	workdir := fs.NewDir(t, t.Name(), folderLayout...)
-	defer workdir.Remove()
-
-	workdirUrl, _ := url.New(workdir.Join("a/file*.txt"))
-
-	// do not follow symbolic links and set raw flag to false.
-	ch, _ := expandSource(ctx, storage.NewLocalClient(storage.Options{}), false, workdirUrl, false) // set raw flag to false
-	var expected []string
-	for obj := range ch {
-		expected = append(expected, obj.URL.Absolute())
-	}
-	assert.Equal(t, []string{
-		filepath.ToSlash(workdir.Join("a/file*.txt")),
-		filepath.ToSlash(workdir.Join("a/file*1.txt")),
-		filepath.ToSlash(workdir.Join("a/file*2.txt")),
-		filepath.ToSlash(workdir.Join("a/file*file*.txt")),
-	}, expected)
 }
 
 func keys(urls map[string][]*storage.Object) []string {

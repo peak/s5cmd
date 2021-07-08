@@ -76,6 +76,9 @@ Examples:
 
 	13. Perform KMS-SSE of the object(s) at the destination using customer managed Customer Master Key (CMK) key id
 		> s5cmd {{.HelpName}} --sse aws:kms --sse-kms-key-id <your-kms-key-id> s3://bucket/object s3://target-bucket/prefix/object
+	
+	14. Force transfer of GLACIER objects whether they are restored or not
+		> s5cmd {{.HelpName}} --force-glacier-transfer s3://bucket/prefix target-directory/
 `
 
 var copyCommandFlags = []cli.Flag{

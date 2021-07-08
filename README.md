@@ -32,6 +32,7 @@ storage services and local filesystems.
 - Set Server Side Encryption using AWS Key Management Service (KMS)
 - Set Access Control List (ACL) for objects/files on the upload, copy, move.
 - Print object contents to stdout
+- Select JSON records from objects using SQL expressions
 - Create or remove buckets
 - Summarize objects sizes, grouping by storage class
 - Wildcard support for all operations
@@ -190,7 +191,7 @@ are not supported by `s5cmd` and result in error (since we have 2 different buck
     rm s3://bucket-foo/object
     rm s3://bucket-bar/object
 
-more details and examples on `s5cmd run` are presented in a [later section](./README.md#L208).
+more details and examples on `s5cmd run` are presented in a [later section](./README.md#L224).
 
 #### Copy objects from S3 to S3
 
@@ -203,6 +204,24 @@ folder hierarchy.
 
 ⚠️ Copying objects (from S3 to S3) larger than 5GB is not supported yet. We have
 an [open ticket](https://github.com/peak/s5cmd/issues/29) to track the issue.
+
+#### Select JSON object content using SQL
+
+`s5cmd` supports the `SelectObjectContent` S3 operation, and will run your
+[SQL query](https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-glacier-select-sql-reference.html)
+against objects matching normal wildcard syntax and emit matching JSON records via stdout. Records
+from multiple objects will be interleaved, and order of the records is not guaranteed (though it's
+likely that the records from a single object will arrive in-order, even if interleaved with other
+records).
+
+    $ s5cmd select --compression GZIP \
+      --query "SELECT timestamp, hostname FROM S3Object WHERE ip_address LIKE '10.%' OR application='unprivileged'" \
+      s3://bucket-foo/object/2021/*
+    {"timestamp":"2021-07-08T18:24:06.665Z","hostname":"application.internal"}
+    {"timestamp":"2021-07-08T18:24:16.095Z","hostname":"api.github.com"}
+
+At the moment this operation _only_ supports JSON records selected with SQL. S3 calls this
+lines-type JSON, but it seems that it works even if the records aren't line-delineated. YMMV.
 
 #### Count objects and determine total size
 
@@ -406,7 +425,7 @@ For a more practical scenario, let's say we have an [avocado prices](https://www
 
 ## Beast Mode s5cmd
 
-`s5cmd` allows to pass in some file, containing list of operations to be performed, as an argument to the `run` command as illustrated in the [above](./README.md#L199) example. Alternatively, one can pipe in commands into
+`s5cmd` allows to pass in some file, containing list of operations to be performed, as an argument to the `run` command as illustrated in the [above](./README.md#L224) example. Alternatively, one can pipe in commands into
 the `run:`
 
     BUCKET=s5cmd-test; s5cmd ls s3://$BUCKET/*test | grep -v DIR | awk ‘{print $NF}’

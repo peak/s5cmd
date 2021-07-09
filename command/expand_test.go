@@ -331,7 +331,7 @@ func TestExpandSource_Do_Not_Follow_Symlinks(t *testing.T) {
 
 func TestExpandSourceWithRawFlagTrue(t *testing.T) {
 	// windows does not have support filenames with *.
-	if runtime.GOOS != "windows" {
+	if runtime.GOOS == "windows" {
 		t.Skip()
 	}
 	t.Parallel()

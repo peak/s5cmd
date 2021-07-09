@@ -215,7 +215,7 @@ likely that the records from a single object will arrive in-order, even if inter
 records).
 
     $ s5cmd select --compression GZIP \
-      --query "SELECT timestamp, hostname FROM S3Object WHERE ip_address LIKE '10.%' OR application='unprivileged'" \
+      --query "SELECT s.timestamp, s.hostname FROM S3Object s WHERE s.ip_address LIKE '10.%' OR s.application='unprivileged'" \
       s3://bucket-foo/object/2021/*
     {"timestamp":"2021-07-08T18:24:06.665Z","hostname":"application.internal"}
     {"timestamp":"2021-07-08T18:24:16.095Z","hostname":"api.github.com"}

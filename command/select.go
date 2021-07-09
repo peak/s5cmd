@@ -172,6 +172,7 @@ func (s Select) Run(ctx context.Context) error {
 
 	waiter.Wait()
 	<-errDoneCh
+	<-writeDoneCh
 
 	return merror
 }

@@ -3032,14 +3032,6 @@ func TestCopyDirS3RawTrueFailure(t *testing.T) {
 
 	result.Assert(t, icmd.Expected{ExitCode: 1})
 
-	bucketDirPath := fmt.Sprintf("%v/%s", dstpath, srcpath)
-
-	expectedError := fmt.Sprintf(`ERROR "cp %v %v": MultipartUpload: upload multipart failed upload id: 1 caused by: BodyHashError: failed to compute body hashes caused by: read %v: is a directory`, srcpath, bucketDirPath, srcpath)
-
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: equals(expectedError),
-	})
-
 	// assert no files are in S3
 	objs := []string{"a*/file.txt", "a*/file1.txt", "a*b/file2.txt", "a*b/file3.txt", "file.txt", "file1.txt", "file2.txt", "file3.txt", "file4.txt"}
 	for _, obj := range objs {

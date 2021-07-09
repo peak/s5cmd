@@ -16,14 +16,14 @@ var makeBucketHelpTemplate = `Name:
 	{{.HelpName}} - {{.Usage}}
 
 Usage:
-	{{.HelpName}} bucketname
+	{{.HelpName}} s3://bucketname
 
 Options:
 	{{range .VisibleFlags}}{{.}}
 	{{end}}
 Examples:
 	1. Create a new S3 bucket
-		 > s5cmd {{.HelpName}} newbucket
+		 > s5cmd {{.HelpName}} s3://bucketname
 `
 
 var makeBucketCommand = &cli.Command{

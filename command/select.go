@@ -108,7 +108,7 @@ func (s Select) Run(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	objch, err := expandSource(ctx, client, false, srcurl)
+	objch, err := expandSource(ctx, client, false, srcurl, false)
 	if err != nil {
 		printError(s.fullCommand, s.op, err)
 		return err
@@ -205,7 +205,7 @@ func validateSelectCommand(c *cli.Context) error {
 		return fmt.Errorf("source must be remote")
 	}
 
-      if !strings.EqualFold(c.String("format"), "JSON") {
+	if !strings.EqualFold(c.String("format"), "JSON") {
 		return fmt.Errorf("only json supported")
 	}
 

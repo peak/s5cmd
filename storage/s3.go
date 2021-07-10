@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -397,6 +398,79 @@ func (s *S3) Get(
 		u.PartSize = partSize
 		u.Concurrency = concurrency
 	})
+}
+
+type SelectQuery struct {
+	ExpressionType  string
+	Expression      string
+	CompressionType string
+}
+
+func (s *S3) Select(ctx context.Context, url *url.URL, query *SelectQuery, resultCh chan<- json.RawMessage) error {
+	if s.dryRun {
+		return nil
+	}
+
+	input := &s3.SelectObjectContentInput{
+		Bucket:         aws.String(url.Bucket),
+		Key:            aws.String(url.Path),
+		ExpressionType: aws.String(query.ExpressionType),
+		Expression:     aws.String(query.Expression),
+		InputSerialization: &s3.InputSerialization{
+			CompressionType: aws.String(query.CompressionType),
+			JSON: &s3.JSONInput{
+				Type: aws.String("Lines"),
+			},
+		},
+		OutputSerialization: &s3.OutputSerialization{
+			JSON: &s3.JSONOutput{},
+		},
+	}
+
+	resp, err := s.api.SelectObjectContentWithContext(ctx, input)
+	if err != nil {
+		return err
+	}
+
+	reader, writer := io.Pipe()
+
+	go func() {
+		defer writer.Close()
+
+		eventch := resp.EventStream.Reader.Events()
+		defer resp.EventStream.Close()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case event, ok := <-eventch:
+				if !ok {
+					return
+				}
+
+				switch e := event.(type) {
+				case *s3.RecordsEvent:
+					writer.Write(e.Payload)
+				}
+			}
+		}
+	}()
+
+	decoder := json.NewDecoder(reader)
+	for {
+		var record json.RawMessage
+		err := decoder.Decode(&record)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
+		resultCh <- record
+	}
+
+	return resp.EventStream.Reader.Err()
 }
 
 // Put is a multipart upload operation to upload resources, which implements

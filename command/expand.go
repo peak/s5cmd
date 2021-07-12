@@ -19,8 +19,8 @@ func expandSource(
 	isRaw bool,
 ) (<-chan *storage.Object, error) {
 
-	// If wildcard operations are disabled (raw flag is set), then program deals with 1 file.
-	// Therefore, there is no need to check the directory operations.
+	// if wildcard operations are disabled, then the program deals with 1 file.
+	// therefore, there is no need to check if it is a  directory.
 	if !isRaw {
 		var isDir bool
 		// if the source is local, we send a Stat call to know if  we have

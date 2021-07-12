@@ -288,7 +288,7 @@ func (c Copy) Run(ctx context.Context) error {
 		}
 	}()
 
-	// use raw flag to handle glob operations.
+	// use --raw flag to prevent glob operations.
 	isBatch := !c.raw && srcurl.HasGlob()
 	if !isBatch && !srcurl.IsRemote() {
 		obj, _ := client.Stat(ctx, srcurl)

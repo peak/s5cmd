@@ -329,7 +329,7 @@ func TestExpandSource_Do_Not_Follow_Symlinks(t *testing.T) {
 	assert.Equal(t, []string{workdirJoin}, expected)
 }
 
-func TestExpandSourceWithRawFlagTrue(t *testing.T) {
+func TestExpandSourceWithRawFlag(t *testing.T) {
 	// windows does not have support filenames with *.
 	if runtime.GOOS == "windows" {
 		t.Skip()
@@ -367,7 +367,7 @@ func TestExpandSourceWithRawFlagTrue(t *testing.T) {
 	assert.Equal(t, []string{workdirJoin}, expected)
 }
 
-func TestExpandSourceWithRawFlagFalse(t *testing.T) {
+func TestExpandSourceWithoutRawFlag(t *testing.T) {
 	// windows does not have support filenames with *.
 	if runtime.GOOS == "windows" {
 		t.Skip()

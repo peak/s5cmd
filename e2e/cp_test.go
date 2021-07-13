@@ -1113,7 +1113,7 @@ func TestCopyMultipleFilesToS3WithPrefixWithoutSlash(t *testing.T) {
 func TestCopyDirectoryWithGlobCharactersToS3Bucket(t *testing.T) {
 	t.Parallel()
 
-	if runtime.GOOS != "windows" {
+	if runtime.GOOS == "windows" {
 		t.Skip("Files in Windows cannot contain glob(*) characters")
 	}
 

@@ -103,7 +103,7 @@ func (sz Size) Run(ctx context.Context) error {
 
 	var merror error
 
-	for object := range client.List(ctx, srcurl, false) {
+	for object := range client.List(ctx, srcurl, false, "") {
 		if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) {
 			continue
 		}

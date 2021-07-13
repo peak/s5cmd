@@ -62,6 +62,10 @@ var listCommand = &cli.Command{
 			Aliases: []string{"s"},
 			Usage:   "display full name of the object class",
 		},
+		&cli.StringFlag{
+			Name:  "exclude",
+			Usage: "exclude object with given match",
+		},
 	},
 	Before: func(c *cli.Context) error {
 		err := validateLSCommand(c)
@@ -88,6 +92,7 @@ var listCommand = &cli.Command{
 			showEtag:         c.Bool("etag"),
 			humanize:         c.Bool("humanize"),
 			showStorageClass: c.Bool("storage-class"),
+			exclude:          c.String("exclude"),
 
 			storageOpts: NewStorageOpts(c),
 		}.Run(c.Context)
@@ -104,6 +109,7 @@ type List struct {
 	showEtag         bool
 	humanize         bool
 	showStorageClass bool
+	exclude          string
 
 	storageOpts storage.Options
 }
@@ -145,7 +151,13 @@ func (l List) Run(ctx context.Context) error {
 
 	var merror error
 
-	for object := range client.List(ctx, srcurl, false) {
+	var excludePattern string
+
+	if l.exclude != "" {
+		excludePattern = strutil.WildCardToRegexp(l.exclude)
+	}
+
+	for object := range client.List(ctx, srcurl, false, excludePattern) {
 		if errorpkg.IsCancelation(object.Err) {
 			continue
 		}

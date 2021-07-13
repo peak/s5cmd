@@ -146,6 +146,10 @@ var copyCommandFlags = []cli.Flag{
 		Name:  "destination-region",
 		Usage: "set the region of destination bucket: the region of the destination bucket will be automatically discovered if --destination-region is not specified",
 	},
+	&cli.StringFlag{
+		Name:  "exclude",
+		Usage: "exclude files with given match",
+	},
 }
 
 var copyCommand = &cli.Command{
@@ -183,6 +187,7 @@ var copyCommand = &cli.Command{
 			encryptionKeyID:      c.String("sse-kms-key-id"),
 			acl:                  c.String("acl"),
 			forceGlacierTransfer: c.Bool("force-glacier-transfer"),
+			exclude:              c.String("exclude"),
 			// region settings
 			srcRegion: c.String("source-region"),
 			dstRegion: c.String("destination-region"),
@@ -212,6 +217,7 @@ type Copy struct {
 	encryptionKeyID      string
 	acl                  string
 	forceGlacierTransfer bool
+	exclude              string
 
 	// region settings
 	srcRegion string
@@ -253,7 +259,7 @@ func (c Copy) Run(ctx context.Context) error {
 		return err
 	}
 
-	objch, err := expandSource(ctx, client, c.followSymlinks, srcurl)
+	objch, err := expandSource(ctx, client, c.followSymlinks, srcurl, c.exclude)
 	if err != nil {
 		printError(c.fullCommand, c.op, err)
 		return err

@@ -28,6 +28,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3manager/s3manageriface"
 	"github.com/peak/s5cmd/log"
 	"github.com/peak/s5cmd/storage/url"
+	"github.com/peak/s5cmd/strutil"
 )
 
 var sentinelURL = urlpkg.URL{}
@@ -123,14 +124,14 @@ func (s *S3) Stat(ctx context.Context, url *url.URL) (*Object, error) {
 // List is a non-blocking S3 list operation which paginates and filters S3
 // keys. If no object found or an error is encountered during this period,
 // it sends these errors to object channel.
-func (s *S3) List(ctx context.Context, url *url.URL, _ bool) <-chan *Object {
+func (s *S3) List(ctx context.Context, url *url.URL, _ bool, exclude string) <-chan *Object {
 	if isGoogleEndpoint(s.endpointURL) {
 		return s.listObjects(ctx, url)
 	}
-	return s.listObjectsV2(ctx, url)
+	return s.listObjectsV2(ctx, url, exclude)
 }
 
-func (s *S3) listObjectsV2(ctx context.Context, url *url.URL) <-chan *Object {
+func (s *S3) listObjectsV2(ctx context.Context, url *url.URL, exclude string) <-chan *Object {
 	listInput := s3.ListObjectsV2Input{
 		Bucket: aws.String(url.Bucket),
 		Prefix: aws.String(url.Prefix),
@@ -172,7 +173,12 @@ func (s *S3) listObjectsV2(ctx context.Context, url *url.URL) <-chan *Object {
 
 			for _, c := range p.Contents {
 				key := aws.StringValue(c.Key)
+				fmt.Printf("key %s: exclude : %s -> result: %v\n", key, exclude, strutil.RegexMatch(exclude, key))
 				if !url.Match(key) {
+					continue
+				}
+
+				if strutil.RegexMatch(exclude, key) {
 					continue
 				}
 

@@ -38,7 +38,7 @@ func (f *Filesystem) Stat(ctx context.Context, url *url.URL) (*Object, error) {
 }
 
 // List returns the objects and directories reside in given src.
-func (f *Filesystem) List(ctx context.Context, src *url.URL, followSymlinks bool) <-chan *Object {
+func (f *Filesystem) List(ctx context.Context, src *url.URL, followSymlinks bool, exclude string) <-chan *Object {
 	obj, err := f.Stat(ctx, src)
 	isDir := err == nil && obj.Type.IsDir()
 

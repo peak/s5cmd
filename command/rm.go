@@ -85,7 +85,7 @@ func (d Delete) Run(ctx context.Context) error {
 		return err
 	}
 
-	objChan := expandSources(ctx, client, false, srcurls...)
+	objChan := expandSources(ctx, client, false, "", srcurls...)
 
 	// do object->url transformation
 	urlch := make(chan *url.URL)

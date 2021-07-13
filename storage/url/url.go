@@ -236,7 +236,6 @@ func (u *URL) setPrefixAndFilter() error {
 		return err
 	}
 	u.filterRegex = r
-	fmt.Println("u.filterRegex", u.filterRegex)
 	return nil
 }
 

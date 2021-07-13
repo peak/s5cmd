@@ -43,7 +43,7 @@ func JSON(v interface{}) string {
 	return string(bytes)
 }
 
-func WildCardToRegexp(pattern string) string {
+func wildCardToRegexp(pattern string) string {
 	var result strings.Builder
 	for i, literal := range strings.Split(pattern, "*") {
 
@@ -60,6 +60,6 @@ func WildCardToRegexp(pattern string) string {
 }
 
 func RegexMatch(pattern string, value string) bool {
-	result, _ := regexp.MatchString(pattern, value)
+	result, _ := regexp.MatchString(wildCardToRegexp(pattern), value)
 	return result
 }

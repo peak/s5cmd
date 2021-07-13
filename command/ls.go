@@ -39,6 +39,9 @@ Examples:
 
 	5. List all objects in a public bucket
 		 > s5cmd --no-sign-request {{.HelpName}} s3://bucket/*
+
+	6. List all objects in a bucket but exclude the ones with prefix abc
+		 > s5cmd {{.HelpName}} --exclude "abc*" s3://bucket/*
 `
 
 var listCommand = &cli.Command{
@@ -64,7 +67,7 @@ var listCommand = &cli.Command{
 		},
 		&cli.StringFlag{
 			Name:  "exclude",
-			Usage: "exclude object with given match",
+			Usage: "exclude objects with given pattern",
 		},
 	},
 	Before: func(c *cli.Context) error {
@@ -151,13 +154,7 @@ func (l List) Run(ctx context.Context) error {
 
 	var merror error
 
-	var excludePattern string
-
-	if l.exclude != "" {
-		excludePattern = strutil.WildCardToRegexp(l.exclude)
-	}
-
-	for object := range client.List(ctx, srcurl, false, excludePattern) {
+	for object := range client.List(ctx, srcurl, false, l.exclude) {
 		if errorpkg.IsCancelation(object.Err) {
 			continue
 		}

@@ -10,6 +10,7 @@ import (
 	"github.com/termie/go-shutil"
 
 	"github.com/peak/s5cmd/storage/url"
+	"github.com/peak/s5cmd/strutil"
 )
 
 // Filesystem is the Storage implementation of a local filesystem.
@@ -43,11 +44,11 @@ func (f *Filesystem) List(ctx context.Context, src *url.URL, followSymlinks bool
 	isDir := err == nil && obj.Type.IsDir()
 
 	if isDir {
-		return f.walkDir(ctx, src, followSymlinks)
+		return f.walkDir(ctx, src, followSymlinks, exclude)
 	}
 
 	if src.HasGlob() {
-		return f.expandGlob(ctx, src, followSymlinks)
+		return f.expandGlob(ctx, src, followSymlinks, exclude)
 	}
 
 	return f.listSingleObject(ctx, src)
@@ -65,7 +66,7 @@ func (f *Filesystem) listSingleObject(ctx context.Context, src *url.URL) <-chan 
 	return ch
 }
 
-func (f *Filesystem) expandGlob(ctx context.Context, src *url.URL, followSymlinks bool) <-chan *Object {
+func (f *Filesystem) expandGlob(ctx context.Context, src *url.URL, followSymlinks bool, exclude string) <-chan *Object {
 	ch := make(chan *Object)
 
 	go func() {
@@ -95,7 +96,7 @@ func (f *Filesystem) expandGlob(ctx context.Context, src *url.URL, followSymlink
 				continue
 			}
 
-			walkDir(ctx, f, fileurl, followSymlinks, func(obj *Object) {
+			walkDir(ctx, f, fileurl, followSymlinks, exclude, func(obj *Object) {
 				sendObject(ctx, obj, ch)
 			})
 		}
@@ -103,7 +104,7 @@ func (f *Filesystem) expandGlob(ctx context.Context, src *url.URL, followSymlink
 	return ch
 }
 
-func walkDir(ctx context.Context, fs *Filesystem, src *url.URL, followSymlinks bool, fn func(o *Object)) {
+func walkDir(ctx context.Context, fs *Filesystem, src *url.URL, followSymlinks bool, excludePattern string, fn func(o *Object)) {
 	//skip if symlink is pointing to a dir and --no-follow-symlink
 	if !ShouldProcessUrl(src, followSymlinks) {
 		return
@@ -132,7 +133,9 @@ func walkDir(ctx context.Context, fs *Filesystem, src *url.URL, followSymlinks b
 			if err != nil {
 				return err
 			}
-			fn(obj)
+			if excludePattern == "" || !strutil.RegexMatch(excludePattern, fileurl.Path) {
+				fn(obj)
+			}
 			return nil
 		},
 		// flags
@@ -144,12 +147,12 @@ func walkDir(ctx context.Context, fs *Filesystem, src *url.URL, followSymlinks b
 	}
 }
 
-func (f *Filesystem) walkDir(ctx context.Context, src *url.URL, followSymlinks bool) <-chan *Object {
+func (f *Filesystem) walkDir(ctx context.Context, src *url.URL, followSymlinks bool, exclude string) <-chan *Object {
 	ch := make(chan *Object)
 	go func() {
 		defer close(ch)
 
-		walkDir(ctx, f, src, followSymlinks, func(obj *Object) {
+		walkDir(ctx, f, src, followSymlinks, exclude, func(obj *Object) {
 			sendObject(ctx, obj, ch)
 		})
 	}()

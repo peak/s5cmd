@@ -28,7 +28,7 @@ type Storage interface {
 	Stat(ctx context.Context, src *url.URL) (*Object, error)
 
 	// List the objects and directories/prefixes in the src.
-	List(ctx context.Context, src *url.URL, followSymlinks bool, exclude string) <-chan *Object
+	List(ctx context.Context, src *url.URL, followSymlinks bool, excludePattern string) <-chan *Object
 
 	// Delete deletes the given src.
 	Delete(ctx context.Context, src *url.URL) error

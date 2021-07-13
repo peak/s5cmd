@@ -148,7 +148,7 @@ var copyCommandFlags = []cli.Flag{
 	},
 	&cli.StringFlag{
 		Name:  "exclude",
-		Usage: "exclude files with given match",
+		Usage: "exclude objects with given pattern",
 	},
 }
 

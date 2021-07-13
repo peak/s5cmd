@@ -35,12 +35,21 @@ Examples:
 
 	4. Delete all matching objects and a specific object
 		 > s5cmd {{.HelpName}} s3://bucketname/prefix/* s3://bucketname/object1.gz
+	
+	5. Delete all matching objects but exclude the ones with .txt extension
+		 > s5cmd {{.HelpName}} --exclude "*.txt" s3://bucketname/prefix/* 
 `
 
 var deleteCommand = &cli.Command{
-	Name:               "rm",
-	HelpName:           "rm",
-	Usage:              "remove objects",
+	Name:     "rm",
+	HelpName: "rm",
+	Usage:    "remove objects",
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:  "exclude",
+			Usage: "exclude objects with given pattern",
+		},
+	},
 	CustomHelpTemplate: deleteHelpTemplate,
 	Before: func(c *cli.Context) error {
 		err := validateRMCommand(c)
@@ -55,6 +64,10 @@ var deleteCommand = &cli.Command{
 			src:         c.Args().Slice(),
 			op:          c.Command.Name,
 			fullCommand: givenCommand(c),
+
+			// flags
+			exclude: c.String("exclude"),
+
 			storageOpts: NewStorageOpts(c),
 		}.Run(c.Context)
 	},
@@ -65,6 +78,9 @@ type Delete struct {
 	src         []string
 	op          string
 	fullCommand string
+
+	// flag options
+	exclude string
 
 	// storage options
 	storageOpts storage.Options
@@ -85,7 +101,7 @@ func (d Delete) Run(ctx context.Context) error {
 		return err
 	}
 
-	objChan := expandSources(ctx, client, false, "", srcurls...)
+	objChan := expandSources(ctx, client, false, d.exclude, srcurls...)
 
 	// do object->url transformation
 	urlch := make(chan *url.URL)

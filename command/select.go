@@ -47,6 +47,10 @@ var selectCommandFlags = []cli.Flag{
 		Usage: "input data format (only JSON supported for the moment)",
 		Value: "JSON",
 	},
+	&cli.StringFlag{
+		Name:  "exclude",
+		Usage: "exclude objects with given pattern",
+	},
 }
 
 var selectCommand = &cli.Command{
@@ -72,6 +76,7 @@ var selectCommand = &cli.Command{
 			// flags
 			query:           c.String("query"),
 			compressionType: c.String("compression"),
+			exclude:         c.String("exclude"),
 
 			storageOpts: NewStorageOpts(c),
 		}.Run(c.Context)
@@ -86,6 +91,7 @@ type Select struct {
 
 	query           string
 	compressionType string
+	exclude         string
 
 	// s3 options
 	storageOpts storage.Options
@@ -108,7 +114,7 @@ func (s Select) Run(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	objch, err := expandSource(ctx, client, false, srcurl, "")
+	objch, err := expandSource(ctx, client, false, srcurl, s.exclude)
 	if err != nil {
 		printError(s.fullCommand, s.op, err)
 		return err

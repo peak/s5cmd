@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -383,6 +384,79 @@ func (s *S3) Get(
 	})
 }
 
+type SelectQuery struct {
+	ExpressionType  string
+	Expression      string
+	CompressionType string
+}
+
+func (s *S3) Select(ctx context.Context, url *url.URL, query *SelectQuery, resultCh chan<- json.RawMessage) error {
+	if s.dryRun {
+		return nil
+	}
+
+	input := &s3.SelectObjectContentInput{
+		Bucket:         aws.String(url.Bucket),
+		Key:            aws.String(url.Path),
+		ExpressionType: aws.String(query.ExpressionType),
+		Expression:     aws.String(query.Expression),
+		InputSerialization: &s3.InputSerialization{
+			CompressionType: aws.String(query.CompressionType),
+			JSON: &s3.JSONInput{
+				Type: aws.String("Lines"),
+			},
+		},
+		OutputSerialization: &s3.OutputSerialization{
+			JSON: &s3.JSONOutput{},
+		},
+	}
+
+	resp, err := s.api.SelectObjectContentWithContext(ctx, input)
+	if err != nil {
+		return err
+	}
+
+	reader, writer := io.Pipe()
+
+	go func() {
+		defer writer.Close()
+
+		eventch := resp.EventStream.Reader.Events()
+		defer resp.EventStream.Close()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case event, ok := <-eventch:
+				if !ok {
+					return
+				}
+
+				switch e := event.(type) {
+				case *s3.RecordsEvent:
+					writer.Write(e.Payload)
+				}
+			}
+		}
+	}()
+
+	decoder := json.NewDecoder(reader)
+	for {
+		var record json.RawMessage
+		err := decoder.Decode(&record)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
+		resultCh <- record
+	}
+
+	return resp.EventStream.Reader.Err()
+}
+
 // Put is a multipart upload operation to upload resources, which implements
 // io.Reader interface, into S3 destination.
 func (s *S3) Put(
@@ -605,6 +679,18 @@ func (s *S3) MakeBucket(ctx context.Context, name string) error {
 	return err
 }
 
+// RemoveBucket removes an S3 bucket with the given name.
+func (s *S3) RemoveBucket(ctx context.Context, name string) error {
+	if s.dryRun {
+		return nil
+	}
+
+	_, err := s.api.DeleteBucketWithContext(ctx, &s3.DeleteBucketInput{
+		Bucket: aws.String(name),
+	})
+	return err
+}
+
 // SessionCache holds session.Session according to s3Opts and it synchronizes
 // access/modification.
 type SessionCache struct {
@@ -684,8 +770,13 @@ func (sc *SessionCache) newSession(ctx context.Context, opts Options) (*session.
 	// get region of the bucket and create session accordingly. if the region
 	// is not provided, it means we want region-independent session
 	// for operations such as listing buckets, making a new bucket etc.
-	if err := setSessionRegion(ctx, sess, opts.bucket); err != nil {
-		return nil, err
+	// only get bucket region when it is not specified.
+	if opts.region != "" {
+		sess.Config.Region = aws.String(opts.region)
+	} else {
+		if err := setSessionRegion(ctx, sess, opts.bucket); err != nil {
+			return nil, err
+		}
 	}
 
 	sc.sessions[opts] = sess

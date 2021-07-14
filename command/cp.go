@@ -76,6 +76,9 @@ Examples:
 
 	13. Perform KMS-SSE of the object(s) at the destination using customer managed Customer Master Key (CMK) key id
 		> s5cmd {{.HelpName}} --sse aws:kms --sse-kms-key-id <your-kms-key-id> s3://bucket/object s3://target-bucket/prefix/object
+	
+	14. Force transfer of GLACIER objects with a prefix whether they are restored or not
+		> s5cmd {{.HelpName}} --force-glacier-transfer s3://bucket/prefix/* target-directory/
 `
 
 var copyCommandFlags = []cli.Flag{
@@ -131,6 +134,18 @@ var copyCommandFlags = []cli.Flag{
 		Name:  "acl",
 		Usage: "set acl for target: defines granted accesses and their types on different accounts/groups",
 	},
+	&cli.BoolFlag{
+		Name:  "force-glacier-transfer",
+		Usage: "force transfer of GLACIER objects whether they are restored or not",
+	},
+	&cli.StringFlag{
+		Name:  "source-region",
+		Usage: "set the region of source bucket; the region of the source bucket will be automatically discovered if --source-region is not specified",
+	},
+	&cli.StringFlag{
+		Name:  "destination-region",
+		Usage: "set the region of destination bucket: the region of the destination bucket will be automatically discovered if --destination-region is not specified",
+	},
 }
 
 var copyCommand = &cli.Command{
@@ -156,17 +171,21 @@ var copyCommand = &cli.Command{
 			fullCommand:  givenCommand(c),
 			deleteSource: false, // don't delete source
 			// flags
-			noClobber:        c.Bool("no-clobber"),
-			ifSizeDiffer:     c.Bool("if-size-differ"),
-			ifSourceNewer:    c.Bool("if-source-newer"),
-			flatten:          c.Bool("flatten"),
-			followSymlinks:   !c.Bool("no-follow-symlinks"),
-			storageClass:     storage.StorageClass(c.String("storage-class")),
-			concurrency:      c.Int("concurrency"),
-			partSize:         c.Int64("part-size") * megabytes,
-			encryptionMethod: c.String("sse"),
-			encryptionKeyID:  c.String("sse-kms-key-id"),
-			acl:              c.String("acl"),
+			noClobber:            c.Bool("no-clobber"),
+			ifSizeDiffer:         c.Bool("if-size-differ"),
+			ifSourceNewer:        c.Bool("if-source-newer"),
+			flatten:              c.Bool("flatten"),
+			followSymlinks:       !c.Bool("no-follow-symlinks"),
+			storageClass:         storage.StorageClass(c.String("storage-class")),
+			concurrency:          c.Int("concurrency"),
+			partSize:             c.Int64("part-size") * megabytes,
+			encryptionMethod:     c.String("sse"),
+			encryptionKeyID:      c.String("sse-kms-key-id"),
+			acl:                  c.String("acl"),
+			forceGlacierTransfer: c.Bool("force-glacier-transfer"),
+			// region settings
+			srcRegion: c.String("source-region"),
+			dstRegion: c.String("destination-region"),
 
 			storageOpts: NewStorageOpts(c),
 		}.Run(c.Context)
@@ -183,15 +202,20 @@ type Copy struct {
 	deleteSource bool
 
 	// flags
-	noClobber        bool
-	ifSizeDiffer     bool
-	ifSourceNewer    bool
-	flatten          bool
-	followSymlinks   bool
-	storageClass     storage.StorageClass
-	encryptionMethod string
-	encryptionKeyID  string
-	acl              string
+	noClobber            bool
+	ifSizeDiffer         bool
+	ifSourceNewer        bool
+	flatten              bool
+	followSymlinks       bool
+	storageClass         storage.StorageClass
+	encryptionMethod     string
+	encryptionKeyID      string
+	acl                  string
+	forceGlacierTransfer bool
+
+	// region settings
+	srcRegion string
+	dstRegion string
 
 	// s3 options
 	concurrency int
@@ -219,6 +243,10 @@ func (c Copy) Run(ctx context.Context) error {
 		return err
 	}
 
+	// override source region if set
+	if c.srcRegion != "" {
+		c.storageOpts.SetRegion(c.srcRegion)
+	}
 	client, err := storage.NewClient(ctx, srcurl, c.storageOpts)
 	if err != nil {
 		printError(c.fullCommand, c.op, err)
@@ -268,7 +296,7 @@ func (c Copy) Run(ctx context.Context) error {
 			continue
 		}
 
-		if object.StorageClass.IsGlacier() {
+		if object.StorageClass.IsGlacier() && !c.forceGlacierTransfer {
 			err := fmt.Errorf("object '%v' is on Glacier storage", object)
 			printError(c.fullCommand, c.op, err)
 			continue
@@ -430,6 +458,10 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 		return err
 	}
 
+	// override destination region if set
+	if c.dstRegion != "" {
+		c.storageOpts.SetRegion(c.dstRegion)
+	}
 	dstClient, err := storage.NewRemoteClient(ctx, dsturl, c.storageOpts)
 	if err != nil {
 		return err
@@ -473,6 +505,10 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 }
 
 func (c Copy) doCopy(ctx context.Context, srcurl, dsturl *url.URL) error {
+	// override destination region if set
+	if c.dstRegion != "" {
+		c.storageOpts.SetRegion(c.dstRegion)
+	}
 	dstClient, err := storage.NewClient(ctx, dsturl, c.storageOpts)
 	if err != nil {
 		return err

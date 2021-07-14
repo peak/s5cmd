@@ -2,7 +2,6 @@ package command
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/urfave/cli/v2"
 
@@ -12,27 +11,27 @@ import (
 	"github.com/peak/s5cmd/storage/url"
 )
 
-var makeBucketHelpTemplate = `Name:
+var removeBucketHelpTemplate = `Name:
 	{{.HelpName}} - {{.Usage}}
 
 Usage:
-	{{.HelpName}} s3://bucketname
+	{{.HelpName}} bucketname
 
 Options:
 	{{range .VisibleFlags}}{{.}}
 	{{end}}
 Examples:
-	1. Create a new S3 bucket
-		 > s5cmd {{.HelpName}} s3://bucketname
+	1. Deletes S3 bucket with given name
+		 > s5cmd {{.HelpName}} bucketname
 `
 
-var makeBucketCommand = &cli.Command{
-	Name:               "mb",
-	HelpName:           "mb",
-	Usage:              "make bucket",
-	CustomHelpTemplate: makeBucketHelpTemplate,
+var removeBucketCommand = &cli.Command{
+	Name:               "rb",
+	HelpName:           "rb",
+	Usage:              "remove bucket",
+	CustomHelpTemplate: removeBucketHelpTemplate,
 	Before: func(c *cli.Context) error {
-		err := validateMBCommand(c)
+		err := validateMBCommand(c) // uses same validation function with make bucket command.
 		if err != nil {
 			printError(givenCommand(c), c.Command.Name, err)
 		}
@@ -41,7 +40,7 @@ var makeBucketCommand = &cli.Command{
 	Action: func(c *cli.Context) (err error) {
 		defer stat.Collect(c.Command.FullName(), &err)()
 
-		return MakeBucket{
+		return RemoveBucket{
 			src:         c.Args().First(),
 			op:          c.Command.Name,
 			fullCommand: givenCommand(c),
@@ -51,8 +50,8 @@ var makeBucketCommand = &cli.Command{
 	},
 }
 
-// MakeBucket holds bucket creation operation flags and states.
-type MakeBucket struct {
+// RemoveBucket holds bucket deletion operation flags and states.
+type RemoveBucket struct {
 	src         string
 	op          string
 	fullCommand string
@@ -60,8 +59,8 @@ type MakeBucket struct {
 	storageOpts storage.Options
 }
 
-// Run creates a bucket.
-func (b MakeBucket) Run(ctx context.Context) error {
+// Run removes a bucket.
+func (b RemoveBucket) Run(ctx context.Context) error {
 	bucket, err := url.New(b.src)
 	if err != nil {
 		printError(b.fullCommand, b.op, err)
@@ -74,7 +73,7 @@ func (b MakeBucket) Run(ctx context.Context) error {
 		return err
 	}
 
-	if err := client.MakeBucket(ctx, bucket.Bucket); err != nil {
+	if err := client.RemoveBucket(ctx, bucket.Bucket); err != nil {
 		printError(b.fullCommand, b.op, err)
 		return err
 	}
@@ -84,23 +83,6 @@ func (b MakeBucket) Run(ctx context.Context) error {
 		Source:    bucket,
 	}
 	log.Info(msg)
-
-	return nil
-}
-
-func validateMBCommand(c *cli.Context) error {
-	if c.Args().Len() != 1 {
-		return fmt.Errorf("expected only 1 argument")
-	}
-
-	src := c.Args().First()
-	bucket, err := url.New(src)
-	if err != nil {
-		return err
-	}
-	if !bucket.IsBucket() {
-		return fmt.Errorf("invalid s3 bucket")
-	}
 
 	return nil
 }

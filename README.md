@@ -49,7 +49,7 @@ storage services and local filesystems.
 ### Binaries
 
 The [Releases](https://github.com/peak/s5cmd/releases) page provides pre-built
-binaries for Linux and macOS.
+binaries for Linux, macOS and Windows.
 
 ### Homebrew
 
@@ -57,6 +57,15 @@ For macOS, a [homebrew](https://brew.sh) tap is provided:
 
     brew tap peak/s5cmd https://github.com/peak/s5cmd
     brew install s5cmd
+
+### MacPorts
+
+You can also install `s5cmd` from [MacPorts](https://ports.macports.org/port/s5cmd/summary) on macOS:
+
+    sudo port selfupdate
+    sudo port install s5cmd
+
+NOTE: MacPorts is not officially supported. The versions might be out of date compared to Homebrew.
 
 ### Build from source
 

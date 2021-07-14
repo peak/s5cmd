@@ -261,7 +261,11 @@ func (c Copy) Run(ctx context.Context) error {
 		return err
 	}
 
-	objch, err := expandSource(ctx, client, c.followSymlinks, srcurl, c.raw)
+	objch := rawSource(srcurl, c.followSymlinks)
+	if !c.raw {
+		objch, err = expandSource(ctx, client, c.followSymlinks, srcurl)
+	}
+
 	if err != nil {
 		printError(c.fullCommand, c.op, err)
 		return err

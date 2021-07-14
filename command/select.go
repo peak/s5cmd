@@ -108,7 +108,7 @@ func (s Select) Run(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	objch, err := expandSource(ctx, client, false, srcurl, false)
+	objch, err := expandSource(ctx, client, false, srcurl)
 	if err != nil {
 		printError(s.fullCommand, s.op, err)
 		return err

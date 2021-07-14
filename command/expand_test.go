@@ -156,9 +156,7 @@ func TestExpandSources(t *testing.T) {
 				}
 			}
 
-			const excludePattern = ""
-
-			gotChan := expandSources(context.Background(), client, false, excludePattern, srcurls...)
+			gotChan := expandSources(context.Background(), client, false, srcurls...)
 
 			var objects []string
 			for obj := range gotChan {
@@ -199,10 +197,8 @@ func TestExpandSource_Follow_Link_To_Single_File(t *testing.T) {
 	ctx := context.Background()
 	workdirUrl, _ := url.New(workdir.Join("b/my_link"))
 
-	const excludePattern = ""
-
 	//follow symbolic links
-	ch, _ := expandSource(ctx, storage.NewLocalClient(storage.Options{}), true, workdirUrl, excludePattern)
+	ch, _ := expandSource(ctx, storage.NewLocalClient(storage.Options{}), true, workdirUrl)
 	var expected []string
 	for obj := range ch {
 		expected = append(expected, obj.URL.Absolute())
@@ -229,10 +225,8 @@ func TestExpandSource_Do_Not_Follow_Link_To_Single_File(t *testing.T) {
 	ctx := context.Background()
 	workdirUrl, _ := url.New(workdir.Join("b/my_link"))
 
-	const excludePattern = ""
-
 	//do not follow symbolic links
-	ch, _ := expandSource(ctx, storage.NewLocalClient(storage.Options{}), false, workdirUrl, excludePattern)
+	ch, _ := expandSource(ctx, storage.NewLocalClient(storage.Options{}), false, workdirUrl)
 	var expected []string
 	for obj := range ch {
 		expected = append(expected, obj.URL.Absolute())
@@ -261,10 +255,8 @@ func TestExpandSource_Follow_Link_To_Directory(t *testing.T) {
 	ctx := context.Background()
 	workdirUrl, _ := url.New(workdir.Join("c/my_link"))
 
-	const excludePattern = ""
-
 	//follow symbolic links
-	ch, _ := expandSource(ctx, storage.NewLocalClient(storage.Options{}), true, workdirUrl, excludePattern)
+	ch, _ := expandSource(ctx, storage.NewLocalClient(storage.Options{}), true, workdirUrl)
 	var expected []string
 	for obj := range ch {
 		expected = append(expected, obj.URL.Absolute())
@@ -298,10 +290,8 @@ func TestExpandSource_Do_Not_Follow_Link_To_Directory(t *testing.T) {
 	ctx := context.Background()
 	workdirUrl, _ := url.New(workdir.Join("c/my_link"))
 
-	const excludePattern = ""
-
 	//do not follow symbolic links
-	ch, _ := expandSource(ctx, storage.NewLocalClient(storage.Options{}), false, workdirUrl, excludePattern)
+	ch, _ := expandSource(ctx, storage.NewLocalClient(storage.Options{}), false, workdirUrl)
 	var expected []string
 	for obj := range ch {
 		expected = append(expected, obj.URL.Absolute())
@@ -328,10 +318,8 @@ func TestExpandSource_Do_Not_Follow_Symlinks(t *testing.T) {
 
 	workdirUrl, _ := url.New(workdir.Path())
 
-	const excludePattern = ""
-
 	//do not follow symbolic links
-	ch, _ := expandSource(ctx, storage.NewLocalClient(storage.Options{}), false, workdirUrl, excludePattern)
+	ch, _ := expandSource(ctx, storage.NewLocalClient(storage.Options{}), false, workdirUrl)
 	var expected []string
 	for obj := range ch {
 		expected = append(expected, obj.URL.Absolute())

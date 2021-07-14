@@ -15,6 +15,7 @@ import (
 	"github.com/peak/s5cmd/parallel"
 	"github.com/peak/s5cmd/storage"
 	"github.com/peak/s5cmd/storage/url"
+	"github.com/peak/s5cmd/strutil"
 )
 
 var selectHelpTemplate = `Name:
@@ -114,7 +115,7 @@ func (s Select) Run(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	objch, err := expandSource(ctx, client, false, srcurl, s.exclude)
+	objch, err := expandSource(ctx, client, false, srcurl)
 	if err != nil {
 		printError(s.fullCommand, s.op, err)
 		return err
@@ -172,8 +173,11 @@ func (s Select) Run(ctx context.Context) error {
 			continue
 		}
 
-		task := s.prepareTask(ctx, client, object.URL, resultCh)
-		parallel.Run(task, waiter)
+		if s.exclude == "" || !strutil.RegexMatch(s.exclude, object.URL.Path) {
+			task := s.prepareTask(ctx, client, object.URL, resultCh)
+			parallel.Run(task, waiter)
+		}
+
 	}
 
 	waiter.Wait()

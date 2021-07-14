@@ -16,7 +16,7 @@ func expandSource(
 	client storage.Storage,
 	followSymlinks bool,
 	srcurl *url.URL,
-	exclude string,
+
 ) (<-chan *storage.Object, error) {
 	var isDir bool
 	// if the source is local, we send a Stat call to know if  we have
@@ -32,7 +32,7 @@ func expandSource(
 
 	// call storage.List for only walking operations.
 	if srcurl.HasGlob() || isDir {
-		return client.List(ctx, srcurl, followSymlinks, exclude), nil
+		return client.List(ctx, srcurl, followSymlinks), nil
 	}
 
 	ch := make(chan *storage.Object, 1)
@@ -51,7 +51,6 @@ func expandSources(
 	ctx context.Context,
 	client storage.Storage,
 	followSymlinks bool,
-	exclude string,
 	srcurls ...*url.URL,
 ) <-chan *storage.Object {
 	ch := make(chan *storage.Object)
@@ -67,7 +66,7 @@ func expandSources(
 			go func(origSrc *url.URL) {
 				defer wg.Done()
 
-				objch, err := expandSource(ctx, client, followSymlinks, origSrc, exclude)
+				objch, err := expandSource(ctx, client, followSymlinks, origSrc)
 				if err != nil {
 					ch <- &storage.Object{Err: err}
 					return

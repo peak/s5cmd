@@ -182,7 +182,7 @@ func TestS3ListURL(t *testing.T) {
 	}
 
 	index := 0
-	for got := range mockS3.List(context.Background(), url, true, "") {
+	for got := range mockS3.List(context.Background(), url, true) {
 		if got.Err != nil {
 			t.Errorf("unexpected error: %v", got.Err)
 			continue
@@ -221,7 +221,7 @@ func TestS3ListError(t *testing.T) {
 		r.Error = mockErr
 	})
 
-	for got := range mockS3.List(context.Background(), url, true, "") {
+	for got := range mockS3.List(context.Background(), url, true) {
 		if got.Err != mockErr {
 			t.Errorf("error got = %v, want %v", got.Err, mockErr)
 		}
@@ -257,7 +257,7 @@ func TestS3ListNoItemFound(t *testing.T) {
 		}
 	})
 
-	for got := range mockS3.List(context.Background(), url, true, "") {
+	for got := range mockS3.List(context.Background(), url, true) {
 		if got.Err != ErrNoObjectFound {
 			t.Errorf("error got = %v, want %v", got.Err, ErrNoObjectFound)
 		}
@@ -289,7 +289,7 @@ func TestS3ListContextCancelled(t *testing.T) {
 		}
 	})
 
-	for got := range mockS3.List(ctx, url, true, "") {
+	for got := range mockS3.List(ctx, url, true) {
 		reqErr, ok := got.Err.(awserr.Error)
 		if !ok {
 			t.Errorf("could not convert error")
@@ -439,7 +439,7 @@ func TestS3Retry(t *testing.T) {
 				retried++
 			})
 
-			for range mockS3.List(ctx, url, true, "") {
+			for range mockS3.List(ctx, url, true) {
 			}
 
 			if retried != expectedRetry {
@@ -714,7 +714,7 @@ func TestS3listObjectsV2(t *testing.T) {
 		api: mockApi,
 	}
 
-	ouputCh := mockS3.listObjectsV2(context.Background(), u, "")
+	ouputCh := mockS3.listObjectsV2(context.Background(), u)
 
 	for obj := range ouputCh {
 		if _, ok := mapReturnObjNameToModtime[obj.String()]; ok {

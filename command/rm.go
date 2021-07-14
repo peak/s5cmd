@@ -12,6 +12,7 @@ import (
 	"github.com/peak/s5cmd/log/stat"
 	"github.com/peak/s5cmd/storage"
 	"github.com/peak/s5cmd/storage/url"
+	"github.com/peak/s5cmd/strutil"
 )
 
 var deleteHelpTemplate = `Name:
@@ -101,7 +102,7 @@ func (d Delete) Run(ctx context.Context) error {
 		return err
 	}
 
-	objChan := expandSources(ctx, client, false, d.exclude, srcurls...)
+	objChan := expandSources(ctx, client, false, srcurls...)
 
 	// do object->url transformation
 	urlch := make(chan *url.URL)
@@ -117,7 +118,10 @@ func (d Delete) Run(ctx context.Context) error {
 				printError(d.fullCommand, d.op, err)
 				continue
 			}
-			urlch <- object.URL
+
+			if d.exclude == "" || !strutil.RegexMatch(d.exclude, object.URL.Path) {
+				urlch <- object.URL
+			}
 		}
 	}()
 

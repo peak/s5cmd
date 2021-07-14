@@ -154,7 +154,7 @@ func (l List) Run(ctx context.Context) error {
 
 	var merror error
 
-	for object := range client.List(ctx, srcurl, false, l.exclude) {
+	for object := range client.List(ctx, srcurl, false) {
 		if errorpkg.IsCancelation(object.Err) {
 			continue
 		}
@@ -165,14 +165,17 @@ func (l List) Run(ctx context.Context) error {
 			continue
 		}
 
-		msg := ListMessage{
-			Object:           object,
-			showEtag:         l.showEtag,
-			showHumanized:    l.humanize,
-			showStorageClass: l.showStorageClass,
+		if l.exclude == "" || !strutil.RegexMatch(l.exclude, object.URL.Path) {
+			msg := ListMessage{
+				Object:           object,
+				showEtag:         l.showEtag,
+				showHumanized:    l.humanize,
+				showStorageClass: l.showStorageClass,
+			}
+
+			log.Info(msg)
 		}
 
-		log.Info(msg)
 	}
 
 	return merror

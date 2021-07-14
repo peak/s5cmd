@@ -20,6 +20,7 @@ import (
 	"github.com/peak/s5cmd/parallel"
 	"github.com/peak/s5cmd/storage"
 	"github.com/peak/s5cmd/storage/url"
+	"github.com/peak/s5cmd/strutil"
 )
 
 const (
@@ -259,7 +260,7 @@ func (c Copy) Run(ctx context.Context) error {
 		return err
 	}
 
-	objch, err := expandSource(ctx, client, c.followSymlinks, srcurl, c.exclude)
+	objch, err := expandSource(ctx, client, c.followSymlinks, srcurl)
 	if err != nil {
 		printError(c.fullCommand, c.op, err)
 		return err
@@ -311,18 +312,21 @@ func (c Copy) Run(ctx context.Context) error {
 		srcurl := object.URL
 		var task parallel.Task
 
-		switch {
-		case srcurl.Type == dsturl.Type: // local->local or remote->remote
-			task = c.prepareCopyTask(ctx, srcurl, dsturl, isBatch)
-		case srcurl.IsRemote(): // remote->local
-			task = c.prepareDownloadTask(ctx, srcurl, dsturl, isBatch)
-		case dsturl.IsRemote(): // local->remote
-			task = c.prepareUploadTask(ctx, srcurl, dsturl, isBatch)
-		default:
-			panic("unexpected src-dst pair")
+		if c.exclude == "" || !strutil.RegexMatch(c.exclude, srcurl.Path) {
+			switch {
+			case srcurl.Type == dsturl.Type: // local->local or remote->remote
+				task = c.prepareCopyTask(ctx, srcurl, dsturl, isBatch)
+			case srcurl.IsRemote(): // remote->local
+				task = c.prepareDownloadTask(ctx, srcurl, dsturl, isBatch)
+			case dsturl.IsRemote(): // local->remote
+				task = c.prepareUploadTask(ctx, srcurl, dsturl, isBatch)
+			default:
+				panic("unexpected src-dst pair")
+			}
+
+			parallel.Run(task, waiter)
 		}
 
-		parallel.Run(task, waiter)
 	}
 
 	waiter.Wait()

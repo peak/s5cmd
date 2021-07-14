@@ -44,7 +44,7 @@ func (_m *MockStorage) Delete(ctx context.Context, src *url.URL) error {
 }
 
 // List provides a mock function with given fields: ctx, src, followSymlinks
-func (_m *MockStorage) List(ctx context.Context, src *url.URL, followSymlinks bool, exclude string) <-chan *Object {
+func (_m *MockStorage) List(ctx context.Context, src *url.URL, followSymlinks bool) <-chan *Object {
 	ret := _m.Called(ctx, src, followSymlinks)
 
 	var r0 <-chan *Object

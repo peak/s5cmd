@@ -112,7 +112,7 @@ func (sz Size) Run(ctx context.Context) error {
 
 	var merror error
 
-	for object := range client.List(ctx, srcurl, false, sz.exclude) {
+	for object := range client.List(ctx, srcurl, false) {
 		if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) {
 			continue
 		}
@@ -122,12 +122,14 @@ func (sz Size) Run(ctx context.Context) error {
 			printError(sz.fullCommand, sz.op, err)
 			continue
 		}
-		storageClass := string(object.StorageClass)
-		s := storageTotal[storageClass]
-		s.addObject(object)
-		storageTotal[storageClass] = s
+		if sz.exclude == "" || !strutil.RegexMatch(sz.exclude, object.URL.Path) {
+			storageClass := string(object.StorageClass)
+			s := storageTotal[storageClass]
+			s.addObject(object)
+			storageTotal[storageClass] = s
 
-		total.addObject(object)
+			total.addObject(object)
+		}
 	}
 
 	if !sz.groupByClass {

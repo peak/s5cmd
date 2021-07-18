@@ -76,9 +76,18 @@ Examples:
 
 	13. Perform KMS-SSE of the object(s) at the destination using customer managed Customer Master Key (CMK) key id
 		> s5cmd {{.HelpName}} --sse aws:kms --sse-kms-key-id <your-kms-key-id> s3://bucket/object s3://target-bucket/prefix/object
-	
+
 	14. Force transfer of GLACIER objects with a prefix whether they are restored or not
 		> s5cmd {{.HelpName}} --force-glacier-transfer s3://bucket/prefix/* target-directory/
+
+	15. Upload a file to S3 bucket with public read s3 acl
+		> s5cmd {{.HelpName}} --acl "public-read" myfile.gz s3://bucket/
+
+	16. Upload a file to S3 bucket with expires header
+		> s5cmd {{.HelpName}} --expires "2024-10-01T20:30:00Z" myfile.gz s3://bucket/
+
+	17. Upload a file to S3 bucket with cache-control header
+		> s5cmd {{.HelpName}} --cache-control "public, max-age=345600" myfile.gz s3://bucket/
 `
 
 var copyCommandFlags = []cli.Flag{
@@ -132,15 +141,15 @@ var copyCommandFlags = []cli.Flag{
 	},
 	&cli.StringFlag{
 		Name:  "acl",
-		Usage: "set acl for target: defines granted accesses and their types on different accounts/groups",
+		Usage: "set acl for target: defines granted accesses and their types on different accounts/groups, e.g. cp --acl 'public-read'",
 	},
 	&cli.StringFlag{
 		Name:  "cache-control",
-		Usage: "set cache control for target: defines cache control header for object",
+		Usage: "set cache control for target: defines cache control header for object, e.g. cp --cache-control 'public, max-age=345600'",
 	},
 	&cli.StringFlag{
 		Name:  "expires",
-		Usage: "set expires for target (uses RFC3339 format): defines expires header for object",
+		Usage: "set expires for target (uses RFC3339 format): defines expires header for object, e.g. cp  --expires '2024-10-01T20:30:00Z'",
 	},
 	&cli.BoolFlag{
 		Name:  "force-glacier-transfer",

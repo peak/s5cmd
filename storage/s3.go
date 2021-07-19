@@ -353,11 +353,10 @@ func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata Metadata) err
 	expires := metadata.Expires()
 	if expires != "" {
 		t, err := time.Parse(time.RFC3339, expires)
-		if err == nil {
-			input.Expires = aws.Time(t)
-		} else {
+		if err != nil {
 			return err
 		}
+		input.Expires = aws.Time(t)
 	}
 
 	_, err := s.api.CopyObject(input)

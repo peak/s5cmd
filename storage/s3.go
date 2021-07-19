@@ -356,8 +356,7 @@ func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata Metadata) err
 		if err == nil {
 			input.Expires = aws.Time(t)
 		} else {
-			msg := log.DebugMessage{Err: err.Error()}
-			log.Debug(msg)
+			return err
 		}
 	}
 
@@ -519,8 +518,7 @@ func (s *S3) Put(
 		if err == nil {
 			input.Expires = aws.Time(t)
 		} else {
-			msg := log.DebugMessage{Err: err.Error()}
-			log.Debug(msg)
+			return err
 		}
 	}
 

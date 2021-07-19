@@ -514,11 +514,10 @@ func (s *S3) Put(
 	expires := metadata.Expires()
 	if expires != "" {
 		t, err := time.Parse(time.RFC3339, expires)
-		if err == nil {
-			input.Expires = aws.Time(t)
-		} else {
+		if err != nil {
 			return err
 		}
+		input.Expires = aws.Time(t)
 	}
 
 	sseEncryption := metadata.SSE()

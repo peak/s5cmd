@@ -261,7 +261,7 @@ func (c Copy) Run(ctx context.Context) error {
 		return err
 	}
 
-	objch := rawSource(srcurl, c.followSymlinks)
+	objch := rawSource(c.followSymlinks, srcurl)
 	if !c.raw {
 		objch, err = expandSource(ctx, client, c.followSymlinks, srcurl)
 	}

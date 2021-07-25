@@ -95,7 +95,7 @@ func (d Delete) Run(ctx context.Context) error {
 		return err
 	}
 
-	objChan := rawSourceUrls(srcurls, false)
+	objChan := rawSource(false, srcurls...)
 	if !d.raw {
 		objChan = expandSources(ctx, client, false, srcurls...)
 	}

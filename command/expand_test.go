@@ -351,7 +351,7 @@ func TestRawSourceWithoutSymLinks(t *testing.T) {
 	workdirUrl, _ := url.New(workdir.Join("a", "f1*.txt"))
 
 	//do not follow symbolic links
-	ch := rawSource(workdirUrl, false)
+	ch := rawSource(false, workdirUrl)
 	var expected []string
 	for obj := range ch {
 		expected = append(expected, obj.URL.Absolute())
@@ -383,7 +383,7 @@ func TestRawSourceUrlsWithoutSymLinks(t *testing.T) {
 	secondWorkdirUrl, _ := url.New(workdir.Join("a", "f1*1.txt"))
 
 	//do not follow symbolic links
-	ch := rawSourceUrls([]*url.URL{workdirUrl, secondWorkdirUrl}, false)
+	ch := rawSource(false, []*url.URL{workdirUrl, secondWorkdirUrl}...)
 	var expected []string
 	for obj := range ch {
 		expected = append(expected, obj.URL.Absolute())

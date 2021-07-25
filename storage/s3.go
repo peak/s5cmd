@@ -345,6 +345,20 @@ func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata Metadata) err
 		input.ACL = aws.String(acl)
 	}
 
+	cacheControl := metadata.CacheControl()
+	if cacheControl != "" {
+		input.CacheControl = aws.String(cacheControl)
+	}
+
+	expires := metadata.Expires()
+	if expires != "" {
+		t, err := time.Parse(time.RFC3339, expires)
+		if err != nil {
+			return err
+		}
+		input.Expires = aws.Time(t)
+	}
+
 	_, err := s.api.CopyObject(input)
 	return err
 }
@@ -490,6 +504,20 @@ func (s *S3) Put(
 	acl := metadata.ACL()
 	if acl != "" {
 		input.ACL = aws.String(acl)
+	}
+
+	cacheControl := metadata.CacheControl()
+	if cacheControl != "" {
+		input.CacheControl = aws.String(cacheControl)
+	}
+
+	expires := metadata.Expires()
+	if expires != "" {
+		t, err := time.Parse(time.RFC3339, expires)
+		if err != nil {
+			return err
+		}
+		input.Expires = aws.Time(t)
 	}
 
 	sseEncryption := metadata.SSE()

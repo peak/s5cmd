@@ -77,9 +77,18 @@ Examples:
 
 	13. Perform KMS-SSE of the object(s) at the destination using customer managed Customer Master Key (CMK) key id
 		> s5cmd {{.HelpName}} --sse aws:kms --sse-kms-key-id <your-kms-key-id> s3://bucket/object s3://target-bucket/prefix/object
-	
+
 	14. Force transfer of GLACIER objects with a prefix whether they are restored or not
 		> s5cmd {{.HelpName}} --force-glacier-transfer s3://bucket/prefix/* target-directory/
+
+	15. Upload a file to S3 bucket with public read s3 acl
+		> s5cmd {{.HelpName}} --acl "public-read" myfile.gz s3://bucket/
+
+	16. Upload a file to S3 bucket with expires header
+		> s5cmd {{.HelpName}} --expires "2024-10-01T20:30:00Z" myfile.gz s3://bucket/
+
+	17. Upload a file to S3 bucket with cache-control header
+		> s5cmd {{.HelpName}} --cache-control "public, max-age=345600" myfile.gz s3://bucket/
 `
 
 var copyCommandFlags = []cli.Flag{
@@ -133,7 +142,15 @@ var copyCommandFlags = []cli.Flag{
 	},
 	&cli.StringFlag{
 		Name:  "acl",
-		Usage: "set acl for target: defines granted accesses and their types on different accounts/groups",
+		Usage: "set acl for target: defines granted accesses and their types on different accounts/groups, e.g. cp --acl 'public-read'",
+	},
+	&cli.StringFlag{
+		Name:  "cache-control",
+		Usage: "set cache control for target: defines cache control header for object, e.g. cp --cache-control 'public, max-age=345600'",
+	},
+	&cli.StringFlag{
+		Name:  "expires",
+		Usage: "set expires for target (uses RFC3339 format): defines expires header for object, e.g. cp  --expires '2024-10-01T20:30:00Z'",
 	},
 	&cli.BoolFlag{
 		Name:  "force-glacier-transfer",
@@ -189,6 +206,8 @@ var copyCommand = &cli.Command{
 			acl:                  c.String("acl"),
 			forceGlacierTransfer: c.Bool("force-glacier-transfer"),
 			exclude:              c.String("exclude"),
+			cacheControl:         c.String("cache-control"),
+			expires:              c.String("expires"),
 			// region settings
 			srcRegion: c.String("source-region"),
 			dstRegion: c.String("destination-region"),
@@ -219,6 +238,8 @@ type Copy struct {
 	acl                  string
 	forceGlacierTransfer bool
 	exclude              string
+	cacheControl         string
+	expires              string
 
 	// region settings
 	srcRegion string
@@ -482,7 +503,9 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 		SetStorageClass(string(c.storageClass)).
 		SetSSE(c.encryptionMethod).
 		SetSSEKeyID(c.encryptionKeyID).
-		SetACL(c.acl)
+		SetACL(c.acl).
+		SetCacheControl(c.cacheControl).
+		SetExpires(c.expires)
 
 	err = dstClient.Put(ctx, file, dsturl, metadata, c.concurrency, c.partSize)
 	if err != nil {
@@ -528,7 +551,9 @@ func (c Copy) doCopy(ctx context.Context, srcurl, dsturl *url.URL) error {
 		SetStorageClass(string(c.storageClass)).
 		SetSSE(c.encryptionMethod).
 		SetSSEKeyID(c.encryptionKeyID).
-		SetACL(c.acl)
+		SetACL(c.acl).
+		SetCacheControl(c.cacheControl).
+		SetExpires(c.expires)
 
 	err = c.shouldOverride(ctx, srcurl, dsturl)
 	if err != nil {

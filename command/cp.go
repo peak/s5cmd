@@ -276,6 +276,7 @@ func (c Copy) Run(ctx context.Context) error {
 	if c.srcRegion != "" {
 		c.storageOpts.SetRegion(c.srcRegion)
 	}
+
 	client, err := storage.NewClient(ctx, srcurl, c.storageOpts)
 	if err != nil {
 		printError(c.fullCommand, c.op, err)

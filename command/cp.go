@@ -258,7 +258,13 @@ increase the open file limit or try to decrease the number of workers with
 
 // Run starts copying given source objects to destination.
 func (c Copy) Run(ctx context.Context) error {
-	srcurl, err := url.New(c.src)
+	var urlMode url.URLMode
+	if c.raw {
+		urlMode = 1
+	}
+	srcurl, err := url.New(c.src, url.WithMode(urlMode))
+
+	// fmt.Printf("srcurl %#v:\n", srcurl)
 
 	if err != nil {
 		printError(c.fullCommand, c.op, err)
@@ -283,12 +289,7 @@ func (c Copy) Run(ctx context.Context) error {
 		return err
 	}
 
-	var objch <-chan *storage.Object
-	if c.raw {
-		objch = rawSource(c.followSymlinks, srcurl)
-	} else {
-		objch, err = expandSource(ctx, client, c.followSymlinks, srcurl)
-	}
+	objch, err := expandSource(ctx, client, c.followSymlinks, srcurl)
 
 	if err != nil {
 		printError(c.fullCommand, c.op, err)
@@ -764,7 +765,7 @@ func validateCopyCommand(c *cli.Context) error {
 	}
 
 	// wildcard destination doesn't mean anything
-	if dsturl.HasGlob() {
+	if !c.Bool("raw") && dsturl.HasGlob() {
 		return fmt.Errorf("target %q can not contain glob characters", dst)
 	}
 

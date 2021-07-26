@@ -3046,7 +3046,7 @@ func TestCopyLocalObjectstoS3WithRawFlag(t *testing.T) {
 
 }
 
-// When folder is uploaded with --raw flag, it gives an error.
+// When folder is uploaded with --raw flag, it only uploads file with given name.
 func TestCopyDirS3RawTrueFailure(t *testing.T) {
 
 	if runtime.GOOS == "windows" {
@@ -3086,15 +3086,27 @@ func TestCopyDirS3RawTrueFailure(t *testing.T) {
 	cmd := s5cmd("cp", "--raw", srcpath, dstpath)
 	result := icmd.RunCmd(cmd)
 
-	result.Assert(t, icmd.Expected{ExitCode: 1})
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals("cp %v/file.txt %v/a*/file.txt", srcpath, dstpath),
+		1: equals("cp %v/file1.txt %v/a*/file1.txt", srcpath, dstpath),
+	}, sortInput(true))
 
 	// assert no files are in S3
-	objs := []string{"a*/file.txt", "a*/file1.txt", "a*b/file2.txt", "a*b/file3.txt", "file.txt", "file1.txt", "file2.txt", "file3.txt", "file4.txt"}
-	for _, obj := range objs {
+	expectedObjs := []string{"a*/file.txt", "a*/file1.txt"}
+	for _, obj := range expectedObjs {
+		err := ensureS3Object(s3client, bucket, obj, "content")
+		if err != nil {
+			t.Fatalf("Object %s is not in S3\n", obj)
+		}
+	}
+
+	nonExpectedObjs := []string{"a*b/file2.txt", "a*b/file3.txt", "file.txt", "file1.txt", "file2.txt", "file3.txt", "file4.txt"}
+	for _, obj := range nonExpectedObjs {
 		err := ensureS3Object(s3client, bucket, obj, "content")
 		assertError(t, err, errS3NoSuchKey)
 	}
-
 	// assert local filesystem
 	expected := fs.Expected(t, folderLayout...)
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
@@ -3233,4 +3245,110 @@ func TestCopyS3ObjectsWithPrefixtoLocalWithRawFlag(t *testing.T) {
 	result := icmd.RunCmd(cmd)
 	result.Assert(t, icmd.Expected{ExitCode: 1})
 
+	/* expected := fmt.Sprintf(`ERROR "cp s3://bucket/%s %s": NoSuchKey:`, prefix, prefix)
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: match(expected),
+	}) */
+}
+
+func TestCopyMultipleS3ObjectsToS3WithRawMode(t *testing.T) {
+	t.Parallel()
+
+	const bucket = "bucket"
+	const destBucket = "destbucket"
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+	createBucket(t, s3client, destBucket)
+
+	filesToContent := map[string]string{
+		"file*.txt":      "this is a test file 1",
+		"file*1.txt":     "this is a test file 2",
+		"file*.py":       "this is a test python file",
+		"file*/file.txt": "this is a test file with prefix",
+	}
+
+	for filename, content := range filesToContent {
+		putFile(t, s3client, bucket, filename, content)
+	}
+
+	src := fmt.Sprintf("s3://%v/file*.txt", bucket)
+	dst := fmt.Sprintf("s3://%v", destBucket)
+
+	cmd := s5cmd("cp", "--raw", src, dst)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals("cp %v %v/file*.txt", src, dst),
+	})
+
+	// assert s3 source objects
+	for filename, content := range filesToContent {
+		assert.Assert(t, ensureS3Object(s3client, bucket, filename, content))
+	}
+
+	expectedFiles := map[string]string{
+		"file*.txt": "this is a test file 1",
+	}
+
+	for filename, content := range expectedFiles {
+		assert.Assert(t, ensureS3Object(s3client, destBucket, filename, content))
+	}
+}
+
+// cp --raw s3://bucket/file* s3://destbucket
+func TestCopyMultipleS3ObjectsWithPrefixToS3WithRawMode(t *testing.T) {
+	t.Parallel()
+
+	const bucket = "bucket"
+	const destBucket = "destbucket"
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+	createBucket(t, s3client, destBucket)
+
+	filesToContent := map[string]string{
+		"file*/file.txt":   "this is a test file 1 in file*",
+		"file*/file1.txt":  "this is a test file 2 in file*",
+		"file*a/file.txt":  "this is a test file 1 in file*b",
+		"file*a/file1.txt": "this is a test file 2 in file*b",
+	}
+
+	for filename, content := range filesToContent {
+		putFile(t, s3client, bucket, filename, content)
+	}
+
+	src := fmt.Sprintf("s3://%v/file*", bucket)
+	dst := fmt.Sprintf("s3://%v", destBucket)
+
+	cmd := s5cmd("cp", "--raw", src, dst)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Expected{ExitCode: 1})
+
+	fmt.Println("result err", result.Stderr())
+
+	/* assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals("cp %v %v/file*.txt", src, dst),
+	})
+
+	// assert s3 source objects
+	for filename, content := range filesToContent {
+		assert.Assert(t, ensureS3Object(s3client, bucket, filename, content))
+	}
+
+	expectedFiles := map[string]string{
+		"file*.txt": "this is a test file 1",
+	}
+
+	for filename, content := range expectedFiles {
+		assert.Assert(t, ensureS3Object(s3client, destBucket, filename, content))
+	} */
 }

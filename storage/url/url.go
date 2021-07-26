@@ -1,4 +1,3 @@
-// Package url abstracts local and remote file URLs.
 package url
 
 import (
@@ -45,10 +44,26 @@ type URL struct {
 	relativePath string
 	filter       string
 	filterRegex  *regexp.Regexp
+	mode         URLMode
+}
+
+type URLMode int
+
+const (
+	WildcardMode URLMode = iota
+	RawMode
+)
+
+type Option func(u *URL)
+
+func WithMode(mode URLMode) Option {
+	return func(u *URL) {
+		u.mode = mode
+	}
 }
 
 // New creates a new URL from given path string.
-func New(s string) (*URL, error) {
+func New(s string, opts ...Option) (*URL, error) {
 	split := strings.Split(s, "://")
 
 	if len(split) == 1 {
@@ -57,6 +72,11 @@ func New(s string) (*URL, error) {
 			Scheme: "",
 			Path:   s,
 		}
+
+		for _, opt := range opts {
+			opt(url)
+		}
+
 		if err := url.setPrefixAndFilter(); err != nil {
 			return nil, err
 		}
@@ -98,6 +118,10 @@ func New(s string) (*URL, error) {
 		Scheme: "s3",
 		Bucket: bucket,
 		Path:   key,
+	}
+
+	for _, opt := range opts {
+		opt(url)
 	}
 
 	if err := url.setPrefixAndFilter(); err != nil {
@@ -214,6 +238,10 @@ func (u *URL) remoteURL() string {
 //		delimiter: "/"
 //
 func (u *URL) setPrefixAndFilter() error {
+	if u.mode == RawMode {
+		return nil
+	}
+
 	loc := strings.IndexAny(u.Path, globCharacters)
 	wildOperation := loc > -1
 	if !wildOperation {
@@ -291,7 +319,7 @@ func (u *URL) MarshalJSON() ([]byte, error) {
 
 // HasGlob reports whether if a string contains any wildcard chars.
 func (u *URL) HasGlob() bool {
-	return hasGlobCharacter(u.Path)
+	return u.mode == WildcardMode && hasGlobCharacter(u.Path)
 }
 
 // parseBatch parses keys for wildcard operations.

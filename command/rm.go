@@ -82,7 +82,12 @@ type Delete struct {
 
 // Run remove given sources.
 func (d Delete) Run(ctx context.Context) error {
-	srcurls, err := newURLs(d.src...)
+	var urlMode url.URLMode
+	if d.raw {
+		urlMode = 1
+	}
+
+	srcurls, err := newURLs(urlMode, d.src...)
 	if err != nil {
 		printError(d.fullCommand, d.op, err)
 		return err
@@ -95,12 +100,7 @@ func (d Delete) Run(ctx context.Context) error {
 		return err
 	}
 
-	var objch <-chan *storage.Object
-	if d.raw {
-		objch = rawSource(false, srcurls...)
-	} else {
-		objch = expandSources(ctx, client, false, srcurls...)
-	}
+	objch := expandSources(ctx, client, false, srcurls...)
 
 	// do object->url transformation
 	urlch := make(chan *url.URL)
@@ -145,10 +145,10 @@ func (d Delete) Run(ctx context.Context) error {
 }
 
 // newSources creates object URL list from given sources.
-func newURLs(sources ...string) ([]*url.URL, error) {
+func newURLs(urlMode url.URLMode, sources ...string) ([]*url.URL, error) {
 	var urls []*url.URL
 	for _, src := range sources {
-		srcurl, err := url.New(src)
+		srcurl, err := url.New(src, url.WithMode(urlMode))
 		if err != nil {
 			return nil, err
 		}
@@ -162,7 +162,11 @@ func validateRMCommand(c *cli.Context) error {
 		return fmt.Errorf("expected at least 1 object to remove")
 	}
 
-	srcurls, err := newURLs(c.Args().Slice()...)
+	var urlMode url.URLMode
+	if c.Bool("raw") {
+		urlMode = 1
+	}
+	srcurls, err := newURLs(urlMode, c.Args().Slice()...)
 	if err != nil {
 		return err
 	}

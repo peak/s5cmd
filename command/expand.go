@@ -35,12 +35,7 @@ func expandSource(
 		return client.List(ctx, srcurl, followSymlinks), nil
 	}
 
-	ch := make(chan *storage.Object, 1)
-	if storage.ShouldProcessUrl(srcurl, followSymlinks) {
-		ch <- &storage.Object{URL: srcurl}
-	}
-	close(ch)
-	return ch, nil
+	return rawSource(followSymlinks, srcurl), nil
 }
 
 // expandSources is a non-blocking argument dispatcher. It creates a object

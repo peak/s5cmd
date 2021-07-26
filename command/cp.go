@@ -282,8 +282,10 @@ func (c Copy) Run(ctx context.Context) error {
 		return err
 	}
 
-	objch := rawSource(c.followSymlinks, srcurl)
-	if !c.raw {
+	var objch <-chan *storage.Object
+	if c.raw {
+		objch = rawSource(c.followSymlinks, srcurl)
+	} else {
 		objch, err = expandSource(ctx, client, c.followSymlinks, srcurl)
 	}
 

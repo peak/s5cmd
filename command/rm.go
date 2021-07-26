@@ -95,9 +95,11 @@ func (d Delete) Run(ctx context.Context) error {
 		return err
 	}
 
-	objChan := rawSource(false, srcurls...)
-	if !d.raw {
-		objChan = expandSources(ctx, client, false, srcurls...)
+	var objch <-chan *storage.Object
+	if d.raw {
+		objch = rawSource(false, srcurls...)
+	} else {
+		objch = expandSources(ctx, client, false, srcurls...)
 	}
 
 	// do object->url transformation
@@ -105,7 +107,7 @@ func (d Delete) Run(ctx context.Context) error {
 	go func() {
 		defer close(urlch)
 
-		for object := range objChan {
+		for object := range objch {
 			if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) {
 				continue
 			}

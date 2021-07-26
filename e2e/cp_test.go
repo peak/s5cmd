@@ -3245,11 +3245,11 @@ func TestCopyS3ObjectsWithPrefixtoLocalWithRawFlag(t *testing.T) {
 	result := icmd.RunCmd(cmd)
 	result.Assert(t, icmd.Expected{ExitCode: 1})
 
-	/* expected := fmt.Sprintf(`ERROR "cp s3://bucket/%s %s": NoSuchKey:`, prefix, prefix)
+	expected := fmt.Sprintf(`ERROR "cp s3://bucket/%s %s": NoSuchKey:`, prefix, prefix)
 
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: match(expected),
-	}) */
+	assertLines(t, result.Stderr()[:len(expected)], map[int]compareFunc{
+		0: equals(expected),
+	})
 }
 
 func TestCopyMultipleS3ObjectsToS3WithRawMode(t *testing.T) {
@@ -3333,22 +3333,10 @@ func TestCopyMultipleS3ObjectsWithPrefixToS3WithRawMode(t *testing.T) {
 
 	result.Assert(t, icmd.Expected{ExitCode: 1})
 
-	fmt.Println("result err", result.Stderr())
+	expected := fmt.Sprintf(`ERROR "cp %v %v/file*": NoSuchKey:`, src, dst)
 
-	/* assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals("cp %v %v/file*.txt", src, dst),
+	assertLines(t, result.Stderr()[:len(expected)], map[int]compareFunc{
+		0: equals(expected),
 	})
 
-	// assert s3 source objects
-	for filename, content := range filesToContent {
-		assert.Assert(t, ensureS3Object(s3client, bucket, filename, content))
-	}
-
-	expectedFiles := map[string]string{
-		"file*.txt": "this is a test file 1",
-	}
-
-	for filename, content := range expectedFiles {
-		assert.Assert(t, ensureS3Object(s3client, destBucket, filename, content))
-	} */
 }

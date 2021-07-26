@@ -1,0 +1,2 @@
+"ERROR \"cp s3://bucket/file* s3://destbucket/file*\": NoSuchKey:"
+"ERROR \"cp s3://bucket/file* s3://destbucket/file*\": NoSuchKey:"

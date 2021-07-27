@@ -3022,7 +3022,6 @@ func TestCopyLocalObjectstoS3WithRawFlag(t *testing.T) {
 			result := icmd.RunCmd(cmd)
 			result.Assert(t, icmd.Success)
 
-			// check files in S3
 			for _, obj := range tc.expectedFiles {
 				err := ensureS3Object(s3client, bucket, obj, "content")
 				if err != nil {
@@ -3030,7 +3029,6 @@ func TestCopyLocalObjectstoS3WithRawFlag(t *testing.T) {
 				}
 			}
 
-			// check files not in S3
 			for _, obj := range tc.nonExpectedFiles {
 				err := ensureS3Object(s3client, bucket, obj, "content")
 				assertError(t, err, errS3NoSuchKey)
@@ -3103,6 +3101,7 @@ func TestCopyDirToS3WithRawFlag(t *testing.T) {
 		err := ensureS3Object(s3client, bucket, obj, "content")
 		assertError(t, err, errS3NoSuchKey)
 	}
+
 	// assert local filesystem
 	expected := fs.Expected(t, folderLayout...)
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
@@ -3150,11 +3149,11 @@ func TestCopyS3ObjectstoLocalWithRawFlag(t *testing.T) {
 		},
 		{
 			name:       "cp  a*/file.txt s3://bucket/",
-			src:        []string{"a*/file.txt", "a*/file1.txt", "a*/file2.txt"},
-			wantedFile: "a*/file.txt",
+			src:        []string{"a*/file*.txt", "a*b/file1.txt", "a*c/file2.txt"},
+			wantedFile: "a*/file*.txt",
 			rawFlag:    "--raw",
 			expectedFiles: []fs.PathOp{
-				fs.WithFile("file.txt", fileContent),
+				fs.WithFile("file*.txt", fileContent),
 			},
 		},
 		{
@@ -3205,40 +3204,6 @@ func TestCopyS3ObjectstoLocalWithRawFlag(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestCopyS3ObjectsWithPrefixtoLocalWithRawFlag(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip()
-	}
-
-	t.Parallel()
-	const (
-		bucket      = "bucket"
-		fileContent = "this is a file content"
-		prefix      = "abc*"
-	)
-
-	var files = []string{"abc*/f1.txt", "abc*/f2.txt", "abcd/f2.py"}
-
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
-
-	createBucket(t, s3client, bucket)
-	for _, filename := range files {
-		putFile(t, s3client, bucket, filename, fileContent)
-	}
-
-	dstpath := fmt.Sprintf("s3://%s/%s", bucket, prefix)
-	cmd := s5cmd("cp", "--raw", dstpath, ".")
-	result := icmd.RunCmd(cmd)
-	result.Assert(t, icmd.Expected{ExitCode: 1})
-
-	expected := fmt.Sprintf(`ERROR "cp s3://bucket/%s %s": NoSuchKey:`, prefix, prefix)
-
-	assertLines(t, result.Stderr()[:len(expected)], map[int]compareFunc{
-		0: equals(expected),
-	})
 }
 
 func TestCopyMultipleS3ObjectsToS3WithRawMode(t *testing.T) {

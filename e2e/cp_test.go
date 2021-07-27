@@ -2928,13 +2928,11 @@ func TestCopyS3ToDirDryRun(t *testing.T) {
 }
 
 func TestCopyLocalObjectstoS3WithRawFlag(t *testing.T) {
-
 	if runtime.GOOS == "windows" {
 		t.Skip()
 	}
 
 	t.Parallel()
-
 	const (
 		bucket      = "bucket"
 		fileContent = "this is a file content"
@@ -3047,8 +3045,7 @@ func TestCopyLocalObjectstoS3WithRawFlag(t *testing.T) {
 }
 
 // When folder is uploaded with --raw flag, it only uploads file with given name.
-func TestCopyDirS3RawTrueFailure(t *testing.T) {
-
+func TestCopyDirToS3WithRawFlag(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip()
 	}
@@ -3113,13 +3110,11 @@ func TestCopyDirS3RawTrueFailure(t *testing.T) {
 }
 
 func TestCopyS3ObjectstoLocalWithRawFlag(t *testing.T) {
-
 	if runtime.GOOS == "windows" {
 		t.Skip()
 	}
 
 	t.Parallel()
-
 	const (
 		bucket      = "bucket"
 		fileContent = "this is a file content"
@@ -3128,7 +3123,6 @@ func TestCopyS3ObjectstoLocalWithRawFlag(t *testing.T) {
 	testcases := []struct {
 		name           string
 		src            []string
-		dst            string
 		wantedFile     string
 		expectedOutput string
 		expectedFiles  []fs.PathOp
@@ -3137,7 +3131,6 @@ func TestCopyS3ObjectstoLocalWithRawFlag(t *testing.T) {
 		{
 			name:           "cp --raw file*.txt s3://bucket/",
 			src:            []string{"file*.txt", "file*1.txt", "file*2.txt"},
-			dst:            "s3://bucket/",
 			wantedFile:     "file*.txt",
 			expectedOutput: "cp s3://bucket/file*.txt file*txt",
 			rawFlag:        "--raw",
@@ -3149,7 +3142,6 @@ func TestCopyS3ObjectstoLocalWithRawFlag(t *testing.T) {
 			name:       "cp  file*.txt s3://bucket/",
 			src:        []string{"file*.txt", "file*1.txt", "file*2.txt"},
 			wantedFile: "file*.txt",
-			dst:        "s3://bucket/",
 			rawFlag:    "",
 			expectedFiles: []fs.PathOp{
 				fs.WithFile("file*.txt", fileContent),
@@ -3161,7 +3153,6 @@ func TestCopyS3ObjectstoLocalWithRawFlag(t *testing.T) {
 			name:       "cp  a*/file.txt s3://bucket/",
 			src:        []string{"a*/file.txt", "a*/file1.txt", "a*/file2.txt"},
 			wantedFile: "a*/file.txt",
-			dst:        "s3://bucket/",
 			rawFlag:    "--raw",
 			expectedFiles: []fs.PathOp{
 				fs.WithFile("file.txt", fileContent),
@@ -3171,7 +3162,6 @@ func TestCopyS3ObjectstoLocalWithRawFlag(t *testing.T) {
 			name:       "cp  a*/file.txt s3://bucket/",
 			src:        []string{"a*/file.txt", "a*/file1.txt", "a*/file2.txt"},
 			wantedFile: "a*/file.txt",
-			dst:        "s3://bucket/",
 			rawFlag:    "",
 			expectedFiles: []fs.PathOp{
 				fs.WithDir(

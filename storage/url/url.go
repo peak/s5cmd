@@ -44,21 +44,14 @@ type URL struct {
 	relativePath string
 	filter       string
 	filterRegex  *regexp.Regexp
-	mode         URLMode
+	raw          bool
 }
-
-type URLMode bool
-
-const (
-	WildcardMode URLMode = false
-	RawMode      URLMode = true
-)
 
 type Option func(u *URL)
 
-func WithMode(mode URLMode) Option {
+func WithRaw(mode bool) Option {
 	return func(u *URL) {
-		u.mode = mode
+		u.raw = mode
 	}
 }
 
@@ -238,7 +231,7 @@ func (u *URL) remoteURL() string {
 //		delimiter: "/"
 //
 func (u *URL) setPrefixAndFilter() error {
-	if u.mode == RawMode {
+	if u.raw {
 		return nil
 	}
 
@@ -319,7 +312,7 @@ func (u *URL) MarshalJSON() ([]byte, error) {
 
 // HasGlob reports whether if a string contains any wildcard chars.
 func (u *URL) HasGlob() bool {
-	return u.mode == WildcardMode && hasGlobCharacter(u.Path)
+	return !u.raw && hasGlobCharacter(u.Path)
 }
 
 // parseBatch parses keys for wildcard operations.

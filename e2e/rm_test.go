@@ -684,6 +684,10 @@ func TestRemoveS3ObjectRawFlag(t *testing.T) {
 		"file*.c":    "test file 1 c version.",
 	}
 
+	deletedFiles := map[string]string{
+		"file*.txt": "this is a test file 1",
+	}
+
 	for filename, content := range filesToContent {
 		putFile(t, s3client, bucket, filename, content)
 	}
@@ -702,6 +706,12 @@ func TestRemoveS3ObjectRawFlag(t *testing.T) {
 	// ensure files which is not supposed to be deleted.
 	for filename, content := range nonDeletedFiles {
 		assert.Assert(t, ensureS3Object(s3client, bucket, filename, content))
+	}
+
+	// add no such key
+	for filename, content := range deletedFiles {
+		err := ensureS3Object(s3client, bucket, filename, content)
+		assertError(t, err, errS3NoSuchKey)
 	}
 }
 

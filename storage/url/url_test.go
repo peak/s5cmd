@@ -406,19 +406,19 @@ func TestURLIsBucket(t *testing.T) {
 func TestURLWithMode(t *testing.T) {
 	tests := []struct {
 		input          string
-		urlMode        URLMode
+		urlMode        bool
 		prefixExpected string
 		filterExpected string
 	}{
-		{"s3://bucket/file*.txt", URLMode(false), "file", "*.txt"},
-		{"s3://bucket/file*.txt", URLMode(true), "", ""},
-		{"s3://bucket/abc/deneme*.txt", URLMode(false), "abc/deneme", "*.txt"},
-		{"s3://bucket/abc/deneme*.txt", URLMode(true), "", ""},
-		{"deneme*.txt", URLMode(false), "deneme", "*.txt"},
-		{"deneme*.txt", URLMode(true), "", ""},
+		{"s3://bucket/file*.txt", false, "file", "*.txt"},
+		{"s3://bucket/file*.txt", true, "", ""},
+		{"s3://bucket/abc/deneme*.txt", false, "abc/deneme", "*.txt"},
+		{"s3://bucket/abc/deneme*.txt", true, "", ""},
+		{"deneme*.txt", false, "deneme", "*.txt"},
+		{"deneme*.txt", true, "", ""},
 	}
 	for _, tc := range tests {
-		url, err := New(tc.input, WithMode(tc.urlMode))
+		url, err := New(tc.input, WithRaw(tc.urlMode))
 		if err != nil {
 			t.Errorf("There is an error in %s\n", tc.input)
 		}

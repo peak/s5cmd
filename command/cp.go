@@ -310,7 +310,7 @@ func (c Copy) Run(ctx context.Context) error {
 	}()
 
 	// use --raw flag to prevent glob operations.
-	isBatch := srcurl.HasGlob()
+	isBatch := srcurl.IsWildcard()
 	if !isBatch && !srcurl.IsRemote() {
 		obj, _ := client.Stat(ctx, srcurl)
 		isBatch = obj != nil && obj.Type.IsDir()
@@ -757,7 +757,7 @@ func validateCopyCommand(c *cli.Context) error {
 	}
 
 	// wildcard destination doesn't mean anything
-	if dsturl.HasGlob() {
+	if dsturl.IsWildcard() {
 		return fmt.Errorf("target %q can not contain glob characters", dst)
 	}
 
@@ -768,7 +768,7 @@ func validateCopyCommand(c *cli.Context) error {
 
 	// 'cp dir/* s3://bucket/prefix': expect a trailing slash to avoid any
 	// surprises.
-	if srcurl.HasGlob() && dsturl.IsRemote() && !dsturl.IsPrefix() && !dsturl.IsBucket() {
+	if srcurl.IsWildcard() && dsturl.IsRemote() && !dsturl.IsPrefix() && !dsturl.IsBucket() {
 		return fmt.Errorf("target %q must be a bucket or a prefix", dsturl)
 	}
 
@@ -794,7 +794,7 @@ func validateCopy(srcurl, dsturl *url.URL) error {
 func validateUpload(ctx context.Context, srcurl, dsturl *url.URL, storageOpts storage.Options) error {
 	srcclient := storage.NewLocalClient(storageOpts)
 
-	if srcurl.HasGlob() {
+	if srcurl.IsWildcard() {
 		return nil
 	}
 

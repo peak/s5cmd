@@ -112,7 +112,7 @@ func validateCatCommand(c *cli.Context) error {
 		return fmt.Errorf("remote source must be an object")
 	}
 
-	if src.HasGlob() {
+	if src.IsWildcard() {
 		return fmt.Errorf("remote source %q can not contain glob characters", src)
 	}
 	return nil

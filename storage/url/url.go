@@ -311,8 +311,8 @@ func (u *URL) MarshalJSON() ([]byte, error) {
 	return json.Marshal(u.String())
 }
 
-// HasGlob reports whether if a string contains any wildcard chars.
-func (u *URL) HasGlob() bool {
+// IsWildcard reports whether if a string contains any wildcard chars.
+func (u *URL) IsWildcard() bool {
 	return !u.raw && hasGlobCharacter(u.Path)
 }
 

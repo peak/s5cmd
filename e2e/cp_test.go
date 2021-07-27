@@ -2980,21 +2980,21 @@ func TestCopyLocalObjectstoS3WithRawFlag(t *testing.T) {
 			src: []fs.PathOp{
 				fs.WithDir(
 					"a*",
-					fs.WithFile("file.txt", "content"),
-					fs.WithFile("file1.txt", "content"),
+					fs.WithFile("file*.txt", "content"),
+					fs.WithFile("file*1.txt", "content"),
 				),
 				fs.WithDir(
 					"a*b",
-					fs.WithFile("file2.txt", "content"),
-					fs.WithFile("file3.txt", "content"),
+					fs.WithFile("file*2.txt", "content"),
+					fs.WithFile("file*3.txt", "content"),
 				),
 
 				fs.WithFile("file4.txt", "content"),
 			},
-			wantedFile:       "a*/file.txt",
+			wantedFile:       "a*/file*.txt",
 			dst:              "s3://bucket/",
-			expectedFiles:    []string{"file.txt"}, // when full path entered, the base part is uploaded.
-			nonExpectedFiles: []string{"a*/file.txt", "a*/file1.txt", "a*b/file2.txt", "a*/file3.txt", "file4.txt", "file1.txt", "file2.txt", "file3.txt"},
+			expectedFiles:    []string{"file*.txt"}, // when full path entered, the base part is uploaded.
+			nonExpectedFiles: []string{"a*/file*.txt", "a*/file*1.txt", "a*b/file*2.txt", "a*/file*3.txt", "file*4.txt", "file*1.txt", "file*2.txt", "file*3.txt"},
 			rawFlag:          "--raw",
 		},
 	}
@@ -3060,16 +3060,16 @@ func TestCopyDirToS3WithRawFlag(t *testing.T) {
 	folderLayout := []fs.PathOp{
 		fs.WithDir(
 			"a*",
-			fs.WithFile("file.txt", "content"),
-			fs.WithFile("file1.txt", "content"),
+			fs.WithFile("file*.txt", "content"),
+			fs.WithFile("file*1.txt", "content"),
 		),
 		fs.WithDir(
 			"a*b",
-			fs.WithFile("file2.txt", "content"),
-			fs.WithFile("file3.txt", "content"),
+			fs.WithFile("file*2.txt", "content"),
+			fs.WithFile("file*3.txt", "content"),
 		),
 
-		fs.WithFile("file4.txt", "content"),
+		fs.WithFile("file*4.txt", "content"),
 	}
 
 	workdir := fs.NewDir(t, t.Name(), folderLayout...)
@@ -3084,11 +3084,11 @@ func TestCopyDirToS3WithRawFlag(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals("cp %v/file.txt %v/a*/file.txt", srcpath, dstpath),
-		1: equals("cp %v/file1.txt %v/a*/file1.txt", srcpath, dstpath),
+		0: equals("cp %v/file*.txt %v/a*/file*.txt", srcpath, dstpath),
+		1: equals("cp %v/file*1.txt %v/a*/file*1.txt", srcpath, dstpath),
 	}, sortInput(true))
 
-	expectedObjs := []string{"a*/file.txt", "a*/file1.txt"}
+	expectedObjs := []string{"a*/file*.txt", "a*/file*1.txt"}
 	for _, obj := range expectedObjs {
 		err := ensureS3Object(s3client, bucket, obj, "content")
 		if err != nil {
@@ -3096,7 +3096,7 @@ func TestCopyDirToS3WithRawFlag(t *testing.T) {
 		}
 	}
 
-	nonExpectedObjs := []string{"a*b/file2.txt", "a*b/file3.txt", "file.txt", "file1.txt", "file2.txt", "file3.txt", "file4.txt"}
+	nonExpectedObjs := []string{"a*b/file*2.txt", "a*b/file*3.txt", "file*.txt", "file*1.txt", "file*2.txt", "file*3.txt", "file*4.txt"}
 	for _, obj := range nonExpectedObjs {
 		err := ensureS3Object(s3client, bucket, obj, "content")
 		assertError(t, err, errS3NoSuchKey)

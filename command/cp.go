@@ -264,8 +264,6 @@ func (c Copy) Run(ctx context.Context) error {
 	}
 	srcurl, err := url.New(c.src, url.WithMode(urlMode))
 
-	// fmt.Printf("srcurl %#v:\n", srcurl)
-
 	if err != nil {
 		printError(c.fullCommand, c.op, err)
 		return err

@@ -135,7 +135,7 @@ func TestExpandSources(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// t.Parallel()
 
-			srcurls, err := newURLs(url.URLMode(0), keys(tc.src)...)
+			srcurls, err := newURLs(url.URLMode(false), keys(tc.src)...)
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
 				return

@@ -47,11 +47,11 @@ type URL struct {
 	mode         URLMode
 }
 
-type URLMode int
+type URLMode bool
 
 const (
-	WildcardMode URLMode = iota
-	RawMode
+	WildcardMode URLMode = false
+	RawMode      URLMode = true
 )
 
 type Option func(u *URL)

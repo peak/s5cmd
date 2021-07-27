@@ -410,12 +410,12 @@ func TestURLWithMode(t *testing.T) {
 		prefixExpected string
 		filterExpected string
 	}{
-		{"s3://bucket/file*.txt", URLMode(0), "file", "*.txt"},
-		{"s3://bucket/file*.txt", URLMode(1), "", ""},
-		{"s3://bucket/abc/deneme*.txt", URLMode(0), "abc/deneme", "*.txt"},
-		{"s3://bucket/abc/deneme*.txt", URLMode(1), "", ""},
-		{"deneme*.txt", URLMode(0), "deneme", "*.txt"},
-		{"deneme*.txt", URLMode(1), "", ""},
+		{"s3://bucket/file*.txt", URLMode(false), "file", "*.txt"},
+		{"s3://bucket/file*.txt", URLMode(true), "", ""},
+		{"s3://bucket/abc/deneme*.txt", URLMode(false), "abc/deneme", "*.txt"},
+		{"s3://bucket/abc/deneme*.txt", URLMode(true), "", ""},
+		{"deneme*.txt", URLMode(false), "deneme", "*.txt"},
+		{"deneme*.txt", URLMode(true), "", ""},
 	}
 	for _, tc := range tests {
 		url, err := New(tc.input, WithMode(tc.urlMode))

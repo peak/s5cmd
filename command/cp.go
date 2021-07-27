@@ -258,12 +258,8 @@ increase the open file limit or try to decrease the number of workers with
 
 // Run starts copying given source objects to destination.
 func (c Copy) Run(ctx context.Context) error {
-	var urlMode url.URLMode
-	if c.raw {
-		urlMode = 1
-	}
-	srcurl, err := url.New(c.src, url.WithMode(urlMode))
 
+	srcurl, err := url.New(c.src, url.WithMode(url.URLMode(c.raw)))
 	if err != nil {
 		printError(c.fullCommand, c.op, err)
 		return err

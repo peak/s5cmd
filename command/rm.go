@@ -82,12 +82,8 @@ type Delete struct {
 
 // Run remove given sources.
 func (d Delete) Run(ctx context.Context) error {
-	var urlMode url.URLMode
-	if d.raw {
-		urlMode = 1
-	}
 
-	srcurls, err := newURLs(urlMode, d.src...)
+	srcurls, err := newURLs(url.URLMode(d.raw), d.src...)
 	if err != nil {
 		printError(d.fullCommand, d.op, err)
 		return err
@@ -162,11 +158,7 @@ func validateRMCommand(c *cli.Context) error {
 		return fmt.Errorf("expected at least 1 object to remove")
 	}
 
-	var urlMode url.URLMode
-	if c.Bool("raw") {
-		urlMode = 1
-	}
-	srcurls, err := newURLs(urlMode, c.Args().Slice()...)
+	srcurls, err := newURLs(url.URLMode(c.Bool("raw")), c.Args().Slice()...)
 	if err != nil {
 		return err
 	}

@@ -3328,5 +3328,58 @@ func TestCopyMultipleS3ObjectsWithPrefixToS3WithRawMode(t *testing.T) {
 	assertLines(t, result.Stderr()[:len(expected)], map[int]compareFunc{
 		0: equals(expected),
 	})
+}
 
+// cp --raw s3://bucket/file* s3://destbucket
+func TestCopyRawModeAllowDestinationWithoutPrefix(t *testing.T) {
+	t.Parallel()
+
+	const bucket = "bucket"
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+
+	filesToContent := map[string]string{
+		"test*/file.txt": "this is a test file 1 in file*",
+	}
+
+	for filename, content := range filesToContent {
+		putFile(t, s3client, bucket, filename, content)
+	}
+
+	folderLayout := []fs.PathOp{
+		fs.WithFile("testfile.txt", "this is a test file 1"),
+		fs.WithFile("readme.md", "this is a readme file"),
+		fs.WithDir(
+			"a",
+			fs.WithFile("another_test_file.txt", "yet another txt file. yatf."),
+		),
+		fs.WithDir(
+			"b",
+			fs.WithFile("filename-with-hypen.gz", "file has hypen in its name"),
+		),
+	}
+
+	workdir := fs.NewDir(t, "somedir", folderLayout...)
+	defer workdir.Remove()
+
+	src := fmt.Sprintf("%v/testfile.txt", workdir.Path())
+	src = filepath.ToSlash(src)
+	dst := fmt.Sprintf("s3://%s/test*/", bucket)
+
+	cmd := s5cmd("cp", "--raw", src, dst)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals("cp %v %vtestfile.txt", src, dst),
+	})
+
+	err := ensureS3Object(s3client, bucket, "test*/testfile.txt", "this is a test file 1")
+	if err != nil {
+		t.Errorf("testfile*.txt not exist in S3 bucket %v\n", dst)
+	}
 }

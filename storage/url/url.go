@@ -1,3 +1,4 @@
+// Package url abstracts local and remote file URLs.
 package url
 
 import (

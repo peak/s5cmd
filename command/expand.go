@@ -17,7 +17,6 @@ func expandSource(
 	followSymlinks bool,
 	srcurl *url.URL,
 ) (<-chan *storage.Object, error) {
-
 	var isDir bool
 	// if the source is local, we send a Stat call to know if  we have
 	// directory or file to walk. For remote storage, we don't want to send

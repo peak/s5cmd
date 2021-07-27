@@ -82,7 +82,6 @@ type Delete struct {
 
 // Run remove given sources.
 func (d Delete) Run(ctx context.Context) error {
-
 	srcurls, err := newURLs(d.raw, d.src...)
 	if err != nil {
 		printError(d.fullCommand, d.op, err)

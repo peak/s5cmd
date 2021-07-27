@@ -258,15 +258,13 @@ increase the open file limit or try to decrease the number of workers with
 
 // Run starts copying given source objects to destination.
 func (c Copy) Run(ctx context.Context) error {
-
 	srcurl, err := url.New(c.src, url.WithRaw(c.raw))
 	if err != nil {
 		printError(c.fullCommand, c.op, err)
 		return err
 	}
 
-	dsturl, err := url.New(c.dst)
-
+	dsturl, err := url.New(c.dst, url.WithRaw(c.raw))
 	if err != nil {
 		printError(c.fullCommand, c.op, err)
 		return err
@@ -312,7 +310,7 @@ func (c Copy) Run(ctx context.Context) error {
 	}()
 
 	// use --raw flag to prevent glob operations.
-	isBatch := !c.raw && srcurl.HasGlob()
+	isBatch := srcurl.HasGlob()
 	if !isBatch && !srcurl.IsRemote() {
 		obj, _ := client.Stat(ctx, srcurl)
 		isBatch = obj != nil && obj.Type.IsDir()
@@ -748,18 +746,18 @@ func validateCopyCommand(c *cli.Context) error {
 	src := c.Args().Get(0)
 	dst := c.Args().Get(1)
 
-	srcurl, err := url.New(src)
+	srcurl, err := url.New(src, url.WithRaw(c.Bool("raw")))
 	if err != nil {
 		return err
 	}
 
-	dsturl, err := url.New(dst)
+	dsturl, err := url.New(dst, url.WithRaw(c.Bool("raw")))
 	if err != nil {
 		return err
 	}
 
 	// wildcard destination doesn't mean anything
-	if !c.Bool("raw") && dsturl.HasGlob() {
+	if dsturl.HasGlob() {
 		return fmt.Errorf("target %q can not contain glob characters", dst)
 	}
 

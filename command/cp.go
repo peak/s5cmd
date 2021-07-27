@@ -89,6 +89,9 @@ Examples:
 
 	17. Upload a file to S3 bucket with cache-control header
 		> s5cmd {{.HelpName}} --cache-control "public, max-age=345600" myfile.gz s3://bucket/
+
+	18. Copy all files to S3 bucket but exclude the ones with txt and gz extension 
+		> s5cmd cp --exclude "*.txt" --exclude "*.gz" dir/ s3://bucket
 `
 
 var copyCommandFlags = []cli.Flag{

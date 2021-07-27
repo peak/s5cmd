@@ -158,10 +158,6 @@ func (s Select) Run(ctx context.Context) error {
 	}()
 
 	for object := range objch {
-		if strutil.IsURLExcluded(s.exclude, object.URL.Path) {
-			continue
-		}
-
 		if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) {
 			continue
 		}
@@ -174,6 +170,10 @@ func (s Select) Run(ctx context.Context) error {
 		if object.StorageClass.IsGlacier() {
 			err := fmt.Errorf("object '%v' is on Glacier storage", object)
 			printError(s.fullCommand, s.op, err)
+			continue
+		}
+
+		if strutil.IsURLExcluded(s.exclude, object.URL.Path) {
 			continue
 		}
 

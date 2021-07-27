@@ -55,8 +55,8 @@ func regexMatch(pattern string, value string) bool {
 	return result
 }
 
+// IsURLExcluded checks whether given urlPath matches any of the exclude patterns.
 func IsURLExcluded(excludePatterns []string, urlPath string) bool {
-
 	if len(excludePatterns) == 0 {
 		return false
 	}

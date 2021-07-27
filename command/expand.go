@@ -16,7 +16,6 @@ func expandSource(
 	client storage.Storage,
 	followSymlinks bool,
 	srcurl *url.URL,
-
 ) (<-chan *storage.Object, error) {
 	var isDir bool
 	// if the source is local, we send a Stat call to know if  we have

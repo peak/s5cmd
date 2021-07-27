@@ -355,7 +355,6 @@ func (c Copy) Run(ctx context.Context) error {
 		}
 
 		parallel.Run(task, waiter)
-
 	}
 
 	waiter.Wait()

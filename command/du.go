@@ -31,7 +31,7 @@ Examples:
 	2. Show disk usage of all objects that match a wildcard, grouped by storage class
 		 > s5cmd {{.HelpName}} --group s3://bucket/prefix/obj*.gz
 
-	3. Show disk usage of all objects in a bucket but exclude the ones with py or starts with main
+	3. Show disk usage of all objects in a bucket but exclude the ones with py extension or starts with main
 		 > s5cmd {{.HelpName}} --exclude "*.py" --exclude "main*" s3://bucket/*
 `
 

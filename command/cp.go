@@ -92,6 +92,9 @@ Examples:
 
 	18. Copy all files to S3 bucket but exclude the ones with txt and gz extension 
 		> s5cmd cp --exclude "*.txt" --exclude "*.gz" dir/ s3://bucket
+
+	19. Copy all files from S3 bucket to another S3 bucket but exclude the ones starts with log
+		> s5cmd cp --exclude "log*" s3://bucket/* s3://destbucket
 `
 
 var copyCommandFlags = []cli.Flag{
@@ -333,23 +336,25 @@ func (c Copy) Run(ctx context.Context) error {
 			continue
 		}
 
+		if strutil.IsURLExcluded(c.exclude, object.URL.Path) {
+			continue
+		}
+
 		srcurl := object.URL
 		var task parallel.Task
 
-		if strutil.CheckAllExclude(c.exclude, object.URL.Path) {
-			switch {
-			case srcurl.Type == dsturl.Type: // local->local or remote->remote
-				task = c.prepareCopyTask(ctx, srcurl, dsturl, isBatch)
-			case srcurl.IsRemote(): // remote->local
-				task = c.prepareDownloadTask(ctx, srcurl, dsturl, isBatch)
-			case dsturl.IsRemote(): // local->remote
-				task = c.prepareUploadTask(ctx, srcurl, dsturl, isBatch)
-			default:
-				panic("unexpected src-dst pair")
-			}
-
-			parallel.Run(task, waiter)
+		switch {
+		case srcurl.Type == dsturl.Type: // local->local or remote->remote
+			task = c.prepareCopyTask(ctx, srcurl, dsturl, isBatch)
+		case srcurl.IsRemote(): // remote->local
+			task = c.prepareDownloadTask(ctx, srcurl, dsturl, isBatch)
+		case dsturl.IsRemote(): // local->remote
+			task = c.prepareUploadTask(ctx, srcurl, dsturl, isBatch)
+		default:
+			panic("unexpected src-dst pair")
 		}
+
+		parallel.Run(task, waiter)
 
 	}
 

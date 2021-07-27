@@ -31,7 +31,7 @@ Examples:
 	2. Show disk usage of all objects that match a wildcard, grouped by storage class
 		 > s5cmd {{.HelpName}} --group s3://bucket/prefix/obj*.gz
 
-	3. Show disk usage of all objects in a bucket but exclude the ones with py and starts with main
+	3. Show disk usage of all objects in a bucket but exclude the ones with py or starts with main
 		 > s5cmd {{.HelpName}} --exclude "*.py" --exclude "main*" s3://bucket/*
 `
 
@@ -122,14 +122,17 @@ func (sz Size) Run(ctx context.Context) error {
 			printError(sz.fullCommand, sz.op, err)
 			continue
 		}
-		if strutil.CheckAllExclude(sz.exclude, object.URL.Path) {
-			storageClass := string(object.StorageClass)
-			s := storageTotal[storageClass]
-			s.addObject(object)
-			storageTotal[storageClass] = s
 
-			total.addObject(object)
+		if strutil.IsURLExcluded(sz.exclude, object.URL.Path) {
+			continue
 		}
+
+		storageClass := string(object.StorageClass)
+		s := storageTotal[storageClass]
+		s.addObject(object)
+		storageTotal[storageClass] = s
+
+		total.addObject(object)
 	}
 
 	if !sz.groupByClass {

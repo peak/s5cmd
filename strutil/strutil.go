@@ -44,19 +44,10 @@ func JSON(v interface{}) string {
 }
 
 func wildCardToRegexp(pattern string) string {
-	var result strings.Builder
-	for i, literal := range strings.Split(pattern, "*") {
-
-		// Replace * with .*
-		if i > 0 {
-			result.WriteString(".*")
-		}
-
-		// Quote any regular expression meta characters in the
-		// literal text.
-		result.WriteString(regexp.QuoteMeta(literal))
-	}
-	return result.String()
+	patternRegex := regexp.QuoteMeta(pattern)
+	patternRegex = strings.Replace(patternRegex, "\\?", ".", -1)
+	patternRegex = strings.Replace(patternRegex, "\\*", ".*", -1)
+	return patternRegex
 }
 
 func regexMatch(pattern string, value string) bool {
@@ -64,16 +55,16 @@ func regexMatch(pattern string, value string) bool {
 	return result
 }
 
-func CheckAllExclude(excludePatterns []string, urlPath string) bool {
+func IsURLExcluded(excludePatterns []string, urlPath string) bool {
 
 	if len(excludePatterns) == 0 {
-		return true
+		return false
 	}
 
 	for _, excludePattern := range excludePatterns {
 		if excludePattern != "" && regexMatch(excludePattern, urlPath) {
-			return false
+			return true
 		}
 	}
-	return true
+	return false
 }

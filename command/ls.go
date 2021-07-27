@@ -155,6 +155,7 @@ func (l List) Run(ctx context.Context) error {
 	var merror error
 
 	for object := range client.List(ctx, srcurl, false) {
+
 		if errorpkg.IsCancelation(object.Err) {
 			continue
 		}
@@ -165,16 +166,18 @@ func (l List) Run(ctx context.Context) error {
 			continue
 		}
 
-		if strutil.CheckAllExclude(l.exclude, object.URL.Path) {
-			msg := ListMessage{
-				Object:           object,
-				showEtag:         l.showEtag,
-				showHumanized:    l.humanize,
-				showStorageClass: l.showStorageClass,
-			}
-
-			log.Info(msg)
+		if strutil.IsURLExcluded(l.exclude, object.URL.Path) {
+			continue
 		}
+
+		msg := ListMessage{
+			Object:           object,
+			showEtag:         l.showEtag,
+			showHumanized:    l.humanize,
+			showStorageClass: l.showStorageClass,
+		}
+
+		log.Info(msg)
 
 	}
 

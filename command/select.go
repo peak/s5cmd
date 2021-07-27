@@ -158,6 +158,10 @@ func (s Select) Run(ctx context.Context) error {
 	}()
 
 	for object := range objch {
+		if strutil.IsURLExcluded(s.exclude, object.URL.Path) {
+			continue
+		}
+
 		if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) {
 			continue
 		}
@@ -173,10 +177,8 @@ func (s Select) Run(ctx context.Context) error {
 			continue
 		}
 
-		if strutil.CheckAllExclude(s.exclude, object.URL.Path) {
-			task := s.prepareTask(ctx, client, object.URL, resultCh)
-			parallel.Run(task, waiter)
-		}
+		task := s.prepareTask(ctx, client, object.URL, resultCh)
+		parallel.Run(task, waiter)
 
 	}
 

@@ -3090,7 +3090,6 @@ func TestCopyDirToS3WithRawFlag(t *testing.T) {
 		1: equals("cp %v/file1.txt %v/a*/file1.txt", srcpath, dstpath),
 	}, sortInput(true))
 
-	// assert no files are in S3
 	expectedObjs := []string{"a*/file.txt", "a*/file1.txt"}
 	for _, obj := range expectedObjs {
 		err := ensureS3Object(s3client, bucket, obj, "content")

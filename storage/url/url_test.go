@@ -406,7 +406,7 @@ func TestURLIsBucket(t *testing.T) {
 func TestURLWithMode(t *testing.T) {
 	tests := []struct {
 		input          string
-		urlMode        bool
+		raw            bool
 		prefixExpected string
 		filterExpected string
 	}{
@@ -418,7 +418,7 @@ func TestURLWithMode(t *testing.T) {
 		{"deneme*.txt", true, "", ""},
 	}
 	for _, tc := range tests {
-		url, err := New(tc.input, WithRaw(tc.urlMode))
+		url, err := New(tc.input, WithRaw(tc.raw))
 		if err != nil {
 			t.Errorf("There is an error in %s\n", tc.input)
 		}

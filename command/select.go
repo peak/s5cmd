@@ -48,7 +48,7 @@ var selectCommandFlags = []cli.Flag{
 		Usage: "input data format (only JSON supported for the moment)",
 		Value: "JSON",
 	},
-	&cli.StringFlag{
+	&cli.StringSliceFlag{
 		Name:  "exclude",
 		Usage: "exclude objects with given pattern",
 	},
@@ -77,7 +77,7 @@ var selectCommand = &cli.Command{
 			// flags
 			query:           c.String("query"),
 			compressionType: c.String("compression"),
-			exclude:         c.String("exclude"),
+			exclude:         c.StringSlice("exclude"),
 
 			storageOpts: NewStorageOpts(c),
 		}.Run(c.Context)
@@ -92,7 +92,7 @@ type Select struct {
 
 	query           string
 	compressionType string
-	exclude         string
+	exclude         []string
 
 	// s3 options
 	storageOpts storage.Options
@@ -173,7 +173,7 @@ func (s Select) Run(ctx context.Context) error {
 			continue
 		}
 
-		if s.exclude == "" || !strutil.RegexMatch(s.exclude, object.URL.Path) {
+		if strutil.CheckAllExclude(s.exclude, object.URL.Path) {
 			task := s.prepareTask(ctx, client, object.URL, resultCh)
 			parallel.Run(task, waiter)
 		}

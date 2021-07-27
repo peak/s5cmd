@@ -65,7 +65,7 @@ var listCommand = &cli.Command{
 			Aliases: []string{"s"},
 			Usage:   "display full name of the object class",
 		},
-		&cli.StringFlag{
+		&cli.StringSliceFlag{
 			Name:  "exclude",
 			Usage: "exclude objects with given pattern",
 		},
@@ -95,7 +95,7 @@ var listCommand = &cli.Command{
 			showEtag:         c.Bool("etag"),
 			humanize:         c.Bool("humanize"),
 			showStorageClass: c.Bool("storage-class"),
-			exclude:          c.String("exclude"),
+			exclude:          c.StringSlice("exclude"),
 
 			storageOpts: NewStorageOpts(c),
 		}.Run(c.Context)
@@ -112,7 +112,7 @@ type List struct {
 	showEtag         bool
 	humanize         bool
 	showStorageClass bool
-	exclude          string
+	exclude          []string
 
 	storageOpts storage.Options
 }
@@ -165,7 +165,7 @@ func (l List) Run(ctx context.Context) error {
 			continue
 		}
 
-		if l.exclude == "" || !strutil.RegexMatch(l.exclude, object.URL.Path) {
+		if strutil.CheckAllExclude(l.exclude, object.URL.Path) {
 			msg := ListMessage{
 				Object:           object,
 				showEtag:         l.showEtag,

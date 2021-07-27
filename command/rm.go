@@ -37,8 +37,8 @@ Examples:
 	4. Delete all matching objects and a specific object
 		 > s5cmd {{.HelpName}} s3://bucketname/prefix/* s3://bucketname/object1.gz
 	
-	5. Delete all matching objects but exclude the ones with .txt extension
-		 > s5cmd {{.HelpName}} --exclude "*.txt" s3://bucketname/prefix/* 
+	5. Delete all matching objects but exclude the ones with .txt extension and starts with "main"
+		 > s5cmd {{.HelpName}} --exclude "*.txt" --exclude "main*" s3://bucketname/prefix/* 
 `
 
 var deleteCommand = &cli.Command{
@@ -46,7 +46,7 @@ var deleteCommand = &cli.Command{
 	HelpName: "rm",
 	Usage:    "remove objects",
 	Flags: []cli.Flag{
-		&cli.StringFlag{
+		&cli.StringSliceFlag{
 			Name:  "exclude",
 			Usage: "exclude objects with given pattern",
 		},
@@ -67,7 +67,7 @@ var deleteCommand = &cli.Command{
 			fullCommand: givenCommand(c),
 
 			// flags
-			exclude: c.String("exclude"),
+			exclude: c.StringSlice("exclude"),
 
 			storageOpts: NewStorageOpts(c),
 		}.Run(c.Context)
@@ -81,7 +81,7 @@ type Delete struct {
 	fullCommand string
 
 	// flag options
-	exclude string
+	exclude []string
 
 	// storage options
 	storageOpts storage.Options
@@ -119,7 +119,7 @@ func (d Delete) Run(ctx context.Context) error {
 				continue
 			}
 
-			if d.exclude == "" || !strutil.RegexMatch(d.exclude, object.URL.Path) {
+			if strutil.CheckAllExclude(d.exclude, object.URL.Path) {
 				urlch <- object.URL
 			}
 		}

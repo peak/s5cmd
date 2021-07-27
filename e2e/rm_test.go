@@ -725,6 +725,73 @@ func TestRemoveMultipleS3ObjectsWithExcludeFilter(t *testing.T) {
 	}
 }
 
+// rm --exclude "*.txt" "*.gz" s3://bucket/*
+func TestRemoveMultipleS3ObjectsWithExcludeFilters(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+
+	const (
+		excludePattern1 = "*.txt"
+		excludePattern2 = "*.gz"
+	)
+
+	filesToContent := map[string]string{
+		"testfile1.txt":          "this is a test file 1",
+		"readme.md":              "this is a readme file",
+		"filename-with-hypen.gz": "file has hypen in its name",
+		"another_test_file.txt":  "yet another txt file. yatf.",
+		"a/file.txt":             "this is a txt file",
+		"b/main.txt":             "this is the second txt file",
+		"a/file.py":              "this is a python file with prefix a",
+	}
+
+	expectedFiles := map[string]string{
+		"testfile1.txt":          "this is a test file 1",
+		"another_test_file.txt":  "yet another txt file. yatf.",
+		"a/file.txt":             "this is a txt file",
+		"b/main.txt":             "this is the second txt file",
+		"filename-with-hypen.gz": "file has hypen in its name",
+	}
+
+	nonExpectedFiles := map[string]string{
+		"readme.md": "this is a readme file",
+		"a/file.py": "this is a python file with prefix a",
+	}
+
+	for filename, content := range filesToContent {
+		putFile(t, s3client, bucket, filename, content)
+	}
+
+	cmd := s5cmd("rm", "--exclude", excludePattern1, "--exclude", excludePattern2, "s3://"+bucket+"/*")
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{})
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`rm s3://%v/a/file.py`, bucket),
+		1: equals(`rm s3://%v/readme.md`, bucket),
+	}, sortInput(true))
+
+	// assert s3 objects were not removed
+	for filename, content := range expectedFiles {
+		assert.Assert(t, ensureS3Object(s3client, bucket, filename, content))
+	}
+
+	// assert s3 objects should be removed
+	for filename, content := range nonExpectedFiles {
+		err := ensureS3Object(s3client, bucket, filename, content)
+		assertError(t, err, errS3NoSuchKey)
+	}
+}
+
 // rm --exclude "" s3://bucket/*
 func TestRemoveS3ObjectsExcludePatternEmpty(t *testing.T) {
 	t.Parallel()

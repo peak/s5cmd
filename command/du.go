@@ -51,7 +51,7 @@ var sizeCommand = &cli.Command{
 			Aliases: []string{"H"},
 			Usage:   "human-readable output for object sizes",
 		},
-		&cli.StringFlag{
+		&cli.StringSliceFlag{
 			Name:  "exclude",
 			Usage: "exclude objects with given pattern",
 		},
@@ -73,7 +73,7 @@ var sizeCommand = &cli.Command{
 			// flags
 			groupByClass: c.Bool("group"),
 			humanize:     c.Bool("humanize"),
-			exclude:      c.String("exclude"),
+			exclude:      c.StringSlice("exclude"),
 
 			storageOpts: NewStorageOpts(c),
 		}.Run(c.Context)
@@ -89,7 +89,7 @@ type Size struct {
 	// flags
 	groupByClass bool
 	humanize     bool
-	exclude      string
+	exclude      []string
 
 	storageOpts storage.Options
 }
@@ -122,7 +122,7 @@ func (sz Size) Run(ctx context.Context) error {
 			printError(sz.fullCommand, sz.op, err)
 			continue
 		}
-		if sz.exclude == "" || !strutil.RegexMatch(sz.exclude, object.URL.Path) {
+		if strutil.CheckAllExclude(sz.exclude, object.URL.Path) {
 			storageClass := string(object.StorageClass)
 			s := storageTotal[storageClass]
 			s.addObject(object)

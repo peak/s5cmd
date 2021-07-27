@@ -59,7 +59,21 @@ func wildCardToRegexp(pattern string) string {
 	return result.String()
 }
 
-func RegexMatch(pattern string, value string) bool {
+func regexMatch(pattern string, value string) bool {
 	result, _ := regexp.MatchString(wildCardToRegexp(pattern), value)
 	return result
+}
+
+func CheckAllExclude(excludePatterns []string, urlPath string) bool {
+
+	if len(excludePatterns) == 0 {
+		return true
+	}
+
+	for _, excludePattern := range excludePatterns {
+		if excludePattern != "" && regexMatch(excludePattern, urlPath) {
+			return false
+		}
+	}
+	return true
 }

@@ -164,7 +164,7 @@ var copyCommandFlags = []cli.Flag{
 		Name:  "destination-region",
 		Usage: "set the region of destination bucket: the region of the destination bucket will be automatically discovered if --destination-region is not specified",
 	},
-	&cli.StringFlag{
+	&cli.StringSliceFlag{
 		Name:  "exclude",
 		Usage: "exclude objects with given pattern",
 	},
@@ -205,7 +205,7 @@ var copyCommand = &cli.Command{
 			encryptionKeyID:      c.String("sse-kms-key-id"),
 			acl:                  c.String("acl"),
 			forceGlacierTransfer: c.Bool("force-glacier-transfer"),
-			exclude:              c.String("exclude"),
+			exclude:              c.StringSlice("exclude"),
 			cacheControl:         c.String("cache-control"),
 			expires:              c.String("expires"),
 			// region settings
@@ -237,7 +237,7 @@ type Copy struct {
 	encryptionKeyID      string
 	acl                  string
 	forceGlacierTransfer bool
-	exclude              string
+	exclude              []string
 	cacheControl         string
 	expires              string
 
@@ -333,7 +333,7 @@ func (c Copy) Run(ctx context.Context) error {
 		srcurl := object.URL
 		var task parallel.Task
 
-		if c.exclude == "" || !strutil.RegexMatch(c.exclude, srcurl.Path) {
+		if strutil.CheckAllExclude(c.exclude, object.URL.Path) {
 			switch {
 			case srcurl.Type == dsturl.Type: // local->local or remote->remote
 				task = c.prepareCopyTask(ctx, srcurl, dsturl, isBatch)

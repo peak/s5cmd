@@ -801,7 +801,7 @@ func TestSessionRegionDetection(t *testing.T) {
 	os.Setenv("AWS_SDK_LOAD_CONFIG", "0")
 
 	// mock auto bucket detection
-	server := func () *httptest.Server {
+	server := func() *httptest.Server {
 		return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("X-Amz-Bucket-Region", bucketRegion)
 			w.WriteHeader(http.StatusOK)
@@ -813,6 +813,11 @@ func TestSessionRegionDetection(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			var opts Options
 			opts.Endpoint = server.URL
+
+			// Since profile loading disabled above, we need to provide
+			// credentials to the session. NoSignRequest could be used
+			// for anonymous credentials.
+			opts.NoSignRequest = true
 
 			if tc.optsRegion != "" {
 				opts.region = tc.optsRegion

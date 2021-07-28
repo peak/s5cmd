@@ -3039,7 +3039,6 @@ func TestCopyLocalObjectstoS3WithRawFlag(t *testing.T) {
 			assert.Assert(t, fs.Equal(workdir.Path(), expected))
 		})
 	}
-
 }
 
 // When folder is uploaded with --raw flag, it only uploads file with given name.

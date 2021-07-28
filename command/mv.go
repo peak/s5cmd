@@ -64,7 +64,6 @@ var moveCommand = &cli.Command{
 			cacheControl:     c.String("cache-control"),
 			expires:          c.String("expires"),
 
-
 			storageOpts: NewStorageOpts(c),
 		}
 

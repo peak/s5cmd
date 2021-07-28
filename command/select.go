@@ -157,6 +157,8 @@ func (s Select) Run(ctx context.Context) error {
 		}
 	}()
 
+	excludePatterns := strutil.CreateExcludesFromWildcard(s.exclude)
+
 	for object := range objch {
 		if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) {
 			continue
@@ -173,7 +175,7 @@ func (s Select) Run(ctx context.Context) error {
 			continue
 		}
 
-		if strutil.IsURLExcluded(s.exclude, object.URL.Path) {
+		if strutil.IsURLExcluded(excludePatterns, object.URL.Path) {
 			continue
 		}
 

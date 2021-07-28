@@ -51,7 +51,16 @@ func wildCardToRegexp(pattern string) string {
 }
 
 func regexMatch(pattern string, value string) bool {
-	result, _ := regexp.MatchString(wildCardToRegexp(pattern), value)
+	result, _ := regexp.MatchString(pattern, value)
+	return result
+}
+
+// CreateExcludesFromWildcard creates regex strings from wildcard.
+func CreateExcludesFromWildcard(inputExcludes []string) []string {
+	result := make([]string, 0)
+	for _, input := range inputExcludes {
+		result = append(result, wildCardToRegexp(input))
+	}
 	return result
 }
 

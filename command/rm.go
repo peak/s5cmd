@@ -111,6 +111,7 @@ func (d Delete) Run(ctx context.Context) error {
 	}
 
 	objch := expandSources(ctx, client, false, srcurls...)
+	excludePatterns := strutil.CreateExcludesFromWildcard(d.exclude)
 
 	// do object->url transformation
 	urlch := make(chan *url.URL)
@@ -127,7 +128,7 @@ func (d Delete) Run(ctx context.Context) error {
 				continue
 			}
 
-			if strutil.IsURLExcluded(d.exclude, object.URL.Path) {
+			if strutil.IsURLExcluded(excludePatterns, object.URL.Path) {
 				continue
 			}
 

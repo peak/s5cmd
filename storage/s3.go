@@ -821,21 +821,16 @@ func (sc *SessionCache) clear() {
 func setSessionRegion(ctx context.Context, sess *session.Session, bucket string) error {
 	region := aws.StringValue(sess.Config.Region)
 
-	if bucket == "" {
-		if region == "" {
-			// set default region
-			sess.Config.Region = aws.String(endpoints.UsEast1RegionID)
-		}
-
-		return nil
-	}
-
 	if region != "" {
 		return nil
 	}
 
 	// set default region
 	sess.Config.Region = aws.String(endpoints.UsEast1RegionID)
+
+	if bucket == "" {
+		return nil
+	}
 
 	// auto-detection
 	region, err := s3manager.GetBucketRegion(ctx, sess, bucket, "", func(r *request.Request) {

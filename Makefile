@@ -33,7 +33,7 @@ vet:
 .PHONY: check-fmt
 check-fmt:
 	@if go fmt -mod=vendor ./...; then\
-        echo "Go code is not formatted";\
+		echo "Go code is not formatted";\
 		exit 1;\
 	fi
 

@@ -309,7 +309,6 @@ func (c Copy) Run(ctx context.Context) error {
 		}
 	}()
 
-	// use --raw flag to prevent glob operations.
 	isBatch := srcurl.IsWildcard()
 	if !isBatch && !srcurl.IsRemote() {
 		obj, _ := client.Stat(ctx, srcurl)

@@ -41,16 +41,22 @@ Examples:
 		 > s5cmd {{.HelpName}} --exclude "*.txt" --exclude "main*" s3://bucketname/prefix/* 
 `
 
-var deleteCommand = &cli.Command{
-	Name:     "rm",
-	HelpName: "rm",
-	Usage:    "remove objects",
-	Flags: []cli.Flag{
-		&cli.StringSliceFlag{
-			Name:  "exclude",
-			Usage: "exclude objects with given pattern",
-		},
+var deleteCommandFlags = []cli.Flag{
+	&cli.BoolFlag{
+		Name:  "raw",
+		Usage: "disable the wildcard operations, useful with filenames that contains glob characters.",
 	},
+	&cli.StringSliceFlag{
+		Name:  "exclude",
+		Usage: "exclude objects with given pattern",
+	},
+}
+
+var deleteCommand = &cli.Command{
+	Name:               "rm",
+	HelpName:           "rm",
+	Usage:              "remove objects",
+	Flags:              deleteCommandFlags,
 	CustomHelpTemplate: deleteHelpTemplate,
 	Before: func(c *cli.Context) error {
 		err := validateRMCommand(c)
@@ -67,6 +73,7 @@ var deleteCommand = &cli.Command{
 			fullCommand: givenCommand(c),
 
 			// flags
+			raw:     c.Bool("raw"),
 			exclude: c.StringSlice("exclude"),
 
 			storageOpts: NewStorageOpts(c),
@@ -82,6 +89,7 @@ type Delete struct {
 
 	// flag options
 	exclude []string
+	raw     bool
 
 	// storage options
 	storageOpts storage.Options
@@ -89,7 +97,7 @@ type Delete struct {
 
 // Run remove given sources.
 func (d Delete) Run(ctx context.Context) error {
-	srcurls, err := newURLs(d.src...)
+	srcurls, err := newURLs(d.raw, d.src...)
 	if err != nil {
 		printError(d.fullCommand, d.op, err)
 		return err
@@ -102,14 +110,14 @@ func (d Delete) Run(ctx context.Context) error {
 		return err
 	}
 
-	objChan := expandSources(ctx, client, false, srcurls...)
+	objch := expandSources(ctx, client, false, srcurls...)
 
 	// do object->url transformation
 	urlch := make(chan *url.URL)
 	go func() {
 		defer close(urlch)
 
-		for object := range objChan {
+		for object := range objch {
 			if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) {
 				continue
 			}
@@ -152,10 +160,10 @@ func (d Delete) Run(ctx context.Context) error {
 }
 
 // newSources creates object URL list from given sources.
-func newURLs(sources ...string) ([]*url.URL, error) {
+func newURLs(urlMode bool, sources ...string) ([]*url.URL, error) {
 	var urls []*url.URL
 	for _, src := range sources {
-		srcurl, err := url.New(src)
+		srcurl, err := url.New(src, url.WithRaw(urlMode))
 		if err != nil {
 			return nil, err
 		}
@@ -169,7 +177,7 @@ func validateRMCommand(c *cli.Context) error {
 		return fmt.Errorf("expected at least 1 object to remove")
 	}
 
-	srcurls, err := newURLs(c.Args().Slice()...)
+	srcurls, err := newURLs(c.Bool("raw"), c.Args().Slice()...)
 	if err != nil {
 		return err
 	}

@@ -174,6 +174,10 @@ var copyCommandFlags = []cli.Flag{
 		Name:  "exclude",
 		Usage: "exclude objects with given pattern",
 	},
+	&cli.BoolFlag{
+		Name:  "raw",
+		Usage: "disable the wildcard operations, useful with filenames that contains glob characters.",
+	},
 }
 
 var copyCommand = &cli.Command{
@@ -212,6 +216,7 @@ var copyCommand = &cli.Command{
 			acl:                  c.String("acl"),
 			forceGlacierTransfer: c.Bool("force-glacier-transfer"),
 			exclude:              c.StringSlice("exclude"),
+			raw:                  c.Bool("raw"),
 			cacheControl:         c.String("cache-control"),
 			expires:              c.String("expires"),
 			// region settings
@@ -244,6 +249,7 @@ type Copy struct {
 	acl                  string
 	forceGlacierTransfer bool
 	exclude              []string
+	raw                  bool
 	cacheControl         string
 	expires              string
 
@@ -265,13 +271,13 @@ increase the open file limit or try to decrease the number of workers with
 
 // Run starts copying given source objects to destination.
 func (c Copy) Run(ctx context.Context) error {
-	srcurl, err := url.New(c.src)
+	srcurl, err := url.New(c.src, url.WithRaw(c.raw))
 	if err != nil {
 		printError(c.fullCommand, c.op, err)
 		return err
 	}
 
-	dsturl, err := url.New(c.dst)
+	dsturl, err := url.New(c.dst, url.WithRaw(c.raw))
 	if err != nil {
 		printError(c.fullCommand, c.op, err)
 		return err
@@ -281,6 +287,7 @@ func (c Copy) Run(ctx context.Context) error {
 	if c.srcRegion != "" {
 		c.storageOpts.SetRegion(c.srcRegion)
 	}
+
 	client, err := storage.NewClient(ctx, srcurl, c.storageOpts)
 	if err != nil {
 		printError(c.fullCommand, c.op, err)
@@ -288,6 +295,7 @@ func (c Copy) Run(ctx context.Context) error {
 	}
 
 	objch, err := expandSource(ctx, client, c.followSymlinks, srcurl)
+
 	if err != nil {
 		printError(c.fullCommand, c.op, err)
 		return err
@@ -314,7 +322,7 @@ func (c Copy) Run(ctx context.Context) error {
 		}
 	}()
 
-	isBatch := srcurl.HasGlob()
+	isBatch := srcurl.IsWildcard()
 	if !isBatch && !srcurl.IsRemote() {
 		obj, _ := client.Stat(ctx, srcurl)
 		isBatch = obj != nil && obj.Type.IsDir()
@@ -395,7 +403,6 @@ func (c Copy) prepareDownloadTask(
 		if err != nil {
 			return err
 		}
-
 		err = c.doDownload(ctx, srcurl, dsturl)
 		if err != nil {
 			return &errorpkg.Error{
@@ -755,18 +762,18 @@ func validateCopyCommand(c *cli.Context) error {
 	src := c.Args().Get(0)
 	dst := c.Args().Get(1)
 
-	srcurl, err := url.New(src)
+	srcurl, err := url.New(src, url.WithRaw(c.Bool("raw")))
 	if err != nil {
 		return err
 	}
 
-	dsturl, err := url.New(dst)
+	dsturl, err := url.New(dst, url.WithRaw(c.Bool("raw")))
 	if err != nil {
 		return err
 	}
 
 	// wildcard destination doesn't mean anything
-	if dsturl.HasGlob() {
+	if dsturl.IsWildcard() {
 		return fmt.Errorf("target %q can not contain glob characters", dst)
 	}
 
@@ -777,7 +784,7 @@ func validateCopyCommand(c *cli.Context) error {
 
 	// 'cp dir/* s3://bucket/prefix': expect a trailing slash to avoid any
 	// surprises.
-	if srcurl.HasGlob() && dsturl.IsRemote() && !dsturl.IsPrefix() && !dsturl.IsBucket() {
+	if srcurl.IsWildcard() && dsturl.IsRemote() && !dsturl.IsPrefix() && !dsturl.IsBucket() {
 		return fmt.Errorf("target %q must be a bucket or a prefix", dsturl)
 	}
 
@@ -803,7 +810,7 @@ func validateCopy(srcurl, dsturl *url.URL) error {
 func validateUpload(ctx context.Context, srcurl, dsturl *url.URL, storageOpts storage.Options) error {
 	srcclient := storage.NewLocalClient(storageOpts)
 
-	if srcurl.HasGlob() {
+	if srcurl.IsWildcard() {
 		return nil
 	}
 

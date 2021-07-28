@@ -14,10 +14,10 @@ import (
 
 var (
 	// ErrGivenObjectNotFound indicates a specified object is not found.
-	ErrGivenObjectNotFound = fmt.Errorf("given object not found")
+ErrGivenObjectNotFound = fmt.Errorf("given object not found")
 
 	// ErrNoObjectFound indicates there are no objects found from a given directory.
-	ErrNoObjectFound = fmt.Errorf("no object found")
+			ErrNoObjectFound = fmt.Errorf("no object found")
 )
 
 // Storage is an interface for storage operations that is common

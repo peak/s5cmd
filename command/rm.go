@@ -96,6 +96,7 @@ func (d Delete) Run(ctx context.Context) error {
 	}
 
 	objch := expandSources(ctx, client, false, srcurls...)
+	var merror error
 
 	// do object->url transformation
 	urlch := make(chan *url.URL)
@@ -108,6 +109,7 @@ func (d Delete) Run(ctx context.Context) error {
 			}
 
 			if err := object.Err; err != nil {
+				merror = multierror.Append(merror, err)
 				printError(d.fullCommand, d.op, err)
 				continue
 			}
@@ -117,7 +119,6 @@ func (d Delete) Run(ctx context.Context) error {
 
 	resultch := client.MultiDelete(ctx, urlch)
 
-	var merror error
 	for obj := range resultch {
 		if err := obj.Err; err != nil {
 			if errorpkg.IsCancelation(obj.Err) {

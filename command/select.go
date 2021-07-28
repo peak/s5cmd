@@ -156,6 +156,7 @@ func (s Select) Run(ctx context.Context) error {
 		}
 
 		if err := object.Err; err != nil {
+			merror = multierror.Append(merror, err)
 			printError(s.fullCommand, s.op, err)
 			continue
 		}

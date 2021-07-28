@@ -321,6 +321,7 @@ func (c Copy) Run(ctx context.Context) error {
 		}
 
 		if err := object.Err; err != nil {
+			merror = multierror.Append(merror, err)
 			printError(c.fullCommand, c.op, err)
 			continue
 		}

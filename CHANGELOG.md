@@ -13,9 +13,11 @@
 - Added new `rb` command which allows users to remove buckets from command line. ([#303](https://github.com/peak/s5cmd/issues/303)).
 
 #### Improvements
+
 - Added new installation option MacPorts. ([#311](https://github.com/peak/s5cmd/pull/311)) [@manojkarthick](https://github.com/manojkarthick)
 
 #### Bugfixes
+
 - Change the order of precedence in URL expansion in file system. Glob (*) expansion have precedence over directory expansion. ([#322](https://github.com/peak/s5cmd/pull/322))
 
 ## v1.3.0 - 1 Jul 2021

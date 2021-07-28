@@ -2976,7 +2976,7 @@ func TestCopyLocalObjectstoS3WithRawFlag(t *testing.T) {
 			rawFlag:          "",
 		},
 		{
-			name: "cp  a*/file.txt s3://bucket/",
+			name: "cp  a*/file*.txt s3://bucket/",
 			src: []fs.PathOp{
 				fs.WithDir(
 					"a*",
@@ -3009,7 +3009,7 @@ func TestCopyLocalObjectstoS3WithRawFlag(t *testing.T) {
 
 			createBucket(t, s3client, bucket)
 
-			workdir := fs.NewDir(t, tc.name, tc.src...)
+			workdir := fs.NewDir(t, "copy-raw-test", tc.src...)
 			defer workdir.Remove()
 
 			srcpath := filepath.ToSlash(workdir.Join(tc.wantedFile))

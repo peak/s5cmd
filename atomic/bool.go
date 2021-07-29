@@ -6,18 +6,18 @@ import "sync/atomic"
 type Bool int32
 
 // Set sets the Boolean to value.
-func (ab *Bool) Set(value bool) {
+func (b *Bool) Set(value bool) {
 	var i int32 = 0
 	if value {
 		i = 1
 	}
 
-	atomic.StoreInt32((*int32)(ab), int32(i))
+	atomic.StoreInt32((*int32)(b), int32(i))
 }
 
 // Get gets the Boolean value.
-func (ab *Bool) Get() bool {
-	if atomic.LoadInt32((*int32)(ab)) != 0 {
+func (b *Bool) Get() bool {
+	if atomic.LoadInt32((*int32)(b)) != 0 {
 		return true
 	}
 

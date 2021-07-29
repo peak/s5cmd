@@ -118,8 +118,8 @@ func (s Select) Run(ctx context.Context) error {
 	// data race for merror object, since there is a goroutine running,
 	// there might be a data race for a single error object.
 	var (
-		merrorWaiter error
-		merrorObject error
+		merrorWaiter  error
+		merrorObjects error
 	)
 
 	waiter := parallel.NewWaiter()
@@ -162,14 +162,14 @@ func (s Select) Run(ctx context.Context) error {
 		}
 
 		if err := object.Err; err != nil {
-			merrorObject = multierror.Append(merrorObject, err)
+			merrorObjects = multierror.Append(merrorObjects, err)
 			printError(s.fullCommand, s.op, err)
 			continue
 		}
 
 		if object.StorageClass.IsGlacier() {
 			err := fmt.Errorf("object '%v' is on Glacier storage", object)
-			merrorObject = multierror.Append(merrorObject, err)
+			merrorObjects = multierror.Append(merrorObjects, err)
 			printError(s.fullCommand, s.op, err)
 			continue
 		}
@@ -182,7 +182,7 @@ func (s Select) Run(ctx context.Context) error {
 	<-errDoneCh
 	<-writeDoneCh
 
-	return multierror.Append(merrorWaiter, merrorObject).ErrorOrNil()
+	return multierror.Append(merrorWaiter, merrorObjects).ErrorOrNil()
 }
 
 func (s Select) prepareTask(ctx context.Context, client *storage.S3, url *url.URL, resultCh chan<- json.RawMessage) func() error {

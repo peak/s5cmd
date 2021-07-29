@@ -32,7 +32,10 @@ vet:
 
 .PHONY: check-fmt
 check-fmt:
-	@sh -c 'if [ -n "$(go fmt -mod=vendor ./...)" ]; then echo "Go code is not formatted"; exit 1; fi'
+	@if [ $$(go fmt -mod=vendor ./...) ]; then\
+		echo "Go code is not formatted";\
+		exit 1;\
+	fi
 
 .PHONY: mock
 mock:

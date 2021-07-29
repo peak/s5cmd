@@ -8,6 +8,7 @@ import (
 	"mime"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -328,7 +329,11 @@ func (c Copy) Run(ctx context.Context) error {
 		isBatch = obj != nil && obj.Type.IsDir()
 	}
 
-	excludePatterns := strutil.CreateExcludesFromWildcard(c.exclude)
+	excludeURLs, err := createExcludeUrls(ctx, c.exclude, client, srcurl)
+	if err != nil {
+		printError(c.fullCommand, c.op, err)
+		return err
+	}
 
 	for object := range objch {
 		if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) {
@@ -346,7 +351,7 @@ func (c Copy) Run(ctx context.Context) error {
 			continue
 		}
 
-		if strutil.IsURLExcluded(excludePatterns, object.URL.Path) {
+		if strutil.IsURLExcluded(object.URL, excludeURLs) {
 			continue
 		}
 
@@ -854,4 +859,34 @@ func givenCommand(c *cli.Context) string {
 	}
 
 	return cmd
+}
+
+func createExcludeUrls(ctx context.Context, excludes []string, client storage.Storage, srcurls ...*url.URL) ([]*url.URL, error) {
+	result := make([]*url.URL, 0)
+	// fmt.Printf("the source url : %#v\n", srcurl)
+	for _, srcurl := range srcurls {
+		for _, exclude := range excludes {
+			if exclude == "" {
+				continue
+			}
+			sourcePrefix := srcurl.GetUntilPrefix()
+			excludeStringUrl := sourcePrefix + exclude
+			// fmt.Printf("for exclude: %v the url: %v\n", exclude, excludeStringUrl)
+			if !srcurl.IsRemote() {
+				obj, err := client.Stat(ctx, srcurl)
+				if err != nil {
+					continue
+				}
+				if obj.Type.IsDir() {
+					excludeStringUrl = path.Join(sourcePrefix, exclude)
+				}
+			}
+			excludeUrl, err := url.New(excludeStringUrl)
+			if err != nil {
+				return nil, err
+			}
+			result = append(result, excludeUrl)
+		}
+	}
+	return result, nil
 }

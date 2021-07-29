@@ -3,9 +3,12 @@ package strutil
 import (
 	"encoding/json"
 	"fmt"
+
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/peak/s5cmd/storage/url"
 )
 
 var humanDivisors = [...]struct {
@@ -55,23 +58,15 @@ func regexMatch(pattern string, value string) bool {
 	return result
 }
 
-// CreateExcludesFromWildcard creates regex strings from wildcard.
-func CreateExcludesFromWildcard(inputExcludes []string) []string {
-	result := make([]string, 0)
-	for _, input := range inputExcludes {
-		result = append(result, wildCardToRegexp(input))
-	}
-	return result
-}
-
 // IsURLExcluded checks whether given urlPath matches any of the exclude patterns.
-func IsURLExcluded(excludePatterns []string, urlPath string) bool {
-	if len(excludePatterns) == 0 {
+func IsURLExcluded(srcurl *url.URL, excludeUrls []*url.URL) bool {
+	if len(excludeUrls) == 0 {
 		return false
 	}
 
-	for _, excludePattern := range excludePatterns {
-		if excludePattern != "" && regexMatch(excludePattern, urlPath) {
+	for _, excludeUrl := range excludeUrls {
+		if excludeUrl.Match(srcurl.Path) {
+			// fmt.Printf("the url %#v is excluded\n", srcurl)
 			return true
 		}
 	}

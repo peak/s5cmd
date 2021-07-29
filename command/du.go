@@ -111,7 +111,11 @@ func (sz Size) Run(ctx context.Context) error {
 	total := sizeAndCount{}
 
 	var merror error
-	excludePatterns := strutil.CreateExcludesFromWildcard(sz.exclude)
+	excludeURLs, err := createExcludeUrls(ctx, sz.exclude, client, srcurl)
+	if err != nil {
+		printError(sz.fullCommand, sz.op, err)
+		return err
+	}
 
 	for object := range client.List(ctx, srcurl, false) {
 		if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) {
@@ -124,7 +128,7 @@ func (sz Size) Run(ctx context.Context) error {
 			continue
 		}
 
-		if strutil.IsURLExcluded(excludePatterns, object.URL.Path) {
+		if strutil.IsURLExcluded(object.URL, excludeURLs) {
 			continue
 		}
 

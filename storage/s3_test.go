@@ -811,13 +811,14 @@ func TestSessionRegionDetection(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			var opts Options
-			opts.Endpoint = server.URL
+			opts := Options{
+				Endpoint: server.URL,
 
-			// Since profile loading disabled above, we need to provide
-			// credentials to the session. NoSignRequest could be used
-			// for anonymous credentials.
-			opts.NoSignRequest = true
+				// since profile loading disabled above, we need to provide
+				// credentials to the session. NoSignRequest could be used
+				// for anonymous credentials.
+				NoSignRequest: true,
+			}
 
 			if tc.optsRegion != "" {
 				opts.region = tc.optsRegion

@@ -3249,6 +3249,7 @@ func TestCopyMultipleS3ObjectsToS3WithRawMode(t *testing.T) {
 		"file*.txt": "this is a test file 1",
 	}
 
+	// assert s3 objects in destination.
 	for filename, content := range expectedFiles {
 		assert.Assert(t, ensureS3Object(s3client, destBucket, filename, content))
 	}

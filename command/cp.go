@@ -290,9 +290,13 @@ func (c Copy) Run(ctx context.Context) error {
 
 	waiter := parallel.NewWaiter()
 
+	// create two different error objects instead of single object to avoid the
+	// data race for merror object, since there is a goroutine running,
+	// there might be a data rice for a single error object.
 	var (
-		merror    error
-		errDoneCh = make(chan bool)
+		merrorWaiter  error // for the errors from waiter
+		merrorObjects error // for the errors from object channel
+		errDoneCh     = make(chan bool)
 	)
 
 	go func() {
@@ -305,7 +309,7 @@ func (c Copy) Run(ctx context.Context) error {
 				os.Exit(1)
 			}
 			printError(c.fullCommand, c.op, err)
-			merror = multierror.Append(merror, err)
+			merrorWaiter = multierror.Append(merrorWaiter, err)
 		}
 	}()
 
@@ -321,14 +325,14 @@ func (c Copy) Run(ctx context.Context) error {
 		}
 
 		if err := object.Err; err != nil {
-			merror = multierror.Append(merror, err)
+			merrorObjects = multierror.Append(merrorObjects, err)
 			printError(c.fullCommand, c.op, err)
 			continue
 		}
 
 		if object.StorageClass.IsGlacier() && !c.forceGlacierTransfer {
 			err := fmt.Errorf("object '%v' is on Glacier storage", object)
-			merror = multierror.Append(merror, err)
+			merrorObjects = multierror.Append(merrorObjects, err)
 			printError(c.fullCommand, c.op, err)
 			continue
 		}
@@ -353,7 +357,7 @@ func (c Copy) Run(ctx context.Context) error {
 	waiter.Wait()
 	<-errDoneCh
 
-	return merror
+	return multierror.Append(merrorWaiter, merrorObjects).ErrorOrNil()
 }
 
 func (c Copy) prepareCopyTask(

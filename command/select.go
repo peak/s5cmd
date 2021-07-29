@@ -163,6 +163,7 @@ func (s Select) Run(ctx context.Context) error {
 
 		if object.StorageClass.IsGlacier() {
 			err := fmt.Errorf("object '%v' is on Glacier storage", object)
+			merror = multierror.Append(merror, err)
 			printError(s.fullCommand, s.op, err)
 			continue
 		}

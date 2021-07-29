@@ -328,6 +328,7 @@ func (c Copy) Run(ctx context.Context) error {
 
 		if object.StorageClass.IsGlacier() && !c.forceGlacierTransfer {
 			err := fmt.Errorf("object '%v' is on Glacier storage", object)
+			merror = multierror.Append(merror, err)
 			printError(c.fullCommand, c.op, err)
 			continue
 		}

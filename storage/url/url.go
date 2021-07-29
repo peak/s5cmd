@@ -301,7 +301,7 @@ func (u *URL) Match(key string) bool {
 	return true
 }
 
-// GetUntilPrefix() returns the url until the prefix.
+// GetUntilPrefix returns the url until the prefix.
 func (u *URL) GetUntilPrefix() string {
 	if u.IsRemote() {
 		return u.Scheme + "://" + u.Bucket + "/" + u.Prefix

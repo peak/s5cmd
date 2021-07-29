@@ -17,9 +17,5 @@ func (b *Bool) Set(value bool) {
 
 // Get gets the Boolean value.
 func (b *Bool) Get() bool {
-	if atomic.LoadInt32((*int32)(b)) != 0 {
-		return true
-	}
-
-	return false
+	return atomic.LoadInt32((*int32)(b)) != 0
 }

@@ -292,7 +292,7 @@ func (c Copy) Run(ctx context.Context) error {
 
 	// create two different error objects instead of single object to avoid the
 	// data race for merror object, since there is a goroutine running,
-	// there might be a data rice for a single error object.
+	// there might be a data race for a single error object.
 	var (
 		merrorWaiter  error // for the errors from waiter
 		merrorObjects error // for the errors from object channel

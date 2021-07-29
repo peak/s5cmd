@@ -1,5 +1,16 @@
 # Changelog
 
+## not released yet
+
+#### Features
+
+
+#### Improvements
+
+
+#### Bugfixes
+- Fixed a bug where errors did not result a non-zero exit code. ([#304](https://github.com/peak/s5cmd/issues/304))
+
 ## v1.3.0 - 1 Jul 2021
 
 #### Features

@@ -40,7 +40,7 @@ Examples:
 	5. List all objects in a public bucket
 		 > s5cmd --no-sign-request {{.HelpName}} s3://bucket/*
 
-	6. List all objects in a bucket but exclude the ones with prefix abc
+	6. List all objects in a bucket but exclude the ones with abc prefix
 		 > s5cmd {{.HelpName}} --exclude "abc*" s3://bucket/*
 `
 
@@ -153,7 +153,7 @@ func (l List) Run(ctx context.Context) error {
 	}
 
 	var merror error
-	excludeURLs, err := createExcludeUrls(ctx, l.exclude, client, srcurl)
+	excludeURLs, err := createExcludeUrls(l.exclude, srcurl)
 	if err != nil {
 		printError(l.fullCommand, l.op, err)
 		return err
@@ -170,7 +170,7 @@ func (l List) Run(ctx context.Context) error {
 			continue
 		}
 
-		if strutil.IsURLExcluded(object.URL, excludeURLs) {
+		if isURLExcluded(object.URL, excludeURLs) {
 			continue
 		}
 

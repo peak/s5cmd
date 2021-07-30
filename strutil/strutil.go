@@ -4,11 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"regexp"
 	"strconv"
-	"strings"
-
-	"github.com/peak/s5cmd/storage/url"
 )
 
 var humanDivisors = [...]struct {
@@ -44,31 +40,4 @@ func HumanizeBytes(b int64) string {
 func JSON(v interface{}) string {
 	bytes, _ := json.Marshal(v)
 	return string(bytes)
-}
-
-func wildCardToRegexp(pattern string) string {
-	patternRegex := regexp.QuoteMeta(pattern)
-	patternRegex = strings.Replace(patternRegex, "\\?", ".", -1)
-	patternRegex = strings.Replace(patternRegex, "\\*", ".*", -1)
-	return patternRegex
-}
-
-func regexMatch(pattern string, value string) bool {
-	result, _ := regexp.MatchString(pattern, value)
-	return result
-}
-
-// IsURLExcluded checks whether given urlPath matches any of the exclude patterns.
-func IsURLExcluded(srcurl *url.URL, excludeUrls []*url.URL) bool {
-	if len(excludeUrls) == 0 {
-		return false
-	}
-
-	for _, excludeUrl := range excludeUrls {
-		if excludeUrl.Match(srcurl.Path) {
-			// fmt.Printf("the url %#v is excluded\n", srcurl)
-			return true
-		}
-	}
-	return false
 }

@@ -12,7 +12,6 @@ import (
 	"github.com/peak/s5cmd/log/stat"
 	"github.com/peak/s5cmd/storage"
 	"github.com/peak/s5cmd/storage/url"
-	"github.com/peak/s5cmd/strutil"
 )
 
 var deleteHelpTemplate = `Name:
@@ -37,7 +36,7 @@ Examples:
 	4. Delete all matching objects and a specific object
 		 > s5cmd {{.HelpName}} s3://bucketname/prefix/* s3://bucketname/object1.gz
 	
-	5. Delete all matching objects but exclude the ones with .txt extension or starts with "main"
+	5. Delete all matching objects but exclude the ones with .txt extension or starting with "main"
 		 > s5cmd {{.HelpName}} --exclude "*.txt" --exclude "main*" s3://bucketname/prefix/* 
 `
 
@@ -111,7 +110,7 @@ func (d Delete) Run(ctx context.Context) error {
 	}
 
 	objch := expandSources(ctx, client, false, srcurls...)
-	excludeURLs, err := createExcludeUrls(ctx, d.exclude, client, srcurl)
+	excludeURLs, err := createExcludeUrls(d.exclude, srcurl)
 	if err != nil {
 		printError(d.fullCommand, d.op, err)
 		return err
@@ -132,7 +131,7 @@ func (d Delete) Run(ctx context.Context) error {
 				continue
 			}
 
-			if strutil.IsURLExcluded(object.URL, excludeURLs) {
+			if isURLExcluded(object.URL, excludeURLs) {
 				continue
 			}
 

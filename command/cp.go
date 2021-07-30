@@ -8,7 +8,6 @@ import (
 	"mime"
 	"net/http"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 
@@ -21,7 +20,6 @@ import (
 	"github.com/peak/s5cmd/parallel"
 	"github.com/peak/s5cmd/storage"
 	"github.com/peak/s5cmd/storage/url"
-	"github.com/peak/s5cmd/strutil"
 )
 
 const (
@@ -91,10 +89,10 @@ Examples:
 	17. Upload a file to S3 bucket with cache-control header
 		> s5cmd {{.HelpName}} --cache-control "public, max-age=345600" myfile.gz s3://bucket/
 
-	18. Copy all files to S3 bucket but exclude the ones with txt and gz extension 
+	18. Copy all files to S3 bucket but exclude the ones with txt and gz extensions 
 		> s5cmd cp --exclude "*.txt" --exclude "*.gz" dir/ s3://bucket
 
-	19. Copy all files from S3 bucket to another S3 bucket but exclude the ones starts with log
+	19. Copy all files from S3 bucket to another S3 bucket but exclude the ones starting with log
 		> s5cmd cp --exclude "log*" s3://bucket/* s3://destbucket
 `
 
@@ -329,7 +327,7 @@ func (c Copy) Run(ctx context.Context) error {
 		isBatch = obj != nil && obj.Type.IsDir()
 	}
 
-	excludeURLs, err := createExcludeUrls(ctx, c.exclude, client, srcurl)
+	excludeURLs, err := createExcludeUrls(c.exclude, srcurl)
 	if err != nil {
 		printError(c.fullCommand, c.op, err)
 		return err
@@ -351,7 +349,7 @@ func (c Copy) Run(ctx context.Context) error {
 			continue
 		}
 
-		if strutil.IsURLExcluded(object.URL, excludeURLs) {
+		if isURLExcluded(object.URL, excludeURLs) {
 			continue
 		}
 
@@ -859,34 +857,4 @@ func givenCommand(c *cli.Context) string {
 	}
 
 	return cmd
-}
-
-func createExcludeUrls(ctx context.Context, excludes []string, client storage.Storage, srcurls ...*url.URL) ([]*url.URL, error) {
-	result := make([]*url.URL, 0)
-	// fmt.Printf("the source url : %#v\n", srcurl)
-	for _, srcurl := range srcurls {
-		for _, exclude := range excludes {
-			if exclude == "" {
-				continue
-			}
-			sourcePrefix := srcurl.GetUntilPrefix()
-			excludeStringUrl := sourcePrefix + exclude
-			// fmt.Printf("for exclude: %v the url: %v\n", exclude, excludeStringUrl)
-			if !srcurl.IsRemote() {
-				obj, err := client.Stat(ctx, srcurl)
-				if err != nil {
-					continue
-				}
-				if obj.Type.IsDir() {
-					excludeStringUrl = path.Join(sourcePrefix, exclude)
-				}
-			}
-			excludeUrl, err := url.New(excludeStringUrl)
-			if err != nil {
-				return nil, err
-			}
-			result = append(result, excludeUrl)
-		}
-	}
-	return result, nil
 }

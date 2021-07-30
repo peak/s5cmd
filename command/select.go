@@ -15,7 +15,6 @@ import (
 	"github.com/peak/s5cmd/parallel"
 	"github.com/peak/s5cmd/storage"
 	"github.com/peak/s5cmd/storage/url"
-	"github.com/peak/s5cmd/strutil"
 )
 
 var selectHelpTemplate = `Name:
@@ -157,7 +156,7 @@ func (s Select) Run(ctx context.Context) error {
 		}
 	}()
 
-	excludeURLs, err := createExcludeUrls(ctx, s.exclude, client, srcurl)
+	excludeURLs, err := createExcludeUrls(s.exclude, srcurl)
 	if err != nil {
 		printError(s.fullCommand, s.op, err)
 		return err
@@ -179,7 +178,7 @@ func (s Select) Run(ctx context.Context) error {
 			continue
 		}
 
-		if strutil.IsURLExcluded(object.URL, excludeURLs) {
+		if isURLExcluded(object.URL, excludeURLs) {
 			continue
 		}
 

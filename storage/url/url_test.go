@@ -402,3 +402,33 @@ func TestURLIsBucket(t *testing.T) {
 		}
 	}
 }
+
+func TestURLWithMode(t *testing.T) {
+	tests := []struct {
+		input          string
+		raw            bool
+		prefixExpected string
+		filterExpected string
+	}{
+		{"s3://bucket/file*.txt", false, "file", "*.txt"},
+		{"s3://bucket/file*.txt", true, "", ""},
+		{"s3://bucket/abc/deneme*.txt", false, "abc/deneme", "*.txt"},
+		{"s3://bucket/abc/deneme*.txt", true, "", ""},
+		{"deneme*.txt", false, "deneme", "*.txt"},
+		{"deneme*.txt", true, "", ""},
+	}
+	for _, tc := range tests {
+		url, err := New(tc.input, WithRaw(tc.raw))
+		if err != nil {
+			t.Errorf("There is an error in %s\n", tc.input)
+		}
+
+		if url.Prefix != tc.prefixExpected {
+			t.Errorf("%s : url prefix %s does not match with expected %s\n", tc.input, url.Prefix, tc.prefixExpected)
+		}
+
+		if url.filter != tc.filterExpected {
+			t.Errorf("%s: url filter %s does not match with expected filter %s\n", tc.input, url.Prefix, tc.filterExpected)
+		}
+	}
+}

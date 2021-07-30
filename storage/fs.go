@@ -39,7 +39,7 @@ func (f *Filesystem) Stat(ctx context.Context, url *url.URL) (*Object, error) {
 
 // List returns the objects and directories reside in given src.
 func (f *Filesystem) List(ctx context.Context, src *url.URL, followSymlinks bool) <-chan *Object {
-	if src.HasGlob() {
+	if src.IsWildcard() {
 		return f.expandGlob(ctx, src, followSymlinks)
 	}
 

@@ -31,6 +31,11 @@ func createExcludeUrls(excludes []string, srcurls ...*url.URL) ([]*url.URL, erro
 			sourcePrefix := srcurl.GetUntilPrefix()
 			excludeStringUrl := sourcePrefix + exclude
 			if !srcurl.IsRemote() {
+				// Stat call is needed because we need to  understand
+				// if given local source is a directory,
+				// if it is, then we need to join the path.
+				// the given local source might be a directory, but it may
+				// not have / or \ as suffix.
 				obj, err := os.Stat(srcurl.Absolute())
 				if err != nil {
 					continue

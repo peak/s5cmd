@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"sync"
 )
 
 // Command is a subcommand for a cli.App.
@@ -61,6 +62,8 @@ type Command struct {
 	// cli.go uses text/template to render templates. You can
 	// render custom help text by setting this variable.
 	CustomHelpTemplate string
+
+	mutex sync.Mutex
 }
 
 type Commands []*Command
@@ -94,10 +97,12 @@ func (c *Command) Run(ctx *Context) (err error) {
 		return c.startApp(ctx)
 	}
 
+	c.mutex.Lock()
 	if !c.HideHelp && HelpFlag != nil {
 		// append help to flags
 		c.appendFlag(HelpFlag)
 	}
+	c.mutex.Unlock()
 
 	if ctx.App.UseShortOptionHandling {
 		c.UseShortOptionHandling = true

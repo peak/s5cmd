@@ -1,0 +1,2 @@
+cp  main.go s3://hasandeneme/
+cp  main.go s3://hasandeneme/

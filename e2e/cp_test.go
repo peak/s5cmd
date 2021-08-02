@@ -681,7 +681,7 @@ func TestCopySingleFileToS3(t *testing.T) {
 	</body>
 </html>
 `
-		expectedContentType = "text/html; charset=utf-8"
+		expectedContentType = "text/plain; charset=utf-8"
 	)
 
 	workdir := fs.NewDir(t, bucket, fs.WithFile(filename, content))

@@ -23,6 +23,8 @@ import (
 //
 // Logic is delegated to other components, like Backend or uploader.
 type GoFakeS3 struct {
+	requestID uint64
+
 	storage   Backend
 	versioned VersionedBackend
 
@@ -33,7 +35,6 @@ type GoFakeS3 struct {
 	failOnUnimplementedPage bool
 	hostBucket              bool
 	uploader                *uploader
-	requestID               uint64
 	log                     Logger
 }
 
@@ -539,39 +540,19 @@ func (g *GoFakeS3) createObject(bucket, object string, w http.ResponseWriter, r 
 		return err
 	}
 
-	var (
-		size int64
-		body = r.Body
-	)
+	if _, ok := meta["X-Amz-Copy-Source"]; ok {
+		return g.copyObject(bucket, object, meta, w, r)
+	}
 
-	// S3 to S3 copy operations has Content-Length=0 header. First, we need to
-	// fetch the original object from the given source and copy it to the
-	// destination.
-	copySource := r.Header.Get(copySourceHeader)
-	if copySource != "" {
-		parts := strings.SplitN(copySource, "/", 2)
-		srcBucket := parts[0]
-		srcKey := parts[1]
+	contentLength := r.Header.Get("Content-Length")
+	if contentLength == "" {
+		return ErrMissingContentLength
+	}
 
-		srcKey, err = url.QueryUnescape(srcKey)
-		if err != nil {
-			return err
-		}
-
-		src, err := g.storage.GetObject(srcBucket, srcKey, nil)
-		if err != nil {
-			return err
-		}
-		size = src.Size
-
-		body = src.Contents
-
-	} else {
-		var err error
-		size, err = strconv.ParseInt(r.Header.Get("Content-Length"), 10, 64)
-		if err != nil || size <= 0 {
-			return ErrMissingContentLength
-		}
+	size, err := strconv.ParseInt(contentLength, 10, 64)
+	if err != nil || size < 0 {
+		w.WriteHeader(http.StatusBadRequest) // XXX: no code for this, according to s3tests
+		return nil
 	}
 
 	if len(object) > KeySizeLimit {
@@ -587,10 +568,23 @@ func (g *GoFakeS3) createObject(bucket, object string, w http.ResponseWriter, r 
 		}
 	}
 
+	var reader io.Reader
+
+	if sha, ok := meta["X-Amz-Content-Sha256"]; ok && sha == "STREAMING-AWS4-HMAC-SHA256-PAYLOAD" {
+		reader = newChunkedReader(r.Body)
+		size, err = strconv.ParseInt(meta["X-Amz-Decoded-Content-Length"], 10, 64)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest) // XXX: no code for this, according to s3tests
+			return nil
+		}
+	} else {
+		reader = r.Body
+	}
+
 	// hashingReader is still needed to get the ETag even if integrityCheck
 	// is set to false:
-	rdr, err := newHashingReader(body, md5Base64)
-	defer body.Close()
+	rdr, err := newHashingReader(reader, md5Base64)
+	defer r.Body.Close()
 	if err != nil {
 		return err
 	}
@@ -598,13 +592,6 @@ func (g *GoFakeS3) createObject(bucket, object string, w http.ResponseWriter, r 
 	result, err := g.storage.PutObject(bucket, object, meta, rdr, size)
 	if err != nil {
 		return err
-	}
-
-	if copySource != "" {
-		return g.xmlEncoder(w).Encode(CopyObjectResult{
-			ETag:         `"` + hex.EncodeToString(rdr.Sum(nil)) + `"`,
-			LastModified: NewContentTime(g.timeSource.Now()),
-		})
 	}
 
 	if result.VersionID != "" {
@@ -634,7 +621,6 @@ func (g *GoFakeS3) copyObject(bucket, object string, meta map[string]string, w h
 	if err != nil {
 		return err
 	}
-
 	srcObj, err := g.storage.GetObject(srcBucket, srcKey, nil)
 	if err != nil {
 		return err
@@ -1012,7 +998,7 @@ func metadataSize(meta map[string]string) int {
 func metadataHeaders(headers map[string][]string, at time.Time, sizeLimit int) (map[string]string, error) {
 	meta := make(map[string]string)
 	for hk, hv := range headers {
-		if strings.HasPrefix(hk, "X-Amz-") {
+		if strings.HasPrefix(hk, "X-Amz-") || hk == "Content-Type" {
 			meta[hk] = hv[0]
 		}
 	}

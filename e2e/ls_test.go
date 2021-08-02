@@ -594,3 +594,43 @@ func TestListLocalFilesWithExcludeFilters(t *testing.T) {
 		0: match("readme.md"),
 	}, trimMatch(dateRe), alignment(true))
 }
+
+// ls --exclude "main*" directory/*.txt
+func TestListLocalFilesWithPrefixAndExcludeFilter(t *testing.T) {
+	t.Parallel()
+
+	_, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	const (
+		excludePattern1 = "main*"
+		prefix          = "*.txt"
+	)
+
+	folderLayout := []fs.PathOp{
+		fs.WithDir(
+			"main",
+			fs.WithFile("try.txt", "this is a txt file"),
+		),
+		fs.WithFile("file1.txt", "this is the first test file"),
+		fs.WithFile("main.py", "this is a python file"),
+		fs.WithFile("main.c", "this is a c file"),
+		fs.WithFile("main.txt", "this is a txt file"),
+		fs.WithFile("main2.txt", "this is a txt file"),
+		fs.WithFile("readme.md", "this is a readme file"),
+	}
+
+	workdir := fs.NewDir(t, t.Name(), folderLayout...)
+	defer workdir.Remove()
+	srcpath := workdir.Join(prefix)
+	srcpath = filepath.ToSlash(srcpath)
+
+	cmd := s5cmd("ls", "--exclude", excludePattern1, srcpath)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: match("file1.txt"),
+	}, trimMatch(dateRe), alignment(true))
+}

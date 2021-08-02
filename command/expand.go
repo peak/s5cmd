@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 
+	"github.com/peak/s5cmd/atomic"
 	"github.com/peak/s5cmd/storage"
 	"github.com/peak/s5cmd/storage/url"
 )
@@ -58,7 +59,7 @@ func expandSources(
 		defer close(ch)
 
 		var wg sync.WaitGroup
-		var objFound bool
+		var objFound atomic.Bool
 
 		for _, origSrc := range srcurls {
 			wg.Add(1)
@@ -76,13 +77,13 @@ func expandSources(
 						continue
 					}
 					ch <- object
-					objFound = true
+					objFound.Set(true)
 				}
 			}(origSrc)
 		}
 
 		wg.Wait()
-		if !objFound {
+		if !objFound.Get() {
 			ch <- &storage.Object{Err: storage.ErrNoObjectFound}
 		}
 	}()

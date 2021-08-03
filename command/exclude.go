@@ -17,7 +17,7 @@ func regexMatch(pattern string, value string) bool {
 	return result
 }
 
-// CreateExcludesFromWildcard creates regex strings from wildcard.
+// createExcludesFromWildcard creates regex strings from wildcard.
 func createExcludesFromWildcard(inputExcludes []string) []string {
 	result := make([]string, 0)
 	for _, input := range inputExcludes {
@@ -26,7 +26,7 @@ func createExcludesFromWildcard(inputExcludes []string) []string {
 	return result
 }
 
-// IsURLExcluded checks whether given urlPath matches any of the exclude patterns.
+// isURLExcluded checks whether given urlPath matches any of the exclude patterns.
 func isURLExcluded(excludePatterns []string, urlPath string) bool {
 	if len(excludePatterns) == 0 {
 		return false

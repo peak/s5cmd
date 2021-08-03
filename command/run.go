@@ -120,7 +120,9 @@ var runCommand = &cli.Command{
 				}
 
 				ctx := cli.NewContext(app, flagset, c)
-				return cmd.Run(ctx)
+
+				safecmd := *cmd
+				return safecmd.Run(ctx)
 			}
 
 			pm.Run(fn, waiter)

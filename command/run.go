@@ -106,8 +106,8 @@ var runCommand = &cli.Command{
 			fn := func() error {
 				subcmd := fields[0]
 
-				cmd := app.Command(subcmd)
-				if cmd == nil {
+				cmdptr := app.Command(subcmd)
+				if cmdptr == nil {
 					err := fmt.Errorf("%q command (line: %v) not found", subcmd, lineno)
 					printError(givenCommand(c), c.Command.Name, err)
 					return nil
@@ -121,8 +121,10 @@ var runCommand = &cli.Command{
 
 				ctx := cli.NewContext(app, flagset, c)
 
-				safecmd := *cmd
-				return safecmd.Run(ctx)
+				// Use the dereferenced value to avoid urfave/cli package to
+				// mutate the command. Ref: https://github.com/peak/s5cmd/issues/301
+				cmd := *cmdptr
+				return cmd.Run(ctx)
 			}
 
 			pm.Run(fn, waiter)

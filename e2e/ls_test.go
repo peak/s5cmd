@@ -425,14 +425,15 @@ func TestListS3ObjectsWithExcludeFilter(t *testing.T) {
 
 	}
 
-	cmd := s5cmd("ls", "--exclude", excludePattern, "s3://"+bucket)
+	cmd := s5cmd("ls", "--exclude", excludePattern, "s3://"+bucket+"/*")
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: match(`DIR a/`),
-		1: match(`file.py`),
+		0: match(`a/file.c`),
+		1: match(`a/try.py`),
+		2: match(`file.py`),
 	}, trimMatch(dateRe), alignment(true))
 }
 

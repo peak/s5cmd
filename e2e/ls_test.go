@@ -394,7 +394,7 @@ func TestListS3ObjectsWithDashH(t *testing.T) {
 	}, trimMatch(dateRe), alignment(true))
 }
 
-// ls --exclude "*.txt" s3://bucket/
+// ls --exclude "*.txt" s3://bucket/*
 func TestListS3ObjectsWithExcludeFilter(t *testing.T) {
 	t.Parallel()
 

@@ -3347,3 +3347,42 @@ func TestCopyRawModeAllowDestinationWithoutPrefix(t *testing.T) {
 		t.Errorf("testfile*.txt not exist in S3 bucket %v\n", dst)
 	}
 }
+
+func TestCopyFalseCredentialsExitCode1(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip()
+	}
+	t.Parallel()
+
+	const bucket = "bucket"
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+
+	folderLayout := []fs.PathOp{
+		fs.WithFile("testfile.txt", "this is a test file 1"),
+		fs.WithFile("readme.md", "this is a readme file"),
+		fs.WithDir(
+			"a",
+			fs.WithFile("another_test_file.txt", "yet another txt file. yatf."),
+		),
+		fs.WithDir(
+			"b",
+			fs.WithFile("filename-with-hypen.gz", "file has hypen in its name"),
+		),
+	}
+
+	workdir := fs.NewDir(t, "somedir", folderLayout...)
+	defer workdir.Remove()
+
+	src := fmt.Sprintf("%v/testfile.txt", workdir.Path())
+	src = filepath.ToSlash(src)
+	dst := fmt.Sprintf("s3://%s/", bucket)
+
+	cmd := s5cmd(`AWS_ACCESS_KEY_ID=""`, `AWS_SECRET_ACCESS_KEY=""`, "cp", src, dst)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Expected{ExitCode: 1})
+}

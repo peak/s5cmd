@@ -282,3 +282,35 @@ func TestRunDryRun(t *testing.T) {
 	// ensure no side effect for remove operation
 	assert.Assert(t, ensureS3Object(s3client, bucket, files[2], "content"))
 }
+
+func TestRunFixDataRace_Issue301(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+	putFile(t, s3client, bucket, "file1.txt", "content")
+
+	// The fix is applicable to the run command, where there should be at least
+	// 2 of the same command given as input.
+	input := strings.NewReader(
+		strings.Join([]string{
+			fmt.Sprintf("ls s3://%v/file1.txt", bucket),
+			fmt.Sprintf("ls s3://%v/file1.txt", bucket),
+		}, "\n"),
+	)
+	cmd := s5cmd("run")
+	result := icmd.RunCmd(cmd, icmd.WithStdin(input))
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: suffix("file1.txt"),
+		1: suffix("file1.txt"),
+	}, sortInput(true))
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{})
+}

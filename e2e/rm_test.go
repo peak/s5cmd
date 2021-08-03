@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"fmt"
+	"path/filepath"
 	"runtime"
 	"testing"
 
@@ -1026,6 +1027,7 @@ func TestRemoveLocalDirectoryWithExcludeFilter(t *testing.T) {
 			defer workdir.Remove()
 
 			srcpath := workdir.Path() + tc.directoryPrefix
+			srcpath = filepath.ToSlash(srcpath)
 
 			cmd := s5cmd("rm", "--exclude", excludePattern, srcpath)
 			result := icmd.RunCmd(cmd, withWorkingDir(workdir))
@@ -1081,6 +1083,7 @@ func TestRemoveLocalFilesWithExcludeFilters(t *testing.T) {
 	defer workdir.Remove()
 
 	srcpath := workdir.Path()
+	srcpath = filepath.ToSlash(srcpath)
 
 	cmd := s5cmd("rm", "--exclude", excludePattern1, "--exclude", excludePattern2, srcpath)
 	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
@@ -1138,6 +1141,7 @@ func TestRemoveLocalFilesWithPrefixandExcludeFilters(t *testing.T) {
 
 	srcpath := workdir.Join("testdir")
 	srcpath = fmt.Sprintf("%v/*.txt", srcpath)
+	srcpath = filepath.ToSlash(srcpath)
 
 	cmd := s5cmd("rm", "--exclude", excludePattern, srcpath)
 	result := icmd.RunCmd(cmd, withWorkingDir(workdir))

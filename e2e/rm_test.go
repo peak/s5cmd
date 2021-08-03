@@ -1035,7 +1035,7 @@ func TestRemoveLocalDirectoryWithExcludeFilter(t *testing.T) {
 			result.Assert(t, icmd.Success)
 
 			assertLines(t, result.Stdout(), map[int]compareFunc{
-				0: equals("rm %v/testdir/readme.md", workdir.Path()),
+				0: equals("rm %v/testdir/readme.md", filepath.ToSlash(workdir.Path())),
 			}, sortInput(true))
 
 			assertLines(t, result.Stderr(), map[int]compareFunc{})
@@ -1091,8 +1091,8 @@ func TestRemoveLocalFilesWithExcludeFilters(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals("rm %v/engine.js", workdir.Path()),
-		1: equals("rm %v/testdir/readme.md", workdir.Path()),
+		0: equals("rm %v/engine.js", filepath.ToSlash(workdir.Path())),
+		1: equals("rm %v/testdir/readme.md", filepath.ToSlash(workdir.Path())),
 	}, sortInput(true))
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{})
@@ -1149,8 +1149,8 @@ func TestRemoveLocalFilesWithPrefixandExcludeFilters(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals("rm %v/testdir/testfile1.txt", workdir.Path()),
-		1: equals("rm %v/testdir/testfile2.txt", workdir.Path()),
+		0: equals("rm %v/testdir/testfile1.txt", filepath.ToSlash(workdir.Path()),
+		1: equals("rm %v/testdir/testfile2.txt", filepath.ToSlash(workdir.Path())),
 	}, sortInput(true))
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{})

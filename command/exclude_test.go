@@ -12,17 +12,17 @@ func Test_wildCardToRegexp(t *testing.T) {
 		{
 			name:    "wildcard to regex : main*",
 			pattern: "main*",
-			wanted:  "main.*",
+			wanted:  "main.*$",
 		},
 		{
 			name:    "wildcard to regex : *.txt",
 			pattern: "*.txt",
-			wanted:  ".*\\.txt",
+			wanted:  ".*\\.txt$",
 		},
 		{
 			name:    "wildcard to regex : ?_main*.txt",
 			pattern: "?_main*.txt",
-			wanted:  "._main.*\\.txt",
+			wanted:  "._main.*\\.txt$",
 		},
 	}
 	for _, tt := range tests {

@@ -1149,7 +1149,7 @@ func TestRemoveLocalFilesWithPrefixandExcludeFilters(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals("rm %v/testdir/testfile1.txt", filepath.ToSlash(workdir.Path()),
+		0: equals("rm %v/testdir/testfile1.txt", filepath.ToSlash(workdir.Path())),
 		1: equals("rm %v/testdir/testfile2.txt", filepath.ToSlash(workdir.Path())),
 	}, sortInput(true))
 

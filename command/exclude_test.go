@@ -1,4 +1,4 @@
-package strutil
+package command
 
 import "testing"
 

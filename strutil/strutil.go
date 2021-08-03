@@ -3,9 +3,7 @@ package strutil
 import (
 	"encoding/json"
 	"fmt"
-	"regexp"
 	"strconv"
-	"strings"
 )
 
 var humanDivisors = [...]struct {
@@ -41,39 +39,4 @@ func HumanizeBytes(b int64) string {
 func JSON(v interface{}) string {
 	bytes, _ := json.Marshal(v)
 	return string(bytes)
-}
-
-func wildCardToRegexp(pattern string) string {
-	patternRegex := regexp.QuoteMeta(pattern)
-	patternRegex = strings.Replace(patternRegex, "\\?", ".", -1)
-	patternRegex = strings.Replace(patternRegex, "\\*", ".*", -1)
-	return patternRegex
-}
-
-func regexMatch(pattern string, value string) bool {
-	result, _ := regexp.MatchString(pattern, value)
-	return result
-}
-
-// CreateExcludesFromWildcard creates regex strings from wildcard.
-func CreateExcludesFromWildcard(inputExcludes []string) []string {
-	result := make([]string, 0)
-	for _, input := range inputExcludes {
-		result = append(result, wildCardToRegexp(input))
-	}
-	return result
-}
-
-// IsURLExcluded checks whether given urlPath matches any of the exclude patterns.
-func IsURLExcluded(excludePatterns []string, urlPath string) bool {
-	if len(excludePatterns) == 0 {
-		return false
-	}
-
-	for _, excludePattern := range excludePatterns {
-		if excludePattern != "" && regexMatch(excludePattern, urlPath) {
-			return true
-		}
-	}
-	return false
 }

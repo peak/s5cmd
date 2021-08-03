@@ -20,7 +20,6 @@ import (
 	"github.com/peak/s5cmd/parallel"
 	"github.com/peak/s5cmd/storage"
 	"github.com/peak/s5cmd/storage/url"
-	"github.com/peak/s5cmd/strutil"
 )
 
 const (
@@ -328,7 +327,7 @@ func (c Copy) Run(ctx context.Context) error {
 		isBatch = obj != nil && obj.Type.IsDir()
 	}
 
-	excludePatterns := strutil.CreateExcludesFromWildcard(c.exclude)
+	excludePatterns := CreateExcludesFromWildcard(c.exclude)
 
 	for object := range objch {
 		if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) {
@@ -346,7 +345,7 @@ func (c Copy) Run(ctx context.Context) error {
 			continue
 		}
 
-		if strutil.IsURLExcluded(excludePatterns, object.URL.Path) {
+		if isURLExcluded(excludePatterns, object.URL.Path) {
 			continue
 		}
 

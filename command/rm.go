@@ -12,7 +12,6 @@ import (
 	"github.com/peak/s5cmd/log/stat"
 	"github.com/peak/s5cmd/storage"
 	"github.com/peak/s5cmd/storage/url"
-	"github.com/peak/s5cmd/strutil"
 )
 
 var deleteHelpTemplate = `Name:
@@ -111,7 +110,7 @@ func (d Delete) Run(ctx context.Context) error {
 	}
 
 	objch := expandSources(ctx, client, false, srcurls...)
-	excludePatterns := strutil.CreateExcludesFromWildcard(d.exclude)
+	excludePatterns := CreateExcludesFromWildcard(d.exclude)
 
 	// do object->url transformation
 	urlch := make(chan *url.URL)
@@ -128,7 +127,7 @@ func (d Delete) Run(ctx context.Context) error {
 				continue
 			}
 
-			if strutil.IsURLExcluded(excludePatterns, object.URL.Path) {
+			if isURLExcluded(excludePatterns, object.URL.Path) {
 				continue
 			}
 

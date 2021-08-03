@@ -3576,12 +3576,6 @@ func TestCopyLocalDirectoryToS3WithExcludeFilter(t *testing.T) {
 
 			result.Assert(t, icmd.Success)
 
-			/* assertLines(t, result.Stdout(), map[int]compareFunc{
-				0: equals(`cp %va/another_test_file.txt %va/another_test_file.txt`, src, dst),
-				1: equals(`cp %vreadme.md %vreadme.md`, src, dst),
-				2: equals(`cp %vtestfile1.txt %vtestfile1.txt`, src, dst),
-			}, sortInput(true)) */
-
 			// assert local filesystem
 			expected := fs.Expected(t, folderLayout...)
 			assert.Assert(t, fs.Equal(workdir.Path(), expected))
@@ -3611,7 +3605,7 @@ func TestCopyLocalDirectoryToS3WithExcludeFilter(t *testing.T) {
 
 }
 
-// cp --exclude "*.gz" --exclude "*.txt" dir/* s3://bucket/
+// cp --exclude "*.gz" --exclude "*.txt" dir/ s3://bucket/
 func TestCopyLocalDirectoryToS3WithExcludeFilters(t *testing.T) {
 	t.Parallel()
 

@@ -978,3 +978,191 @@ func TestRemoveS3ObjectsExcludePatternEmpty(t *testing.T) {
 		assertError(t, err, errS3NoSuchKey)
 	}
 }
+
+// rm --exclude "*.txt" dir
+// rm --exclude "*.txt" dir/
+// rm --exclude "*.txt" dir/*
+func TestRemoveLocalDirectoryWithExcludeFilter(t *testing.T) {
+	t.Parallel()
+
+	testcases := []struct {
+		name            string
+		directoryPrefix string
+	}{
+		{
+			name:            "folder without /",
+			directoryPrefix: "",
+		},
+		{
+			name:            "folder with /",
+			directoryPrefix: "/",
+		},
+		{
+			name:            "folder with / and glob *",
+			directoryPrefix: "/*",
+		},
+	}
+
+	for _, tc := range testcases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			_, s5cmd, cleanup := setup(t)
+			defer cleanup()
+
+			folderLayout := []fs.PathOp{
+				fs.WithDir(
+					"testdir",
+					fs.WithFile("file1.txt", "this is the first test file"),
+					fs.WithFile("file2.txt", "this is the second test file"),
+					fs.WithFile("readme.md", "this is a readme file"),
+				),
+			}
+
+			const excludePattern = "*.txt"
+
+			workdir := fs.NewDir(t, t.Name(), folderLayout...)
+			defer workdir.Remove()
+
+			srcpath := workdir.Path() + tc.directoryPrefix
+
+			cmd := s5cmd("rm", "--exclude", excludePattern, srcpath)
+			result := icmd.RunCmd(cmd, withWorkingDir(workdir))
+
+			result.Assert(t, icmd.Success)
+
+			assertLines(t, result.Stdout(), map[int]compareFunc{
+				0: equals("rm %v/testdir/readme.md", workdir.Path()),
+			}, sortInput(true))
+
+			assertLines(t, result.Stderr(), map[int]compareFunc{})
+
+			expectedFileSystem := []fs.PathOp{
+				fs.WithDir(
+					"testdir",
+					fs.WithFile("file1.txt", "this is the first test file"),
+					fs.WithFile("file2.txt", "this is the second test file"),
+				),
+			}
+
+			// assert local filesystem
+			expected := fs.Expected(t, expectedFileSystem...)
+			assert.Assert(t, fs.Equal(workdir.Path(), expected))
+		})
+	}
+}
+
+// rm --exclude "*.txt" --exclude "main*" .
+func TestRemoveLocalFilesWithExcludeFilters(t *testing.T) {
+	t.Parallel()
+
+	_, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	folderLayout := []fs.PathOp{
+		fs.WithDir(
+			"testdir",
+			fs.WithFile("file1.txt", "this is the first test file"),
+			fs.WithFile("file2.txt", "this is the second test file"),
+			fs.WithFile("readme.md", "this is a readme file"),
+		),
+		fs.WithFile("main.py", "python file"),
+		fs.WithFile("engine.js", "js file"),
+		fs.WithFile("main.c", "c file"),
+	}
+
+	const (
+		excludePattern1 = "*.txt"
+		excludePattern2 = "main*"
+	)
+
+	workdir := fs.NewDir(t, t.Name(), folderLayout...)
+	defer workdir.Remove()
+
+	srcpath := workdir.Path()
+
+	cmd := s5cmd("rm", "--exclude", excludePattern1, "--exclude", excludePattern2, srcpath)
+	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals("rm %v/engine.js", workdir.Path()),
+		1: equals("rm %v/testdir/readme.md", workdir.Path()),
+	}, sortInput(true))
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{})
+
+	expectedFileSystem := []fs.PathOp{
+		fs.WithDir(
+			"testdir",
+			fs.WithFile("file1.txt", "this is the first test file"),
+			fs.WithFile("file2.txt", "this is the second test file"),
+		),
+		fs.WithFile("main.py", "python file"),
+		fs.WithFile("main.c", "c file"),
+	}
+
+	// assert local filesystem
+	expected := fs.Expected(t, expectedFileSystem...)
+	assert.Assert(t, fs.Equal(workdir.Path(), expected))
+}
+
+// rm --exclude "abc*" dir/*.txt
+func TestRemoveLocalFilesWithPrefixandExcludeFilters(t *testing.T) {
+	t.Parallel()
+
+	_, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	folderLayout := []fs.PathOp{
+		fs.WithDir(
+			"testdir",
+			fs.WithFile("testfile1.txt", "this is the first test file"),
+			fs.WithFile("testfile2.txt", "this is the second test file"),
+			fs.WithFile("abc.txt", "this is the first test file"),
+			fs.WithFile("readme.md", "this is a readme file"),
+		),
+		fs.WithFile("main.py", "python file"),
+		fs.WithFile("engine.js", "js file"),
+		fs.WithFile("abc.txt", "file with abc suffix"),
+	}
+
+	const (
+		excludePattern = "abc*"
+	)
+
+	workdir := fs.NewDir(t, t.Name(), folderLayout...)
+	defer workdir.Remove()
+
+	srcpath := workdir.Join("testdir")
+	srcpath = fmt.Sprintf("%v/*.txt", srcpath)
+
+	cmd := s5cmd("rm", "--exclude", excludePattern, srcpath)
+	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals("rm %v/testdir/testfile1.txt", workdir.Path()),
+		1: equals("rm %v/testdir/testfile2.txt", workdir.Path()),
+	}, sortInput(true))
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{})
+
+	expectedFileSystem := []fs.PathOp{
+		fs.WithDir(
+			"testdir",
+			fs.WithFile("abc.txt", "this is the first test file"),
+			fs.WithFile("readme.md", "this is a readme file"),
+		),
+		fs.WithFile("main.py", "python file"),
+		fs.WithFile("engine.js", "js file"),
+		fs.WithFile("abc.txt", "file with abc suffix"),
+	}
+
+	// assert local filesystem
+	expected := fs.Expected(t, expectedFileSystem...)
+	assert.Assert(t, fs.Equal(workdir.Path(), expected))
+}

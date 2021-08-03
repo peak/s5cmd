@@ -3347,7 +3347,7 @@ func TestCopyRawModeAllowDestinationWithoutPrefix(t *testing.T) {
 	}
 }
 
-// cp --exclude "*.py" s3://bucket/* . .
+// cp --exclude "*.py" s3://bucket/* .
 func TestCopyS3ObjectsWithExcludeFilter(t *testing.T) {
 	t.Parallel()
 
@@ -3514,25 +3514,27 @@ func TestCopyS3ObjectsWithPrefixWithExcludeFilters(t *testing.T) {
 	assert.Assert(t, fs.Equal(cmd.Dir, expected))
 }
 
+// cp --exclude "*.gz" dir s3://bucket/
+// cp --exclude "*.gz" dir/ s3://bucket/
 // cp --exclude "*.gz" dir/* s3://bucket/
 func TestCopyLocalDirectoryToS3WithExcludeFilter(t *testing.T) {
 	t.Parallel()
 
 	testcases := []struct {
-		name         string
-		sourcePrefix string
+		name            string
+		directoryPrefix string
 	}{
 		{
-			name:         "folder without /",
-			sourcePrefix: "",
+			name:            "folder without /",
+			directoryPrefix: "",
 		},
 		{
-			name:         "folder with /",
-			sourcePrefix: "/",
+			name:            "folder with /",
+			directoryPrefix: "/",
 		},
 		{
-			name:         "folder with / and glob *",
-			sourcePrefix: "/*",
+			name:            "folder with / and glob *",
+			directoryPrefix: "/*",
 		},
 	}
 
@@ -3567,7 +3569,7 @@ func TestCopyLocalDirectoryToS3WithExcludeFilter(t *testing.T) {
 			const excludePattern = "*.gz"
 
 			src := fmt.Sprintf("%v/", workdir.Path())
-			src = src + tc.sourcePrefix
+			src = src + tc.directoryPrefix
 			dst := fmt.Sprintf("s3://%v/prefix/", bucket)
 
 			src = filepath.ToSlash(src)

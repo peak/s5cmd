@@ -518,25 +518,27 @@ func TestListS3ObjectsWithExcludeFilterEmpty(t *testing.T) {
 	}, trimMatch(dateRe), alignment(true))
 }
 
+// ls --exclude "main*" directory
 // ls --exclude "main*" directory/
+// ls --exclude "main*" directory/*
 func TestListLocalFilesWithExcludeFilter(t *testing.T) {
 	t.Parallel()
 
 	testcases := []struct {
-		name         string
-		sourcePrefix string
+		name            string
+		directoryPrefix string
 	}{
 		{
-			name:         "folder without /",
-			sourcePrefix: "",
+			name:            "folder without /",
+			directoryPrefix: "",
 		},
 		{
-			name:         "folder with /",
-			sourcePrefix: "/",
+			name:            "folder with /",
+			directoryPrefix: "/",
 		},
 		{
-			name:         "folder with / and glob *",
-			sourcePrefix: "/*",
+			name:            "folder with / and glob *",
+			directoryPrefix: "/*",
 		},
 	}
 
@@ -565,7 +567,7 @@ func TestListLocalFilesWithExcludeFilter(t *testing.T) {
 			workdir := fs.NewDir(t, t.Name(), folderLayout...)
 			defer workdir.Remove()
 			srcpath := workdir.Path()
-			srcpath = srcpath + tc.sourcePrefix
+			srcpath = srcpath + tc.directoryPrefix
 			srcpath = filepath.ToSlash(srcpath)
 
 			cmd := s5cmd("ls", "--exclude", excludePattern, srcpath)

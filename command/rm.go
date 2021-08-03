@@ -110,7 +110,7 @@ func (d Delete) Run(ctx context.Context) error {
 	}
 
 	objch := expandSources(ctx, client, false, srcurls...)
-	excludePatterns := CreateExcludesFromWildcard(d.exclude)
+	excludePatterns := createExcludesFromWildcard(d.exclude)
 
 	// do object->url transformation
 	urlch := make(chan *url.URL)

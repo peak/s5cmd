@@ -153,7 +153,7 @@ func (l List) Run(ctx context.Context) error {
 	}
 
 	var merror error
-	excludePatterns := CreateExcludesFromWildcard(l.exclude)
+	excludePatterns := createExcludesFromWildcard(l.exclude)
 
 	for object := range client.List(ctx, srcurl, false) {
 		if errorpkg.IsCancelation(object.Err) {

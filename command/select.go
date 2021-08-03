@@ -156,7 +156,7 @@ func (s Select) Run(ctx context.Context) error {
 		}
 	}()
 
-	excludePatterns := CreateExcludesFromWildcard(s.exclude)
+	excludePatterns := createExcludesFromWildcard(s.exclude)
 
 	for object := range objch {
 		if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) {

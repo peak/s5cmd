@@ -18,7 +18,7 @@ func regexMatch(pattern string, value string) bool {
 }
 
 // CreateExcludesFromWildcard creates regex strings from wildcard.
-func CreateExcludesFromWildcard(inputExcludes []string) []string {
+func createExcludesFromWildcard(inputExcludes []string) []string {
 	result := make([]string, 0)
 	for _, input := range inputExcludes {
 		result = append(result, wildCardToRegexp(input))

@@ -327,7 +327,7 @@ func (c Copy) Run(ctx context.Context) error {
 		isBatch = obj != nil && obj.Type.IsDir()
 	}
 
-	excludePatterns := CreateExcludesFromWildcard(c.exclude)
+	excludePatterns := createExcludesFromWildcard(c.exclude)
 
 	for object := range objch {
 		if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) {

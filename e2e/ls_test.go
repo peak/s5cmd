@@ -782,8 +782,8 @@ func TestListNestedLocalFolders(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: match("file.txt"),
-		1: match("some-dir/file.txt"),
-		2: match("some-dir/some-dir/some-dir/file.txt"),
+		0: match(filepath.ToSlash("file.txt")),
+		1: match(filepath.ToSlash("file.txt")),
+		2: match(filepath.ToSlash("file.txt")),
 	}, trimMatch(dateRe), alignment(true))
 }

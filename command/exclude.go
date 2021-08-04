@@ -1,6 +1,7 @@
 package command
 
 import (
+	"path/filepath"
 	"regexp"
 	"strings"
 )
@@ -37,6 +38,7 @@ func isURLExcluded(excludePatterns []*regexp.Regexp, urlPath, sourcePrefix strin
 	if !strings.HasSuffix(sourcePrefix, "/") {
 		sourcePrefix += "/"
 	}
+	sourcePrefix = filepath.ToSlash(sourcePrefix)
 	for _, excludePattern := range excludePatterns {
 		if excludePattern.MatchString(strings.TrimPrefix(urlPath, sourcePrefix)) {
 			return true

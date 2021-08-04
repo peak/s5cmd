@@ -158,19 +158,16 @@ func s5cmd(workdir, endpoint string) func(args ...string) icmd.Cmd {
 
 		cmd := icmd.Command(s5cmdPath, args...)
 		env := os.Environ()
-		if os.Getenv("AWS_ACCESS_KEY_ID") == "" || os.Getenv("AWS_SECRET_ACCESS_KEY") == "" {
-			env = append(
-				env,
-				[]string{
-					fmt.Sprintf("AWS_ACCESS_KEY_ID=%v", defaultAccessKeyID),
-					fmt.Sprintf("AWS_SECRET_ACCESS_KEY=%v", defaultSecretAccessKey),
-				}...,
-			)
-		}
+		env = append(
+			env,
+			[]string{
+				fmt.Sprintf("AWS_ACCESS_KEY_ID=%v", defaultAccessKeyID),
+				fmt.Sprintf("AWS_SECRET_ACCESS_KEY=%v", defaultSecretAccessKey),
+			}...,
+		)
 		cmd.Env = env
 		cmd.Dir = workdir
 
-		// fmt.Printf("environment: %v\n", os.Environ())
 		return cmd
 	}
 }

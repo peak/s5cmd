@@ -3348,25 +3348,16 @@ func TestCopyRawModeAllowDestinationWithoutPrefix(t *testing.T) {
 	}
 }
 
-func TestCopyNonExistEndpointURL(t *testing.T) {
+func TestCopyExpectExitCode1OnUnreachableHost(t *testing.T) {
 	t.Parallel()
 
 	const bucket = "bucket"
 
-	_, s5cmd, cleanup := setup(t, withEndpointURL("nonExistEndpointURL"))
+	_, s5cmd, cleanup := setup(t, withEndpointURL("nonExistingEndpointURL"))
 	defer cleanup()
 
 	folderLayout := []fs.PathOp{
 		fs.WithFile("testfile.txt", "this is a test file 1"),
-		fs.WithFile("readme.md", "this is a readme file"),
-		fs.WithDir(
-			"a",
-			fs.WithFile("another_test_file.txt", "yet another txt file. yatf."),
-		),
-		fs.WithDir(
-			"b",
-			fs.WithFile("filename-with-hypen.gz", "file has hypen in its name"),
-		),
 	}
 
 	workdir := fs.NewDir(t, "somedir", folderLayout...)

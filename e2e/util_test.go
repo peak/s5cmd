@@ -55,7 +55,8 @@ func init() {
 }
 
 type setupOpts struct {
-	s3backend string
+	s3backend   string
+	endpointURL string
 }
 
 type option func(*setupOpts)
@@ -63,6 +64,12 @@ type option func(*setupOpts)
 func withS3Backend(backend string) option {
 	return func(opts *setupOpts) {
 		opts.s3backend = backend
+	}
+}
+
+func withEndpointURL(url string) option {
+	return func(opts *setupOpts) {
+		opts.endpointURL = url
 	}
 }
 
@@ -77,7 +84,7 @@ func setup(t *testing.T, options ...option) (*s3.S3, func(...string) icmd.Cmd, f
 		option(opts)
 	}
 
-	endpoint, workdir, cleanup := server(t, opts.s3backend)
+	endpoint, workdir, cleanup := server(t, opts)
 
 	client := s3client(t, storage.Options{
 		Endpoint:    endpoint,
@@ -87,7 +94,7 @@ func setup(t *testing.T, options ...option) (*s3.S3, func(...string) icmd.Cmd, f
 	return client, s5cmd(workdir, endpoint), cleanup
 }
 
-func server(t *testing.T, s3backend string) (string, string, func()) {
+func server(t *testing.T, setupOptions *setupOpts) (string, string, func()) {
 	t.Helper()
 
 	// testdir := fs.NewDir() tries to create a new directory which
@@ -109,13 +116,15 @@ func server(t *testing.T, s3backend string) (string, string, func()) {
 		s3LogLevel = "info" // aws has no level other than 'debug'
 	}
 
-	endpoint, dbcleanup := s3ServerEndpoint(t, testdir, s3LogLevel, s3backend)
+	endpoint, dbcleanup := s3ServerEndpoint(t, testdir, s3LogLevel, setupOptions.s3backend)
 
 	cleanup := func() {
 		testdir.Remove()
 		dbcleanup()
 	}
-
+	if setupOptions.endpointURL != "" {
+		endpoint = setupOptions.endpointURL
+	}
 	return endpoint, workdir, cleanup
 }
 

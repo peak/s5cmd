@@ -3349,9 +3349,6 @@ func TestCopyRawModeAllowDestinationWithoutPrefix(t *testing.T) {
 }
 
 func TestCopyFalseCredentialsExitCode1(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip()
-	}
 	t.Parallel()
 
 	const bucket = "bucket"
@@ -3382,6 +3379,40 @@ func TestCopyFalseCredentialsExitCode1(t *testing.T) {
 	dst := fmt.Sprintf("s3://%s/", bucket)
 
 	cmd := s5cmd(`AWS_ACCESS_KEY_ID=""`, `AWS_SECRET_ACCESS_KEY=""`, "cp", src, dst)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Expected{ExitCode: 1})
+}
+
+func TestCopyNonExistEndpointURL(t *testing.T) {
+	t.Parallel()
+
+	const bucket = "bucket"
+
+	_, s5cmd, cleanup := setup(t, withEndpointURL("nonExistEndpointURL"))
+	defer cleanup()
+
+	folderLayout := []fs.PathOp{
+		fs.WithFile("testfile.txt", "this is a test file 1"),
+		fs.WithFile("readme.md", "this is a readme file"),
+		fs.WithDir(
+			"a",
+			fs.WithFile("another_test_file.txt", "yet another txt file. yatf."),
+		),
+		fs.WithDir(
+			"b",
+			fs.WithFile("filename-with-hypen.gz", "file has hypen in its name"),
+		),
+	}
+
+	workdir := fs.NewDir(t, "somedir", folderLayout...)
+	defer workdir.Remove()
+
+	src := fmt.Sprintf("s3://%s/*", bucket)
+	src = filepath.ToSlash(src)
+	dst := fmt.Sprintf("%v/", workdir.Path())
+
+	cmd := s5cmd("-r", "0", "cp", src, dst)
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Expected{ExitCode: 1})

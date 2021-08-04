@@ -13,7 +13,7 @@ build:
 
 .PHONY: test
 test:
-	@go test -mod=vendor -count=1 ./...
+	@go test -mod=vendor -count=1 -race ./...
 
 .PHONY: check
 check: vet staticcheck unparam check-fmt

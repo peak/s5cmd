@@ -186,6 +186,7 @@ func goBuildS5cmd() func() {
 	cmd := exec.Command(
 		"go", "build",
 		"-mod=vendor",
+		"-race",
 		"-o", s5cmdPath,
 	)
 	cmd.Stderr = os.Stderr

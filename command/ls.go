@@ -153,7 +153,12 @@ func (l List) Run(ctx context.Context) error {
 	}
 
 	var merror error
-	excludePatterns := createExcludesFromWildcard(l.exclude)
+
+	excludePatterns, err := createExcludesFromWildcard(l.exclude)
+	if err != nil {
+		printError(l.fullCommand, l.op, err)
+		return err
+	}
 
 	for object := range client.List(ctx, srcurl, false) {
 		if errorpkg.IsCancelation(object.Err) {
@@ -166,7 +171,7 @@ func (l List) Run(ctx context.Context) error {
 			continue
 		}
 
-		if isURLExcluded(excludePatterns, object.URL.Path) {
+		if isURLExcluded(excludePatterns, object.URL.Path, srcurl.Prefix) {
 			continue
 		}
 

@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -422,7 +423,6 @@ func TestListS3ObjectsWithExcludeFilter(t *testing.T) {
 
 	for _, filename := range filenames {
 		putFile(t, s3client, bucket, filename, content)
-
 	}
 
 	cmd := s5cmd("ls", "--exclude", excludePattern, "s3://"+bucket+"/*")
@@ -466,7 +466,6 @@ func TestListS3ObjectsWithFileExtensionsExcludeFilter(t *testing.T) {
 
 	for _, filename := range filenames {
 		putFile(t, s3client, bucket, filename, content)
-
 	}
 
 	cmd := s5cmd("ls", "--exclude", excludePattern, "s3://"+bucket+"/*")
@@ -511,7 +510,6 @@ func TestListS3ObjectsWithExcludeFilters(t *testing.T) {
 
 	for _, filename := range filenames {
 		putFile(t, s3client, bucket, filename, content)
-
 	}
 
 	cmd := s5cmd("ls", "--exclude", excludePattern1, "--exclude", excludePattern2, "s3://"+bucket)
@@ -548,7 +546,6 @@ func TestListS3ObjectsWithExcludeFilterEmpty(t *testing.T) {
 
 	for _, filename := range filenames {
 		putFile(t, s3client, bucket, filename, content)
-
 	}
 
 	cmd := s5cmd("ls", "--exclude", excludePattern, "s3://"+bucket)
@@ -561,6 +558,43 @@ func TestListS3ObjectsWithExcludeFilterEmpty(t *testing.T) {
 		1: match(`file.py`),
 		2: match("file.txt"),
 		3: match("file2.txt"),
+	}, trimMatch(dateRe), alignment(true))
+}
+
+// ls --exclude "some-dir/some-dir/file.txt" s3://bucket/*
+func TestListS3ObjectsWithNestedFoldersExcludeFilter(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	const content = "content"
+	const excludePattern = "some-dir/some-dir/file.txt"
+	filenames := []string{
+		"file.txt",
+		"some-dir/file.txt",
+		"some-dir/some-dir/file.txt",
+		"some-dir/some-dir/some-dir/file.txt",
+	}
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+
+	for _, filename := range filenames {
+		putFile(t, s3client, bucket, filename, content)
+	}
+
+	srcpath := fmt.Sprintf("s3://%v/*", bucket)
+	cmd := s5cmd("ls", "--exclude", excludePattern, srcpath)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: match(`file.txt`),
+		1: match("some-dir/file.txt"),
+		2: match("some-dir/some-dir/some-dir/file.txt"),
 	}, trimMatch(dateRe), alignment(true))
 }
 
@@ -707,5 +741,49 @@ func TestListLocalFilesWithPrefixAndExcludeFilter(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: match("file1.txt"),
+	}, trimMatch(dateRe), alignment(true))
+}
+
+// ls --exclude "main*" directory/*.txt
+func TestListNestedLocalFolders(t *testing.T) {
+	t.Parallel()
+
+	_, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	const (
+		excludePattern1 = "some-dir/some-dir/file.txt"
+	)
+
+	folderLayout := []fs.PathOp{
+		fs.WithFile("file.txt", "content"),
+		fs.WithDir(
+			"some-dir",
+			fs.WithDir(
+				"some-dir",
+				fs.WithDir(
+					"some-dir",
+					fs.WithFile("file.txt", "content"),
+				),
+				fs.WithFile("file.txt", "this is a txt file"),
+			),
+			fs.WithFile("file.txt", "this is a txt file"),
+		),
+	}
+
+	workdir := fs.NewDir(t, t.Name(), folderLayout...)
+	defer workdir.Remove()
+	srcpath := workdir.Path()
+	srcpath = filepath.ToSlash(srcpath)
+
+	cmd := s5cmd("ls", "--exclude", excludePattern1, srcpath)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: match("file.txt"),
+		1: match("some-dir/file.txt"),
+		2: match("some-dir/some-dir/some-dir/file.txt"),
 	}, trimMatch(dateRe), alignment(true))
 }

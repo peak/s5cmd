@@ -111,7 +111,12 @@ func (sz Size) Run(ctx context.Context) error {
 	total := sizeAndCount{}
 
 	var merror error
-	excludePatterns := createExcludesFromWildcard(sz.exclude)
+
+	excludePatterns, err := createExcludesFromWildcard(sz.exclude)
+	if err != nil {
+		printError(sz.fullCommand, sz.op, err)
+		return err
+	}
 
 	for object := range client.List(ctx, srcurl, false) {
 		if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) {
@@ -124,7 +129,7 @@ func (sz Size) Run(ctx context.Context) error {
 			continue
 		}
 
-		if isURLExcluded(excludePatterns, object.URL.Path) {
+		if isURLExcluded(excludePatterns, object.URL.Path, srcurl.Prefix) {
 			continue
 		}
 

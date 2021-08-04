@@ -9,34 +9,36 @@ func wildCardToRegexp(pattern string) string {
 	patternRegex := regexp.QuoteMeta(pattern)
 	patternRegex = strings.Replace(patternRegex, "\\?", ".", -1)
 	patternRegex = strings.Replace(patternRegex, "\\*", ".*", -1)
-	patternRegex = patternRegex + "$"
+	patternRegex = "^" + patternRegex + "$"
 	return patternRegex
 }
 
 // createExcludesFromWildcard creates regex strings from wildcard.
-func createExcludesFromWildcard(inputExcludes []string) []*regexp.Regexp {
+func createExcludesFromWildcard(inputExcludes []string) ([]*regexp.Regexp, error) {
 	result := make([]*regexp.Regexp, 0)
 	for _, input := range inputExcludes {
 		if input != "" {
 			regexVersion := wildCardToRegexp(input)
 			regexpCompiled, err := regexp.Compile(regexVersion)
 			if err != nil {
-				continue
+				return nil, err
 			}
 			result = append(result, regexpCompiled)
 		}
 	}
-	return result
+	return result, nil
 }
 
 // isURLExcluded checks whether given urlPath matches any of the exclude patterns.
-func isURLExcluded(excludePatterns []*regexp.Regexp, urlPath string) bool {
+func isURLExcluded(excludePatterns []*regexp.Regexp, urlPath, sourcePrefix string) bool {
 	if len(excludePatterns) == 0 {
 		return false
 	}
-
+	if !strings.HasSuffix(sourcePrefix, "/") {
+		sourcePrefix += "/"
+	}
 	for _, excludePattern := range excludePatterns {
-		if excludePattern.MatchString(urlPath) {
+		if excludePattern.MatchString(strings.TrimPrefix(urlPath, sourcePrefix)) {
 			return true
 		}
 	}

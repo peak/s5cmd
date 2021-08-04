@@ -327,7 +327,11 @@ func (c Copy) Run(ctx context.Context) error {
 		isBatch = obj != nil && obj.Type.IsDir()
 	}
 
-	excludePatterns := createExcludesFromWildcard(c.exclude)
+	excludePatterns, err := createExcludesFromWildcard(c.exclude)
+	if err != nil {
+		printError(c.fullCommand, c.op, err)
+		return err
+	}
 
 	for object := range objch {
 		if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) {
@@ -345,7 +349,7 @@ func (c Copy) Run(ctx context.Context) error {
 			continue
 		}
 
-		if isURLExcluded(excludePatterns, object.URL.Path) {
+		if isURLExcluded(excludePatterns, object.URL.Path, srcurl.Prefix) {
 			continue
 		}
 

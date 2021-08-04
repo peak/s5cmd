@@ -16,7 +16,7 @@ func wildCardToRegexp(pattern string) string {
 
 // createExcludesFromWildcard creates regex strings from wildcard.
 func createExcludesFromWildcard(inputExcludes []string) ([]*regexp.Regexp, error) {
-	result := make([]*regexp.Regexp, 0)
+	var result []*regexp.Regexp
 	for _, input := range inputExcludes {
 		if input != "" {
 			regexVersion := wildCardToRegexp(input)

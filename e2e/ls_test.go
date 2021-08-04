@@ -744,7 +744,7 @@ func TestListLocalFilesWithPrefixAndExcludeFilter(t *testing.T) {
 	}, trimMatch(dateRe), alignment(true))
 }
 
-// ls --exclude "main*" directory/*.txt
+// ls --exclude "some-dir/some-dir/file.txt" directory
 func TestListNestedLocalFolders(t *testing.T) {
 	t.Parallel()
 
@@ -757,12 +757,9 @@ func TestListNestedLocalFolders(t *testing.T) {
 
 	folderLayout := []fs.PathOp{
 		fs.WithFile("file.txt", "content"),
-		fs.WithDir(
-			"some-dir",
-			fs.WithDir(
-				"some-dir",
-				fs.WithDir(
-					"some-dir",
+		fs.WithDir("some-dir",
+			fs.WithDir("some-dir",
+				fs.WithDir("some-dir",
 					fs.WithFile("file.txt", "content"),
 				),
 				fs.WithFile("file.txt", "this is a txt file"),

@@ -933,7 +933,7 @@ func TestRemoveMultipleS3ObjectsWithExcludeFilters(t *testing.T) {
 }
 
 // rm --exclude "" s3://bucket/*
-func TestRemoveS3ObjectsExcludePatternEmpty(t *testing.T) {
+func TestRemoveS3ObjectsWithEmptyExcludeFilter(t *testing.T) {
 	t.Parallel()
 
 	s3client, s5cmd, cleanup := setup(t)

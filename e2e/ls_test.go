@@ -414,48 +414,6 @@ func TestListS3ObjectsWithExcludeFilter(t *testing.T) {
 		"a/try.py",
 		"a/file.c",
 		"file2.txt",
-	}
-
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
-
-	createBucket(t, s3client, bucket)
-
-	for _, filename := range filenames {
-		putFile(t, s3client, bucket, filename, content)
-	}
-
-	cmd := s5cmd("ls", "--exclude", excludePattern, "s3://"+bucket+"/*")
-	result := icmd.RunCmd(cmd)
-
-	result.Assert(t, icmd.Success)
-
-	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: match(`a/file.c`),
-		1: match(`a/try.py`),
-		2: match(`file.py`),
-	}, trimMatch(dateRe), alignment(true))
-}
-
-// ls --exclude "*.txt" s3://bucket/*
-func TestListS3ObjectsWithFileExtensionsExcludeFilter(t *testing.T) {
-	t.Parallel()
-
-	bucket := s3BucketFromTestName(t)
-
-	const (
-		content        = "content"
-		excludePattern = "*.txt"
-	)
-
-	filenames := []string{
-		"file.txt",
-		"file.py",
-		"hasan.txt",
-		"a/try.txt",
-		"a/try.py",
-		"a/file.c",
-		"file2.txt",
 		"file2.txt.extension", // this should not be excluded.
 	}
 
@@ -523,7 +481,7 @@ func TestListS3ObjectsWithExcludeFilters(t *testing.T) {
 }
 
 // ls --exclude "" s3://bucket
-func TestListS3ObjectsWithExcludeFilterEmpty(t *testing.T) {
+func TestListS3ObjectsWithEmptyExcludeFilter(t *testing.T) {
 	t.Parallel()
 
 	bucket := s3BucketFromTestName(t)
@@ -562,7 +520,7 @@ func TestListS3ObjectsWithExcludeFilterEmpty(t *testing.T) {
 }
 
 // ls --exclude "some-dir/some-dir/file.txt" s3://bucket/*
-func TestListS3ObjectsWithNestedFoldersExcludeFilter(t *testing.T) {
+func TestListNestedPrefixedS3ObjectsWithExcludeFilter(t *testing.T) {
 	t.Parallel()
 
 	bucket := s3BucketFromTestName(t)

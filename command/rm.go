@@ -97,6 +97,14 @@ func (d Delete) Run(ctx context.Context) error {
 
 	objch := expandSources(ctx, client, false, srcurls...)
 
+	// create two different error objects instead of single object to avoid the
+	// data race for merror object, since there is a goroutine running,
+	// there might be a data race for a single error object.
+	var (
+		merrorObjects error
+		merrorResult  error
+	)
+
 	// do object->url transformation
 	urlch := make(chan *url.URL)
 	go func() {
@@ -108,6 +116,7 @@ func (d Delete) Run(ctx context.Context) error {
 			}
 
 			if err := object.Err; err != nil {
+				merrorObjects = multierror.Append(merrorObjects, err)
 				printError(d.fullCommand, d.op, err)
 				continue
 			}
@@ -117,14 +126,13 @@ func (d Delete) Run(ctx context.Context) error {
 
 	resultch := client.MultiDelete(ctx, urlch)
 
-	var merror error
 	for obj := range resultch {
 		if err := obj.Err; err != nil {
 			if errorpkg.IsCancelation(obj.Err) {
 				continue
 			}
 
-			merror = multierror.Append(merror, obj.Err)
+			merrorResult = multierror.Append(merrorResult, obj.Err)
 			printError(d.fullCommand, d.op, obj.Err)
 			continue
 		}
@@ -136,7 +144,7 @@ func (d Delete) Run(ctx context.Context) error {
 		log.Info(msg)
 	}
 
-	return merror
+	return multierror.Append(merrorResult, merrorObjects).ErrorOrNil()
 }
 
 // newSources creates object URL list from given sources.

@@ -39,6 +39,9 @@ Examples:
 
 	5. List all objects in a public bucket
 		 > s5cmd --no-sign-request {{.HelpName}} s3://bucket/*
+
+	6. List all objects in a bucket but exclude the ones with prefix abc
+		 > s5cmd {{.HelpName}} --exclude "abc*" s3://bucket/*
 `
 
 var listCommand = &cli.Command{
@@ -61,6 +64,10 @@ var listCommand = &cli.Command{
 			Name:    "storage-class",
 			Aliases: []string{"s"},
 			Usage:   "display full name of the object class",
+		},
+		&cli.StringSliceFlag{
+			Name:  "exclude",
+			Usage: "exclude objects with given pattern",
 		},
 	},
 	Before: func(c *cli.Context) error {
@@ -88,6 +95,7 @@ var listCommand = &cli.Command{
 			showEtag:         c.Bool("etag"),
 			humanize:         c.Bool("humanize"),
 			showStorageClass: c.Bool("storage-class"),
+			exclude:          c.StringSlice("exclude"),
 
 			storageOpts: NewStorageOpts(c),
 		}.Run(c.Context)
@@ -104,6 +112,7 @@ type List struct {
 	showEtag         bool
 	humanize         bool
 	showStorageClass bool
+	exclude          []string
 
 	storageOpts storage.Options
 }
@@ -145,6 +154,12 @@ func (l List) Run(ctx context.Context) error {
 
 	var merror error
 
+	excludePatterns, err := createExcludesFromWildcard(l.exclude)
+	if err != nil {
+		printError(l.fullCommand, l.op, err)
+		return err
+	}
+
 	for object := range client.List(ctx, srcurl, false) {
 		if errorpkg.IsCancelation(object.Err) {
 			continue
@@ -153,6 +168,10 @@ func (l List) Run(ctx context.Context) error {
 		if err := object.Err; err != nil {
 			merror = multierror.Append(merror, err)
 			printError(l.fullCommand, l.op, err)
+			continue
+		}
+
+		if isURLExcluded(excludePatterns, object.URL.Path, srcurl.Prefix) {
 			continue
 		}
 

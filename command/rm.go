@@ -35,12 +35,19 @@ Examples:
 
 	4. Delete all matching objects and a specific object
 		 > s5cmd {{.HelpName}} s3://bucketname/prefix/* s3://bucketname/object1.gz
+	
+	5. Delete all matching objects but exclude the ones with .txt extension or starts with "main"
+		 > s5cmd {{.HelpName}} --exclude "*.txt" --exclude "main*" s3://bucketname/prefix/* 
 `
 
 var deleteCommandFlags = []cli.Flag{
 	&cli.BoolFlag{
 		Name:  "raw",
 		Usage: "disable the wildcard operations, useful with filenames that contains glob characters.",
+	},
+	&cli.StringSliceFlag{
+		Name:  "exclude",
+		Usage: "exclude objects with given pattern",
 	},
 }
 
@@ -63,7 +70,11 @@ var deleteCommand = &cli.Command{
 			src:         c.Args().Slice(),
 			op:          c.Command.Name,
 			fullCommand: givenCommand(c),
-			raw:         c.Bool("raw"),
+
+			// flags
+			raw:     c.Bool("raw"),
+			exclude: c.StringSlice("exclude"),
+
 			storageOpts: NewStorageOpts(c),
 		}.Run(c.Context)
 	},
@@ -74,7 +85,10 @@ type Delete struct {
 	src         []string
 	op          string
 	fullCommand string
-	raw         bool
+
+	// flag options
+	exclude []string
+	raw     bool
 
 	// storage options
 	storageOpts storage.Options
@@ -90,6 +104,12 @@ func (d Delete) Run(ctx context.Context) error {
 	srcurl := srcurls[0]
 
 	client, err := storage.NewClient(ctx, srcurl, d.storageOpts)
+	if err != nil {
+		printError(d.fullCommand, d.op, err)
+		return err
+	}
+
+	excludePatterns, err := createExcludesFromWildcard(d.exclude)
 	if err != nil {
 		printError(d.fullCommand, d.op, err)
 		return err
@@ -120,6 +140,11 @@ func (d Delete) Run(ctx context.Context) error {
 				printError(d.fullCommand, d.op, err)
 				continue
 			}
+
+			if isURLExcluded(excludePatterns, object.URL.Path, srcurl.Prefix) {
+				continue
+			}
+
 			urlch <- object.URL
 		}
 	}()

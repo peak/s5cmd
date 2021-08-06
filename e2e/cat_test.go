@@ -9,6 +9,8 @@ import (
 )
 
 func TestCatS3Object(t *testing.T) {
+	t.Parallel()
+
 	const (
 		bucket   = "bucket"
 		filename = "file.txt"
@@ -67,6 +69,8 @@ func TestCatS3Object(t *testing.T) {
 }
 
 func TestCatS3ObjectFail(t *testing.T) {
+	t.Parallel()
+
 	const (
 		bucket   = "bucket"
 		filename = "file.txt"
@@ -151,6 +155,8 @@ func TestCatS3ObjectFail(t *testing.T) {
 }
 
 func TestCatLocalFileFail(t *testing.T) {
+	t.Parallel()
+
 	const (
 		filename = "file.txt"
 	)

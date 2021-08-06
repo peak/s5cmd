@@ -11,7 +11,7 @@ import (
 )
 
 func TestAppRetryCount(t *testing.T) {
-	// t.Parallel()
+	t.Parallel()
 
 	testcases := []struct {
 		name             string
@@ -70,6 +70,8 @@ func TestAppRetryCount(t *testing.T) {
 }
 
 func TestAppDashStat(t *testing.T) {
+	t.Parallel()
+
 	_, s5cmd, cleanup := setup(t)
 	defer cleanup()
 
@@ -85,6 +87,8 @@ func TestAppDashStat(t *testing.T) {
 }
 
 func TestAppUnknownCommand(t *testing.T) {
+	t.Parallel()
+
 	_, s5cmd, cleanup := setup(t)
 	defer cleanup()
 

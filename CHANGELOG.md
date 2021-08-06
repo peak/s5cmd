@@ -4,6 +4,7 @@
 
 #### Features
 
+- Added new `--exclude` flag to `cp`, `rm`, `ls`, `du` and `select` commands. This flag allows users to exclude objects with given pattern. ([#266](https://github.com/peak/s5cmd/issues/266))
 - Added new `--raw` flag to `cp` and `rm` commands. It disables the wildcard operations. It is useful when only an object contains glob characters wants to be downloaded. ([#235](https://github.com/peak/s5cmd/issues/235))
 - Added new `--cache-control` and `--expires` flags to `cp` and `rm` commands. It adds support for setting cache control and expires header to S3 objects. ([#318](https://github.com/peak/s5cmd/pull/318)) [@tombokombo](https://github.com/tombokombo)
 - Added new `select` command. It allows to select JSON records from objects using SQL expressions. ([#299](https://github.com/peak/s5cmd/issues/299)) [@skeggse](https://github.com/skeggse)

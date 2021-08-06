@@ -47,6 +47,10 @@ var selectCommandFlags = []cli.Flag{
 		Usage: "input data format (only JSON supported for the moment)",
 		Value: "JSON",
 	},
+	&cli.StringSliceFlag{
+		Name:  "exclude",
+		Usage: "exclude objects with given pattern",
+	},
 }
 
 var selectCommand = &cli.Command{
@@ -72,6 +76,7 @@ var selectCommand = &cli.Command{
 			// flags
 			query:           c.String("query"),
 			compressionType: c.String("compression"),
+			exclude:         c.StringSlice("exclude"),
 
 			storageOpts: NewStorageOpts(c),
 		}.Run(c.Context)
@@ -86,6 +91,7 @@ type Select struct {
 
 	query           string
 	compressionType string
+	exclude         []string
 
 	// s3 options
 	storageOpts storage.Options
@@ -156,6 +162,12 @@ func (s Select) Run(ctx context.Context) error {
 		}
 	}()
 
+	excludePatterns, err := createExcludesFromWildcard(s.exclude)
+	if err != nil {
+		printError(s.fullCommand, s.op, err)
+		return err
+	}
+
 	for object := range objch {
 		if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) {
 			continue
@@ -174,8 +186,13 @@ func (s Select) Run(ctx context.Context) error {
 			continue
 		}
 
+		if isURLExcluded(excludePatterns, object.URL.Path, srcurl.Prefix) {
+			continue
+		}
+
 		task := s.prepareTask(ctx, client, object.URL, resultCh)
 		parallel.Run(task, waiter)
+
 	}
 
 	waiter.Wait()

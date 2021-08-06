@@ -30,6 +30,9 @@ Examples:
 
 	2. Show disk usage of all objects that match a wildcard, grouped by storage class
 		 > s5cmd {{.HelpName}} --group s3://bucket/prefix/obj*.gz
+
+	3. Show disk usage of all objects in a bucket but exclude the ones with py extension or starts with main
+		 > s5cmd {{.HelpName}} --exclude "*.py" --exclude "main*" s3://bucket/*
 `
 
 var sizeCommand = &cli.Command{
@@ -47,6 +50,10 @@ var sizeCommand = &cli.Command{
 			Name:    "humanize",
 			Aliases: []string{"H"},
 			Usage:   "human-readable output for object sizes",
+		},
+		&cli.StringSliceFlag{
+			Name:  "exclude",
+			Usage: "exclude objects with given pattern",
 		},
 	},
 	Before: func(c *cli.Context) error {
@@ -66,6 +73,7 @@ var sizeCommand = &cli.Command{
 			// flags
 			groupByClass: c.Bool("group"),
 			humanize:     c.Bool("humanize"),
+			exclude:      c.StringSlice("exclude"),
 
 			storageOpts: NewStorageOpts(c),
 		}.Run(c.Context)
@@ -81,6 +89,7 @@ type Size struct {
 	// flags
 	groupByClass bool
 	humanize     bool
+	exclude      []string
 
 	storageOpts storage.Options
 }
@@ -103,6 +112,12 @@ func (sz Size) Run(ctx context.Context) error {
 
 	var merror error
 
+	excludePatterns, err := createExcludesFromWildcard(sz.exclude)
+	if err != nil {
+		printError(sz.fullCommand, sz.op, err)
+		return err
+	}
+
 	for object := range client.List(ctx, srcurl, false) {
 		if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) {
 			continue
@@ -113,6 +128,11 @@ func (sz Size) Run(ctx context.Context) error {
 			printError(sz.fullCommand, sz.op, err)
 			continue
 		}
+
+		if isURLExcluded(excludePatterns, object.URL.Path, srcurl.Prefix) {
+			continue
+		}
+
 		storageClass := string(object.StorageClass)
 		s := storageTotal[storageClass]
 		s.addObject(object)

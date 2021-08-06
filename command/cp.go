@@ -88,6 +88,12 @@ Examples:
 
 	17. Upload a file to S3 bucket with cache-control header
 		> s5cmd {{.HelpName}} --cache-control "public, max-age=345600" myfile.gz s3://bucket/
+
+	18. Copy all files to S3 bucket but exclude the ones with txt and gz extension 
+		> s5cmd cp --exclude "*.txt" --exclude "*.gz" dir/ s3://bucket
+
+	19. Copy all files from S3 bucket to another S3 bucket but exclude the ones starts with log
+		> s5cmd cp --exclude "log*" s3://bucket/* s3://destbucket
 `
 
 var copyCommandFlags = []cli.Flag{
@@ -163,6 +169,10 @@ var copyCommandFlags = []cli.Flag{
 		Name:  "destination-region",
 		Usage: "set the region of destination bucket: the region of the destination bucket will be automatically discovered if --destination-region is not specified",
 	},
+	&cli.StringSliceFlag{
+		Name:  "exclude",
+		Usage: "exclude objects with given pattern",
+	},
 	&cli.BoolFlag{
 		Name:  "raw",
 		Usage: "disable the wildcard operations, useful with filenames that contains glob characters.",
@@ -204,6 +214,7 @@ var copyCommand = &cli.Command{
 			encryptionKeyID:      c.String("sse-kms-key-id"),
 			acl:                  c.String("acl"),
 			forceGlacierTransfer: c.Bool("force-glacier-transfer"),
+			exclude:              c.StringSlice("exclude"),
 			raw:                  c.Bool("raw"),
 			cacheControl:         c.String("cache-control"),
 			expires:              c.String("expires"),
@@ -236,6 +247,7 @@ type Copy struct {
 	encryptionKeyID      string
 	acl                  string
 	forceGlacierTransfer bool
+	exclude              []string
 	raw                  bool
 	cacheControl         string
 	expires              string
@@ -319,6 +331,12 @@ func (c Copy) Run(ctx context.Context) error {
 		isBatch = obj != nil && obj.Type.IsDir()
 	}
 
+	excludePatterns, err := createExcludesFromWildcard(c.exclude)
+	if err != nil {
+		printError(c.fullCommand, c.op, err)
+		return err
+	}
+
 	for object := range objch {
 		if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) {
 			continue
@@ -334,6 +352,10 @@ func (c Copy) Run(ctx context.Context) error {
 			err := fmt.Errorf("object '%v' is on Glacier storage", object)
 			merrorObjects = multierror.Append(merrorObjects, err)
 			printError(c.fullCommand, c.op, err)
+			continue
+		}
+
+		if isURLExcluded(excludePatterns, object.URL.Path, srcurl.Prefix) {
 			continue
 		}
 

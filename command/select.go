@@ -47,6 +47,10 @@ var selectCommandFlags = []cli.Flag{
 		Usage: "input data format (only JSON supported for the moment)",
 		Value: "JSON",
 	},
+	&cli.StringSliceFlag{
+		Name:  "exclude",
+		Usage: "exclude objects with given pattern",
+	},
 }
 
 var selectCommand = &cli.Command{
@@ -72,6 +76,7 @@ var selectCommand = &cli.Command{
 			// flags
 			query:           c.String("query"),
 			compressionType: c.String("compression"),
+			exclude:         c.StringSlice("exclude"),
 
 			storageOpts: NewStorageOpts(c),
 		}.Run(c.Context)
@@ -86,6 +91,7 @@ type Select struct {
 
 	query           string
 	compressionType string
+	exclude         []string
 
 	// s3 options
 	storageOpts storage.Options
@@ -114,7 +120,13 @@ func (s Select) Run(ctx context.Context) error {
 		return err
 	}
 
-	var merror error
+	// create two different error objects instead of single object to avoid the
+	// data race for merror object, since there is a goroutine running,
+	// there might be a data race for a single error object.
+	var (
+		merrorWaiter  error
+		merrorObjects error
+	)
 
 	waiter := parallel.NewWaiter()
 	errDoneCh := make(chan bool)
@@ -125,7 +137,7 @@ func (s Select) Run(ctx context.Context) error {
 		defer close(errDoneCh)
 		for err := range waiter.Err() {
 			printError(s.fullCommand, s.op, err)
-			merror = multierror.Append(merror, err)
+			merrorWaiter = multierror.Append(merrorWaiter, err)
 		}
 	}()
 
@@ -150,31 +162,44 @@ func (s Select) Run(ctx context.Context) error {
 		}
 	}()
 
+	excludePatterns, err := createExcludesFromWildcard(s.exclude)
+	if err != nil {
+		printError(s.fullCommand, s.op, err)
+		return err
+	}
+
 	for object := range objch {
 		if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) {
 			continue
 		}
 
 		if err := object.Err; err != nil {
+			merrorObjects = multierror.Append(merrorObjects, err)
 			printError(s.fullCommand, s.op, err)
 			continue
 		}
 
 		if object.StorageClass.IsGlacier() {
 			err := fmt.Errorf("object '%v' is on Glacier storage", object)
+			merrorObjects = multierror.Append(merrorObjects, err)
 			printError(s.fullCommand, s.op, err)
+			continue
+		}
+
+		if isURLExcluded(excludePatterns, object.URL.Path, srcurl.Prefix) {
 			continue
 		}
 
 		task := s.prepareTask(ctx, client, object.URL, resultCh)
 		parallel.Run(task, waiter)
+
 	}
 
 	waiter.Wait()
 	<-errDoneCh
 	<-writeDoneCh
 
-	return merror
+	return multierror.Append(merrorWaiter, merrorObjects).ErrorOrNil()
 }
 
 func (s Select) prepareTask(ctx context.Context, client *storage.S3, url *url.URL, resultCh chan<- json.RawMessage) func() error {

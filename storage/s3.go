@@ -867,6 +867,11 @@ func (c *customRetryer) ShouldRetry(req *request.Request) bool {
 		shouldRetry = c.DefaultRetryer.ShouldRetry(req)
 	}
 
+	// Errors related to tokens
+	if errHasCode(req.Error, "ExpiredToken") || errHasCode(req.Error, "ExpiredTokenException") || errHasCode(req.Error, "InvalidToken") {
+		return false
+	}
+
 	if shouldRetry && req.Error != nil {
 		err := fmt.Errorf("retryable error: %v", req.Error)
 		msg := log.DebugMessage{Err: err.Error()}

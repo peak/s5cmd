@@ -307,27 +307,32 @@ func TestS3Retry(t *testing.T) {
 	log.Init("debug", false)
 
 	testcases := []struct {
-		name string
-		err  error
+		name          string
+		err           error
+		expectedRetry int
 	}{
 		// Internal error
 		{
-			name: "InternalError",
-			err:  awserr.New("InternalError", "internal error", nil),
+			name:          "InternalError",
+			err:           awserr.New("InternalError", "internal error", nil),
+			expectedRetry: 5,
 		},
 
 		// Request errors
 		{
-			name: "RequestError",
-			err:  awserr.New(request.ErrCodeRequestError, "request error", nil),
+			name:          "RequestError",
+			err:           awserr.New(request.ErrCodeRequestError, "request error", nil),
+			expectedRetry: 5,
 		},
 		{
-			name: "UseOfClosedNetworkConnection",
-			err:  awserr.New(request.ErrCodeRequestError, "use of closed network connection", nil),
+			name:          "UseOfClosedNetworkConnection",
+			err:           awserr.New(request.ErrCodeRequestError, "use of closed network connection", nil),
+			expectedRetry: 5,
 		},
 		{
-			name: "ConnectionResetByPeer",
-			err:  awserr.New(request.ErrCodeRequestError, "connection reset by peer", nil),
+			name:          "ConnectionResetByPeer",
+			err:           awserr.New(request.ErrCodeRequestError, "connection reset by peer", nil),
+			expectedRetry: 5,
 		},
 		{
 			name: "RequestFailureRequestError",
@@ -336,70 +341,92 @@ func TestS3Retry(t *testing.T) {
 				400,
 				"0",
 			),
+			expectedRetry: 5,
 		},
 		{
-			name: "RequestTimeout",
-			err:  awserr.New("RequestTimeout", "request timeout", nil),
+			name:          "RequestTimeout",
+			err:           awserr.New("RequestTimeout", "request timeout", nil),
+			expectedRetry: 5,
 		},
 		{
-			name: "ResponseTimeout",
-			err:  awserr.New(request.ErrCodeResponseTimeout, "response timeout", nil),
+			name:          "ResponseTimeout",
+			err:           awserr.New(request.ErrCodeResponseTimeout, "response timeout", nil),
+			expectedRetry: 5,
 		},
 		{
-			name: "RequestTimeTooSkewed",
-			err:  awserr.New("RequestTimeTooSkewed", "The difference between the request time and the server's time is too large.", nil),
+			name:          "RequestTimeTooSkewed",
+			err:           awserr.New("RequestTimeTooSkewed", "The difference between the request time and the server's time is too large.", nil),
+			expectedRetry: 5,
 		},
 
 		// Throttling errors
 		{
-			name: "ProvisionedThroughputExceededException",
-			err:  awserr.New("ProvisionedThroughputExceededException", "provisioned throughput exceeded exception", nil),
+			name:          "ProvisionedThroughputExceededException",
+			err:           awserr.New("ProvisionedThroughputExceededException", "provisioned throughput exceeded exception", nil),
+			expectedRetry: 5,
 		},
 		{
-			name: "Throttling",
-			err:  awserr.New("Throttling", "throttling", nil),
+			name:          "Throttling",
+			err:           awserr.New("Throttling", "throttling", nil),
+			expectedRetry: 5,
 		},
 		{
-			name: "ThrottlingException",
-			err:  awserr.New("ThrottlingException", "throttling exception", nil),
+			name:          "ThrottlingException",
+			err:           awserr.New("ThrottlingException", "throttling exception", nil),
+			expectedRetry: 5,
 		},
 		{
-			name: "RequestLimitExceeded",
-			err:  awserr.New("RequestLimitExceeded", "request limit exceeded", nil),
+			name:          "RequestLimitExceeded",
+			err:           awserr.New("RequestLimitExceeded", "request limit exceeded", nil),
+			expectedRetry: 5,
 		},
 		{
-			name: "RequestThrottled",
-			err:  awserr.New("RequestThrottled", "request throttled", nil),
+			name:          "RequestThrottled",
+			err:           awserr.New("RequestThrottled", "request throttled", nil),
+			expectedRetry: 5,
 		},
 		{
-			name: "RequestThrottledException",
-			err:  awserr.New("RequestThrottledException", "request throttled exception", nil),
+			name:          "RequestThrottledException",
+			err:           awserr.New("RequestThrottledException", "request throttled exception", nil),
+			expectedRetry: 5,
 		},
 
 		// Expired credential errors
 		{
-			name: "ExpiredToken",
-			err:  awserr.New("ExpiredToken", "expired token", nil),
+			name:          "ExpiredToken",
+			err:           awserr.New("ExpiredToken", "expired token", nil),
+			expectedRetry: 0,
 		},
 		{
-			name: "ExpiredTokenException",
-			err:  awserr.New("ExpiredTokenException", "expired token exception", nil),
+			name:          "ExpiredTokenException",
+			err:           awserr.New("ExpiredTokenException", "expired token exception", nil),
+			expectedRetry: 0,
+		},
+
+		// Invalid Token errors
+		{
+			name:          "InvalidToken",
+			err:           awserr.New("InvalidToken", "invalid token", nil),
+			expectedRetry: 0,
 		},
 
 		// Connection errors
 		{
-			name: "ConnectionReset",
-			err:  fmt.Errorf("connection reset by peer"),
+			name:          "ConnectionReset",
+			err:           fmt.Errorf("connection reset by peer"),
+			expectedRetry: 5,
 		},
 		{
-			name: "BrokenPipe",
-			err:  fmt.Errorf("broken pipe"),
+			name:          "BrokenPipe",
+			err:           fmt.Errorf("broken pipe"),
+			expectedRetry: 5,
 		},
 
 		// Unknown errors
 		{
-			name: "UnknownSDKError",
-			err:  fmt.Errorf("an error that is not known to the SDK"),
+			name:          "UnknownSDKError",
+			err:           fmt.Errorf("an error that is not known to the SDK"),
+			expectedRetry: 5,
 		},
 	}
 
@@ -442,8 +469,8 @@ func TestS3Retry(t *testing.T) {
 			for range mockS3.List(ctx, url, true) {
 			}
 
-			if retried != expectedRetry {
-				t.Errorf("expected retry %v, got %v", expectedRetry, retried)
+			if retried != tc.expectedRetry {
+				t.Errorf("expected retry %v, got %v", tc.expectedRetry, retried)
 			}
 		})
 	}

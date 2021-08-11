@@ -141,21 +141,35 @@ func NewStorageOpts(c *cli.Context) storage.Options {
 	}
 }
 
+func Commands() []*cli.Command {
+	return []*cli.Command{
+		NewListCommand(),
+		NewCopyCommand(),
+		NewDeleteCommand(),
+		NewMoveCommand(),
+		NewMakeBucketCommand(),
+		NewRemoveBucketCommand(),
+		NewSelectCommand(),
+		NewSizeCommand(),
+		NewCatCommand(),
+		NewRunCommand(),
+		NewVersionCommand(),
+	}
+}
+
+func AppCommand(name string) *cli.Command {
+	for _, c := range Commands() {
+		if c.HasName(name) {
+			return c
+		}
+	}
+
+	return nil
+}
+
 // Main is the entrypoint function to run given commands.
 func Main(ctx context.Context, args []string) error {
-	app.Commands = []*cli.Command{
-		listCommand,
-		copyCommand,
-		deleteCommand,
-		moveCommand,
-		makeBucketCommand,
-		removeBucketCommand,
-		selectCommand,
-		sizeCommand,
-		catCommand,
-		runCommand,
-		versionCommand,
-	}
+	app.Commands = Commands()
 
 	if maybeAutoComplete() {
 		return nil

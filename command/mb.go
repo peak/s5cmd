@@ -26,29 +26,31 @@ Examples:
 		 > s5cmd {{.HelpName}} s3://bucketname
 `
 
-var makeBucketCommand = &cli.Command{
-	Name:               "mb",
-	HelpName:           "mb",
-	Usage:              "make bucket",
-	CustomHelpTemplate: makeBucketHelpTemplate,
-	Before: func(c *cli.Context) error {
-		err := validateMBCommand(c)
-		if err != nil {
-			printError(givenCommand(c), c.Command.Name, err)
-		}
-		return err
-	},
-	Action: func(c *cli.Context) (err error) {
-		defer stat.Collect(c.Command.FullName(), &err)()
+func NewMakeBucketCommand() *cli.Command {
+	return &cli.Command{
+		Name:               "mb",
+		HelpName:           "mb",
+		Usage:              "make bucket",
+		CustomHelpTemplate: makeBucketHelpTemplate,
+		Before: func(c *cli.Context) error {
+			err := validateMBCommand(c)
+			if err != nil {
+				printError(givenCommand(c), c.Command.Name, err)
+			}
+			return err
+		},
+		Action: func(c *cli.Context) (err error) {
+			defer stat.Collect(c.Command.FullName(), &err)()
 
-		return MakeBucket{
-			src:         c.Args().First(),
-			op:          c.Command.Name,
-			fullCommand: givenCommand(c),
+			return MakeBucket{
+				src:         c.Args().First(),
+				op:          c.Command.Name,
+				fullCommand: givenCommand(c),
 
-			storageOpts: NewStorageOpts(c),
-		}.Run(c.Context)
-	},
+				storageOpts: NewStorageOpts(c),
+			}.Run(c.Context)
+		},
+	}
 }
 
 // MakeBucket holds bucket creation operation flags and states.

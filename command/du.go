@@ -35,49 +35,51 @@ Examples:
 		 > s5cmd {{.HelpName}} --exclude "*.py" --exclude "main*" s3://bucket/*
 `
 
-var sizeCommand = &cli.Command{
-	Name:               "du",
-	HelpName:           "du",
-	Usage:              "show object size usage",
-	CustomHelpTemplate: sizeHelpTemplate,
-	Flags: []cli.Flag{
-		&cli.BoolFlag{
-			Name:    "group",
-			Aliases: []string{"g"},
-			Usage:   "group sizes by storage class",
+func NewSizeCommand() *cli.Command {
+	return &cli.Command{
+		Name:               "du",
+		HelpName:           "du",
+		Usage:              "show object size usage",
+		CustomHelpTemplate: sizeHelpTemplate,
+		Flags: []cli.Flag{
+			&cli.BoolFlag{
+				Name:    "group",
+				Aliases: []string{"g"},
+				Usage:   "group sizes by storage class",
+			},
+			&cli.BoolFlag{
+				Name:    "humanize",
+				Aliases: []string{"H"},
+				Usage:   "human-readable output for object sizes",
+			},
+			&cli.StringSliceFlag{
+				Name:  "exclude",
+				Usage: "exclude objects with given pattern",
+			},
 		},
-		&cli.BoolFlag{
-			Name:    "humanize",
-			Aliases: []string{"H"},
-			Usage:   "human-readable output for object sizes",
+		Before: func(c *cli.Context) error {
+			err := validateDUCommand(c)
+			if err != nil {
+				printError(givenCommand(c), c.Command.Name, err)
+			}
+			return err
 		},
-		&cli.StringSliceFlag{
-			Name:  "exclude",
-			Usage: "exclude objects with given pattern",
-		},
-	},
-	Before: func(c *cli.Context) error {
-		err := validateDUCommand(c)
-		if err != nil {
-			printError(givenCommand(c), c.Command.Name, err)
-		}
-		return err
-	},
-	Action: func(c *cli.Context) (err error) {
-		defer stat.Collect(c.Command.FullName(), &err)()
+		Action: func(c *cli.Context) (err error) {
+			defer stat.Collect(c.Command.FullName(), &err)()
 
-		return Size{
-			src:         c.Args().First(),
-			op:          c.Command.Name,
-			fullCommand: givenCommand(c),
-			// flags
-			groupByClass: c.Bool("group"),
-			humanize:     c.Bool("humanize"),
-			exclude:      c.StringSlice("exclude"),
+			return Size{
+				src:         c.Args().First(),
+				op:          c.Command.Name,
+				fullCommand: givenCommand(c),
+				// flags
+				groupByClass: c.Bool("group"),
+				humanize:     c.Bool("humanize"),
+				exclude:      c.StringSlice("exclude"),
 
-			storageOpts: NewStorageOpts(c),
-		}.Run(c.Context)
-	},
+				storageOpts: NewStorageOpts(c),
+			}.Run(c.Context)
+		},
+	}
 }
 
 // Size holds disk usage (du) operation flags and states.

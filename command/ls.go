@@ -44,62 +44,64 @@ Examples:
 		 > s5cmd {{.HelpName}} --exclude "abc*" s3://bucket/*
 `
 
-var listCommand = &cli.Command{
-	Name:               "ls",
-	HelpName:           "ls",
-	Usage:              "list buckets and objects",
-	CustomHelpTemplate: listHelpTemplate,
-	Flags: []cli.Flag{
-		&cli.BoolFlag{
-			Name:    "etag",
-			Aliases: []string{"e"},
-			Usage:   "show entity tag (ETag) in the output",
+func NewListCommand() *cli.Command {
+	return &cli.Command{
+		Name:               "ls",
+		HelpName:           "ls",
+		Usage:              "list buckets and objects",
+		CustomHelpTemplate: listHelpTemplate,
+		Flags: []cli.Flag{
+			&cli.BoolFlag{
+				Name:    "etag",
+				Aliases: []string{"e"},
+				Usage:   "show entity tag (ETag) in the output",
+			},
+			&cli.BoolFlag{
+				Name:    "humanize",
+				Aliases: []string{"H"},
+				Usage:   "human-readable output for object sizes",
+			},
+			&cli.BoolFlag{
+				Name:    "storage-class",
+				Aliases: []string{"s"},
+				Usage:   "display full name of the object class",
+			},
+			&cli.StringSliceFlag{
+				Name:  "exclude",
+				Usage: "exclude objects with given pattern",
+			},
 		},
-		&cli.BoolFlag{
-			Name:    "humanize",
-			Aliases: []string{"H"},
-			Usage:   "human-readable output for object sizes",
-		},
-		&cli.BoolFlag{
-			Name:    "storage-class",
-			Aliases: []string{"s"},
-			Usage:   "display full name of the object class",
-		},
-		&cli.StringSliceFlag{
-			Name:  "exclude",
-			Usage: "exclude objects with given pattern",
-		},
-	},
-	Before: func(c *cli.Context) error {
-		err := validateLSCommand(c)
-		if err != nil {
-			printError(givenCommand(c), c.Command.Name, err)
-		}
-		return err
-	},
-	Action: func(c *cli.Context) (err error) {
-		defer stat.Collect(c.Command.FullName(), &err)()
-		if !c.Args().Present() {
-			err := ListBuckets(c.Context, NewStorageOpts(c))
+		Before: func(c *cli.Context) error {
+			err := validateLSCommand(c)
 			if err != nil {
 				printError(givenCommand(c), c.Command.Name, err)
 			}
 			return err
-		}
+		},
+		Action: func(c *cli.Context) (err error) {
+			defer stat.Collect(c.Command.FullName(), &err)()
+			if !c.Args().Present() {
+				err := ListBuckets(c.Context, NewStorageOpts(c))
+				if err != nil {
+					printError(givenCommand(c), c.Command.Name, err)
+				}
+				return err
+			}
 
-		return List{
-			src:         c.Args().First(),
-			op:          c.Command.Name,
-			fullCommand: givenCommand(c),
-			// flags
-			showEtag:         c.Bool("etag"),
-			humanize:         c.Bool("humanize"),
-			showStorageClass: c.Bool("storage-class"),
-			exclude:          c.StringSlice("exclude"),
+			return List{
+				src:         c.Args().First(),
+				op:          c.Command.Name,
+				fullCommand: givenCommand(c),
+				// flags
+				showEtag:         c.Bool("etag"),
+				humanize:         c.Bool("humanize"),
+				showStorageClass: c.Bool("storage-class"),
+				exclude:          c.StringSlice("exclude"),
 
-			storageOpts: NewStorageOpts(c),
-		}.Run(c.Context)
-	},
+				storageOpts: NewStorageOpts(c),
+			}.Run(c.Context)
+		},
+	}
 }
 
 // List holds list operation flags and states.

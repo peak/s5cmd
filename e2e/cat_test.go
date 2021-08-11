@@ -9,6 +9,8 @@ import (
 )
 
 func TestCatS3Object(t *testing.T) {
+	t.Parallel()
+
 	const (
 		bucket   = "bucket"
 		filename = "file.txt"
@@ -67,6 +69,8 @@ func TestCatS3Object(t *testing.T) {
 }
 
 func TestCatS3ObjectFail(t *testing.T) {
+	t.Parallel()
+
 	const (
 		bucket   = "bucket"
 		filename = "file.txt"
@@ -151,6 +155,8 @@ func TestCatS3ObjectFail(t *testing.T) {
 }
 
 func TestCatLocalFileFail(t *testing.T) {
+	t.Parallel()
+
 	const (
 		filename = "file.txt"
 	)
@@ -205,7 +211,7 @@ func getSequentialFileContent() (string, map[int]compareFunc) {
 	sb := strings.Builder{}
 	expectedLines := make(map[int]compareFunc)
 
-	for i := 0; i < 1000000; i++ {
+	for i := 0; i < 50000; i++ {
 		line := fmt.Sprintf(`{ "line": "%d", "id": "i%d", data: "some event %d" }`, i, i, i)
 		sb.WriteString(line)
 		sb.WriteString("\n")

@@ -3,6 +3,7 @@ package e2e
 import (
 	"fmt"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"gotest.tools/v3/assert"
@@ -359,4 +360,68 @@ func TestMoveMultipleS3ObjectsToS3DryRun(t *testing.T) {
 		err := ensureS3Object(s3client, bucket, "dst/"+filename, content)
 		assertError(t, err, errS3NoSuchKey)
 	}
+}
+
+// mv --raw file s3://bucket/
+func TestMoveLocalObjectToS3WithRawFlag(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip()
+	}
+
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+
+	objectsToMove := []fs.PathOp{
+		fs.WithFile("a*.txt", "content"),
+	}
+
+	otherObjects := []fs.PathOp{
+		fs.WithDir(
+			"a*b",
+			fs.WithFile("file.txt", "content"),
+		),
+
+		fs.WithFile("abc.txt", "content"),
+	}
+
+	folderLayout := append(objectsToMove, otherObjects...)
+
+	workdir := fs.NewDir(t, t.Name(), folderLayout...)
+	defer workdir.Remove()
+
+	srcpath := filepath.ToSlash(workdir.Join("a*.txt"))
+	dstpath := fmt.Sprintf("s3://%v", bucket)
+
+	cmd := s5cmd("mv", "--raw", srcpath, dstpath)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals("mv %v %v/a*.txt", srcpath, dstpath),
+	}, sortInput(true))
+
+	expectedObjects := []string{"a*.txt"}
+	for _, obj := range expectedObjects {
+		err := ensureS3Object(s3client, bucket, obj, "content")
+		if err != nil {
+			t.Fatalf("Object %s is not in S3\n", obj)
+		}
+	}
+
+	nonExpectedObjects := []string{"a*b/file.txt", "abc.txt"}
+	for _, obj := range nonExpectedObjects {
+		err := ensureS3Object(s3client, bucket, obj, "content")
+		assertError(t, err, errS3NoSuchKey)
+	}
+
+	// assert local filesystem
+	expected := fs.Expected(t, otherObjects...)
+	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 }

@@ -2,7 +2,6 @@ package command
 
 import (
 	"github.com/peak/s5cmd/log/stat"
-	"github.com/peak/s5cmd/storage"
 
 	"github.com/urfave/cli/v2"
 )
@@ -31,6 +30,12 @@ Examples:
 
 	5. Move a directory to S3 bucket recursively
 		 > s5cmd {{.HelpName}} dir/ s3://bucket/
+
+	6. Move all files to S3 bucket but exclude the ones with txt and gz extension
+		 > s5cmd {{.HelpName}} --exclude "*.txt" --exclude "*.gz" dir/ s3://bucket
+
+	7. Move all files from S3 bucket to another S3 bucket but exclude the ones starts with log
+		 > s5cmd {{.HelpName}} --exclude "log*" s3://bucket/* s3://destbucket
 `
 
 func NewMoveCommand() *cli.Command {
@@ -46,29 +51,8 @@ func NewMoveCommand() *cli.Command {
 		Action: func(c *cli.Context) (err error) {
 			defer stat.Collect(c.Command.FullName(), &err)()
 
-			copyCommand := Copy{
-				src:          c.Args().Get(0),
-				dst:          c.Args().Get(1),
-				op:           c.Command.Name,
-				fullCommand:  givenCommand(c),
-				deleteSource: true, // delete source
-				// flags
-				noClobber:        c.Bool("no-clobber"),
-				ifSizeDiffer:     c.Bool("if-size-differ"),
-				ifSourceNewer:    c.Bool("if-source-newer"),
-				flatten:          c.Bool("flatten"),
-				followSymlinks:   !c.Bool("no-follow-symlinks"),
-				storageClass:     storage.StorageClass(c.String("storage-class")),
-				encryptionMethod: c.String("sse"),
-				encryptionKeyID:  c.String("sse-kms-key-id"),
-				acl:              c.String("acl"),
-				cacheControl:     c.String("cache-control"),
-				expires:          c.String("expires"),
-
-				storageOpts: NewStorageOpts(c),
-			}
-
-			return copyCommand.Run(c.Context)
+			// delete source
+			return NewCopy(c, true).Run(c.Context)
 		},
 	}
 }

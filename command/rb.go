@@ -25,29 +25,31 @@ Examples:
 		 > s5cmd {{.HelpName}} s3://bucketname
 `
 
-var removeBucketCommand = &cli.Command{
-	Name:               "rb",
-	HelpName:           "rb",
-	Usage:              "remove bucket",
-	CustomHelpTemplate: removeBucketHelpTemplate,
-	Before: func(c *cli.Context) error {
-		err := validateMBCommand(c) // uses same validation function with make bucket command.
-		if err != nil {
-			printError(givenCommand(c), c.Command.Name, err)
-		}
-		return err
-	},
-	Action: func(c *cli.Context) (err error) {
-		defer stat.Collect(c.Command.FullName(), &err)()
+func NewRemoveBucketCommand() *cli.Command {
+	return &cli.Command{
+		Name:               "rb",
+		HelpName:           "rb",
+		Usage:              "remove bucket",
+		CustomHelpTemplate: removeBucketHelpTemplate,
+		Before: func(c *cli.Context) error {
+			err := validateMBCommand(c) // uses same validation function with make bucket command.
+			if err != nil {
+				printError(givenCommand(c), c.Command.Name, err)
+			}
+			return err
+		},
+		Action: func(c *cli.Context) (err error) {
+			defer stat.Collect(c.Command.FullName(), &err)()
 
-		return RemoveBucket{
-			src:         c.Args().First(),
-			op:          c.Command.Name,
-			fullCommand: givenCommand(c),
+			return RemoveBucket{
+				src:         c.Args().First(),
+				op:          c.Command.Name,
+				fullCommand: givenCommand(c),
 
-			storageOpts: NewStorageOpts(c),
-		}.Run(c.Context)
-	},
+				storageOpts: NewStorageOpts(c),
+			}.Run(c.Context)
+		},
+	}
 }
 
 // RemoveBucket holds bucket deletion operation flags and states.

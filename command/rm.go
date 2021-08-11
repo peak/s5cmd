@@ -40,44 +40,44 @@ Examples:
 		 > s5cmd {{.HelpName}} --exclude "*.txt" --exclude "main*" s3://bucketname/prefix/* 
 `
 
-var deleteCommandFlags = []cli.Flag{
-	&cli.BoolFlag{
-		Name:  "raw",
-		Usage: "disable the wildcard operations, useful with filenames that contains glob characters.",
-	},
-	&cli.StringSliceFlag{
-		Name:  "exclude",
-		Usage: "exclude objects with given pattern",
-	},
-}
+func NewDeleteCommand() *cli.Command {
+	return &cli.Command{
+		Name:     "rm",
+		HelpName: "rm",
+		Usage:    "remove objects",
+		Flags: []cli.Flag{
+			&cli.BoolFlag{
+				Name:  "raw",
+				Usage: "disable the wildcard operations, useful with filenames that contains glob characters.",
+			},
+			&cli.StringSliceFlag{
+				Name:  "exclude",
+				Usage: "exclude objects with given pattern",
+			},
+		},
+		CustomHelpTemplate: deleteHelpTemplate,
+		Before: func(c *cli.Context) error {
+			err := validateRMCommand(c)
+			if err != nil {
+				printError(givenCommand(c), c.Command.Name, err)
+			}
+			return err
+		},
+		Action: func(c *cli.Context) (err error) {
+			defer stat.Collect(c.Command.FullName(), &err)()
+			return Delete{
+				src:         c.Args().Slice(),
+				op:          c.Command.Name,
+				fullCommand: givenCommand(c),
 
-var deleteCommand = &cli.Command{
-	Name:               "rm",
-	HelpName:           "rm",
-	Usage:              "remove objects",
-	Flags:              deleteCommandFlags,
-	CustomHelpTemplate: deleteHelpTemplate,
-	Before: func(c *cli.Context) error {
-		err := validateRMCommand(c)
-		if err != nil {
-			printError(givenCommand(c), c.Command.Name, err)
-		}
-		return err
-	},
-	Action: func(c *cli.Context) (err error) {
-		defer stat.Collect(c.Command.FullName(), &err)()
-		return Delete{
-			src:         c.Args().Slice(),
-			op:          c.Command.Name,
-			fullCommand: givenCommand(c),
+				// flags
+				raw:     c.Bool("raw"),
+				exclude: c.StringSlice("exclude"),
 
-			// flags
-			raw:     c.Bool("raw"),
-			exclude: c.StringSlice("exclude"),
-
-			storageOpts: NewStorageOpts(c),
-		}.Run(c.Context)
-	},
+				storageOpts: NewStorageOpts(c),
+			}.Run(c.Context)
+		},
+	}
 }
 
 // Delete holds delete operation flags and states.

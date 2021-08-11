@@ -27,37 +27,39 @@ Examples:
 		 > s5cmd {{.HelpName}} s3://bucket/prefix/object
 `
 
-var catCommand = &cli.Command{
-	Name:               "cat",
-	HelpName:           "cat",
-	Usage:              "print remote object content",
-	CustomHelpTemplate: catHelpTemplate,
-	Before: func(c *cli.Context) error {
-		err := validateCatCommand(c)
-		if err != nil {
-			printError(givenCommand(c), c.Command.Name, err)
-		}
-		return err
-	},
-	Action: func(c *cli.Context) (err error) {
-		defer stat.Collect(c.Command.FullName(), &err)()
-
-		src, err := url.New(c.Args().Get(0))
-		op := c.Command.Name
-		fullCommand := givenCommand(c)
-		if err != nil {
-			printError(fullCommand, op, err)
+func NewCatCommand() *cli.Command {
+	return &cli.Command{
+		Name:               "cat",
+		HelpName:           "cat",
+		Usage:              "print remote object content",
+		CustomHelpTemplate: catHelpTemplate,
+		Before: func(c *cli.Context) error {
+			err := validateCatCommand(c)
+			if err != nil {
+				printError(givenCommand(c), c.Command.Name, err)
+			}
 			return err
-		}
+		},
+		Action: func(c *cli.Context) (err error) {
+			defer stat.Collect(c.Command.FullName(), &err)()
 
-		return Cat{
-			src:         src,
-			op:          op,
-			fullCommand: fullCommand,
+			src, err := url.New(c.Args().Get(0))
+			op := c.Command.Name
+			fullCommand := givenCommand(c)
+			if err != nil {
+				printError(fullCommand, op, err)
+				return err
+			}
 
-			storageOpts: NewStorageOpts(c),
-		}.Run(c.Context)
-	},
+			return Cat{
+				src:         src,
+				op:          op,
+				fullCommand: fullCommand,
+
+				storageOpts: NewStorageOpts(c),
+			}.Run(c.Context)
+		},
+	}
 }
 
 // Cat holds cat operation flags and states.

@@ -33,40 +33,42 @@ Examples:
 		 > s5cmd {{.HelpName}} dir/ s3://bucket/
 `
 
-var moveCommand = &cli.Command{
-	Name:               "mv",
-	HelpName:           "mv",
-	Usage:              "move/rename objects",
-	Flags:              copyCommandFlags, // move and copy commands share the same flags
-	CustomHelpTemplate: moveHelpTemplate,
-	Before: func(c *cli.Context) error {
-		return copyCommand.Before(c)
-	},
-	Action: func(c *cli.Context) (err error) {
-		defer stat.Collect(c.Command.FullName(), &err)()
+func NewMoveCommand() *cli.Command {
+	return &cli.Command{
+		Name:               "mv",
+		HelpName:           "mv",
+		Usage:              "move/rename objects",
+		Flags:              NewCopyCommandFlags(), // move and copy commands share the same flags
+		CustomHelpTemplate: moveHelpTemplate,
+		Before: func(c *cli.Context) error {
+			return NewCopyCommand().Before(c)
+		},
+		Action: func(c *cli.Context) (err error) {
+			defer stat.Collect(c.Command.FullName(), &err)()
 
-		copyCommand := Copy{
-			src:          c.Args().Get(0),
-			dst:          c.Args().Get(1),
-			op:           c.Command.Name,
-			fullCommand:  givenCommand(c),
-			deleteSource: true, // delete source
-			// flags
-			noClobber:        c.Bool("no-clobber"),
-			ifSizeDiffer:     c.Bool("if-size-differ"),
-			ifSourceNewer:    c.Bool("if-source-newer"),
-			flatten:          c.Bool("flatten"),
-			followSymlinks:   !c.Bool("no-follow-symlinks"),
-			storageClass:     storage.StorageClass(c.String("storage-class")),
-			encryptionMethod: c.String("sse"),
-			encryptionKeyID:  c.String("sse-kms-key-id"),
-			acl:              c.String("acl"),
-			cacheControl:     c.String("cache-control"),
-			expires:          c.String("expires"),
+			copyCommand := Copy{
+				src:          c.Args().Get(0),
+				dst:          c.Args().Get(1),
+				op:           c.Command.Name,
+				fullCommand:  givenCommand(c),
+				deleteSource: true, // delete source
+				// flags
+				noClobber:        c.Bool("no-clobber"),
+				ifSizeDiffer:     c.Bool("if-size-differ"),
+				ifSourceNewer:    c.Bool("if-source-newer"),
+				flatten:          c.Bool("flatten"),
+				followSymlinks:   !c.Bool("no-follow-symlinks"),
+				storageClass:     storage.StorageClass(c.String("storage-class")),
+				encryptionMethod: c.String("sse"),
+				encryptionKeyID:  c.String("sse-kms-key-id"),
+				acl:              c.String("acl"),
+				cacheControl:     c.String("cache-control"),
+				expires:          c.String("expires"),
 
-			storageOpts: NewStorageOpts(c),
-		}
+				storageOpts: NewStorageOpts(c),
+			}
 
-		return copyCommand.Run(c.Context)
-	},
+			return copyCommand.Run(c.Context)
+		},
+	}
 }

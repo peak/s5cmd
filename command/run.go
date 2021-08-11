@@ -32,109 +32,107 @@ Examples:
 		 > cat commands.txt | s5cmd {{.HelpName}}
 `
 
-var runCommand = &cli.Command{
-	Name:               "run",
-	HelpName:           "run",
-	Usage:              "run commands in batch",
-	CustomHelpTemplate: runHelpTemplate,
-	Before: func(c *cli.Context) error {
-		err := validateRunCommand(c)
-		if err != nil {
-			printError(givenCommand(c), c.Command.Name, err)
-		}
-		return err
-	},
-	Action: func(c *cli.Context) error {
-		reader := os.Stdin
-		if c.Args().Len() == 1 {
-			f, err := os.Open(c.Args().First())
+func NewRunCommand() *cli.Command {
+	return &cli.Command{
+		Name:               "run",
+		HelpName:           "run",
+		Usage:              "run commands in batch",
+		CustomHelpTemplate: runHelpTemplate,
+		Before: func(c *cli.Context) error {
+			err := validateRunCommand(c)
 			if err != nil {
-				return err
-			}
-			defer f.Close()
-
-			reader = f
-		}
-
-		pm := parallel.New(c.Int("numworkers"))
-		defer pm.Close()
-
-		waiter := parallel.NewWaiter()
-
-		var errDoneCh = make(chan bool)
-		go func() {
-			defer close(errDoneCh)
-			for range waiter.Err() {
-				// app.ExitErrHandler is called after each command.Run
-				// invocation. Ignore the errors returned from parallel.Run,
-				// just drain the channel for synchronization.
-			}
-		}()
-
-		scanner := NewScanner(c.Context, reader)
-		lineno := -1
-		for line := range scanner.Scan() {
-			lineno++
-
-			// support inline comments
-			line = strings.Split(line, " #")[0]
-
-			line = strings.TrimSpace(line)
-			if line == "" {
-				continue
-			}
-
-			if strings.HasPrefix(line, "#") {
-				continue
-			}
-
-			fields, err := shellquote.Split(line)
-			if err != nil {
-				return err
-			}
-
-			if len(fields) == 0 {
-				continue
-			}
-
-			if fields[0] == "run" {
-				err := fmt.Errorf("%q command (line: %v) is not permitted in run-mode", "run", lineno)
 				printError(givenCommand(c), c.Command.Name, err)
-				continue
+			}
+			return err
+		},
+		Action: func(c *cli.Context) error {
+			reader := os.Stdin
+			if c.Args().Len() == 1 {
+				f, err := os.Open(c.Args().First())
+				if err != nil {
+					return err
+				}
+				defer f.Close()
+
+				reader = f
 			}
 
-			fn := func() error {
-				subcmd := fields[0]
+			pm := parallel.New(c.Int("numworkers"))
+			defer pm.Close()
 
-				cmdptr := app.Command(subcmd)
-				if cmdptr == nil {
-					err := fmt.Errorf("%q command (line: %v) not found", subcmd, lineno)
-					printError(givenCommand(c), c.Command.Name, err)
-					return nil
+			waiter := parallel.NewWaiter()
+
+			var errDoneCh = make(chan bool)
+			go func() {
+				defer close(errDoneCh)
+				for range waiter.Err() {
+					// app.ExitErrHandler is called after each command.Run
+					// invocation. Ignore the errors returned from parallel.Run,
+					// just drain the channel for synchronization.
+				}
+			}()
+
+			scanner := NewScanner(c.Context, reader)
+			lineno := -1
+			for line := range scanner.Scan() {
+				lineno++
+
+				// support inline comments
+				line = strings.Split(line, " #")[0]
+
+				line = strings.TrimSpace(line)
+				if line == "" {
+					continue
 				}
 
-				flagset := flag.NewFlagSet(subcmd, flag.ExitOnError)
-				if err := flagset.Parse(fields); err != nil {
-					printError(givenCommand(c), c.Command.Name, err)
-					return nil
+				if strings.HasPrefix(line, "#") {
+					continue
 				}
 
-				ctx := cli.NewContext(app, flagset, c)
+				fields, err := shellquote.Split(line)
+				if err != nil {
+					return err
+				}
 
-				// Use the dereferenced value to avoid urfave/cli package to
-				// mutate the command. Ref: https://github.com/peak/s5cmd/issues/301
-				cmd := *cmdptr
-				return cmd.Run(ctx)
+				if len(fields) == 0 {
+					continue
+				}
+
+				if fields[0] == "run" {
+					err := fmt.Errorf("%q command (line: %v) is not permitted in run-mode", "run", lineno)
+					printError(givenCommand(c), c.Command.Name, err)
+					continue
+				}
+
+				fn := func() error {
+					subcmd := fields[0]
+
+					cmd := AppCommand(subcmd)
+					if cmd == nil {
+						err := fmt.Errorf("%q command (line: %v) not found", subcmd, lineno)
+						printError(givenCommand(c), c.Command.Name, err)
+						return nil
+					}
+
+					flagset := flag.NewFlagSet(subcmd, flag.ExitOnError)
+					if err := flagset.Parse(fields); err != nil {
+						printError(givenCommand(c), c.Command.Name, err)
+						return nil
+					}
+
+					ctx := cli.NewContext(app, flagset, c)
+					return cmd.Run(ctx)
+				}
+
+				pm.Run(fn, waiter)
 			}
 
-			pm.Run(fn, waiter)
-		}
+			waiter.Wait()
+			<-errDoneCh
 
-		waiter.Wait()
-		<-errDoneCh
-
-		return scanner.Err()
-	},
+			return scanner.Err()
+		},
+	}
 }
 
 // Scanner is a cancelable scanner.

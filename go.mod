@@ -16,10 +16,9 @@ require (
 	github.com/stretchr/testify v1.4.0
 	github.com/termie/go-shutil v0.0.0-20140729215957-bcacb06fecae
 	github.com/urfave/cli/v2 v2.2.0
-	golang.org/x/sys v0.0.0-20190422165155-953cdadca894 // indirect
 	golang.org/x/text v0.3.2 // indirect
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
 	gotest.tools/v3 v3.0.2
 )
 
-replace github.com/johannesboyne/gofakes3 => github.com/igungor/gofakes3 v0.0.6
+replace github.com/johannesboyne/gofakes3 => github.com/igungor/gofakes3 v0.0.7

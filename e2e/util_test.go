@@ -193,11 +193,21 @@ func goBuildS5cmd() func() {
 	// reside. workdir should be the project root.
 	workdir = filepath.Dir(workdir)
 
-	cmd := exec.Command(
-		"go", "build",
-		"-mod=vendor",
-		"-o", s5cmdPath,
-	)
+	var args []string
+	if runtime.GOOS == "windows" {
+		/*
+		 disable '-race' flag because CI fails with below error.
+
+		 ==2688==ERROR: ThreadSanitizer failed to allocate 0x000001000000
+		 (16777216) bytes at 0x040140000000 (error code: 1455)
+
+		 Ref: https://github.com/golang/go/issues/22553
+		*/
+		args = []string{"build", "-mod=vendor", "-o", s5cmdPath}
+	} else {
+		args = []string{"build", "-mod=vendor", "-race", "-o", s5cmdPath}
+	}
+	cmd := exec.Command("go", args...)
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
 	cmd.Dir = workdir

@@ -31,56 +31,56 @@ Examples:
 		 > s5cmd {{.HelpName}} --compression gzip --query "SELECT * FROM S3Object s WHERE s.foo='bar'" s3://bucket/*
 `
 
-var selectCommandFlags = []cli.Flag{
-	&cli.StringFlag{
-		Name:    "query",
-		Aliases: []string{"e"},
-		Usage:   "SQL expression to use to select from the objects",
-	},
-	&cli.StringFlag{
-		Name:  "compression",
-		Usage: "input compression format",
-		Value: "NONE",
-	},
-	&cli.StringFlag{
-		Name:  "format",
-		Usage: "input data format (only JSON supported for the moment)",
-		Value: "JSON",
-	},
-	&cli.StringSliceFlag{
-		Name:  "exclude",
-		Usage: "exclude objects with given pattern",
-	},
-}
+func NewSelectCommand() *cli.Command {
+	return &cli.Command{
+		Name:     "select",
+		HelpName: "select",
+		Usage:    "run SQL queries on objects",
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:    "query",
+				Aliases: []string{"e"},
+				Usage:   "SQL expression to use to select from the objects",
+			},
+			&cli.StringFlag{
+				Name:  "compression",
+				Usage: "input compression format",
+				Value: "NONE",
+			},
+			&cli.StringFlag{
+				Name:  "format",
+				Usage: "input data format (only JSON supported for the moment)",
+				Value: "JSON",
+			},
+			&cli.StringSliceFlag{
+				Name:  "exclude",
+				Usage: "exclude objects with given pattern",
+			},
+		},
+		CustomHelpTemplate: selectHelpTemplate,
+		Before: func(c *cli.Context) error {
+			err := validateSelectCommand(c)
+			if err != nil {
+				printError(givenCommand(c), c.Command.Name, err)
+			}
+			return err
+		},
+		Action: func(c *cli.Context) (err error) {
+			defer stat.Collect(c.Command.FullName(), &err)()
 
-var selectCommand = &cli.Command{
-	Name:               "select",
-	HelpName:           "select",
-	Usage:              "run SQL queries on objects",
-	Flags:              selectCommandFlags,
-	CustomHelpTemplate: selectHelpTemplate,
-	Before: func(c *cli.Context) error {
-		err := validateSelectCommand(c)
-		if err != nil {
-			printError(givenCommand(c), c.Command.Name, err)
-		}
-		return err
-	},
-	Action: func(c *cli.Context) (err error) {
-		defer stat.Collect(c.Command.FullName(), &err)()
+			return Select{
+				src:         c.Args().Get(0),
+				op:          c.Command.Name,
+				fullCommand: givenCommand(c),
+				// flags
+				query:           c.String("query"),
+				compressionType: c.String("compression"),
+				exclude:         c.StringSlice("exclude"),
 
-		return Select{
-			src:         c.Args().Get(0),
-			op:          c.Command.Name,
-			fullCommand: givenCommand(c),
-			// flags
-			query:           c.String("query"),
-			compressionType: c.String("compression"),
-			exclude:         c.StringSlice("exclude"),
-
-			storageOpts: NewStorageOpts(c),
-		}.Run(c.Context)
-	},
+				storageOpts: NewStorageOpts(c),
+			}.Run(c.Context)
+		},
+	}
 }
 
 // Select holds select operation flags and states.

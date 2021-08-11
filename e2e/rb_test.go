@@ -11,8 +11,8 @@ import (
 )
 
 func TestRemoveBucketSuccess(t *testing.T) {
-
 	t.Parallel()
+
 	s3client, s5cmd, cleanup := setup(t)
 	defer cleanup()
 
@@ -39,6 +39,7 @@ func TestRemoveBucketSuccess(t *testing.T) {
 
 func TestRemoveBucketSuccessJson(t *testing.T) {
 	t.Parallel()
+
 	s3client, s5cmd, cleanup := setup(t)
 	defer cleanup()
 
@@ -72,6 +73,7 @@ func TestRemoveBucketSuccessJson(t *testing.T) {
 
 func TestRemoveBucketFailure(t *testing.T) {
 	t.Parallel()
+
 	_, s5cmd, cleanup := setup(t)
 	defer cleanup()
 
@@ -89,6 +91,7 @@ func TestRemoveBucketFailure(t *testing.T) {
 
 func TestRemoveBucketFailureJson(t *testing.T) {
 	t.Parallel()
+
 	_, s5cmd, cleanup := setup(t)
 	defer cleanup()
 
@@ -106,6 +109,7 @@ func TestRemoveBucketFailureJson(t *testing.T) {
 
 func TestRemoveBucketWithObject(t *testing.T) {
 	t.Parallel()
+
 	const (
 		bucket      = "test-bucket"
 		fileContent = "this is a file content"

@@ -96,135 +96,139 @@ Examples:
 		> s5cmd cp --exclude "log*" s3://bucket/* s3://destbucket
 `
 
-var copyCommandFlags = []cli.Flag{
-	&cli.BoolFlag{
-		Name:    "no-clobber",
-		Aliases: []string{"n"},
-		Usage:   "do not overwrite destination if already exists",
-	},
-	&cli.BoolFlag{
-		Name:    "if-size-differ",
-		Aliases: []string{"s"},
-		Usage:   "only overwrite destination if size differs",
-	},
-	&cli.BoolFlag{
-		Name:    "if-source-newer",
-		Aliases: []string{"u"},
-		Usage:   "only overwrite destination if source modtime is newer",
-	},
-	&cli.BoolFlag{
-		Name:    "flatten",
-		Aliases: []string{"f"},
-		Usage:   "flatten directory structure of source, starting from the first wildcard",
-	},
-	&cli.BoolFlag{
-		Name:  "no-follow-symlinks",
-		Usage: "do not follow symbolic links",
-	},
-	&cli.StringFlag{
-		Name:  "storage-class",
-		Usage: "set storage class for target ('STANDARD','REDUCED_REDUNDANCY','GLACIER','STANDARD_IA','ONEZONE_IA','INTELLIGENT_TIERING','DEEP_ARCHIVE')",
-	},
-	&cli.IntFlag{
-		Name:    "concurrency",
-		Aliases: []string{"c"},
-		Value:   defaultCopyConcurrency,
-		Usage:   "number of concurrent parts transferred between host and remote server",
-	},
-	&cli.IntFlag{
-		Name:    "part-size",
-		Aliases: []string{"p"},
-		Value:   defaultPartSize,
-		Usage:   "size of each part transferred between host and remote server, in MiB",
-	},
-	&cli.StringFlag{
-		Name:  "sse",
-		Usage: "perform server side encryption of the data at its destination, e.g. aws:kms",
-	},
-	&cli.StringFlag{
-		Name:  "sse-kms-key-id",
-		Usage: "customer master key (CMK) id for SSE-KMS encryption; leave it out if server-side generated key is desired",
-	},
-	&cli.StringFlag{
-		Name:  "acl",
-		Usage: "set acl for target: defines granted accesses and their types on different accounts/groups, e.g. cp --acl 'public-read'",
-	},
-	&cli.StringFlag{
-		Name:  "cache-control",
-		Usage: "set cache control for target: defines cache control header for object, e.g. cp --cache-control 'public, max-age=345600'",
-	},
-	&cli.StringFlag{
-		Name:  "expires",
-		Usage: "set expires for target (uses RFC3339 format): defines expires header for object, e.g. cp  --expires '2024-10-01T20:30:00Z'",
-	},
-	&cli.BoolFlag{
-		Name:  "force-glacier-transfer",
-		Usage: "force transfer of GLACIER objects whether they are restored or not",
-	},
-	&cli.StringFlag{
-		Name:  "source-region",
-		Usage: "set the region of source bucket; the region of the source bucket will be automatically discovered if --source-region is not specified",
-	},
-	&cli.StringFlag{
-		Name:  "destination-region",
-		Usage: "set the region of destination bucket: the region of the destination bucket will be automatically discovered if --destination-region is not specified",
-	},
-	&cli.StringSliceFlag{
-		Name:  "exclude",
-		Usage: "exclude objects with given pattern",
-	},
-	&cli.BoolFlag{
-		Name:  "raw",
-		Usage: "disable the wildcard operations, useful with filenames that contains glob characters.",
-	},
+func NewCopyCommandFlags() []cli.Flag {
+	return []cli.Flag{
+		&cli.BoolFlag{
+			Name:    "no-clobber",
+			Aliases: []string{"n"},
+			Usage:   "do not overwrite destination if already exists",
+		},
+		&cli.BoolFlag{
+			Name:    "if-size-differ",
+			Aliases: []string{"s"},
+			Usage:   "only overwrite destination if size differs",
+		},
+		&cli.BoolFlag{
+			Name:    "if-source-newer",
+			Aliases: []string{"u"},
+			Usage:   "only overwrite destination if source modtime is newer",
+		},
+		&cli.BoolFlag{
+			Name:    "flatten",
+			Aliases: []string{"f"},
+			Usage:   "flatten directory structure of source, starting from the first wildcard",
+		},
+		&cli.BoolFlag{
+			Name:  "no-follow-symlinks",
+			Usage: "do not follow symbolic links",
+		},
+		&cli.StringFlag{
+			Name:  "storage-class",
+			Usage: "set storage class for target ('STANDARD','REDUCED_REDUNDANCY','GLACIER','STANDARD_IA','ONEZONE_IA','INTELLIGENT_TIERING','DEEP_ARCHIVE')",
+		},
+		&cli.IntFlag{
+			Name:    "concurrency",
+			Aliases: []string{"c"},
+			Value:   defaultCopyConcurrency,
+			Usage:   "number of concurrent parts transferred between host and remote server",
+		},
+		&cli.IntFlag{
+			Name:    "part-size",
+			Aliases: []string{"p"},
+			Value:   defaultPartSize,
+			Usage:   "size of each part transferred between host and remote server, in MiB",
+		},
+		&cli.StringFlag{
+			Name:  "sse",
+			Usage: "perform server side encryption of the data at its destination, e.g. aws:kms",
+		},
+		&cli.StringFlag{
+			Name:  "sse-kms-key-id",
+			Usage: "customer master key (CMK) id for SSE-KMS encryption; leave it out if server-side generated key is desired",
+		},
+		&cli.StringFlag{
+			Name:  "acl",
+			Usage: "set acl for target: defines granted accesses and their types on different accounts/groups, e.g. cp --acl 'public-read'",
+		},
+		&cli.StringFlag{
+			Name:  "cache-control",
+			Usage: "set cache control for target: defines cache control header for object, e.g. cp --cache-control 'public, max-age=345600'",
+		},
+		&cli.StringFlag{
+			Name:  "expires",
+			Usage: "set expires for target (uses RFC3339 format): defines expires header for object, e.g. cp  --expires '2024-10-01T20:30:00Z'",
+		},
+		&cli.BoolFlag{
+			Name:  "force-glacier-transfer",
+			Usage: "force transfer of GLACIER objects whether they are restored or not",
+		},
+		&cli.StringFlag{
+			Name:  "source-region",
+			Usage: "set the region of source bucket; the region of the source bucket will be automatically discovered if --source-region is not specified",
+		},
+		&cli.StringFlag{
+			Name:  "destination-region",
+			Usage: "set the region of destination bucket: the region of the destination bucket will be automatically discovered if --destination-region is not specified",
+		},
+		&cli.StringSliceFlag{
+			Name:  "exclude",
+			Usage: "exclude objects with given pattern",
+		},
+		&cli.BoolFlag{
+			Name:  "raw",
+			Usage: "disable the wildcard operations, useful with filenames that contains glob characters.",
+		},
+	}
 }
 
-var copyCommand = &cli.Command{
-	Name:               "cp",
-	HelpName:           "cp",
-	Usage:              "copy objects",
-	Flags:              copyCommandFlags,
-	CustomHelpTemplate: copyHelpTemplate,
-	Before: func(c *cli.Context) error {
-		err := validateCopyCommand(c)
-		if err != nil {
-			printError(givenCommand(c), c.Command.Name, err)
-		}
-		return err
-	},
-	Action: func(c *cli.Context) (err error) {
-		defer stat.Collect(c.Command.FullName(), &err)()
+func NewCopyCommand() *cli.Command {
+	return &cli.Command{
+		Name:               "cp",
+		HelpName:           "cp",
+		Usage:              "copy objects",
+		Flags:              NewCopyCommandFlags(),
+		CustomHelpTemplate: copyHelpTemplate,
+		Before: func(c *cli.Context) error {
+			err := validateCopyCommand(c)
+			if err != nil {
+				printError(givenCommand(c), c.Command.Name, err)
+			}
+			return err
+		},
+		Action: func(c *cli.Context) (err error) {
+			defer stat.Collect(c.Command.FullName(), &err)()
 
-		return Copy{
-			src:          c.Args().Get(0),
-			dst:          c.Args().Get(1),
-			op:           c.Command.Name,
-			fullCommand:  givenCommand(c),
-			deleteSource: false, // don't delete source
-			// flags
-			noClobber:            c.Bool("no-clobber"),
-			ifSizeDiffer:         c.Bool("if-size-differ"),
-			ifSourceNewer:        c.Bool("if-source-newer"),
-			flatten:              c.Bool("flatten"),
-			followSymlinks:       !c.Bool("no-follow-symlinks"),
-			storageClass:         storage.StorageClass(c.String("storage-class")),
-			concurrency:          c.Int("concurrency"),
-			partSize:             c.Int64("part-size") * megabytes,
-			encryptionMethod:     c.String("sse"),
-			encryptionKeyID:      c.String("sse-kms-key-id"),
-			acl:                  c.String("acl"),
-			forceGlacierTransfer: c.Bool("force-glacier-transfer"),
-			exclude:              c.StringSlice("exclude"),
-			raw:                  c.Bool("raw"),
-			cacheControl:         c.String("cache-control"),
-			expires:              c.String("expires"),
-			// region settings
-			srcRegion: c.String("source-region"),
-			dstRegion: c.String("destination-region"),
+			return Copy{
+				src:          c.Args().Get(0),
+				dst:          c.Args().Get(1),
+				op:           c.Command.Name,
+				fullCommand:  givenCommand(c),
+				deleteSource: false, // don't delete source
+				// flags
+				noClobber:            c.Bool("no-clobber"),
+				ifSizeDiffer:         c.Bool("if-size-differ"),
+				ifSourceNewer:        c.Bool("if-source-newer"),
+				flatten:              c.Bool("flatten"),
+				followSymlinks:       !c.Bool("no-follow-symlinks"),
+				storageClass:         storage.StorageClass(c.String("storage-class")),
+				concurrency:          c.Int("concurrency"),
+				partSize:             c.Int64("part-size") * megabytes,
+				encryptionMethod:     c.String("sse"),
+				encryptionKeyID:      c.String("sse-kms-key-id"),
+				acl:                  c.String("acl"),
+				forceGlacierTransfer: c.Bool("force-glacier-transfer"),
+				exclude:              c.StringSlice("exclude"),
+				raw:                  c.Bool("raw"),
+				cacheControl:         c.String("cache-control"),
+				expires:              c.String("expires"),
+				// region settings
+				srcRegion: c.String("source-region"),
+				dstRegion: c.String("destination-region"),
 
-			storageOpts: NewStorageOpts(c),
-		}.Run(c.Context)
-	},
+				storageOpts: NewStorageOpts(c),
+			}.Run(c.Context)
+		},
+	}
 }
 
 // Copy holds copy operation flags and states.

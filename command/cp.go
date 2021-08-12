@@ -72,28 +72,28 @@ Examples:
 		 > s5cmd {{.HelpName}} -n -s -u s3://bucket/source-prefix/* s3://bucket/target-prefix/
 
 	12. Perform KMS Server Side Encryption of the object(s) at the destination
-		> s5cmd {{.HelpName}} --sse aws:kms s3://bucket/object s3://target-bucket/prefix/object
+		 > s5cmd {{.HelpName}} --sse aws:kms s3://bucket/object s3://target-bucket/prefix/object
 
 	13. Perform KMS-SSE of the object(s) at the destination using customer managed Customer Master Key (CMK) key id
-		> s5cmd {{.HelpName}} --sse aws:kms --sse-kms-key-id <your-kms-key-id> s3://bucket/object s3://target-bucket/prefix/object
+		 > s5cmd {{.HelpName}} --sse aws:kms --sse-kms-key-id <your-kms-key-id> s3://bucket/object s3://target-bucket/prefix/object
 
 	14. Force transfer of GLACIER objects with a prefix whether they are restored or not
-		> s5cmd {{.HelpName}} --force-glacier-transfer s3://bucket/prefix/* target-directory/
+		 > s5cmd {{.HelpName}} --force-glacier-transfer s3://bucket/prefix/* target-directory/
 
 	15. Upload a file to S3 bucket with public read s3 acl
-		> s5cmd {{.HelpName}} --acl "public-read" myfile.gz s3://bucket/
+		 > s5cmd {{.HelpName}} --acl "public-read" myfile.gz s3://bucket/
 
 	16. Upload a file to S3 bucket with expires header
-		> s5cmd {{.HelpName}} --expires "2024-10-01T20:30:00Z" myfile.gz s3://bucket/
+		 > s5cmd {{.HelpName}} --expires "2024-10-01T20:30:00Z" myfile.gz s3://bucket/
 
 	17. Upload a file to S3 bucket with cache-control header
-		> s5cmd {{.HelpName}} --cache-control "public, max-age=345600" myfile.gz s3://bucket/
+		 > s5cmd {{.HelpName}} --cache-control "public, max-age=345600" myfile.gz s3://bucket/
 
-	18. Copy all files to S3 bucket but exclude the ones with txt and gz extension 
-		> s5cmd cp --exclude "*.txt" --exclude "*.gz" dir/ s3://bucket
+	18. Copy all files to S3 bucket but exclude the ones with txt and gz extension
+		 > s5cmd {{.HelpName}} --exclude "*.txt" --exclude "*.gz" dir/ s3://bucket
 
 	19. Copy all files from S3 bucket to another S3 bucket but exclude the ones starts with log
-		> s5cmd cp --exclude "log*" s3://bucket/* s3://destbucket
+		 > s5cmd {{.HelpName}} --exclude "log*" s3://bucket/* s3://destbucket
 `
 
 func NewCopyCommandFlags() []cli.Flag {
@@ -198,35 +198,8 @@ func NewCopyCommand() *cli.Command {
 		Action: func(c *cli.Context) (err error) {
 			defer stat.Collect(c.Command.FullName(), &err)()
 
-			return Copy{
-				src:          c.Args().Get(0),
-				dst:          c.Args().Get(1),
-				op:           c.Command.Name,
-				fullCommand:  givenCommand(c),
-				deleteSource: false, // don't delete source
-				// flags
-				noClobber:            c.Bool("no-clobber"),
-				ifSizeDiffer:         c.Bool("if-size-differ"),
-				ifSourceNewer:        c.Bool("if-source-newer"),
-				flatten:              c.Bool("flatten"),
-				followSymlinks:       !c.Bool("no-follow-symlinks"),
-				storageClass:         storage.StorageClass(c.String("storage-class")),
-				concurrency:          c.Int("concurrency"),
-				partSize:             c.Int64("part-size") * megabytes,
-				encryptionMethod:     c.String("sse"),
-				encryptionKeyID:      c.String("sse-kms-key-id"),
-				acl:                  c.String("acl"),
-				forceGlacierTransfer: c.Bool("force-glacier-transfer"),
-				exclude:              c.StringSlice("exclude"),
-				raw:                  c.Bool("raw"),
-				cacheControl:         c.String("cache-control"),
-				expires:              c.String("expires"),
-				// region settings
-				srcRegion: c.String("source-region"),
-				dstRegion: c.String("destination-region"),
-
-				storageOpts: NewStorageOpts(c),
-			}.Run(c.Context)
+			// don't delete source
+			return NewCopy(c, false).Run(c.Context)
 		},
 	}
 }
@@ -264,6 +237,39 @@ type Copy struct {
 	concurrency int
 	partSize    int64
 	storageOpts storage.Options
+}
+
+// NewCopy creates Copy from cli.Context.
+func NewCopy(c *cli.Context, deleteSource bool) Copy {
+	return Copy{
+		src:          c.Args().Get(0),
+		dst:          c.Args().Get(1),
+		op:           c.Command.Name,
+		fullCommand:  givenCommand(c),
+		deleteSource: deleteSource,
+		// flags
+		noClobber:            c.Bool("no-clobber"),
+		ifSizeDiffer:         c.Bool("if-size-differ"),
+		ifSourceNewer:        c.Bool("if-source-newer"),
+		flatten:              c.Bool("flatten"),
+		followSymlinks:       !c.Bool("no-follow-symlinks"),
+		storageClass:         storage.StorageClass(c.String("storage-class")),
+		concurrency:          c.Int("concurrency"),
+		partSize:             c.Int64("part-size") * megabytes,
+		encryptionMethod:     c.String("sse"),
+		encryptionKeyID:      c.String("sse-kms-key-id"),
+		acl:                  c.String("acl"),
+		forceGlacierTransfer: c.Bool("force-glacier-transfer"),
+		exclude:              c.StringSlice("exclude"),
+		raw:                  c.Bool("raw"),
+		cacheControl:         c.String("cache-control"),
+		expires:              c.String("expires"),
+		// region settings
+		srcRegion: c.String("source-region"),
+		dstRegion: c.String("destination-region"),
+
+		storageOpts: NewStorageOpts(c),
+	}
 }
 
 const fdlimitWarning = `

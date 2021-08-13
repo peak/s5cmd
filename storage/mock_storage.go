@@ -59,6 +59,11 @@ func (_m *MockStorage) List(ctx context.Context, src *url.URL, followSymlinks bo
 	return r0
 }
 
+// List provides a mock function with given fields: ctx, src, followSymlinks
+func (_m *MockStorage) ListSlice(ctx context.Context, src *url.URL, followSymlinks bool) []*Object {
+	return []*Object{}
+}
+
 // MultiDelete provides a mock function with given fields: ctx, urls
 func (_m *MockStorage) MultiDelete(ctx context.Context, urls <-chan *url.URL) <-chan *Object {
 	ret := _m.Called(ctx, urls)

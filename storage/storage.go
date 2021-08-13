@@ -30,6 +30,9 @@ type Storage interface {
 	// List the objects and directories/prefixes in the src.
 	List(ctx context.Context, src *url.URL, followSymlinks bool) <-chan *Object
 
+	// ListSlice the objects and directories/prefixes in the src.
+	ListSlice(ctx context.Context, src *url.URL, followSymlinks bool) []*Object
+
 	// Delete deletes the given src.
 	Delete(ctx context.Context, src *url.URL) error
 

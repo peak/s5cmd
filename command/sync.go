@@ -315,16 +315,15 @@ func (s Sync) shouldSkipObject(object *storage.Object, errorToWrite *error, verb
 
 	if err := object.Err; err != nil {
 		*errorToWrite = multierror.Append(*errorToWrite, err)
-		/* if verbose {
-			printError(s.fullCommand, s.op, err)
-		} */
 		return true
 	}
 
 	if object.StorageClass.IsGlacier() {
 		err := fmt.Errorf("object '%v' is on Glacier storage", object)
 		*errorToWrite = multierror.Append(*errorToWrite, err)
-		printError(s.fullCommand, s.op, err)
+		if verbose {
+			printError(s.fullCommand, s.op, err)
+		}
 		return true
 	}
 	return false
@@ -374,7 +373,7 @@ func (s Sync) directCopyTask(
 	dstObj *storage.Object,
 ) func() error {
 	return func() error {
-		err := s.shouldOverride(ctx, srcObj, dstObj)
+		err := s.shouldOverride(srcObj, dstObj)
 		srcurl, dsturl := srcObj.URL, dstObj.URL
 		if err != nil {
 			if errorpkg.IsWarning(err) {
@@ -423,7 +422,7 @@ func (s Sync) directDownloadTask(
 	dstObj *storage.Object,
 ) func() error {
 	return func() error {
-		err := s.shouldOverride(ctx, srcObj, dstObj)
+		err := s.shouldOverride(srcObj, dstObj)
 		srcurl, dsturl := srcObj.URL, dstObj.URL
 		if err != nil {
 			if errorpkg.IsWarning(err) {
@@ -475,7 +474,7 @@ func (s Sync) directUploadTask(
 	dstObj *storage.Object,
 ) func() error {
 	return func() error {
-		err := s.shouldOverride(ctx, srcObj, dstObj)
+		err := s.shouldOverride(srcObj, dstObj)
 		srcurl, dsturl := srcObj.URL, dstObj.URL
 		if err != nil {
 			if errorpkg.IsWarning(err) {
@@ -617,7 +616,7 @@ func (s Sync) doCopy(ctx context.Context, srcurl, dsturl *url.URL) error {
 }
 
 // shouldOverride function checks if the destination should be overridden if
-func (s Sync) shouldOverride(ctx context.Context, srcObj *storage.Object, dstObj *storage.Object) error {
+func (s Sync) shouldOverride(srcObj *storage.Object, dstObj *storage.Object) error {
 	// check size of objects
 	if srcObj.Size == dstObj.Size {
 		return errorpkg.ErrObjectSizesMatch

@@ -80,7 +80,7 @@ type CommonObject struct {
 	src, dst *storage.Object
 }
 
-// Copy holds copy operation flags and states.
+// Sync holds sync operation flags and states.
 type Sync struct {
 	src         string
 	dst         string
@@ -106,7 +106,7 @@ type Sync struct {
 	commonObj  chan *CommonObject
 }
 
-// NewCopy creates Copy from cli.Context.
+// NewSync creates Sync from cli.Context
 func NewSync(c *cli.Context, deleteSource bool) Sync {
 	return Sync{
 		src:         c.Args().Get(0),
@@ -669,10 +669,19 @@ func validateSyncCommand(c *cli.Context) error {
 
 	switch {
 	case srcurl.Type == dsturl.Type:
-		return validateCopy(srcurl, dsturl)
+		return validateSyncCopy(srcurl, dsturl)
 	case dsturl.IsRemote():
 		return validateUpload(ctx, srcurl, dsturl, NewStorageOpts(c))
 	default:
 		return nil
 	}
+}
+
+func validateSyncCopy(srcurl, dsturl *url.URL) error {
+	if srcurl.IsRemote() || dsturl.IsRemote() {
+		return nil
+	}
+
+	// we don't support local->local copies
+	return fmt.Errorf("local->local sync operations are not permitted")
 }

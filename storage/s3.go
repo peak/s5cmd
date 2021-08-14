@@ -130,7 +130,7 @@ func (s *S3) List(ctx context.Context, url *url.URL, _ bool) <-chan *Object {
 	return s.listObjectsV2(ctx, url)
 }
 
-// List is a non-blocking S3 list operation which paginates and filters S3
+// ListSlice is a non-blocking S3 list operation which paginates and filters S3
 // keys. If no object found or an error is encountered during this period,
 // it sends these errors to object channel.
 func (s *S3) ListSlice(ctx context.Context, url *url.URL, _ bool) []*Object {

@@ -53,7 +53,7 @@ func (f *Filesystem) List(ctx context.Context, src *url.URL, followSymlinks bool
 	return f.listSingleObject(ctx, src)
 }
 
-// List returns the objects and directories reside in given src.
+// ListSlice returns the objects and directories reside in given src.
 func (f *Filesystem) ListSlice(ctx context.Context, src *url.URL, followSymlinks bool) []*Object {
 	if src.IsWildcard() {
 		return f.expandGlobSlice(ctx, src, followSymlinks)

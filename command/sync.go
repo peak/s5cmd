@@ -152,6 +152,8 @@ func (s Sync) Run(ctx context.Context) error {
 	}
 
 	var wg sync.WaitGroup
+
+	// get source objects.
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -165,24 +167,21 @@ func (s Sync) Run(ctx context.Context) error {
 		destinationURLPath = s.dst + "/*"
 	}
 
-	fmt.Println("destination url path", destinationURLPath)
-
 	destObjectsURL, err := url.New(destinationURLPath)
 	if err != nil {
 		printError(s.fullCommand, s.op, err)
 		return err
 	}
 
+	// get destination objects.
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		s.destObjects = destClient.ListSlice(ctx, destObjectsURL, false)
 	}()
 
+	// wait until source and destination objects are fetched.
 	wg.Wait()
-
-	fmt.Printf("Source length %d\n", len(s.sourceObjects))
-	fmt.Printf("Dest length %d\n", len(s.destObjects))
 
 	isBatch := srcurl.IsWildcard()
 	if !isBatch && !srcurl.IsRemote() {
@@ -195,17 +194,17 @@ func (s Sync) Run(ctx context.Context) error {
 	s.onlyDest = make(chan *url.URL, len(s.destObjects))
 
 	var (
-		merrorChannelDest   error
-		merrorChannelSource error
+		merrorChannelDestAndCommon error // used for creating destination and common objects channels.
+		merrorChannelSource        error // used for creating only source object channel.
 	)
 
-	// detect only destination and common objects.
+	// detect only destination and common objects in background.
 	go func() {
 		for _, destObject := range s.destObjects {
-			if s.shouldSkipObject(destObject, &merrorChannelDest, true) {
+			if s.shouldSkipObject(destObject, &merrorChannelDestAndCommon, true) {
 				continue
 			}
-			foundIdx := s.doesSourceHave(s.sourceObjects, destObject, merrorChannelDest)
+			foundIdx := s.doesSourceHave(s.sourceObjects, destObject, merrorChannelDestAndCommon)
 			if foundIdx == -1 {
 				s.onlyDest <- destObject.URL
 			} else {
@@ -257,6 +256,7 @@ func (s Sync) Run(ctx context.Context) error {
 	for sourceObject := range s.onlySource {
 		var task parallel.Task
 		srcurl := sourceObject.URL
+
 		switch {
 		case !sourceObject.URL.IsRemote() && dsturl.IsRemote(): // local->remote
 			task = s.prepareUploadTask(ctx, srcurl, dsturl, isBatch)
@@ -288,12 +288,13 @@ func (s Sync) Run(ctx context.Context) error {
 		parallel.Run(task, waiter)
 	}
 
+	// for delete objects in only destination.
 	parallel.Run(s.prepareDeleteTask(ctx, dsturl), waiter)
 
 	waiter.Wait()
 	<-errDoneCh
 
-	return multierror.Append(merrorChannelDest, merrorWaiter, merrorChannelDest).ErrorOrNil()
+	return multierror.Append(merrorChannelDestAndCommon, merrorWaiter, merrorChannelSource).ErrorOrNil()
 }
 
 func (s Sync) doesSourceHave(sourceObjects []*storage.Object, wantedObject *storage.Object, errorToWrite error) int {
@@ -329,12 +330,12 @@ func (s Sync) shouldSkipObject(object *storage.Object, errorToWrite *error, verb
 	return false
 }
 
+// prepareDeleteTask prepares delete operation of only destination objects.
 func (s Sync) prepareDeleteTask(
 	ctx context.Context,
 	dsturl *url.URL,
 ) func() error {
 	return func() error {
-
 		// if delete is not set, then return.
 		if !s.delete {
 			return nil
@@ -351,7 +352,6 @@ func (s Sync) prepareDeleteTask(
 				if errorpkg.IsCancelation(obj.Err) {
 					continue
 				}
-
 				merrorDelete = multierror.Append(merrorDelete, obj.Err)
 				printError(s.fullCommand, s.op, obj.Err)
 				continue
@@ -367,14 +367,15 @@ func (s Sync) prepareDeleteTask(
 	}
 }
 
+// directCopyTask prepares copy operation (remote->remote) of objects both in source and destination.
 func (s Sync) directCopyTask(
 	ctx context.Context,
 	srcObj *storage.Object,
 	dstObj *storage.Object,
 ) func() error {
 	return func() error {
-		err := s.shouldOverride(srcObj, dstObj)
 		srcurl, dsturl := srcObj.URL, dstObj.URL
+		err := s.shouldOverride(srcObj, dstObj)
 		if err != nil {
 			if errorpkg.IsWarning(err) {
 				printDebug(s.op, srcurl, dsturl, err)
@@ -416,6 +417,7 @@ func (s Sync) prepareCopyTask(
 	}
 }
 
+// directDownloadTask prepares download operation (remote->local) of objects both in source and destination.
 func (s Sync) directDownloadTask(
 	ctx context.Context,
 	srcObj *storage.Object,
@@ -468,6 +470,7 @@ func (s Sync) prepareDownloadTask(
 	}
 }
 
+// directUploadTask prepares upload operation (local->remote) of objects both in source and destination.
 func (s Sync) directUploadTask(
 	ctx context.Context,
 	srcObj *storage.Object,

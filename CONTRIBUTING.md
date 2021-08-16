@@ -32,7 +32,7 @@ Before proposing a change you first need to fork the `s5cmd` Github repository. 
 
 While running integration tests `s5cmd` is built and is ran against a fake (in memory) s3 implementation.
 
-We strongly encourage you to write tests for your proposed changes.  You can run the tests with the following command:
+We strongly encourage you to write tests for your proposed changes. You can run the tests with the following command:
 
 ```
 make test

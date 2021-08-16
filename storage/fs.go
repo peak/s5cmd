@@ -229,20 +229,8 @@ func sendObject(ctx context.Context, obj *Object, ch chan *Object) {
 	case ch <- obj:
 	}
 }
-func sendObjectToSlice(ctx context.Context, obj *Object, slice *[]*Object) {
-	select {
-	case <-ctx.Done():
-	default:
-		*slice = append(*slice, obj)
-	}
-}
 
 func sendError(ctx context.Context, err error, ch chan *Object) {
 	obj := &Object{Err: err}
 	sendObject(ctx, obj, ch)
-}
-
-func sendErrorToSlice(ctx context.Context, err error, slice []*Object) {
-	obj := &Object{Err: err}
-	sendObjectToSlice(ctx, obj, &slice)
 }

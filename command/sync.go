@@ -157,7 +157,7 @@ func (s Sync) Run(ctx context.Context) error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		s.sourceObjects = sourceClient.ListSlice(ctx, srcurl, false)
+		s.sourceObjects, _ = expandSourceList(ctx, sourceClient, false, srcurl)
 	}()
 
 	var destinationURLPath string
@@ -177,7 +177,7 @@ func (s Sync) Run(ctx context.Context) error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		s.destObjects = destClient.ListSlice(ctx, destObjectsURL, false)
+		s.destObjects, _ = expandSourceList(ctx, destClient, false, destObjectsURL)
 	}()
 
 	// wait until source and destination objects are fetched.
@@ -684,7 +684,9 @@ func validateSyncCommand(c *cli.Context) error {
 	case srcurl.Type == dsturl.Type:
 		return validateSyncCopy(srcurl, dsturl)
 	case dsturl.IsRemote():
-		return validateUpload(ctx, srcurl, dsturl, NewStorageOpts(c))
+		return validateSyncUpload(ctx, srcurl, dsturl, NewStorageOpts(c))
+	case srcurl.IsRemote():
+		return validateSyncDownload(ctx, srcurl, NewStorageOpts(c))
 	default:
 		return nil
 	}
@@ -697,4 +699,43 @@ func validateSyncCopy(srcurl, dsturl *url.URL) error {
 
 	// we don't support local->local copies
 	return fmt.Errorf("local->local sync operations are not permitted")
+}
+
+func validateSyncUpload(ctx context.Context, srcurl, dsturl *url.URL, storageOpts storage.Options) error {
+	srcclient := storage.NewLocalClient(storageOpts)
+
+	if srcurl.IsWildcard() {
+		return nil
+	}
+
+	obj, err := srcclient.Stat(ctx, srcurl)
+	if err != nil {
+		return err
+	}
+
+	if !obj.Type.IsDir() {
+		return fmt.Errorf("local source must be a directory")
+	}
+
+	// 'cp dir/ s3://bucket/prefix-without-slash': expect a trailing slash to
+	// avoid any surprises.
+	if obj.Type.IsDir() && !dsturl.IsBucket() && !dsturl.IsPrefix() {
+		return fmt.Errorf("target %q must be a bucket or a prefix", dsturl)
+	}
+
+	return nil
+}
+
+func validateSyncDownload(ctx context.Context, srcurl *url.URL, storageOpts storage.Options) error {
+	if srcurl.IsWildcard() {
+		return nil
+	}
+
+	// 'cp dir/ s3://bucket/prefix-without-slash': expect a trailing slash to
+	// avoid any surprises.
+	if !srcurl.IsBucket() && !srcurl.IsPrefix() {
+		return fmt.Errorf("source %q must be a bucket or a prefix", srcurl)
+	}
+
+	return nil
 }

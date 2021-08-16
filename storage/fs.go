@@ -53,22 +53,6 @@ func (f *Filesystem) List(ctx context.Context, src *url.URL, followSymlinks bool
 	return f.listSingleObject(ctx, src)
 }
 
-// ListSlice returns the objects and directories reside in given src.
-func (f *Filesystem) ListSlice(ctx context.Context, src *url.URL, followSymlinks bool) []*Object {
-	if src.IsWildcard() {
-		return f.expandGlobSlice(ctx, src, followSymlinks)
-	}
-
-	obj, err := f.Stat(ctx, src)
-	isDir := err == nil && obj.Type.IsDir()
-
-	if isDir {
-		return f.walkDirSlice(ctx, src, followSymlinks)
-	}
-
-	return f.listSingleObjectSlice(ctx, src)
-}
-
 func (f *Filesystem) listSingleObject(ctx context.Context, src *url.URL) <-chan *Object {
 	ch := make(chan *Object, 1)
 	defer close(ch)
@@ -79,17 +63,6 @@ func (f *Filesystem) listSingleObject(ctx context.Context, src *url.URL) <-chan 
 	}
 	ch <- object
 	return ch
-}
-
-func (f *Filesystem) listSingleObjectSlice(ctx context.Context, src *url.URL) []*Object {
-	resultObj := make([]*Object, 1)
-
-	object, err := f.Stat(ctx, src)
-	if err != nil {
-		object = &Object{Err: err}
-	}
-	resultObj = append(resultObj, object)
-	return resultObj
 }
 
 func (f *Filesystem) expandGlob(ctx context.Context, src *url.URL, followSymlinks bool) <-chan *Object {
@@ -128,40 +101,6 @@ func (f *Filesystem) expandGlob(ctx context.Context, src *url.URL, followSymlink
 		}
 	}()
 	return ch
-}
-
-func (f *Filesystem) expandGlobSlice(ctx context.Context, src *url.URL, followSymlinks bool) []*Object {
-
-	resultObj := make([]*Object, 0)
-	matchedFiles, err := filepath.Glob(src.Absolute())
-	if err != nil {
-		sendErrorToSlice(ctx, err, resultObj)
-		return nil
-	}
-	if len(matchedFiles) == 0 {
-		err := fmt.Errorf("no match found for %q", src)
-		sendErrorToSlice(ctx, err, resultObj)
-		return nil
-	}
-
-	for _, filename := range matchedFiles {
-		filename := filename
-
-		fileurl, _ := url.New(filename)
-		fileurl.SetRelative(src.Absolute())
-
-		obj, _ := f.Stat(ctx, fileurl)
-
-		if !obj.Type.IsDir() {
-			sendObjectToSlice(ctx, obj, &resultObj)
-			continue
-		}
-
-		walkDir(ctx, f, fileurl, followSymlinks, func(obj *Object) {
-			sendObjectToSlice(ctx, obj, &resultObj)
-		})
-	}
-	return resultObj
 }
 
 func walkDir(ctx context.Context, fs *Filesystem, src *url.URL, followSymlinks bool, fn func(o *Object)) {
@@ -215,15 +154,6 @@ func (f *Filesystem) walkDir(ctx context.Context, src *url.URL, followSymlinks b
 		})
 	}()
 	return ch
-}
-
-func (f *Filesystem) walkDirSlice(ctx context.Context, src *url.URL, followSymlinks bool) []*Object {
-	resultObjects := make([]*Object, 0)
-
-	walkDir(ctx, f, src, followSymlinks, func(obj *Object) {
-		sendObjectToSlice(ctx, obj, &resultObjects)
-	})
-	return resultObjects
 }
 
 // Copy copies given source to destination.

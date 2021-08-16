@@ -46,7 +46,7 @@ func expandSource(
 // expandSource returns the full list of objects from the given src argument.
 // If src is an expandable URL, such as directory, prefix or a glob, all
 // objects are returned by walking the source.
-func expandSourceList(
+/* func expandSourceList(
 	ctx context.Context,
 	client storage.Storage,
 	followSymlinks bool,
@@ -74,7 +74,7 @@ func expandSourceList(
 		result = append(result, &storage.Object{URL: srcurl})
 	}
 	return result, nil
-}
+} */
 
 // expandSources is a non-blocking argument dispatcher. It creates a object
 // channel by walking and expanding the given source urls. If the url has a

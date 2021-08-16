@@ -157,7 +157,10 @@ func (s Sync) Run(ctx context.Context) error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		s.sourceObjects, _ = expandSourceList(ctx, sourceClient, false, srcurl)
+		srcObjectChannel := sourceClient.List(ctx, srcurl, false)
+		for srcObject := range srcObjectChannel {
+			s.sourceObjects = append(s.sourceObjects, srcObject)
+		}
 	}()
 
 	var destinationURLPath string
@@ -177,7 +180,10 @@ func (s Sync) Run(ctx context.Context) error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		s.destObjects, _ = expandSourceList(ctx, destClient, false, destObjectsURL)
+		destObjectsChannel := destClient.List(ctx, destObjectsURL, false)
+		for destObject := range destObjectsChannel {
+			s.destObjects = append(s.destObjects, destObject)
+		}
 	}()
 
 	// wait until source and destination objects are fetched.
@@ -315,7 +321,6 @@ func (s Sync) shouldSkipObject(object *storage.Object, errorToWrite *error, verb
 	}
 
 	if err := object.Err; err != nil {
-		*errorToWrite = multierror.Append(*errorToWrite, err)
 		return true
 	}
 
@@ -736,7 +741,7 @@ func validateSyncDownload(srcurl *url.URL) error {
 	// 'sync s3://bucket/object.go dir/' should not work.
 	// do not support single object.
 	if !srcurl.IsBucket() && !srcurl.IsPrefix() {
-		return fmt.Errorf("source %q must be a bucket or a prefix", srcurl)
+		return fmt.Errorf("remote source %q must be a bucket or a prefix", srcurl)
 	}
 
 	return nil

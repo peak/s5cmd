@@ -130,16 +130,6 @@ func (s *S3) List(ctx context.Context, url *url.URL, _ bool) <-chan *Object {
 	return s.listObjectsV2(ctx, url)
 }
 
-// ListSlice is a non-blocking S3 list operation which paginates and filters S3
-// keys. If no object found or an error is encountered during this period,
-// it sends these errors to object channel.
-func (s *S3) ListSlice(ctx context.Context, url *url.URL, _ bool) []*Object {
-	if isGoogleEndpoint(s.endpointURL) {
-		return s.listObjectsSlice(ctx, url)
-	}
-	return s.listObjectsV2Slice(ctx, url)
-}
-
 func (s *S3) listObjectsV2(ctx context.Context, url *url.URL) <-chan *Object {
 	listInput := s3.ListObjectsV2Input{
 		Bucket: aws.String(url.Bucket),
@@ -227,93 +217,6 @@ func (s *S3) listObjectsV2(ctx context.Context, url *url.URL) <-chan *Object {
 	}()
 
 	return objCh
-}
-
-func (s *S3) listObjectsV2Slice(ctx context.Context, url *url.URL) []*Object {
-	listInput := s3.ListObjectsV2Input{
-		Bucket: aws.String(url.Bucket),
-		Prefix: aws.String(url.Prefix),
-	}
-
-	if url.Delimiter != "" {
-		listInput.SetDelimiter(url.Delimiter)
-	}
-
-	objSlice := make([]*Object, 0)
-
-	objectFound := false
-
-	var now time.Time
-
-	err := s.api.ListObjectsV2PagesWithContext(ctx, &listInput, func(p *s3.ListObjectsV2Output, lastPage bool) bool {
-		for _, c := range p.CommonPrefixes {
-			prefix := aws.StringValue(c.Prefix)
-			if !url.Match(prefix) {
-				continue
-			}
-
-			newurl := url.Clone()
-			newurl.Path = prefix
-			objSlice = append(objSlice, &Object{
-				URL:  newurl,
-				Type: ObjectType{os.ModeDir},
-			})
-
-			objectFound = true
-		}
-		// track the instant object iteration began,
-		// so it can be used to bypass objects created after this instant
-		if now.IsZero() {
-			now = time.Now().UTC()
-		}
-
-		for _, c := range p.Contents {
-			key := aws.StringValue(c.Key)
-			if !url.Match(key) {
-				continue
-			}
-
-			mod := aws.TimeValue(c.LastModified).UTC()
-			if mod.After(now) {
-				objectFound = true
-				continue
-			}
-
-			var objtype os.FileMode
-			if strings.HasSuffix(key, "/") {
-				objtype = os.ModeDir
-			}
-
-			newurl := url.Clone()
-			newurl.Path = aws.StringValue(c.Key)
-			etag := aws.StringValue(c.ETag)
-
-			objSlice = append(objSlice, &Object{
-				URL:          newurl,
-				Etag:         strings.Trim(etag, `"`),
-				ModTime:      &mod,
-				Type:         ObjectType{objtype},
-				Size:         aws.Int64Value(c.Size),
-				StorageClass: StorageClass(aws.StringValue(c.StorageClass)),
-			})
-
-			objectFound = true
-		}
-
-		return !lastPage
-	})
-
-	if err != nil {
-		objSlice = append(objSlice, &Object{Err: err})
-		return objSlice
-
-	}
-
-	if !objectFound {
-		objSlice = append(objSlice, &Object{Err: ErrNoObjectFound})
-	}
-
-	return objSlice
 }
 
 // listObjects is used for cloud services that does not support S3
@@ -405,94 +308,6 @@ func (s *S3) listObjects(ctx context.Context, url *url.URL) <-chan *Object {
 	}()
 
 	return objCh
-}
-
-// listObjects is used for cloud services that does not support S3
-// ListObjectsV2 API. I'm looking at you GCS.
-func (s *S3) listObjectsSlice(ctx context.Context, url *url.URL) []*Object {
-	listInput := s3.ListObjectsInput{
-		Bucket: aws.String(url.Bucket),
-		Prefix: aws.String(url.Prefix),
-	}
-
-	if url.Delimiter != "" {
-		listInput.SetDelimiter(url.Delimiter)
-	}
-
-	objSlice := make([]*Object, 0)
-
-	objectFound := false
-
-	var now time.Time
-
-	err := s.api.ListObjectsPagesWithContext(ctx, &listInput, func(p *s3.ListObjectsOutput, lastPage bool) bool {
-		for _, c := range p.CommonPrefixes {
-			prefix := aws.StringValue(c.Prefix)
-			if !url.Match(prefix) {
-				continue
-			}
-
-			newurl := url.Clone()
-			newurl.Path = prefix
-			objSlice = append(objSlice, &Object{
-				URL:  newurl,
-				Type: ObjectType{os.ModeDir},
-			})
-
-			objectFound = true
-		}
-		// track the instant object iteration began,
-		// so it can be used to bypass objects created after this instant
-		if now.IsZero() {
-			now = time.Now().UTC()
-		}
-
-		for _, c := range p.Contents {
-			key := aws.StringValue(c.Key)
-			if !url.Match(key) {
-				continue
-			}
-
-			mod := aws.TimeValue(c.LastModified).UTC()
-			if mod.After(now) {
-				objectFound = true
-				continue
-			}
-
-			var objtype os.FileMode
-			if strings.HasSuffix(key, "/") {
-				objtype = os.ModeDir
-			}
-
-			newurl := url.Clone()
-			newurl.Path = aws.StringValue(c.Key)
-			etag := aws.StringValue(c.ETag)
-
-			objSlice = append(objSlice, &Object{
-				URL:          newurl,
-				Etag:         strings.Trim(etag, `"`),
-				ModTime:      &mod,
-				Type:         ObjectType{objtype},
-				Size:         aws.Int64Value(c.Size),
-				StorageClass: StorageClass(aws.StringValue(c.StorageClass)),
-			})
-
-			objectFound = true
-		}
-
-		return !lastPage
-	})
-
-	if err != nil {
-		objSlice = append(objSlice, &Object{Err: err})
-		return objSlice
-	}
-
-	if !objectFound {
-		objSlice = append(objSlice, &Object{Err: ErrNoObjectFound})
-	}
-
-	return objSlice
 }
 
 // Copy is a single-object copy operation which copies objects to S3

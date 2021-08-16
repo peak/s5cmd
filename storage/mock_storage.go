@@ -59,22 +59,6 @@ func (_m *MockStorage) List(ctx context.Context, src *url.URL, followSymlinks bo
 	return r0
 }
 
-// ListSlice provides a mock function with given fields: ctx, src, followSymlinks
-func (_m *MockStorage) ListSlice(ctx context.Context, src *url.URL, followSymlinks bool) []*Object {
-	ret := _m.Called(ctx, src, followSymlinks)
-
-	var r0 []*Object
-	if rf, ok := ret.Get(0).(func(context.Context, *url.URL, bool) []*Object); ok {
-		r0 = rf(ctx, src, followSymlinks)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]*Object)
-		}
-	}
-
-	return r0
-}
-
 // MultiDelete provides a mock function with given fields: ctx, urls
 func (_m *MockStorage) MultiDelete(ctx context.Context, urls <-chan *url.URL) <-chan *Object {
 	ret := _m.Called(ctx, urls)

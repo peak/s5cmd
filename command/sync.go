@@ -277,11 +277,11 @@ func (s Sync) Run(ctx context.Context) error {
 
 		switch {
 		case !sourceObject.URL.IsRemote() && destObject.URL.IsRemote(): // local->remote
-			task = s.directUploadTask(ctx, sourceObject, destObject)
+			task = s.commonUploadTask(ctx, sourceObject, destObject)
 		case sourceObject.URL.IsRemote() && !destObject.URL.IsRemote(): // remote->local
-			task = s.directDownloadTask(ctx, sourceObject, destObject)
+			task = s.commonDownloadTask(ctx, sourceObject, destObject)
 		case sourceObject.URL.IsRemote() && destObject.URL.IsRemote(): // remote->remote
-			task = s.directCopyTask(ctx, sourceObject, destObject)
+			task = s.commonCopyTask(ctx, sourceObject, destObject)
 		default:
 			panic("unexpected src-dst pair")
 		}
@@ -367,15 +367,15 @@ func (s Sync) prepareDeleteTask(
 	}
 }
 
-// directCopyTask prepares copy operation (remote->remote) of objects both in source and destination.
-func (s Sync) directCopyTask(
+// commonCopyTask prepares copy operation (remote->remote) of objects both in source and destination.
+func (s Sync) commonCopyTask(
 	ctx context.Context,
 	srcObj *storage.Object,
 	dstObj *storage.Object,
 ) func() error {
 	return func() error {
 		srcurl, dsturl := srcObj.URL, dstObj.URL
-		err := s.shouldOverride(srcObj, dstObj)
+		err := s.shouldOverride(srcObj, dstObj) // check if source object should be overridden
 		if err != nil {
 			if errorpkg.IsWarning(err) {
 				printDebug(s.op, srcurl, dsturl, err)
@@ -417,14 +417,14 @@ func (s Sync) prepareCopyTask(
 	}
 }
 
-// directDownloadTask prepares download operation (remote->local) of objects both in source and destination.
-func (s Sync) directDownloadTask(
+// commonDownloadTask prepares download operation (remote->local) of objects both in source and destination.
+func (s Sync) commonDownloadTask(
 	ctx context.Context,
 	srcObj *storage.Object,
 	dstObj *storage.Object,
 ) func() error {
 	return func() error {
-		err := s.shouldOverride(srcObj, dstObj)
+		err := s.shouldOverride(srcObj, dstObj) // check if source object should be overridden
 		srcurl, dsturl := srcObj.URL, dstObj.URL
 		if err != nil {
 			if errorpkg.IsWarning(err) {
@@ -470,14 +470,14 @@ func (s Sync) prepareDownloadTask(
 	}
 }
 
-// directUploadTask prepares upload operation (local->remote) of objects both in source and destination.
-func (s Sync) directUploadTask(
+// commonUploadTask prepares upload operation (local->remote) of objects both in source and destination.
+func (s Sync) commonUploadTask(
 	ctx context.Context,
 	srcObj *storage.Object,
 	dstObj *storage.Object,
 ) func() error {
 	return func() error {
-		err := s.shouldOverride(srcObj, dstObj)
+		err := s.shouldOverride(srcObj, dstObj) // check if source object should be overridden
 		srcurl, dsturl := srcObj.URL, dstObj.URL
 		if err != nil {
 			if errorpkg.IsWarning(err) {
@@ -618,20 +618,31 @@ func (s Sync) doCopy(ctx context.Context, srcurl, dsturl *url.URL) error {
 	return nil
 }
 
-// shouldOverride function checks if the destination should be overridden if
+// shouldOverride function checks if the destination should be overridden.
+// it checks object sizes and modification times and if any of those things
+// are different, then it returns an error which says this objects should not
+// be overridden. If it returns nil, then it means it means override operation
+// needs to be done.
 func (s Sync) shouldOverride(srcObj *storage.Object, dstObj *storage.Object) error {
+	var stickyErr error
 	// check size of objects
 	if srcObj.Size == dstObj.Size {
-		return errorpkg.ErrObjectSizesMatch
+		stickyErr = errorpkg.ErrObjectSizesMatch
+	} else {
+		stickyErr = nil
 	}
 
 	srcMod, dstMod := srcObj.ModTime, dstObj.ModTime
 	// if size only flag is set, then do not check the time
-	if !s.sizeOnly && !srcMod.After(*dstMod) {
-		return errorpkg.ErrObjectIsNewer
+	if !s.sizeOnly {
+		if !srcMod.After(*dstMod) {
+			stickyErr = errorpkg.ErrObjectIsNewer
+		} else {
+			stickyErr = nil
+		}
 	}
 
-	return nil
+	return stickyErr
 }
 
 func validateSyncCommand(c *cli.Context) error {
@@ -643,12 +654,12 @@ func validateSyncCommand(c *cli.Context) error {
 	src := c.Args().Get(0)
 	dst := c.Args().Get(1)
 
-	srcurl, err := url.New(src, url.WithRaw(c.Bool("raw")))
+	srcurl, err := url.New(src)
 	if err != nil {
 		return err
 	}
 
-	dsturl, err := url.New(dst, url.WithRaw(c.Bool("raw")))
+	dsturl, err := url.New(dst)
 	if err != nil {
 		return err
 	}

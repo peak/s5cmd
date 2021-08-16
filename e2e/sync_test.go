@@ -93,7 +93,7 @@ func TestSyncSingleS3ObjectToLocalNotPermitted(t *testing.T) {
 	})
 }
 
-// sync folder/ s3://bucket
+/* // sync folder/ s3://bucket
 func TestSyncLocalFolderToS3EmptyBucket(t *testing.T) {
 	t.Parallel()
 	s3client, s5cmd, cleanup := setup(t)
@@ -151,7 +151,122 @@ func TestSyncLocalFolderToS3EmptyBucket(t *testing.T) {
 	}
 }
 
-// sync folder/ s3://bucket
+// sync  s3://bucket/* .
+func TestSyncS3BucketToLocal(t *testing.T) {
+	t.Parallel()
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	S3Content := map[string]string{
+		"testfile1.txt":            "this is a test file 1",
+		"readme.md":                "this is a readme file",
+		"b/filename-with-hypen.gz": "file has hypen in its name",
+		"a/another_test_file.txt":  "yet another txt file. yatf.",
+	}
+
+	for filename, content := range S3Content {
+		putFile(t, s3client, bucket, filename, content)
+	}
+
+	folderLayout := []fs.PathOp{
+		fs.WithFile("testfile1.txt", "this is a test file 1"),
+		fs.WithFile("readme.md", "this is a readme file"),
+		fs.WithDir(
+			"a",
+			fs.WithFile("another_test_file.txt", "yet another txt file. yatf."),
+		),
+		fs.WithDir(
+			"b",
+			fs.WithFile("filename-with-hypen.gz", "file has hypen in its name"),
+		),
+	}
+
+	src := fmt.Sprintf("s3://%v/", bucket)
+
+	cmd := s5cmd("sync", src+"*", ".")
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`download %va/another_test_file.txt a/another_test_file.txt`, src),
+		1: equals(`download %vb/filename-with-hypen.gz b/filename-with-hypen.gz`, src),
+		2: equals(`download %vreadme.md readme.md`, src),
+		3: equals(`download %vtestfile1.txt testfile1.txt`, src),
+	}, sortInput(true))
+
+	// assert local filesystem
+	expected := fs.Expected(t, folderLayout...)
+	assert.Assert(t, fs.Equal(cmd.Dir, expected))
+
+	// assert s3
+	for key, content := range S3Content {
+		assert.Assert(t, ensureS3Object(s3client, bucket, key, content))
+	}
+} */
+
+// sync  s3://bucket/* .
+func TestSyncS3BucketToLocalWithDelete(t *testing.T) {
+	t.Parallel()
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	S3Content := map[string]string{
+		"testfile1.txt": "this is a test file 1",
+		"readme.md":     "this is a readme file",
+	}
+
+	for filename, content := range S3Content {
+		putFile(t, s3client, bucket, filename, content)
+	}
+
+	folderLayout := []fs.PathOp{
+		fs.WithFile("testfile1.txt", "this is a test file 1"),
+		fs.WithFile("readme.md", "this is a readme file"),
+		fs.WithDir(
+			"dir",
+			fs.WithFile("main.py", "python file"),
+		),
+	}
+
+	workdir := fs.NewDir(t, "somedir", folderLayout...)
+	defer workdir.Remove()
+
+	dst := fmt.Sprintf("%v/", workdir.Path())
+	dst = filepath.ToSlash(dst)
+	src := fmt.Sprintf("s3://%v/", bucket)
+
+	cmd := s5cmd("sync", "--delete", "--size-only", src+"*", dst)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`delete %vdir/main.py`, dst),
+	}, sortInput(true))
+
+	expectedFolderLayout := []fs.PathOp{
+		fs.WithFile("testfile1.txt", "this is a test file 1"),
+		fs.WithFile("readme.md", "this is a readme file"),
+	}
+
+	// assert local filesystem
+	expected := fs.Expected(t, expectedFolderLayout...)
+	assert.Assert(t, fs.Equal(workdir.Path(), expected))
+
+	// assert s3
+	for key, content := range S3Content {
+		assert.Assert(t, ensureS3Object(s3client, bucket, key, content))
+	}
+}
+
+/* // sync folder/ s3://bucket
 func TestSyncLocalFolderToS3BucketSameObjectsSameModTime(t *testing.T) {
 	t.Parallel()
 	s3client, s5cmd, cleanup := setup(t)
@@ -213,3 +328,4 @@ func TestSyncLocalFolderToS3BucketSameObjectsSameModTime(t *testing.T) {
 		assert.Assert(t, ensureS3Object(s3client, bucket, key, content))
 	}
 }
+*/

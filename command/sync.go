@@ -390,15 +390,7 @@ func (s Sync) commonCopyTask(
 			return err
 		}
 		err = s.doCopy(ctx, srcurl, dsturl)
-		if err != nil {
-			return &errorpkg.Error{
-				Op:  "copy",
-				Src: srcurl,
-				Dst: dsturl,
-				Err: err,
-			}
-		}
-		return nil
+		return returnError(err, "copy", srcurl, dsturl)
 	}
 }
 
@@ -411,15 +403,7 @@ func (s Sync) prepareCopyTask(
 	return func() error {
 		dsturl = prepareRemoteDestination(srcurl, dsturl, false, isBatch)
 		err := s.doCopy(ctx, srcurl, dsturl)
-		if err != nil {
-			return &errorpkg.Error{
-				Op:  "copy",
-				Src: srcurl,
-				Dst: dsturl,
-				Err: err,
-			}
-		}
-		return nil
+		return returnError(err, "copy", srcurl, dsturl)
 	}
 }
 
@@ -440,15 +424,7 @@ func (s Sync) commonDownloadTask(
 			return err
 		}
 		err = s.doDownload(ctx, srcurl, dsturl)
-		if err != nil {
-			return &errorpkg.Error{
-				Op:  "download",
-				Src: srcurl,
-				Dst: dsturl,
-				Err: err,
-			}
-		}
-		return nil
+		return returnError(err, "download", srcurl, dsturl)
 	}
 }
 
@@ -464,15 +440,7 @@ func (s Sync) prepareDownloadTask(
 			return err
 		}
 		err = s.doDownload(ctx, srcurl, dsturl)
-		if err != nil {
-			return &errorpkg.Error{
-				Op:  "download",
-				Src: srcurl,
-				Dst: dsturl,
-				Err: err,
-			}
-		}
-		return nil
+		return returnError(err, "download", srcurl, dsturl)
 	}
 }
 
@@ -493,15 +461,7 @@ func (s Sync) commonUploadTask(
 			return err
 		}
 		err = s.doUpload(ctx, srcurl, dsturl)
-		if err != nil {
-			return &errorpkg.Error{
-				Op:  "upload",
-				Src: srcurl,
-				Dst: dsturl,
-				Err: err,
-			}
-		}
-		return nil
+		return returnError(err, "upload", srcurl, dsturl)
 	}
 }
 
@@ -514,15 +474,7 @@ func (s Sync) prepareUploadTask(
 	return func() error {
 		dsturl = prepareRemoteDestination(srcurl, dsturl, false, isBatch)
 		err := s.doUpload(ctx, srcurl, dsturl)
-		if err != nil {
-			return &errorpkg.Error{
-				Op:  "upload",
-				Src: srcurl,
-				Dst: dsturl,
-				Err: err,
-			}
-		}
-		return nil
+		return returnError(err, "upload", srcurl, dsturl)
 	}
 }
 
@@ -632,6 +584,8 @@ func (s Sync) doCopy(ctx context.Context, srcurl, dsturl *url.URL) error {
 func (s Sync) shouldOverride(srcObj *storage.Object, dstObj *storage.Object) error {
 	var stickyErr error
 	// check size of objects
+	fmt.Printf("size for %s: %d, %s: %d\n", srcObj.URL.Path, srcObj.Size, dstObj.URL.Path, dstObj.Size)
+	fmt.Printf("etags :%s : %s, %s : %s\n", srcObj.URL.Path, srcObj.Etag, dstObj.URL.Path, dstObj.Etag)
 	if srcObj.Size == dstObj.Size {
 		stickyErr = errorpkg.ErrObjectSizesMatch
 	} else {
@@ -745,5 +699,17 @@ func validateSyncDownload(srcurl *url.URL) error {
 		return fmt.Errorf("remote source %q must be a bucket or a prefix", srcurl)
 	}
 
+	return nil
+}
+
+func returnError(err error, op string, srcurl, dsturl *url.URL) error {
+	if err != nil {
+		return &errorpkg.Error{
+			Op:  op,
+			Src: srcurl,
+			Dst: dsturl,
+			Err: err,
+		}
+	}
 	return nil
 }

@@ -151,6 +151,7 @@ func (db *Backend) ListBucket(name string, prefix *gofakes3.Prefix, page gofakes
 		var match gofakes3.PrefixMatch
 
 		for k, v := c.First(); k != nil; k, v = c.Next() {
+			fmt.Println("list first v", string(k[:]), int64(len(v)))
 			key := string(k)
 			if !prefix.Match(key, &match) {
 				continue
@@ -159,12 +160,24 @@ func (db *Backend) ListBucket(name string, prefix *gofakes3.Prefix, page gofakes
 				objects.AddPrefix(match.MatchedPart)
 
 			} else {
-				hash := md5.Sum(v)
+				// hash := md5.Sum(v)
+				newObject := &boltObject{
+					Name:     "objectName",
+					Metadata: map[string]string{},
+					Size:     int64(0),
+					Contents: []byte{},
+					Hash:     []byte{},
+				}
+				err := bson.Unmarshal(v, newObject)
+				if err != nil {
+					continue
+				}
+				fmt.Println("len 64 reading", string(k[:]), int64(len(v)))
 				item := &gofakes3.Content{
 					Key:          string(k),
 					LastModified: mod,
-					ETag:         `"` + hex.EncodeToString(hash[:]) + `"`,
-					Size:         int64(len(v)),
+					ETag:         `"` + hex.EncodeToString(newObject.Hash[:]) + `"`,
+					Size:         newObject.Size,
 				}
 				objects.Add(item)
 			}
@@ -314,6 +327,7 @@ func (db *Backend) PutObject(
 			Contents: bts,
 			Hash:     hash[:],
 		})
+		fmt.Println("len(bts)", int64(len(bts)))
 		if err != nil {
 			return err
 		}

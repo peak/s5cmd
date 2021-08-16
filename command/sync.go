@@ -686,7 +686,7 @@ func validateSyncCommand(c *cli.Context) error {
 	case dsturl.IsRemote():
 		return validateSyncUpload(ctx, srcurl, dsturl, NewStorageOpts(c))
 	case srcurl.IsRemote():
-		return validateSyncDownload(ctx, srcurl, NewStorageOpts(c))
+		return validateSyncDownload(srcurl)
 	default:
 		return nil
 	}
@@ -727,7 +727,7 @@ func validateSyncUpload(ctx context.Context, srcurl, dsturl *url.URL, storageOpt
 	return nil
 }
 
-func validateSyncDownload(ctx context.Context, srcurl *url.URL, storageOpts storage.Options) error {
+func validateSyncDownload(srcurl *url.URL) error {
 	if srcurl.IsWildcard() {
 		return nil
 	}

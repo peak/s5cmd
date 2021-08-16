@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -308,7 +309,7 @@ func (s Sync) doesSourceHave(sourceObjects []*storage.Object, wantedObject *stor
 		if s.shouldSkipObject(source, &errorToWrite, false) {
 			continue
 		}
-		if source.URL.ObjectPath() == wantedObject.URL.ObjectPath() {
+		if filepath.ToSlash(source.URL.ObjectPath()) == filepath.ToSlash(wantedObject.URL.ObjectPath()) {
 			return idx
 		}
 	}

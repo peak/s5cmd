@@ -713,11 +713,12 @@ func validateSyncUpload(ctx context.Context, srcurl, dsturl *url.URL, storageOpt
 		return err
 	}
 
+	// do not support single file. use 'cp' instead.
 	if !obj.Type.IsDir() {
 		return fmt.Errorf("local source must be a directory")
 	}
 
-	// 'cp dir/ s3://bucket/prefix-without-slash': expect a trailing slash to
+	// 'sync dir/ s3://bucket/prefix-without-slash': expect a trailing slash to
 	// avoid any surprises.
 	if obj.Type.IsDir() && !dsturl.IsBucket() && !dsturl.IsPrefix() {
 		return fmt.Errorf("target %q must be a bucket or a prefix", dsturl)
@@ -731,8 +732,9 @@ func validateSyncDownload(ctx context.Context, srcurl *url.URL, storageOpts stor
 		return nil
 	}
 
-	// 'cp dir/ s3://bucket/prefix-without-slash': expect a trailing slash to
-	// avoid any surprises.
+	// 'sync s3://bucket/prefix-without-slash dir/': should not work
+	// 'sync s3://bucket/object.go dir/' should not work.
+	// do not support single object.
 	if !srcurl.IsBucket() && !srcurl.IsPrefix() {
 		return fmt.Errorf("source %q must be a bucket or a prefix", srcurl)
 	}

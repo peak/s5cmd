@@ -50,7 +50,7 @@ Here are the list of tools that are used to check the sanity of the code at comp
 
 ### Performance
 
-While adding your changes and testing your changes, it would be good to remember that  `s5cmd`'s goal is to be the fastest s3 client with a rich set of functionality.  Here are some important things to keep in mind:
+While adding your changes and testing your changes, it would be good to remember that `s5cmd`'s goal is to be the fastest s3 client with a rich set of functionality. Here are some important things to keep in mind:
 
 - Avoid making unnecessary s3 api calls.
 - If your workload can be made faster by concurrent execution of several tasks use concurrency constructs.

@@ -87,7 +87,7 @@ func TestListSingleS3Object(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: suffix("317 testfile1.txt"),
+		0: suffix("22 testfile1.txt"),
 	})
 }
 
@@ -136,9 +136,9 @@ func TestListSingleWildcardS3Object(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: suffix("317 testfile1.txt"),
-		1: suffix("322 testfile2.txt"),
-		2: suffix("330 testfile3.txt"),
+		0: suffix("22 testfile1.txt"),
+		1: suffix("27 testfile2.txt"),
+		2: suffix("35 testfile3.txt"),
 	}, alignment(true))
 }
 
@@ -190,12 +190,12 @@ func TestListMultipleWildcardS3Object(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: suffix("304 a/testfile1.txt"),
-		1: suffix("304 a/testfile2.txt"),
-		2: suffix("304 b/testfile3.txt"),
-		3: suffix("304 b/testfile4.txt"),
-		4: suffix("312 d/foo/bar/testfile8.txt"),
-		5: suffix("309 f/txt/testfile10.txt"),
+		0: suffix("7 a/testfile1.txt"),
+		1: suffix("7 a/testfile2.txt"),
+		2: suffix("7 b/testfile3.txt"),
+		3: suffix("7 b/testfile4.txt"),
+		4: suffix("7 d/foo/bar/testfile8.txt"),
+		5: suffix("7 f/txt/testfile10.txt"),
 	}, alignment(true))
 }
 
@@ -227,9 +227,9 @@ func TestListMultipleWildcardS3ObjectWithPrefix(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: suffix("304 testfile1.txt"),
-		1: suffix("304 testfile2.txt"),
-		2: suffix("304 testfile3.txt"),
+		0: suffix("7 testfile1.txt"),
+		1: suffix("7 testfile2.txt"),
+		2: suffix("7 testfile3.txt"),
 	}, alignment(true))
 }
 
@@ -266,8 +266,8 @@ func TestListS3ObjectsAndFolders(t *testing.T) {
 		3: suffix("DIR d/"),
 		4: suffix("DIR e/"),
 		5: suffix("DIR f/"),
-		6: suffix("298 report.gz"),
-		7: suffix("302 testfile1.txt"),
+		6: suffix("7 report.gz"),
+		7: suffix("7 testfile1.txt"),
 	}, alignment(true))
 }
 
@@ -294,7 +294,7 @@ func TestListS3ObjectsAndFoldersWithPrefix(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: suffix("DIR t/"),
-		1: suffix("302 testfile1.txt"),
+		1: suffix("7 testfile1.txt"),
 	}, alignment(true))
 }
 
@@ -390,8 +390,8 @@ func TestListS3ObjectsWithDashH(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: match(`^ 215.1K testfile1.txt$`),
-		1: match(`^ 264.0K testfile2.txt$`),
+		0: match(`^ 214.8K testfile1.txt$`),
+		1: match(`^ 263.7K testfile2.txt$`),
 	}, trimMatch(dateRe), alignment(true))
 }
 

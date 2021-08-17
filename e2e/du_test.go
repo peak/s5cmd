@@ -27,7 +27,7 @@ func TestDiskUsageSingleS3Object(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: suffix(`317 bytes in 1 objects: s3://%v/testfile1.txt`, bucket),
+		0: suffix(`22 bytes in 1 objects: s3://%v/testfile1.txt`, bucket),
 	})
 }
 
@@ -55,7 +55,7 @@ func TestDiskUsageSingleS3ObjectJSON(t *testing.T) {
 			{
 				"source": "s3://test-disk-usage-single-s-3-object-json/testfile1.txt",
 				"count":1,
-				"size":317
+				"size":22
 			}
 		`),
 	})
@@ -81,7 +81,7 @@ func TestDiskUsageMultipleS3Objects(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: suffix(`639 bytes in 2 objects: s3://%v`, bucket),
+		0: suffix(`49 bytes in 2 objects: s3://%v`, bucket),
 	})
 }
 
@@ -105,7 +105,7 @@ func TestDiskUsageWildcard(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: suffix(`973 bytes in 3 objects: s3://%v/*.txt`, bucket),
+		0: suffix(`84 bytes in 3 objects: s3://%v/*.txt`, bucket),
 	})
 }
 
@@ -135,7 +135,7 @@ func TestDiskUsageS3ObjectsAndFolders(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: suffix(`600 bytes in 2 objects: s3://%v`, bucket),
+		0: suffix(`14 bytes in 2 objects: s3://%v`, bucket),
 	})
 }
 
@@ -159,7 +159,7 @@ func TestDiskUsageWildcardS3ObjectsWithDashH(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: suffix(`241.8K bytes in 2 objects: s3://%v`, bucket),
+		0: suffix(`241.2K bytes in 2 objects: s3://%v`, bucket),
 	})
 }
 
@@ -210,7 +210,7 @@ func TestDiskUsageWildcardWithExcludeFilter(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: suffix(`973 bytes in 3 objects: s3://%v/*.txt`, bucket),
+		0: suffix(`84 bytes in 3 objects: s3://%v/*.txt`, bucket),
 	})
 }
 
@@ -243,6 +243,6 @@ func TestDiskUsageWildcardWithExcludeFilters(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: suffix(`973 bytes in 3 objects: s3://%v/*`, bucket),
+		0: suffix(`84 bytes in 3 objects: s3://%v/*`, bucket),
 	})
 }

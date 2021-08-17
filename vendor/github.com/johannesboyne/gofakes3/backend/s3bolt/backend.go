@@ -159,14 +159,13 @@ func (db *Backend) ListBucket(name string, prefix *gofakes3.Prefix, page gofakes
 				objects.AddPrefix(match.MatchedPart)
 
 			} else {
-				// hash := md5.Sum(v)
 				var b boltObject
 				err := bson.Unmarshal(v, &b)
 				if err != nil {
-					continue
+					return fmt.Errorf("gofakes3: could not unmarshal object %q: %v", string(k[:]), err)
 				}
 				item := &gofakes3.Content{
-					Key:          string(k),
+					Key:          string(k[:]),
 					LastModified: mod,
 					ETag:         `"` + hex.EncodeToString(b.Hash[:]) + `"`,
 					Size:         b.Size,
@@ -305,6 +304,7 @@ func (db *Backend) PutObject(
 	}
 
 	hash := md5.Sum(bts)
+
 	return result, db.bolt.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(bucketName))
 		if b == nil {

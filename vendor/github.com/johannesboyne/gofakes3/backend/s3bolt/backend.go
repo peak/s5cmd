@@ -151,7 +151,6 @@ func (db *Backend) ListBucket(name string, prefix *gofakes3.Prefix, page gofakes
 		var match gofakes3.PrefixMatch
 
 		for k, v := c.First(); k != nil; k, v = c.Next() {
-			fmt.Println("list first v", string(k[:]), int64(len(v)))
 			key := string(k)
 			if !prefix.Match(key, &match) {
 				continue
@@ -161,23 +160,16 @@ func (db *Backend) ListBucket(name string, prefix *gofakes3.Prefix, page gofakes
 
 			} else {
 				// hash := md5.Sum(v)
-				newObject := &boltObject{
-					Name:     "objectName",
-					Metadata: map[string]string{},
-					Size:     int64(0),
-					Contents: []byte{},
-					Hash:     []byte{},
-				}
-				err := bson.Unmarshal(v, newObject)
+				var b boltObject
+				err := bson.Unmarshal(v, &b)
 				if err != nil {
 					continue
 				}
-				fmt.Println("len 64 reading", string(k[:]), int64(len(v)))
 				item := &gofakes3.Content{
 					Key:          string(k),
 					LastModified: mod,
-					ETag:         `"` + hex.EncodeToString(newObject.Hash[:]) + `"`,
-					Size:         newObject.Size,
+					ETag:         `"` + hex.EncodeToString(b.Hash[:]) + `"`,
+					Size:         b.Size,
 				}
 				objects.Add(item)
 			}
@@ -313,7 +305,6 @@ func (db *Backend) PutObject(
 	}
 
 	hash := md5.Sum(bts)
-
 	return result, db.bolt.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(bucketName))
 		if b == nil {
@@ -327,7 +318,6 @@ func (db *Backend) PutObject(
 			Contents: bts,
 			Hash:     hash[:],
 		})
-		fmt.Println("len(bts)", int64(len(bts)))
 		if err != nil {
 			return err
 		}

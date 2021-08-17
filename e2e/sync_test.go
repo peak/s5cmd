@@ -254,6 +254,9 @@ func TestSyncS3BucketToLocalWithDelete(t *testing.T) {
 	expectedFolderLayout := []fs.PathOp{
 		fs.WithFile("testfile1.txt", "this is a test file 1"),
 		fs.WithFile("readme.md", "this is a readme file"),
+		fs.WithDir(
+			"dir",
+		),
 	}
 
 	// assert local filesystem

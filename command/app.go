@@ -40,8 +40,8 @@ var app = &cli.App{
 			Usage:   "number of times that a request will be retried for failures",
 		},
 		&cli.StringFlag{
-			Name:  "endpoint-url",
-			Usage: "override default S3 host for custom services",
+			Name:    "endpoint-url",
+			Usage:   "override default S3 host for custom services",
 			EnvVars: []string{"S3_ENDPOINT_URL"},
 		},
 		&cli.BoolFlag{

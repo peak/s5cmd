@@ -164,6 +164,7 @@ func (s Sync) Run(ctx context.Context) error {
 		}
 	}()
 
+	// add * to end of destination string, to get all objects recursively.
 	var destinationURLPath string
 	if strings.HasSuffix(s.dst, "/") {
 		destinationURLPath = s.dst + "*"

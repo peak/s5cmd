@@ -216,6 +216,59 @@ func TestSyncS3BucketToEmptyFolder(t *testing.T) {
 	}
 }
 
+// sync  s3://bucket/* s3://destbucket/prefix/
+func TestSyncS3BucketToEmptyS3Bucket(t *testing.T) {
+	t.Parallel()
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	bucket := s3BucketFromTestName(t)
+	const (
+		destbucket = "destbucket"
+		prefix     = "prefix"
+	)
+	createBucket(t, s3client, bucket)
+	createBucket(t, s3client, destbucket)
+
+	S3Content := map[string]string{
+		"testfile1.txt":           "this is a test file 1",
+		"readme.md":               "this is a readme file",
+		"a/another_test_file.txt": "yet another txt file. yatf.",
+		"abc/def/test.py":         "file in nested folders",
+	}
+
+	for filename, content := range S3Content {
+		putFile(t, s3client, bucket, filename, content)
+	}
+
+	bucketPath := fmt.Sprintf("s3://%v", bucket)
+	src := fmt.Sprintf("%v/*", bucketPath)
+	dst := fmt.Sprintf("s3://%v/%v/", destbucket, prefix)
+
+	cmd := s5cmd("sync", src, dst)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`copy %v/a/another_test_file.txt %va/another_test_file.txt`, bucketPath, dst),
+		1: equals(`copy %v/abc/def/test.py %vabc/def/test.py`, bucketPath, dst),
+		2: equals(`copy %v/readme.md %vreadme.md`, bucketPath, dst),
+		3: equals(`copy %v/testfile1.txt %vtestfile1.txt`, bucketPath, dst),
+	}, sortInput(true))
+
+	// assert  s3 objects in source bucket.
+	for key, content := range S3Content {
+		assert.Assert(t, ensureS3Object(s3client, bucket, key, content))
+	}
+
+	// assert s3 objects in dest bucket
+	for key, content := range S3Content {
+		key = fmt.Sprintf("/%s/%s", prefix, key) // add the prefix
+		assert.Assert(t, ensureS3Object(s3client, destbucket, key, content))
+	}
+}
+
 // sync folder/ s3://bucket (source older, same objects)
 func TestSyncLocalFolderToS3BucketSameObjectsSourceOlder(t *testing.T) {
 	t.Parallel()
@@ -534,6 +587,80 @@ func TestSyncS3BucketToLocalFolderSameObjectsSourceNewer(t *testing.T) {
 	}
 }
 
+// sync s3://bucket/* s3://destbucket/ (source older, same objects)
+func TestSyncS3BucketToS3BucketSizeOnly(t *testing.T) {
+	// not sure how to set the time, maybe we can use time.Sleep()?.
+	// use size-only
+	t.Parallel()
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	bucket := s3BucketFromTestName(t)
+	destbucket := "destbucket"
+	createBucket(t, s3client, bucket)
+	createBucket(t, s3client, destbucket)
+
+	sourceS3Content := map[string]string{
+		"main.py":                 "this is a python file with some extension",
+		"testfile1.txt":           "this is a test file 2",
+		"readme.md":               "this is a readve file",
+		"a/another_test_file.txt": "yet another txt file. yatg:",
+	}
+
+	// the file sizes are same, content different.
+	// ensure that dest bucket objects is not changed.
+	destS3Content := map[string]string{
+		"main.py":                 "this is a python abcd", // file size is shorter.
+		"testfile1.txt":           "this is a test abcd 2",
+		"readme.md":               "this is a readve abcd",
+		"a/another_test_file.txt": "yet another txt abcd. yatg:",
+	}
+
+	for filename, content := range sourceS3Content {
+		putFile(t, s3client, bucket, filename, content)
+	}
+
+	for filename, content := range destS3Content {
+		putFile(t, s3client, destbucket, filename, content)
+	}
+
+	bucketPath := fmt.Sprintf("s3://%v", bucket)
+	src := fmt.Sprintf("%s/*", bucketPath)
+	dst := fmt.Sprintf("s3://%v/", destbucket)
+
+	// log debug
+	cmd := s5cmd("--log", "debug", "sync", "--size-only", src, dst)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`DEBUG "sync %v/a/another_test_file.txt %va/another_test_file.txt": object size matches`, bucketPath, dst),
+		1: equals(`DEBUG "sync %v/readme.md %vreadme.md": object size matches`, bucketPath, dst),
+		2: equals(`DEBUG "sync %v/testfile1.txt %vtestfile1.txt": object size matches`, bucketPath, dst),
+		3: equals(`copy %v/main.py %vmain.py`, bucketPath, dst),
+	}, sortInput(true))
+
+	// assert s3 objects in source
+	for key, content := range sourceS3Content {
+		assert.Assert(t, ensureS3Object(s3client, bucket, key, content))
+	}
+
+	// the file sizes are same, content different.
+	// ensure that dest bucket objects is not changed.
+	expectedDestS3Content := map[string]string{
+		"main.py":                 "this is a python file with some extension",
+		"testfile1.txt":           "this is a test abcd 2",
+		"readme.md":               "this is a readve abcd",
+		"a/another_test_file.txt": "yet another txt abcd. yatg:",
+	}
+
+	// assert s3 objects in destination
+	for key, content := range expectedDestS3Content {
+		assert.Assert(t, ensureS3Object(s3client, destbucket, key, content))
+	}
+}
+
 // sync --size-only s3://bucket/* folder/
 func TestSyncS3BucketToLocalFolderSameObjectsSizeOnly(t *testing.T) {
 	t.Parallel()
@@ -695,8 +822,7 @@ func TestSyncS3BucketToLocalWithDelete(t *testing.T) {
 	createBucket(t, s3client, bucket)
 
 	S3Content := map[string]string{
-		"testfile1.txt": "this is a test file 1",
-		"readme.md":     "this is a readme file",
+		"contributing.md": "this is a readme file",
 	}
 
 	for filename, content := range S3Content {
@@ -715,25 +841,27 @@ func TestSyncS3BucketToLocalWithDelete(t *testing.T) {
 	workdir := fs.NewDir(t, "somedir", folderLayout...)
 	defer workdir.Remove()
 
+	src := fmt.Sprintf("s3://%v/", bucket)
 	dst := fmt.Sprintf("%v/", workdir.Path())
 	dst = filepath.ToSlash(dst)
-	src := fmt.Sprintf("s3://%v/", bucket)
 
-	cmd := s5cmd("sync", "--delete", "--size-only", src+"*", dst)
+	cmd := s5cmd("sync", "--delete", src+"*", dst)
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(`delete %vdir/main.py`, dst),
+		1: equals(`delete %vreadme.md`, dst),
+		2: equals(`delete %vtestfile1.txt`, dst),
+		3: equals(`download %vcontributing.md %vcontributing.md`, src, dst),
 	}, sortInput(true))
 
 	expectedFolderLayout := []fs.PathOp{
-		fs.WithFile("testfile1.txt", "this is a test file 1"),
-		fs.WithFile("readme.md", "this is a readme file"),
 		fs.WithDir(
 			"dir",
 		),
+		fs.WithFile("contributing.md", "this is a readme file"),
 	}
 
 	// assert local filesystem
@@ -743,5 +871,152 @@ func TestSyncS3BucketToLocalWithDelete(t *testing.T) {
 	// assert s3
 	for key, content := range S3Content {
 		assert.Assert(t, ensureS3Object(s3client, bucket, key, content))
+	}
+}
+
+// sync --delete s3://bucket/* .
+func TestSyncLocalToS3BucketWithDelete(t *testing.T) {
+	t.Parallel()
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	// first create the source to ensure source is older.
+	folderLayout := []fs.PathOp{
+		fs.WithFile("contributing.md", "this is a readme file"),
+	}
+
+	workdir := fs.NewDir(t, "somedir", folderLayout...)
+	defer workdir.Remove()
+
+	S3Content := map[string]string{
+		"readme.md":     "this is a readme file",
+		"dir/main.py":   "this is a python file",
+		"testfile1.txt": "this is a test file 1",
+	}
+
+	for filename, content := range S3Content {
+		putFile(t, s3client, bucket, filename, content)
+	}
+
+	src := fmt.Sprintf("%v/", workdir.Path())
+	src = filepath.ToSlash(src)
+	dst := fmt.Sprintf("s3://%v/", bucket)
+
+	cmd := s5cmd("sync", "--delete", src, dst)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`delete %vdir/main.py`, dst),
+		1: equals(`delete %vreadme.md`, dst),
+		2: equals(`delete %vtestfile1.txt`, dst),
+		3: equals(`upload %vcontributing.md %vcontributing.md`, src, dst),
+	}, sortInput(true))
+
+	expectedFolderLayout := []fs.PathOp{
+		fs.WithFile("contributing.md", "this is a readme file"),
+	}
+
+	// assert local filesystem
+	expected := fs.Expected(t, expectedFolderLayout...)
+	assert.Assert(t, fs.Equal(workdir.Path(), expected))
+
+	expectedS3Content := map[string]string{
+		"contributing.md": "this is a readme file",
+	}
+
+	// assert s3 objects
+	for key, content := range expectedS3Content {
+		assert.Assert(t, ensureS3Object(s3client, bucket, key, content))
+	}
+
+	// assert s3 objects should be deleted.
+	for key, content := range S3Content {
+		err := ensureS3Object(s3client, bucket, key, content)
+		assert.Assert(t, err, errS3NoSuchKey)
+	}
+}
+
+// sync --delete s3://bucket/* s3://destbucket/
+func TestSyncS3BucketToS3BucketWithDelete(t *testing.T) {
+	t.Parallel()
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	bucket := s3BucketFromTestName(t)
+	destbucket := "destbucket"
+	createBucket(t, s3client, bucket)
+	createBucket(t, s3client, destbucket)
+
+	sourceS3Content := map[string]string{
+		"readme.md":     "this is a readme file",
+		"dir/main.py":   "this is a python file",
+		"testfile1.txt": "this is a test file 1",
+	}
+
+	destS3Content := map[string]string{
+		"main.md":       "this is a readme file",
+		"dir/test.py":   "this is a python file",
+		"testfile1.txt": "this is a test file 212321", // different size from source
+		"testfile2.txt": "this is a test file 1",
+	}
+
+	for filename, content := range sourceS3Content {
+		putFile(t, s3client, bucket, filename, content)
+	}
+
+	for filename, content := range destS3Content {
+		putFile(t, s3client, destbucket, filename, content)
+	}
+
+	src := fmt.Sprintf("s3://%v/", bucket)
+	dst := fmt.Sprintf("s3://%v/", destbucket)
+
+	cmd := s5cmd("sync", "--delete", "--size-only", src+"*", dst)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`copy %vdir/main.py %vdir/main.py`, src, dst),
+		1: equals(`copy %vreadme.md %vreadme.md`, src, dst),
+		2: equals(`copy %vtestfile1.txt %vtestfile1.txt`, src, dst),
+		3: equals(`delete %vdir/test.py`, dst),
+		4: equals(`delete %vmain.md`, dst),
+		5: equals(`delete %vtestfile2.txt`, dst),
+	}, sortInput(true))
+
+	expectedDestS3Content := map[string]string{
+		"testfile1.txt": "this is a test file 1", // same as source bucket.
+		"readme.md":     "this is a readme file",
+		"dir/main.py":   "this is a python file",
+	}
+
+	nonExpectedDestS3Content := map[string]string{
+		"dir/test.py":   "this is a python file",
+		"main.md":       "this is a readme file",
+		"testfile2.txt": "this is a test file 1",
+	}
+
+	// assert s3 objects in source.
+	for key, content := range sourceS3Content {
+		assert.Assert(t, ensureS3Object(s3client, bucket, key, content))
+	}
+
+	// assert s3 objects in destination. (should be)
+	for key, content := range expectedDestS3Content {
+		assert.Assert(t, ensureS3Object(s3client, destbucket, key, content))
+	}
+
+	// assert s3 objects should be deleted.
+	for key, content := range nonExpectedDestS3Content {
+		err := ensureS3Object(s3client, destbucket, key, content)
+		if err == nil {
+			t.Errorf("File %v is not deleted in remote : %v\n", key, err)
+		}
 	}
 }

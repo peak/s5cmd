@@ -937,7 +937,9 @@ func TestSyncLocalToS3BucketWithDelete(t *testing.T) {
 	// assert s3 objects should be deleted.
 	for key, content := range S3Content {
 		err := ensureS3Object(s3client, bucket, key, content)
-		assert.Assert(t, err, errS3NoSuchKey)
+		if err == nil {
+			t.Errorf("File %v is not deleted in remote : %v\n", key, err)
+		}
 	}
 }
 

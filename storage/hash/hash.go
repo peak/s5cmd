@@ -25,7 +25,7 @@ type ObjectHash struct {
 	isLocal   bool
 }
 
-// NewObjectHash returns a new ObjectHash object.
+// New returns a new ObjectHash object.
 func New(object *storage.Object) *ObjectHash {
 	return &ObjectHash{
 		object:    object,
@@ -34,7 +34,7 @@ func New(object *storage.Object) *ObjectHash {
 	}
 }
 
-// different checks is given objecthash is different than source hash.
+// Different checks is given objecthash is different than source hash.
 func (o *ObjectHash) Different(target *ObjectHash) error {
 	if o.multipart != 0 { // source is multipart uploaded.
 		return ErrorMultipartUpload

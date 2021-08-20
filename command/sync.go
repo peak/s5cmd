@@ -16,6 +16,7 @@ import (
 	"github.com/peak/s5cmd/log/stat"
 	"github.com/peak/s5cmd/parallel"
 	"github.com/peak/s5cmd/storage"
+	storagehash "github.com/peak/s5cmd/storage/hash"
 	"github.com/peak/s5cmd/storage/url"
 )
 
@@ -51,6 +52,10 @@ func NewSyncCommandFlags() []cli.Flag {
 		&cli.BoolFlag{
 			Name:  "size-only",
 			Usage: "make size of object only criteria to decide whether an object should be synced",
+		},
+		&cli.BoolFlag{
+			Name:  "checksum",
+			Usage: "check md5 hash of objects to decide if an object should be overridden",
 		},
 	}
 }
@@ -91,6 +96,7 @@ type Sync struct {
 	// flags
 	delete   bool
 	sizeOnly bool
+	checksum bool
 
 	// s3 options
 	concurrency int
@@ -118,6 +124,7 @@ func NewSync(c *cli.Context, deleteSource bool) Sync {
 		// flags
 		delete:   c.Bool("delete"),
 		sizeOnly: c.Bool("size-only"),
+		checksum: c.Bool("checksum"),
 
 		// s3 options
 		partSize:    c.Int64("part-size") * megabytes,
@@ -582,7 +589,7 @@ func (s Sync) doCopy(ctx context.Context, srcurl, dsturl *url.URL) error {
 // are different, then it returns an error which says this objects should not
 // be overridden. If it returns nil, then it means it means override operation
 // needs to be done.
-func (s Sync) shouldOverride(srcObj *storage.Object, dstObj *storage.Object) error {
+func (s Sync) shouldOverride(srcObj, dstObj *storage.Object) error {
 	var stickyErr error
 	// check size of objects
 	if srcObj.Size == dstObj.Size {
@@ -601,12 +608,24 @@ func (s Sync) shouldOverride(srcObj *storage.Object, dstObj *storage.Object) err
 		}
 	}
 
+	// check md5 sum of objects, if size only flag is set
+	// then do not check the hash.
+	if !s.sizeOnly && s.checksum {
+		sourceHash := storagehash.New(srcObj)
+		destHash := storagehash.New(dstObj)
+		stickyErr = sourceHash.Different(destHash)
+	}
+
 	return stickyErr
 }
 
 func validateSyncCommand(c *cli.Context) error {
 	if c.Args().Len() != 2 {
 		return fmt.Errorf("expected source and destination arguments")
+	}
+
+	if c.Bool("size-only") && c.Bool("checksum") {
+		return fmt.Errorf("--size-only and --checksum flag cannot be used together")
 	}
 
 	ctx := c.Context

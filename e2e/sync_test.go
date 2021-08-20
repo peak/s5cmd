@@ -1150,3 +1150,224 @@ func TestSyncS3BucketToS3BucketWithDelete(t *testing.T) {
 		}
 	}
 }
+
+// sync --checksum --size-only src dst
+func TestSyncSizeOnlyAndChecksumNotAllowedTogether(t *testing.T) {
+	t.Parallel()
+	_, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	cmd := s5cmd("sync", "--size-only", "--checksum", "src", "dst")
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Expected{ExitCode: 1})
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: equals(`ERROR "sync src dst": --size-only and --checksum flags cannot be used together`),
+	})
+}
+
+// sync --checksum folder/ s3://bucket/ (local (source) older)
+// sizes and times says that files should not be overridden, but since
+// we check the hash of files, some changes in files detected and
+// therefore they will be overridden.
+func TestSyncLocalToS3WithChecksum(t *testing.T) {
+	t.Parallel()
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	// make local older.
+	now := time.Now().UTC()
+	timestamp := fs.WithTimestamps(
+		now.Add(-time.Minute), // access time
+		now.Add(-time.Minute), // mod time
+	)
+
+	folderLayout := []fs.PathOp{
+		fs.WithFile("test.txt", "this is a test file", timestamp),
+		fs.WithFile("readme.md", "this is a readme file", timestamp),
+		fs.WithDir(
+			"subfolder",
+			fs.WithFile("sub.txt", "yet another txt", timestamp),
+		),
+		fs.WithFile("main.py", "py file", timestamp),
+	}
+
+	s3Content := map[string]string{
+		"test.txt":          "this is a test file",   // same size, same content, this file newer
+		"readme.md":         "this is a readve file", // same size, this file newer, hash different
+		"main.py":           "py file",               // same object.
+		"subfolder/sub.txt": "yet anothe  txt",       // same size, this file newer, hash different
+	}
+
+	for filename, content := range s3Content {
+		putFile(t, s3client, bucket, filename, content)
+	}
+
+	workdir := fs.NewDir(t, "somedir", folderLayout...)
+	defer workdir.Remove()
+
+	src := fmt.Sprintf("%v/", workdir.Path())
+	src = filepath.ToSlash(src)
+	dst := fmt.Sprintf("s3://%v/", bucket)
+
+	cmd := s5cmd("--log", "debug", "sync", "--checksum", src, dst)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`DEBUG "sync %vmain.py %vmain.py": hash values are same, content is not changed`, src, dst),
+		1: equals(`DEBUG "sync %vtest.txt %vtest.txt": hash values are same, content is not changed`, src, dst),
+		2: equals(`upload %vreadme.md %vreadme.md`, src, dst),
+		3: equals(`upload %vsubfolder/sub.txt %vsubfolder/sub.txt`, src, dst),
+	}, sortInput(true))
+
+	expectedS3Content := map[string]string{
+		"test.txt":          "this is a test file",
+		"readme.md":         "this is a readme file", // same as source
+		"main.py":           "py file",
+		"subfolder/sub.txt": "yet another txt", // same as source
+	}
+
+	for filename, content := range expectedS3Content {
+		err := ensureS3Object(s3client, bucket, filename, content)
+		if err != nil {
+			t.Errorf("there is a problem in %s, err: %v", filename, err)
+		}
+	}
+}
+
+// sync --checksum s3://bucket/* folder/  (local (target) newer)
+// sizes and times says that files should not be overridden, but since
+// we check the hash of files, some changes in files detected and
+// therefore they will be overridden.
+func TestSyncS3toLocalWithChecksum(t *testing.T) {
+	t.Parallel()
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	// make local newer.
+	now := time.Now().UTC()
+	timestamp := fs.WithTimestamps(
+		now.Add(time.Minute), // access time
+		now.Add(time.Minute), // mod time
+	)
+
+	folderLayout := []fs.PathOp{
+		fs.WithFile("test.txt", "this is a test file", timestamp),
+		fs.WithFile("readme.md", "this is a readme file", timestamp),
+		fs.WithDir(
+			"subfolder",
+			fs.WithFile("sub.txt", "yet another txt", timestamp),
+		),
+		fs.WithFile("main.py", "py file", timestamp),
+	}
+
+	s3Content := map[string]string{
+		"test.txt":          "this is a test file",   // same size, same content, this file newer
+		"readme.md":         "this is a readve file", // same size, this file newer, hash different
+		"main.py":           "py file",               // same object.
+		"subfolder/sub.txt": "yet anothe  txt",       // same size, this file newer, hash different
+	}
+
+	for filename, content := range s3Content {
+		putFile(t, s3client, bucket, filename, content)
+	}
+
+	workdir := fs.NewDir(t, "somedir", folderLayout...)
+	defer workdir.Remove()
+
+	src := fmt.Sprintf("s3://%v/", bucket)
+	dst := fmt.Sprintf("%v/", workdir.Path())
+	dst = filepath.ToSlash(dst)
+
+	cmd := s5cmd("--log", "debug", "sync", "--checksum", src+"*", dst)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`DEBUG "sync %vmain.py %vmain.py": hash values are same, content is not changed`, src, dst),
+		1: equals(`DEBUG "sync %vtest.txt %vtest.txt": hash values are same, content is not changed`, src, dst),
+		2: equals(`download %vreadme.md %vreadme.md`, src, dst),
+		3: equals(`download %vsubfolder/sub.txt %vsubfolder/sub.txt`, src, dst),
+	}, sortInput(true))
+
+	expectedLayout := []fs.PathOp{
+		fs.WithFile("test.txt", "this is a test file"),
+		fs.WithFile("readme.md", "this is a readve file"),
+		fs.WithDir(
+			"subfolder",
+			fs.WithFile("sub.txt", "yet anothe  txt"),
+		),
+		fs.WithFile("main.py", "py file"),
+	}
+
+	expected := fs.Expected(t, expectedLayout...)
+	assert.Assert(t, fs.Equal(workdir.Path(), expected))
+}
+
+// sync --checksum s3://bucket/* s3://destbucket/
+func TestSyncS3toS3WithChecksum(t *testing.T) {
+	t.Parallel()
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	bucket := s3BucketFromTestName(t)
+	destbucket := "destbucket"
+	createBucket(t, s3client, bucket)
+	createBucket(t, s3client, destbucket)
+
+	sourceS3Content := map[string]string{
+		"test.txt":          "this is a test file",   // same size, same content, this file older
+		"readme.md":         "this is a readve file", // same size, this file newer, hash different
+		"main.py":           "py file",               // same size, same content, this file older
+		"subfolder/sub.txt": "yet another txt",       // same size, this file newer, hash different
+	}
+
+	destS3Content := map[string]string{
+		"test.txt":          "this is a test file",
+		"readme.md":         "this is a readme file",
+		"main.py":           "py file",
+		"subfolder/sub.txt": "yet anothe  txt",
+	}
+
+	// first put the source to ensure that source is older.
+	for filename, content := range sourceS3Content {
+		putFile(t, s3client, bucket, filename, content)
+	}
+
+	for filename, content := range destS3Content {
+		putFile(t, s3client, destbucket, filename, content)
+	}
+
+	src := fmt.Sprintf("s3://%v/", bucket)
+	dst := fmt.Sprintf("s3://%v/", destbucket)
+
+	cmd := s5cmd("--log", "debug", "sync", "--checksum", src+"*", dst)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`DEBUG "sync %vmain.py %vmain.py": hash values are same, content is not changed`, src, dst),
+		1: equals(`DEBUG "sync %vtest.txt %vtest.txt": hash values are same, content is not changed`, src, dst),
+		2: equals(`copy %vreadme.md %vreadme.md`, src, dst),
+		3: equals(`copy %vsubfolder/sub.txt %vsubfolder/sub.txt`, src, dst),
+	}, sortInput(true))
+
+	// ensure dest bucket has same objects as source bucket.
+	for filename, content := range sourceS3Content {
+		err := ensureS3Object(s3client, destbucket, filename, content)
+		if err != nil {
+			t.Errorf("there is a sync problem in %s, err: %v", filename, err)
+		}
+	}
+}

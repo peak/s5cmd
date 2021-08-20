@@ -29,6 +29,25 @@ Usage:
 Options:
 	{{range .VisibleFlags}}{{.}}
 	{{end}}
+Examples:
+	01. Sync local folder to s3 bucket
+		> s5cmd {{.HelpName}} folder/ s3://bucket/
+
+	02. Sync S3 bucket to local folder
+		> s5cmd {{.HelpName}} s3://bucket/* folder/
+
+	03. Sync S3 bucket objects under prefix to S3 bucket.
+		> s5cmd {{.HelpName}} s3://sourcebucket/prefix/* s3://destbucket/
+
+	04. Sync local folder to S3 but delete the files that S3 bucket has but local does not have.
+		> s5cmd {{.HelpName}} --delete folder/ s3://bucket/
+
+	05. Sync S3 bucket to local folder but use size as only comparison criteria.
+		> s5cmd {{.HelpName}} --size-only s3://bucket/* folder/
+		
+	06. Sync S3 bucket to local folder but check the md5 values of files.
+		> s5cmd {{.HelpName}} --checksum s3://bucket/* folder/
+	
 `
 
 func NewSyncCommandFlags() []cli.Flag {
@@ -625,7 +644,7 @@ func validateSyncCommand(c *cli.Context) error {
 	}
 
 	if c.Bool("size-only") && c.Bool("checksum") {
-		return fmt.Errorf("--size-only and --checksum flag cannot be used together")
+		return fmt.Errorf("--size-only and --checksum flags cannot be used together")
 	}
 
 	ctx := c.Context

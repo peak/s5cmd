@@ -3,20 +3,14 @@ package hash
 import (
 	"crypto/md5"
 	"encoding/hex"
-	"errors"
 	"io"
 	"os"
 	"strconv"
 	"strings"
 
+	errorpkg "github.com/peak/s5cmd/error"
 	"github.com/peak/s5cmd/storage"
 )
-
-// ErrorMultipartUpload states object uploaded using multipart.
-var ErrorMultipartUpload error = errors.New("object uploaded multipart, hash comparison is not available for multipart uploaded objects")
-
-// ErrorSameHash states hash values are same.
-var ErrorSameHash error = errors.New("hash values are same, content is not changed")
 
 // ObjectHash defines hash related properties of storage.Object structure
 type ObjectHash struct {
@@ -27,6 +21,7 @@ type ObjectHash struct {
 
 // New returns a new ObjectHash object.
 func New(object *storage.Object) *ObjectHash {
+	// fmt.Printf("object %#v\n", object.URL)
 	return &ObjectHash{
 		object:    object,
 		multipart: checkMultipart(object.Etag),
@@ -37,11 +32,11 @@ func New(object *storage.Object) *ObjectHash {
 // Different checks is given objecthash is different than source hash.
 func (o *ObjectHash) Different(target *ObjectHash) error {
 	if o.multipart != 0 { // source is multipart uploaded.
-		return ErrorMultipartUpload
+		return errorpkg.ErrorMultipartUpload
 	}
 
 	if target.multipart != 0 { // target is multipart uploaded.
-		return ErrorMultipartUpload
+		return errorpkg.ErrorMultipartUpload
 	}
 
 	if o.isLocal { // local -> remote
@@ -50,24 +45,24 @@ func (o *ObjectHash) Different(target *ObjectHash) error {
 			return err
 		}
 		if localHash == target.object.Etag {
-			return ErrorSameHash
+			return errorpkg.ErrorSameHash
 		} else {
 			return nil
 		}
 	} else {
 		if target.isLocal { // remote -> local
-			localHash, err := fileHash(o.object.URL.Path)
+			localHash, err := fileHash(target.object.URL.Path)
 			if err != nil {
 				return err
 			}
 			if o.object.Etag == localHash {
-				return ErrorSameHash
+				return errorpkg.ErrorSameHash
 			} else {
 				return nil
 			}
 		} else { // remote -> remote
 			if o.object.Etag == target.object.Etag {
-				return ErrorSameHash
+				return errorpkg.ErrorSameHash
 			} else {
 				return nil
 			}

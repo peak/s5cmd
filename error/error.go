@@ -76,13 +76,19 @@ var (
 
 	// ErrObjectSizesMatch indicates the sizes of objects match.
 	ErrObjectSizesMatch = fmt.Errorf("object size matches")
+
+	// ErrorMultipartUpload states object uploaded using multipart.
+	ErrorMultipartUpload = fmt.Errorf("object uploaded multipart, hash comparison is not available for multipart uploaded objects")
+
+	// ErrorSameHash states hash values are same.
+	ErrorSameHash = fmt.Errorf("hash values are same, content is not changed")
 )
 
 // IsWarning checks if given error is either ErrObjectExists,
 // ErrObjectIsNewer or ErrObjectSizesMatch.
 func IsWarning(err error) bool {
 	switch err {
-	case ErrObjectExists, ErrObjectIsNewer, ErrObjectSizesMatch:
+	case ErrObjectExists, ErrObjectIsNewer, ErrObjectSizesMatch, ErrorMultipartUpload, ErrorSameHash:
 		return true
 	}
 

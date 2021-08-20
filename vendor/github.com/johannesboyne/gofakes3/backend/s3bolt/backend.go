@@ -139,7 +139,6 @@ func (db *Backend) ListBucket(name string, prefix *gofakes3.Prefix, page gofakes
 	}
 
 	objects := gofakes3.NewObjectList()
-	mod := gofakes3.NewContentTime(db.timeSource.Now())
 
 	err := db.bolt.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(name))
@@ -166,9 +165,9 @@ func (db *Backend) ListBucket(name string, prefix *gofakes3.Prefix, page gofakes
 				}
 				item := &gofakes3.Content{
 					Key:          string(k[:]),
-					LastModified: mod,
 					ETag:         `"` + hex.EncodeToString(b.Hash[:]) + `"`,
 					Size:         b.Size,
+					LastModified: gofakes3.NewContentTime(b.LastModified.UTC()),
 				}
 				objects.Add(item)
 			}
@@ -303,6 +302,7 @@ func (db *Backend) PutObject(
 		return result, err
 	}
 
+	mod := db.timeSource.Now()
 	hash := md5.Sum(bts)
 
 	return result, db.bolt.Update(func(tx *bolt.Tx) error {
@@ -312,11 +312,12 @@ func (db *Backend) PutObject(
 		}
 
 		data, err := bson.Marshal(&boltObject{
-			Name:     objectName,
-			Metadata: meta,
-			Size:     int64(len(bts)),
-			Contents: bts,
-			Hash:     hash[:],
+			Name:         objectName,
+			Metadata:     meta,
+			Size:         int64(len(bts)),
+			LastModified: mod,
+			Contents:     bts,
+			Hash:         hash[:],
 		})
 		if err != nil {
 			return err

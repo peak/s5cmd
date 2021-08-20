@@ -661,6 +661,134 @@ func TestSyncS3BucketToS3BucketSizeOnly(t *testing.T) {
 	}
 }
 
+// sync s3://bucket/* s3://destbucket/ (source newer, same objects, different content, same sizes)
+func TestSyncS3BucketToS3BucketSameSizesSourceNewer(t *testing.T) {
+	t.Parallel()
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	bucket := s3BucketFromTestName(t)
+	destbucket := "destbucket"
+
+	createBucket(t, s3client, bucket)
+	createBucket(t, s3client, destbucket)
+
+	sourceS3Content := map[string]string{
+		"main.py":                 "this is a python file",
+		"testfile1.txt":           "this is a test file 2",
+		"readme.md":               "this is a readve file",
+		"a/another_test_file.txt": "yet another txt file. yatg:",
+	}
+
+	// the file sizes are same, content different.
+	destS3Content := map[string]string{
+		"main.py":                 "this is a python abcd",
+		"testfile1.txt":           "this is a test abcd 2",
+		"readme.md":               "this is a readve abcd",
+		"a/another_test_file.txt": "yet another txt abcd. yatg:",
+	}
+
+	// first put destination to assure destination is older.
+	for filename, content := range destS3Content {
+		putFile(t, s3client, destbucket, filename, content)
+	}
+
+	for filename, content := range sourceS3Content {
+		putFile(t, s3client, bucket, filename, content)
+	}
+
+	bucketPath := fmt.Sprintf("s3://%v", bucket)
+	src := fmt.Sprintf("%s/*", bucketPath)
+	dst := fmt.Sprintf("s3://%v/", destbucket)
+
+	// log debug
+	cmd := s5cmd("--log", "debug", "sync", src, dst)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`copy %v/a/another_test_file.txt %va/another_test_file.txt`, bucketPath, dst),
+		1: equals(`copy %v/main.py %vmain.py`, bucketPath, dst),
+		2: equals(`copy %v/readme.md %vreadme.md`, bucketPath, dst),
+		3: equals(`copy %v/testfile1.txt %vtestfile1.txt`, bucketPath, dst),
+	}, sortInput(true))
+
+	// assert s3 objects in source
+	for key, content := range sourceS3Content {
+		assert.Assert(t, ensureS3Object(s3client, bucket, key, content))
+	}
+
+	// assert s3 objects in destination (should be same as source)
+	for key, content := range sourceS3Content {
+		assert.Assert(t, ensureS3Object(s3client, destbucket, key, content))
+	}
+}
+
+// sync s3://bucket/* s3://destbucket/ (source older, same objects, different content, same sizes)
+func TestSyncS3BucketToS3BucketSameSizesSourceOlder(t *testing.T) {
+	t.Parallel()
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	bucket := s3BucketFromTestName(t)
+	destbucket := "destbucket"
+
+	createBucket(t, s3client, bucket)
+	createBucket(t, s3client, destbucket)
+
+	sourceS3Content := map[string]string{
+		"main.py":                 "this is a python file",
+		"testfile1.txt":           "this is a test file 2",
+		"readme.md":               "this is a readve file",
+		"a/another_test_file.txt": "yet another txt file. yatg:",
+	}
+
+	// the file sizes are same, content different.
+	destS3Content := map[string]string{
+		"main.py":                 "this is a python abcd",
+		"testfile1.txt":           "this is a test abcd 2",
+		"readme.md":               "this is a readve abcd",
+		"a/another_test_file.txt": "yet another txt abcd. yatg:",
+	}
+
+	// first put source to assure source is older.
+	for filename, content := range sourceS3Content {
+		putFile(t, s3client, bucket, filename, content)
+	}
+
+	for filename, content := range destS3Content {
+		putFile(t, s3client, destbucket, filename, content)
+	}
+
+	bucketPath := fmt.Sprintf("s3://%v", bucket)
+	src := fmt.Sprintf("%s/*", bucketPath)
+	dst := fmt.Sprintf("s3://%v/", destbucket)
+
+	// log debug
+	cmd := s5cmd("--log", "debug", "sync", src, dst)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`DEBUG "sync %v/a/another_test_file.txt %va/another_test_file.txt": object is newer or same age`, bucketPath, dst),
+		1: equals(`DEBUG "sync %v/main.py %vmain.py": object is newer or same age`, bucketPath, dst),
+		2: equals(`DEBUG "sync %v/readme.md %vreadme.md": object is newer or same age`, bucketPath, dst),
+		3: equals(`DEBUG "sync %v/testfile1.txt %vtestfile1.txt": object is newer or same age`, bucketPath, dst),
+	}, sortInput(true))
+
+	// assert s3 objects in source
+	for key, content := range sourceS3Content {
+		assert.Assert(t, ensureS3Object(s3client, bucket, key, content))
+	}
+
+	// assert s3 objects in destination (should not change).
+	for key, content := range destS3Content {
+		assert.Assert(t, ensureS3Object(s3client, destbucket, key, content))
+	}
+}
+
 // sync --size-only s3://bucket/* folder/
 func TestSyncS3BucketToLocalFolderSameObjectsSizeOnly(t *testing.T) {
 	t.Parallel()

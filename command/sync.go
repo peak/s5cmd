@@ -96,7 +96,7 @@ func NewSyncCommand() *cli.Command {
 		Action: func(c *cli.Context) (err error) {
 			defer stat.Collect(c.Command.FullName(), &err)()
 
-			return NewSync(c, false).Run(c.Context)
+			return NewSync(c).Run(c.Context)
 		},
 	}
 }
@@ -133,7 +133,7 @@ type Sync struct {
 }
 
 // NewSync creates Sync from cli.Context
-func NewSync(c *cli.Context, deleteSource bool) Sync {
+func NewSync(c *cli.Context) Sync {
 	return Sync{
 		src:         c.Args().Get(0),
 		dst:         c.Args().Get(1),

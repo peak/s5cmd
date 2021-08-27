@@ -1185,10 +1185,10 @@ func TestSyncLocalToS3WithChecksum(t *testing.T) {
 	}
 
 	s3Content := map[string]string{
-		"test.txt":          "this is a test file",   // same size, same content, this file newer
-		"readme.md":         "this is a readve file", // same size, this file newer, hash different
-		"main.py":           "py file",               // same object.
-		"subfolder/sub.txt": "yet anothe  txt",       // same size, this file newer, hash different
+		"test.txt":          "this is a test file", // same size, same content, this file newer
+		"readme.md":         "this is a readve file",
+		"main.py":           "py file",         // same object.
+		"subfolder/sub.txt": "yet anothe  txt", // same size, this file newer, hash different
 	}
 
 	for filename, content := range s3Content {
@@ -1356,4 +1356,70 @@ func TestSyncS3toS3WithChecksum(t *testing.T) {
 			t.Errorf("there is a sync problem in %s, err: %v", filename, err)
 		}
 	}
+}
+
+// sync s3://bucket/*.txt folder/
+func TestSyncS3toLocalWithWildcard(t *testing.T) {
+	t.Parallel()
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	// make local (destination) older.
+	now := time.Now().UTC()
+	timestamp := fs.WithTimestamps(
+		now.Add(-time.Minute), // access time
+		now.Add(-time.Minute), // mod time
+	)
+
+	// even though test.py exists in the source, since we used
+	// wildcard operation '*.txt', test.py will not be in the source,
+	// because all of the source files will be with extension '*.txt'.
+	// therefore test.py will be deleted.
+	folderLayout := []fs.PathOp{
+		fs.WithFile("test.py", "this is a python file", timestamp),
+		fs.WithFile("test.txt", "this is a test file", timestamp),
+	}
+
+	s3Content := map[string]string{
+		"test.txt":          "this is a test file",
+		"readme.md":         "this is a readve file",
+		"main.py":           "py file",
+		"subfolder/sub.txt": "yet another txt",
+		"test.py":           "this is a python file",
+	}
+
+	for filename, content := range s3Content {
+		putFile(t, s3client, bucket, filename, content)
+	}
+
+	workdir := fs.NewDir(t, "somedir", folderLayout...)
+	defer workdir.Remove()
+
+	src := fmt.Sprintf("s3://%v/", bucket)
+	dst := fmt.Sprintf("%v/", workdir.Path())
+	dst = filepath.ToSlash(dst)
+
+	cmd := s5cmd("--log", "debug", "sync", "--delete", src+"*.txt", dst)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`delete %vtest.py`, dst),
+		1: equals(`download %vsubfolder/sub.txt %vsubfolder/sub.txt`, src, dst),
+		2: equals(`download %vtest.txt %vtest.txt`, src, dst),
+	}, sortInput(true))
+
+	expectedLayout := []fs.PathOp{
+		fs.WithFile("test.txt", "this is a test file"),
+		fs.WithDir("subfolder",
+			fs.WithFile("sub.txt", "yet another txt"),
+		),
+	}
+
+	expected := fs.Expected(t, expectedLayout...)
+	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 }

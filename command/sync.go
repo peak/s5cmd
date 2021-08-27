@@ -227,18 +227,13 @@ func (s Sync) Run(ctx context.Context) error {
 	s.onlySource = make(chan *storage.Object, len(s.sourceObjects))
 	s.onlyDest = make(chan *url.URL, len(s.destObjects))
 
-	var (
-		merrorChannelDestAndCommon error // used for creating destination and common objects channels.
-		merrorChannelSource        error // used for creating only source object channel.
-	)
-
 	// detect only destination and common objects in background.
 	go func() {
 		for _, destObject := range s.destObjects {
-			if s.shouldSkipObject(destObject, &merrorChannelDestAndCommon, true) {
+			if s.shouldSkipObject(destObject, false) { // do not show errors related with destination.
 				continue
 			}
-			foundIdx := s.doesSourceHave(s.sourceObjects, destObject, merrorChannelDestAndCommon)
+			foundIdx := s.doesSourceHave(s.sourceObjects, destObject)
 			if foundIdx == -1 {
 				s.onlyDest <- destObject.URL
 			} else {
@@ -253,11 +248,11 @@ func (s Sync) Run(ctx context.Context) error {
 	// detect only source objects.
 	go func() {
 		for _, srcObject := range s.sourceObjects {
-			if s.shouldSkipObject(srcObject, &merrorChannelSource, true) {
+			if s.shouldSkipObject(srcObject, true) { // show errors related with source objects.
 				continue
 			}
 
-			foundIdx := s.doesSourceHave(s.destObjects, srcObject, merrorChannelSource)
+			foundIdx := s.doesSourceHave(s.destObjects, srcObject)
 			if foundIdx == -1 {
 				s.onlySource <- srcObject
 			}
@@ -328,12 +323,12 @@ func (s Sync) Run(ctx context.Context) error {
 	waiter.Wait()
 	<-errDoneCh
 
-	return multierror.Append(merrorChannelDestAndCommon, merrorWaiter, merrorChannelSource).ErrorOrNil()
+	return merrorWaiter
 }
 
-func (s Sync) doesSourceHave(sourceObjects []*storage.Object, wantedObject *storage.Object, errorToWrite error) int {
+func (s Sync) doesSourceHave(sourceObjects []*storage.Object, wantedObject *storage.Object) int {
 	for idx, source := range sourceObjects {
-		if s.shouldSkipObject(source, &errorToWrite, false) {
+		if s.shouldSkipObject(source, false) {
 			continue
 		}
 		if filepath.ToSlash(source.URL.ObjectPath()) == filepath.ToSlash(wantedObject.URL.ObjectPath()) {
@@ -343,19 +338,21 @@ func (s Sync) doesSourceHave(sourceObjects []*storage.Object, wantedObject *stor
 	return -1
 }
 
-func (s Sync) shouldSkipObject(object *storage.Object, errorToWrite *error, verbose bool) bool {
+func (s Sync) shouldSkipObject(object *storage.Object, verbose bool) bool {
 	if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) {
 		return true
 	}
 
 	if err := object.Err; err != nil {
+		if verbose {
+			printError(s.fullCommand, s.op, err)
+		}
 		return true
 	}
 
 	if object.StorageClass.IsGlacier() {
-		err := fmt.Errorf("object '%v' is on Glacier storage", object)
-		*errorToWrite = multierror.Append(*errorToWrite, err)
 		if verbose {
+			err := fmt.Errorf("object '%v' is on Glacier storage", object)
 			printError(s.fullCommand, s.op, err)
 		}
 		return true

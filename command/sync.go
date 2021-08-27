@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 
@@ -16,8 +16,8 @@ import (
 	"github.com/peak/s5cmd/log/stat"
 	"github.com/peak/s5cmd/parallel"
 	"github.com/peak/s5cmd/storage"
-	storagehash "github.com/peak/s5cmd/storage/hash"
 	"github.com/peak/s5cmd/storage/url"
+	"github.com/peak/s5cmd/utils"
 )
 
 var syncHelpTemplate = `Name:
@@ -72,10 +72,6 @@ func NewSyncCommandFlags() []cli.Flag {
 			Name:  "size-only",
 			Usage: "make size of object only criteria to decide whether an object should be synced",
 		},
-		&cli.BoolFlag{
-			Name:  "checksum",
-			Usage: "check md5 hash of objects to decide if an object should be overridden",
-		},
 	}
 }
 
@@ -115,21 +111,11 @@ type Sync struct {
 	// flags
 	delete   bool
 	sizeOnly bool
-	checksum bool
 
 	// s3 options
 	concurrency int
 	partSize    int64
 	storageOpts storage.Options
-
-	// all objects
-	sourceObjects []*storage.Object
-	destObjects   []*storage.Object
-
-	// object channels
-	onlySource chan *storage.Object
-	onlyDest   chan *url.URL
-	commonObj  chan *CommonObject
 }
 
 // NewSync creates Sync from cli.Context
@@ -143,7 +129,6 @@ func NewSync(c *cli.Context) Sync {
 		// flags
 		delete:   c.Bool("delete"),
 		sizeOnly: c.Bool("size-only"),
-		checksum: c.Bool("checksum"),
 
 		// s3 options
 		partSize:    c.Int64("part-size") * megabytes,
@@ -156,109 +141,37 @@ func NewSync(c *cli.Context) Sync {
 func (s Sync) Run(ctx context.Context) error {
 	srcurl, err := url.New(s.src)
 	if err != nil {
-		printError(s.fullCommand, s.op, err)
 		return err
 	}
 
 	dsturl, err := url.New(s.dst)
 	if err != nil {
-		printError(s.fullCommand, s.op, err)
 		return err
 	}
-
 	sourceClient, err := storage.NewClient(ctx, srcurl, s.storageOpts)
 	if err != nil {
-		printError(s.fullCommand, s.op, err)
 		return err
 	}
-
-	destClient, err := storage.NewClient(ctx, dsturl, s.storageOpts)
-	if err != nil {
-		printError(s.fullCommand, s.op, err)
-		return err
-	}
-
-	var wg sync.WaitGroup
-
-	// get source objects.
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		srcObjectChannel := sourceClient.List(ctx, srcurl, false)
-		for srcObject := range srcObjectChannel {
-			s.sourceObjects = append(s.sourceObjects, srcObject)
-		}
-	}()
-
-	// add * to end of destination string, to get all objects recursively.
-	var destinationURLPath string
-	if strings.HasSuffix(s.dst, "/") {
-		destinationURLPath = s.dst + "*"
-	} else {
-		destinationURLPath = s.dst + "/*"
-	}
-
-	destObjectsURL, err := url.New(destinationURLPath)
-	if err != nil {
-		printError(s.fullCommand, s.op, err)
-		return err
-	}
-
-	// get destination objects.
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		destObjectsChannel := destClient.List(ctx, destObjectsURL, false)
-		for destObject := range destObjectsChannel {
-			s.destObjects = append(s.destObjects, destObject)
-		}
-	}()
-
-	// wait until source and destination objects are fetched.
-	wg.Wait()
-
 	isBatch := srcurl.IsWildcard()
+
 	if !isBatch && !srcurl.IsRemote() {
 		obj, _ := sourceClient.Stat(ctx, srcurl)
 		isBatch = obj != nil && obj.Type.IsDir()
 	}
 
-	s.commonObj = make(chan *CommonObject, len(s.sourceObjects))
-	s.onlySource = make(chan *storage.Object, len(s.sourceObjects))
-	s.onlyDest = make(chan *url.URL, len(s.destObjects))
+	sourceObjects, destObjects, err := s.GetSourceAndDestinationObjects(ctx, srcurl, dsturl)
+	if err != nil {
+		printError(s.fullCommand, s.op, err)
+		return err
+	}
+	onlySource, onlyDest, commonObjects := CompareObjects(sourceObjects, destObjects)
 
-	// detect only destination and common objects in background.
-	go func() {
-		for _, destObject := range s.destObjects {
-			if s.shouldSkipObject(destObject, false) { // do not show errors related with destination.
-				continue
-			}
-			foundIdx := s.doesSourceHave(s.sourceObjects, destObject)
-			if foundIdx == -1 {
-				s.onlyDest <- destObject.URL
-			} else {
-				s.commonObj <- &CommonObject{src: s.sourceObjects[foundIdx], dst: destObject}
-			}
-		}
-		close(s.onlyDest)
-		close(s.commonObj)
-
-	}()
-
-	// detect only source objects.
-	go func() {
-		for _, srcObject := range s.sourceObjects {
-			if s.shouldSkipObject(srcObject, true) { // show errors related with source objects.
-				continue
-			}
-
-			foundIdx := s.doesSourceHave(s.destObjects, srcObject)
-			if foundIdx == -1 {
-				s.onlySource <- srcObject
-			}
-		}
-		close(s.onlySource)
-	}()
+	// clear the arrays.
+	sourceObjects = nil
+	destObjects = nil
+	/* 	fmt.Printf("There are %d objects in only source\n", len(onlySource))
+	   	fmt.Printf("There are %d objects in only des\n", len(onlyDest))
+	   	fmt.Printf("There are %d objects in common\n", len(commonObjects)) */
 
 	waiter := parallel.NewWaiter()
 
@@ -280,62 +193,221 @@ func (s Sync) Run(ctx context.Context) error {
 			merrorWaiter = multierror.Append(merrorWaiter, err)
 		}
 	}()
+	/* s.PlanRun(onlySource, onlyDest, commonObjects, dsturl, isBatch, strategy) */
+	strategy := s.ChooseStrategy()
+	tasks := s.Plan(ctx, onlySource, onlyDest, commonObjects, dsturl, isBatch, strategy)
+	s.Execute(tasks, waiter)
 
-	// For the only source objects
-	for sourceObject := range s.onlySource {
-		var task parallel.Task
-		srcurl := sourceObject.URL
+	waiter.Wait()
+	<-errDoneCh
+	return merrorWaiter
+}
+
+func CompareObjects(sourceObjects, destObjects []*storage.Object) (srcOnly, dstOnly []*storage.Object, commonObj []*CommonObject) {
+	// sort the source and destination objects.
+	sort.Sort(utils.SortedObjectSlice(sourceObjects))
+	sort.Sort(utils.SortedObjectSlice(destObjects))
+
+	for iSrc, iDst := 0, 0; ; iSrc, iDst = iSrc+1, iDst+1 {
+		var srcObject, dstObject *storage.Object
+		var srcName, dstName string
+
+		if iSrc < len(sourceObjects) {
+			srcObject = sourceObjects[iSrc]
+			srcName = srcObject.URL.ObjectPath()
+		}
+
+		if iDst < len(destObjects) {
+			dstObject = destObjects[iDst]
+			dstName = dstObject.URL.ObjectPath()
+		}
+
+		if srcObject == nil && dstObject == nil {
+			break
+		}
+
+		if srcObject != nil && dstObject != nil {
+			if srcName > dstName {
+				srcObject = nil
+				iSrc--
+			} else if srcName == dstName {
+				commonObj = append(commonObj, &CommonObject{src: srcObject, dst: dstObject})
+			} else {
+				dstObject = nil
+				iDst--
+			}
+		}
 
 		switch {
-		case !sourceObject.URL.IsRemote() && dsturl.IsRemote(): // local->remote
+		case srcObject == nil && dstObject == nil:
+			// do nothing
+		case srcObject == nil:
+			dstOnly = append(dstOnly, dstObject)
+		case dstObject == nil:
+			srcOnly = append(srcOnly, srcObject)
+			/* default:
+			fmt.Println("default case")
+			commonObj = append(commonObj, &CommonObject{src: srcObject, dst: dstObject}) */
+
+		}
+	}
+	return
+}
+
+func (s Sync) GetSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl *url.URL) ([]*storage.Object, []*storage.Object, error) {
+	var wg sync.WaitGroup
+	sourceClient, err := storage.NewClient(ctx, srcurl, s.storageOpts)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	destClient, err := storage.NewClient(ctx, dsturl, s.storageOpts)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var sourceObjects []*storage.Object
+	var destObjects []*storage.Object
+	// var wg sync.WaitGroup
+
+	// get source objects.
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		srcObjectChannel := sourceClient.List(ctx, srcurl, false)
+		for srcObject := range srcObjectChannel {
+			if s.shouldSkipObject(srcObject, true) {
+				continue
+			}
+			sourceObjects = append(sourceObjects, srcObject)
+		}
+	}()
+
+	// add * to end of destination string, to get all objects recursively.
+	var destinationURLPath string
+	if strings.HasSuffix(s.dst, "/") {
+		destinationURLPath = s.dst + "*"
+	} else {
+		destinationURLPath = s.dst + "/*"
+	}
+
+	destObjectsURL, err := url.New(destinationURLPath)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// get destination objects.
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		destObjectsChannel := destClient.List(ctx, destObjectsURL, false)
+		for destObject := range destObjectsChannel {
+			if s.shouldSkipObject(destObject, false) {
+				continue
+			}
+			destObjects = append(destObjects, destObject)
+		}
+	}()
+
+	// wait until source and destination objects are fetched.
+	wg.Wait()
+	return sourceObjects, destObjects, nil
+}
+
+func (s Sync) PlanRun(onlySource, onlyDest []*storage.Object, common []*CommonObject,
+	dsturl *url.URL, isBatch bool, strategy utils.Strategy) {
+	/* var tasks []parallel.Task */
+	for _, srcobj := range onlySource {
+		srcurl := srcobj.URL
+		dsturlobj := prepareRemoteDestination(srcurl, dsturl, false, isBatch)
+		fmt.Printf("cp %v %v\n", srcurl, dsturlobj)
+	}
+
+	for _, dstobj := range onlyDest {
+		if s.shouldSkipObject(dstobj, true) {
+			continue
+		}
+		fmt.Printf("delete %v\n", dstobj.URL)
+	}
+
+	for _, c := range common {
+		if s.shouldSkipObject(c.src, true) {
+			continue
+		}
+		if s.shouldSkipObject(c.dst, false) {
+			continue
+		}
+		srcobj, dstobj := c.src, c.dst
+		err := strategy.Compare(srcobj, dstobj)
+		fmt.Printf("%v %v: %v\n", srcobj.URL, dstobj.URL, err)
+		if err != nil {
+			if errorpkg.IsWarning(err) {
+				printDebug(s.op, srcobj.URL, dstobj.URL, err)
+			}
+			continue
+		} else {
+			fmt.Printf("cp %v %v\n", srcobj.URL, dstobj.URL)
+		}
+	}
+}
+
+func (s Sync) Plan(ctx context.Context, onlySource, onlyDest []*storage.Object, common []*CommonObject,
+	dsturl *url.URL, isBatch bool, strategy utils.Strategy) []parallel.Task {
+	tasks := make([]parallel.Task, 0)
+
+	// only source objects.
+	for _, srcobj := range onlySource {
+		var task parallel.Task
+		srcurl := srcobj.URL
+		switch {
+		case !srcurl.IsRemote() && dsturl.IsRemote(): // local->remote
 			task = s.prepareUploadTask(ctx, srcurl, dsturl, isBatch)
-		case sourceObject.URL.IsRemote() && !dsturl.IsRemote(): // remote->local
+		case srcurl.IsRemote() && !dsturl.IsRemote(): // remote->local
 			task = s.prepareDownloadTask(ctx, srcurl, dsturl, isBatch)
-		case sourceObject.URL.IsRemote() && dsturl.IsRemote(): // remote->remote
+		case srcurl.IsRemote() && dsturl.IsRemote(): // remote->remote
 			task = s.prepareCopyTask(ctx, srcurl, dsturl, isBatch)
 		default:
 			panic("unexpected src-dst pair")
 		}
-		parallel.Run(task, waiter)
+		tasks = append(tasks, task)
 	}
 
-	// for objects in both source and destination.
-	for commonObject := range s.commonObj {
+	for _, commonObject := range common {
 		var task parallel.Task
 		sourceObject, destObject := commonObject.src, commonObject.dst
+		srcurl_local, dsturl_local := sourceObject.URL, destObject.URL
+		err := strategy.Compare(sourceObject, destObject)
+		if err != nil {
+			if errorpkg.IsWarning(err) {
+				printDebug(s.op, srcurl_local, dsturl_local, err)
+				continue
+			}
+		}
 
 		switch {
-		case !sourceObject.URL.IsRemote() && destObject.URL.IsRemote(): // local->remote
-			task = s.commonUploadTask(ctx, sourceObject, destObject)
-		case sourceObject.URL.IsRemote() && !destObject.URL.IsRemote(): // remote->local
-			task = s.commonDownloadTask(ctx, sourceObject, destObject)
-		case sourceObject.URL.IsRemote() && destObject.URL.IsRemote(): // remote->remote
-			task = s.commonCopyTask(ctx, sourceObject, destObject)
+		case !srcurl_local.IsRemote() && destObject.URL.IsRemote(): // local->remote
+			task = s.prepareUploadTask(ctx, srcurl_local, dsturl, isBatch)
+		case srcurl_local.IsRemote() && !destObject.URL.IsRemote(): // remote->local
+			task = s.prepareDownloadTask(ctx, srcurl_local, dsturl, isBatch)
+		case srcurl_local.IsRemote() && destObject.URL.IsRemote(): // remote->remote
+			task = s.prepareCopyTask(ctx, srcurl_local, dsturl, isBatch)
 		default:
 			panic("unexpected src-dst pair")
 		}
-		parallel.Run(task, waiter)
+		tasks = append(tasks, task)
 	}
 
-	// for delete objects in only destination.
-	parallel.Run(s.prepareDeleteTask(ctx, dsturl), waiter)
-
-	waiter.Wait()
-	<-errDoneCh
-
-	return merrorWaiter
+	for _, destObj := range onlyDest {
+		task := s.prepareDeleteTask(ctx, destObj.URL)
+		tasks = append(tasks, task)
+	}
+	return tasks
 }
 
-func (s Sync) doesSourceHave(sourceObjects []*storage.Object, wantedObject *storage.Object) int {
-	for idx, source := range sourceObjects {
-		if s.shouldSkipObject(source, false) {
-			continue
-		}
-		if filepath.ToSlash(source.URL.ObjectPath()) == filepath.ToSlash(wantedObject.URL.ObjectPath()) {
-			return idx
-		}
+func (s Sync) Execute(tasks []parallel.Task, waiter *parallel.Waiter) {
+	for _, task := range tasks {
+		parallel.Run(task, waiter)
 	}
-	return -1
 }
 
 func (s Sync) shouldSkipObject(object *storage.Object, verbose bool) bool {
@@ -360,6 +432,14 @@ func (s Sync) shouldSkipObject(object *storage.Object, verbose bool) bool {
 	return false
 }
 
+func (s Sync) ChooseStrategy() utils.Strategy {
+	if s.sizeOnly {
+		return &utils.SizeOnly{}
+	} else {
+		return &utils.SizeAndModification{}
+	}
+}
+
 // prepareDeleteTask prepares delete operation of only destination objects.
 func (s Sync) prepareDeleteTask(
 	ctx context.Context,
@@ -375,46 +455,16 @@ func (s Sync) prepareDeleteTask(
 			return err
 		}
 
-		var merrorDelete error
-		resultch := destClient.MultiDelete(ctx, s.onlyDest)
-		for obj := range resultch {
-			if err := obj.Err; err != nil {
-				if errorpkg.IsCancelation(obj.Err) {
-					continue
-				}
-				merrorDelete = multierror.Append(merrorDelete, obj.Err)
-				printError(s.fullCommand, s.op, obj.Err)
-				continue
-			}
-
+		err = destClient.Delete(ctx, dsturl)
+		if err == nil {
 			msg := log.InfoMessage{
 				Operation: "delete",
-				Source:    obj.URL,
+				Source:    dsturl,
 			}
 			log.Info(msg)
 		}
-		return nil
-	}
-}
+		return err
 
-// commonCopyTask prepares copy operation (remote->remote) of objects both in source and destination.
-func (s Sync) commonCopyTask(
-	ctx context.Context,
-	srcObj *storage.Object,
-	dstObj *storage.Object,
-) func() error {
-	return func() error {
-		srcurl, dsturl := srcObj.URL, dstObj.URL
-		err := s.shouldOverride(srcObj, dstObj) // check if source object should be overridden
-		if err != nil {
-			if errorpkg.IsWarning(err) {
-				printDebug(s.op, srcurl, dsturl, err)
-				return nil
-			}
-			return err
-		}
-		err = s.doCopy(ctx, srcurl, dsturl)
-		return returnError(err, "copy", srcurl, dsturl)
 	}
 }
 
@@ -431,27 +481,6 @@ func (s Sync) prepareCopyTask(
 	}
 }
 
-// commonDownloadTask prepares download operation (remote->local) of objects both in source and destination.
-func (s Sync) commonDownloadTask(
-	ctx context.Context,
-	srcObj *storage.Object,
-	dstObj *storage.Object,
-) func() error {
-	return func() error {
-		err := s.shouldOverride(srcObj, dstObj) // check if source object should be overridden
-		srcurl, dsturl := srcObj.URL, dstObj.URL
-		if err != nil {
-			if errorpkg.IsWarning(err) {
-				printDebug(s.op, srcurl, dsturl, err)
-				return nil
-			}
-			return err
-		}
-		err = s.doDownload(ctx, srcurl, dsturl)
-		return returnError(err, "download", srcurl, dsturl)
-	}
-}
-
 func (s Sync) prepareDownloadTask(
 	ctx context.Context,
 	srcurl *url.URL,
@@ -459,33 +488,12 @@ func (s Sync) prepareDownloadTask(
 	isBatch bool,
 ) func() error {
 	return func() error {
-		dsturl, err := prepareLocalDestination(ctx, srcurl, dsturl, false, isBatch, s.storageOpts)
+		dsturl_local, err := prepareLocalDestination(ctx, srcurl, dsturl, false, isBatch, s.storageOpts)
 		if err != nil {
 			return err
 		}
-		err = s.doDownload(ctx, srcurl, dsturl)
+		err = s.doDownload(ctx, srcurl, dsturl_local)
 		return returnError(err, "download", srcurl, dsturl)
-	}
-}
-
-// commonUploadTask prepares upload operation (local->remote) of objects both in source and destination.
-func (s Sync) commonUploadTask(
-	ctx context.Context,
-	srcObj *storage.Object,
-	dstObj *storage.Object,
-) func() error {
-	return func() error {
-		err := s.shouldOverride(srcObj, dstObj) // check if source object should be overridden
-		srcurl, dsturl := srcObj.URL, dstObj.URL
-		if err != nil {
-			if errorpkg.IsWarning(err) {
-				printDebug(s.op, srcurl, dsturl, err)
-				return nil
-			}
-			return err
-		}
-		err = s.doUpload(ctx, srcurl, dsturl)
-		return returnError(err, "upload", srcurl, dsturl)
 	}
 }
 
@@ -496,8 +504,8 @@ func (s Sync) prepareUploadTask(
 	isBatch bool,
 ) func() error {
 	return func() error {
-		dsturl = prepareRemoteDestination(srcurl, dsturl, false, isBatch)
-		err := s.doUpload(ctx, srcurl, dsturl)
+		dsturl_local := prepareRemoteDestination(srcurl, dsturl, false, isBatch)
+		err := s.doUpload(ctx, srcurl, dsturl_local)
 		return returnError(err, "upload", srcurl, dsturl)
 	}
 }
@@ -574,7 +582,6 @@ func (s Sync) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 }
 
 func (s Sync) doCopy(ctx context.Context, srcurl, dsturl *url.URL) error {
-
 	dstClient, err := storage.NewClient(ctx, dsturl, s.storageOpts)
 	if err != nil {
 		return err
@@ -598,41 +605,6 @@ func (s Sync) doCopy(ctx context.Context, srcurl, dsturl *url.URL) error {
 	log.Info(msg)
 
 	return nil
-}
-
-// shouldOverride function checks if the destination should be overridden.
-// it checks object sizes and modification times and if any of those things
-// are different, then it returns an error which says this objects should not
-// be overridden. If it returns nil, then it means it means override operation
-// needs to be done.
-func (s Sync) shouldOverride(srcObj, dstObj *storage.Object) error {
-	var stickyErr error
-	// check size of objects
-	if srcObj.Size == dstObj.Size {
-		stickyErr = errorpkg.ErrObjectSizesMatch
-	} else {
-		stickyErr = nil
-	}
-
-	srcMod, dstMod := srcObj.ModTime, dstObj.ModTime
-	// if size only flag is set, then do not check the time
-	if !s.sizeOnly {
-		if !srcMod.After(*dstMod) {
-			stickyErr = errorpkg.ErrObjectIsNewer
-		} else {
-			stickyErr = nil
-		}
-	}
-
-	// check md5 sum of objects, if size only flag is set
-	// then do not check the hash.
-	if !s.sizeOnly && s.checksum {
-		sourceHash := storagehash.New(srcObj)
-		destHash := storagehash.New(dstObj)
-		stickyErr = sourceHash.Different(destHash)
-	}
-
-	return stickyErr
 }
 
 func validateSyncCommand(c *cli.Context) error {

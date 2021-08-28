@@ -12,12 +12,14 @@ import (
 	"github.com/urfave/cli/v2"
 
 	errorpkg "github.com/peak/s5cmd/error"
+	"github.com/peak/s5cmd/internal/sortedslice"
+	"github.com/peak/s5cmd/internal/strategy"
+	"github.com/peak/s5cmd/internal/transfer"
 	"github.com/peak/s5cmd/log"
 	"github.com/peak/s5cmd/log/stat"
 	"github.com/peak/s5cmd/parallel"
 	"github.com/peak/s5cmd/storage"
 	"github.com/peak/s5cmd/storage/url"
-	"github.com/peak/s5cmd/utils"
 )
 
 var syncHelpTemplate = `Name:
@@ -194,8 +196,9 @@ func (s Sync) Run(ctx context.Context) error {
 		}
 	}()
 	/* s.PlanRun(onlySource, onlyDest, commonObjects, dsturl, isBatch, strategy) */
-	strategy := s.ChooseStrategy()
-	tasks := s.Plan(ctx, onlySource, onlyDest, commonObjects, dsturl, isBatch, strategy)
+	strategy := strategy.New(s.sizeOnly)
+	transferManager := transfer.NewManager(s.storageOpts, false, isBatch, s.concurrency, s.partSize)
+	tasks := s.Plan(ctx, onlySource, onlyDest, commonObjects, dsturl, *transferManager, strategy)
 	s.Execute(tasks, waiter)
 
 	waiter.Wait()
@@ -205,8 +208,8 @@ func (s Sync) Run(ctx context.Context) error {
 
 func CompareObjects(sourceObjects, destObjects []*storage.Object) (srcOnly, dstOnly []*storage.Object, commonObj []*CommonObject) {
 	// sort the source and destination objects.
-	sort.Sort(utils.SortedObjectSlice(sourceObjects))
-	sort.Sort(utils.SortedObjectSlice(destObjects))
+	sort.Sort(sortedslice.Slice(sourceObjects))
+	sort.Sort(sortedslice.Slice(destObjects))
 
 	for iSrc, iDst := 0, 0; ; iSrc, iDst = iSrc+1, iDst+1 {
 		var srcObject, dstObject *storage.Object
@@ -314,46 +317,10 @@ func (s Sync) GetSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 	return sourceObjects, destObjects, nil
 }
 
-func (s Sync) PlanRun(onlySource, onlyDest []*storage.Object, common []*CommonObject,
-	dsturl *url.URL, isBatch bool, strategy utils.Strategy) {
-	/* var tasks []parallel.Task */
-	for _, srcobj := range onlySource {
-		srcurl := srcobj.URL
-		dsturlobj := prepareRemoteDestination(srcurl, dsturl, false, isBatch)
-		fmt.Printf("cp %v %v\n", srcurl, dsturlobj)
-	}
-
-	for _, dstobj := range onlyDest {
-		if s.shouldSkipObject(dstobj, true) {
-			continue
-		}
-		fmt.Printf("delete %v\n", dstobj.URL)
-	}
-
-	for _, c := range common {
-		if s.shouldSkipObject(c.src, true) {
-			continue
-		}
-		if s.shouldSkipObject(c.dst, false) {
-			continue
-		}
-		srcobj, dstobj := c.src, c.dst
-		err := strategy.Compare(srcobj, dstobj)
-		fmt.Printf("%v %v: %v\n", srcobj.URL, dstobj.URL, err)
-		if err != nil {
-			if errorpkg.IsWarning(err) {
-				printDebug(s.op, srcobj.URL, dstobj.URL, err)
-			}
-			continue
-		} else {
-			fmt.Printf("cp %v %v\n", srcobj.URL, dstobj.URL)
-		}
-	}
-}
-
 func (s Sync) Plan(ctx context.Context, onlySource, onlyDest []*storage.Object, common []*CommonObject,
-	dsturl *url.URL, isBatch bool, strategy utils.Strategy) []parallel.Task {
-	tasks := make([]parallel.Task, 0)
+	dsturl *url.URL, transferManager transfer.Manager, strategy strategy.Strategy) chan parallel.Task {
+	totalSize := len(onlyDest) + len(onlySource) + len(common)
+	tasks := make(chan parallel.Task, totalSize)
 
 	// only source objects.
 	for _, srcobj := range onlySource {
@@ -361,15 +328,16 @@ func (s Sync) Plan(ctx context.Context, onlySource, onlyDest []*storage.Object, 
 		srcurl := srcobj.URL
 		switch {
 		case !srcurl.IsRemote() && dsturl.IsRemote(): // local->remote
-			task = s.prepareUploadTask(ctx, srcurl, dsturl, isBatch)
+			task = transferManager.PrepareUploadTask(ctx, srcurl, dsturl)
 		case srcurl.IsRemote() && !dsturl.IsRemote(): // remote->local
-			task = s.prepareDownloadTask(ctx, srcurl, dsturl, isBatch)
+			task = transferManager.PrepareDownloadTask(ctx, srcurl, dsturl)
 		case srcurl.IsRemote() && dsturl.IsRemote(): // remote->remote
-			task = s.prepareCopyTask(ctx, srcurl, dsturl, isBatch)
+			task = transferManager.PrepareCopyTask(ctx, srcurl, dsturl)
 		default:
 			panic("unexpected src-dst pair")
 		}
-		tasks = append(tasks, task)
+		//tasks = append(tasks, task)
+		tasks <- task
 	}
 
 	for _, commonObject := range common {
@@ -386,26 +354,29 @@ func (s Sync) Plan(ctx context.Context, onlySource, onlyDest []*storage.Object, 
 
 		switch {
 		case !srcurl_local.IsRemote() && destObject.URL.IsRemote(): // local->remote
-			task = s.prepareUploadTask(ctx, srcurl_local, dsturl, isBatch)
+			task = transferManager.PrepareUploadTask(ctx, srcurl_local, dsturl)
 		case srcurl_local.IsRemote() && !destObject.URL.IsRemote(): // remote->local
-			task = s.prepareDownloadTask(ctx, srcurl_local, dsturl, isBatch)
+			task = transferManager.PrepareDownloadTask(ctx, srcurl_local, dsturl)
 		case srcurl_local.IsRemote() && destObject.URL.IsRemote(): // remote->remote
-			task = s.prepareCopyTask(ctx, srcurl_local, dsturl, isBatch)
+			task = transferManager.PrepareCopyTask(ctx, srcurl_local, dsturl)
 		default:
 			panic("unexpected src-dst pair")
 		}
-		tasks = append(tasks, task)
+		//tasks = append(tasks, task)
+		tasks <- task
 	}
 
 	for _, destObj := range onlyDest {
 		task := s.prepareDeleteTask(ctx, destObj.URL)
-		tasks = append(tasks, task)
+		//tasks = append(tasks, task)
+		tasks <- task
 	}
+	close(tasks)
 	return tasks
 }
 
-func (s Sync) Execute(tasks []parallel.Task, waiter *parallel.Waiter) {
-	for _, task := range tasks {
+func (s Sync) Execute(tasks <-chan parallel.Task, waiter *parallel.Waiter) {
+	for task := range tasks {
 		parallel.Run(task, waiter)
 	}
 }
@@ -430,14 +401,6 @@ func (s Sync) shouldSkipObject(object *storage.Object, verbose bool) bool {
 		return true
 	}
 	return false
-}
-
-func (s Sync) ChooseStrategy() utils.Strategy {
-	if s.sizeOnly {
-		return &utils.SizeOnly{}
-	} else {
-		return &utils.SizeAndModification{}
-	}
 }
 
 // prepareDeleteTask prepares delete operation of only destination objects.
@@ -466,145 +429,6 @@ func (s Sync) prepareDeleteTask(
 		return err
 
 	}
-}
-
-func (s Sync) prepareCopyTask(
-	ctx context.Context,
-	srcurl *url.URL,
-	dsturl *url.URL,
-	isBatch bool,
-) func() error {
-	return func() error {
-		dsturl = prepareRemoteDestination(srcurl, dsturl, false, isBatch)
-		err := s.doCopy(ctx, srcurl, dsturl)
-		return returnError(err, "copy", srcurl, dsturl)
-	}
-}
-
-func (s Sync) prepareDownloadTask(
-	ctx context.Context,
-	srcurl *url.URL,
-	dsturl *url.URL,
-	isBatch bool,
-) func() error {
-	return func() error {
-		dsturl_local, err := prepareLocalDestination(ctx, srcurl, dsturl, false, isBatch, s.storageOpts)
-		if err != nil {
-			return err
-		}
-		err = s.doDownload(ctx, srcurl, dsturl_local)
-		return returnError(err, "download", srcurl, dsturl)
-	}
-}
-
-func (s Sync) prepareUploadTask(
-	ctx context.Context,
-	srcurl *url.URL,
-	dsturl *url.URL,
-	isBatch bool,
-) func() error {
-	return func() error {
-		dsturl_local := prepareRemoteDestination(srcurl, dsturl, false, isBatch)
-		err := s.doUpload(ctx, srcurl, dsturl_local)
-		return returnError(err, "upload", srcurl, dsturl)
-	}
-}
-
-// doDownload is used to fetch a remote object and save as a local object.
-func (s Sync) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) error {
-	srcClient, err := storage.NewRemoteClient(ctx, srcurl, s.storageOpts)
-	if err != nil {
-		return err
-	}
-
-	dstClient := storage.NewLocalClient(s.storageOpts)
-
-	file, err := dstClient.Create(dsturl.Absolute())
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	size, err := srcClient.Get(ctx, srcurl, file, s.concurrency, s.partSize)
-	if err != nil {
-		_ = dstClient.Delete(ctx, dsturl)
-		return err
-	}
-
-	msg := log.InfoMessage{
-		Operation:   "download",
-		Source:      srcurl,
-		Destination: dsturl,
-		Object: &storage.Object{
-			Size: size,
-		},
-	}
-	log.Info(msg)
-
-	return nil
-}
-
-func (s Sync) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) error {
-	srcClient := storage.NewLocalClient(s.storageOpts)
-
-	file, err := srcClient.Open(srcurl.Absolute())
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	dstClient, err := storage.NewRemoteClient(ctx, dsturl, s.storageOpts)
-	if err != nil {
-		return err
-	}
-
-	metadata := storage.NewMetadata()
-
-	err = dstClient.Put(ctx, file, dsturl, metadata, s.concurrency, s.partSize)
-	if err != nil {
-		return err
-	}
-
-	obj, _ := srcClient.Stat(ctx, srcurl)
-	size := obj.Size
-
-	msg := log.InfoMessage{
-		Operation:   "upload",
-		Source:      srcurl,
-		Destination: dsturl,
-		Object: &storage.Object{
-			Size: size,
-		},
-	}
-	log.Info(msg)
-
-	return nil
-}
-
-func (s Sync) doCopy(ctx context.Context, srcurl, dsturl *url.URL) error {
-	dstClient, err := storage.NewClient(ctx, dsturl, s.storageOpts)
-	if err != nil {
-		return err
-	}
-
-	metadata := storage.NewMetadata()
-
-	err = dstClient.Copy(ctx, srcurl, dsturl, metadata)
-	if err != nil {
-		return err
-	}
-
-	msg := log.InfoMessage{
-		Operation:   "copy",
-		Source:      srcurl,
-		Destination: dsturl,
-		Object: &storage.Object{
-			URL: dsturl,
-		},
-	}
-	log.Info(msg)
-
-	return nil
 }
 
 func validateSyncCommand(c *cli.Context) error {
@@ -705,17 +529,5 @@ func validateSyncDownload(srcurl *url.URL) error {
 		return fmt.Errorf("remote source %q must be a bucket or a prefix", srcurl)
 	}
 
-	return nil
-}
-
-func returnError(err error, op string, srcurl, dsturl *url.URL) error {
-	if err != nil {
-		return &errorpkg.Error{
-			Op:  op,
-			Src: srcurl,
-			Dst: dsturl,
-			Err: err,
-		}
-	}
 	return nil
 }

@@ -1,4 +1,4 @@
-package utils
+package strategy
 
 import (
 	errorpkg "github.com/peak/s5cmd/error"

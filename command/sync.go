@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
@@ -154,8 +155,8 @@ func (s Sync) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	isBatch := srcurl.IsWildcard()
 
+	isBatch := srcurl.IsWildcard()
 	if !isBatch && !srcurl.IsRemote() {
 		obj, _ := sourceClient.Stat(ctx, srcurl)
 		isBatch = obj != nil && obj.Type.IsDir()
@@ -171,9 +172,6 @@ func (s Sync) Run(ctx context.Context) error {
 	// clear the arrays.
 	sourceObjects = nil
 	destObjects = nil
-	/* 	fmt.Printf("There are %d objects in only source\n", len(onlySource))
-	   	fmt.Printf("There are %d objects in only des\n", len(onlyDest))
-	   	fmt.Printf("There are %d objects in common\n", len(commonObjects)) */
 
 	waiter := parallel.NewWaiter()
 
@@ -195,7 +193,7 @@ func (s Sync) Run(ctx context.Context) error {
 			merrorWaiter = multierror.Append(merrorWaiter, err)
 		}
 	}()
-	/* s.PlanRun(onlySource, onlyDest, commonObjects, dsturl, isBatch, strategy) */
+
 	strategy := strategy.New(s.sizeOnly)
 	transferManager := transfer.NewManager(s.storageOpts, false, isBatch, s.concurrency, s.partSize)
 	tasks := s.Plan(ctx, onlySource, onlyDest, commonObjects, dsturl, *transferManager, strategy)
@@ -217,12 +215,12 @@ func CompareObjects(sourceObjects, destObjects []*storage.Object) (srcOnly, dstO
 
 		if iSrc < len(sourceObjects) {
 			srcObject = sourceObjects[iSrc]
-			srcName = srcObject.URL.ObjectPath()
+			srcName = filepath.ToSlash(srcObject.URL.ObjectPath())
 		}
 
 		if iDst < len(destObjects) {
 			dstObject = destObjects[iDst]
-			dstName = dstObject.URL.ObjectPath()
+			dstName = filepath.ToSlash(dstObject.URL.ObjectPath())
 		}
 
 		if srcObject == nil && dstObject == nil {
@@ -248,17 +246,12 @@ func CompareObjects(sourceObjects, destObjects []*storage.Object) (srcOnly, dstO
 			dstOnly = append(dstOnly, dstObject)
 		case dstObject == nil:
 			srcOnly = append(srcOnly, srcObject)
-			/* default:
-			fmt.Println("default case")
-			commonObj = append(commonObj, &CommonObject{src: srcObject, dst: dstObject}) */
-
 		}
 	}
 	return
 }
 
 func (s Sync) GetSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl *url.URL) ([]*storage.Object, []*storage.Object, error) {
-	var wg sync.WaitGroup
 	sourceClient, err := storage.NewClient(ctx, srcurl, s.storageOpts)
 	if err != nil {
 		return nil, nil, err
@@ -271,7 +264,7 @@ func (s Sync) GetSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 
 	var sourceObjects []*storage.Object
 	var destObjects []*storage.Object
-	// var wg sync.WaitGroup
+	var wg sync.WaitGroup
 
 	// get source objects.
 	wg.Add(1)
@@ -336,7 +329,6 @@ func (s Sync) Plan(ctx context.Context, onlySource, onlyDest []*storage.Object, 
 		default:
 			panic("unexpected src-dst pair")
 		}
-		//tasks = append(tasks, task)
 		tasks <- task
 	}
 
@@ -362,13 +354,11 @@ func (s Sync) Plan(ctx context.Context, onlySource, onlyDest []*storage.Object, 
 		default:
 			panic("unexpected src-dst pair")
 		}
-		//tasks = append(tasks, task)
 		tasks <- task
 	}
 
 	for _, destObj := range onlyDest {
 		task := s.prepareDeleteTask(ctx, destObj.URL)
-		//tasks = append(tasks, task)
 		tasks <- task
 	}
 	close(tasks)

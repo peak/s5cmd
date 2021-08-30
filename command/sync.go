@@ -204,6 +204,9 @@ func (s Sync) Run(ctx context.Context) error {
 	return merrorWaiter
 }
 
+// CompareObjects compares source and destination objects.
+// Returns objects belongs to only source, only destination
+// and common objects.
 func CompareObjects(sourceObjects, destObjects []*storage.Object) (srcOnly, dstOnly []*storage.Object, commonObj []*CommonObject) {
 	// sort the source and destination objects.
 	sort.Sort(sortedslice.Slice(sourceObjects))
@@ -215,12 +218,12 @@ func CompareObjects(sourceObjects, destObjects []*storage.Object) (srcOnly, dstO
 
 		if iSrc < len(sourceObjects) {
 			srcObject = sourceObjects[iSrc]
-			srcName = filepath.ToSlash(srcObject.URL.ObjectPath())
+			srcName = filepath.ToSlash(srcObject.URL.Relative())
 		}
 
 		if iDst < len(destObjects) {
 			dstObject = destObjects[iDst]
-			dstName = filepath.ToSlash(dstObject.URL.ObjectPath())
+			dstName = filepath.ToSlash(dstObject.URL.Relative())
 		}
 
 		if srcObject == nil && dstObject == nil {
@@ -251,6 +254,7 @@ func CompareObjects(sourceObjects, destObjects []*storage.Object) (srcOnly, dstO
 	return
 }
 
+// GetSourceAndDestinationObjects returns source and destination objects.
 func (s Sync) GetSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl *url.URL) ([]*storage.Object, []*storage.Object, error) {
 	sourceClient, err := storage.NewClient(ctx, srcurl, s.storageOpts)
 	if err != nil {
@@ -310,6 +314,7 @@ func (s Sync) GetSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 	return sourceObjects, destObjects, nil
 }
 
+// Plan creates transfer and delete tasks.
 func (s Sync) Plan(ctx context.Context, onlySource, onlyDest []*storage.Object, common []*CommonObject,
 	dsturl *url.URL, transferManager transfer.Manager, strategy strategy.Strategy) chan parallel.Task {
 	totalSize := len(onlyDest) + len(onlySource) + len(common)
@@ -365,6 +370,7 @@ func (s Sync) Plan(ctx context.Context, onlySource, onlyDest []*storage.Object, 
 	return tasks
 }
 
+// Execute executes the given tasks in parallel.
 func (s Sync) Execute(tasks <-chan parallel.Task, waiter *parallel.Waiter) {
 	for task := range tasks {
 		parallel.Run(task, waiter)

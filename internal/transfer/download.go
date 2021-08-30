@@ -8,6 +8,7 @@ import (
 	"github.com/peak/s5cmd/storage/url"
 )
 
+// PrepareDownloadTask returns a function which handles download operation.
 func (m *Manager) PrepareDownloadTask(ctx context.Context, srcurl, dsturl *url.URL) func() error {
 	return func() error {
 		dsturl_local, err := m.prepareLocalDestination(ctx, srcurl, dsturl)

@@ -8,6 +8,7 @@ import (
 	"github.com/peak/s5cmd/storage/url"
 )
 
+// PrepareUploadTask returns a function which handles upload operation.
 func (m *Manager) PrepareUploadTask(ctx context.Context, srcurl, dsturl *url.URL) func() error {
 	return func() error {
 		dsturl_local := m.prepareRemoteDestination(srcurl, dsturl)

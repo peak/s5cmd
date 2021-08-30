@@ -8,6 +8,7 @@ import (
 	"github.com/peak/s5cmd/storage/url"
 )
 
+// PrepareCopyTask returns a function which handles copy operation.
 func (m *Manager) PrepareCopyTask(ctx context.Context, srcurl, dsturl *url.URL) func() error {
 	return func() error {
 		dsturl_local := m.prepareRemoteDestination(srcurl, dsturl)

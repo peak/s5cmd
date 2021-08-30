@@ -5,6 +5,7 @@ import (
 	"github.com/peak/s5cmd/storage/url"
 )
 
+// ReturnError returns error with given parameters.
 func ReturnError(err error, op string, srcurl, dsturl *url.URL) error {
 	if err != nil {
 		return &errorpkg.Error{

@@ -2,6 +2,7 @@ package sortedslice
 
 import "github.com/peak/s5cmd/storage"
 
+// Slice implements the sort.Sort interface
 type Slice []*storage.Object
 
 func (o Slice) Len() int {
@@ -9,7 +10,7 @@ func (o Slice) Len() int {
 }
 
 func (o Slice) Less(i, j int) bool {
-	return o[i].URL.ObjectPath() < o[j].URL.ObjectPath()
+	return o[i].URL.Relative() < o[j].URL.Relative()
 }
 
 func (o Slice) Swap(i, j int) {

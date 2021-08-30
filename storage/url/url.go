@@ -203,16 +203,6 @@ func (u *URL) remoteURL() string {
 	return s
 }
 
-// ObjectPath returns the object path relative to prefix or folder.
-// If url is remote, then it trims the prefix in the url.
-// If url is local, then it returns the relative path to source folder.
-func (u *URL) ObjectPath() string {
-	if u.IsRemote() {
-		return strings.TrimPrefix(u.Path, u.Prefix)
-	}
-	return u.relativePath
-}
-
 // setPrefixAndFilter creates url metadata for both wildcard and non-wildcard
 // operations.
 //

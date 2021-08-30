@@ -10,7 +10,7 @@ import (
 
 func (m *Manager) PrepareUploadTask(ctx context.Context, srcurl, dsturl *url.URL) func() error {
 	return func() error {
-		dsturl_local := m.prepareRemoteDestination(srcurl, dsturl)
+		dsturl_local := m.PrepareRemoteDestination(srcurl, dsturl)
 		err := m.doUpload(ctx, srcurl, dsturl_local)
 		return ReturnError(err, "upload", srcurl, dsturl_local)
 	}

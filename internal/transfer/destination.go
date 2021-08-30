@@ -8,7 +8,7 @@ import (
 	"github.com/peak/s5cmd/storage/url"
 )
 
-func (m *Manager) prepareRemoteDestination(srcurl, dsturl *url.URL) *url.URL {
+func (m *Manager) PrepareRemoteDestination(srcurl, dsturl *url.URL) *url.URL {
 	objname := srcurl.Base()
 	if m.isBatch && !m.flatten {
 		objname = srcurl.Relative()
@@ -20,7 +20,7 @@ func (m *Manager) prepareRemoteDestination(srcurl, dsturl *url.URL) *url.URL {
 	return dsturl
 }
 
-func (m *Manager) prepareLocalDestination(ctx context.Context, srcurl, dsturl *url.URL) (*url.URL, error) {
+func (m *Manager) PrepareLocalDestination(ctx context.Context, srcurl, dsturl *url.URL) (*url.URL, error) {
 	objname := srcurl.Base()
 	if m.isBatch && !m.flatten {
 		objname = srcurl.Relative()

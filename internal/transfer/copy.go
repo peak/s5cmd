@@ -10,7 +10,7 @@ import (
 
 func (m *Manager) PrepareCopyTask(ctx context.Context, srcurl, dsturl *url.URL) func() error {
 	return func() error {
-		dsturl_local := m.prepareRemoteDestination(srcurl, dsturl)
+		dsturl_local := m.PrepareRemoteDestination(srcurl, dsturl)
 		err := m.doCopy(ctx, srcurl, dsturl_local)
 		return ReturnError(err, "copy", srcurl, dsturl_local)
 	}

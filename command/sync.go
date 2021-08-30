@@ -3,6 +3,7 @@ package command
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -196,12 +197,19 @@ func (s Sync) Run(ctx context.Context) error {
 
 	strategy := strategy.New(s.sizeOnly)
 	transferManager := transfer.NewManager(s.storageOpts, false, isBatch, s.concurrency, s.partSize)
-	tasks := s.Plan(ctx, onlySource, onlyDest, commonObjects, dsturl, *transferManager, strategy)
-	s.Execute(tasks, waiter)
+	reader, writer := io.Pipe()
 
-	waiter.Wait()
+	go func() {
+
+	}()
+
+	/* tasks := s.Plan(ctx, onlySource, onlyDest, commonObjects, dsturl, *transferManager, strategy)
+	s.Execute(tasks, waiter) */
+
+	/* waiter.Wait()
 	<-errDoneCh
-	return merrorWaiter
+	return merrorWaiter */
+	return NewRun(ctx, reader).Run(ctx)
 }
 
 func CompareObjects(sourceObjects, destObjects []*storage.Object) (srcOnly, dstOnly []*storage.Object, commonObj []*CommonObject) {
@@ -308,6 +316,28 @@ func (s Sync) GetSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 	// wait until source and destination objects are fetched.
 	wg.Wait()
 	return sourceObjects, destObjects, nil
+}
+
+func (s Sync) PlanRun(ctx context.Context, onlySource, onlyDest []*storage.Object, common []*CommonObject,
+	dsturl *url.URL, transferManager transfer.Manager, strategy strategy.Strategy, w io.Writer) {
+	// only source objects.
+	for _, srcobj := range onlySource {
+		var dsturl_ *url.URL
+		srcurl := srcobj.URL
+		switch {
+		case !srcurl.IsRemote() && dsturl.IsRemote(): // local->remote
+			dsturl_ = transferManager.PrepareRemoteDestination(srcurl, dsturl)
+		case srcurl.IsRemote() && !dsturl.IsRemote(): // remote->local
+			dsturl_, _ = transferManager.PrepareLocalDestination(ctx, srcurl, dsturl)
+		case srcurl.IsRemote() && dsturl.IsRemote(): // remote->remote
+			dsturl_ = transferManager.PrepareRemoteDestination(srcurl, dsturl)
+		default:
+			panic("unexpected src-dst pair")
+		}
+		command := fmt.Sprintf("cp %v %v", srcurl, dsturl_)
+		w.Write([]byte(command))
+	}
+
 }
 
 func (s Sync) Plan(ctx context.Context, onlySource, onlyDest []*storage.Object, common []*CommonObject,

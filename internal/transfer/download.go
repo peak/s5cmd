@@ -10,7 +10,7 @@ import (
 
 func (m *Manager) PrepareDownloadTask(ctx context.Context, srcurl, dsturl *url.URL) func() error {
 	return func() error {
-		dsturl_local, err := m.prepareLocalDestination(ctx, srcurl, dsturl)
+		dsturl_local, err := m.PrepareLocalDestination(ctx, srcurl, dsturl)
 		if err != nil {
 			return err
 		}

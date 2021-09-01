@@ -392,10 +392,6 @@ func validateSyncCommand(c *cli.Context) error {
 		return fmt.Errorf("expected source and destination arguments")
 	}
 
-	if c.Bool("size-only") && c.Bool("checksum") {
-		return fmt.Errorf("--size-only and --checksum flags cannot be used together")
-	}
-
 	ctx := c.Context
 	src := c.Args().Get(0)
 	dst := c.Args().Get(1)

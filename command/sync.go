@@ -362,7 +362,6 @@ func (s Sync) PlanRun(ctx context.Context, onlySource, onlyDest []*url.URL, comm
 		}
 	}
 	w.Close()
-
 }
 
 // shouldSkipObject checks is object should be skipped.

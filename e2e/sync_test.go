@@ -105,12 +105,10 @@ func TestSyncLocalFolderToS3EmptyBucket(t *testing.T) {
 	folderLayout := []fs.PathOp{
 		fs.WithFile("testfile1.txt", "this is a test file 1"),
 		fs.WithFile("readme.md", "this is a readme file"),
-		fs.WithDir(
-			"a",
+		fs.WithDir("a",
 			fs.WithFile("another_test_file.txt", "yet another txt file. yatf."),
 		),
-		fs.WithDir(
-			"b",
+		fs.WithDir("b",
 			fs.WithFile("filename-with-hypen.gz", "file has hypen in its name"),
 		),
 	}
@@ -128,10 +126,10 @@ func TestSyncLocalFolderToS3EmptyBucket(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(`upload %va/another_test_file.txt %va/another_test_file.txt`, src, dst),
-		1: equals(`upload %vb/filename-with-hypen.gz %vb/filename-with-hypen.gz`, src, dst),
-		2: equals(`upload %vreadme.md %vreadme.md`, src, dst),
-		3: equals(`upload %vtestfile1.txt %vtestfile1.txt`, src, dst),
+		0: equals(`cp %va/another_test_file.txt %va/another_test_file.txt`, src, dst),
+		1: equals(`cp %vb/filename-with-hypen.gz %vb/filename-with-hypen.gz`, src, dst),
+		2: equals(`cp %vreadme.md %vreadme.md`, src, dst),
+		3: equals(`cp %vtestfile1.txt %vtestfile1.txt`, src, dst),
 	}, sortInput(true))
 
 	// assert local filesystem
@@ -185,10 +183,10 @@ func TestSyncS3BucketToEmptyFolder(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(`download %v/a/another_test_file.txt %va/another_test_file.txt`, bucketPath, dst),
-		1: equals(`download %v/abc/def/test.py %vabc/def/test.py`, bucketPath, dst),
-		2: equals(`download %v/readme.md %vreadme.md`, bucketPath, dst),
-		3: equals(`download %v/testfile1.txt %vtestfile1.txt`, bucketPath, dst),
+		0: equals(`cp %v/a/another_test_file.txt %va/another_test_file.txt`, bucketPath, dst),
+		1: equals(`cp %v/abc/def/test.py %vabc/def/test.py`, bucketPath, dst),
+		2: equals(`cp %v/readme.md %vreadme.md`, bucketPath, dst),
+		3: equals(`cp %v/testfile1.txt %vtestfile1.txt`, bucketPath, dst),
 	}, sortInput(true))
 
 	expectedFolderLayout := []fs.PathOp{
@@ -249,10 +247,10 @@ func TestSyncS3BucketToEmptyS3Bucket(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(`copy %v/a/another_test_file.txt %va/another_test_file.txt`, bucketPath, dst),
-		1: equals(`copy %v/abc/def/test.py %vabc/def/test.py`, bucketPath, dst),
-		2: equals(`copy %v/readme.md %vreadme.md`, bucketPath, dst),
-		3: equals(`copy %v/testfile1.txt %vtestfile1.txt`, bucketPath, dst),
+		0: equals(`cp %v/a/another_test_file.txt %va/another_test_file.txt`, bucketPath, dst),
+		1: equals(`cp %v/abc/def/test.py %vabc/def/test.py`, bucketPath, dst),
+		2: equals(`cp %v/readme.md %vreadme.md`, bucketPath, dst),
+		3: equals(`cp %v/testfile1.txt %vtestfile1.txt`, bucketPath, dst),
 	}, sortInput(true))
 
 	// assert  s3 objects in source bucket.
@@ -286,8 +284,7 @@ func TestSyncLocalFolderToS3BucketSameObjectsSourceOlder(t *testing.T) {
 		fs.WithFile("main.py", "this is a python file", timestamp),
 		fs.WithFile("testfile1.txt", "this is a test file 1", timestamp),
 		fs.WithFile("readme.md", "this is a readme file", timestamp),
-		fs.WithDir(
-			"a",
+		fs.WithDir("a",
 			fs.WithFile("another_test_file.txt", "yet another txt file. yatf.", timestamp),
 			timestamp,
 		),
@@ -298,8 +295,7 @@ func TestSyncLocalFolderToS3BucketSameObjectsSourceOlder(t *testing.T) {
 		fs.WithFile("main.py", "this is a python file"),
 		fs.WithFile("testfile1.txt", "this is a test file 1"),
 		fs.WithFile("readme.md", "this is a readme file"),
-		fs.WithDir(
-			"a",
+		fs.WithDir("a",
 			fs.WithFile("another_test_file.txt", "yet another txt file. yatf."),
 		),
 	}
@@ -402,9 +398,9 @@ func TestSyncLocalFolderToS3BucketSameObjectsSourceNewer(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(`upload %vdir/main.py %vdir/main.py`, src, dst),
-		1: equals(`upload %vreadme.md %vreadme.md`, src, dst),
-		2: equals(`upload %vtestfile1.txt %vtestfile1.txt`, src, dst),
+		0: equals(`cp %vdir/main.py %vdir/main.py`, src, dst),
+		1: equals(`cp %vreadme.md %vreadme.md`, src, dst),
+		2: equals(`cp %vtestfile1.txt %vtestfile1.txt`, src, dst),
 	}, sortInput(true))
 
 	// expected folder structure without the timestamp.
@@ -565,10 +561,10 @@ func TestSyncS3BucketToLocalFolderSameObjectsSourceNewer(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(`download %v/a/another_test_file.txt %va/another_test_file.txt`, bucketPath, dst),
-		1: equals(`download %v/main.py %vmain.py`, bucketPath, dst),
-		2: equals(`download %v/readme.md %vreadme.md`, bucketPath, dst),
-		3: equals(`download %v/testfile1.txt %vtestfile1.txt`, bucketPath, dst),
+		0: equals(`cp %v/a/another_test_file.txt %va/another_test_file.txt`, bucketPath, dst),
+		1: equals(`cp %v/main.py %vmain.py`, bucketPath, dst),
+		2: equals(`cp %v/readme.md %vreadme.md`, bucketPath, dst),
+		3: equals(`cp %v/testfile1.txt %vtestfile1.txt`, bucketPath, dst),
 	}, sortInput(true))
 
 	// expected folder structure without the timestamp.
@@ -628,10 +624,10 @@ func TestSyncS3BucketToS3BucketSameSizesSourceNewer(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(`copy %v/a/another_test_file.txt %va/another_test_file.txt`, bucketPath, dst),
-		1: equals(`copy %v/main.py %vmain.py`, bucketPath, dst),
-		2: equals(`copy %v/readme.md %vreadme.md`, bucketPath, dst),
-		3: equals(`copy %v/testfile1.txt %vtestfile1.txt`, bucketPath, dst),
+		0: equals(`cp %v/a/another_test_file.txt %va/another_test_file.txt`, bucketPath, dst),
+		1: equals(`cp %v/main.py %vmain.py`, bucketPath, dst),
+		2: equals(`cp %v/readme.md %vreadme.md`, bucketPath, dst),
+		3: equals(`cp %v/testfile1.txt %vtestfile1.txt`, bucketPath, dst),
 	}, sortInput(true))
 
 	// assert s3 objects in source
@@ -757,8 +753,8 @@ func TestSyncS3BucketToLocalFolderSameObjectsSizeOnly(t *testing.T) {
 		0: equals(`DEBUG "sync %v/a/another_test_file.txt %va/another_test_file.txt": object size matches`, bucketPath, dst),
 		1: equals(`DEBUG "sync %v/readme.md %vreadme.md": object size matches`, bucketPath, dst),
 		2: equals(`DEBUG "sync %v/testfile1.txt %vtestfile1.txt": object size matches`, bucketPath, dst),
-		3: equals(`download %v/abc/def/main.py %vabc/def/main.py`, bucketPath, dst),
-		4: equals(`download %v/test.py %vtest.py`, bucketPath, dst),
+		3: equals(`cp %v/abc/def/main.py %vabc/def/main.py`, bucketPath, dst),
+		4: equals(`cp %v/test.py %vtest.py`, bucketPath, dst),
 	}, sortInput(true))
 
 	expectedFolderLayout := []fs.PathOp{
@@ -836,8 +832,8 @@ func TestSyncLocalFolderToS3BucketSameObjectsSizeOnly(t *testing.T) {
 		0: equals(`DEBUG "sync %va/another_test_file.txt %va/another_test_file.txt": object size matches`, src, dst),
 		1: equals(`DEBUG "sync %vreadme.md %vreadme.md": object size matches`, src, dst),
 		2: equals(`DEBUG "sync %vtest.py %vtest.py": object size matches`, src, dst),
-		3: equals(`upload %vabc/def/main.py %vabc/def/main.py`, src, dst),
-		4: equals(`upload %vtestfile1.txt %vtestfile1.txt`, src, dst),
+		3: equals(`cp %vabc/def/main.py %vabc/def/main.py`, src, dst),
+		4: equals(`cp %vtestfile1.txt %vtestfile1.txt`, src, dst),
 	}, sortInput(true))
 
 	// expected folder structure without the timestamp.
@@ -911,7 +907,7 @@ func TestSyncS3BucketToS3BucketSizeOnly(t *testing.T) {
 		0: equals(`DEBUG "sync %v/a/another_test_file.txt %va/another_test_file.txt": object size matches`, bucketPath, dst),
 		1: equals(`DEBUG "sync %v/readme.md %vreadme.md": object size matches`, bucketPath, dst),
 		2: equals(`DEBUG "sync %v/testfile1.txt %vtestfile1.txt": object size matches`, bucketPath, dst),
-		3: equals(`copy %v/main.py %vmain.py`, bucketPath, dst),
+		3: equals(`cp %v/main.py %vmain.py`, bucketPath, dst),
 	}, sortInput(true))
 
 	// assert s3 objects in source
@@ -970,10 +966,10 @@ func TestSyncS3BucketToLocalWithDelete(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(`delete %vdir/main.py`, dst),
-		1: equals(`delete %vreadme.md`, dst),
-		2: equals(`delete %vtestfile1.txt`, dst),
-		3: equals(`download %vcontributing.md %vcontributing.md`, src, dst),
+		0: equals(`cp %vcontributing.md %vcontributing.md`, src, dst),
+		1: equals(`rm %vdir/main.py`, dst),
+		2: equals(`rm %vreadme.md`, dst),
+		3: equals(`rm %vtestfile1.txt`, dst),
 	}, sortInput(true))
 
 	expectedFolderLayout := []fs.PathOp{
@@ -1028,10 +1024,10 @@ func TestSyncLocalToS3BucketWithDelete(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(`delete %vdir/main.py`, dst),
-		1: equals(`delete %vreadme.md`, dst),
-		2: equals(`delete %vtestfile1.txt`, dst),
-		3: equals(`upload %vcontributing.md %vcontributing.md`, src, dst),
+		0: equals(`cp %vcontributing.md %vcontributing.md`, src, dst),
+		1: equals(`rm %vdir/main.py`, dst),
+		2: equals(`rm %vreadme.md`, dst),
+		3: equals(`rm %vtestfile1.txt`, dst),
 	}, sortInput(true))
 
 	expectedFolderLayout := []fs.PathOp{
@@ -1101,12 +1097,12 @@ func TestSyncS3BucketToS3BucketWithDelete(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(`copy %vdir/main.py %vdir/main.py`, src, dst),
-		1: equals(`copy %vreadme.md %vreadme.md`, src, dst),
-		2: equals(`copy %vtestfile1.txt %vtestfile1.txt`, src, dst),
-		3: equals(`delete %vdir/test.py`, dst),
-		4: equals(`delete %vmain.md`, dst),
-		5: equals(`delete %vtestfile2.txt`, dst),
+		0: equals(`cp %vdir/main.py %vdir/main.py`, src, dst),
+		1: equals(`cp %vreadme.md %vreadme.md`, src, dst),
+		2: equals(`cp %vtestfile1.txt %vtestfile1.txt`, src, dst),
+		3: equals(`rm %vdir/test.py`, dst),
+		4: equals(`rm %vmain.md`, dst),
+		5: equals(`rm %vtestfile2.txt`, dst),
 	}, sortInput(true))
 
 	expectedDestS3Content := map[string]string{
@@ -1190,9 +1186,9 @@ func TestSyncS3toLocalWithWildcard(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(`delete %vtest.py`, dst),
-		1: equals(`download %vsubfolder/sub.txt %vsubfolder/sub.txt`, src, dst),
-		2: equals(`download %vtest.txt %vtest.txt`, src, dst),
+		0: equals(`cp %vsubfolder/sub.txt %vsubfolder/sub.txt`, src, dst),
+		1: equals(`cp %vtest.txt %vtest.txt`, src, dst),
+		2: equals(`rm %vtest.py`, dst),
 	}, sortInput(true))
 
 	expectedLayout := []fs.PathOp{

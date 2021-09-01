@@ -194,10 +194,11 @@ func (s Sync) Run(c *cli.Context) error {
 		}
 	}()
 
-	strategy := strategy.New(s.sizeOnly)
-	transferManager := transfer.NewManager(s.storageOpts, false, isBatch, s.concurrency, s.partSize)
-	pipeReader, pipeWriter := io.Pipe()
+	strategy := strategy.New(s.sizeOnly)                                                             // create comparison strategy.
+	transferManager := transfer.NewManager(s.storageOpts, false, isBatch, s.concurrency, s.partSize) // create transfer manager
+	pipeReader, pipeWriter := io.Pipe()                                                              // create a reader, writer pipe to pass commands to run
 
+	// Create commands in background.
 	go func() {
 		s.PlanRun(c.Context, onlySource, onlyDest, commonObjects, dsturl, *transferManager, strategy, pipeWriter)
 	}()
@@ -233,7 +234,7 @@ func CompareObjects(sourceObjects, destObjects []*storage.Object) (srcOnly, dstO
 			if srcName > dstName {
 				srcObject = nil
 				iSrc--
-			} else if srcName == dstName {
+			} else if srcName == dstName { // if there is a match.
 				commonObj = append(commonObj, &CommonObject{src: srcObject, dst: dstObject})
 			} else {
 				dstObject = nil
@@ -253,6 +254,7 @@ func CompareObjects(sourceObjects, destObjects []*storage.Object) (srcOnly, dstO
 	return
 }
 
+// GetSourceAndDestinationObjects returns source and destination objects from given urls.
 func (s Sync) GetSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl *url.URL) ([]*storage.Object, []*storage.Object, error) {
 	sourceClient, err := storage.NewClient(ctx, srcurl, s.storageOpts)
 	if err != nil {
@@ -312,6 +314,7 @@ func (s Sync) GetSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 	return sourceObjects, destObjects, nil
 }
 
+// PlanRun prepares the commands and passes it to reader for run command.
 func (s Sync) PlanRun(ctx context.Context, onlySource, onlyDest []*url.URL, common []*CommonObject,
 	dsturl *url.URL, transferManager transfer.Manager, strategy strategy.Strategy, w *io.PipeWriter) {
 	// only source objects.
@@ -331,10 +334,11 @@ func (s Sync) PlanRun(ctx context.Context, onlySource, onlyDest []*url.URL, comm
 		fmt.Fprint(w, command)
 	}
 
+	// for common objects
 	for _, commonObject := range common {
 		sourceObject, destObject := commonObject.src, commonObject.dst
 		srcurl_local, dsturl_local := sourceObject.URL, destObject.URL
-		err := strategy.Compare(sourceObject, destObject)
+		err := strategy.Compare(sourceObject, destObject) // check if object should be copied.
 		if err != nil {
 			if errorpkg.IsWarning(err) {
 				printDebug(s.op, srcurl_local, dsturl_local, err)
@@ -346,6 +350,7 @@ func (s Sync) PlanRun(ctx context.Context, onlySource, onlyDest []*url.URL, comm
 		fmt.Fprint(w, command)
 	}
 
+	// for only destination objects.
 	for _, desturl := range onlyDest {
 		if s.delete { // if delete is set
 			command := fmt.Sprintf("rm %v\n", desturl)
@@ -356,12 +361,7 @@ func (s Sync) PlanRun(ctx context.Context, onlySource, onlyDest []*url.URL, comm
 
 }
 
-func (s Sync) Execute(tasks <-chan parallel.Task, waiter *parallel.Waiter) {
-	for task := range tasks {
-		parallel.Run(task, waiter)
-	}
-}
-
+// shouldSkipObject checks is object should be skipped.
 func (s Sync) shouldSkipObject(object *storage.Object, verbose bool) bool {
 	if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) {
 		return true

@@ -42,18 +42,7 @@ func NewRun(c *cli.Context, r io.Reader) Run {
 	}
 }
 
-func (r Run) Run(ctx context.Context) error {
-	/* reader := os.Stdin
-	if c.Args().Len() == 1 {
-		f, err := os.Open(c.Args().First())
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-
-		reader = f
-	} */
-
+func (r Run) Run(c *cli.Context) error {
 	reader := r.reader
 	pm := parallel.New(c.Int("numworkers"))
 	defer pm.Close()
@@ -71,8 +60,10 @@ func (r Run) Run(ctx context.Context) error {
 	}()
 
 	scanner := NewScanner(c.Context, reader)
+
 	lineno := -1
 	for line := range scanner.Scan() {
+		// fmt.Printf("Run line %v\n", line)
 		lineno++
 
 		// support inline comments
@@ -101,6 +92,8 @@ func (r Run) Run(ctx context.Context) error {
 			printError(givenCommand(c), c.Command.Name, err)
 			continue
 		}
+
+		// fmt.Printf("Line is %v\n", line)
 
 		fn := func() error {
 			subcmd := fields[0]
@@ -156,80 +149,7 @@ func NewRunCommand() *cli.Command {
 				reader = f
 			}
 
-			pm := parallel.New(c.Int("numworkers"))
-			defer pm.Close()
-
-			waiter := parallel.NewWaiter()
-
-			var errDoneCh = make(chan bool)
-			go func() {
-				defer close(errDoneCh)
-				for range waiter.Err() {
-					// app.ExitErrHandler is called after each command.Run
-					// invocation. Ignore the errors returned from parallel.Run,
-					// just drain the channel for synchronization.
-				}
-			}()
-
-			scanner := NewScanner(c.Context, reader)
-			lineno := -1
-			for line := range scanner.Scan() {
-				lineno++
-
-				// support inline comments
-				line = strings.Split(line, " #")[0]
-
-				line = strings.TrimSpace(line)
-				if line == "" {
-					continue
-				}
-
-				if strings.HasPrefix(line, "#") {
-					continue
-				}
-
-				fields, err := shellquote.Split(line)
-				if err != nil {
-					return err
-				}
-
-				if len(fields) == 0 {
-					continue
-				}
-
-				if fields[0] == "run" {
-					err := fmt.Errorf("%q command (line: %v) is not permitted in run-mode", "run", lineno)
-					printError(givenCommand(c), c.Command.Name, err)
-					continue
-				}
-
-				fn := func() error {
-					subcmd := fields[0]
-
-					cmd := AppCommand(subcmd)
-					if cmd == nil {
-						err := fmt.Errorf("%q command (line: %v) not found", subcmd, lineno)
-						printError(givenCommand(c), c.Command.Name, err)
-						return nil
-					}
-
-					flagset := flag.NewFlagSet(subcmd, flag.ExitOnError)
-					if err := flagset.Parse(fields); err != nil {
-						printError(givenCommand(c), c.Command.Name, err)
-						return nil
-					}
-
-					ctx := cli.NewContext(app, flagset, c)
-					return cmd.Run(ctx)
-				}
-
-				pm.Run(fn, waiter)
-			}
-
-			waiter.Wait()
-			<-errDoneCh
-
-			return scanner.Err()
+			return NewRun(c, reader).Run(c)
 		},
 	}
 }
@@ -275,6 +195,7 @@ func (s *Scanner) scan() {
 
 // Scan returns read-only channel to consume lines.
 func (s *Scanner) Scan() <-chan string {
+	fmt.Println("Scan called")
 	return s.linech
 }
 

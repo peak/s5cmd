@@ -17,7 +17,6 @@ import (
 	"github.com/peak/s5cmd/internal/sortedslice"
 	"github.com/peak/s5cmd/internal/strategy"
 	"github.com/peak/s5cmd/internal/transfer"
-	"github.com/peak/s5cmd/log"
 	"github.com/peak/s5cmd/log/stat"
 	"github.com/peak/s5cmd/parallel"
 	"github.com/peak/s5cmd/storage"
@@ -96,7 +95,7 @@ func NewSyncCommand() *cli.Command {
 		Action: func(c *cli.Context) (err error) {
 			defer stat.Collect(c.Command.FullName(), &err)()
 
-			return NewSync(c).Run(c.Context)
+			return NewSync(c).Run(c)
 		},
 	}
 }
@@ -142,7 +141,7 @@ func NewSync(c *cli.Context) Sync {
 }
 
 // Run starts copying given source objects to destination.
-func (s Sync) Run(ctx context.Context) error {
+func (s Sync) Run(c *cli.Context) error {
 	srcurl, err := url.New(s.src)
 	if err != nil {
 		return err
@@ -152,18 +151,18 @@ func (s Sync) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	sourceClient, err := storage.NewClient(ctx, srcurl, s.storageOpts)
+	sourceClient, err := storage.NewClient(c.Context, srcurl, s.storageOpts)
 	if err != nil {
 		return err
 	}
 
 	isBatch := srcurl.IsWildcard()
 	if !isBatch && !srcurl.IsRemote() {
-		obj, _ := sourceClient.Stat(ctx, srcurl)
+		obj, _ := sourceClient.Stat(c.Context, srcurl)
 		isBatch = obj != nil && obj.Type.IsDir()
 	}
 
-	sourceObjects, destObjects, err := s.GetSourceAndDestinationObjects(ctx, srcurl, dsturl)
+	sourceObjects, destObjects, err := s.GetSourceAndDestinationObjects(c.Context, srcurl, dsturl)
 	if err != nil {
 		printError(s.fullCommand, s.op, err)
 		return err
@@ -197,19 +196,14 @@ func (s Sync) Run(ctx context.Context) error {
 
 	strategy := strategy.New(s.sizeOnly)
 	transferManager := transfer.NewManager(s.storageOpts, false, isBatch, s.concurrency, s.partSize)
-	reader, writer := io.Pipe()
+	pipeReader, pipeWriter := io.Pipe()
 
 	go func() {
-
+		s.PlanRun(c.Context, onlySource, onlyDest, commonObjects, dsturl, *transferManager, strategy, pipeWriter)
 	}()
 
-	/* tasks := s.Plan(ctx, onlySource, onlyDest, commonObjects, dsturl, *transferManager, strategy)
-	s.Execute(tasks, waiter) */
-
-	/* waiter.Wait()
-	<-errDoneCh
-	return merrorWaiter */
-	return NewRun(ctx, reader).Run(ctx)
+	// pass the reader to run
+	return NewRun(c, pipeReader).Run(c)
 }
 
 func CompareObjects(sourceObjects, destObjects []*storage.Object) (srcOnly, dstOnly []*storage.Object, commonObj []*CommonObject) {
@@ -319,7 +313,7 @@ func (s Sync) GetSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 }
 
 func (s Sync) PlanRun(ctx context.Context, onlySource, onlyDest []*storage.Object, common []*CommonObject,
-	dsturl *url.URL, transferManager transfer.Manager, strategy strategy.Strategy, w io.Writer) {
+	dsturl *url.URL, transferManager transfer.Manager, strategy strategy.Strategy, w *io.PipeWriter) {
 	// only source objects.
 	for _, srcobj := range onlySource {
 		var dsturl_ *url.URL
@@ -334,36 +328,12 @@ func (s Sync) PlanRun(ctx context.Context, onlySource, onlyDest []*storage.Objec
 		default:
 			panic("unexpected src-dst pair")
 		}
-		command := fmt.Sprintf("cp %v %v", srcurl, dsturl_)
-		w.Write([]byte(command))
-	}
-
-}
-
-func (s Sync) Plan(ctx context.Context, onlySource, onlyDest []*storage.Object, common []*CommonObject,
-	dsturl *url.URL, transferManager transfer.Manager, strategy strategy.Strategy) chan parallel.Task {
-	totalSize := len(onlyDest) + len(onlySource) + len(common)
-	tasks := make(chan parallel.Task, totalSize)
-
-	// only source objects.
-	for _, srcobj := range onlySource {
-		var task parallel.Task
-		srcurl := srcobj.URL
-		switch {
-		case !srcurl.IsRemote() && dsturl.IsRemote(): // local->remote
-			task = transferManager.PrepareUploadTask(ctx, srcurl, dsturl)
-		case srcurl.IsRemote() && !dsturl.IsRemote(): // remote->local
-			task = transferManager.PrepareDownloadTask(ctx, srcurl, dsturl)
-		case srcurl.IsRemote() && dsturl.IsRemote(): // remote->remote
-			task = transferManager.PrepareCopyTask(ctx, srcurl, dsturl)
-		default:
-			panic("unexpected src-dst pair")
-		}
-		tasks <- task
+		command := fmt.Sprintf("cp %v %v\n", srcurl, dsturl_)
+		/* 		fmt.Printf("command : %v\n", command) */
+		fmt.Fprint(w, command)
 	}
 
 	for _, commonObject := range common {
-		var task parallel.Task
 		sourceObject, destObject := commonObject.src, commonObject.dst
 		srcurl_local, dsturl_local := sourceObject.URL, destObject.URL
 		err := strategy.Compare(sourceObject, destObject)
@@ -374,25 +344,21 @@ func (s Sync) Plan(ctx context.Context, onlySource, onlyDest []*storage.Object, 
 			}
 		}
 
-		switch {
-		case !srcurl_local.IsRemote() && destObject.URL.IsRemote(): // local->remote
-			task = transferManager.PrepareUploadTask(ctx, srcurl_local, dsturl)
-		case srcurl_local.IsRemote() && !destObject.URL.IsRemote(): // remote->local
-			task = transferManager.PrepareDownloadTask(ctx, srcurl_local, dsturl)
-		case srcurl_local.IsRemote() && destObject.URL.IsRemote(): // remote->remote
-			task = transferManager.PrepareCopyTask(ctx, srcurl_local, dsturl)
-		default:
-			panic("unexpected src-dst pair")
-		}
-		tasks <- task
+		command := fmt.Sprintf("cp %v %v\n", srcurl_local, dsturl_local)
+		/* 		fmt.Printf("command : %v\n", command) */
+		fmt.Fprint(w, command)
 	}
 
 	for _, destObj := range onlyDest {
-		task := s.prepareDeleteTask(ctx, destObj.URL)
-		tasks <- task
+		if s.delete { // if delete is set
+			command := fmt.Sprintf("rm %v\n", destObj.URL)
+			/* 		fmt.Printf("command : %v\n", command) */
+			fmt.Fprint(w, command)
+		}
 	}
-	close(tasks)
-	return tasks
+	// fmt.Println("done")
+	w.Close()
+
 }
 
 func (s Sync) Execute(tasks <-chan parallel.Task, waiter *parallel.Waiter) {
@@ -421,34 +387,6 @@ func (s Sync) shouldSkipObject(object *storage.Object, verbose bool) bool {
 		return true
 	}
 	return false
-}
-
-// prepareDeleteTask prepares delete operation of only destination objects.
-func (s Sync) prepareDeleteTask(
-	ctx context.Context,
-	dsturl *url.URL,
-) func() error {
-	return func() error {
-		// if delete is not set, then return.
-		if !s.delete {
-			return nil
-		}
-		destClient, err := storage.NewClient(ctx, dsturl, s.storageOpts)
-		if err != nil {
-			return err
-		}
-
-		err = destClient.Delete(ctx, dsturl)
-		if err == nil {
-			msg := log.InfoMessage{
-				Operation: "delete",
-				Source:    dsturl,
-			}
-			log.Info(msg)
-		}
-		return err
-
-	}
 }
 
 func validateSyncCommand(c *cli.Context) error {

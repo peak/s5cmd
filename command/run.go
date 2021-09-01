@@ -195,7 +195,6 @@ func (s *Scanner) scan() {
 
 // Scan returns read-only channel to consume lines.
 func (s *Scanner) Scan() <-chan string {
-	fmt.Println("Scan called")
 	return s.linech
 }
 

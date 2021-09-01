@@ -206,7 +206,7 @@ func (s Sync) Run(c *cli.Context) error {
 	return NewRun(c, pipeReader).Run(c)
 }
 
-func CompareObjects(sourceObjects, destObjects []*storage.Object) (srcOnly, dstOnly []*storage.Object, commonObj []*CommonObject) {
+func CompareObjects(sourceObjects, destObjects []*storage.Object) (srcOnly, dstOnly []*url.URL, commonObj []*CommonObject) {
 	// sort the source and destination objects.
 	sort.Sort(sortedslice.Slice(sourceObjects))
 	sort.Sort(sortedslice.Slice(destObjects))
@@ -245,9 +245,9 @@ func CompareObjects(sourceObjects, destObjects []*storage.Object) (srcOnly, dstO
 		case srcObject == nil && dstObject == nil:
 			// do nothing
 		case srcObject == nil:
-			dstOnly = append(dstOnly, dstObject)
+			dstOnly = append(dstOnly, dstObject.URL)
 		case dstObject == nil:
-			srcOnly = append(srcOnly, srcObject)
+			srcOnly = append(srcOnly, srcObject.URL)
 		}
 	}
 	return
@@ -312,12 +312,11 @@ func (s Sync) GetSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 	return sourceObjects, destObjects, nil
 }
 
-func (s Sync) PlanRun(ctx context.Context, onlySource, onlyDest []*storage.Object, common []*CommonObject,
+func (s Sync) PlanRun(ctx context.Context, onlySource, onlyDest []*url.URL, common []*CommonObject,
 	dsturl *url.URL, transferManager transfer.Manager, strategy strategy.Strategy, w *io.PipeWriter) {
 	// only source objects.
-	for _, srcobj := range onlySource {
+	for _, srcurl := range onlySource {
 		var dsturl_ *url.URL
-		srcurl := srcobj.URL
 		switch {
 		case !srcurl.IsRemote() && dsturl.IsRemote(): // local->remote
 			dsturl_ = transferManager.PrepareRemoteDestination(srcurl, dsturl)
@@ -329,7 +328,6 @@ func (s Sync) PlanRun(ctx context.Context, onlySource, onlyDest []*storage.Objec
 			panic("unexpected src-dst pair")
 		}
 		command := fmt.Sprintf("cp %v %v\n", srcurl, dsturl_)
-		/* 		fmt.Printf("command : %v\n", command) */
 		fmt.Fprint(w, command)
 	}
 
@@ -345,18 +343,15 @@ func (s Sync) PlanRun(ctx context.Context, onlySource, onlyDest []*storage.Objec
 		}
 
 		command := fmt.Sprintf("cp %v %v\n", srcurl_local, dsturl_local)
-		/* 		fmt.Printf("command : %v\n", command) */
 		fmt.Fprint(w, command)
 	}
 
-	for _, destObj := range onlyDest {
+	for _, desturl := range onlyDest {
 		if s.delete { // if delete is set
-			command := fmt.Sprintf("rm %v\n", destObj.URL)
-			/* 		fmt.Printf("command : %v\n", command) */
+			command := fmt.Sprintf("rm %v\n", desturl)
 			fmt.Fprint(w, command)
 		}
 	}
-	// fmt.Println("done")
 	w.Close()
 
 }

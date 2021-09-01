@@ -13,7 +13,6 @@ import (
 	"github.com/urfave/cli/v2"
 
 	errorpkg "github.com/peak/s5cmd/error"
-	"github.com/peak/s5cmd/internal/sortedslice"
 	"github.com/peak/s5cmd/internal/strategy"
 	"github.com/peak/s5cmd/internal/transfer"
 	"github.com/peak/s5cmd/log"
@@ -207,10 +206,12 @@ func (s Sync) Run(ctx context.Context) error {
 // CompareObjects compares source and destination objects.
 // Returns objects belongs to only source, only destination
 // and common objects.
+// The algorithm is taken from
+// https://github.com/rclone/rclone/blob/HEAD/fs/march/march.go#L304
 func CompareObjects(sourceObjects, destObjects []*storage.Object) (srcOnly, dstOnly []*storage.Object, commonObj []*CommonObject) {
 	// sort the source and destination objects.
-	sort.Sort(sortedslice.Slice(sourceObjects))
-	sort.Sort(sortedslice.Slice(destObjects))
+	sort.SliceStable(sourceObjects, func(i, j int) bool { return sourceObjects[i].URL.Relative() < sourceObjects[j].URL.Relative() })
+	sort.SliceStable(destObjects, func(i, j int) bool { return destObjects[i].URL.Relative() < destObjects[j].URL.Relative() })
 
 	for iSrc, iDst := 0, 0; ; iSrc, iDst = iSrc+1, iDst+1 {
 		var srcObject, dstObject *storage.Object

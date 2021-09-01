@@ -222,12 +222,12 @@ func CompareObjects(sourceObjects, destObjects []*storage.Object) (srcOnly, dstO
 
 		if iSrc < len(sourceObjects) {
 			srcObject = sourceObjects[iSrc]
-			srcName = filepath.ToSlash(srcObject.URL.ObjectPath())
+			srcName = filepath.ToSlash(srcObject.URL.Relative())
 		}
 
 		if iDst < len(destObjects) {
 			dstObject = destObjects[iDst]
-			dstName = filepath.ToSlash(dstObject.URL.ObjectPath())
+			dstName = filepath.ToSlash(dstObject.URL.Relative())
 		}
 
 		if srcObject == nil && dstObject == nil {

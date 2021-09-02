@@ -355,11 +355,11 @@ func (s Sync) PlanRun(ctx context.Context, onlySource, onlyDest []*url.URL, comm
 	}
 
 	// for only destination objects.
-	for _, desturl := range onlyDest {
-		if s.delete { // if delete is set
-			command := fmt.Sprintf("rm %v\n", desturl)
-			fmt.Fprint(w, command)
-		}
+
+	if s.delete { // if delete is set
+		urlpaths := GenerateRemovePath(onlyDest)
+		command := fmt.Sprintf("rm %v\n", strings.Join(urlpaths, " "))
+		fmt.Fprint(w, command)
 	}
 	w.Close()
 }
@@ -385,6 +385,16 @@ func (s Sync) shouldSkipObject(object *storage.Object, verbose bool) bool {
 		return true
 	}
 	return false
+}
+
+// GenerateRemovePath is used to create the string version
+// of urls, it will be passed to rm command for multidelete.
+func GenerateRemovePath(destURLs []*url.URL) []string {
+	var result []string
+	for _, desturl := range destURLs {
+		result = append(result, desturl.String())
+	}
+	return result
 }
 
 func validateSyncCommand(c *cli.Context) error {

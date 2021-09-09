@@ -63,7 +63,6 @@ func (r Run) Run(c *cli.Context) error {
 
 	lineno := -1
 	for line := range scanner.Scan() {
-		// fmt.Printf("Run line %v\n", line)
 		lineno++
 
 		// support inline comments
@@ -92,8 +91,6 @@ func (r Run) Run(c *cli.Context) error {
 			printError(givenCommand(c), c.Command.Name, err)
 			continue
 		}
-
-		// fmt.Printf("Line is %v\n", line)
 
 		fn := func() error {
 			subcmd := fields[0]

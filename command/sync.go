@@ -14,12 +14,12 @@ import (
 	"github.com/urfave/cli/v2"
 
 	errorpkg "github.com/peak/s5cmd/error"
-	"github.com/peak/s5cmd/internal/strategy"
-	"github.com/peak/s5cmd/internal/transfer"
 	"github.com/peak/s5cmd/log/stat"
 	"github.com/peak/s5cmd/parallel"
 	"github.com/peak/s5cmd/storage"
 	"github.com/peak/s5cmd/storage/url"
+	"github.com/peak/s5cmd/strategy"
+	"github.com/peak/s5cmd/transfer"
 )
 
 var syncHelpTemplate = `Name:
@@ -197,13 +197,14 @@ func (s Sync) Run(c *cli.Context) error {
 	transferManager := transfer.NewManager(s.storageOpts, false, isBatch, s.concurrency, s.partSize) // create transfer manager
 	pipeReader, pipeWriter := io.Pipe()                                                              // create a reader, writer pipe to pass commands to run
 
+	var merrorPlan error // for errors in plan
 	// Create commands in background.
 	go func() {
-		s.PlanRun(c.Context, onlySource, onlyDest, commonObjects, dsturl, *transferManager, strategy, pipeWriter)
+		s.PlanRun(c.Context, onlySource, onlyDest, commonObjects, dsturl, *transferManager, strategy, pipeWriter, &merrorPlan)
 	}()
 
 	// pass the reader to run
-	return NewRun(c, pipeReader).Run(c)
+	return multierror.Append(NewRun(c, pipeReader).Run(c), merrorPlan).ErrorOrNil()
 }
 
 // CompareObjects compares source and destination objects.
@@ -320,42 +321,47 @@ func (s Sync) GetSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 
 // PlanRun prepares the commands and passes it to reader for run command.
 func (s Sync) PlanRun(ctx context.Context, onlySource, onlyDest []*url.URL, common []*CommonObject,
-	dsturl *url.URL, transferManager transfer.Manager, strategy strategy.Strategy, w *io.PipeWriter) {
+	dsturl *url.URL, transferManager transfer.Manager, strategy strategy.Strategy, w *io.PipeWriter, errPlan *error) {
 	// only source objects.
 	for _, srcurl := range onlySource {
-		var dsturl_ *url.URL
+		var curDestURL *url.URL
 		switch {
 		case !srcurl.IsRemote() && dsturl.IsRemote(): // local->remote
-			dsturl_ = transferManager.PrepareRemoteDestination(srcurl, dsturl)
+			curDestURL = transferManager.PrepareRemoteDestination(srcurl, dsturl)
 		case srcurl.IsRemote() && !dsturl.IsRemote(): // remote->local
-			dsturl_, _ = transferManager.PrepareLocalDestination(ctx, srcurl, dsturl)
+			url, err := transferManager.PrepareLocalDestination(ctx, srcurl, dsturl)
+			curDestURL = url
+			if err != nil {
+				printError(s.fullCommand, s.op, err)
+				*errPlan = multierror.Append(*errPlan, err)
+				continue
+			}
 		case srcurl.IsRemote() && dsturl.IsRemote(): // remote->remote
-			dsturl_ = transferManager.PrepareRemoteDestination(srcurl, dsturl)
+			curDestURL = transferManager.PrepareRemoteDestination(srcurl, dsturl)
 		default:
 			panic("unexpected src-dst pair")
 		}
-		command := fmt.Sprintf("cp %v %v\n", srcurl, dsturl_)
+		command := fmt.Sprintf("cp %v %v\n", srcurl, curDestURL)
 		fmt.Fprint(w, command)
 	}
 
 	// for common objects
 	for _, commonObject := range common {
 		sourceObject, destObject := commonObject.src, commonObject.dst
-		srcurl_local, dsturl_local := sourceObject.URL, destObject.URL
+		curSourceURL, curDestURL := sourceObject.URL, destObject.URL
 		err := strategy.Compare(sourceObject, destObject) // check if object should be copied.
 		if err != nil {
 			if errorpkg.IsWarning(err) {
-				printDebug(s.op, srcurl_local, dsturl_local, err)
+				printDebug(s.op, curSourceURL, curDestURL, err)
 				continue
 			}
 		}
 
-		command := fmt.Sprintf("cp %v %v\n", srcurl_local, dsturl_local)
+		command := fmt.Sprintf("cp %v %v\n", curSourceURL, curDestURL)
 		fmt.Fprint(w, command)
 	}
 
 	// for only destination objects.
-
 	if s.delete { // if delete is set
 		urlpaths := GenerateRemovePath(onlyDest)
 		command := fmt.Sprintf("rm %v\n", strings.Join(urlpaths, " "))

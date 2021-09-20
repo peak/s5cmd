@@ -819,9 +819,13 @@ func (sc *SessionCache) clear() {
 }
 
 func setSessionRegion(ctx context.Context, sess *session.Session, bucket string) error {
-	if aws.StringValue(sess.Config.Region) == "" {
-		sess.Config.Region = aws.String(endpoints.UsEast1RegionID)
-	}
+	region := aws.StringValue(sess.Config.Region)
+
+	if region != "" {
+		return nil
+        }
+
+	sess.Config.Region = aws.String(endpoints.UsEast1RegionID)
 
 	if bucket == "" {
 		return nil

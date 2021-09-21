@@ -16,7 +16,6 @@
 
 ### Bugfixes
 
-- Fixed a bug where errors did not result a non-zero exit code. ([#304](https://github.com/peak/s5cmd/issues/304))
 - Change the order of precedence in URL expansion in file system. Glob (*) expansion have precedence over directory expansion. ([#322](https://github.com/peak/s5cmd/pull/322))
 
 ## v1.3.0 - 1 Jul 2021

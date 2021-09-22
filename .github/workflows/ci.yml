@@ -5,9 +5,9 @@ jobs:
     strategy:
       matrix:
         go-version:
+          - 1.17.x
           - 1.16.x
           - 1.15.x
-          - 1.14.x
         os:
           - macos
           - ubuntu
@@ -27,9 +27,9 @@ jobs:
     strategy:
       matrix:
         go-version:
+          - 1.17.x
           - 1.16.x
           - 1.15.x
-          - 1.14.x
         os:
           - macos
           - ubuntu
@@ -49,7 +49,7 @@ jobs:
     strategy:
       matrix:
         go-version:
-          - 1.16.x
+          - 1.17.x
         os:
           - ubuntu
 

@@ -336,7 +336,16 @@ object storage.
 
     s5cmd --endpoint-url https://storage.googleapis.com ls
 
-will return your GCS buckets.
+or an alternative with environment variable
+
+    S3_ENDPOINT_URL="https://storage.googleapis.com" s5cmd ls
+    
+    # or
+    
+    export S3_ENDPOINT_URL="https://storage.googleapis.com" 
+    s5cmd ls
+
+all variants will return your GCS buckets.
 
 `s5cmd` will use virtual-host style bucket resolving for S3, S3 transfer
 acceleration and GCS. If a custom endpoint is provided, it'll fallback to

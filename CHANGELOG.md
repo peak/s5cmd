@@ -2,25 +2,33 @@
 
 ## not released yet
 
+#### Bugfixes
+- Fixed a bug about precedence of region detection, which auto region detection would always override region defined in environment or profile. ([#325](https://github.com/peak/s5cmd/issues/325))
+
+## v1.4.0 - 21 Sep 2021
+
 #### Features
 
-- Added new `--exclude` flag to `cp`, `rm`, `ls`, `du` and `select` commands. This flag allows users to exclude objects with given pattern. ([#266](https://github.com/peak/s5cmd/issues/266))
-- Added new `--raw` flag to `cp` and `rm` commands. It disables the wildcard operations. It is useful when only an object contains glob characters wants to be downloaded. ([#235](https://github.com/peak/s5cmd/issues/235))
-- Added new `--cache-control` and `--expires` flags to `cp` and `rm` commands. It adds support for setting cache control and expires header to S3 objects. ([#318](https://github.com/peak/s5cmd/pull/318)) [@tombokombo](https://github.com/tombokombo)
-- Added new `select` command. It allows to select JSON records from objects using SQL expressions. ([#299](https://github.com/peak/s5cmd/issues/299)) [@skeggse](https://github.com/skeggse)
-- Added new `--force-glacier-transfer` flag to `cp` command. This flag forces transfer of GLACIER objects whether they are restored or not. ([#206](https://github.com/peak/s5cmd/issues/206))
-- Added new `--source-region` and `destination-region` flags to `cp` command. It allows overriding bucket region. ([#262](https://github.com/peak/s5cmd/issues/262)) [@kemege](https://github.com/kemege)
-- Added new `rb` command which allows users to remove buckets from command line. ([#303](https://github.com/peak/s5cmd/issues/303)).
+- Added `select` command. It allows to select JSON records from objects using SQL expressions. ([#299](https://github.com/peak/s5cmd/issues/299)) [@skeggse](https://github.com/skeggse)
+- Added `rb` command to remove buckets. ([#303](https://github.com/peak/s5cmd/issues/303)).
+- Added `--exclude` flag to `cp`, `rm`, `ls`, `du` and `select` commands. This flag allows users to exclude objects with given pattern. ([#266](https://github.com/peak/s5cmd/issues/266))
+- Added `--raw` flag to `cp` and `rm` commands. It disables the wildcard operations. It is useful when an object contains glob characters which interfers with glob expansion logic. ([#235](https://github.com/peak/s5cmd/issues/235))
+- Added `--cache-control` and `--expires` flags to `cp` and `mv` commands. It adds support for setting cache control and expires header to S3 objects. ([#318](https://github.com/peak/s5cmd/pull/318)) [@tombokombo](https://github.com/tombokombo)
+- Added `--force-glacier-transfer` flag to `cp` command. It forces a transfer request on all Glacier objects. ([#206](https://github.com/peak/s5cmd/issues/206))
+- Added `--source-region` and `destination-region` flags to `cp` command. It allows overriding bucket region. ([#262](https://github.com/peak/s5cmd/issues/262)) [@kemege](https://github.com/kemege)
 
 #### Improvements
 
-- Added new installation option MacPorts. ([#311](https://github.com/peak/s5cmd/pull/311)) [@manojkarthick](https://github.com/manojkarthick)
+- Added `MacPorts` installation option. ([#311](https://github.com/peak/s5cmd/pull/311)) [@manojkarthick](https://github.com/manojkarthick)
+- Added `S3_ENDPOINT_URL` environment variable ([#343](https://github.com/peak/s5cmd/pull/343)) [@Dexus](https://github.com/Dexus)
+- Prevent retries if a token related error is received ([#337](https://github.com/peak/s5cmd/pull/337))
 
 #### Bugfixes
 
-- Fixed a bug where errors did not result a non-zero exit code. ([#304](https://github.com/peak/s5cmd/issues/304))
 - Change the order of precedence in URL expansion in file system. Glob (*) expansion have precedence over directory expansion. ([#322](https://github.com/peak/s5cmd/pull/322))
-- Fixed a bug about precedence of region detection, which auto region detection would override region defined in environment or profile. ([#325](https://github.com/peak/s5cmd/issues/325))
+- Fixed data race for concurrent writes for expand ([#330](https://github.com/peak/s5cmd/pull/330))
+- Fixed concurrent writes to the flags list of run command ([#335](https://github.com/peak/s5cmd/pull/335))
+- Fixed options usage on mv command ([#338](https://github.com/peak/s5cmd/pull/338))
 
 ## v1.3.0 - 1 Jul 2021
 

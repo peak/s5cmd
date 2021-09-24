@@ -120,13 +120,7 @@ func (s Select) Run(ctx context.Context) error {
 		return err
 	}
 
-	// create two different error objects instead of single object to avoid the
-	// data race for merror object, since there is a goroutine running,
-	// there might be a data race for a single error object.
-	var (
-		merrorWaiter  error
-		merrorObjects error
-	)
+	var merror error
 
 	waiter := parallel.NewWaiter()
 	errDoneCh := make(chan bool)
@@ -137,7 +131,7 @@ func (s Select) Run(ctx context.Context) error {
 		defer close(errDoneCh)
 		for err := range waiter.Err() {
 			printError(s.fullCommand, s.op, err)
-			merrorWaiter = multierror.Append(merrorWaiter, err)
+			merror = multierror.Append(merror, err)
 		}
 	}()
 
@@ -174,14 +168,12 @@ func (s Select) Run(ctx context.Context) error {
 		}
 
 		if err := object.Err; err != nil {
-			merrorObjects = multierror.Append(merrorObjects, err)
 			printError(s.fullCommand, s.op, err)
 			continue
 		}
 
 		if object.StorageClass.IsGlacier() {
 			err := fmt.Errorf("object '%v' is on Glacier storage", object)
-			merrorObjects = multierror.Append(merrorObjects, err)
 			printError(s.fullCommand, s.op, err)
 			continue
 		}
@@ -199,7 +191,7 @@ func (s Select) Run(ctx context.Context) error {
 	<-errDoneCh
 	<-writeDoneCh
 
-	return multierror.Append(merrorWaiter, merrorObjects).ErrorOrNil()
+	return merror
 }
 
 func (s Select) prepareTask(ctx context.Context, client *storage.S3, url *url.URL, resultCh chan<- json.RawMessage) func() error {

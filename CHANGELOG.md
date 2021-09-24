@@ -1,6 +1,8 @@
 # Changelog
 
-### Features
+## v1.4.0 - 21 Sep 2021
+
+#### Features
 
 - Added `select` command. It allows to select JSON records from objects using SQL expressions. ([#299](https://github.com/peak/s5cmd/issues/299)) [@skeggse](https://github.com/skeggse)
 - Added `rb` command to remove buckets. ([#303](https://github.com/peak/s5cmd/issues/303)).
@@ -10,14 +12,18 @@
 - Added `--force-glacier-transfer` flag to `cp` command. It forces a transfer request on all Glacier objects. ([#206](https://github.com/peak/s5cmd/issues/206))
 - Added `--source-region` and `destination-region` flags to `cp` command. It allows overriding bucket region. ([#262](https://github.com/peak/s5cmd/issues/262)) [@kemege](https://github.com/kemege)
 
-### Improvements
+#### Improvements
 
 - Added `MacPorts` installation option. ([#311](https://github.com/peak/s5cmd/pull/311)) [@manojkarthick](https://github.com/manojkarthick)
+- Added `S3_ENDPOINT_URL` environment variable ([#343](https://github.com/peak/s5cmd/pull/343)) [@Dexus](https://github.com/Dexus)
+- Prevent retries if a token related error is received ([#337](https://github.com/peak/s5cmd/pull/337))
 
-### Bugfixes
+#### Bugfixes
 
-- Fixed a bug where errors did not result a non-zero exit code. ([#304](https://github.com/peak/s5cmd/issues/304))
 - Change the order of precedence in URL expansion in file system. Glob (*) expansion have precedence over directory expansion. ([#322](https://github.com/peak/s5cmd/pull/322))
+- Fixed data race for concurrent writes for expand ([#330](https://github.com/peak/s5cmd/pull/330))
+- Fixed concurrent writes to the flags list of run command ([#335](https://github.com/peak/s5cmd/pull/335))
+- Fixed options usage on mv command ([#338](https://github.com/peak/s5cmd/pull/338))
 
 ## v1.3.0 - 1 Jul 2021
 

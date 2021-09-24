@@ -62,7 +62,7 @@ func TestRunFromStdinWithErrors(t *testing.T) {
 	cmd := s5cmd("run")
 	result := icmd.RunCmd(cmd, icmd.WithStdin(input))
 
-	result.Assert(t, icmd.Success)
+	result.Assert(t, icmd.Expected{ExitCode: 1})
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{})
 

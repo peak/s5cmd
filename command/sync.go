@@ -18,8 +18,6 @@ import (
 	"github.com/peak/s5cmd/parallel"
 	"github.com/peak/s5cmd/storage"
 	"github.com/peak/s5cmd/storage/url"
-	"github.com/peak/s5cmd/strategy"
-	"github.com/peak/s5cmd/transfer"
 )
 
 var syncHelpTemplate = `Name:
@@ -68,7 +66,7 @@ func NewSyncCommandFlags() []cli.Flag {
 		},
 		&cli.BoolFlag{
 			Name:  "delete",
-			Usage: "delete objects in destionation but not in source",
+			Usage: "delete objects in destination but not in source",
 		},
 		&cli.BoolFlag{
 			Name:  "size-only",
@@ -99,7 +97,7 @@ func NewSyncCommand() *cli.Command {
 	}
 }
 
-type CommonObject struct {
+type ObjectPair struct {
 	src, dst *storage.Object
 }
 
@@ -168,7 +166,6 @@ func (s Sync) Run(c *cli.Context) error {
 	}
 	onlySource, onlyDest, commonObjects := CompareObjects(sourceObjects, destObjects)
 
-	// clear the arrays.
 	sourceObjects = nil
 	destObjects = nil
 
@@ -193,18 +190,15 @@ func (s Sync) Run(c *cli.Context) error {
 		}
 	}()
 
-	strategy := strategy.New(s.sizeOnly)                                                             // create comparison strategy.
-	transferManager := transfer.NewManager(s.storageOpts, false, isBatch, s.concurrency, s.partSize) // create transfer manager
-	pipeReader, pipeWriter := io.Pipe()                                                              // create a reader, writer pipe to pass commands to run
+	strategy := NewStrategy(s.sizeOnly) // create comparison strategy.
+	pipeReader, pipeWriter := io.Pipe() // create a reader, writer pipe to pass commands to run
 
-	var merrorPlan error // for errors in plan
 	// Create commands in background.
-	go func() {
-		s.PlanRun(c.Context, onlySource, onlyDest, commonObjects, dsturl, *transferManager, strategy, pipeWriter, &merrorPlan)
-	}()
+	go s.PlanRun(c.Context, onlySource, onlyDest, commonObjects, dsturl, strategy, pipeWriter, isBatch, false) // last parameter is flatten default false.
 
 	// pass the reader to run
-	return multierror.Append(NewRun(c, pipeReader).Run(c), merrorPlan).ErrorOrNil()
+	runerr := NewRun(c, pipeReader).Run(c)
+	return multierror.Append(runerr, merrorWaiter).ErrorOrNil()
 }
 
 // CompareObjects compares source and destination objects.
@@ -212,10 +206,14 @@ func (s Sync) Run(c *cli.Context) error {
 // and common objects.
 // The algorithm is taken from
 // https://github.com/rclone/rclone/blob/HEAD/fs/march/march.go#L304
-func CompareObjects(sourceObjects, destObjects []*storage.Object) (srcOnly, dstOnly []*url.URL, commonObj []*CommonObject) {
+func CompareObjects(sourceObjects, destObjects []*storage.Object) ([]*url.URL, []*url.URL, []*ObjectPair) {
 	// sort the source and destination objects.
 	sort.SliceStable(sourceObjects, func(i, j int) bool { return sourceObjects[i].URL.Relative() < sourceObjects[j].URL.Relative() })
 	sort.SliceStable(destObjects, func(i, j int) bool { return destObjects[i].URL.Relative() < destObjects[j].URL.Relative() })
+
+	var srcOnly []*url.URL
+	var dstOnly []*url.URL
+	var commonObj []*ObjectPair
 
 	for iSrc, iDst := 0, 0; ; iSrc, iDst = iSrc+1, iDst+1 {
 		var srcObject, dstObject *storage.Object
@@ -240,7 +238,7 @@ func CompareObjects(sourceObjects, destObjects []*storage.Object) (srcOnly, dstO
 				srcObject = nil
 				iSrc--
 			} else if srcName == dstName { // if there is a match.
-				commonObj = append(commonObj, &CommonObject{src: srcObject, dst: dstObject})
+				commonObj = append(commonObj, &ObjectPair{src: srcObject, dst: dstObject})
 			} else {
 				dstObject = nil
 				iDst--
@@ -256,7 +254,7 @@ func CompareObjects(sourceObjects, destObjects []*storage.Object) (srcOnly, dstO
 			srcOnly = append(srcOnly, srcObject.URL)
 		}
 	}
-	return
+	return srcOnly, dstOnly, commonObj
 }
 
 // GetSourceAndDestinationObjects returns source and destination objects from given urls.
@@ -320,27 +318,12 @@ func (s Sync) GetSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 }
 
 // PlanRun prepares the commands and passes it to reader for run command.
-func (s Sync) PlanRun(ctx context.Context, onlySource, onlyDest []*url.URL, common []*CommonObject,
-	dsturl *url.URL, transferManager transfer.Manager, strategy strategy.Strategy, w *io.PipeWriter, errPlan *error) {
+func (s Sync) PlanRun(ctx context.Context, onlySource, onlyDest []*url.URL, common []*ObjectPair,
+	dsturl *url.URL, strategy Strategy, w *io.PipeWriter, isBatch, flatten bool) {
 	// only source objects.
 	for _, srcurl := range onlySource {
-		var curDestURL *url.URL
-		switch {
-		case !srcurl.IsRemote() && dsturl.IsRemote(): // local->remote
-			curDestURL = transferManager.PrepareRemoteDestination(srcurl, dsturl)
-		case srcurl.IsRemote() && !dsturl.IsRemote(): // remote->local
-			url, err := transferManager.PrepareLocalDestination(ctx, srcurl, dsturl)
-			curDestURL = url
-			if err != nil {
-				printError(s.fullCommand, s.op, err)
-				*errPlan = multierror.Append(*errPlan, err)
-				continue
-			}
-		case srcurl.IsRemote() && dsturl.IsRemote(): // remote->remote
-			curDestURL = transferManager.PrepareRemoteDestination(srcurl, dsturl)
-		default:
-			panic("unexpected src-dst pair")
-		}
+		curDestURL := calculateDestination(srcurl, dsturl, isBatch, flatten)
+
 		command := fmt.Sprintf("cp %v %v\n", srcurl, curDestURL)
 		fmt.Fprint(w, command)
 	}
@@ -363,11 +346,35 @@ func (s Sync) PlanRun(ctx context.Context, onlySource, onlyDest []*url.URL, comm
 
 	// for only destination objects.
 	if s.delete { // if delete is set
-		urlpaths := GenerateRemovePath(onlyDest)
-		command := fmt.Sprintf("rm %v\n", strings.Join(urlpaths, " "))
-		fmt.Fprint(w, command)
+		if len(onlyDest) > 0 {
+			urlpaths := GenerateRemovePath(onlyDest)
+			command := fmt.Sprintf("rm %v\n", strings.Join(urlpaths, " "))
+			fmt.Fprint(w, command)
+		}
 	}
 	w.Close()
+}
+
+func calculateDestination(srcurl, dsturl *url.URL, isBatch, flatten bool) *url.URL {
+	if dsturl.IsRemote() {
+		objname := srcurl.Base()
+		if isBatch && !flatten {
+			objname = srcurl.Relative()
+		}
+
+		if dsturl.IsPrefix() || dsturl.IsBucket() {
+			dsturl = dsturl.Join(objname)
+		}
+
+	} else {
+		objname := srcurl.Base()
+		if isBatch && !flatten {
+			objname = srcurl.Relative()
+		}
+		dsturl = dsturl.Join(objname)
+
+	}
+	return dsturl
 }
 
 // shouldSkipObject checks is object should be skipped.

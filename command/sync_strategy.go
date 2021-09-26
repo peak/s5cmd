@@ -1,9 +1,21 @@
-package strategy
+package command
 
 import (
 	errorpkg "github.com/peak/s5cmd/error"
 	"github.com/peak/s5cmd/storage"
 )
+
+type Strategy interface {
+	Compare(srcObject, dstObject *storage.Object) error
+}
+
+func NewStrategy(sizeOnly bool) Strategy {
+	if sizeOnly {
+		return &SizeOnly{}
+	} else {
+		return &SizeAndModification{}
+	}
+}
 
 type SizeOnly struct{}
 

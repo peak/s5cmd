@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/hashicorp/go-multierror"
 	"github.com/kballard/go-shellquote"
 	"github.com/urfave/cli/v2"
 
@@ -50,12 +51,11 @@ func (r Run) Run(c *cli.Context) error {
 	waiter := parallel.NewWaiter()
 
 	var errDoneCh = make(chan bool)
+	var merrorWaiter error
 	go func() {
 		defer close(errDoneCh)
-		for range waiter.Err() {
-			// app.ExitErrHandler is called after each command.Run
-			// invocation. Ignore the errors returned from parallel.Run,
-			// just drain the channel for synchronization.
+		for err := range waiter.Err() {
+			merrorWaiter = multierror.Append(merrorWaiter, err)
 		}
 	}()
 
@@ -118,7 +118,7 @@ func (r Run) Run(c *cli.Context) error {
 	waiter.Wait()
 	<-errDoneCh
 
-	return scanner.Err()
+	return multierror.Append(merrorWaiter, scanner.Err()).ErrorOrNil()
 }
 
 func NewRunCommand() *cli.Command {

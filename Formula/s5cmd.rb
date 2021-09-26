@@ -5,32 +5,32 @@
 class S5cmd < Formula
   desc "Parallel S3 and local filesystem execution tool"
   homepage "https://github.com/peak/s5cmd"
-  version "1.4.0-rc.1"
+  version "1.4.0"
   bottle :unneeded
 
   on_macos do
     if Hardware::CPU.intel?
-      url "https://github.com/peak/s5cmd/releases/download/v1.4.0-rc.1/s5cmd_1.4.0-rc.1_macOS-64bit.tar.gz"
-      sha256 "de10b7dd689b088e0b45e3c96ec018edc0ab1e567c6f6df2df84278765c49134"
+      url "https://github.com/peak/s5cmd/releases/download/v1.4.0/s5cmd_1.4.0_macOS-64bit.tar.gz"
+      sha256 "3792eb2ea7a9044d001c704126d12cfd041d132427240c28001418e9b47e83dc"
     end
     if Hardware::CPU.arm?
-      url "https://github.com/peak/s5cmd/releases/download/v1.4.0-rc.1/s5cmd_1.4.0-rc.1_macOS-arm64.tar.gz"
-      sha256 "a13eb8005449fa98cc0268ea0e681c2feda280ba256ee096a7cb86dcde88a363"
+      url "https://github.com/peak/s5cmd/releases/download/v1.4.0/s5cmd_1.4.0_macOS-arm64.tar.gz"
+      sha256 "1d597a80726042c9223ecd3fa9a0d99fc1a19a6ecb820c99419d0cc1f90bc3ef"
     end
   end
 
   on_linux do
     if Hardware::CPU.intel?
-      url "https://github.com/peak/s5cmd/releases/download/v1.4.0-rc.1/s5cmd_1.4.0-rc.1_Linux-64bit.tar.gz"
-      sha256 "965c9e9233eecec88ecc11f75986ba203e75062db90f2bacc0a568ddc21689f3"
+      url "https://github.com/peak/s5cmd/releases/download/v1.4.0/s5cmd_1.4.0_Linux-64bit.tar.gz"
+      sha256 "b62c0600d8dc75974bb7ba6a0cba870870cdd295b63ab6aa42b9713c2d634be5"
     end
     if Hardware::CPU.arm? && !Hardware::CPU.is_64_bit?
-      url "https://github.com/peak/s5cmd/releases/download/v1.4.0-rc.1/s5cmd_1.4.0-rc.1_Linux-armv6.tar.gz"
-      sha256 "d8a733542ca61136852248c34d4a38061a59331b643de48adc9d4ac43b282c54"
+      url "https://github.com/peak/s5cmd/releases/download/v1.4.0/s5cmd_1.4.0_Linux-armv6.tar.gz"
+      sha256 "0edb520347dbb52f10b7b42b034c831bdb7913cd9010cc2be30eaee84dc5ff13"
     end
     if Hardware::CPU.arm? && Hardware::CPU.is_64_bit?
-      url "https://github.com/peak/s5cmd/releases/download/v1.4.0-rc.1/s5cmd_1.4.0-rc.1_Linux-arm64.tar.gz"
-      sha256 "3bb3713174f0a1df992866451d9f50b3a83ed565395ff454bee394ce36630d8b"
+      url "https://github.com/peak/s5cmd/releases/download/v1.4.0/s5cmd_1.4.0_Linux-arm64.tar.gz"
+      sha256 "9207f5cb8fce5367bc532dbfc30ef51097e85522e8e9e617c36bc21c3e6ea048"
     end
   end
 

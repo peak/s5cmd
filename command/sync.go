@@ -318,9 +318,17 @@ func (s Sync) GetSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 }
 
 // PlanRun prepares the commands and passes it to reader for run command.
-func (s Sync) PlanRun(ctx context.Context, onlySource, onlyDest []*url.URL, common []*ObjectPair,
-	dsturl *url.URL, strategy Strategy, w *io.PipeWriter, isBatch, flatten bool) {
-	// only source objects.
+func (s Sync) PlanRun(
+	ctx context.Context,
+	onlySource, onlyDest []*url.URL,
+	common []*ObjectPair,
+	dsturl *url.URL,
+	strategy Strategy,
+	w *io.PipeWriter,
+	isBatch, flatten bool,
+) {
+
+	// only in source
 	for _, srcurl := range onlySource {
 		curDestURL := calculateDestination(srcurl, dsturl, isBatch, flatten)
 
@@ -328,7 +336,7 @@ func (s Sync) PlanRun(ctx context.Context, onlySource, onlyDest []*url.URL, comm
 		fmt.Fprint(w, command)
 	}
 
-	// for common objects
+	// both in source and destination
 	for _, commonObject := range common {
 		sourceObject, destObject := commonObject.src, commonObject.dst
 		curSourceURL, curDestURL := sourceObject.URL, destObject.URL
@@ -344,14 +352,13 @@ func (s Sync) PlanRun(ctx context.Context, onlySource, onlyDest []*url.URL, comm
 		fmt.Fprint(w, command)
 	}
 
-	// for only destination objects.
-	if s.delete { // if delete is set
-		if len(onlyDest) > 0 {
-			urlpaths := GenerateRemovePath(onlyDest)
-			command := fmt.Sprintf("rm %v\n", strings.Join(urlpaths, " "))
-			fmt.Fprint(w, command)
-		}
+	// only in destination
+	if s.delete && len(onlyDest) > 0 {
+		urlpaths := GenerateRemovePath(onlyDest)
+		command := fmt.Sprintf("rm %v\n", strings.Join(urlpaths, " "))
+		fmt.Fprint(w, command)
 	}
+
 	w.Close()
 }
 

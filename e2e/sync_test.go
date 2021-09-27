@@ -1201,3 +1201,44 @@ func TestSyncS3toLocalWithWildcard(t *testing.T) {
 	expected := fs.Expected(t, expectedLayout...)
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 }
+
+// sync --delete s3://bucket/* .
+func TestSyncS3BucketToLocalWithDeleteFlag(t *testing.T) {
+	t.Parallel()
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	s3Content := map[string]string{
+		"test.txt": "this is a test file",
+	}
+
+	for filename, content := range s3Content {
+		putFile(t, s3client, bucket, filename, content)
+	}
+
+	workdir := fs.NewDir(t, "somedir")
+	defer workdir.Remove()
+
+	src := fmt.Sprintf("s3://%v/", bucket)
+	dst := fmt.Sprintf("%v/", workdir.Path())
+	dst = filepath.ToSlash(dst)
+
+	cmd := s5cmd("--log", "debug", "sync", "--delete", src+"*", dst)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`cp %vtest.txt %vtest.txt`, src, dst),
+	}, sortInput(true))
+
+	expectedLayout := []fs.PathOp{
+		fs.WithFile("test.txt", "this is a test file"),
+	}
+
+	expected := fs.Expected(t, expectedLayout...)
+	assert.Assert(t, fs.Equal(workdir.Path(), expected))
+}

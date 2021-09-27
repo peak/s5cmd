@@ -29,14 +29,18 @@ func (s *SizeOnly) Compare(srcObj, dstObj *storage.Object) error {
 type SizeAndModification struct{}
 
 func (sm *SizeAndModification) Compare(srcObj, dstObj *storage.Object) error {
-	if srcObj.Size == dstObj.Size {
-		return errorpkg.ErrObjectSizesMatch
+	var stickyErr = errorpkg.ErrObjectSizesMatch
+	// check size of objects
+	if srcObj.Size != dstObj.Size {
+		stickyErr = nil
 	}
 
 	srcMod, dstMod := srcObj.ModTime, dstObj.ModTime
 	if !srcMod.After(*dstMod) {
-		return errorpkg.ErrObjectIsNewer
+		stickyErr = errorpkg.ErrObjectIsNewer
+	} else {
+		stickyErr = nil
 	}
 
-	return nil
+	return stickyErr
 }

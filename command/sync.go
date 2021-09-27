@@ -44,9 +44,6 @@ Examples:
 
 	05. Sync S3 bucket to local folder but use size as only comparison criteria.
 		> s5cmd {{.HelpName}} --size-only s3://bucket/* folder/
-		
-	06. Sync S3 bucket to local folder but check the md5 values of files.
-		> s5cmd {{.HelpName}} --checksum s3://bucket/* folder/
 	
 `
 

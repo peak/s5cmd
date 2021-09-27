@@ -33,6 +33,94 @@ Examples:
 		 > cat commands.txt | s5cmd {{.HelpName}}
 `
 
+type Run struct {
+	reader io.Reader
+}
+
+func NewRun(c *cli.Context, r io.Reader) Run {
+	return Run{
+		reader: r,
+	}
+}
+
+func (r Run) Run(c *cli.Context) error {
+	reader := r.reader
+	pm := parallel.New(c.Int("numworkers"))
+	defer pm.Close()
+
+	waiter := parallel.NewWaiter()
+
+	var errDoneCh = make(chan bool)
+	var merrorWaiter error
+	go func() {
+		defer close(errDoneCh)
+		for err := range waiter.Err() {
+			merrorWaiter = multierror.Append(merrorWaiter, err)
+		}
+	}()
+
+	scanner := NewScanner(c.Context, reader)
+
+	lineno := -1
+	for line := range scanner.Scan() {
+		lineno++
+
+		// support inline comments
+		line = strings.Split(line, " #")[0]
+
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		if strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		fields, err := shellquote.Split(line)
+		if err != nil {
+			return err
+		}
+
+		if len(fields) == 0 {
+			continue
+		}
+
+		if fields[0] == "run" {
+			err := fmt.Errorf("%q command (line: %v) is not permitted in run-mode", "run", lineno)
+			printError(givenCommand(c), c.Command.Name, err)
+			continue
+		}
+
+		fn := func() error {
+			subcmd := fields[0]
+
+			cmd := AppCommand(subcmd)
+			if cmd == nil {
+				err := fmt.Errorf("%q command (line: %v) not found", subcmd, lineno)
+				printError(givenCommand(c), c.Command.Name, err)
+				return nil
+			}
+
+			flagset := flag.NewFlagSet(subcmd, flag.ExitOnError)
+			if err := flagset.Parse(fields); err != nil {
+				printError(givenCommand(c), c.Command.Name, err)
+				return nil
+			}
+
+			ctx := cli.NewContext(app, flagset, c)
+			return cmd.Run(ctx)
+		}
+
+		pm.Run(fn, waiter)
+	}
+
+	waiter.Wait()
+	<-errDoneCh
+
+	return multierror.Append(merrorWaiter, scanner.Err()).ErrorOrNil()
+}
+
 func NewRunCommand() *cli.Command {
 	return &cli.Command{
 		Name:               "run",
@@ -58,79 +146,7 @@ func NewRunCommand() *cli.Command {
 				reader = f
 			}
 
-			pm := parallel.New(c.Int("numworkers"))
-			defer pm.Close()
-
-			waiter := parallel.NewWaiter()
-
-			var errDoneCh = make(chan bool)
-			var merrorWaiter error
-			go func() {
-				defer close(errDoneCh)
-				for err := range waiter.Err() {
-					merrorWaiter = multierror.Append(merrorWaiter, err)
-				}
-			}()
-
-			scanner := NewScanner(c.Context, reader)
-			lineno := -1
-			for line := range scanner.Scan() {
-				lineno++
-
-				// support inline comments
-				line = strings.Split(line, " #")[0]
-
-				line = strings.TrimSpace(line)
-				if line == "" {
-					continue
-				}
-
-				if strings.HasPrefix(line, "#") {
-					continue
-				}
-
-				fields, err := shellquote.Split(line)
-				if err != nil {
-					return err
-				}
-
-				if len(fields) == 0 {
-					continue
-				}
-
-				if fields[0] == "run" {
-					err := fmt.Errorf("%q command (line: %v) is not permitted in run-mode", "run", lineno)
-					printError(givenCommand(c), c.Command.Name, err)
-					continue
-				}
-
-				fn := func() error {
-					subcmd := fields[0]
-
-					cmd := AppCommand(subcmd)
-					if cmd == nil {
-						err := fmt.Errorf("%q command (line: %v) not found", subcmd, lineno)
-						printError(givenCommand(c), c.Command.Name, err)
-						return nil
-					}
-
-					flagset := flag.NewFlagSet(subcmd, flag.ExitOnError)
-					if err := flagset.Parse(fields); err != nil {
-						printError(givenCommand(c), c.Command.Name, err)
-						return nil
-					}
-
-					ctx := cli.NewContext(app, flagset, c)
-					return cmd.Run(ctx)
-				}
-
-				pm.Run(fn, waiter)
-			}
-
-			waiter.Wait()
-			<-errDoneCh
-
-			return multierror.Append(merrorWaiter, scanner.Err()).ErrorOrNil()
+			return NewRun(c, reader).Run(c)
 		},
 	}
 }

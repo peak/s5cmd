@@ -417,6 +417,11 @@ func TestS3Retry(t *testing.T) {
 			expectedRetry: 5,
 		},
 		{
+			name:          "ConnectionTimedOut",
+			err:           fmt.Errorf("connection timed out"),
+			expectedRetry: 5,
+		},
+		{
 			name:          "BrokenPipe",
 			err:           fmt.Errorf("broken pipe"),
 			expectedRetry: 5,

@@ -339,10 +339,8 @@ func (s Sync) PlanRun(
 		curSourceURL, curDestURL := sourceObject.URL, destObject.URL
 		err := strategy.Compare(sourceObject, destObject) // check if object should be copied.
 		if err != nil {
-			if errorpkg.IsWarning(err) {
-				printDebug(s.op, curSourceURL, curDestURL, err)
-				continue
-			}
+			printDebug(s.op, curSourceURL, curDestURL, err)
+			continue
 		}
 
 		command := fmt.Sprintf("cp %v %v\n", curSourceURL, curDestURL)

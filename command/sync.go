@@ -355,26 +355,21 @@ func (s Sync) planRun(
 	w.Close()
 }
 
-func calculateDestination(srcurl, dsturl *url.URL, isBatch, flatten bool) *url.URL {
+func calculateDestination(srcurl, dsturl *url.URL, isBatch bool) *url.URL {
+	objname := srcurl.Base()
+	if isBatch {
+		objname = srcurl.Relative()
+	}
+
 	if dsturl.IsRemote() {
-		objname := srcurl.Base()
-		if isBatch && !flatten {
-			objname = srcurl.Relative()
-		}
-
 		if dsturl.IsPrefix() || dsturl.IsBucket() {
-			dsturl = dsturl.Join(objname)
+			return dsturl.Join(objname)
 		}
-
-	} else {
-		objname := srcurl.Base()
-		if isBatch && !flatten {
-			objname = srcurl.Relative()
-		}
-		dsturl = dsturl.Join(objname)
+		return dsturl.Clone()
 
 	}
-	return dsturl
+
+	return dsturl.Join(objname)
 }
 
 // shouldSkipObject checks is object should be skipped.

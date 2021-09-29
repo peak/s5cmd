@@ -18,6 +18,7 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -608,4 +609,34 @@ func contains(format string, args ...interface{}) compareFunc {
 		diff := cmp.Diff(expected, actual)
 		return fmt.Errorf("contains: (-want +got):\n%v", diff)
 	}
+}
+
+func newFixedTimeSource(t time.Time) *fixedTimeSource {
+	return &fixedTimeSource{time: t}
+}
+
+type fixedTimeSource struct {
+	mu   sync.Mutex
+	time time.Time
+}
+
+func (l *fixedTimeSource) Now() time.Time {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	return l.time
+}
+
+func (l *fixedTimeSource) Since(t time.Time) time.Duration {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	return l.time.Sub(t)
+}
+
+func (l *fixedTimeSource) Advance(by time.Duration) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	l.time = l.time.Add(by)
 }

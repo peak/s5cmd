@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/johannesboyne/gofakes3"
 	"gotest.tools/v3/assert"
 	"gotest.tools/v3/fs"
 	"gotest.tools/v3/icmd"
@@ -262,7 +261,7 @@ func TestSyncLocalFolderToS3BucketSameObjectsSourceOlder(t *testing.T) {
 	t.Parallel()
 
 	now := time.Now()
-	timeSource := gofakes3.FixedTimeSource(now)
+	timeSource := newFixedTimeSource(now)
 	s3client, s5cmd, cleanup := setup(t, withTimeSource(timeSource))
 	defer cleanup()
 
@@ -339,7 +338,7 @@ func TestSyncLocalFolderToS3BucketSourceNewer(t *testing.T) {
 	t.Parallel()
 
 	now := time.Now()
-	timeSource := gofakes3.FixedTimeSource(now)
+	timeSource := newFixedTimeSource(now)
 	s3client, s5cmd, cleanup := setup(t, withTimeSource(timeSource))
 	defer cleanup()
 
@@ -417,7 +416,7 @@ func TestSyncLocalFolderToS3BucketSourceNewer(t *testing.T) {
 func TestSyncS3BucketToLocalFolderSameObjectsSourceOlder(t *testing.T) {
 	t.Parallel()
 	now := time.Now()
-	timeSource := gofakes3.FixedTimeSource(now)
+	timeSource := newFixedTimeSource(now)
 	s3client, s5cmd, cleanup := setup(t, withTimeSource(timeSource))
 	defer cleanup()
 
@@ -497,7 +496,7 @@ func TestSyncS3BucketToLocalFolderSameObjectsSourceOlder(t *testing.T) {
 func TestSyncS3BucketToLocalFolderSameObjectsSourceNewer(t *testing.T) {
 	t.Parallel()
 	now := time.Now()
-	timeSource := gofakes3.FixedTimeSource(now)
+	timeSource := newFixedTimeSource(now)
 	s3client, s5cmd, cleanup := setup(t, withTimeSource(timeSource))
 	defer cleanup()
 
@@ -574,7 +573,7 @@ func TestSyncS3BucketToLocalFolderSameObjectsSourceNewer(t *testing.T) {
 func TestSyncS3BucketToS3BucketSameSizesSourceNewer(t *testing.T) {
 	t.Parallel()
 	now := time.Now()
-	timeSource := gofakes3.FixedTimeSource(now)
+	timeSource := newFixedTimeSource(now)
 	s3client, s5cmd, cleanup := setup(t, withTimeSource(timeSource))
 	defer cleanup()
 
@@ -642,7 +641,7 @@ func TestSyncS3BucketToS3BucketSameSizesSourceNewer(t *testing.T) {
 func TestSyncS3BucketToS3BucketSameSizesSourceOlder(t *testing.T) {
 	t.Parallel()
 	now := time.Now()
-	timeSource := gofakes3.FixedTimeSource(now)
+	timeSource := newFixedTimeSource(now)
 	s3client, s5cmd, cleanup := setup(t, withTimeSource(timeSource))
 	defer cleanup()
 
@@ -859,7 +858,7 @@ func TestSyncLocalFolderToS3BucketSameObjectsSizeOnly(t *testing.T) {
 func TestSyncS3BucketToS3BucketSizeOnly(t *testing.T) {
 	t.Parallel()
 	now := time.Now()
-	timeSource := gofakes3.FixedTimeSource(now)
+	timeSource := newFixedTimeSource(now)
 	s3client, s5cmd, cleanup := setup(t, withTimeSource(timeSource))
 	defer cleanup()
 
@@ -1141,7 +1140,7 @@ func TestSyncS3BucketToS3BucketWithDelete(t *testing.T) {
 func TestSyncS3toLocalWithWildcard(t *testing.T) {
 	t.Parallel()
 	now := time.Now()
-	timeSource := gofakes3.FixedTimeSource(now)
+	timeSource := newFixedTimeSource(now)
 	s3client, s5cmd, cleanup := setup(t, withTimeSource(timeSource))
 	defer cleanup()
 

@@ -5,42 +5,50 @@ import (
 	"github.com/peak/s5cmd/storage"
 )
 
-type Strategy interface {
+// SyncStrategy is the interface to compare whether given objects should be considered as same
+// within 'sync' command.
+type SyncStrategy interface {
 	Compare(srcObject, dstObject *storage.Object) error
 }
 
-func NewStrategy(sizeOnly bool) Strategy {
+func NewStrategy(sizeOnly bool) SyncStrategy {
 	if sizeOnly {
-		return &SizeOnly{}
+		return &SizeOnlyStrategy{}
 	} else {
-		return &SizeAndModification{}
+		return &SizeAndModificationStrategy{}
 	}
 }
 
-type SizeOnly struct{}
+// SizeOnlyStrategy only compares given objects' sizes.
+type SizeOnlyStrategy struct{}
 
-func (s *SizeOnly) Compare(srcObj, dstObj *storage.Object) error {
+func (s *SizeOnlyStrategy) Compare(srcObj, dstObj *storage.Object) error {
 	if srcObj.Size == dstObj.Size {
 		return errorpkg.ErrObjectSizesMatch
 	}
 	return nil
 }
 
-type SizeAndModification struct{}
+// SizeAndModificationStrategy compares given objects' both sizes and modification times.
+// It treats 'srcObj' as the source of truth; if 'dstObj' is newer than 'srcObj' or has the same exact size with it,
+// returns a sentinel error to indicate not to 'sync'. Even if 'srcObj' older than 'dstObj' it returns without error
+// if file sizes would not match.
+//
+// time: src > dst        size: src != dst    should sync: yes
+// time: src > dst        size: src == dst    should sync: yes
+// time: src <= dst       size: src != dst    should sync: yes
+// time: src <= dst       size: src == dst    should sync: no
+type SizeAndModificationStrategy struct{}
 
-func (sm *SizeAndModification) Compare(srcObj, dstObj *storage.Object) error {
-	var stickyErr = errorpkg.ErrObjectSizesMatch
-	// check size of objects
-	if srcObj.Size != dstObj.Size {
-		stickyErr = nil
-	}
-
+func (sm *SizeAndModificationStrategy) Compare(srcObj, dstObj *storage.Object) error {
 	srcMod, dstMod := srcObj.ModTime, dstObj.ModTime
-	if !srcMod.After(*dstMod) {
-		stickyErr = errorpkg.ErrObjectIsNewer
-	} else {
-		stickyErr = nil
+	if srcMod.After(*dstMod) {
+		return nil
 	}
 
-	return stickyErr
+	if srcObj.Size != dstObj.Size {
+		return nil
+	}
+
+	return errorpkg.ErrObjectIsNewerAndSizesMatch
 }

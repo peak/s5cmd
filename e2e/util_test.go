@@ -31,6 +31,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/google/go-cmp/cmp"
 	"github.com/iancoleman/strcase"
+	"github.com/johannesboyne/gofakes3"
 	"gotest.tools/v3/assert"
 	"gotest.tools/v3/fs"
 	"gotest.tools/v3/icmd"
@@ -55,7 +56,8 @@ func init() {
 }
 
 type setupOpts struct {
-	s3backend string
+	s3backend  string
+	timeSource gofakes3.TimeSource
 }
 
 type option func(*setupOpts)
@@ -63,6 +65,12 @@ type option func(*setupOpts)
 func withS3Backend(backend string) option {
 	return func(opts *setupOpts) {
 		opts.s3backend = backend
+	}
+}
+
+func withTimeSource(timeSource gofakes3.TimeSource) option {
+	return func(opts *setupOpts) {
+		opts.timeSource = timeSource
 	}
 }
 
@@ -77,8 +85,7 @@ func setup(t *testing.T, options ...option) (*s3.S3, func(...string) icmd.Cmd, f
 		option(opts)
 	}
 
-	endpoint, workdir, cleanup := server(t, opts.s3backend)
-
+	endpoint, workdir, cleanup := server(t, opts.s3backend, opts.timeSource)
 	client := s3client(t, storage.Options{
 		Endpoint:    endpoint,
 		NoVerifySSL: true,
@@ -87,7 +94,7 @@ func setup(t *testing.T, options ...option) (*s3.S3, func(...string) icmd.Cmd, f
 	return client, s5cmd(workdir, endpoint), cleanup
 }
 
-func server(t *testing.T, s3backend string) (string, string, func()) {
+func server(t *testing.T, s3backend string, timeSource gofakes3.TimeSource) (string, string, func()) {
 	t.Helper()
 
 	// testdir := fs.NewDir() tries to create a new directory which
@@ -109,7 +116,7 @@ func server(t *testing.T, s3backend string) (string, string, func()) {
 		s3LogLevel = "info" // aws has no level other than 'debug'
 	}
 
-	endpoint, dbcleanup := s3ServerEndpoint(t, testdir, s3LogLevel, s3backend)
+	endpoint, dbcleanup := s3ServerEndpoint(t, testdir, s3LogLevel, s3backend, timeSource)
 
 	cleanup := func() {
 		testdir.Remove()

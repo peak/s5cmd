@@ -134,7 +134,8 @@ func NewSync(c *cli.Context) Sync {
 	}
 }
 
-// Run starts copying given source objects to destination.
+// Run compares files, plans necessary s5cmd commands to execute
+// and executes them in order to sync source to destination.
 func (s Sync) Run(c *cli.Context) error {
 	srcurl, err := url.New(s.src)
 	if err != nil {
@@ -198,8 +199,8 @@ func (s Sync) Run(c *cli.Context) error {
 }
 
 // compareObjects compares source and destination objects.
-// Returns objects those belong to only source, only destination
-// and common objects.
+// Returns objects those in only source, only destination
+// and both.
 // The algorithm is taken from;
 // https://github.com/rclone/rclone/blob/HEAD/fs/march/march.go#L304
 func compareObjects(sourceObjects, destObjects []*storage.Object) ([]*url.URL, []*url.URL, []*ObjectPair) {
@@ -253,7 +254,8 @@ func compareObjects(sourceObjects, destObjects []*storage.Object) ([]*url.URL, [
 	return srcOnly, dstOnly, commonObj
 }
 
-// getSourceAndDestinationObjects returns source and destination objects from given urls.
+// getSourceAndDestinationObjects returns source and destination
+// objects from given urls.
 func (s Sync) getSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl *url.URL) ([]*storage.Object, []*storage.Object, error) {
 	sourceClient, err := storage.NewClient(ctx, srcurl, s.storageOpts)
 	if err != nil {
@@ -308,12 +310,11 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 		}
 	}()
 
-	// wait until source and destination objects are fetched.
 	wg.Wait()
 	return sourceObjects, destObjects, nil
 }
 
-// planRun prepares the commands and passes it to reader for run command.
+// planRun prepares the commands and writes them to writer 'w'.
 func (s Sync) planRun(
 	onlySource, onlyDest []*url.URL,
 	common []*ObjectPair,
@@ -325,7 +326,7 @@ func (s Sync) planRun(
 
 	// only in source
 	for _, srcurl := range onlySource {
-		curDestURL := calculateDestination(srcurl, dsturl, isBatch)
+		curDestURL := generateDestinationURL(srcurl, dsturl, isBatch)
 
 		command := fmt.Sprintf("cp %v %v\n", srcurl, curDestURL)
 		fmt.Fprint(w, command)
@@ -347,15 +348,21 @@ func (s Sync) planRun(
 
 	// only in destination
 	if s.delete && len(onlyDest) > 0 {
-		urlpaths := GenerateRemovePath(onlyDest)
-		command := fmt.Sprintf("rm %v\n", strings.Join(urlpaths, " "))
+		var objectsToDelete []string
+		for _, obj := range onlyDest {
+			objectsToDelete = append(objectsToDelete, obj.String())
+		}
+
+		command := fmt.Sprintf("rm %v\n", strings.Join(objectsToDelete, " "))
 		fmt.Fprint(w, command)
 	}
 
 	w.Close()
 }
 
-func calculateDestination(srcurl, dsturl *url.URL, isBatch bool) *url.URL {
+// generateDestinationURL generates destination url for given
+// source url if it would have been in destination.
+func generateDestinationURL(srcurl, dsturl *url.URL, isBatch bool) *url.URL {
 	objname := srcurl.Base()
 	if isBatch {
 		objname = srcurl.Relative()
@@ -393,16 +400,6 @@ func (s Sync) shouldSkipObject(object *storage.Object, verbose bool) bool {
 		return true
 	}
 	return false
-}
-
-// GenerateRemovePath is used to create the string version
-// of urls, it will be passed to rm command for multidelete.
-func GenerateRemovePath(destURLs []*url.URL) []string {
-	var result []string
-	for _, desturl := range destURLs {
-		result = append(result, desturl.String())
-	}
-	return result
 }
 
 func validateSyncCommand(c *cli.Context) error {

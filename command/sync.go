@@ -156,12 +156,12 @@ func (s Sync) Run(c *cli.Context) error {
 		isBatch = obj != nil && obj.Type.IsDir()
 	}
 
-	sourceObjects, destObjects, err := s.GetSourceAndDestinationObjects(c.Context, srcurl, dsturl)
+	sourceObjects, destObjects, err := s.getSourceAndDestinationObjects(c.Context, srcurl, dsturl)
 	if err != nil {
 		printError(s.fullCommand, s.op, err)
 		return err
 	}
-	onlySource, onlyDest, commonObjects := CompareObjects(sourceObjects, destObjects)
+	onlySource, onlyDest, commonObjects := compareObjects(sourceObjects, destObjects)
 
 	sourceObjects = nil
 	destObjects = nil
@@ -191,19 +191,18 @@ func (s Sync) Run(c *cli.Context) error {
 	pipeReader, pipeWriter := io.Pipe() // create a reader, writer pipe to pass commands to run
 
 	// Create commands in background.
-	go s.PlanRun(c.Context, onlySource, onlyDest, commonObjects, dsturl, strategy, pipeWriter, isBatch, false) // last parameter is flatten default false.
+	go s.planRun(onlySource, onlyDest, commonObjects, dsturl, strategy, pipeWriter, isBatch)
 
-	// pass the reader to run
-	runerr := NewRun(c, pipeReader).Run(c)
-	return multierror.Append(runerr, merrorWaiter).ErrorOrNil()
+	err = NewRun(c, pipeReader).Run(c.Context)
+	return multierror.Append(err, merrorWaiter).ErrorOrNil()
 }
 
-// CompareObjects compares source and destination objects.
-// Returns objects belongs to only source, only destination
+// compareObjects compares source and destination objects.
+// Returns objects those belong to only source, only destination
 // and common objects.
-// The algorithm is taken from
+// The algorithm is taken from;
 // https://github.com/rclone/rclone/blob/HEAD/fs/march/march.go#L304
-func CompareObjects(sourceObjects, destObjects []*storage.Object) ([]*url.URL, []*url.URL, []*ObjectPair) {
+func compareObjects(sourceObjects, destObjects []*storage.Object) ([]*url.URL, []*url.URL, []*ObjectPair) {
 	// sort the source and destination objects.
 	sort.SliceStable(sourceObjects, func(i, j int) bool { return sourceObjects[i].URL.Relative() < sourceObjects[j].URL.Relative() })
 	sort.SliceStable(destObjects, func(i, j int) bool { return destObjects[i].URL.Relative() < destObjects[j].URL.Relative() })
@@ -254,8 +253,8 @@ func CompareObjects(sourceObjects, destObjects []*storage.Object) ([]*url.URL, [
 	return srcOnly, dstOnly, commonObj
 }
 
-// GetSourceAndDestinationObjects returns source and destination objects from given urls.
-func (s Sync) GetSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl *url.URL) ([]*storage.Object, []*storage.Object, error) {
+// getSourceAndDestinationObjects returns source and destination objects from given urls.
+func (s Sync) getSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl *url.URL) ([]*storage.Object, []*storage.Object, error) {
 	sourceClient, err := storage.NewClient(ctx, srcurl, s.storageOpts)
 	if err != nil {
 		return nil, nil, err
@@ -314,20 +313,19 @@ func (s Sync) GetSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 	return sourceObjects, destObjects, nil
 }
 
-// PlanRun prepares the commands and passes it to reader for run command.
-func (s Sync) PlanRun(
-	ctx context.Context,
+// planRun prepares the commands and passes it to reader for run command.
+func (s Sync) planRun(
 	onlySource, onlyDest []*url.URL,
 	common []*ObjectPair,
 	dsturl *url.URL,
-	strategy Strategy,
-	w *io.PipeWriter,
-	isBatch, flatten bool,
+	strategy SyncStrategy,
+	w io.WriteCloser,
+	isBatch bool,
 ) {
 
 	// only in source
 	for _, srcurl := range onlySource {
-		curDestURL := calculateDestination(srcurl, dsturl, isBatch, flatten)
+		curDestURL := calculateDestination(srcurl, dsturl, isBatch)
 
 		command := fmt.Sprintf("cp %v %v\n", srcurl, curDestURL)
 		fmt.Fprint(w, command)

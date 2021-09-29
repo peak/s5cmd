@@ -269,6 +269,88 @@ mv s3://bucket/2020/03/18/file1.gz s3://bucket/2020/03/18/original/file.gz
 ls # inline comments are OK too
 ```
 
+#### Sync
+With `sync` command, it's possible to synchronise files between an S3 bucket and a local directory;
+
+Suppose we have following files;
+```
+   -  29 Sep 10:00 .
+5000  29 Sep 11:00 ├── favicon.ico
+ 300  29 Sep 10:00 ├── index.html
+  50  29 Sep 10:00 ├── readme.md
+  80  29 Sep 11:30 └── styles.css
+```
+
+```
+s5cmd ls s3://bucket/static/
+2021/09/29 10:00:01               300 index.html
+2021/09/29 11:10:01                10 readme.md
+2021/09/29 10:00:01                90 styles.css
+2021/09/29 11:10:01                10 test.html
+```
+running would;
+* copy `favicon.ico`
+  * file does not exist in destination.
+* copy `styles.css`
+  * source file is newer than to remote counterpart.
+* copy `readme.md`
+  * even though the source one is older, it's size differs from the destination one; assuming source file is the source of truth.
+```
+s5cmd sync . s3://bucket/static/
+cp favicon.ico s3://bucket/static/favicon.ico
+cp styles.css s3://bigtmp/static/styles.css
+cp readme.md s3://bigtmp/static/readme.md
+```
+
+Running with `--delete` flag would delete files those do not exist in the source;
+```
+s5cmd sync --delete . s3://bucket/static/
+```
+
+```
+rm s3://test-readme-sync/test.html
+cp favicon.ico s3://bucket/static/favicon.ico
+cp styles.css s3://bucket/static/styles.css
+cp readme.md s3://bucket/static/readme.md
+```
+
+It's also possible to use wildcards to sync only a subset of files.
+
+To sync `.html` files in S3 bucket above to same local file system;
+
+```
+s5cmd sync 's3://bucket/static/*.html' .
+```
+
+```
+cp s3://bucket/prefix/index.html index.html
+cp s3://bucket/prefix/test.html test.html
+```
+
+##### Strategy
+###### Default
+By default `s5cmd` compares files' both size and modification times, treating source files as 'source-of-truth'. Any difference in size or modification time would cause `s5cmd` to copy source object to destination.
+
+mod time    |  size        |  should sync
+------------|--------------|-------------
+src > dst   |  src != dst  |  ✅
+src > dst   |  src == dst  |  ✅
+src <= dst  |  src != dst  |  ✅
+src <= dst  |  src == dst  |  ❌
+time        |  size        |  should sync
+
+###### Size only
+With `--size-only` flag, it's possible to use the strategy that would only compare file sizes. Source treated as 'source-of-truth' and any difference in sizes would cause c`s5cmd` to copy source object to destination.
+
+mod time   |  size        |  should sync
+-----------|--------------|-------------
+src > dst  |  src != dst  |  ✅
+src > dst  |  src = dst   |  ❌
+src < dst  |  src != dst  |  ✅
+src < dst  |  src == dst  |  ❌
+src = dst  |  src != dst  |  ✅
+src = dst  |  src == dst  |  ❌
+
 ### Dry run
 `--dry-run` flag will output what operations will be performed without actually
 carrying out those operations.

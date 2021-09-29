@@ -297,18 +297,17 @@ running would;
   * even though the source one is older, it's size differs from the destination one; assuming source file is the source of truth.
 ```
 s5cmd sync . s3://bucket/static/
+
 cp favicon.ico s3://bucket/static/favicon.ico
-cp styles.css s3://bigtmp/static/styles.css
-cp readme.md s3://bigtmp/static/readme.md
+cp styles.css s3://bucket/static/styles.css
+cp readme.md s3://bucket/static/readme.md
 ```
 
 Running with `--delete` flag would delete files those do not exist in the source;
 ```
 s5cmd sync --delete . s3://bucket/static/
-```
 
-```
-rm s3://test-readme-sync/test.html
+rm s3://bucket/test.html
 cp favicon.ico s3://bucket/static/favicon.ico
 cp styles.css s3://bucket/static/styles.css
 cp readme.md s3://bucket/static/readme.md
@@ -320,9 +319,7 @@ To sync `.html` files in S3 bucket above to same local file system;
 
 ```
 s5cmd sync 's3://bucket/static/*.html' .
-```
 
-```
 cp s3://bucket/prefix/index.html index.html
 cp s3://bucket/prefix/test.html test.html
 ```

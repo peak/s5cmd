@@ -336,7 +336,7 @@ src <= dst  |  src != dst  |  ✅
 src <= dst  |  src == dst  |  ❌
 
 ###### Size only
-With `--size-only` flag, it's possible to use the strategy that would only compare file sizes. Source treated as 'source-of-truth' and any difference in sizes would cause c`s5cmd` to copy source object to destination.
+With `--size-only` flag, it's possible to use the strategy that would only compare file sizes. Source treated as 'source-of-truth' and any difference in sizes would cause `s5cmd` to copy source object to destination.
 
 mod time   |  size        |  should sync
 -----------|--------------|-------------

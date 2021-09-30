@@ -326,7 +326,7 @@ cp s3://bucket/prefix/test.html test.html
 
 ##### Strategy
 ###### Default
-By default `s5cmd` compares files' both size and modification times, treating source files as 'source-of-truth'. Any difference in size or modification time would cause `s5cmd` to copy source object to destination.
+By default `s5cmd` compares files' both size **and** modification times, treating source files as **source of truth**. Any difference in size or modification time would cause `s5cmd` to copy source object to destination.
 
 mod time    |  size        |  should sync
 ------------|--------------|-------------

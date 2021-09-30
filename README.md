@@ -307,6 +307,17 @@ requests to AWS. Credentials can be provided in a variety of ways:
 The SDK detects and uses the built-in providers automatically, without requiring
 manual configurations.
 
+### Region detection
+
+While executing the commands, `s5cmd` detects the region according to the following order of priority:
+
+1. `--source-region` or `--destination-region` flags of `cp` command.
+2. `AWS_REGION` environment variable.
+3. Region section of AWS profile.
+4. Auto detection from bucket region (via `HeadBucket`).
+5. `us-east-1` as default region.
+
+
 ### Shell auto-completion
 
 Shell completion is supported for bash, zsh and fish.

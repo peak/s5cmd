@@ -8,7 +8,7 @@ import (
 	"github.com/peak/s5cmd/storage"
 )
 
-func TestSizeAndModificationStrategy_Compare(t *testing.T) {
+func TestSizeAndModificationStrategy_ShouldSync(t *testing.T) {
 	ft := time.Now()
 	timePtr := func(tt time.Time) *time.Time {
 		return &tt
@@ -71,14 +71,14 @@ func TestSizeAndModificationStrategy_Compare(t *testing.T) {
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			strategy := &SizeAndModificationStrategy{}
-			if got := strategy.Compare(tc.src, tc.dst); got != tc.expected {
+			if got := strategy.ShouldSync(tc.src, tc.dst); got != tc.expected {
 				t.Fatalf("expected: %q(%T), got: %q(%T)", tc.expected, tc.expected, got, got)
 			}
 		})
 	}
 }
 
-func TestSizeOnlyStrategy_Compare(t *testing.T) {
+func TestSizeOnlyStrategy_ShouldSync(t *testing.T) {
 	ft := time.Now()
 	timePtr := func(tt time.Time) *time.Time {
 		return &tt
@@ -141,7 +141,7 @@ func TestSizeOnlyStrategy_Compare(t *testing.T) {
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			strategy := &SizeOnlyStrategy{}
-			if got := strategy.Compare(tc.src, tc.dst); got != tc.expected {
+			if got := strategy.ShouldSync(tc.src, tc.dst); got != tc.expected {
 				t.Fatalf("expected: %q(%T), got: %q(%T)", tc.expected, tc.expected, got, got)
 			}
 		})

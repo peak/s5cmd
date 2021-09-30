@@ -336,7 +336,7 @@ func (s Sync) planRun(
 	for _, commonObject := range common {
 		sourceObject, destObject := commonObject.src, commonObject.dst
 		curSourceURL, curDestURL := sourceObject.URL, destObject.URL
-		err := strategy.Compare(sourceObject, destObject) // check if object should be copied.
+		err := strategy.ShouldSync(sourceObject, destObject) // check if object should be copied.
 		if err != nil {
 			printDebug(s.op, curSourceURL, curDestURL, err)
 			continue

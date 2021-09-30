@@ -30,12 +30,7 @@ func (s *SizeOnlyStrategy) ShouldSync(srcObj, dstObj *storage.Object) error {
 }
 
 // SizeAndModificationStrategy determines to sync based on objects' both sizes and modification times.
-// It treats 'srcObj' as the source of truth;
-// if 'dstObj' is newer than 'srcObj' or has the same exact size with it, returns a sentinel error to
-// indicate not to 'sync'.
-// Even if 'srcObj' older than 'dstObj' it returns without error
-// if file sizes would not match.
-//
+// It treats source object as the source-of-truth;
 //     time: src > dst        size: src != dst    should sync: yes
 //     time: src > dst        size: src == dst    should sync: yes
 //     time: src <= dst       size: src != dst    should sync: yes

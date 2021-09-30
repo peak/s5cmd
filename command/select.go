@@ -188,6 +188,7 @@ func (s Select) Run(ctx context.Context) error {
 	}
 
 	waiter.Wait()
+	close(resultCh)
 	<-errDoneCh
 	<-writeDoneCh
 

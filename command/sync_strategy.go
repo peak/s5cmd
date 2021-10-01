@@ -5,42 +5,47 @@ import (
 	"github.com/peak/s5cmd/storage"
 )
 
-type Strategy interface {
-	Compare(srcObject, dstObject *storage.Object) error
+// SyncStrategy is the interface to make decision whether given source object should be synced
+// to destination object
+type SyncStrategy interface {
+	ShouldSync(srcObject, dstObject *storage.Object) error
 }
 
-func NewStrategy(sizeOnly bool) Strategy {
+func NewStrategy(sizeOnly bool) SyncStrategy {
 	if sizeOnly {
-		return &SizeOnly{}
+		return &SizeOnlyStrategy{}
 	} else {
-		return &SizeAndModification{}
+		return &SizeAndModificationStrategy{}
 	}
 }
 
-type SizeOnly struct{}
+// SizeOnlyStrategy determines to sync based on objects' file sizes.
+type SizeOnlyStrategy struct{}
 
-func (s *SizeOnly) Compare(srcObj, dstObj *storage.Object) error {
+func (s *SizeOnlyStrategy) ShouldSync(srcObj, dstObj *storage.Object) error {
 	if srcObj.Size == dstObj.Size {
 		return errorpkg.ErrObjectSizesMatch
 	}
 	return nil
 }
 
-type SizeAndModification struct{}
+// SizeAndModificationStrategy determines to sync based on objects' both sizes and modification times.
+// It treats source object as the source-of-truth;
+//     time: src > dst        size: src != dst    should sync: yes
+//     time: src > dst        size: src == dst    should sync: yes
+//     time: src <= dst       size: src != dst    should sync: yes
+//     time: src <= dst       size: src == dst    should sync: no
+type SizeAndModificationStrategy struct{}
 
-func (sm *SizeAndModification) Compare(srcObj, dstObj *storage.Object) error {
-	var stickyErr = errorpkg.ErrObjectSizesMatch
-	// check size of objects
-	if srcObj.Size != dstObj.Size {
-		stickyErr = nil
-	}
-
+func (sm *SizeAndModificationStrategy) ShouldSync(srcObj, dstObj *storage.Object) error {
 	srcMod, dstMod := srcObj.ModTime, dstObj.ModTime
-	if !srcMod.After(*dstMod) {
-		stickyErr = errorpkg.ErrObjectIsNewer
-	} else {
-		stickyErr = nil
+	if srcMod.After(*dstMod) {
+		return nil
 	}
 
-	return stickyErr
+	if srcObj.Size != dstObj.Size {
+		return nil
+	}
+
+	return errorpkg.ErrObjectIsNewerAndSizesMatch
 }

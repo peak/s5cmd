@@ -270,7 +270,13 @@ ls # inline comments are OK too
 ```
 
 #### Sync
-With `sync` command, it's possible to synchronise files between an S3 bucket and a local directory;
+`sync` command synchronizes S3 buckets, prefixes, directories and files between S3 buckets and prefixes as well.
+It compares files between source and destination, taking source files as **source-of-destination**;
+
+* copies files those do not exist in destination
+* copies files those exist in both locations if the comparison made with sync strategy allows it so
+
+It makes a one way synchronization from source to destination without modifying any of the source files and deleting any of the destination files (unless `--delete` flag has passed).
 
 Suppose we have following files;
 ```
@@ -315,7 +321,7 @@ cp readme.md s3://bucket/static/readme.md
 
 It's also possible to use wildcards to sync only a subset of files.
 
-To sync `.html` files in S3 bucket above to same local file system;
+To sync only `.html` files in S3 bucket above to same local file system;
 
 ```
 s5cmd sync 's3://bucket/static/*.html' .

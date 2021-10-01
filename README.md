@@ -271,7 +271,7 @@ ls # inline comments are OK too
 
 #### Sync
 `sync` command synchronizes S3 buckets, prefixes, directories and files between S3 buckets and prefixes as well.
-It compares files between source and destination, taking source files as **source-of-destination**;
+It compares files between source and destination, taking source files as **source-of-truth**;
 
 * copies files those do not exist in destination
 * copies files those exist in both locations if the comparison made with sync strategy allows it so

@@ -11,7 +11,7 @@ import (
 	"gotest.tools/v3/fs"
 )
 
-func s3ServerEndpoint(t *testing.T, testdir *fs.Dir, loglvl, backend string) (string, func()) {
+func s3ServerEndpoint(t *testing.T, testdir *fs.Dir, loglvl, backend string, timeSource gofakes3.TimeSource) (string, func()) {
 	var s3backend gofakes3.Backend
 	switch backend {
 	case "mem":
@@ -21,19 +21,35 @@ func s3ServerEndpoint(t *testing.T, testdir *fs.Dir, loglvl, backend string) (st
 		// we use boltdb as the s3 backend because listing buckets in in-memory
 		// backend is not deterministic.
 		var err error
-		s3backend, err = s3bolt.NewFile(dbpath)
+		var opts []s3bolt.Option
+		if timeSource != nil {
+			opts = append(opts, s3bolt.WithTimeSource(timeSource))
+		}
+
+		s3backend, err = s3bolt.NewFile(dbpath, opts...)
 		if err != nil {
 			t.Fatal(err)
 		}
 	}
 
+	var opts []gofakes3.Option
 	withLogger := gofakes3.WithLogger(
 		gofakes3.GlobalLog(
 			gofakes3.LogLevel(strings.ToUpper(loglvl)),
 		),
 	)
+	opts = append(opts, withLogger)
 
-	faker := gofakes3.New(s3backend, withLogger)
+	if timeSource != nil {
+		opts = append(
+			opts,
+			gofakes3.WithTimeSource(timeSource),
+			// disable time skew with custom time source,
+			// requests from past or future would cause 'RequestTimeTooSkewed'
+			gofakes3.WithTimeSkewLimit(0),
+		)
+	}
+	faker := gofakes3.New(s3backend, opts...)
 	s3srv := httptest.NewServer(faker.Server())
 
 	cleanup := func() {

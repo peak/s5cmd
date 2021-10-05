@@ -1,5 +1,10 @@
 # Changelog
 
+## not released yet
+
+#### Bugfixes
+- Fixed a bug about precedence of region detection, which auto region detection would always override region defined in environment or profile. ([#325](https://github.com/peak/s5cmd/issues/325))
+
 ## v1.4.0 - 21 Sep 2021
 
 #### Features

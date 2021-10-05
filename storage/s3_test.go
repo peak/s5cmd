@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"net/http"
+	"net/http/httptest"
 	urlpkg "net/url"
 	"os"
 	"reflect"
@@ -786,6 +787,97 @@ func TestSessionCreateAndCachingWithDifferentBuckets(t *testing.T) {
 		} else {
 			sess[tc.bucket] = awsSess
 		}
+	}
+}
+
+func TestSessionRegionDetection(t *testing.T) {
+	bucketRegion := "sa-east-1"
+
+	testcases := []struct {
+		name           string
+		bucket         string
+		optsRegion     string
+		envRegion      string
+		expectedRegion string
+	}{
+		{
+			name:           "RegionWithSourceRegionParameter",
+			bucket:         "bucket",
+			optsRegion:     "ap-east-1",
+			envRegion:      "ca-central-1",
+			expectedRegion: "ap-east-1",
+		},
+		{
+			name:           "RegionWithEnvironmentVariable",
+			bucket:         "bucket",
+			optsRegion:     "",
+			envRegion:      "ca-central-1",
+			expectedRegion: "ca-central-1",
+		},
+		{
+			name:           "RegionWithBucketRegion",
+			bucket:         "bucket",
+			optsRegion:     "",
+			envRegion:      "",
+			expectedRegion: bucketRegion,
+		},
+		{
+			name:           "DefaultRegion",
+			bucket:         "",
+			optsRegion:     "",
+			envRegion:      "",
+			expectedRegion: "us-east-1",
+		},
+	}
+
+	// ignore local profile loading
+	os.Setenv("AWS_SDK_LOAD_CONFIG", "0")
+
+	// mock auto bucket detection
+	server := func() *httptest.Server {
+		return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("X-Amz-Bucket-Region", bucketRegion)
+			w.WriteHeader(http.StatusOK)
+		}))
+	}()
+	defer server.Close()
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			opts := Options{
+				Endpoint: server.URL,
+
+				// since profile loading disabled above, we need to provide
+				// credentials to the session. NoSignRequest could be used
+				// for anonymous credentials.
+				NoSignRequest: true,
+			}
+
+			if tc.optsRegion != "" {
+				opts.region = tc.optsRegion
+			}
+
+			if tc.envRegion != "" {
+				os.Setenv("AWS_REGION", tc.envRegion)
+				defer os.Unsetenv("AWS_REGION")
+			}
+
+			if tc.bucket != "" {
+				opts.bucket = tc.bucket
+			}
+
+			globalSessionCache.clear()
+
+			sess, err := globalSessionCache.newSession(context.Background(), opts)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			got := aws.StringValue(sess.Config.Region)
+			if got != tc.expectedRegion {
+				t.Fatalf("expected %v, got %v", tc.expectedRegion, got)
+			}
+		})
 	}
 }
 

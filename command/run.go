@@ -33,19 +33,55 @@ Examples:
 		 > cat commands.txt | s5cmd {{.HelpName}}
 `
 
+func NewRunCommand() *cli.Command {
+	return &cli.Command{
+		Name:               "run",
+		HelpName:           "run",
+		Usage:              "run commands in batch",
+		CustomHelpTemplate: runHelpTemplate,
+		Before: func(c *cli.Context) error {
+			err := validateRunCommand(c)
+			if err != nil {
+				printError(givenCommand(c), c.Command.Name, err)
+			}
+			return err
+		},
+		Action: func(c *cli.Context) error {
+			reader := os.Stdin
+			if c.Args().Len() == 1 {
+				f, err := os.Open(c.Args().First())
+				if err != nil {
+					return err
+				}
+				defer f.Close()
+
+				reader = f
+			}
+
+			return NewRun(c, reader).Run(c.Context)
+		},
+	}
+}
+
 type Run struct {
+	c      *cli.Context
 	reader io.Reader
+
+	// flags
+	numWorkers int
 }
 
 func NewRun(c *cli.Context, r io.Reader) Run {
 	return Run{
-		reader: r,
+		c:          c,
+		reader:     r,
+		numWorkers: c.Int("numworkers"),
 	}
 }
 
-func (r Run) Run(c *cli.Context) error {
+func (r Run) Run(ctx context.Context) error {
 	reader := r.reader
-	pm := parallel.New(c.Int("numworkers"))
+	pm := parallel.New(r.numWorkers)
 	defer pm.Close()
 
 	waiter := parallel.NewWaiter()
@@ -59,7 +95,7 @@ func (r Run) Run(c *cli.Context) error {
 		}
 	}()
 
-	scanner := NewScanner(c.Context, reader)
+	scanner := NewScanner(ctx, reader)
 
 	lineno := -1
 	for line := range scanner.Scan() {
@@ -88,7 +124,7 @@ func (r Run) Run(c *cli.Context) error {
 
 		if fields[0] == "run" {
 			err := fmt.Errorf("%q command (line: %v) is not permitted in run-mode", "run", lineno)
-			printError(givenCommand(c), c.Command.Name, err)
+			printError(givenCommand(r.c), r.c.Command.Name, err)
 			continue
 		}
 
@@ -98,17 +134,17 @@ func (r Run) Run(c *cli.Context) error {
 			cmd := AppCommand(subcmd)
 			if cmd == nil {
 				err := fmt.Errorf("%q command (line: %v) not found", subcmd, lineno)
-				printError(givenCommand(c), c.Command.Name, err)
+				printError(givenCommand(r.c), r.c.Command.Name, err)
 				return nil
 			}
 
 			flagset := flag.NewFlagSet(subcmd, flag.ExitOnError)
 			if err := flagset.Parse(fields); err != nil {
-				printError(givenCommand(c), c.Command.Name, err)
+				printError(givenCommand(r.c), r.c.Command.Name, err)
 				return nil
 			}
 
-			ctx := cli.NewContext(app, flagset, c)
+			ctx := cli.NewContext(app, flagset, r.c)
 			return cmd.Run(ctx)
 		}
 
@@ -119,36 +155,6 @@ func (r Run) Run(c *cli.Context) error {
 	<-errDoneCh
 
 	return multierror.Append(merrorWaiter, scanner.Err()).ErrorOrNil()
-}
-
-func NewRunCommand() *cli.Command {
-	return &cli.Command{
-		Name:               "run",
-		HelpName:           "run",
-		Usage:              "run commands in batch",
-		CustomHelpTemplate: runHelpTemplate,
-		Before: func(c *cli.Context) error {
-			err := validateRunCommand(c)
-			if err != nil {
-				printError(givenCommand(c), c.Command.Name, err)
-			}
-			return err
-		},
-		Action: func(c *cli.Context) error {
-			reader := os.Stdin
-			if c.Args().Len() == 1 {
-				f, err := os.Open(c.Args().First())
-				if err != nil {
-					return err
-				}
-				defer f.Close()
-
-				reader = f
-			}
-
-			return NewRun(c, reader).Run(c)
-		},
-	}
 }
 
 // Scanner is a cancelable scanner.

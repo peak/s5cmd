@@ -1,8 +1,11 @@
+//go:build !windows
 // +build !windows
 
 package fdlimit
 
-import "syscall"
+import (
+	"syscall"
+)
 
 const (
 	minOpenFilesLimit = 1024

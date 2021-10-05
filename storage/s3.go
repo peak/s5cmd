@@ -820,14 +820,20 @@ func (sc *SessionCache) clear() {
 }
 
 func setSessionRegion(ctx context.Context, sess *session.Session, bucket string) error {
-	if aws.StringValue(sess.Config.Region) == "" {
-		sess.Config.Region = aws.String(endpoints.UsEast1RegionID)
+	region := aws.StringValue(sess.Config.Region)
+
+	if region != "" {
+		return nil
 	}
+
+	// set default region
+	sess.Config.Region = aws.String(endpoints.UsEast1RegionID)
 
 	if bucket == "" {
 		return nil
 	}
 
+	// auto-detection
 	region, err := s3manager.GetBucketRegion(ctx, sess, bucket, "", func(r *request.Request) {
 		r.Config.Credentials = sess.Config.Credentials
 	})
@@ -843,6 +849,7 @@ func setSessionRegion(ctx context.Context, sess *session.Session, bucket string)
 	} else {
 		sess.Config.Region = aws.String(region)
 	}
+
 	return nil
 }
 

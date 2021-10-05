@@ -3,6 +3,7 @@ package storage
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -418,7 +419,7 @@ func TestS3Retry(t *testing.T) {
 		},
 		{
 			name:          "ConnectionTimedOut",
-			err:           fmt.Errorf("connection timed out"),
+			err:           awserr.New(request.ErrCodeRequestError, "", tempError{err: errors.New("connection timed out")}),
 			expectedRetry: 5,
 		},
 		{
@@ -907,3 +908,14 @@ func valueAtPath(i interface{}, s string) interface{} {
 
 	return v[0]
 }
+
+type tempError struct {
+	err  error
+	temp bool
+}
+
+func (e tempError) Error() string { return e.err.Error() }
+
+func (e tempError) Temporary() bool { return e.temp }
+
+func (e *tempError) Unwrap() error { return e.err }

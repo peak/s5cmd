@@ -1001,6 +1001,16 @@ func valueAtPath(i interface{}, s string) interface{} {
 	return v[0]
 }
 
+// tempError is a wrapper error type that implements anonymous
+// interface getting checked in url.Error.Temporary;
+//    interface { Temporary() bool }
+// see: https://github.com/golang/go/blob/2ebe77a2fda1ee9ff6fd9a3e08933ad1ebaea039/src/net/url/url.go#L38-L43
+//
+// AWS SDK checks if the underlying error in received url.Error implements it;
+// see: https://github.com/aws/aws-sdk-go/blob/b8fe768e4ce7f8f7c002bd7b27f4f5a8723fb1a5/aws/request/retryer.go#L191-L208
+//
+// It's used to mimic errors like tls.permanentError that would
+// be received in a url.Error when the connection timed out.
 type tempError struct {
 	err  error
 	temp bool

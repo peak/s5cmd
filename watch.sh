@@ -6,6 +6,9 @@ DIR_TO_BACKUP="${2:-/_OUTPUT_}"
 DIR_TO_BACKUP="${DIR_TO_BACKUP%/}"
 BUCKET_PREFIX="${3:-grafana-backup-storage}"
 REGION="${4:-eu-central-1}"
+EXPIRES_IN_DAYS="${5:-365}"
+
+EXPIRES_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ" -d "+${EXPIRES_IN_DAYS} days")
 
 if [[ -z "${ENV}" ]]
 then
@@ -16,9 +19,9 @@ fi
 echo "Start watching"
 fswatch -1 --event Created -v -e "${DIR_TO_BACKUP}/.*" -i "${DIR_TO_BACKUP}/.*\\.tar\\.gz$" -0 "${DIR_TO_BACKUP}" | xargs -0 -n 1 -I {} echo "File {} changed"
 echo "Stop watching... Copy will start in 10s."
-echo "Launched command: s5cmd -r 1 --log verbose  --endpoint-url \"https://s3.${REGION}.amazonaws.com\"  cp  \"${DIR_TO_BACKUP}/\" \"s3://${BUCKET_PREFIX}-${ENV}/\""
+echo "Launched command: s5cmd -r 1 --log debug  --endpoint-url \"https://s3.${REGION}.amazonaws.com\" cp --expires "${EXPIRES_DATE}" \"${DIR_TO_BACKUP}/*.tar.gz\" \"s3://${BUCKET_PREFIX}-${ENV}/\""
 sleep 10
-s5cmd -r 1 --log verbose  --endpoint-url "https://s3.${REGION}.amazonaws.com"  cp  "${DIR_TO_BACKUP}/" "s3://${BUCKET_PREFIX}-${ENV}/"
+s5cmd -r 1 --log debug  --endpoint-url "https://s3.${REGION}.amazonaws.com" cp --expires "${EXPIRES_DATE}" "${DIR_TO_BACKUP}/*.tar.gz" "s3://${BUCKET_PREFIX}-${ENV}/"
 
 # DESC: Usage help
 # ARGS: None

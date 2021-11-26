@@ -59,6 +59,14 @@ type S3 struct {
 	endpointURL      urlpkg.URL
 	dryRun           bool
 	useListObjectsV1 bool
+	requestPayer     string
+}
+
+func (s *S3) RequestPayer() *string {
+	if s.requestPayer == "" {
+		return nil
+	}
+	return &s.requestPayer
 }
 
 func parseEndpoint(endpoint string) (urlpkg.URL, error) {
@@ -97,14 +105,16 @@ func newS3Storage(ctx context.Context, opts Options) (*S3, error) {
 		endpointURL:      endpointURL,
 		dryRun:           opts.DryRun,
 		useListObjectsV1: opts.UseListObjectsV1,
+		requestPayer:     opts.RequestPayer,
 	}, nil
 }
 
 // Stat retrieves metadata from S3 object without returning the object itself.
 func (s *S3) Stat(ctx context.Context, url *url.URL) (*Object, error) {
 	output, err := s.api.HeadObjectWithContext(ctx, &s3.HeadObjectInput{
-		Bucket: aws.String(url.Bucket),
-		Key:    aws.String(url.Path),
+		Bucket:       aws.String(url.Bucket),
+		Key:          aws.String(url.Path),
+		RequestPayer: s.RequestPayer(),
 	})
 	if err != nil {
 		if errHasCode(err, "NotFound") {
@@ -136,8 +146,9 @@ func (s *S3) List(ctx context.Context, url *url.URL, _ bool) <-chan *Object {
 
 func (s *S3) listObjectsV2(ctx context.Context, url *url.URL) <-chan *Object {
 	listInput := s3.ListObjectsV2Input{
-		Bucket: aws.String(url.Bucket),
-		Prefix: aws.String(url.Prefix),
+		Bucket:       aws.String(url.Bucket),
+		Prefix:       aws.String(url.Prefix),
+		RequestPayer: s.RequestPayer(),
 	}
 
 	if url.Delimiter != "" {
@@ -227,8 +238,9 @@ func (s *S3) listObjectsV2(ctx context.Context, url *url.URL) <-chan *Object {
 // ListObjectsV2 API. I'm looking at you GCS.
 func (s *S3) listObjects(ctx context.Context, url *url.URL) <-chan *Object {
 	listInput := s3.ListObjectsInput{
-		Bucket: aws.String(url.Bucket),
-		Prefix: aws.String(url.Prefix),
+		Bucket:       aws.String(url.Bucket),
+		Prefix:       aws.String(url.Prefix),
+		RequestPayer: s.RequestPayer(),
 	}
 
 	if url.Delimiter != "" {
@@ -325,9 +337,10 @@ func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata Metadata) err
 	copySource := from.EscapedPath()
 
 	input := &s3.CopyObjectInput{
-		Bucket:     aws.String(to.Bucket),
-		Key:        aws.String(to.Path),
-		CopySource: aws.String(copySource),
+		Bucket:       aws.String(to.Bucket),
+		Key:          aws.String(to.Path),
+		CopySource:   aws.String(copySource),
+		RequestPayer: s.RequestPayer(),
 	}
 
 	storageClass := metadata.StorageClass()
@@ -370,8 +383,9 @@ func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata Metadata) err
 // Read fetches the remote object and returns its contents as an io.ReadCloser.
 func (s *S3) Read(ctx context.Context, src *url.URL) (io.ReadCloser, error) {
 	resp, err := s.api.GetObjectWithContext(ctx, &s3.GetObjectInput{
-		Bucket: aws.String(src.Bucket),
-		Key:    aws.String(src.Path),
+		Bucket:       aws.String(src.Bucket),
+		Key:          aws.String(src.Path),
+		RequestPayer: s.RequestPayer(),
 	})
 	if err != nil {
 		return nil, err
@@ -394,8 +408,9 @@ func (s *S3) Get(
 	}
 
 	return s.downloader.DownloadWithContext(ctx, to, &s3.GetObjectInput{
-		Bucket: aws.String(from.Bucket),
-		Key:    aws.String(from.Path),
+		Bucket:       aws.String(from.Bucket),
+		Key:          aws.String(from.Path),
+		RequestPayer: s.RequestPayer(),
 	}, func(u *s3manager.Downloader) {
 		u.PartSize = partSize
 		u.Concurrency = concurrency
@@ -495,10 +510,11 @@ func (s *S3) Put(
 	}
 
 	input := &s3manager.UploadInput{
-		Bucket:      aws.String(to.Bucket),
-		Key:         aws.String(to.Path),
-		Body:        reader,
-		ContentType: aws.String(contentType),
+		Bucket:       aws.String(to.Bucket),
+		Key:          aws.String(to.Path),
+		Body:         reader,
+		ContentType:  aws.String(contentType),
+		RequestPayer: s.RequestPayer(),
 	}
 
 	storageClass := metadata.StorageClass()
@@ -619,8 +635,9 @@ func (s *S3) doDelete(ctx context.Context, chunk chunk, resultch chan *Object) {
 
 	bucket := chunk.Bucket
 	o, err := s.api.DeleteObjectsWithContext(ctx, &s3.DeleteObjectsInput{
-		Bucket: aws.String(bucket),
-		Delete: &s3.Delete{Objects: chunk.Keys},
+		Bucket:       aws.String(bucket),
+		Delete:       &s3.Delete{Objects: chunk.Keys},
+		RequestPayer: s.RequestPayer(),
 	})
 	if err != nil {
 		resultch <- &Object{Err: err}

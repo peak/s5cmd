@@ -6,7 +6,7 @@ name: CI
 # events but only for the master branch
 on:
   push:
-    branches: [ master, feat/support-env-var-simple, feat/support-env-var-advanced ]
+    branches: [ master, feat/support-env-var-simple, feat/support-env-var-advanced-v1 ]
   pull_request:
     branches: [ master ]
 

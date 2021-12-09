@@ -6,7 +6,6 @@ class S5cmd < Formula
   desc "Parallel S3 and local filesystem execution tool"
   homepage "https://github.com/peak/s5cmd"
   version "1.4.0"
-  bottle :unneeded
 
   on_macos do
     if Hardware::CPU.intel?

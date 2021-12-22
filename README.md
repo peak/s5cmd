@@ -576,10 +576,3 @@ significant runtime difference between those two approaches.
 # LICENSE
 
 MIT. See [LICENSE](https://github.com/peak/s5cmd/blob/master/LICENSE).
-
-
-
-===
-
-
-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

@@ -547,11 +547,6 @@ The above command performs two `s5cmd` invocations; first, searches for files wi
 Let's examine another usage instance, where we migrate files older than
 30 days to a cloud object storage:
 
-    find /mnt/joshua/nachos/ -type f -mtime +30 | xargs -I{} echo “mv {} s3://joshuarobinson/backup/{}”
-    | s5cmd run
-
-, or, to avoid unnecessary exec calls in shell pipe:
-
     find /mnt/joshua/nachos/ -type f -mtime +30 | awk '{print "mv "$1" s3://joshuarobinson/backup/"$1}'
     | s5cmd run
 
@@ -581,3 +576,10 @@ significant runtime difference between those two approaches.
 # LICENSE
 
 MIT. See [LICENSE](https://github.com/peak/s5cmd/blob/master/LICENSE).
+
+
+
+===
+
+
+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

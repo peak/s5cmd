@@ -421,10 +421,10 @@ object storage.
 or an alternative with environment variable
 
     S3_ENDPOINT_URL="https://storage.googleapis.com" s5cmd ls
-    
+
     # or
-    
-    export S3_ENDPOINT_URL="https://storage.googleapis.com" 
+
+    export S3_ENDPOINT_URL="https://storage.googleapis.com"
     s5cmd ls
 
 all variants will return your GCS buckets.
@@ -547,7 +547,7 @@ The above command performs two `s5cmd` invocations; first, searches for files wi
 Let's examine another usage instance, where we migrate files older than
 30 days to a cloud object storage:
 
-    find /mnt/joshua/nachos/ -type f -mtime +30 | xargs -I{} echo “mv {} s3://joshuarobinson/backup/{}”
+    find /mnt/joshua/nachos/ -type f -mtime +30 | awk '{print "mv "$1" s3://joshuarobinson/backup/"$1}'
     | s5cmd run
 
 It is worth to mention that, `run` command should not be considered as a *silver bullet* for all operations. For example, assume we want to remove the following objects:

@@ -1,7 +1,7 @@
 package command
 
 import (
-	"github.com/peak/s5cmd/log/stat"
+	"github.com/afontani/s5cmd/log/stat"
 
 	"github.com/urfave/cli/v2"
 )

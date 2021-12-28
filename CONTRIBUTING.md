@@ -17,11 +17,11 @@ This document is a guide for developers interested in contributing to `s5cmd`.
 To download the source code of `s5cmd` you will need `git`. There are multiple ways of installing `git` depending on your operating system. This [document](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git) is a good starting point if you don't have `git` installed already.
 
 Before proposing a change you first need to fork the `s5cmd` Github repository. For a detailed overview on forking, please take a look at the [Github documentation on forking](https://docs.github.com/en/get-started/quickstart/fork-a-repo). In short you need to:
- - fork the `peak/s5cmd` repository
+ - fork the `afontani/s5cmd` repository
  - clone your fork to your local development environment
  - checkout a new git branch for your proposed changes
  - push changes to your fork
- - open a pull request to `peak/s5cmd`
+ - open a pull request to `afontani/s5cmd`
 
 
 ## Testing
@@ -58,7 +58,7 @@ While adding your changes and testing your changes, it would be good to remember
 
 ## Submitting a Pull Request
 
-Once you add your changes and all the tests/checks pass, you can submit your pull request to the `peak/s5cmd` repository. Github will trigger automated tests in Github Actions. All tests and checks will be run on different operating systems including `linux`, `macos` and `windows`. 
+Once you add your changes and all the tests/checks pass, you can submit your pull request to the `afontani/s5cmd` repository. Github will trigger automated tests in Github Actions. All tests and checks will be run on different operating systems including `linux`, `macos` and `windows`. 
 
 An `s5cmd` maintainer will review your pull request. They may suggest updates for clarity and style, or request additional unit or integration tests. 
 

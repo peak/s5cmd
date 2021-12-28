@@ -1,6 +1,6 @@
 package parallel
 
-import "github.com/peak/s5cmd/parallel/fdlimit"
+import "github.com/afontani/s5cmd/parallel/fdlimit"
 
 var global *Manager
 

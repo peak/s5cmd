@@ -6,10 +6,10 @@ import (
 
 	"github.com/urfave/cli/v2"
 
-	"github.com/peak/s5cmd/log"
-	"github.com/peak/s5cmd/log/stat"
-	"github.com/peak/s5cmd/storage"
-	"github.com/peak/s5cmd/storage/url"
+	"github.com/afontani/s5cmd/log"
+	"github.com/afontani/s5cmd/log/stat"
+	"github.com/afontani/s5cmd/storage"
+	"github.com/afontani/s5cmd/storage/url"
 )
 
 var makeBucketHelpTemplate = `Name:

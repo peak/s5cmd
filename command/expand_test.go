@@ -12,8 +12,8 @@ import (
 
 	"github.com/stretchr/testify/mock"
 
-	"github.com/peak/s5cmd/storage"
-	"github.com/peak/s5cmd/storage/url"
+	"github.com/afontani/s5cmd/storage"
+	"github.com/afontani/s5cmd/storage/url"
 )
 
 func TestExpandSources(t *testing.T) {

@@ -29,8 +29,8 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"gotest.tools/v3/assert"
 
-	"github.com/peak/s5cmd/log"
-	"github.com/peak/s5cmd/storage/url"
+	"github.com/afontani/s5cmd/log"
+	"github.com/afontani/s5cmd/storage/url"
 )
 
 func TestS3ImplementsStorageInterface(t *testing.T) {

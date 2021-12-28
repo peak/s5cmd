@@ -16,6 +16,6 @@ func TestVersion(t *testing.T) {
 	result := icmd.RunCmd(cmd)
 
 	// make sure that -version flag works as expected:
-	// https://github.com/peak/s5cmd/issues/70#issuecomment-592218542
+	// https://github.com/afontani/s5cmd/issues/70#issuecomment-592218542
 	result.Assert(t, icmd.Success)
 }

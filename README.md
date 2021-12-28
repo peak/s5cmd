@@ -1,4 +1,4 @@
-[![Go Report](https://goreportcard.com/badge/github.com/peak/s5cmd)](https://goreportcard.com/report/github.com/peak/s5cmd) ![Github Actions Status](https://github.com/peak/s5cmd/workflows/CI/badge.svg)
+[![Go Report](https://goreportcard.com/badge/github.com/afontani/s5cmd)](https://goreportcard.com/report/github.com/afontani/s5cmd) ![Github Actions Status](https://github.com/afontani/s5cmd/workflows/CI/badge.svg)
 
 # s5cmd
 
@@ -48,14 +48,14 @@ storage services and local filesystems.
 
 ### Binaries
 
-The [Releases](https://github.com/peak/s5cmd/releases) page provides pre-built
+The [Releases](https://github.com/afontani/s5cmd/releases) page provides pre-built
 binaries for Linux, macOS and Windows.
 
 ### Homebrew
 
 For macOS, a [homebrew](https://brew.sh) tap is provided:
 
-    brew tap peak/s5cmd https://github.com/peak/s5cmd
+    brew tap afontani/s5cmd https://github.com/afontani/s5cmd
     brew install s5cmd
 
 ### MacPorts
@@ -72,7 +72,7 @@ NOTE: MacPorts is not officially supported. The versions might be out of date co
 You can build `s5cmd` from source if you have [Go](https://golang.org/dl/) 1.14+
 installed.
 
-    go get github.com/peak/s5cmd
+    go get github.com/afontani/s5cmd
 
 ⚠️ Please note that building from `master` is not guaranteed to be stable since
 development happens on `master` branch.
@@ -80,11 +80,11 @@ development happens on `master` branch.
 ### Docker
 
 #### Hub
-    $ docker pull peakcom/s5cmd
-    $ docker run --rm -v ~/.aws:/root/.aws peakcom/s5cmd <S3 operation>
+    $ docker pull afontanicom/s5cmd
+    $ docker run --rm -v ~/.aws:/root/.aws afontanicom/s5cmd <S3 operation>
 
 #### Build
-    $ git clone https://github.com/peak/s5cmd && cd s5cmd
+    $ git clone https://github.com/afontani/s5cmd && cd s5cmd
     $ docker build -t s5cmd .
     $ docker run --rm -v ~/.aws:/root/.aws s5cmd <S3 operation>
 
@@ -212,7 +212,7 @@ Will copy all the matching objects to the given S3 prefix, respecting the source
 folder hierarchy.
 
 ⚠️ Copying objects (from S3 to S3) larger than 5GB is not supported yet. We have
-an [open ticket](https://github.com/peak/s5cmd/issues/29) to track the issue.
+an [open ticket](https://github.com/afontani/s5cmd/issues/29) to track the issue.
 
 #### Select JSON object content using SQL
 
@@ -575,4 +575,4 @@ significant runtime difference between those two approaches.
 
 # LICENSE
 
-MIT. See [LICENSE](https://github.com/peak/s5cmd/blob/master/LICENSE).
+MIT. See [LICENSE](https://github.com/afontani/s5cmd/blob/master/LICENSE).

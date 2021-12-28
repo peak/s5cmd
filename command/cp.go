@@ -14,12 +14,12 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/urfave/cli/v2"
 
-	errorpkg "github.com/peak/s5cmd/error"
-	"github.com/peak/s5cmd/log"
-	"github.com/peak/s5cmd/log/stat"
-	"github.com/peak/s5cmd/parallel"
-	"github.com/peak/s5cmd/storage"
-	"github.com/peak/s5cmd/storage/url"
+	errorpkg "github.com/afontani/s5cmd/error"
+	"github.com/afontani/s5cmd/log"
+	"github.com/afontani/s5cmd/log/stat"
+	"github.com/afontani/s5cmd/parallel"
+	"github.com/afontani/s5cmd/storage"
+	"github.com/afontani/s5cmd/storage/url"
 )
 
 const (

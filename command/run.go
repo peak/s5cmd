@@ -13,7 +13,7 @@ import (
 	"github.com/kballard/go-shellquote"
 	"github.com/urfave/cli/v2"
 
-	"github.com/peak/s5cmd/parallel"
+	"github.com/afontani/s5cmd/parallel"
 )
 
 var runHelpTemplate = `Name:

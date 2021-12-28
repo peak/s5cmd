@@ -22,7 +22,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/peak/s5cmd/storage"
+	"github.com/afontani/s5cmd/storage"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"

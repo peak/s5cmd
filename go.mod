@@ -1,4 +1,4 @@
-module github.com/peak/s5cmd
+module github.com/afontani/s5cmd
 
 go 1.13
 

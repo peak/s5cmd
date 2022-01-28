@@ -1251,3 +1251,140 @@ func TestSyncS3BucketToLocalWithDeleteFlag(t *testing.T) {
 	expected := fs.Expected(t, expectedLayout...)
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 }
+
+// sync --exclude "*.py" s3://bucket/* folder/ (same objects, source newer)
+func TestSyncS3BucketToLocalFolderSameObjectsSourceNewerWithExcludeFilters(t *testing.T) {
+	t.Parallel()
+	now := time.Now()
+	timeSource := newFixedTimeSource(now)
+	s3client, s5cmd, cleanup := setup(t, withTimeSource(timeSource))
+	defer cleanup()
+
+	const excludePattern = "*.py"
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	// local files are 1 minute older, that makes remote files newer than them.
+	timestamp := fs.WithTimestamps(
+		now.Add(-time.Minute),
+		now.Add(-time.Minute),
+	)
+
+	folderLayout := []fs.PathOp{
+		fs.WithFile("main.py", "D: this is a python file", timestamp),
+		fs.WithFile("testfile.txt", "D: this is a test file", timestamp),
+		fs.WithFile("readme.md", "D: this is a readme file", timestamp),
+		fs.WithDir("a",
+			fs.WithFile("another_test_file.txt", "D: yet another txt file", timestamp),
+			timestamp,
+		),
+	}
+
+	workdir := fs.NewDir(t, "somedir", folderLayout...)
+	defer workdir.Remove()
+
+	S3Content := map[string]string{
+		"main.py":                 "S: this is a python file",
+		"testfile.txt":            "S: this is an updated test file",
+		"readme.md":               "S: this is an updated readme file",
+		"a/another_test_file.txt": "S: yet another updated txt file",
+	}
+
+	for filename, content := range S3Content {
+		putFile(t, s3client, bucket, filename, content)
+	}
+
+	bucketPath := fmt.Sprintf("s3://%v", bucket)
+	src := fmt.Sprintf("%s/*", bucketPath)
+	dst := fmt.Sprintf("%v/", workdir.Path())
+	dst = filepath.ToSlash(dst)
+
+	// log debug
+	cmd := s5cmd("--log", "debug", "sync", "--exclude", excludePattern, src, dst)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`cp %v/a/another_test_file.txt %va/another_test_file.txt`, bucketPath, dst),
+		1: equals(`cp %v/readme.md %vreadme.md`, bucketPath, dst),
+		2: equals(`cp %v/testfile.txt %vtestfile.txt`, bucketPath, dst),
+	}, sortInput(true))
+
+	// expected folder structure without the timestamp.
+	expectedFiles := []fs.PathOp{
+		fs.WithFile("main.py", "D: this is a python file"), // excluded, so not replaced with newer file
+		fs.WithFile("testfile.txt", "S: this is an updated test file"),
+		fs.WithFile("readme.md", "S: this is an updated readme file"),
+		fs.WithDir("a",
+			fs.WithFile("another_test_file.txt", "S: yet another updated txt file"),
+		),
+	}
+	expected := fs.Expected(t, expectedFiles...)
+	assert.Assert(t, fs.Equal(workdir.Path(), expected))
+
+	// assert s3
+	for key, content := range S3Content {
+		assert.Assert(t, ensureS3Object(s3client, bucket, key, content))
+	}
+}
+
+// sync  s3://bucket/* folder/
+func TestSyncS3BucketToEmptyFolderWithExcludeFilters(t *testing.T) {
+	t.Parallel()
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	const excludePattern = "*.py"
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	S3Content := map[string]string{
+		"testfile.txt":            "S: this is a test file",
+		"readme.md":               "S: this is a readme file",
+		"a/another_test_file.txt": "S: yet another txt file",
+		"abc/def/test.py":         "S: file in nested folders",
+	}
+
+	for filename, content := range S3Content {
+		putFile(t, s3client, bucket, filename, content)
+	}
+
+	workdir := fs.NewDir(t, "somedir")
+	defer workdir.Remove()
+
+	bucketPath := fmt.Sprintf("s3://%v", bucket)
+	src := fmt.Sprintf("%v/*", bucketPath)
+	dst := fmt.Sprintf("%v/", workdir.Path())
+	dst = filepath.ToSlash(dst)
+
+	cmd := s5cmd("sync", "--exclude", excludePattern, src, dst)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`cp %v/a/another_test_file.txt %va/another_test_file.txt`, bucketPath, dst),
+		1: equals(`cp %v/readme.md %vreadme.md`, bucketPath, dst),
+		2: equals(`cp %v/testfile.txt %vtestfile.txt`, bucketPath, dst),
+	}, sortInput(true))
+
+	expectedFolderLayout := []fs.PathOp{
+		fs.WithFile("testfile.txt", "S: this is a test file"),
+		fs.WithFile("readme.md", "S: this is a readme file"),
+		fs.WithDir("a",
+			fs.WithFile("another_test_file.txt", "S: yet another txt file"),
+		),
+	}
+
+	// assert local filesystem
+	expected := fs.Expected(t, expectedFolderLayout...)
+	assert.Assert(t, fs.Equal(workdir.Path(), expected))
+
+	// assert s3
+	for key, content := range S3Content {
+		assert.Assert(t, ensureS3Object(s3client, bucket, key, content))
+	}
+}

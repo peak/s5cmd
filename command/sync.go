@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -44,7 +45,12 @@ Examples:
 
 	05. Sync S3 bucket to local folder but use size as only comparison criteria.
 		> s5cmd {{.HelpName}} --size-only s3://bucket/* folder/
-	
+
+	06. Sync S3 bucket to local folder but exclude the ones with txt and gz extension.
+		> s5cmd {{.HelpName}} --exclude "*.txt" --exclude "*.gz" s3://bucket/* folder/
+
+	07. Sync S3 bucket to local folder but exclude the ones starts with log.
+		> s5cmd {{.HelpName}} --exclude "log*" s3://bucket/* folder/
 `
 
 func NewSyncCommandFlags() []cli.Flag {
@@ -68,6 +74,10 @@ func NewSyncCommandFlags() []cli.Flag {
 		&cli.BoolFlag{
 			Name:  "size-only",
 			Usage: "make size of object only criteria to decide whether an object should be synced",
+		},
+		&cli.StringSliceFlag{
+			Name:  "exclude",
+			Usage: "exclude objects with given pattern",
 		},
 	}
 }
@@ -108,6 +118,7 @@ type Sync struct {
 	// flags
 	delete   bool
 	sizeOnly bool
+	exclude  []string
 
 	// s3 options
 	concurrency int
@@ -126,6 +137,7 @@ func NewSync(c *cli.Context) Sync {
 		// flags
 		delete:   c.Bool("delete"),
 		sizeOnly: c.Bool("size-only"),
+		exclude:  c.StringSlice("exclude"),
 
 		// s3 options
 		partSize:    c.Int64("part-size") * megabytes,
@@ -271,13 +283,19 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 	var destObjects []*storage.Object
 	var wg sync.WaitGroup
 
+	excludePatterns, err := createExcludesFromWildcard(s.exclude)
+	if err != nil {
+		printError(s.fullCommand, s.op, err)
+		return nil, nil, err
+	}
+
 	// get source objects.
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		srcObjectChannel := sourceClient.List(ctx, srcurl, false)
 		for srcObject := range srcObjectChannel {
-			if s.shouldSkipObject(srcObject, true) {
+			if s.shouldSkipObject(srcObject, excludePatterns, srcurl, true) {
 				continue
 			}
 			sourceObjects = append(sourceObjects, srcObject)
@@ -303,7 +321,7 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 		defer wg.Done()
 		destObjectsChannel := destClient.List(ctx, destObjectsURL, false)
 		for destObject := range destObjectsChannel {
-			if s.shouldSkipObject(destObject, false) {
+			if s.shouldSkipObject(destObject, excludePatterns, destObjectsURL, false) {
 				continue
 			}
 			destObjects = append(destObjects, destObject)
@@ -380,7 +398,7 @@ func generateDestinationURL(srcurl, dsturl *url.URL, isBatch bool) *url.URL {
 }
 
 // shouldSkipObject checks is object should be skipped.
-func (s Sync) shouldSkipObject(object *storage.Object, verbose bool) bool {
+func (s Sync) shouldSkipObject(object *storage.Object, excludePatterns []*regexp.Regexp, src *url.URL, verbose bool) bool {
 	if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) {
 		return true
 	}
@@ -389,6 +407,10 @@ func (s Sync) shouldSkipObject(object *storage.Object, verbose bool) bool {
 		if verbose {
 			printError(s.fullCommand, s.op, err)
 		}
+		return true
+	}
+
+	if isURLExcluded(excludePatterns, object.URL.Path, src.Prefix) {
 		return true
 	}
 

@@ -1252,7 +1252,7 @@ func TestSyncS3BucketToLocalWithDeleteFlag(t *testing.T) {
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 }
 
-// sync --exclude "*.py" s3://bucket/* folder/ (same objects, source newer)
+// sync --exclude "*.py" s3://bucket/* folder/ (same objects, source newer, exclude *.py)
 func TestSyncS3BucketToLocalFolderSameObjectsSourceNewerWithExcludeFilters(t *testing.T) {
 	t.Parallel()
 	now := time.Now()
@@ -1330,7 +1330,7 @@ func TestSyncS3BucketToLocalFolderSameObjectsSourceNewerWithExcludeFilters(t *te
 	}
 }
 
-// sync  s3://bucket/* folder/
+// sync --exclude "*.py" s3://bucket/* folder/  (bucket to empty folder excluding *.py)
 func TestSyncS3BucketToEmptyFolderWithExcludeFilters(t *testing.T) {
 	t.Parallel()
 	s3client, s5cmd, cleanup := setup(t)

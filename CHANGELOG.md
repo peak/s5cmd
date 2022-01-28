@@ -5,12 +5,6 @@
 #### Bugfixes
 - Fixed a bug about precedence of region detection, which auto region detection would always override region defined in environment or profile. ([#325](https://github.com/peak/s5cmd/issues/325))
 
-## v1.4.0-mo - 28 Jan 2022
-
-#### Features
-
-- Added `--exclude` flag to `sync` command. This flag allows users to exclude objects with given pattern. ([#266](https://github.com/peak/s5cmd/issues/266))
-
 ## v1.4.0 - 21 Sep 2021
 
 #### Features

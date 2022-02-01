@@ -862,9 +862,28 @@ func guessContentType(file *os.File) string {
 
 func givenCommand(c *cli.Context) string {
 	cmd := c.Command.FullName()
+
+	for _, f := range c.Command.Flags {
+		flagname := f.Names()[0]
+		val := contextValue(c, flagname)
+		if val != "" {
+			cmd = fmt.Sprintf("%s --%s=%v", cmd, flagname, val)
+		}
+	}
+
 	if c.Args().Len() > 0 {
 		cmd = fmt.Sprintf("%v %v", cmd, strings.Join(c.Args().Slice(), " "))
 	}
 
 	return cmd
+}
+
+func contextValue(c *cli.Context, flagname string) string {
+	for _, c := range c.Lineage() {
+		if c.IsSet(flagname) {
+			return c.String(flagname)
+		}
+	}
+
+	return ""
 }

@@ -2,6 +2,7 @@ package command
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -44,32 +45,21 @@ Examples:
 
 	05. Sync S3 bucket to local folder but use size as only comparison criteria.
 		> s5cmd {{.HelpName}} --size-only s3://bucket/* folder/
-	
+
 `
 
 func NewSyncCommandFlags() []cli.Flag {
-	return []cli.Flag{
-		&cli.IntFlag{
-			Name:    "concurrency",
-			Aliases: []string{"c"},
-			Value:   defaultCopyConcurrency,
-			Usage:   "number of concurrent parts transferred between host and remote server",
-		},
-		&cli.IntFlag{
-			Name:    "part-size",
-			Aliases: []string{"p"},
-			Value:   defaultPartSize,
-			Usage:   "size of each part transferred between host and remote server, in MiB",
-		},
-		&cli.BoolFlag{
-			Name:  "delete",
-			Usage: "delete objects in destination but not in source",
-		},
-		&cli.BoolFlag{
-			Name:  "size-only",
-			Usage: "make size of object only criteria to decide whether an object should be synced",
-		},
-	}
+	flags := NewCopyCommandFlags()
+	flags = append(flags, &cli.BoolFlag{
+		Name:  "delete",
+		Usage: "delete objects in destination but not in source",
+	})
+	flags = append(flags, &cli.BoolFlag{
+		Name:  "size-only",
+		Usage: "make size of object only criteria to decide whether an object should be synced",
+	})
+
+	return flags
 }
 
 func NewSyncCommand() *cli.Command {
@@ -113,6 +103,24 @@ type Sync struct {
 	concurrency int
 	partSize    int64
 	storageOpts storage.Options
+
+	noClobber            bool
+	ifSizeDiffer         bool
+	ifSourceNewer        bool
+	flatten              bool
+	followSymlinks       bool
+	storageClass         storage.StorageClass
+	encryptionMethod     string
+	encryptionKeyID      string
+	acl                  string
+	forceGlacierTransfer bool
+	exclude              []string
+	raw                  bool
+	cacheControl         string
+	expires              string
+
+	srcRegion string
+	dstRegion string
 }
 
 // NewSync creates Sync from cli.Context
@@ -127,9 +135,26 @@ func NewSync(c *cli.Context) Sync {
 		delete:   c.Bool("delete"),
 		sizeOnly: c.Bool("size-only"),
 
-		// s3 options
-		partSize:    c.Int64("part-size") * megabytes,
-		concurrency: c.Int("concurrency"),
+		// flags
+		noClobber:            c.Bool("no-clobber"),
+		ifSizeDiffer:         c.Bool("if-size-differ"),
+		ifSourceNewer:        c.Bool("if-source-newer"),
+		flatten:              c.Bool("flatten"),
+		followSymlinks:       !c.Bool("no-follow-symlinks"),
+		storageClass:         storage.StorageClass(c.String("storage-class")),
+		concurrency:          c.Int("concurrency"),
+		partSize:             c.Int64("part-size") * megabytes,
+		encryptionMethod:     c.String("sse"),
+		encryptionKeyID:      c.String("sse-kms-key-id"),
+		acl:                  c.String("acl"),
+		forceGlacierTransfer: c.Bool("force-glacier-transfer"),
+		exclude:              c.StringSlice("exclude"),
+		raw:                  c.Bool("raw"),
+		cacheControl:         c.String("cache-control"),
+		expires:              c.String("expires"),
+		// region settings
+		srcRegion:   c.String("source-region"),
+		dstRegion:   c.String("destination-region"),
 		storageOpts: NewStorageOpts(c),
 	}
 }
@@ -192,7 +217,7 @@ func (s Sync) Run(c *cli.Context) error {
 	pipeReader, pipeWriter := io.Pipe() // create a reader, writer pipe to pass commands to run
 
 	// Create commands in background.
-	go s.planRun(onlySource, onlyDest, commonObjects, dsturl, strategy, pipeWriter, isBatch)
+	go s.planRun(c, onlySource, onlyDest, commonObjects, dsturl, strategy, pipeWriter, isBatch)
 
 	err = NewRun(c, pipeReader).Run(c.Context)
 	return multierror.Append(err, merrorWaiter).ErrorOrNil()
@@ -314,8 +339,37 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 	return sourceObjects, destObjects, nil
 }
 
+func (s Sync) Command(c *cli.Context, cmd string, urls ...*url.URL) string {
+	command := AppCommand(cmd)
+	flagset := flag.NewFlagSet(command.Name, flag.ContinueOnError)
+
+	var args []string
+	for _, url := range urls {
+		args = append(args, url.String())
+	}
+
+	// Always use raw mode since sync command generates commands
+	// from raw S3 objects. Otherwise, generated copy command will
+	// try to expand given source.
+	flags := []string{command.Name, "--raw=true"}
+	for _, f := range command.Flags {
+		flagname := f.Names()[0]
+		if flagname == "raw" || !c.IsSet(flagname) {
+			continue
+		}
+		flags = append(flags, fmt.Sprintf("--%s=%v", flagname, c.Value(flagname)))
+	}
+
+	flags = append(flags, args...)
+	flagset.Parse(flags)
+
+	cmdCtx := cli.NewContext(c.App, flagset, c)
+	return givenCommand(cmdCtx)
+}
+
 // planRun prepares the commands and writes them to writer 'w'.
 func (s Sync) planRun(
+	c *cli.Context,
 	onlySource, onlyDest []*url.URL,
 	common []*ObjectPair,
 	dsturl *url.URL,
@@ -323,13 +377,13 @@ func (s Sync) planRun(
 	w io.WriteCloser,
 	isBatch bool,
 ) {
+	defer w.Close()
 
 	// only in source
 	for _, srcurl := range onlySource {
 		curDestURL := generateDestinationURL(srcurl, dsturl, isBatch)
-
-		command := fmt.Sprintf("cp %v %v\n", srcurl, curDestURL)
-		fmt.Fprint(w, command)
+		command := s.Command(c, "cp", srcurl, curDestURL)
+		fmt.Fprintln(w, command)
 	}
 
 	// both in source and destination
@@ -342,22 +396,15 @@ func (s Sync) planRun(
 			continue
 		}
 
-		command := fmt.Sprintf("cp %v %v\n", curSourceURL, curDestURL)
-		fmt.Fprint(w, command)
+		command := s.Command(c, "cp", curSourceURL, curDestURL)
+		fmt.Fprintln(w, command)
 	}
 
 	// only in destination
 	if s.delete && len(onlyDest) > 0 {
-		var objectsToDelete []string
-		for _, obj := range onlyDest {
-			objectsToDelete = append(objectsToDelete, obj.String())
-		}
-
-		command := fmt.Sprintf("rm %v\n", strings.Join(objectsToDelete, " "))
-		fmt.Fprint(w, command)
+		command := s.Command(c, "rm", onlyDest...)
+		fmt.Fprintln(w, command)
 	}
-
-	w.Close()
 }
 
 // generateDestinationURL generates destination url for given

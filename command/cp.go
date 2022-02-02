@@ -313,8 +313,9 @@ func (c Copy) Run(ctx context.Context) error {
 	waiter := parallel.NewWaiter()
 
 	var (
-		merror    error
-		errDoneCh = make(chan bool)
+		merrorWaiter  error
+		merrorObjects error
+		errDoneCh     = make(chan bool)
 	)
 
 	go func() {
@@ -327,7 +328,7 @@ func (c Copy) Run(ctx context.Context) error {
 				os.Exit(1)
 			}
 			printError(c.fullCommand, c.op, err)
-			merror = multierror.Append(merror, err)
+			merrorWaiter = multierror.Append(merrorWaiter, err)
 		}
 	}()
 
@@ -349,12 +350,14 @@ func (c Copy) Run(ctx context.Context) error {
 		}
 
 		if err := object.Err; err != nil {
+			merrorObjects = multierror.Append(merrorObjects, err)
 			printError(c.fullCommand, c.op, err)
 			continue
 		}
 
 		if object.StorageClass.IsGlacier() && !c.forceGlacierTransfer {
 			err := fmt.Errorf("object '%v' is on Glacier storage", object)
+			merrorObjects = multierror.Append(merrorObjects, err)
 			printError(c.fullCommand, c.op, err)
 			continue
 		}
@@ -383,7 +386,7 @@ func (c Copy) Run(ctx context.Context) error {
 	waiter.Wait()
 	<-errDoneCh
 
-	return merror
+	return multierror.Append(merrorWaiter, merrorObjects).ErrorOrNil()
 }
 
 func (c Copy) prepareCopyTask(

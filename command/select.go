@@ -120,7 +120,10 @@ func (s Select) Run(ctx context.Context) error {
 		return err
 	}
 
-	var merror error
+	var (
+		merrorWaiter  error
+		merrorObjects error
+	)
 
 	waiter := parallel.NewWaiter()
 	errDoneCh := make(chan bool)
@@ -131,7 +134,7 @@ func (s Select) Run(ctx context.Context) error {
 		defer close(errDoneCh)
 		for err := range waiter.Err() {
 			printError(s.fullCommand, s.op, err)
-			merror = multierror.Append(merror, err)
+			merrorWaiter = multierror.Append(merrorWaiter, err)
 		}
 	}()
 
@@ -168,12 +171,14 @@ func (s Select) Run(ctx context.Context) error {
 		}
 
 		if err := object.Err; err != nil {
+			merrorObjects = multierror.Append(merrorObjects, err)
 			printError(s.fullCommand, s.op, err)
 			continue
 		}
 
 		if object.StorageClass.IsGlacier() {
 			err := fmt.Errorf("object '%v' is on Glacier storage", object)
+			merrorObjects = multierror.Append(merrorObjects, err)
 			printError(s.fullCommand, s.op, err)
 			continue
 		}
@@ -192,7 +197,7 @@ func (s Select) Run(ctx context.Context) error {
 	<-errDoneCh
 	<-writeDoneCh
 
-	return merror
+	return multierror.Append(merrorWaiter, merrorObjects).ErrorOrNil()
 }
 
 func (s Select) prepareTask(ctx context.Context, client *storage.S3, url *url.URL, resultCh chan<- json.RawMessage) func() error {

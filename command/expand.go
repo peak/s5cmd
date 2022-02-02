@@ -68,7 +68,9 @@ func expandSources(
 
 				objch, err := expandSource(ctx, client, followSymlinks, origSrc)
 				if err != nil {
-					ch <- &storage.Object{Err: err}
+					if err != storage.ErrGivenObjectNotFound {
+						ch <- &storage.Object{Err: err}
+					}
 					return
 				}
 

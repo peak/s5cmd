@@ -57,6 +57,10 @@ func NewSelectCommand() *cli.Command {
 				Usage: "exclude objects with given pattern",
 			},
 			&cli.BoolFlag{
+				Name:  "force-glacier-transfer",
+				Usage: "force transfer of GLACIER objects whether they are restored or not",
+			},
+			&cli.BoolFlag{
 				Name:  "ignore-glacier-warnings",
 				Usage: "turns off glacier warnings: ignore errors encountered during selecting objects",
 			},
@@ -80,6 +84,7 @@ func NewSelectCommand() *cli.Command {
 				query:                 c.String("query"),
 				compressionType:       c.String("compression"),
 				exclude:               c.StringSlice("exclude"),
+				forceGlacierTransfer:  c.Bool("force-glacier-transfer"),
 				ignoreGlacierWarnings: c.Bool("ignore-glacier-warnings"),
 
 				storageOpts: NewStorageOpts(c),
@@ -97,6 +102,7 @@ type Select struct {
 	query                 string
 	compressionType       string
 	exclude               []string
+	forceGlacierTransfer  bool
 	ignoreGlacierWarnings bool
 
 	// s3 options
@@ -182,7 +188,7 @@ func (s Select) Run(ctx context.Context) error {
 			continue
 		}
 
-		if object.StorageClass.IsGlacier() {
+		if object.StorageClass.IsGlacier() && !s.forceGlacierTransfer {
 			if !s.ignoreGlacierWarnings {
 				err := fmt.Errorf("object '%v' is on Glacier storage", object)
 				merrorObjects = multierror.Append(merrorObjects, err)

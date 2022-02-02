@@ -56,6 +56,10 @@ func NewSelectCommand() *cli.Command {
 				Name:  "exclude",
 				Usage: "exclude objects with given pattern",
 			},
+			&cli.BoolFlag{
+				Name:  "ignore-glacier-warnings",
+				Usage: "turns off glacier warnings: ignore errors encountered during selecting objects",
+			},
 		},
 		CustomHelpTemplate: selectHelpTemplate,
 		Before: func(c *cli.Context) error {
@@ -73,9 +77,10 @@ func NewSelectCommand() *cli.Command {
 				op:          c.Command.Name,
 				fullCommand: givenCommand(c),
 				// flags
-				query:           c.String("query"),
-				compressionType: c.String("compression"),
-				exclude:         c.StringSlice("exclude"),
+				query:                 c.String("query"),
+				compressionType:       c.String("compression"),
+				exclude:               c.StringSlice("exclude"),
+				ignoreGlacierWarnings: c.Bool("ignore-glacier-warnings"),
 
 				storageOpts: NewStorageOpts(c),
 			}.Run(c.Context)
@@ -89,9 +94,10 @@ type Select struct {
 	op          string
 	fullCommand string
 
-	query           string
-	compressionType string
-	exclude         []string
+	query                 string
+	compressionType       string
+	exclude               []string
+	ignoreGlacierWarnings bool
 
 	// s3 options
 	storageOpts storage.Options
@@ -177,9 +183,11 @@ func (s Select) Run(ctx context.Context) error {
 		}
 
 		if object.StorageClass.IsGlacier() {
-			err := fmt.Errorf("object '%v' is on Glacier storage", object)
-			merrorObjects = multierror.Append(merrorObjects, err)
-			printError(s.fullCommand, s.op, err)
+			if !s.ignoreGlacierWarnings {
+				err := fmt.Errorf("object '%v' is on Glacier storage", object)
+				merrorObjects = multierror.Append(merrorObjects, err)
+				printError(s.fullCommand, s.op, err)
+			}
 			continue
 		}
 

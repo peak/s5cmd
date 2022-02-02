@@ -2,6 +2,9 @@
 
 ## not released yet
 
+#### Features
+- Added `--ignore-glacier-warnings` option to `cp` and `select` commands. ([#346](https://github.com/peak/s5cmd/issues/346))
+
 #### Bugfixes
 - Fixed a bug about precedence of region detection, which auto region detection would always override region defined in environment or profile. ([#325](https://github.com/peak/s5cmd/issues/325))
 - Fixed a bug where errors did not result a non-zero exit code. ([#304](https://github.com/peak/s5cmd/issues/304))

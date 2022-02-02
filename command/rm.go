@@ -48,7 +48,7 @@ func NewDeleteCommand() *cli.Command {
 		Flags: []cli.Flag{
 			&cli.BoolFlag{
 				Name:  "raw",
-				Usage: "disable the wildcard operations, useful with filenames that contains glob characters.",
+				Usage: "disable the wildcard operations, useful with filenames that contains glob characters",
 			},
 			&cli.StringSliceFlag{
 				Name:  "exclude",

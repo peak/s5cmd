@@ -58,7 +58,7 @@ func NewSelectCommand() *cli.Command {
 			},
 			&cli.BoolFlag{
 				Name:  "force-glacier-transfer",
-				Usage: "force transfer of GLACIER objects whether they are restored or not",
+				Usage: "force transfer of glacier objects whether they are restored or not",
 			},
 			&cli.BoolFlag{
 				Name:  "ignore-glacier-warnings",

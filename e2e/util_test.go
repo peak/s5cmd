@@ -366,11 +366,12 @@ func withWorkingDir(dir *fs.Dir) func(*icmd.Cmd) {
 type compareFunc func(string) error
 
 type assertOpts struct {
-	strict      bool
-	sort        bool
-	json        bool
-	alignment   bool
-	trimRegexes []*regexp.Regexp
+	strict        bool
+	sort          bool
+	json          bool
+	alignment     bool
+	skipAfterLine int
+	trimRegexes   []*regexp.Regexp
 }
 
 type assertOp func(*assertOpts)
@@ -406,6 +407,12 @@ func trimMatch(match string) func(*assertOpts) {
 	}
 }
 
+func skipAfterLine(line int) func(*assertOpts) {
+	return func(opts *assertOpts) {
+		opts.skipAfterLine = line
+	}
+}
+
 func assertError(t *testing.T, err error, expected interface{}) {
 	t.Helper()
 	// 'assert' package doesn't support Go1.13+ error unwrapping. Do it
@@ -426,11 +433,12 @@ func assertLines(t *testing.T, actual string, expectedlines map[int]compareFunc,
 
 	// default assertion options
 	opts := assertOpts{
-		strict:      true,
-		sort:        false,
-		json:        false,
-		alignment:   false,
-		trimRegexes: nil,
+		strict:        true,
+		sort:          false,
+		json:          false,
+		alignment:     false,
+		trimRegexes:   nil,
+		skipAfterLine: -1,
 	}
 
 	for _, fn := range fns {
@@ -465,6 +473,10 @@ func assertLines(t *testing.T, actual string, expectedlines map[int]compareFunc,
 	}
 
 	for i, line := range lines {
+		// do not check rest of lines if skipAfterLine is set
+		if opts.skipAfterLine != -1 && i > opts.skipAfterLine {
+			break
+		}
 		// trim consecutive spaces
 		line = replaceMatchWithSpace(line, `\s+`)
 

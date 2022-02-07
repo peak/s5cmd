@@ -96,28 +96,8 @@ Examples:
 		 > s5cmd {{.HelpName}} --exclude "log*" s3://bucket/* s3://destbucket
 `
 
-func NewCopyCommandFlags() []cli.Flag {
+func NewSharedFlags() []cli.Flag {
 	return []cli.Flag{
-		&cli.BoolFlag{
-			Name:    "no-clobber",
-			Aliases: []string{"n"},
-			Usage:   "do not overwrite destination if already exists",
-		},
-		&cli.BoolFlag{
-			Name:    "if-size-differ",
-			Aliases: []string{"s"},
-			Usage:   "only overwrite destination if size differs",
-		},
-		&cli.BoolFlag{
-			Name:    "if-source-newer",
-			Aliases: []string{"u"},
-			Usage:   "only overwrite destination if source modtime is newer",
-		},
-		&cli.BoolFlag{
-			Name:    "flatten",
-			Aliases: []string{"f"},
-			Usage:   "flatten directory structure of source, starting from the first wildcard",
-		},
 		&cli.BoolFlag{
 			Name:  "no-follow-symlinks",
 			Usage: "do not follow symbolic links",
@@ -179,6 +159,33 @@ func NewCopyCommandFlags() []cli.Flag {
 			Usage: "disable the wildcard operations, useful with filenames that contains glob characters.",
 		},
 	}
+}
+
+func NewCopyCommandFlags() []cli.Flag {
+	copyFlags := []cli.Flag{
+		&cli.BoolFlag{
+			Name:    "flatten",
+			Aliases: []string{"f"},
+			Usage:   "flatten directory structure of source, starting from the first wildcard",
+		},
+		&cli.BoolFlag{
+			Name:    "no-clobber",
+			Aliases: []string{"n"},
+			Usage:   "do not overwrite destination if already exists",
+		},
+		&cli.BoolFlag{
+			Name:    "if-size-differ",
+			Aliases: []string{"s"},
+			Usage:   "only overwrite destination if size differs",
+		},
+		&cli.BoolFlag{
+			Name:    "if-source-newer",
+			Aliases: []string{"u"},
+			Usage:   "only overwrite destination if source modtime is newer",
+		},
+	}
+	sharedFlags := NewSharedFlags()
+	return append(copyFlags, sharedFlags...)
 }
 
 func NewCopyCommand() *cli.Command {
@@ -865,9 +872,8 @@ func givenCommand(c *cli.Context) string {
 
 	for _, f := range c.Command.Flags {
 		flagname := f.Names()[0]
-		val := contextValue(c, flagname)
-		if val != "" {
-			cmd = fmt.Sprintf("%s --%s=%v", cmd, flagname, val)
+		for _, flagvalue := range contextValue(c, flagname) {
+			cmd = fmt.Sprintf("%s --%s=%v", cmd, flagname, flagvalue)
 		}
 	}
 
@@ -878,12 +884,12 @@ func givenCommand(c *cli.Context) string {
 	return cmd
 }
 
-func contextValue(c *cli.Context, flagname string) string {
+func contextValue(c *cli.Context, flagname string) []string {
 	for _, c := range c.Lineage() {
 		if c.IsSet(flagname) {
-			return c.String(flagname)
+			return c.StringSlice(flagname)
 		}
 	}
 
-	return ""
+	return nil
 }

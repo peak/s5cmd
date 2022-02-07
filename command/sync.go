@@ -49,17 +49,18 @@ Examples:
 `
 
 func NewSyncCommandFlags() []cli.Flag {
-	flags := NewCopyCommandFlags()
-	flags = append(flags, &cli.BoolFlag{
-		Name:  "delete",
-		Usage: "delete objects in destination but not in source",
-	})
-	flags = append(flags, &cli.BoolFlag{
-		Name:  "size-only",
-		Usage: "make size of object only criteria to decide whether an object should be synced",
-	})
-
-	return flags
+	syncFlags := []cli.Flag{
+		&cli.BoolFlag{
+			Name:  "delete",
+			Usage: "delete objects in destination but not in source",
+		},
+		&cli.BoolFlag{
+			Name:  "size-only",
+			Usage: "make size of object only criteria to decide whether an object should be synced",
+		},
+	}
+	sharedFlags := NewSharedFlags()
+	return append(syncFlags, sharedFlags...)
 }
 
 func NewSyncCommand() *cli.Command {
@@ -70,7 +71,8 @@ func NewSyncCommand() *cli.Command {
 		Flags:              NewSyncCommandFlags(),
 		CustomHelpTemplate: syncHelpTemplate,
 		Before: func(c *cli.Context) error {
-			err := validateSyncCommand(c)
+			// sync command share same validation method as copy command
+			err := validateCopyCommand(c)
 			if err != nil {
 				printError(givenCommand(c), c.Command.Name, err)
 			}
@@ -104,9 +106,6 @@ type Sync struct {
 	partSize    int64
 	storageOpts storage.Options
 
-	noClobber            bool
-	ifSizeDiffer         bool
-	ifSourceNewer        bool
 	flatten              bool
 	followSymlinks       bool
 	storageClass         storage.StorageClass
@@ -136,9 +135,6 @@ func NewSync(c *cli.Context) Sync {
 		sizeOnly: c.Bool("size-only"),
 
 		// flags
-		noClobber:            c.Bool("no-clobber"),
-		ifSizeDiffer:         c.Bool("if-size-differ"),
-		ifSourceNewer:        c.Bool("if-source-newer"),
 		flatten:              c.Bool("flatten"),
 		followSymlinks:       !c.Bool("no-follow-symlinks"),
 		storageClass:         storage.StorageClass(c.String("storage-class")),
@@ -162,12 +158,12 @@ func NewSync(c *cli.Context) Sync {
 // Run compares files, plans necessary s5cmd commands to execute
 // and executes them in order to sync source to destination.
 func (s Sync) Run(c *cli.Context) error {
-	srcurl, err := url.New(s.src)
+	srcurl, err := url.New(s.src, url.WithRaw(s.raw))
 	if err != nil {
 		return err
 	}
 
-	dsturl, err := url.New(s.dst)
+	dsturl, err := url.New(s.dst, url.WithRaw(s.raw))
 	if err != nil {
 		return err
 	}
@@ -300,7 +296,7 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		srcObjectChannel := sourceClient.List(ctx, srcurl, false)
+		srcObjectChannel := sourceClient.List(ctx, srcurl, s.followSymlinks)
 		for srcObject := range srcObjectChannel {
 			if s.shouldSkipObject(srcObject, true) {
 				continue
@@ -357,9 +353,11 @@ func (s Sync) Command(c *cli.Context, cmd string, urls ...*url.URL) string {
 		if flagname == "raw" || !c.IsSet(flagname) {
 			continue
 		}
-		flags = append(flags, fmt.Sprintf("--%s=%v", flagname, c.Value(flagname)))
-	}
 
+		for _, flagvalue := range contextValue(c, flagname) {
+			flags = append(flags, fmt.Sprintf("--%s=%s", flagname, flagvalue))
+		}
+	}
 	flags = append(flags, args...)
 	flagset.Parse(flags)
 
@@ -447,101 +445,4 @@ func (s Sync) shouldSkipObject(object *storage.Object, verbose bool) bool {
 		return true
 	}
 	return false
-}
-
-func validateSyncCommand(c *cli.Context) error {
-	if c.Args().Len() != 2 {
-		return fmt.Errorf("expected source and destination arguments")
-	}
-
-	ctx := c.Context
-	src := c.Args().Get(0)
-	dst := c.Args().Get(1)
-
-	srcurl, err := url.New(src)
-	if err != nil {
-		return err
-	}
-
-	dsturl, err := url.New(dst)
-	if err != nil {
-		return err
-	}
-
-	// wildcard destination doesn't mean anything
-	if dsturl.IsWildcard() {
-		return fmt.Errorf("target %q can not contain glob characters", dst)
-	}
-
-	// we don't operate on S3 prefixes for copy and delete operations.
-	if srcurl.IsBucket() || srcurl.IsPrefix() {
-		return fmt.Errorf("source argument must contain wildcard character")
-	}
-
-	// 'cp dir/* s3://bucket/prefix': expect a trailing slash to avoid any
-	// surprises.
-	if srcurl.IsWildcard() && dsturl.IsRemote() && !dsturl.IsPrefix() && !dsturl.IsBucket() {
-		return fmt.Errorf("target %q must be a bucket or a prefix", dsturl)
-	}
-
-	switch {
-	case srcurl.Type == dsturl.Type:
-		return validateSyncCopy(srcurl, dsturl)
-	case dsturl.IsRemote():
-		return validateSyncUpload(ctx, srcurl, dsturl, NewStorageOpts(c))
-	case srcurl.IsRemote():
-		return validateSyncDownload(srcurl)
-	default:
-		return nil
-	}
-}
-
-func validateSyncCopy(srcurl, dsturl *url.URL) error {
-	if srcurl.IsRemote() || dsturl.IsRemote() {
-		return nil
-	}
-
-	// we don't support local->local copies
-	return fmt.Errorf("local->local sync operations are not permitted")
-}
-
-func validateSyncUpload(ctx context.Context, srcurl, dsturl *url.URL, storageOpts storage.Options) error {
-	srcclient := storage.NewLocalClient(storageOpts)
-
-	if srcurl.IsWildcard() {
-		return nil
-	}
-
-	obj, err := srcclient.Stat(ctx, srcurl)
-	if err != nil {
-		return err
-	}
-
-	// do not support single file. use 'cp' instead.
-	if !obj.Type.IsDir() {
-		return fmt.Errorf("local source must be a directory")
-	}
-
-	// 'sync dir/ s3://bucket/prefix-without-slash': expect a trailing slash to
-	// avoid any surprises.
-	if obj.Type.IsDir() && !dsturl.IsBucket() && !dsturl.IsPrefix() {
-		return fmt.Errorf("target %q must be a bucket or a prefix", dsturl)
-	}
-
-	return nil
-}
-
-func validateSyncDownload(srcurl *url.URL) error {
-	if srcurl.IsWildcard() {
-		return nil
-	}
-
-	// 'sync s3://bucket/prefix-without-slash dir/': should not work
-	// 'sync s3://bucket/object.go dir/' should not work.
-	// do not support single object.
-	if !srcurl.IsBucket() && !srcurl.IsPrefix() {
-		return fmt.Errorf("remote source %q must be a bucket or a prefix", srcurl)
-	}
-
-	return nil
 }

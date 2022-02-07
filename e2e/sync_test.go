@@ -1402,8 +1402,8 @@ func TestSyncLocalFilesWithSymlinksToS3Bucket(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(`cp %v/b/link1 %vb/link1`, workdir.Path(), dst),
-		1: equals(`cp %v/b/link2 %vb/link2`, workdir.Path(), dst),
+		0: equals(`cp %v/b/link1 %vb/link1`, filepath.ToSlash(workdir.Path()), dst),
+		1: equals(`cp %v/b/link2 %vb/link2`, filepath.ToSlash(workdir.Path()), dst),
 	}, sortInput(true))
 }
 

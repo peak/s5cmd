@@ -102,21 +102,11 @@ type Sync struct {
 	sizeOnly bool
 
 	// s3 options
-	concurrency int
-	partSize    int64
 	storageOpts storage.Options
 
-	flatten              bool
-	followSymlinks       bool
-	storageClass         storage.StorageClass
-	encryptionMethod     string
-	encryptionKeyID      string
-	acl                  string
-	forceGlacierTransfer bool
-	exclude              []string
-	raw                  bool
-	cacheControl         string
-	expires              string
+	followSymlinks bool
+	storageClass   storage.StorageClass
+	raw            bool
 
 	srcRegion string
 	dstRegion string
@@ -135,19 +125,9 @@ func NewSync(c *cli.Context) Sync {
 		sizeOnly: c.Bool("size-only"),
 
 		// flags
-		flatten:              c.Bool("flatten"),
-		followSymlinks:       !c.Bool("no-follow-symlinks"),
-		storageClass:         storage.StorageClass(c.String("storage-class")),
-		concurrency:          c.Int("concurrency"),
-		partSize:             c.Int64("part-size") * megabytes,
-		encryptionMethod:     c.String("sse"),
-		encryptionKeyID:      c.String("sse-kms-key-id"),
-		acl:                  c.String("acl"),
-		forceGlacierTransfer: c.Bool("force-glacier-transfer"),
-		exclude:              c.StringSlice("exclude"),
-		raw:                  c.Bool("raw"),
-		cacheControl:         c.String("cache-control"),
-		expires:              c.String("expires"),
+		followSymlinks: !c.Bool("no-follow-symlinks"),
+		storageClass:   storage.StorageClass(c.String("storage-class")),
+		raw:            c.Bool("raw"),
 		// region settings
 		srcRegion:   c.String("source-region"),
 		dstRegion:   c.String("destination-region"),

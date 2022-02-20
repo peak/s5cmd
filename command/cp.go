@@ -140,7 +140,11 @@ func NewSharedFlags() []cli.Flag {
 		},
 		&cli.BoolFlag{
 			Name:  "force-glacier-transfer",
-			Usage: "force transfer of GLACIER objects whether they are restored or not",
+			Usage: "force transfer of glacier objects whether they are restored or not",
+		},
+		&cli.BoolFlag{
+			Name:  "ignore-glacier-warnings",
+			Usage: "turns off glacier warnings: ignore errors encountered during copying, downloading and moving glacier objects",
 		},
 		&cli.StringFlag{
 			Name:  "source-region",
@@ -156,7 +160,7 @@ func NewSharedFlags() []cli.Flag {
 		},
 		&cli.BoolFlag{
 			Name:  "raw",
-			Usage: "disable the wildcard operations, useful with filenames that contains glob characters.",
+			Usage: "disable the wildcard operations, useful with filenames that contains glob characters",
 		},
 	}
 }
@@ -221,20 +225,21 @@ type Copy struct {
 	deleteSource bool
 
 	// flags
-	noClobber            bool
-	ifSizeDiffer         bool
-	ifSourceNewer        bool
-	flatten              bool
-	followSymlinks       bool
-	storageClass         storage.StorageClass
-	encryptionMethod     string
-	encryptionKeyID      string
-	acl                  string
-	forceGlacierTransfer bool
-	exclude              []string
-	raw                  bool
-	cacheControl         string
-	expires              string
+	noClobber             bool
+	ifSizeDiffer          bool
+	ifSourceNewer         bool
+	flatten               bool
+	followSymlinks        bool
+	storageClass          storage.StorageClass
+	encryptionMethod      string
+	encryptionKeyID       string
+	acl                   string
+	forceGlacierTransfer  bool
+	ignoreGlacierWarnings bool
+	exclude               []string
+	raw                   bool
+	cacheControl          string
+	expires               string
 
 	// region settings
 	srcRegion string
@@ -255,22 +260,23 @@ func NewCopy(c *cli.Context, deleteSource bool) Copy {
 		fullCommand:  givenCommand(c),
 		deleteSource: deleteSource,
 		// flags
-		noClobber:            c.Bool("no-clobber"),
-		ifSizeDiffer:         c.Bool("if-size-differ"),
-		ifSourceNewer:        c.Bool("if-source-newer"),
-		flatten:              c.Bool("flatten"),
-		followSymlinks:       !c.Bool("no-follow-symlinks"),
-		storageClass:         storage.StorageClass(c.String("storage-class")),
-		concurrency:          c.Int("concurrency"),
-		partSize:             c.Int64("part-size") * megabytes,
-		encryptionMethod:     c.String("sse"),
-		encryptionKeyID:      c.String("sse-kms-key-id"),
-		acl:                  c.String("acl"),
-		forceGlacierTransfer: c.Bool("force-glacier-transfer"),
-		exclude:              c.StringSlice("exclude"),
-		raw:                  c.Bool("raw"),
-		cacheControl:         c.String("cache-control"),
-		expires:              c.String("expires"),
+		noClobber:             c.Bool("no-clobber"),
+		ifSizeDiffer:          c.Bool("if-size-differ"),
+		ifSourceNewer:         c.Bool("if-source-newer"),
+		flatten:               c.Bool("flatten"),
+		followSymlinks:        !c.Bool("no-follow-symlinks"),
+		storageClass:          storage.StorageClass(c.String("storage-class")),
+		concurrency:           c.Int("concurrency"),
+		partSize:              c.Int64("part-size") * megabytes,
+		encryptionMethod:      c.String("sse"),
+		encryptionKeyID:       c.String("sse-kms-key-id"),
+		acl:                   c.String("acl"),
+		forceGlacierTransfer:  c.Bool("force-glacier-transfer"),
+		ignoreGlacierWarnings: c.Bool("ignore-glacier-warnings"),
+		exclude:               c.StringSlice("exclude"),
+		raw:                   c.Bool("raw"),
+		cacheControl:          c.String("cache-control"),
+		expires:               c.String("expires"),
 		// region settings
 		srcRegion: c.String("source-region"),
 		dstRegion: c.String("destination-region"),
@@ -320,8 +326,9 @@ func (c Copy) Run(ctx context.Context) error {
 	waiter := parallel.NewWaiter()
 
 	var (
-		merror    error
-		errDoneCh = make(chan bool)
+		merrorWaiter  error
+		merrorObjects error
+		errDoneCh     = make(chan bool)
 	)
 
 	go func() {
@@ -334,7 +341,7 @@ func (c Copy) Run(ctx context.Context) error {
 				os.Exit(1)
 			}
 			printError(c.fullCommand, c.op, err)
-			merror = multierror.Append(merror, err)
+			merrorWaiter = multierror.Append(merrorWaiter, err)
 		}
 	}()
 
@@ -356,13 +363,17 @@ func (c Copy) Run(ctx context.Context) error {
 		}
 
 		if err := object.Err; err != nil {
+			merrorObjects = multierror.Append(merrorObjects, err)
 			printError(c.fullCommand, c.op, err)
 			continue
 		}
 
 		if object.StorageClass.IsGlacier() && !c.forceGlacierTransfer {
-			err := fmt.Errorf("object '%v' is on Glacier storage", object)
-			printError(c.fullCommand, c.op, err)
+			if !c.ignoreGlacierWarnings {
+				err := fmt.Errorf("object '%v' is on Glacier storage", object)
+				merrorObjects = multierror.Append(merrorObjects, err)
+				printError(c.fullCommand, c.op, err)
+			}
 			continue
 		}
 
@@ -390,7 +401,7 @@ func (c Copy) Run(ctx context.Context) error {
 	waiter.Wait()
 	<-errDoneCh
 
-	return merror
+	return multierror.Append(merrorWaiter, merrorObjects).ErrorOrNil()
 }
 
 func (c Copy) prepareCopyTask(

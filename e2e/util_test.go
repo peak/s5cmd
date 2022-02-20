@@ -57,8 +57,9 @@ func init() {
 }
 
 type setupOpts struct {
-	s3backend  string
-	timeSource gofakes3.TimeSource
+	s3backend   string
+	endpointURL string
+	timeSource  gofakes3.TimeSource
 }
 
 type option func(*setupOpts)
@@ -66,6 +67,12 @@ type option func(*setupOpts)
 func withS3Backend(backend string) option {
 	return func(opts *setupOpts) {
 		opts.s3backend = backend
+	}
+}
+
+func withEndpointURL(url string) option {
+	return func(opts *setupOpts) {
+		opts.endpointURL = url
 	}
 }
 
@@ -86,7 +93,7 @@ func setup(t *testing.T, options ...option) (*s3.S3, func(...string) icmd.Cmd, f
 		option(opts)
 	}
 
-	endpoint, workdir, cleanup := server(t, opts.s3backend, opts.timeSource)
+	endpoint, workdir, cleanup := server(t, opts)
 	client := s3client(t, storage.Options{
 		Endpoint:    endpoint,
 		NoVerifySSL: true,
@@ -95,7 +102,7 @@ func setup(t *testing.T, options ...option) (*s3.S3, func(...string) icmd.Cmd, f
 	return client, s5cmd(workdir, endpoint), cleanup
 }
 
-func server(t *testing.T, s3backend string, timeSource gofakes3.TimeSource) (string, string, func()) {
+func server(t *testing.T, opts *setupOpts) (string, string, func()) {
 	t.Helper()
 
 	// testdir := fs.NewDir() tries to create a new directory which
@@ -117,7 +124,10 @@ func server(t *testing.T, s3backend string, timeSource gofakes3.TimeSource) (str
 		s3LogLevel = "info" // aws has no level other than 'debug'
 	}
 
-	endpoint, dbcleanup := s3ServerEndpoint(t, testdir, s3LogLevel, s3backend, timeSource)
+	endpoint, dbcleanup := s3ServerEndpoint(t, testdir, s3LogLevel, opts.s3backend, opts.timeSource)
+	if opts.endpointURL != "" {
+		endpoint = opts.endpointURL
+	}
 
 	cleanup := func() {
 		testdir.Remove()

@@ -169,6 +169,24 @@ func TestRunFromFileJSON(t *testing.T) {
 	assertLines(t, result.Stderr(), map[int]compareFunc{})
 }
 
+func TestRunFromFileThatDoesntExist(t *testing.T) {
+	t.Parallel()
+
+	_, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	cmd := s5cmd("run", "non-existent-file")
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Expected{ExitCode: 1})
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{})
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: equals(`ERROR "run non-existent-file": open non-existent-file: no such file or directory`),
+	}, sortInput(true))
+}
+
 func TestRunWildcardCountGreaterEqualThanWorkerCount(t *testing.T) {
 	t.Parallel()
 

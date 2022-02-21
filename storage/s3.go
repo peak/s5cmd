@@ -835,6 +835,7 @@ func setSessionRegion(ctx context.Context, sess *session.Session, bucket string)
 
 	// auto-detection
 	region, err := s3manager.GetBucketRegion(ctx, sess, bucket, "", func(r *request.Request) {
+		r.Config.S3ForcePathStyle = sess.Config.S3ForcePathStyle
 		r.Config.Credentials = sess.Config.Credentials
 	})
 	if err != nil {

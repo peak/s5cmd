@@ -183,8 +183,8 @@ func TestRunFromFileThatDoesntExist(t *testing.T) {
 	assertLines(t, result.Stdout(), map[int]compareFunc{})
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: equals(`ERROR "run non-existent-file": open non-existent-file: no such file or directory`),
-	}, sortInput(true))
+		0: contains(`ERROR "run non-existent-file": open non-existent-file:`),
+	})
 }
 
 func TestRunWildcardCountGreaterEqualThanWorkerCount(t *testing.T) {

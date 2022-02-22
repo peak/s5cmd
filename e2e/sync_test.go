@@ -37,7 +37,7 @@ func TestSyncFailForNonsharedFlagsFromCopyCommand(t *testing.T) {
 	// if given flags in not present in command options.
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals("Incorrect Usage: flag provided but not defined: -n"),
-	}, skipAfterLine(0))
+	}, strictLineCheck(false))
 }
 
 // sync folder/ folder2/

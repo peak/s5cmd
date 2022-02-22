@@ -2,7 +2,6 @@ package command
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -315,36 +314,6 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 	return sourceObjects, destObjects, nil
 }
 
-func (s Sync) GenerateCommand(c *cli.Context, cmd string, urls ...*url.URL) string {
-	command := AppCommand(cmd)
-	flagset := flag.NewFlagSet(command.Name, flag.ContinueOnError)
-
-	var args []string
-	for _, url := range urls {
-		args = append(args, url.String())
-	}
-
-	// Always use raw mode since sync command generates commands
-	// from raw S3 objects. Otherwise, generated copy command will
-	// try to expand given source.
-	flags := []string{command.Name, "--raw=true"}
-	for _, f := range command.Flags {
-		flagname := f.Names()[0]
-		if flagname == "raw" || !c.IsSet(flagname) {
-			continue
-		}
-
-		for _, flagvalue := range contextValue(c, flagname) {
-			flags = append(flags, fmt.Sprintf("--%s=%s", flagname, flagvalue))
-		}
-	}
-	flags = append(flags, args...)
-	flagset.Parse(flags)
-
-	cmdCtx := cli.NewContext(c.App, flagset, c)
-	return strings.TrimSpace(commandFromContext(cmdCtx))
-}
-
 // planRun prepares the commands and writes them to writer 'w'.
 func (s Sync) planRun(
 	c *cli.Context,
@@ -357,10 +326,21 @@ func (s Sync) planRun(
 ) {
 	defer w.Close()
 
+	// Always use raw mode since sync command generates commands
+	// from raw S3 objects. Otherwise, generated copy command will
+	// try to expand given source.
+	defaultFlags := []defaultFlag{
+		{Name: "raw", Value: true},
+	}
+
 	// only in source
 	for _, srcurl := range onlySource {
 		curDestURL := generateDestinationURL(srcurl, dsturl, isBatch)
-		command := s.GenerateCommand(c, "cp", srcurl, curDestURL)
+		command, err := generateCommand(c, "cp", defaultFlags, srcurl, curDestURL)
+		if err != nil {
+			printDebug(s.op, err, srcurl, curDestURL)
+			continue
+		}
 		fmt.Fprintln(w, command)
 	}
 
@@ -370,17 +350,25 @@ func (s Sync) planRun(
 		curSourceURL, curDestURL := sourceObject.URL, destObject.URL
 		err := strategy.ShouldSync(sourceObject, destObject) // check if object should be copied.
 		if err != nil {
-			printDebug(s.op, curSourceURL, curDestURL, err)
+			printDebug(s.op, err, curSourceURL, curDestURL)
 			continue
 		}
 
-		command := s.GenerateCommand(c, "cp", curSourceURL, curDestURL)
+		command, err := generateCommand(c, "cp", defaultFlags, curSourceURL, curDestURL)
+		if err != nil {
+			printDebug(s.op, err, curSourceURL, curDestURL)
+			continue
+		}
 		fmt.Fprintln(w, command)
 	}
 
 	// only in destination
 	if s.delete && len(onlyDest) > 0 {
-		command := s.GenerateCommand(c, "rm", onlyDest...)
+		command, err := generateCommand(c, "rm", defaultFlags, onlyDest...)
+		if err != nil {
+			printDebug(s.op, err, onlyDest...)
+			return
+		}
 		fmt.Fprintln(w, command)
 	}
 }

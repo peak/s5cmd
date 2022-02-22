@@ -483,7 +483,7 @@ func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) 
 	if err != nil {
 		// FIXME(ig): rename
 		if errorpkg.IsWarning(err) {
-			printDebug(c.op, srcurl, dsturl, err)
+			printDebug(c.op, err, srcurl, dsturl)
 			return nil
 		}
 		return err
@@ -530,7 +530,7 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 	err = c.shouldOverride(ctx, srcurl, dsturl)
 	if err != nil {
 		if errorpkg.IsWarning(err) {
-			printDebug(c.op, srcurl, dsturl, err)
+			printDebug(c.op, err, srcurl, dsturl)
 			return nil
 		}
 		return err
@@ -605,7 +605,7 @@ func (c Copy) doCopy(ctx context.Context, srcurl, dsturl *url.URL) error {
 	err = c.shouldOverride(ctx, srcurl, dsturl)
 	if err != nil {
 		if errorpkg.IsWarning(err) {
-			printDebug(c.op, srcurl, dsturl, err)
+			printDebug(c.op, err, srcurl, dsturl)
 			return nil
 		}
 		return err

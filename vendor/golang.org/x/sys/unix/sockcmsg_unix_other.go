@@ -2,7 +2,8 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// +build aix darwin freebsd linux netbsd openbsd solaris
+//go:build aix || darwin || freebsd || linux || netbsd || openbsd || solaris || zos
+// +build aix darwin freebsd linux netbsd openbsd solaris zos
 
 package unix
 
@@ -32,6 +33,14 @@ func cmsgAlignOf(salen int) int {
 		if runtime.GOARCH == "arm" {
 			salign = 8
 		}
+		// NetBSD aarch64 requires 128-bit alignment.
+		if runtime.GOOS == "netbsd" && runtime.GOARCH == "arm64" {
+			salign = 16
+		}
+	case "zos":
+		// z/OS socket macros use [32-bit] sizeof(int) alignment,
+		// not pointer width.
+		salign = SizeofInt
 	}
 
 	return (salen + salign - 1) & ^(salign - 1)

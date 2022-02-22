@@ -5,6 +5,7 @@
 #### Features
 - Added `--ignore-glacier-warnings` flag to `cp`, `mv` and `select` commands. ([#346](https://github.com/peak/s5cmd/issues/346))
 - Added `--force-glacier-transfer` flag to `select` command. ([#404](https://github.com/peak/s5cmd/pull/404))
+- Added AWS Single Sign-On (SSO) profiles support ([#385](https://github.com/peak/s5cmd/issues/385))
 
 #### Bugfixes
 - Fixed a bug about precedence of region detection, which auto region detection would always override region defined in environment or profile. ([#325](https://github.com/peak/s5cmd/issues/325))

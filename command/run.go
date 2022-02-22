@@ -51,6 +51,7 @@ func NewRunCommand() *cli.Command {
 			if c.Args().Len() == 1 {
 				f, err := os.Open(c.Args().First())
 				if err != nil {
+					printError(givenCommand(c), c.Command.Name, err)
 					return err
 				}
 				defer f.Close()

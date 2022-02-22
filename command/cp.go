@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
@@ -898,7 +899,26 @@ func givenCommand(c *cli.Context) string {
 func contextValue(c *cli.Context, flagname string) []string {
 	for _, c := range c.Lineage() {
 		if c.IsSet(flagname) {
-			return c.StringSlice(flagname)
+			val := c.Value(flagname)
+			switch val.(type) {
+			case cli.StringSlice:
+				return c.StringSlice(flagname)
+			case cli.Int64Slice:
+				values := c.Int64Slice(flagname)
+				var result []string
+				for _, v := range values {
+					result = append(result, strconv.FormatInt(v, 10))
+				}
+				return result
+			case string:
+				return []string{c.String(flagname)}
+			case bool:
+				return []string{strconv.FormatBool(c.Bool(flagname))}
+			case int:
+				return []string{strconv.Itoa(c.Int(flagname))}
+			default:
+				return []string{fmt.Sprintf("%v", val)}
+			}
 		}
 	}
 

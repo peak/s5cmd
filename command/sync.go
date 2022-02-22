@@ -315,7 +315,7 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 	return sourceObjects, destObjects, nil
 }
 
-func (s Sync) Command(c *cli.Context, cmd string, urls ...*url.URL) string {
+func (s Sync) GenerateCommand(c *cli.Context, cmd string, urls ...*url.URL) string {
 	command := AppCommand(cmd)
 	flagset := flag.NewFlagSet(command.Name, flag.ContinueOnError)
 
@@ -342,7 +342,7 @@ func (s Sync) Command(c *cli.Context, cmd string, urls ...*url.URL) string {
 	flagset.Parse(flags)
 
 	cmdCtx := cli.NewContext(c.App, flagset, c)
-	return givenCommand(cmdCtx)
+	return strings.TrimSpace(givenCommand(cmdCtx))
 }
 
 // planRun prepares the commands and writes them to writer 'w'.
@@ -360,7 +360,7 @@ func (s Sync) planRun(
 	// only in source
 	for _, srcurl := range onlySource {
 		curDestURL := generateDestinationURL(srcurl, dsturl, isBatch)
-		command := s.Command(c, "cp", srcurl, curDestURL)
+		command := s.GenerateCommand(c, "cp", srcurl, curDestURL)
 		fmt.Fprintln(w, command)
 	}
 
@@ -374,13 +374,13 @@ func (s Sync) planRun(
 			continue
 		}
 
-		command := s.Command(c, "cp", curSourceURL, curDestURL)
+		command := s.GenerateCommand(c, "cp", curSourceURL, curDestURL)
 		fmt.Fprintln(w, command)
 	}
 
 	// only in destination
 	if s.delete && len(onlyDest) > 0 {
-		command := s.Command(c, "rm", onlyDest...)
+		command := s.GenerateCommand(c, "rm", onlyDest...)
 		fmt.Fprintln(w, command)
 	}
 }

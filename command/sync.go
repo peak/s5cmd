@@ -74,7 +74,7 @@ func NewSyncCommand() *cli.Command {
 			// sync command share same validation method as copy command
 			err := validateCopyCommand(c)
 			if err != nil {
-				printError(givenCommand(c), c.Command.Name, err)
+				printError(commandFromContext(c), c.Command.Name, err)
 			}
 			return err
 		},
@@ -118,7 +118,7 @@ func NewSync(c *cli.Context) Sync {
 		src:         c.Args().Get(0),
 		dst:         c.Args().Get(1),
 		op:          c.Command.Name,
-		fullCommand: givenCommand(c),
+		fullCommand: commandFromContext(c),
 
 		// flags
 		delete:   c.Bool("delete"),
@@ -342,7 +342,7 @@ func (s Sync) GenerateCommand(c *cli.Context, cmd string, urls ...*url.URL) stri
 	flagset.Parse(flags)
 
 	cmdCtx := cli.NewContext(c.App, flagset, c)
-	return strings.TrimSpace(givenCommand(cmdCtx))
+	return strings.TrimSpace(commandFromContext(cmdCtx))
 }
 
 // planRun prepares the commands and writes them to writer 'w'.

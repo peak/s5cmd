@@ -82,7 +82,7 @@ var app = &cli.App{
 
 		if retryCount < 0 {
 			err := fmt.Errorf("retry count cannot be a negative value")
-			printError(givenCommand(c), c.Command.Name, err)
+			printError(commandFromContext(c), c.Command.Name, err)
 			return err
 		}
 

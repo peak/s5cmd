@@ -42,7 +42,7 @@ func NewRunCommand() *cli.Command {
 		Before: func(c *cli.Context) error {
 			err := validateRunCommand(c)
 			if err != nil {
-				printError(givenCommand(c), c.Command.Name, err)
+				printError(commandFromContext(c), c.Command.Name, err)
 			}
 			return err
 		},
@@ -124,7 +124,7 @@ func (r Run) Run(ctx context.Context) error {
 
 		if fields[0] == "run" {
 			err := fmt.Errorf("%q command (line: %v) is not permitted in run-mode", "run", lineno)
-			printError(givenCommand(r.c), r.c.Command.Name, err)
+			printError(commandFromContext(r.c), r.c.Command.Name, err)
 			continue
 		}
 
@@ -134,13 +134,13 @@ func (r Run) Run(ctx context.Context) error {
 			cmd := AppCommand(subcmd)
 			if cmd == nil {
 				err := fmt.Errorf("%q command (line: %v) not found", subcmd, lineno)
-				printError(givenCommand(r.c), r.c.Command.Name, err)
+				printError(commandFromContext(r.c), r.c.Command.Name, err)
 				return nil
 			}
 
 			flagset := flag.NewFlagSet(subcmd, flag.ExitOnError)
 			if err := flagset.Parse(fields); err != nil {
-				printError(givenCommand(r.c), r.c.Command.Name, err)
+				printError(commandFromContext(r.c), r.c.Command.Name, err)
 				return nil
 			}
 

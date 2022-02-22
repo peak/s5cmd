@@ -69,7 +69,7 @@ func NewSelectCommand() *cli.Command {
 		Before: func(c *cli.Context) error {
 			err := validateSelectCommand(c)
 			if err != nil {
-				printError(givenCommand(c), c.Command.Name, err)
+				printError(commandFromContext(c), c.Command.Name, err)
 			}
 			return err
 		},
@@ -79,7 +79,7 @@ func NewSelectCommand() *cli.Command {
 			return Select{
 				src:         c.Args().Get(0),
 				op:          c.Command.Name,
-				fullCommand: givenCommand(c),
+				fullCommand: commandFromContext(c),
 				// flags
 				query:                 c.String("query"),
 				compressionType:       c.String("compression"),

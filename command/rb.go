@@ -34,7 +34,7 @@ func NewRemoveBucketCommand() *cli.Command {
 		Before: func(c *cli.Context) error {
 			err := validateMBCommand(c) // uses same validation function with make bucket command.
 			if err != nil {
-				printError(givenCommand(c), c.Command.Name, err)
+				printError(commandFromContext(c), c.Command.Name, err)
 			}
 			return err
 		},
@@ -44,7 +44,7 @@ func NewRemoveBucketCommand() *cli.Command {
 			return RemoveBucket{
 				src:         c.Args().First(),
 				op:          c.Command.Name,
-				fullCommand: givenCommand(c),
+				fullCommand: commandFromContext(c),
 
 				storageOpts: NewStorageOpts(c),
 			}.Run(c.Context)

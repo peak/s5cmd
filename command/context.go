@@ -68,7 +68,7 @@ func generateCommand(c *cli.Context, cmd string, defaultFlags map[string]interfa
 
 	var args []string
 	for _, url := range urls {
-		args = append(args, url.String())
+		args = append(args, fmt.Sprintf("%q", url.String()))
 	}
 
 	flags := []string{}

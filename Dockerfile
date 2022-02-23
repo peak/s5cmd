@@ -6,4 +6,5 @@ RUN apk add --no-cache git make && \
 
 FROM alpine:3.13
 COPY --from=build /s5cmd/s5cmd .
-ENTRYPOINT ["./s5cmd"]
+WORKDIR /aws
+ENTRYPOINT ["/s5cmd"]

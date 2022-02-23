@@ -29,8 +29,8 @@ func TestGenerateCommand(t *testing.T) {
 			cmd:   "cp",
 			flags: []cli.Flag{},
 			urls: []*url.URL{
-				MustNewURL(t, "s3://bucket/key1"),
-				MustNewURL(t, "s3://bucket/key2"),
+				mustNewURL(t, "s3://bucket/key1"),
+				mustNewURL(t, "s3://bucket/key2"),
 			},
 			expectedCommand: `cp "s3://bucket/key1" "s3://bucket/key2"`,
 		},
@@ -43,8 +43,8 @@ func TestGenerateCommand(t *testing.T) {
 				"acl": "public-read",
 			},
 			urls: []*url.URL{
-				MustNewURL(t, "s3://bucket/key1"),
-				MustNewURL(t, "s3://bucket/key2"),
+				mustNewURL(t, "s3://bucket/key1"),
+				mustNewURL(t, "s3://bucket/key2"),
 			},
 			expectedCommand: `cp --acl=public-read --raw=true "s3://bucket/key1" "s3://bucket/key2"`,
 		},
@@ -61,8 +61,8 @@ func TestGenerateCommand(t *testing.T) {
 				"raw": true,
 			},
 			urls: []*url.URL{
-				MustNewURL(t, "s3://bucket/key1"),
-				MustNewURL(t, "s3://bucket/key2"),
+				mustNewURL(t, "s3://bucket/key1"),
+				mustNewURL(t, "s3://bucket/key2"),
 			},
 			expectedCommand: `cp --raw=true "s3://bucket/key1" "s3://bucket/key2"`,
 		},
@@ -98,8 +98,8 @@ func TestGenerateCommand(t *testing.T) {
 				},
 			},
 			urls: []*url.URL{
-				MustNewURL(t, "s3://bucket/key1"),
-				MustNewURL(t, "s3://bucket/key2"),
+				mustNewURL(t, "s3://bucket/key1"),
+				mustNewURL(t, "s3://bucket/key2"),
 			},
 			expectedCommand: `cp --concurrency=6 --flatten=true --force-glacier-transfer=true --raw=true "s3://bucket/key1" "s3://bucket/key2"`,
 		},
@@ -113,8 +113,8 @@ func TestGenerateCommand(t *testing.T) {
 				},
 			},
 			urls: []*url.URL{
-				MustNewURL(t, "/source/dir"),
-				MustNewURL(t, "s3://bucket/prefix/"),
+				mustNewURL(t, "/source/dir"),
+				mustNewURL(t, "s3://bucket/prefix/"),
 			},
 			expectedCommand: `cp --exclude=*.log --exclude=*.txt "/source/dir" "s3://bucket/prefix/"`,
 		},
@@ -123,10 +123,10 @@ func TestGenerateCommand(t *testing.T) {
 			cmd:   "rm",
 			flags: []cli.Flag{},
 			urls: []*url.URL{
-				MustNewURL(t, "s3://bucket/key1"),
-				MustNewURL(t, "s3://bucket/key2"),
-				MustNewURL(t, "s3://bucket/prefix/key3"),
-				MustNewURL(t, "s3://bucket/prefix/key4"),
+				mustNewURL(t, "s3://bucket/key1"),
+				mustNewURL(t, "s3://bucket/key2"),
+				mustNewURL(t, "s3://bucket/prefix/key3"),
+				mustNewURL(t, "s3://bucket/prefix/key4"),
 			},
 			expectedCommand: `rm "s3://bucket/key1" "s3://bucket/key2" "s3://bucket/prefix/key3" "s3://bucket/prefix/key4"`,
 		},
@@ -135,8 +135,8 @@ func TestGenerateCommand(t *testing.T) {
 			cmd:   "rm",
 			flags: []cli.Flag{},
 			urls: []*url.URL{
-				MustNewURL(t, "file with space"),
-				MustNewURL(t, "wow wow"),
+				mustNewURL(t, "file with space"),
+				mustNewURL(t, "wow wow"),
 			},
 			expectedCommand: `rm "file with space" "wow wow"`,
 		},
@@ -153,7 +153,7 @@ func TestGenerateCommand(t *testing.T) {
 
 			// urfave.Cli pass flags values to context before calling command.Action()
 			// and methods to update context are package-private, so write simple
-			// flag parset to update context value.
+			// flag parser to update context value.
 			set.VisitAll(func(f *flag.Flag) {
 				value := strings.Trim(f.Value.String(), "[")
 				value = strings.Trim(value, "]")
@@ -174,7 +174,7 @@ func TestGenerateCommand(t *testing.T) {
 	}
 }
 
-func MustNewURL(t *testing.T, path string) *url.URL {
+func mustNewURL(t *testing.T, path string) *url.URL {
 	t.Helper()
 
 	u, err := url.New(path)

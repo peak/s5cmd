@@ -163,6 +163,7 @@ func TestGenerateCommand(t *testing.T) {
 		})
 	}
 }
+
 func MustNewURL(t *testing.T, path string) *url.URL {
 	t.Helper()
 
@@ -174,6 +175,8 @@ func MustNewURL(t *testing.T, path string) *url.URL {
 }
 
 func flagSet(t *testing.T, name string, flags []cli.Flag) *flag.FlagSet {
+	t.Helper()
+
 	set := flag.NewFlagSet(name, flag.ContinueOnError)
 	for _, f := range flags {
 		if err := f.Apply(set); err != nil {

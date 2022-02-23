@@ -3,6 +3,7 @@ package command
 import (
 	"flag"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -39,7 +40,7 @@ func contextValue(c *cli.Context, flagname string) []string {
 		switch val.(type) {
 		case cli.StringSlice:
 			return c.StringSlice(flagname)
-		case cli.Int64Slice:
+		case cli.Int64Slice, cli.IntSlice:
 			values := c.Int64Slice(flagname)
 			var result []string
 			for _, v := range values {
@@ -50,8 +51,8 @@ func contextValue(c *cli.Context, flagname string) []string {
 			return []string{c.String(flagname)}
 		case bool:
 			return []string{strconv.FormatBool(c.Bool(flagname))}
-		case int:
-			return []string{strconv.Itoa(c.Int(flagname))}
+		case int, int64:
+			return []string{strconv.FormatInt(c.Int64(flagname), 10)}
 		default:
 			return []string{fmt.Sprintf("%v", val)}
 		}
@@ -60,13 +61,8 @@ func contextValue(c *cli.Context, flagname string) []string {
 	return nil
 }
 
-type defaultFlag struct {
-	Name  string
-	Value interface{}
-}
-
 // generateCommand generates command string from given context, app command, default flags and urls.
-func generateCommand(c *cli.Context, cmd string, defaultFlags []defaultFlag, urls ...*url.URL) (string, error) {
+func generateCommand(c *cli.Context, cmd string, defaultFlags map[string]interface{}, urls ...*url.URL) (string, error) {
 	command := AppCommand(cmd)
 	flagset := flag.NewFlagSet(command.Name, flag.ContinueOnError)
 
@@ -75,18 +71,14 @@ func generateCommand(c *cli.Context, cmd string, defaultFlags []defaultFlag, url
 		args = append(args, url.String())
 	}
 
-	flags := []string{command.Name}
-	for _, f := range defaultFlags {
-		flags = append(flags, fmt.Sprintf("--%s=%v", f.Name, f.Value))
+	flags := []string{}
+	for flagname, flagvalue := range defaultFlags {
+		flags = append(flags, fmt.Sprintf("--%s=%v", flagname, flagvalue))
 	}
 
 	isDefaultFlag := func(flagname string) bool {
-		for _, flag := range defaultFlags {
-			if flagname == flag.Name {
-				return true
-			}
-		}
-		return false
+		_, ok := defaultFlags[flagname]
+		return ok
 	}
 
 	for _, f := range command.Flags {
@@ -99,12 +91,16 @@ func generateCommand(c *cli.Context, cmd string, defaultFlags []defaultFlag, url
 			flags = append(flags, fmt.Sprintf("--%s=%s", flagname, flagvalue))
 		}
 	}
+
+	sort.Strings(flags)
 	flags = append(flags, args...)
+	flags = append([]string{command.Name}, flags...)
+
 	err := flagset.Parse(flags)
 	if err != nil {
 		return "", err
 	}
 
 	cmdCtx := cli.NewContext(c.App, flagset, c)
-	return strings.TrimSpace(commandFromContext(cmdCtx)), err
+	return strings.TrimSpace(commandFromContext(cmdCtx)), nil
 }

@@ -329,8 +329,8 @@ func (s Sync) planRun(
 	// Always use raw mode since sync command generates commands
 	// from raw S3 objects. Otherwise, generated copy command will
 	// try to expand given source.
-	defaultFlags := []defaultFlag{
-		{Name: "raw", Value: true},
+	defaultFlags := map[string]interface{}{
+		"raw": true,
 	}
 
 	// only in source

@@ -154,8 +154,8 @@ func Commands() []*cli.Command {
 		NewSizeCommand(),
 		NewCatCommand(),
 		NewRunCommand(),
-		NewVersionCommand(),
 		NewSyncCommand(),
+		NewVersionCommand(),
 	}
 }
 

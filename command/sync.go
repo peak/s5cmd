@@ -31,20 +31,34 @@ Options:
 	{{end}}
 Examples:
 	01. Sync local folder to s3 bucket
-		> s5cmd {{.HelpName}} folder/ s3://bucket/
+		 > s5cmd {{.HelpName}} folder/ s3://bucket/
 
 	02. Sync S3 bucket to local folder
-		> s5cmd {{.HelpName}} s3://bucket/* folder/
+		 > s5cmd {{.HelpName}} s3://bucket/* folder/
 
 	03. Sync S3 bucket objects under prefix to S3 bucket.
-		> s5cmd {{.HelpName}} s3://sourcebucket/prefix/* s3://destbucket/
+		 > s5cmd {{.HelpName}} s3://sourcebucket/prefix/* s3://destbucket/
 
 	04. Sync local folder to S3 but delete the files that S3 bucket has but local does not have.
-		> s5cmd {{.HelpName}} --delete folder/ s3://bucket/
+		 > s5cmd {{.HelpName}} --delete folder/ s3://bucket/
 
 	05. Sync S3 bucket to local folder but use size as only comparison criteria.
-		> s5cmd {{.HelpName}} --size-only s3://bucket/* folder/
+		 > s5cmd {{.HelpName}} --size-only s3://bucket/* folder/
 
+	06. Sync a file to S3 bucket
+		 > s5cmd {{.HelpName}} myfile.gz s3://bucket/
+
+	07. Sync matching S3 objects to another bucket
+		 > s5cmd {{.HelpName}} s3://bucket/*.gz s3://target-bucket/prefix/
+
+	08. Perform KMS Server Side Encryption of the object(s) at the destination
+		 > s5cmd {{.HelpName}} --sse aws:kms s3://bucket/object s3://target-bucket/prefix/object
+
+	09. Perform KMS-SSE of the object(s) at the destination using customer managed Customer Master Key (CMK) key id
+		 > s5cmd {{.HelpName}} --sse aws:kms --sse-kms-key-id <your-kms-key-id> s3://bucket/object s3://target-bucket/prefix/object
+
+	10. Sync all files to S3 bucket but exclude the ones with txt and gz extension
+		 > s5cmd {{.HelpName}} --exclude "*.txt" --exclude "*.gz" dir/ s3://bucket
 `
 
 func NewSyncCommandFlags() []cli.Flag {

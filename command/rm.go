@@ -35,9 +35,9 @@ Examples:
 
 	4. Delete all matching objects and a specific object
 		 > s5cmd {{.HelpName}} s3://bucketname/prefix/* s3://bucketname/object1.gz
-	
+
 	5. Delete all matching objects but exclude the ones with .txt extension or starts with "main"
-		 > s5cmd {{.HelpName}} --exclude "*.txt" --exclude "main*" s3://bucketname/prefix/* 
+		 > s5cmd {{.HelpName}} --exclude "*.txt" --exclude "main*" s3://bucketname/prefix/*
 `
 
 func NewDeleteCommand() *cli.Command {
@@ -48,7 +48,7 @@ func NewDeleteCommand() *cli.Command {
 		Flags: []cli.Flag{
 			&cli.BoolFlag{
 				Name:  "raw",
-				Usage: "disable the wildcard operations, useful with filenames that contains glob characters.",
+				Usage: "disable the wildcard operations, useful with filenames that contains glob characters",
 			},
 			&cli.StringSliceFlag{
 				Name:  "exclude",
@@ -59,7 +59,7 @@ func NewDeleteCommand() *cli.Command {
 		Before: func(c *cli.Context) error {
 			err := validateRMCommand(c)
 			if err != nil {
-				printError(givenCommand(c), c.Command.Name, err)
+				printError(commandFromContext(c), c.Command.Name, err)
 			}
 			return err
 		},
@@ -68,7 +68,7 @@ func NewDeleteCommand() *cli.Command {
 			return Delete{
 				src:         c.Args().Slice(),
 				op:          c.Command.Name,
-				fullCommand: givenCommand(c),
+				fullCommand: commandFromContext(c),
 
 				// flags
 				raw:     c.Bool("raw"),
@@ -117,6 +117,11 @@ func (d Delete) Run(ctx context.Context) error {
 
 	objch := expandSources(ctx, client, false, srcurls...)
 
+	var (
+		merrorObjects error
+		merrorResult  error
+	)
+
 	// do object->url transformation
 	urlch := make(chan *url.URL)
 	go func() {
@@ -128,6 +133,7 @@ func (d Delete) Run(ctx context.Context) error {
 			}
 
 			if err := object.Err; err != nil {
+				merrorObjects = multierror.Append(merrorObjects, err)
 				printError(d.fullCommand, d.op, err)
 				continue
 			}
@@ -142,14 +148,13 @@ func (d Delete) Run(ctx context.Context) error {
 
 	resultch := client.MultiDelete(ctx, urlch)
 
-	var merror error
 	for obj := range resultch {
 		if err := obj.Err; err != nil {
 			if errorpkg.IsCancelation(obj.Err) {
 				continue
 			}
 
-			merror = multierror.Append(merror, obj.Err)
+			merrorResult = multierror.Append(merrorResult, obj.Err)
 			printError(d.fullCommand, d.op, obj.Err)
 			continue
 		}
@@ -161,7 +166,7 @@ func (d Delete) Run(ctx context.Context) error {
 		log.Info(msg)
 	}
 
-	return merror
+	return multierror.Append(merrorResult, merrorObjects).ErrorOrNil()
 }
 
 // newSources creates object URL list from given sources.

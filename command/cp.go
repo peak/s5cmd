@@ -96,28 +96,8 @@ Examples:
 		 > s5cmd {{.HelpName}} --exclude "log*" s3://bucket/* s3://destbucket
 `
 
-func NewCopyCommandFlags() []cli.Flag {
+func NewSharedFlags() []cli.Flag {
 	return []cli.Flag{
-		&cli.BoolFlag{
-			Name:    "no-clobber",
-			Aliases: []string{"n"},
-			Usage:   "do not overwrite destination if already exists",
-		},
-		&cli.BoolFlag{
-			Name:    "if-size-differ",
-			Aliases: []string{"s"},
-			Usage:   "only overwrite destination if size differs",
-		},
-		&cli.BoolFlag{
-			Name:    "if-source-newer",
-			Aliases: []string{"u"},
-			Usage:   "only overwrite destination if source modtime is newer",
-		},
-		&cli.BoolFlag{
-			Name:    "flatten",
-			Aliases: []string{"f"},
-			Usage:   "flatten directory structure of source, starting from the first wildcard",
-		},
 		&cli.BoolFlag{
 			Name:  "no-follow-symlinks",
 			Usage: "do not follow symbolic links",
@@ -160,7 +140,11 @@ func NewCopyCommandFlags() []cli.Flag {
 		},
 		&cli.BoolFlag{
 			Name:  "force-glacier-transfer",
-			Usage: "force transfer of GLACIER objects whether they are restored or not",
+			Usage: "force transfer of glacier objects whether they are restored or not",
+		},
+		&cli.BoolFlag{
+			Name:  "ignore-glacier-warnings",
+			Usage: "turns off glacier warnings: ignore errors encountered during copying, downloading and moving glacier objects",
 		},
 		&cli.StringFlag{
 			Name:  "source-region",
@@ -176,9 +160,36 @@ func NewCopyCommandFlags() []cli.Flag {
 		},
 		&cli.BoolFlag{
 			Name:  "raw",
-			Usage: "disable the wildcard operations, useful with filenames that contains glob characters.",
+			Usage: "disable the wildcard operations, useful with filenames that contains glob characters",
 		},
 	}
+}
+
+func NewCopyCommandFlags() []cli.Flag {
+	copyFlags := []cli.Flag{
+		&cli.BoolFlag{
+			Name:    "flatten",
+			Aliases: []string{"f"},
+			Usage:   "flatten directory structure of source, starting from the first wildcard",
+		},
+		&cli.BoolFlag{
+			Name:    "no-clobber",
+			Aliases: []string{"n"},
+			Usage:   "do not overwrite destination if already exists",
+		},
+		&cli.BoolFlag{
+			Name:    "if-size-differ",
+			Aliases: []string{"s"},
+			Usage:   "only overwrite destination if size differs",
+		},
+		&cli.BoolFlag{
+			Name:    "if-source-newer",
+			Aliases: []string{"u"},
+			Usage:   "only overwrite destination if source modtime is newer",
+		},
+	}
+	sharedFlags := NewSharedFlags()
+	return append(copyFlags, sharedFlags...)
 }
 
 func NewCopyCommand() *cli.Command {
@@ -191,7 +202,7 @@ func NewCopyCommand() *cli.Command {
 		Before: func(c *cli.Context) error {
 			err := validateCopyCommand(c)
 			if err != nil {
-				printError(givenCommand(c), c.Command.Name, err)
+				printError(commandFromContext(c), c.Command.Name, err)
 			}
 			return err
 		},
@@ -214,20 +225,21 @@ type Copy struct {
 	deleteSource bool
 
 	// flags
-	noClobber            bool
-	ifSizeDiffer         bool
-	ifSourceNewer        bool
-	flatten              bool
-	followSymlinks       bool
-	storageClass         storage.StorageClass
-	encryptionMethod     string
-	encryptionKeyID      string
-	acl                  string
-	forceGlacierTransfer bool
-	exclude              []string
-	raw                  bool
-	cacheControl         string
-	expires              string
+	noClobber             bool
+	ifSizeDiffer          bool
+	ifSourceNewer         bool
+	flatten               bool
+	followSymlinks        bool
+	storageClass          storage.StorageClass
+	encryptionMethod      string
+	encryptionKeyID       string
+	acl                   string
+	forceGlacierTransfer  bool
+	ignoreGlacierWarnings bool
+	exclude               []string
+	raw                   bool
+	cacheControl          string
+	expires               string
 
 	// region settings
 	srcRegion string
@@ -245,25 +257,26 @@ func NewCopy(c *cli.Context, deleteSource bool) Copy {
 		src:          c.Args().Get(0),
 		dst:          c.Args().Get(1),
 		op:           c.Command.Name,
-		fullCommand:  givenCommand(c),
+		fullCommand:  commandFromContext(c),
 		deleteSource: deleteSource,
 		// flags
-		noClobber:            c.Bool("no-clobber"),
-		ifSizeDiffer:         c.Bool("if-size-differ"),
-		ifSourceNewer:        c.Bool("if-source-newer"),
-		flatten:              c.Bool("flatten"),
-		followSymlinks:       !c.Bool("no-follow-symlinks"),
-		storageClass:         storage.StorageClass(c.String("storage-class")),
-		concurrency:          c.Int("concurrency"),
-		partSize:             c.Int64("part-size") * megabytes,
-		encryptionMethod:     c.String("sse"),
-		encryptionKeyID:      c.String("sse-kms-key-id"),
-		acl:                  c.String("acl"),
-		forceGlacierTransfer: c.Bool("force-glacier-transfer"),
-		exclude:              c.StringSlice("exclude"),
-		raw:                  c.Bool("raw"),
-		cacheControl:         c.String("cache-control"),
-		expires:              c.String("expires"),
+		noClobber:             c.Bool("no-clobber"),
+		ifSizeDiffer:          c.Bool("if-size-differ"),
+		ifSourceNewer:         c.Bool("if-source-newer"),
+		flatten:               c.Bool("flatten"),
+		followSymlinks:        !c.Bool("no-follow-symlinks"),
+		storageClass:          storage.StorageClass(c.String("storage-class")),
+		concurrency:           c.Int("concurrency"),
+		partSize:              c.Int64("part-size") * megabytes,
+		encryptionMethod:      c.String("sse"),
+		encryptionKeyID:       c.String("sse-kms-key-id"),
+		acl:                   c.String("acl"),
+		forceGlacierTransfer:  c.Bool("force-glacier-transfer"),
+		ignoreGlacierWarnings: c.Bool("ignore-glacier-warnings"),
+		exclude:               c.StringSlice("exclude"),
+		raw:                   c.Bool("raw"),
+		cacheControl:          c.String("cache-control"),
+		expires:               c.String("expires"),
 		// region settings
 		srcRegion: c.String("source-region"),
 		dstRegion: c.String("destination-region"),
@@ -313,8 +326,9 @@ func (c Copy) Run(ctx context.Context) error {
 	waiter := parallel.NewWaiter()
 
 	var (
-		merror    error
-		errDoneCh = make(chan bool)
+		merrorWaiter  error
+		merrorObjects error
+		errDoneCh     = make(chan bool)
 	)
 
 	go func() {
@@ -327,7 +341,7 @@ func (c Copy) Run(ctx context.Context) error {
 				os.Exit(1)
 			}
 			printError(c.fullCommand, c.op, err)
-			merror = multierror.Append(merror, err)
+			merrorWaiter = multierror.Append(merrorWaiter, err)
 		}
 	}()
 
@@ -349,13 +363,17 @@ func (c Copy) Run(ctx context.Context) error {
 		}
 
 		if err := object.Err; err != nil {
+			merrorObjects = multierror.Append(merrorObjects, err)
 			printError(c.fullCommand, c.op, err)
 			continue
 		}
 
 		if object.StorageClass.IsGlacier() && !c.forceGlacierTransfer {
-			err := fmt.Errorf("object '%v' is on Glacier storage", object)
-			printError(c.fullCommand, c.op, err)
+			if !c.ignoreGlacierWarnings {
+				err := fmt.Errorf("object '%v' is on Glacier storage", object)
+				merrorObjects = multierror.Append(merrorObjects, err)
+				printError(c.fullCommand, c.op, err)
+			}
 			continue
 		}
 
@@ -383,7 +401,7 @@ func (c Copy) Run(ctx context.Context) error {
 	waiter.Wait()
 	<-errDoneCh
 
-	return merror
+	return multierror.Append(merrorWaiter, merrorObjects).ErrorOrNil()
 }
 
 func (c Copy) prepareCopyTask(
@@ -465,7 +483,7 @@ func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) 
 	if err != nil {
 		// FIXME(ig): rename
 		if errorpkg.IsWarning(err) {
-			printDebug(c.op, srcurl, dsturl, err)
+			printDebug(c.op, err, srcurl, dsturl)
 			return nil
 		}
 		return err
@@ -512,7 +530,7 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 	err = c.shouldOverride(ctx, srcurl, dsturl)
 	if err != nil {
 		if errorpkg.IsWarning(err) {
-			printDebug(c.op, srcurl, dsturl, err)
+			printDebug(c.op, err, srcurl, dsturl)
 			return nil
 		}
 		return err
@@ -587,7 +605,7 @@ func (c Copy) doCopy(ctx context.Context, srcurl, dsturl *url.URL) error {
 	err = c.shouldOverride(ctx, srcurl, dsturl)
 	if err != nil {
 		if errorpkg.IsWarning(err) {
-			printDebug(c.op, srcurl, dsturl, err)
+			printDebug(c.op, err, srcurl, dsturl)
 			return nil
 		}
 		return err
@@ -858,13 +876,4 @@ func guessContentType(file *os.File) string {
 		return http.DetectContentType(buf)
 	}
 	return contentType
-}
-
-func givenCommand(c *cli.Context) string {
-	cmd := c.Command.FullName()
-	if c.Args().Len() > 0 {
-		cmd = fmt.Sprintf("%v %v", cmd, strings.Join(c.Args().Slice(), " "))
-	}
-
-	return cmd
 }

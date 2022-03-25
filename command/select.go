@@ -56,12 +56,20 @@ func NewSelectCommand() *cli.Command {
 				Name:  "exclude",
 				Usage: "exclude objects with given pattern",
 			},
+			&cli.BoolFlag{
+				Name:  "force-glacier-transfer",
+				Usage: "force transfer of glacier objects whether they are restored or not",
+			},
+			&cli.BoolFlag{
+				Name:  "ignore-glacier-warnings",
+				Usage: "turns off glacier warnings: ignore errors encountered during selecting objects",
+			},
 		},
 		CustomHelpTemplate: selectHelpTemplate,
 		Before: func(c *cli.Context) error {
 			err := validateSelectCommand(c)
 			if err != nil {
-				printError(givenCommand(c), c.Command.Name, err)
+				printError(commandFromContext(c), c.Command.Name, err)
 			}
 			return err
 		},
@@ -71,11 +79,13 @@ func NewSelectCommand() *cli.Command {
 			return Select{
 				src:         c.Args().Get(0),
 				op:          c.Command.Name,
-				fullCommand: givenCommand(c),
+				fullCommand: commandFromContext(c),
 				// flags
-				query:           c.String("query"),
-				compressionType: c.String("compression"),
-				exclude:         c.StringSlice("exclude"),
+				query:                 c.String("query"),
+				compressionType:       c.String("compression"),
+				exclude:               c.StringSlice("exclude"),
+				forceGlacierTransfer:  c.Bool("force-glacier-transfer"),
+				ignoreGlacierWarnings: c.Bool("ignore-glacier-warnings"),
 
 				storageOpts: NewStorageOpts(c),
 			}.Run(c.Context)
@@ -89,9 +99,11 @@ type Select struct {
 	op          string
 	fullCommand string
 
-	query           string
-	compressionType string
-	exclude         []string
+	query                 string
+	compressionType       string
+	exclude               []string
+	forceGlacierTransfer  bool
+	ignoreGlacierWarnings bool
 
 	// s3 options
 	storageOpts storage.Options
@@ -120,7 +132,10 @@ func (s Select) Run(ctx context.Context) error {
 		return err
 	}
 
-	var merror error
+	var (
+		merrorWaiter  error
+		merrorObjects error
+	)
 
 	waiter := parallel.NewWaiter()
 	errDoneCh := make(chan bool)
@@ -131,7 +146,7 @@ func (s Select) Run(ctx context.Context) error {
 		defer close(errDoneCh)
 		for err := range waiter.Err() {
 			printError(s.fullCommand, s.op, err)
-			merror = multierror.Append(merror, err)
+			merrorWaiter = multierror.Append(merrorWaiter, err)
 		}
 	}()
 
@@ -168,13 +183,17 @@ func (s Select) Run(ctx context.Context) error {
 		}
 
 		if err := object.Err; err != nil {
+			merrorObjects = multierror.Append(merrorObjects, err)
 			printError(s.fullCommand, s.op, err)
 			continue
 		}
 
-		if object.StorageClass.IsGlacier() {
-			err := fmt.Errorf("object '%v' is on Glacier storage", object)
-			printError(s.fullCommand, s.op, err)
+		if object.StorageClass.IsGlacier() && !s.forceGlacierTransfer {
+			if !s.ignoreGlacierWarnings {
+				err := fmt.Errorf("object '%v' is on Glacier storage", object)
+				merrorObjects = multierror.Append(merrorObjects, err)
+				printError(s.fullCommand, s.op, err)
+			}
 			continue
 		}
 
@@ -192,7 +211,7 @@ func (s Select) Run(ctx context.Context) error {
 	<-errDoneCh
 	<-writeDoneCh
 
-	return merror
+	return multierror.Append(merrorWaiter, merrorObjects).ErrorOrNil()
 }
 
 func (s Select) prepareTask(ctx context.Context, client *storage.S3, url *url.URL, resultCh chan<- json.RawMessage) func() error {

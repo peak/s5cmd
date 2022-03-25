@@ -74,7 +74,7 @@ func NewListCommand() *cli.Command {
 		Before: func(c *cli.Context) error {
 			err := validateLSCommand(c)
 			if err != nil {
-				printError(givenCommand(c), c.Command.Name, err)
+				printError(commandFromContext(c), c.Command.Name, err)
 			}
 			return err
 		},
@@ -83,7 +83,7 @@ func NewListCommand() *cli.Command {
 			if !c.Args().Present() {
 				err := ListBuckets(c.Context, NewStorageOpts(c))
 				if err != nil {
-					printError(givenCommand(c), c.Command.Name, err)
+					printError(commandFromContext(c), c.Command.Name, err)
 				}
 				return err
 			}
@@ -91,7 +91,7 @@ func NewListCommand() *cli.Command {
 			return List{
 				src:         c.Args().First(),
 				op:          c.Command.Name,
-				fullCommand: givenCommand(c),
+				fullCommand: commandFromContext(c),
 				// flags
 				showEtag:         c.Bool("etag"),
 				humanize:         c.Bool("humanize"),

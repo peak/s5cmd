@@ -1170,3 +1170,22 @@ func TestRemoveLocalFilesWithPrefixandExcludeFilters(t *testing.T) {
 	expected := fs.Expected(t, expectedFileSystem...)
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 }
+
+// rm --raw nonexistentfile
+func TestRemovetNonexistingLocalFile(t *testing.T) {
+	t.Parallel()
+
+	_, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	cmd := s5cmd("rm", "nonexistentfile")
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Expected{ExitCode: 1})
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{})
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: equals(`ERROR "rm nonexistentfile": no object found`),
+	}, strictLineCheck(true))
+}

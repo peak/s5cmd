@@ -11,9 +11,14 @@ import (
 	"github.com/peak/s5cmd/storage/url"
 )
 
-func printDebug(op string, src, dst *url.URL, err error) {
+func printDebug(op string, err error, urls ...*url.URL) {
+	command := op
+	for _, url := range urls {
+		command += fmt.Sprintf(" %s", url)
+	}
+
 	msg := log.DebugMessage{
-		Command:   fmt.Sprintf("%v %v %v", op, src, dst),
+		Command:   command,
 		Operation: op,
 		Err:       cleanupError(err),
 	}

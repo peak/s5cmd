@@ -35,7 +35,7 @@ func NewMakeBucketCommand() *cli.Command {
 		Before: func(c *cli.Context) error {
 			err := validateMBCommand(c)
 			if err != nil {
-				printError(givenCommand(c), c.Command.Name, err)
+				printError(commandFromContext(c), c.Command.Name, err)
 			}
 			return err
 		},
@@ -45,7 +45,7 @@ func NewMakeBucketCommand() *cli.Command {
 			return MakeBucket{
 				src:         c.Args().First(),
 				op:          c.Command.Name,
-				fullCommand: givenCommand(c),
+				fullCommand: commandFromContext(c),
 
 				storageOpts: NewStorageOpts(c),
 			}.Run(c.Context)

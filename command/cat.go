@@ -36,7 +36,7 @@ func NewCatCommand() *cli.Command {
 		Before: func(c *cli.Context) error {
 			err := validateCatCommand(c)
 			if err != nil {
-				printError(givenCommand(c), c.Command.Name, err)
+				printError(commandFromContext(c), c.Command.Name, err)
 			}
 			return err
 		},
@@ -45,7 +45,7 @@ func NewCatCommand() *cli.Command {
 
 			src, err := url.New(c.Args().Get(0))
 			op := c.Command.Name
-			fullCommand := givenCommand(c)
+			fullCommand := commandFromContext(c)
 			if err != nil {
 				printError(fullCommand, op, err)
 				return err

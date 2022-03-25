@@ -3249,6 +3249,7 @@ func TestCopyMultipleS3ObjectsToS3WithRawMode(t *testing.T) {
 		"file*.txt": "this is a test file 1",
 	}
 
+	// assert s3 objects in destination.
 	for filename, content := range expectedFiles {
 		assert.Assert(t, ensureS3Object(s3client, destBucket, filename, content))
 	}
@@ -3604,7 +3605,6 @@ func TestCopyLocalDirectoryToS3WithExcludeFilter(t *testing.T) {
 			}
 		})
 	}
-
 }
 
 // cp --exclude "*.gz" --exclude "*.txt" dir/ s3://bucket/
@@ -3831,4 +3831,29 @@ func TestCopySingleS3ObjectsIntoAnotherBucketWithExcludeFilters(t *testing.T) {
 		err := ensureS3Object(s3client, dstbucket, filename, content)
 		assertError(t, err, errS3NoSuchKey)
 	}
+}
+
+func TestCopyExpectExitCode1OnUnreachableHost(t *testing.T) {
+	t.Parallel()
+
+	const bucket = "bucket"
+
+	_, s5cmd, cleanup := setup(t, withEndpointURL("nonExistingEndpointURL"))
+	defer cleanup()
+
+	folderLayout := []fs.PathOp{
+		fs.WithFile("testfile.txt", "this is a test file 1"),
+	}
+
+	workdir := fs.NewDir(t, "somedir", folderLayout...)
+	defer workdir.Remove()
+
+	src := fmt.Sprintf("s3://%s/*", bucket)
+	src = filepath.ToSlash(src)
+	dst := fmt.Sprintf("%v/", workdir.Path())
+
+	cmd := s5cmd("-r", "0", "cp", src, dst)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Expected{ExitCode: 1})
 }

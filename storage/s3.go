@@ -840,6 +840,10 @@ func setSessionRegion(ctx context.Context, sess *session.Session, bucket string)
 
 	// auto-detection
 	region, err := s3manager.GetBucketRegion(ctx, sess, bucket, "", func(r *request.Request) {
+		// s3manager.GetBucketRegion uses Path style addressing and
+		// AnonymousCredentials by default, updating Request's Config to match
+		// the session config.
+		r.Config.S3ForcePathStyle = sess.Config.S3ForcePathStyle
 		r.Config.Credentials = sess.Config.Credentials
 	})
 	if err != nil {

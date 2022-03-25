@@ -60,7 +60,7 @@ func NewSizeCommand() *cli.Command {
 		Before: func(c *cli.Context) error {
 			err := validateDUCommand(c)
 			if err != nil {
-				printError(givenCommand(c), c.Command.Name, err)
+				printError(commandFromContext(c), c.Command.Name, err)
 			}
 			return err
 		},
@@ -70,7 +70,7 @@ func NewSizeCommand() *cli.Command {
 			return Size{
 				src:         c.Args().First(),
 				op:          c.Command.Name,
-				fullCommand: givenCommand(c),
+				fullCommand: commandFromContext(c),
 				// flags
 				groupByClass: c.Bool("group"),
 				humanize:     c.Bool("humanize"),

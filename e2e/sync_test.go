@@ -3,6 +3,7 @@ package e2e
 import (
 	"fmt"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -11,8 +12,36 @@ import (
 	"gotest.tools/v3/icmd"
 )
 
+// sync -n s3://bucket/object file
+func TestSyncFailForNonsharedFlagsFromCopyCommand(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	const (
+		filename = "source.go"
+		bucket   = "bucket"
+	)
+
+	createBucket(t, s3client, bucket)
+	putFile(t, s3client, bucket, filename, "content")
+
+	srcpath := fmt.Sprintf("s3://%s/%s", bucket, filename)
+
+	cmd := s5cmd("sync", "-n", srcpath, ".")
+	result := icmd.RunCmd(cmd)
+	result.Assert(t, icmd.Expected{ExitCode: 1})
+
+	// urfave.Cli prints the help text and error message to stdout
+	// if given flags in not present in command options.
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals("Incorrect Usage: flag provided but not defined: -n"),
+	}, strictLineCheck(false))
+}
+
 // sync folder/ folder2/
-func TestSyncLocalToLocalNotPermitted(t *testing.T) {
+func TestSyncLocalToLocal(t *testing.T) {
 	t.Parallel()
 
 	_, s5cmd, cleanup := setup(t)
@@ -30,36 +59,12 @@ func TestSyncLocalToLocalNotPermitted(t *testing.T) {
 	result.Assert(t, icmd.Expected{ExitCode: 1})
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: equals(`ERROR "sync %s %s": local->local sync operations are not permitted`, srcpath, destpath),
-	})
-}
-
-// sync source.go s3://bucket
-func TestSyncLocalFileToS3NotPermitted(t *testing.T) {
-	t.Parallel()
-
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
-
-	const bucket = "bucket"
-	createBucket(t, s3client, bucket)
-
-	sourceWorkDir := fs.NewFile(t, "source.go")
-	srcpath := filepath.ToSlash(sourceWorkDir.Path())
-	dstpath := fmt.Sprintf("s3://%s/", bucket)
-
-	cmd := s5cmd("sync", srcpath, dstpath)
-	result := icmd.RunCmd(cmd)
-
-	result.Assert(t, icmd.Expected{ExitCode: 1})
-
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: equals(`ERROR "sync %s %s": local source must be a directory`, srcpath, dstpath),
+		0: equals(`ERROR "sync %s %s": local->local copy operations are not permitted`, srcpath, destpath),
 	})
 }
 
 // sync s3://bucket/source.go .
-func TestSyncSingleS3ObjectToLocalNotPermitted(t *testing.T) {
+func TestSyncSingleS3ObjectToLocalTwice(t *testing.T) {
 	t.Parallel()
 
 	s3client, s5cmd, cleanup := setup(t)
@@ -77,11 +82,112 @@ func TestSyncSingleS3ObjectToLocalNotPermitted(t *testing.T) {
 
 	cmd := s5cmd("sync", srcpath, ".")
 	result := icmd.RunCmd(cmd)
-	result.Assert(t, icmd.Expected{ExitCode: 1})
+	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: equals(`ERROR "sync %s .": remote source %q must be a bucket or a prefix`, srcpath, srcpath),
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`cp %v %v`, srcpath, filename),
 	})
+
+	// rerunning same command should not download object, empty result expected
+	result = icmd.RunCmd(cmd)
+	result.Assert(t, icmd.Success)
+	assertLines(t, result.Stdout(), map[int]compareFunc{})
+}
+
+// sync file s3://bucket
+func TestSyncLocalFileToS3Twice(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	const (
+		filename = "testfile1.txt"
+		content  = "this is the content"
+	)
+	createBucket(t, s3client, bucket)
+
+	// the file to be uploaded is modified
+	workdir := fs.NewDir(t, t.Name(), fs.WithFile(filename, content))
+	defer workdir.Remove()
+
+	dstpath := fmt.Sprintf("s3://%v", bucket)
+
+	cmd := s5cmd("sync", filename, dstpath)
+	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`cp %v %v/%v`, filename, dstpath, filename),
+	})
+
+	// rerunning same command should not upload files, empty result expected
+	result = icmd.RunCmd(cmd, withWorkingDir(workdir))
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{})
+}
+
+// sync --raw object* s3://bucket/prefix/
+func TestCopyLocalFilestoS3WithRawFlag(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip()
+	}
+
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+
+	files := []fs.PathOp{
+		fs.WithFile("file*.txt", "content"),
+		fs.WithFile("file*1.txt", "content"),
+		fs.WithFile("file*file.txt", "content"),
+		fs.WithFile("file*2.txt", "content"),
+	}
+
+	expectedFiles := []string{"file*.txt"}
+	nonExpectedFiles := []string{"file*1.txt", "file*file.txt", "file*2.txt"}
+
+	// the file to be uploaded is modified
+	workdir := fs.NewDir(t, t.Name(), files...)
+	defer workdir.Remove()
+
+	dstpath := fmt.Sprintf("s3://%v/prefix/", bucket)
+
+	cmd := s5cmd("sync", "--raw", "file*.txt", dstpath)
+	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`cp file*.txt %vfile*.txt`, dstpath),
+	})
+
+	result = icmd.RunCmd(cmd, withWorkingDir(workdir))
+
+	// second run should not upload files, empty result expected
+	result.Assert(t, icmd.Success)
+	assertLines(t, result.Stdout(), map[int]compareFunc{})
+
+	for _, obj := range expectedFiles {
+		err := ensureS3Object(s3client, bucket, "prefix/"+obj, "content")
+		if err != nil {
+			t.Fatalf("%s is not exist in s3\n", obj)
+		}
+	}
+
+	for _, obj := range nonExpectedFiles {
+		err := ensureS3Object(s3client, bucket, "prefix/"+obj, "content")
+		assertError(t, err, errS3NoSuchKey)
+	}
 }
 
 // sync folder/ s3://bucket
@@ -415,6 +521,7 @@ func TestSyncLocalFolderToS3BucketSourceNewer(t *testing.T) {
 // sync s3://bucket/* folder/ (same objects, source older)
 func TestSyncS3BucketToLocalFolderSameObjectsSourceOlder(t *testing.T) {
 	t.Parallel()
+
 	now := time.Now()
 	timeSource := newFixedTimeSource(now)
 	s3client, s5cmd, cleanup := setup(t, withTimeSource(timeSource))
@@ -495,6 +602,7 @@ func TestSyncS3BucketToLocalFolderSameObjectsSourceOlder(t *testing.T) {
 // sync s3://bucket/* folder/ (same objects, source newer)
 func TestSyncS3BucketToLocalFolderSameObjectsSourceNewer(t *testing.T) {
 	t.Parallel()
+
 	now := time.Now()
 	timeSource := newFixedTimeSource(now)
 	s3client, s5cmd, cleanup := setup(t, withTimeSource(timeSource))
@@ -572,6 +680,7 @@ func TestSyncS3BucketToLocalFolderSameObjectsSourceNewer(t *testing.T) {
 // sync s3://bucket/* s3://destbucket/ (source newer, same objects, different content, same sizes)
 func TestSyncS3BucketToS3BucketSameSizesSourceNewer(t *testing.T) {
 	t.Parallel()
+
 	now := time.Now()
 	timeSource := newFixedTimeSource(now)
 	s3client, s5cmd, cleanup := setup(t, withTimeSource(timeSource))
@@ -640,6 +749,7 @@ func TestSyncS3BucketToS3BucketSameSizesSourceNewer(t *testing.T) {
 // sync s3://bucket/* s3://destbucket/ (source older, same objects, different content, same sizes)
 func TestSyncS3BucketToS3BucketSameSizesSourceOlder(t *testing.T) {
 	t.Parallel()
+
 	now := time.Now()
 	timeSource := newFixedTimeSource(now)
 	s3client, s5cmd, cleanup := setup(t, withTimeSource(timeSource))
@@ -784,6 +894,7 @@ func TestSyncS3BucketToLocalFolderSameObjectsSizeOnly(t *testing.T) {
 // sync --size-only folder/ s3://bucket/
 func TestSyncLocalFolderToS3BucketSameObjectsSizeOnly(t *testing.T) {
 	t.Parallel()
+
 	s3client, s5cmd, cleanup := setup(t)
 	defer cleanup()
 
@@ -857,6 +968,7 @@ func TestSyncLocalFolderToS3BucketSameObjectsSizeOnly(t *testing.T) {
 // sync --size-only s3://bucket/* s3://destbucket/
 func TestSyncS3BucketToS3BucketSizeOnly(t *testing.T) {
 	t.Parallel()
+
 	now := time.Now()
 	timeSource := newFixedTimeSource(now)
 	s3client, s5cmd, cleanup := setup(t, withTimeSource(timeSource))
@@ -990,6 +1102,7 @@ func TestSyncS3BucketToLocalWithDelete(t *testing.T) {
 // sync --delete folder/ s3://bucket/*
 func TestSyncLocalToS3BucketWithDelete(t *testing.T) {
 	t.Parallel()
+
 	now := time.Now()
 	s3client, s5cmd, cleanup := setup(t)
 	defer cleanup()
@@ -1059,6 +1172,7 @@ func TestSyncLocalToS3BucketWithDelete(t *testing.T) {
 // sync --delete s3://bucket/* s3://destbucket/
 func TestSyncS3BucketToS3BucketWithDelete(t *testing.T) {
 	t.Parallel()
+
 	s3client, s5cmd, cleanup := setup(t)
 	defer cleanup()
 
@@ -1205,6 +1319,7 @@ func TestSyncS3toLocalWithWildcard(t *testing.T) {
 // sync --delete s3://bucket/* .
 func TestSyncS3BucketToLocalWithDeleteFlag(t *testing.T) {
 	t.Parallel()
+
 	s3client, s5cmd, cleanup := setup(t)
 	defer cleanup()
 
@@ -1250,4 +1365,259 @@ func TestSyncS3BucketToLocalWithDeleteFlag(t *testing.T) {
 
 	expected := fs.Expected(t, expectedLayout...)
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
+}
+
+// sync dir/ s3://bucket (symlink)
+func TestSyncLocalFilesWithSymlinksToS3Bucket(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	fileContent := "CAFEBABE"
+	folderLayout := []fs.PathOp{
+		fs.WithDir(
+			"a",
+			fs.WithFile("file1.txt", fileContent),
+			fs.WithFile("file2.txt", fileContent),
+		),
+		fs.WithDir("b"),
+		fs.WithSymlink("b/link1", "a/file1.txt"),
+		fs.WithSymlink("b/link2", "a/file2.txt"),
+	}
+
+	workdir := fs.NewDir(t, "somedir", folderLayout...)
+	defer workdir.Remove()
+
+	src := fmt.Sprintf("%v/b", workdir.Path())
+	src = filepath.ToSlash(src)
+	dst := fmt.Sprintf("s3://%v/", bucket)
+
+	cmd := s5cmd("sync", src, dst)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`cp %v/b/link1 %vb/link1`, filepath.ToSlash(workdir.Path()), dst),
+		1: equals(`cp %v/b/link2 %vb/link2`, filepath.ToSlash(workdir.Path()), dst),
+	}, sortInput(true))
+}
+
+// sync --no-follow-symlinks * s3://bucket/prefix/
+func TestSyncLocalFilesWithNoFollowSymlinksToS3Bucket(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	fileContent := "CAFEBABE"
+	folderLayout := []fs.PathOp{
+		fs.WithDir(
+			"a",
+			fs.WithFile("file1.txt", fileContent),
+			fs.WithFile("file2.txt", fileContent),
+		),
+		fs.WithDir("b"),
+		fs.WithSymlink("b/link1", "a/file1.txt"),
+		fs.WithSymlink("b/link2", "a/file2.txt"),
+	}
+
+	workdir := fs.NewDir(t, "somedir", folderLayout...)
+	defer workdir.Remove()
+
+	src := fmt.Sprintf("%v/b", workdir.Path())
+	src = filepath.ToSlash(src)
+	dst := fmt.Sprintf("s3://%v/", bucket)
+
+	cmd := s5cmd("sync", "--no-follow-symlinks", src, dst)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	// do not follow symlinks in directory b (empty result)
+	assertLines(t, result.Stdout(), map[int]compareFunc{})
+}
+
+// sync --exclude pattern s3://bucket/* s3://anotherbucket/prefix/
+func TestSyncS3ObjectsIntoAnotherBucketWithExcludeFilters(t *testing.T) {
+	t.Parallel()
+
+	const (
+		srcbucket = "bucket"
+		dstbucket = "dstbucket"
+	)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, srcbucket)
+	createBucket(t, s3client, dstbucket)
+
+	srcFiles := []string{
+		"file_already_exists_in_destination.txt",
+		"file_not_exists_in_destination.txt",
+		"main.py",
+		"main.js",
+		"readme.md",
+		"main.pdf",
+		"main/file.txt",
+	}
+
+	dstFiles := []string{
+		"prefix/file_already_exists_in_destination.txt",
+	}
+
+	expectedFiles := []string{
+		"prefix/file_not_exists_in_destination.txt",
+		"prefix/file_already_exists_in_destination.txt",
+	}
+
+	excludedFiles := []string{
+		"main.py",
+		"main.js",
+		"main.pdf",
+		"main/file.txt",
+		"readme.md",
+	}
+
+	const (
+		content         = "this is a file content"
+		excludePattern1 = "main*"
+		excludePattern2 = "*.md"
+	)
+
+	for _, filename := range srcFiles {
+		putFile(t, s3client, srcbucket, filename, content)
+	}
+
+	for _, filename := range dstFiles {
+		putFile(t, s3client, dstbucket, filename, content)
+	}
+
+	src := fmt.Sprintf("s3://%v/*", srcbucket)
+	dst := fmt.Sprintf("s3://%v/prefix/", dstbucket)
+
+	cmd := s5cmd("sync", "--exclude", excludePattern1, "--exclude", excludePattern2, src, dst)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`cp s3://%s/file_not_exists_in_destination.txt s3://%s/prefix/file_not_exists_in_destination.txt`, srcbucket, dstbucket),
+	}, sortInput(true))
+
+	// assert s3 source objects
+	for _, filename := range srcFiles {
+		assert.Assert(t, ensureS3Object(s3client, srcbucket, filename, content))
+	}
+
+	// assert s3 destination objects
+	for _, filename := range expectedFiles {
+		assert.Assert(t, ensureS3Object(s3client, dstbucket, filename, content))
+	}
+
+	// assert s3 destination objects which should not be in bucket.
+	for _, filename := range excludedFiles {
+		err := ensureS3Object(s3client, dstbucket, filename, content)
+		assertError(t, err, errS3NoSuchKey)
+	}
+}
+
+// sync --exclude "*.gz" dir s3://bucket/
+// sync --exclude "*.gz" dir/ s3://bucket/
+// sync --exclude "*.gz" dir/* s3://bucket/
+func TestSyncLocalDirectoryToS3WithExcludeFilter(t *testing.T) {
+	t.Parallel()
+
+	testcases := []struct {
+		name            string
+		directoryPrefix string
+	}{
+		{
+			name:            "folder without /",
+			directoryPrefix: "",
+		},
+		{
+			name:            "folder with /",
+			directoryPrefix: "/",
+		},
+		{
+			name:            "folder with / and glob *",
+			directoryPrefix: "/*",
+		},
+	}
+
+	for _, tc := range testcases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			bucket := "testbucket"
+
+			s3client, s5cmd, cleanup := setup(t)
+			defer cleanup()
+
+			createBucket(t, s3client, bucket)
+
+			folderLayout := []fs.PathOp{
+				fs.WithFile("testfile1.txt", "this is a test file 1"),
+				fs.WithFile("readme.md", "this is a readme file"),
+				fs.WithDir(
+					"a",
+					fs.WithFile("another_test_file.txt", "yet another txt file. yatf."),
+				),
+				fs.WithDir(
+					"b",
+					fs.WithFile("filename-with-hypen.gz", "file has hypen in its name"),
+				),
+			}
+
+			workdir := fs.NewDir(t, "somedir", folderLayout...)
+			defer workdir.Remove()
+
+			const excludePattern = "*.gz"
+
+			src := fmt.Sprintf("%v/", workdir.Path())
+			src = src + tc.directoryPrefix
+			dst := fmt.Sprintf("s3://%v/prefix/", bucket)
+
+			src = filepath.ToSlash(src)
+			cmd := s5cmd("sync", "--exclude", excludePattern, src, dst)
+			result := icmd.RunCmd(cmd)
+
+			result.Assert(t, icmd.Success)
+
+			// assert local filesystem
+			expected := fs.Expected(t, folderLayout...)
+			assert.Assert(t, fs.Equal(workdir.Path(), expected))
+
+			expectedS3Content := map[string]string{
+				"prefix/testfile1.txt":           "this is a test file 1",
+				"prefix/readme.md":               "this is a readme file",
+				"prefix/a/another_test_file.txt": "yet another txt file. yatf.",
+			}
+
+			nonExpectedS3Content := map[string]string{
+				"prefix/b/filename-with-hypen.gz": "file has hypen in its name",
+			}
+
+			// assert objects should be in S3
+			for key, content := range expectedS3Content {
+				assert.Assert(t, ensureS3Object(s3client, bucket, key, content))
+			}
+
+			//assert objects should not be in S3.
+			for key, content := range nonExpectedS3Content {
+				err := ensureS3Object(s3client, bucket, key, content)
+				assertError(t, err, errS3NoSuchKey)
+			}
+		})
+	}
 }

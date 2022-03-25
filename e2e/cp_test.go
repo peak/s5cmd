@@ -3605,7 +3605,6 @@ func TestCopyLocalDirectoryToS3WithExcludeFilter(t *testing.T) {
 			}
 		})
 	}
-
 }
 
 // cp --exclude "*.gz" --exclude "*.txt" dir/ s3://bucket/

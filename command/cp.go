@@ -96,28 +96,8 @@ Examples:
 		 > s5cmd {{.HelpName}} --exclude "log*" s3://bucket/* s3://destbucket
 `
 
-func NewCopyCommandFlags() []cli.Flag {
+func NewSharedFlags() []cli.Flag {
 	return []cli.Flag{
-		&cli.BoolFlag{
-			Name:    "no-clobber",
-			Aliases: []string{"n"},
-			Usage:   "do not overwrite destination if already exists",
-		},
-		&cli.BoolFlag{
-			Name:    "if-size-differ",
-			Aliases: []string{"s"},
-			Usage:   "only overwrite destination if size differs",
-		},
-		&cli.BoolFlag{
-			Name:    "if-source-newer",
-			Aliases: []string{"u"},
-			Usage:   "only overwrite destination if source modtime is newer",
-		},
-		&cli.BoolFlag{
-			Name:    "flatten",
-			Aliases: []string{"f"},
-			Usage:   "flatten directory structure of source, starting from the first wildcard",
-		},
 		&cli.BoolFlag{
 			Name:  "no-follow-symlinks",
 			Usage: "do not follow symbolic links",
@@ -185,6 +165,33 @@ func NewCopyCommandFlags() []cli.Flag {
 	}
 }
 
+func NewCopyCommandFlags() []cli.Flag {
+	copyFlags := []cli.Flag{
+		&cli.BoolFlag{
+			Name:    "flatten",
+			Aliases: []string{"f"},
+			Usage:   "flatten directory structure of source, starting from the first wildcard",
+		},
+		&cli.BoolFlag{
+			Name:    "no-clobber",
+			Aliases: []string{"n"},
+			Usage:   "do not overwrite destination if already exists",
+		},
+		&cli.BoolFlag{
+			Name:    "if-size-differ",
+			Aliases: []string{"s"},
+			Usage:   "only overwrite destination if size differs",
+		},
+		&cli.BoolFlag{
+			Name:    "if-source-newer",
+			Aliases: []string{"u"},
+			Usage:   "only overwrite destination if source modtime is newer",
+		},
+	}
+	sharedFlags := NewSharedFlags()
+	return append(copyFlags, sharedFlags...)
+}
+
 func NewCopyCommand() *cli.Command {
 	return &cli.Command{
 		Name:               "cp",
@@ -195,7 +202,7 @@ func NewCopyCommand() *cli.Command {
 		Before: func(c *cli.Context) error {
 			err := validateCopyCommand(c)
 			if err != nil {
-				printError(givenCommand(c), c.Command.Name, err)
+				printError(commandFromContext(c), c.Command.Name, err)
 			}
 			return err
 		},
@@ -250,7 +257,7 @@ func NewCopy(c *cli.Context, deleteSource bool) Copy {
 		src:          c.Args().Get(0),
 		dst:          c.Args().Get(1),
 		op:           c.Command.Name,
-		fullCommand:  givenCommand(c),
+		fullCommand:  commandFromContext(c),
 		deleteSource: deleteSource,
 		// flags
 		noClobber:             c.Bool("no-clobber"),
@@ -476,7 +483,7 @@ func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) 
 	if err != nil {
 		// FIXME(ig): rename
 		if errorpkg.IsWarning(err) {
-			printDebug(c.op, srcurl, dsturl, err)
+			printDebug(c.op, err, srcurl, dsturl)
 			return nil
 		}
 		return err
@@ -523,7 +530,7 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 	err = c.shouldOverride(ctx, srcurl, dsturl)
 	if err != nil {
 		if errorpkg.IsWarning(err) {
-			printDebug(c.op, srcurl, dsturl, err)
+			printDebug(c.op, err, srcurl, dsturl)
 			return nil
 		}
 		return err
@@ -598,7 +605,7 @@ func (c Copy) doCopy(ctx context.Context, srcurl, dsturl *url.URL) error {
 	err = c.shouldOverride(ctx, srcurl, dsturl)
 	if err != nil {
 		if errorpkg.IsWarning(err) {
-			printDebug(c.op, srcurl, dsturl, err)
+			printDebug(c.op, err, srcurl, dsturl)
 			return nil
 		}
 		return err
@@ -869,13 +876,4 @@ func guessContentType(file *os.File) string {
 		return http.DetectContentType(buf)
 	}
 	return contentType
-}
-
-func givenCommand(c *cli.Context) string {
-	cmd := c.Command.FullName()
-	if c.Args().Len() > 0 {
-		cmd = fmt.Sprintf("%v %v", cmd, strings.Join(c.Args().Slice(), " "))
-	}
-
-	return cmd
 }

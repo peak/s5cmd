@@ -31,36 +31,38 @@ Options:
 	{{end}}
 Examples:
 	01. Sync local folder to s3 bucket
-		> s5cmd {{.HelpName}} folder/ s3://bucket/
+		 > s5cmd {{.HelpName}} folder/ s3://bucket/
 
 	02. Sync S3 bucket to local folder
-		> s5cmd {{.HelpName}} s3://bucket/* folder/
+		 > s5cmd {{.HelpName}} s3://bucket/* folder/
 
 	03. Sync S3 bucket objects under prefix to S3 bucket.
-		> s5cmd {{.HelpName}} s3://sourcebucket/prefix/* s3://destbucket/
+		 > s5cmd {{.HelpName}} s3://sourcebucket/prefix/* s3://destbucket/
 
 	04. Sync local folder to S3 but delete the files that S3 bucket has but local does not have.
-		> s5cmd {{.HelpName}} --delete folder/ s3://bucket/
+		 > s5cmd {{.HelpName}} --delete folder/ s3://bucket/
 
 	05. Sync S3 bucket to local folder but use size as only comparison criteria.
-		> s5cmd {{.HelpName}} --size-only s3://bucket/* folder/
-	
+		 > s5cmd {{.HelpName}} --size-only s3://bucket/* folder/
+
+	06. Sync a file to S3 bucket
+		 > s5cmd {{.HelpName}} myfile.gz s3://bucket/
+
+	07. Sync matching S3 objects to another bucket
+		 > s5cmd {{.HelpName}} s3://bucket/*.gz s3://target-bucket/prefix/
+
+	08. Perform KMS Server Side Encryption of the object(s) at the destination
+		 > s5cmd {{.HelpName}} --sse aws:kms s3://bucket/object s3://target-bucket/prefix/object
+
+	09. Perform KMS-SSE of the object(s) at the destination using customer managed Customer Master Key (CMK) key id
+		 > s5cmd {{.HelpName}} --sse aws:kms --sse-kms-key-id <your-kms-key-id> s3://bucket/object s3://target-bucket/prefix/object
+
+	10. Sync all files to S3 bucket but exclude the ones with txt and gz extension
+		 > s5cmd {{.HelpName}} --exclude "*.txt" --exclude "*.gz" dir/ s3://bucket
 `
 
 func NewSyncCommandFlags() []cli.Flag {
-	return []cli.Flag{
-		&cli.IntFlag{
-			Name:    "concurrency",
-			Aliases: []string{"c"},
-			Value:   defaultCopyConcurrency,
-			Usage:   "number of concurrent parts transferred between host and remote server",
-		},
-		&cli.IntFlag{
-			Name:    "part-size",
-			Aliases: []string{"p"},
-			Value:   defaultPartSize,
-			Usage:   "size of each part transferred between host and remote server, in MiB",
-		},
+	syncFlags := []cli.Flag{
 		&cli.BoolFlag{
 			Name:  "delete",
 			Usage: "delete objects in destination but not in source",
@@ -70,6 +72,8 @@ func NewSyncCommandFlags() []cli.Flag {
 			Usage: "make size of object only criteria to decide whether an object should be synced",
 		},
 	}
+	sharedFlags := NewSharedFlags()
+	return append(syncFlags, sharedFlags...)
 }
 
 func NewSyncCommand() *cli.Command {
@@ -80,9 +84,10 @@ func NewSyncCommand() *cli.Command {
 		Flags:              NewSyncCommandFlags(),
 		CustomHelpTemplate: syncHelpTemplate,
 		Before: func(c *cli.Context) error {
-			err := validateSyncCommand(c)
+			// sync command share same validation method as copy command
+			err := validateCopyCommand(c)
 			if err != nil {
-				printError(givenCommand(c), c.Command.Name, err)
+				printError(commandFromContext(c), c.Command.Name, err)
 			}
 			return err
 		},
@@ -110,9 +115,14 @@ type Sync struct {
 	sizeOnly bool
 
 	// s3 options
-	concurrency int
-	partSize    int64
 	storageOpts storage.Options
+
+	followSymlinks bool
+	storageClass   storage.StorageClass
+	raw            bool
+
+	srcRegion string
+	dstRegion string
 }
 
 // NewSync creates Sync from cli.Context
@@ -121,15 +131,19 @@ func NewSync(c *cli.Context) Sync {
 		src:         c.Args().Get(0),
 		dst:         c.Args().Get(1),
 		op:          c.Command.Name,
-		fullCommand: givenCommand(c),
+		fullCommand: commandFromContext(c),
 
 		// flags
 		delete:   c.Bool("delete"),
 		sizeOnly: c.Bool("size-only"),
 
-		// s3 options
-		partSize:    c.Int64("part-size") * megabytes,
-		concurrency: c.Int("concurrency"),
+		// flags
+		followSymlinks: !c.Bool("no-follow-symlinks"),
+		storageClass:   storage.StorageClass(c.String("storage-class")),
+		raw:            c.Bool("raw"),
+		// region settings
+		srcRegion:   c.String("source-region"),
+		dstRegion:   c.String("destination-region"),
 		storageOpts: NewStorageOpts(c),
 	}
 }
@@ -137,12 +151,12 @@ func NewSync(c *cli.Context) Sync {
 // Run compares files, plans necessary s5cmd commands to execute
 // and executes them in order to sync source to destination.
 func (s Sync) Run(c *cli.Context) error {
-	srcurl, err := url.New(s.src)
+	srcurl, err := url.New(s.src, url.WithRaw(s.raw))
 	if err != nil {
 		return err
 	}
 
-	dsturl, err := url.New(s.dst)
+	dsturl, err := url.New(s.dst, url.WithRaw(s.raw))
 	if err != nil {
 		return err
 	}
@@ -192,7 +206,7 @@ func (s Sync) Run(c *cli.Context) error {
 	pipeReader, pipeWriter := io.Pipe() // create a reader, writer pipe to pass commands to run
 
 	// Create commands in background.
-	go s.planRun(onlySource, onlyDest, commonObjects, dsturl, strategy, pipeWriter, isBatch)
+	go s.planRun(c, onlySource, onlyDest, commonObjects, dsturl, strategy, pipeWriter, isBatch)
 
 	err = NewRun(c, pipeReader).Run(c.Context)
 	return multierror.Append(err, merrorWaiter).ErrorOrNil()
@@ -275,7 +289,7 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		srcObjectChannel := sourceClient.List(ctx, srcurl, false)
+		srcObjectChannel := sourceClient.List(ctx, srcurl, s.followSymlinks)
 		for srcObject := range srcObjectChannel {
 			if s.shouldSkipObject(srcObject, true) {
 				continue
@@ -316,6 +330,7 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 
 // planRun prepares the commands and writes them to writer 'w'.
 func (s Sync) planRun(
+	c *cli.Context,
 	onlySource, onlyDest []*url.URL,
 	common []*ObjectPair,
 	dsturl *url.URL,
@@ -323,13 +338,24 @@ func (s Sync) planRun(
 	w io.WriteCloser,
 	isBatch bool,
 ) {
+	defer w.Close()
+
+	// Always use raw mode since sync command generates commands
+	// from raw S3 objects. Otherwise, generated copy command will
+	// try to expand given source.
+	defaultFlags := map[string]interface{}{
+		"raw": true,
+	}
 
 	// only in source
 	for _, srcurl := range onlySource {
 		curDestURL := generateDestinationURL(srcurl, dsturl, isBatch)
-
-		command := fmt.Sprintf("cp %v %v\n", srcurl, curDestURL)
-		fmt.Fprint(w, command)
+		command, err := generateCommand(c, "cp", defaultFlags, srcurl, curDestURL)
+		if err != nil {
+			printDebug(s.op, err, srcurl, curDestURL)
+			continue
+		}
+		fmt.Fprintln(w, command)
 	}
 
 	// both in source and destination
@@ -338,26 +364,27 @@ func (s Sync) planRun(
 		curSourceURL, curDestURL := sourceObject.URL, destObject.URL
 		err := strategy.ShouldSync(sourceObject, destObject) // check if object should be copied.
 		if err != nil {
-			printDebug(s.op, curSourceURL, curDestURL, err)
+			printDebug(s.op, err, curSourceURL, curDestURL)
 			continue
 		}
 
-		command := fmt.Sprintf("cp %v %v\n", curSourceURL, curDestURL)
-		fmt.Fprint(w, command)
+		command, err := generateCommand(c, "cp", defaultFlags, curSourceURL, curDestURL)
+		if err != nil {
+			printDebug(s.op, err, curSourceURL, curDestURL)
+			continue
+		}
+		fmt.Fprintln(w, command)
 	}
 
 	// only in destination
 	if s.delete && len(onlyDest) > 0 {
-		var objectsToDelete []string
-		for _, obj := range onlyDest {
-			objectsToDelete = append(objectsToDelete, obj.String())
+		command, err := generateCommand(c, "rm", defaultFlags, onlyDest...)
+		if err != nil {
+			printDebug(s.op, err, onlyDest...)
+			return
 		}
-
-		command := fmt.Sprintf("rm %v\n", strings.Join(objectsToDelete, " "))
-		fmt.Fprint(w, command)
+		fmt.Fprintln(w, command)
 	}
-
-	w.Close()
 }
 
 // generateDestinationURL generates destination url for given
@@ -400,101 +427,4 @@ func (s Sync) shouldSkipObject(object *storage.Object, verbose bool) bool {
 		return true
 	}
 	return false
-}
-
-func validateSyncCommand(c *cli.Context) error {
-	if c.Args().Len() != 2 {
-		return fmt.Errorf("expected source and destination arguments")
-	}
-
-	ctx := c.Context
-	src := c.Args().Get(0)
-	dst := c.Args().Get(1)
-
-	srcurl, err := url.New(src)
-	if err != nil {
-		return err
-	}
-
-	dsturl, err := url.New(dst)
-	if err != nil {
-		return err
-	}
-
-	// wildcard destination doesn't mean anything
-	if dsturl.IsWildcard() {
-		return fmt.Errorf("target %q can not contain glob characters", dst)
-	}
-
-	// we don't operate on S3 prefixes for copy and delete operations.
-	if srcurl.IsBucket() || srcurl.IsPrefix() {
-		return fmt.Errorf("source argument must contain wildcard character")
-	}
-
-	// 'cp dir/* s3://bucket/prefix': expect a trailing slash to avoid any
-	// surprises.
-	if srcurl.IsWildcard() && dsturl.IsRemote() && !dsturl.IsPrefix() && !dsturl.IsBucket() {
-		return fmt.Errorf("target %q must be a bucket or a prefix", dsturl)
-	}
-
-	switch {
-	case srcurl.Type == dsturl.Type:
-		return validateSyncCopy(srcurl, dsturl)
-	case dsturl.IsRemote():
-		return validateSyncUpload(ctx, srcurl, dsturl, NewStorageOpts(c))
-	case srcurl.IsRemote():
-		return validateSyncDownload(srcurl)
-	default:
-		return nil
-	}
-}
-
-func validateSyncCopy(srcurl, dsturl *url.URL) error {
-	if srcurl.IsRemote() || dsturl.IsRemote() {
-		return nil
-	}
-
-	// we don't support local->local copies
-	return fmt.Errorf("local->local sync operations are not permitted")
-}
-
-func validateSyncUpload(ctx context.Context, srcurl, dsturl *url.URL, storageOpts storage.Options) error {
-	srcclient := storage.NewLocalClient(storageOpts)
-
-	if srcurl.IsWildcard() {
-		return nil
-	}
-
-	obj, err := srcclient.Stat(ctx, srcurl)
-	if err != nil {
-		return err
-	}
-
-	// do not support single file. use 'cp' instead.
-	if !obj.Type.IsDir() {
-		return fmt.Errorf("local source must be a directory")
-	}
-
-	// 'sync dir/ s3://bucket/prefix-without-slash': expect a trailing slash to
-	// avoid any surprises.
-	if obj.Type.IsDir() && !dsturl.IsBucket() && !dsturl.IsPrefix() {
-		return fmt.Errorf("target %q must be a bucket or a prefix", dsturl)
-	}
-
-	return nil
-}
-
-func validateSyncDownload(srcurl *url.URL) error {
-	if srcurl.IsWildcard() {
-		return nil
-	}
-
-	// 'sync s3://bucket/prefix-without-slash dir/': should not work
-	// 'sync s3://bucket/object.go dir/' should not work.
-	// do not support single object.
-	if !srcurl.IsBucket() && !srcurl.IsPrefix() {
-		return fmt.Errorf("remote source %q must be a bucket or a prefix", srcurl)
-	}
-
-	return nil
 }

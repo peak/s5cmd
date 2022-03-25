@@ -59,7 +59,7 @@ func NewDeleteCommand() *cli.Command {
 		Before: func(c *cli.Context) error {
 			err := validateRMCommand(c)
 			if err != nil {
-				printError(givenCommand(c), c.Command.Name, err)
+				printError(commandFromContext(c), c.Command.Name, err)
 			}
 			return err
 		},
@@ -68,7 +68,7 @@ func NewDeleteCommand() *cli.Command {
 			return Delete{
 				src:         c.Args().Slice(),
 				op:          c.Command.Name,
-				fullCommand: givenCommand(c),
+				fullCommand: commandFromContext(c),
 
 				// flags
 				raw:     c.Bool("raw"),

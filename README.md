@@ -378,10 +378,10 @@ cp, mv, rm, mb ...
 
 ### S3 ListObjects API Backward Compatibility
 
-The `--legacy` flag will force using S3 ListObjects API instead of ListObjectsV2 API.
+The `--use-v1-api` flag will force using S3 ListObjects API instead of ListObjectsV2 API.
 
 ```
-s5cmd --legacy ls
+s5cmd --use-v1-api ls
 ```
 
 ### Specifying credentials

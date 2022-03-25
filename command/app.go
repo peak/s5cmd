@@ -70,8 +70,8 @@ var app = &cli.App{
 			Usage: "do not sign requests: credentials will not be loaded if --no-sign-request is provided",
 		},
 		&cli.BoolFlag{
-			Name:  "legacy",
-			Usage: "enable backward compatibility: disable ListObjectsV2 API and force ListObjects API",
+			Name:  "use-v1-api",
+			Usage: "enable backward compatibility with ListObjects API and disable ListObjectsV2 API",
 		},
 	},
 	Before: func(c *cli.Context) error {
@@ -143,7 +143,7 @@ func NewStorageOpts(c *cli.Context) storage.Options {
 		NoVerifySSL:   c.Bool("no-verify-ssl"),
 		DryRun:        c.Bool("dry-run"),
 		NoSignRequest: c.Bool("no-sign-request"),
-		LegacyEnabled: c.Bool("legacy"),
+		APIv1Enabled:  c.Bool("use-v1-api"),
 	}
 }
 

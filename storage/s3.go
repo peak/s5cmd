@@ -53,12 +53,12 @@ var globalSessionCache = &SessionCache{
 // S3 is a storage type which interacts with S3API, DownloaderAPI and
 // UploaderAPI.
 type S3 struct {
-	api           s3iface.S3API
-	downloader    s3manageriface.DownloaderAPI
-	uploader      s3manageriface.UploaderAPI
-	endpointURL   urlpkg.URL
-	dryRun        bool
-	legacyEnabled bool
+	api         s3iface.S3API
+	downloader  s3manageriface.DownloaderAPI
+	uploader    s3manageriface.UploaderAPI
+	endpointURL urlpkg.URL
+	dryRun      bool
+	v1Enabled   bool
 }
 
 func parseEndpoint(endpoint string) (urlpkg.URL, error) {
@@ -91,12 +91,12 @@ func newS3Storage(ctx context.Context, opts Options) (*S3, error) {
 	}
 
 	return &S3{
-		api:           s3.New(awsSession),
-		downloader:    s3manager.NewDownloader(awsSession),
-		uploader:      s3manager.NewUploader(awsSession),
-		endpointURL:   endpointURL,
-		dryRun:        opts.DryRun,
-		legacyEnabled: opts.LegacyEnabled,
+		api:         s3.New(awsSession),
+		downloader:  s3manager.NewDownloader(awsSession),
+		uploader:    s3manager.NewUploader(awsSession),
+		endpointURL: endpointURL,
+		dryRun:      opts.DryRun,
+		v1Enabled:   opts.APIv1Enabled,
 	}, nil
 }
 
@@ -130,7 +130,7 @@ func (s *S3) List(ctx context.Context, url *url.URL, _ bool) <-chan *Object {
 	if isGoogleEndpoint(s.endpointURL) {
 		return s.listObjects(ctx, url)
 	}
-	if s.legacyEnabled {
+	if s.v1Enabled {
 		return s.listObjects(ctx, url)
 	}
 	return s.listObjectsV2(ctx, url)

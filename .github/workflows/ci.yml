@@ -62,7 +62,7 @@ jobs:
 
     - run: make check-fmt
     - run: make vet
-    - run: go get honnef.co/go/tools/cmd/staticcheck
+    - run: go install honnef.co/go/tools/cmd/staticcheck@v0.3.0
     - run: make staticcheck
-    - run: go get mvdan.cc/unparam
+    - run: go install mvdan.cc/unparam@latest
     - run: make unparam

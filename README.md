@@ -69,7 +69,7 @@ NOTE: MacPorts is not officially supported. The versions might be out of date co
 
 ### Build from source
 
-You can build `s5cmd` from source if you have [Go](https://golang.org/dl/) 1.14+
+You can build `s5cmd` from source if you have [Go](https://golang.org/dl/) 1.16+
 installed.
 
     go get github.com/peak/s5cmd

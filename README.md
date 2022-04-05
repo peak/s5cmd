@@ -43,6 +43,7 @@ storage services and local filesystems.
 - Google Cloud Storage (and any other S3 API compatible service) support
 - Structured logging for querying command outputs
 - Shell auto-completion
+- S3 ListObjects API backward compatibility
 
 ## Installation
 
@@ -374,6 +375,14 @@ however, those copy operations will not be performed. It is displaying what
 
 Note that `--dry-run` can be used with any operation that has a side effect, i.e.,
 cp, mv, rm, mb ...
+
+### S3 ListObjects API Backward Compatibility
+
+The `--use-v1-api` flag will force using S3 ListObjects API instead of ListObjectsV2 API.
+
+```
+s5cmd --use-v1-api ls
+```
 
 ### Specifying credentials
 

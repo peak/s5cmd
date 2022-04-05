@@ -53,6 +53,7 @@ func NewRemoteClient(ctx context.Context, url *url.URL, opts Options) (*S3, erro
 		NoVerifySSL:   opts.NoVerifySSL,
 		DryRun:        opts.DryRun,
 		NoSignRequest: opts.NoSignRequest,
+		APIv1Enabled:  opts.APIv1Enabled,
 		bucket:        url.Bucket,
 		region:        opts.region,
 	}
@@ -73,6 +74,7 @@ type Options struct {
 	NoVerifySSL   bool
 	DryRun        bool
 	NoSignRequest bool
+	APIv1Enabled  bool
 	bucket        string
 	region        string
 }

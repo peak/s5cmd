@@ -58,6 +58,7 @@ type S3 struct {
 	uploader    s3manageriface.UploaderAPI
 	endpointURL urlpkg.URL
 	dryRun      bool
+	v1Enabled   bool
 }
 
 func parseEndpoint(endpoint string) (urlpkg.URL, error) {
@@ -95,6 +96,7 @@ func newS3Storage(ctx context.Context, opts Options) (*S3, error) {
 		uploader:    s3manager.NewUploader(awsSession),
 		endpointURL: endpointURL,
 		dryRun:      opts.DryRun,
+		v1Enabled:   opts.APIv1Enabled,
 	}, nil
 }
 
@@ -126,6 +128,9 @@ func (s *S3) Stat(ctx context.Context, url *url.URL) (*Object, error) {
 // it sends these errors to object channel.
 func (s *S3) List(ctx context.Context, url *url.URL, _ bool) <-chan *Object {
 	if isGoogleEndpoint(s.endpointURL) {
+		return s.listObjects(ctx, url)
+	}
+	if s.v1Enabled {
 		return s.listObjects(ctx, url)
 	}
 	return s.listObjectsV2(ctx, url)

@@ -1024,7 +1024,7 @@ func TestS3ListObjectsAPIVersions(t *testing.T) {
 		})
 
 		ctx := context.Background()
-		mockS3.useListObjectsV1 = false
+		mockS3.useListObjectsV1 = true
 		for range mockS3.List(ctx, url, false) {
 		}
 

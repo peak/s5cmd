@@ -102,14 +102,12 @@ func (r Run) Run(ctx context.Context) error {
 	for line := range scanner.Scan() {
 		lineno++
 
-		// support inline comments
-		line = strings.Split(line, " #")[0]
-
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
 		}
 
+		// skip comment lines
 		if strings.HasPrefix(line, "#") {
 			continue
 		}

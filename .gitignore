@@ -1,4 +1,5 @@
 .idea/
+.vscode/
 /s5cmd
 /s5cmd.exe
 /*.iml

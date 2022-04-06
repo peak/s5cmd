@@ -1,6 +1,7 @@
 [![Go Report](https://goreportcard.com/badge/github.com/peak/s5cmd)](https://goreportcard.com/report/github.com/peak/s5cmd) ![Github Actions Status](https://github.com/peak/s5cmd/workflows/CI/badge.svg)
 
-# s5cmd
+![](./doc/s5cmd_header.jpg)
+
 
 ## Overview
 `s5cmd` is a very fast S3 and local filesystem execution tool. It comes with support

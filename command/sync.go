@@ -180,6 +180,9 @@ func (s Sync) Run(c *cli.Context) error {
 
 	onlySource, onlyDest, commonObjects := compareObjects(sourceObjects, destObjects)
 
+	sourceObjects = nil
+	destObjects = nil
+
 	waiter := parallel.NewWaiter()
 	var (
 		merrorWaiter error

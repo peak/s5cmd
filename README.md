@@ -378,10 +378,11 @@ cp, mv, rm, mb ...
 
 ### S3 ListObjects API Backward Compatibility
 
-The `--use-v1-api` flag will force using S3 ListObjects API instead of ListObjectsV2 API.
+The `--use-list-objects-v1` flag will force using S3 ListObjectsV1 API. This
+flag is useful for services that do not support ListObjectsV2 API.
 
 ```
-s5cmd --use-v1-api ls
+s5cmd --use-list-objects-v1 ls s3://bucket/
 ```
 
 ### Specifying credentials

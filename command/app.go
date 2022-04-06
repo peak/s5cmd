@@ -70,8 +70,8 @@ var app = &cli.App{
 			Usage: "do not sign requests: credentials will not be loaded if --no-sign-request is provided",
 		},
 		&cli.BoolFlag{
-			Name:  "use-v1-api",
-			Usage: "enable backward compatibility with ListObjects API and disable ListObjectsV2 API",
+			Name:  "use-list-objects-v1",
+			Usage: "use ListObjectsV1 API for services that don't support ListObjectsV2",
 		},
 	},
 	Before: func(c *cli.Context) error {
@@ -138,12 +138,12 @@ var app = &cli.App{
 // NewStorageOpts creates storage.Options object from the given context.
 func NewStorageOpts(c *cli.Context) storage.Options {
 	return storage.Options{
-		MaxRetries:    c.Int("retry-count"),
-		Endpoint:      c.String("endpoint-url"),
-		NoVerifySSL:   c.Bool("no-verify-ssl"),
-		DryRun:        c.Bool("dry-run"),
-		NoSignRequest: c.Bool("no-sign-request"),
-		APIv1Enabled:  c.Bool("use-v1-api"),
+		MaxRetries:       c.Int("retry-count"),
+		Endpoint:         c.String("endpoint-url"),
+		NoVerifySSL:      c.Bool("no-verify-ssl"),
+		DryRun:           c.Bool("dry-run"),
+		NoSignRequest:    c.Bool("no-sign-request"),
+		UseListObjectsV1: c.Bool("use-list-objects-v1"),
 	}
 }
 

@@ -25,9 +25,10 @@ func TestRunFromStdin(t *testing.T) {
 
 	input := strings.NewReader(
 		strings.Join([]string{
-			fmt.Sprintf("ls s3://%v/file1.txt", bucket),
 			" # this is a comment",
-			fmt.Sprintf("ls s3://%v/file2.txt # this is an inline comment", bucket),
+			fmt.Sprintf("ls s3://%v/file1.txt", bucket),
+			"# this one too",
+			fmt.Sprintf("ls s3://%v/file2.txt", bucket),
 		}, "\n"),
 	)
 	cmd := s5cmd("run")
@@ -39,6 +40,35 @@ func TestRunFromStdin(t *testing.T) {
 		0: suffix("file1.txt"),
 		1: suffix("file2.txt"),
 	}, sortInput(true))
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{})
+}
+
+func TestRunFromStdinIssue309(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+	putFile(t, s3client, bucket, "test #3 /bar.jpg", "content")
+
+	input := strings.NewReader(
+		strings.Join([]string{
+			" # this is a comment",
+			fmt.Sprintf("mv 's3://%v/test #3 /bar.jpg' 's3://%v/test #3/bar.jpg'", bucket, bucket),
+		}, "\n"),
+	)
+	cmd := s5cmd("run")
+	result := icmd.RunCmd(cmd, icmd.WithStdin(input))
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: suffix("mv s3://test-run-from-stdin-issue-309/test #3 /bar.jpg s3://test-run-from-stdin-issue-309/test #3/bar.jpg"),
+	})
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{})
 }

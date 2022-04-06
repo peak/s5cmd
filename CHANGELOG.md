@@ -2,9 +2,12 @@
 
 ## not released yet
 
+#### Breaking changes
+- Dropped inline comment feature for `run` command. Previously s5cmd supported a command with an inline comment like `ls s3://bucket/object.gz  # inline comment`. ([#309](https://github.com/peak/s5cmd/issues/309))
+
 #### Features
 - Added `--ignore-glacier-warnings` flag to `cp`, `mv` and `select` commands. ([#346](https://github.com/peak/s5cmd/issues/346))
-- Added `--force-glacier-transfer` flag to `select` command. ([#404](https://github.com/peak/s5cmd/pull/404))
+- Added `--force-glacier-transfer` flag to `select` command. ([#346](https://github.com/peak/s5cmd/issues/346))
 - Added AWS Single Sign-On (SSO) profiles support ([#385](https://github.com/peak/s5cmd/issues/385))
 - Added `--use-v1-api` flag to force using S3 ListObjects API instead of ListObjectsV2 API. ([#405](https://github.com/peak/s5cmd/issues/405)
 

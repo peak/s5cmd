@@ -160,29 +160,27 @@ func (s Sync) Run(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	sourceClient, err := storage.NewClient(c.Context, srcurl, s.storageOpts)
-	if err != nil {
-		return err
-	}
-
-	isBatch := srcurl.IsWildcard()
-	if !isBatch && !srcurl.IsRemote() {
-		obj, _ := sourceClient.Stat(c.Context, srcurl)
-		isBatch = obj != nil && obj.Type.IsDir()
-	}
 
 	sourceObjects, destObjects, err := s.getSourceAndDestinationObjects(c.Context, srcurl, dsturl)
 	if err != nil {
 		printError(s.fullCommand, s.op, err)
 		return err
 	}
+
+	isBatch := srcurl.IsWildcard()
+	if !isBatch && !srcurl.IsRemote() {
+		sourceClient, err := storage.NewClient(c.Context, srcurl, s.storageOpts)
+		if err != nil {
+			return err
+		}
+
+		obj, _ := sourceClient.Stat(c.Context, srcurl)
+		isBatch = obj != nil && obj.Type.IsDir()
+	}
+
 	onlySource, onlyDest, commonObjects := compareObjects(sourceObjects, destObjects)
 
-	sourceObjects = nil
-	destObjects = nil
-
 	waiter := parallel.NewWaiter()
-
 	var (
 		merrorWaiter error
 		errDoneCh    = make(chan bool)
@@ -219,12 +217,18 @@ func (s Sync) Run(c *cli.Context) error {
 // https://github.com/rclone/rclone/blob/HEAD/fs/march/march.go#L304
 func compareObjects(sourceObjects, destObjects []*storage.Object) ([]*url.URL, []*url.URL, []*ObjectPair) {
 	// sort the source and destination objects.
-	sort.SliceStable(sourceObjects, func(i, j int) bool { return sourceObjects[i].URL.Relative() < sourceObjects[j].URL.Relative() })
-	sort.SliceStable(destObjects, func(i, j int) bool { return destObjects[i].URL.Relative() < destObjects[j].URL.Relative() })
+	sort.SliceStable(sourceObjects, func(i, j int) bool {
+		return sourceObjects[i].URL.Relative() < sourceObjects[j].URL.Relative()
+	})
+	sort.SliceStable(destObjects, func(i, j int) bool {
+		return destObjects[i].URL.Relative() < destObjects[j].URL.Relative()
+	})
 
-	var srcOnly []*url.URL
-	var dstOnly []*url.URL
-	var commonObj []*ObjectPair
+	var (
+		srcOnly   []*url.URL
+		dstOnly   []*url.URL
+		commonObj []*ObjectPair
+	)
 
 	for iSrc, iDst := 0, 0; ; iSrc, iDst = iSrc+1, iDst+1 {
 		var srcObject, dstObject *storage.Object
@@ -281,9 +285,24 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 		return nil, nil, err
 	}
 
-	var sourceObjects []*storage.Object
-	var destObjects []*storage.Object
-	var wg sync.WaitGroup
+	// add * to end of destination string, to get all objects recursively.
+	var destinationURLPath string
+	if strings.HasSuffix(s.dst, "/") {
+		destinationURLPath = s.dst + "*"
+	} else {
+		destinationURLPath = s.dst + "/*"
+	}
+
+	destObjectsURL, err := url.New(destinationURLPath)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var (
+		sourceObjects []*storage.Object
+		destObjects   []*storage.Object
+		wg            sync.WaitGroup
+	)
 
 	// get source objects.
 	wg.Add(1)
@@ -297,19 +316,6 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 			sourceObjects = append(sourceObjects, srcObject)
 		}
 	}()
-
-	// add * to end of destination string, to get all objects recursively.
-	var destinationURLPath string
-	if strings.HasSuffix(s.dst, "/") {
-		destinationURLPath = s.dst + "*"
-	} else {
-		destinationURLPath = s.dst + "/*"
-	}
-
-	destObjectsURL, err := url.New(destinationURLPath)
-	if err != nil {
-		return nil, nil, err
-	}
 
 	// get destination objects.
 	wg.Add(1)

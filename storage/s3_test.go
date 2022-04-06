@@ -139,7 +139,7 @@ func TestS3ListURL(t *testing.T) {
 		api: mockApi,
 	}
 
-	mockApi.Handlers.Send.Clear() // mock sending
+	mockApi.Handlers.Send.Clear()
 	mockApi.Handlers.Unmarshal.Clear()
 	mockApi.Handlers.UnmarshalMeta.Clear()
 	mockApi.Handlers.ValidateResponse.Clear()
@@ -241,7 +241,7 @@ func TestS3ListNoItemFound(t *testing.T) {
 		api: mockApi,
 	}
 
-	mockApi.Handlers.Send.Clear() // mock sending
+	mockApi.Handlers.Send.Clear()
 	mockApi.Handlers.Unmarshal.Clear()
 	mockApi.Handlers.UnmarshalMeta.Clear()
 	mockApi.Handlers.ValidateResponse.Clear()
@@ -457,7 +457,7 @@ func TestS3Retry(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			mockApi.Handlers.Send.Clear() // mock sending
+			mockApi.Handlers.Send.Clear()
 			mockApi.Handlers.Unmarshal.Clear()
 			mockApi.Handlers.UnmarshalMeta.Clear()
 			mockApi.Handlers.ValidateResponse.Clear()
@@ -983,6 +983,57 @@ func TestSessionAutoRegion(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestS3ListObjectsAPIVersions(t *testing.T) {
+	url, err := url.New("s3://bucket/key")
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	mockApi := s3.New(unit.Session)
+	mockS3 := &S3{api: mockApi}
+
+	mockApi.Handlers.Send.Clear()
+	mockApi.Handlers.Unmarshal.Clear()
+	mockApi.Handlers.UnmarshalMeta.Clear()
+	mockApi.Handlers.ValidateResponse.Clear()
+
+	t.Run("list-objects-v2", func(t *testing.T) {
+		var got interface{}
+		mockApi.Handlers.ValidateResponse.PushBack(func(r *request.Request) {
+			got = r.Data
+		})
+
+		ctx := context.Background()
+		mockS3.useListObjectsV1 = false
+		for range mockS3.List(ctx, url, false) {
+		}
+
+		expected := &s3.ListObjectsV2Output{}
+
+		if reflect.TypeOf(expected) != reflect.TypeOf(got) {
+			t.Errorf("expected %T, got: %T", expected, got)
+		}
+	})
+
+	t.Run("list-objects-v1", func(t *testing.T) {
+		var got interface{}
+		mockApi.Handlers.ValidateResponse.PushBack(func(r *request.Request) {
+			got = r.Data
+		})
+
+		ctx := context.Background()
+		mockS3.useListObjectsV1 = true
+		for range mockS3.List(ctx, url, false) {
+		}
+
+		expected := &s3.ListObjectsOutput{}
+
+		if reflect.TypeOf(expected) != reflect.TypeOf(got) {
+			t.Errorf("expected %T, got: %T", expected, got)
+		}
+	})
 }
 
 func valueAtPath(i interface{}, s string) interface{} {

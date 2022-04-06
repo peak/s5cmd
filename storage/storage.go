@@ -48,14 +48,14 @@ func NewLocalClient(opts Options) *Filesystem {
 
 func NewRemoteClient(ctx context.Context, url *url.URL, opts Options) (*S3, error) {
 	newOpts := Options{
-		MaxRetries:    opts.MaxRetries,
-		Endpoint:      opts.Endpoint,
-		NoVerifySSL:   opts.NoVerifySSL,
-		DryRun:        opts.DryRun,
-		NoSignRequest: opts.NoSignRequest,
-		APIv1Enabled:  opts.APIv1Enabled,
-		bucket:        url.Bucket,
-		region:        opts.region,
+		MaxRetries:       opts.MaxRetries,
+		Endpoint:         opts.Endpoint,
+		NoVerifySSL:      opts.NoVerifySSL,
+		DryRun:           opts.DryRun,
+		NoSignRequest:    opts.NoSignRequest,
+		UseListObjectsV1: opts.UseListObjectsV1,
+		bucket:           url.Bucket,
+		region:           opts.region,
 	}
 	return newS3Storage(ctx, newOpts)
 }
@@ -69,14 +69,14 @@ func NewClient(ctx context.Context, url *url.URL, opts Options) (Storage, error)
 
 // Options stores configuration for storage.
 type Options struct {
-	MaxRetries    int
-	Endpoint      string
-	NoVerifySSL   bool
-	DryRun        bool
-	NoSignRequest bool
-	APIv1Enabled  bool
-	bucket        string
-	region        string
+	MaxRetries       int
+	Endpoint         string
+	NoVerifySSL      bool
+	DryRun           bool
+	NoSignRequest    bool
+	UseListObjectsV1 bool
+	bucket           string
+	region           string
 }
 
 func (o *Options) SetRegion(region string) {

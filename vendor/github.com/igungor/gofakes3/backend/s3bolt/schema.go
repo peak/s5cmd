@@ -10,8 +10,8 @@ import (
 	"bytes"
 	"time"
 
-	"github.com/johannesboyne/gofakes3"
-	"github.com/johannesboyne/gofakes3/internal/s3io"
+	"github.com/igungor/gofakes3"
+	"github.com/igungor/gofakes3/internal/s3io"
 	bolt "go.etcd.io/bbolt"
 	"gopkg.in/mgo.v2/bson"
 )

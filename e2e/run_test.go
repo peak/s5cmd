@@ -44,6 +44,35 @@ func TestRunFromStdin(t *testing.T) {
 	assertLines(t, result.Stderr(), map[int]compareFunc{})
 }
 
+func TestRunFromStdinIssue309(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+	putFile(t, s3client, bucket, "test #3 /bar.jpg", "content")
+
+	input := strings.NewReader(
+		strings.Join([]string{
+			" # this is a comment",
+			fmt.Sprintf("mv 's3://%v/test #3 /bar.jpg' 's3://%v/test #3/bar.jpg'", bucket, bucket),
+		}, "\n"),
+	)
+	cmd := s5cmd("run")
+	result := icmd.RunCmd(cmd, icmd.WithStdin(input))
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: suffix("mv s3://test-run-from-stdin-issue-309/test #3 /bar.jpg s3://test-run-from-stdin-issue-309/test #3/bar.jpg"),
+	})
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{})
+}
+
 func TestRunFromStdinWithErrors(t *testing.T) {
 	t.Parallel()
 

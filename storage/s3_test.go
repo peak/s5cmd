@@ -139,7 +139,7 @@ func TestS3ListURL(t *testing.T) {
 		api: mockApi,
 	}
 
-	mockApi.Handlers.Send.Clear() // mock sending
+	mockApi.Handlers.Send.Clear()
 	mockApi.Handlers.Unmarshal.Clear()
 	mockApi.Handlers.UnmarshalMeta.Clear()
 	mockApi.Handlers.ValidateResponse.Clear()
@@ -241,7 +241,7 @@ func TestS3ListNoItemFound(t *testing.T) {
 		api: mockApi,
 	}
 
-	mockApi.Handlers.Send.Clear() // mock sending
+	mockApi.Handlers.Send.Clear()
 	mockApi.Handlers.Unmarshal.Clear()
 	mockApi.Handlers.UnmarshalMeta.Clear()
 	mockApi.Handlers.ValidateResponse.Clear()
@@ -457,7 +457,7 @@ func TestS3Retry(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			mockApi.Handlers.Send.Clear() // mock sending
+			mockApi.Handlers.Send.Clear()
 			mockApi.Handlers.Unmarshal.Clear()
 			mockApi.Handlers.UnmarshalMeta.Clear()
 			mockApi.Handlers.ValidateResponse.Clear()
@@ -994,7 +994,7 @@ func TestS3ListObjectsAPIVersions(t *testing.T) {
 	mockApi := s3.New(unit.Session)
 	mockS3 := &S3{api: mockApi}
 
-	mockApi.Handlers.Send.Clear() // mock sending
+	mockApi.Handlers.Send.Clear()
 	mockApi.Handlers.Unmarshal.Clear()
 	mockApi.Handlers.UnmarshalMeta.Clear()
 	mockApi.Handlers.ValidateResponse.Clear()

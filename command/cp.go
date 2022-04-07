@@ -94,6 +94,9 @@ Examples:
 
 	19. Copy all files from S3 bucket to another S3 bucket but exclude the ones starts with log
 		 > s5cmd {{.HelpName}} --exclude "log*" s3://bucket/* s3://destbucket
+
+	20. Download an S3 object from a requester pays bucket
+		 > s5cmd --request-payer=requester {{.HelpName}} s3://bucket/prefix/object.gz .
 `
 
 func NewSharedFlags() []cli.Flag {

@@ -42,6 +42,9 @@ Examples:
 
 	6. List all objects in a bucket but exclude the ones with prefix abc
 		 > s5cmd {{.HelpName}} --exclude "abc*" s3://bucket/*
+
+	7. List all object in a requester pays bucket
+		 > s5cmd --request-payer=requester {{.HelpName}} s3://bucket/*
 `
 
 func NewListCommand() *cli.Command {

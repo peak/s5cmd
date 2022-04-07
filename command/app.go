@@ -73,6 +73,10 @@ var app = &cli.App{
 			Name:  "use-list-objects-v1",
 			Usage: "use ListObjectsV1 API for services that don't support ListObjectsV2",
 		},
+		&cli.StringFlag{
+			Name:  "request-payer",
+			Usage: "who pays for request (access requester pays buckets)",
+		},
 	},
 	Before: func(c *cli.Context) error {
 		retryCount := c.Int("retry-count")
@@ -144,6 +148,7 @@ func NewStorageOpts(c *cli.Context) storage.Options {
 		DryRun:           c.Bool("dry-run"),
 		NoSignRequest:    c.Bool("no-sign-request"),
 		UseListObjectsV1: c.Bool("use-list-objects-v1"),
+		RequestPayer:     c.String("request-payer"),
 	}
 }
 

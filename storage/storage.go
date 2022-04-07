@@ -48,7 +48,6 @@ func NewLocalClient(opts Options) *Filesystem {
 
 func NewRemoteClient(ctx context.Context, url *url.URL, opts Options) (*S3, error) {
 	newOpts := Options{
-		Debug:            opts.Debug,
 		MaxRetries:       opts.MaxRetries,
 		Endpoint:         opts.Endpoint,
 		NoVerifySSL:      opts.NoVerifySSL,
@@ -77,7 +76,6 @@ type Options struct {
 	DryRun           bool
 	NoSignRequest    bool
 	UseListObjectsV1 bool
-	Debug            bool
 	RequestPayer     string
 	bucket           string
 	region           string

@@ -792,7 +792,8 @@ func (sc *SessionCache) newSession(ctx context.Context, opts Options) (*session.
 		WithS3UseAccelerate(useAccelerate).
 		WithHTTPClient(httpClient)
 
-	if opts.Debug {
+	debug := os.Getenv("AWS_DEBUG")
+	if strings.EqualFold(debug, "True") {
 		awsCfg = awsCfg.WithLogLevel(aws.LogDebug)
 	}
 

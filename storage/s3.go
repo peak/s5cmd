@@ -792,6 +792,10 @@ func (sc *SessionCache) newSession(ctx context.Context, opts Options) (*session.
 		WithS3UseAccelerate(useAccelerate).
 		WithHTTPClient(httpClient)
 
+	if opts.Debug {
+		awsCfg = awsCfg.WithLogLevel(aws.LogDebug)
+	}
+
 	awsCfg.Retryer = newCustomRetryer(opts.MaxRetries)
 
 	useSharedConfig := session.SharedConfigEnable

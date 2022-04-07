@@ -3,6 +3,7 @@ package command
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	cmpinstall "github.com/posener/complete/cmd/install"
 	"github.com/urfave/cli/v2"
@@ -141,14 +142,20 @@ var app = &cli.App{
 
 // NewStorageOpts creates storage.Options object from the given context.
 func NewStorageOpts(c *cli.Context) storage.Options {
+	debug := false
+	if !c.Bool("json") && strings.EqualFold(c.String("log"), "debug") {
+		debug = true
+	}
+
 	return storage.Options{
-		MaxRetries:       c.Int("retry-count"),
-		Endpoint:         c.String("endpoint-url"),
-		NoVerifySSL:      c.Bool("no-verify-ssl"),
+		Debug:            debug,
 		DryRun:           c.Bool("dry-run"),
+		Endpoint:         c.String("endpoint-url"),
+		MaxRetries:       c.Int("retry-count"),
 		NoSignRequest:    c.Bool("no-sign-request"),
-		UseListObjectsV1: c.Bool("use-list-objects-v1"),
+		NoVerifySSL:      c.Bool("no-verify-ssl"),
 		RequestPayer:     c.String("request-payer"),
+		UseListObjectsV1: c.Bool("use-list-objects-v1"),
 	}
 }
 

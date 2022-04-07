@@ -494,6 +494,12 @@ ERROR "cp s3://somebucket/file.txt file.txt": object already exists
     "error": "'cp s3://somebucket/file.txt file.txt': object already exists"
 }
 ```
+
+* If you want to enable SDK-level debug logs, set `AWS_DEBUG` environment variable:
+
+```shell
+AWS_DEBUG=True s5cmd cp s3://somebucket/file.txt file.txt
+```
 ## Benchmarks
 Some benchmarks regarding the performance of `s5cmd` are introduced below. For more
 details refer to this [post](https://medium.com/@joshua_robinson/s5cmd-for-high-performance-object-storage-7071352cc09d)

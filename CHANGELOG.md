@@ -12,8 +12,8 @@
 - Added `--use-list-objects-v1` flag to force using S3 ListObjects API instead of ListObjectsV2 API. ([#405](https://github.com/peak/s5cmd/issues/405)
 
 #### Improvements
-
 - Upgrade minimum required Go version to 1.16.
+- Print SDK debug logs if log level is set to debug and `--json` flag is not given.
 
 #### Bugfixes
 - Fixed a bug about precedence of region detection, which auto region detection would always override region defined in environment or profile. ([#325](https://github.com/peak/s5cmd/issues/325))

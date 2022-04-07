@@ -47,10 +47,13 @@ func NewSelectCommand() *cli.Command {
 				Usage: "input compression format",
 				Value: "NONE",
 			},
-			&cli.StringFlag{
+			&cli.GenericFlag{
 				Name:  "format",
 				Usage: "input data format (only JSON supported for the moment)",
-				Value: "JSON",
+				Value: &EnumValue{
+					Enum:    []string{"JSON"},
+					Default: "JSON",
+				},
 			},
 			&cli.StringSliceFlag{
 				Name:  "exclude",

@@ -48,10 +48,13 @@ var app = &cli.App{
 			Name:  "no-verify-ssl",
 			Usage: "disable SSL certificate verification",
 		},
-		&cli.StringFlag{
-			Name:  "log",
-			Value: "info",
-			Usage: "log level: (debug, info, error)",
+		&cli.GenericFlag{
+			Name: "log",
+			Value: &EnumValue{
+				Enum:    []string{"trace", "debug", "info", "error"},
+				Default: "info",
+			},
+			Usage: "log level: (trace, debug, info, error)",
 		},
 		&cli.BoolFlag{
 			Name:  "install-completion",

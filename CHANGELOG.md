@@ -8,7 +8,7 @@
 #### Features
 - Added `--ignore-glacier-warnings` flag to `cp`, `mv` and `select` commands. ([#346](https://github.com/peak/s5cmd/issues/346))
 - Added `--force-glacier-transfer` flag to `select` command. ([#346](https://github.com/peak/s5cmd/issues/346))
-- Added AWS Single Sign-On (SSO) profiles support ([#385](https://github.com/peak/s5cmd/issues/385))
+- Added AWS Single Sign-On (SSO) profiles support. ([#385](https://github.com/peak/s5cmd/issues/385))
 - Added `--use-list-objects-v1` flag to force using S3 ListObjects API instead of ListObjectsV2 API. ([#405](https://github.com/peak/s5cmd/issues/405))
 - Added `--request-payer` flag to include `x-amz-request-payer` in header while sending GET, POST and HEAD requests. ([#297](https://github.com/peak/s5cmd/issues/297))
 - Added trace log level(`--log=trace`) which enables SDK debug logs.([#363](https://github.com/peak/s5cmd/issues/363))

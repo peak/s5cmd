@@ -455,7 +455,7 @@ via `--retry-count` flag.
 
 ## Using wildcards
 
-One some shells, like zsh, the `*` character gets treated as a file globbing
+On some shells, like zsh, the `*` character gets treated as a file globbing
 wildcard, which causes unexpected results for `s5cmd`. You might see an output
 like:
 

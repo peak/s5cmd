@@ -466,7 +466,7 @@ zsh: no matches found
 If that happens, you need to wrap your command in single quotes, like:
 
 ```
-s5cmd cp *.gz s3://bucket/
+s5cmd cp '*.gz' s3://bucket/
 ```
 
 ## Output

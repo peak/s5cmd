@@ -50,10 +50,12 @@ changelog:
 brews:
   - tap:
       owner: peak
-      name: s5cmd
+      name: homebrew-tap
     folder: Formula
-    homepage:  https://github.com/peak/s5cmd
+    name: s5cmd
     description: Parallel S3 and local filesystem execution tool
+    homepage:  https://github.com/peak/s5cmd
+    license: MIT
     test: |
       system "#{bin}/s5cmd version"
 

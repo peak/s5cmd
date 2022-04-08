@@ -4,6 +4,7 @@
 
 #### Breaking changes
 - Dropped inline comment feature for `run` command. Previously s5cmd supported a command with an inline comment like `ls s3://bucket/object.gz  # inline comment`. ([#309](https://github.com/peak/s5cmd/issues/309))
+- Print usage errors to stderr instead of stdout and do not show help text on usage error. ([#399](https://github.com/peak/s5cmd/issues/399))
 
 #### Features
 - Added `--ignore-glacier-warnings` flag to `cp`, `mv` and `select` commands. ([#346](https://github.com/peak/s5cmd/issues/346))

@@ -115,6 +115,10 @@ func (l logLevel) String() string {
 	case levelDebug:
 		return "DEBUG "
 	case levelTrace:
+		// levelTrace is used for printing aws sdk logs and
+		// aws-sdk-go already adds "DEBUG" prefix to logs.
+		// So do not add another prefix to log which makes it
+		// look weird.
 		return ""
 	default:
 		return "UNKNOWN "

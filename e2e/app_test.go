@@ -101,3 +101,20 @@ func TestAppUnknownCommand(t *testing.T) {
 		0: equals(`ERROR "unknown-command": command not found`),
 	})
 }
+
+func TestUsageError(t *testing.T) {
+	t.Parallel()
+
+	_, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	cmd := s5cmd("--recursive", "ls")
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Expected{ExitCode: 1})
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{})
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: equals("Incorrect Usage. flag provided but not defined: -recursive"),
+	}, strictLineCheck(false))
+}

@@ -3,6 +3,7 @@ package command
 import (
 	"context"
 	"fmt"
+	"os"
 
 	cmpinstall "github.com/posener/complete/cmd/install"
 	"github.com/urfave/cli/v2"
@@ -110,6 +111,16 @@ var app = &cli.App{
 		// After callback is not called if app exists with cli.Exit.
 		parallel.Close()
 		log.Close()
+	},
+	OnUsageError: func(c *cli.Context, err error, isSubcommand bool) error {
+		if err != nil {
+			_, _ = fmt.Fprintf(os.Stderr, "%s %s\n\n", "Incorrect Usage.", err.Error())
+			c.App.Writer = os.Stderr
+			_ = cli.ShowAppHelp(c)
+			return err
+		}
+
+		return nil
 	},
 	Action: func(c *cli.Context) error {
 		if c.Bool("install-completion") {

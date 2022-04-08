@@ -114,9 +114,8 @@ var app = &cli.App{
 	},
 	OnUsageError: func(c *cli.Context, err error, isSubcommand bool) error {
 		if err != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "%s %s\n\n", "Incorrect Usage.", err.Error())
-			c.App.Writer = os.Stderr
-			_ = cli.ShowAppHelp(c)
+			_, _ = fmt.Fprintf(os.Stderr, "%s %s\n", "Incorrect Usage:", err.Error())
+			_, _ = fmt.Fprintf(os.Stderr, "See 's5cmd --help' for usage\n")
 			return err
 		}
 

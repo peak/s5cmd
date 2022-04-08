@@ -115,6 +115,7 @@ func TestUsageError(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{})
 	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: equals("Incorrect Usage. flag provided but not defined: -recursive"),
-	}, strictLineCheck(false))
+		0: equals("Incorrect Usage: flag provided but not defined: -recursive"),
+		1: equals("See 's5cmd --help' for usage"),
+	})
 }

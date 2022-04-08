@@ -463,7 +463,7 @@ like:
 zsh: no matches found
 ```
 
-If that happens, you need to wrap your command in single quotes, like:
+If that happens, you need to wrap your wildcard expression in single quotes, like:
 
 ```
 s5cmd cp '*.gz' s3://bucket/

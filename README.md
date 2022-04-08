@@ -57,8 +57,7 @@ binaries for Linux, macOS and Windows.
 
 For macOS, a [homebrew](https://brew.sh) tap is provided:
 
-    brew tap peak/s5cmd https://github.com/peak/s5cmd
-    brew install s5cmd
+    brew install peak/tap/s5cmd
 
 ### MacPorts
 

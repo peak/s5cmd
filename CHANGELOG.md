@@ -4,17 +4,19 @@
 
 #### Breaking changes
 - Dropped inline comment feature for `run` command. Previously s5cmd supported a command with an inline comment like `ls s3://bucket/object.gz  # inline comment`. ([#309](https://github.com/peak/s5cmd/issues/309))
+- Changed homebrew installation command on macOS. Users can install s5cmd via `brew install peak/tap/s5cmd`. ([#356](https://github.com/peak/s5cmd/issues/356))
 
 #### Features
-- Added `--ignore-glacier-warnings` flag to `cp`, `mv` and `select` commands. ([#346](https://github.com/peak/s5cmd/issues/346))
-- Added `--force-glacier-transfer` flag to `select` command. ([#346](https://github.com/peak/s5cmd/issues/346))
+- Added `sync` command to synchronize two given buckets, prefixes, or objects. ([#3](https://github.com/peak/s5cmd/issues/3))
 - Added AWS Single Sign-On (SSO) profiles support. ([#385](https://github.com/peak/s5cmd/issues/385))
-- Added `--use-list-objects-v1` flag to force using S3 ListObjects API instead of ListObjectsV2 API. ([#405](https://github.com/peak/s5cmd/issues/405))
-- Added `--request-payer` flag to include `x-amz-request-payer` in header while sending GET, POST and HEAD requests. ([#297](https://github.com/peak/s5cmd/issues/297))
+- Added `--force-glacier-transfer` flag to `select` command. ([#346](https://github.com/peak/s5cmd/issues/346))
+- Added `--ignore-glacier-warnings` flag to `cp`, `mv` and `select` commands. ([#346](https://github.com/peak/s5cmd/issues/346))
+- Added `--request-payer` flag to include `x-amz-request-payer` in header while sending GET, POST and HEAD requests. ([#297](https://github.com/peak/s5cmd/issues/297)) [@Kirill888](https://github.com/Kirill888)
+- Added `--use-list-objects-v1` flag to force using S3 ListObjects API instead of ListObjectsV2 API. ([#405](https://github.com/peak/s5cmd/issues/405)) [@greenpau](https://github.com/greenpau)
 - Added trace log level(`--log=trace`) which enables SDK debug logs.([#363](https://github.com/peak/s5cmd/issues/363))
 
 #### Improvements
-- Upgrade minimum required Go version to 1.16.
+- Upgraded minimum required Go version to 1.16.
 
 #### Bugfixes
 - Fixed a bug about precedence of region detection, which auto region detection would always override region defined in environment or profile. ([#325](https://github.com/peak/s5cmd/issues/325))
@@ -27,7 +29,7 @@
 #### Features
 
 - Added `select` command. It allows to select JSON records from objects using SQL expressions. ([#299](https://github.com/peak/s5cmd/issues/299)) [@skeggse](https://github.com/skeggse)
-- Added `rb` command to remove buckets. ([#303](https://github.com/peak/s5cmd/issues/303)).
+- Added `rb` command to remove buckets. ([#303](https://github.com/peak/s5cmd/issues/303))
 - Added `--exclude` flag to `cp`, `rm`, `ls`, `du` and `select` commands. This flag allows users to exclude objects with given pattern. ([#266](https://github.com/peak/s5cmd/issues/266))
 - Added `--raw` flag to `cp` and `rm` commands. It disables the wildcard operations. It is useful when an object contains glob characters which interfers with glob expansion logic. ([#235](https://github.com/peak/s5cmd/issues/235))
 - Added `--cache-control` and `--expires` flags to `cp` and `mv` commands. It adds support for setting cache control and expires header to S3 objects. ([#318](https://github.com/peak/s5cmd/pull/318)) [@tombokombo](https://github.com/tombokombo)
@@ -186,7 +188,7 @@ This is a major release with many breaking changes.
 
 #### Improvements
 
-- Pre-compiled binaries are provided on [releases page](https://github.com/peak/s5cmd/releases). ([#21](https://github.com/peak/s5cmd/issues/21))
+- Pre-compiled binaries are provided on [releases page](https://github.com/peak/s5cmd/releases) ([#21](https://github.com/peak/s5cmd/issues/21))
 - AWS Go SDK is updated to support IAM role for service accounts. ([#32](https://github.com/peak/s5cmd/issues/32))
 - For copy/move operations, `s5cmd` now creates destination directory if missing.
 - Increase the soft limit of open files to 1000 and exits immediately when it encounters `too many open files` error. ([#52](https://github.com/peak/s5cmd/issues/52))

@@ -459,10 +459,19 @@ via `--retry-count` flag.
 
 ## Using wildcards
 
-Most shells can attempt to expand wildcards before passing the arguments to
-`s5cmd`, resulting in surprising `no matches found` errors.
+On some shells, like zsh, the `*` character gets treated as a file globbing
+wildcard, which causes unexpected results for `s5cmd`. You might see an output
+like:
 
-To avoid this problem, surround the wildcarded expression with single quotes.
+```
+zsh: no matches found
+```
+
+If that happens, you need to wrap your wildcard expression in single quotes, like:
+
+```
+s5cmd cp '*.gz' s3://bucket/
+```
 
 ## Output
 

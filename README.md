@@ -84,9 +84,9 @@ development happens on `master` branch.
     $ docker pull peakcom/s5cmd
     $ docker run --rm -v ~/.aws:/root/.aws peakcom/s5cmd <S3 operation>
 
-ℹ️ For accesing host filesystem add `-v $(pwd):/aws` to `docker run` flags. Container uses `/aws/` as default working directory.
+ℹ️ `/aws` directory is the working directory of the image. Mounting your current working directory to it allows you to run `s5cmd` as if it was installed in your system;
 
-⚠️ Note that only relative paths are allowed and only to files in `$(pwd)` and its subdirectories. Otherwise, the files won't be accessible in the container in the same way.
+    docker run --rm -v $(pwd):/aws -v ~/.aws:/root/.aws peakcom/s5cmd <S3 operation>
 
 #### Build
     $ git clone https://github.com/peak/s5cmd && cd s5cmd

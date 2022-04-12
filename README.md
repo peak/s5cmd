@@ -389,7 +389,6 @@ requests to AWS. Credentials can be provided in a variety of ways:
 The SDK detects and uses the built-in providers automatically, without requiring
 manual configurations.
 
-`s5cmd` reads `.aws/credentials` to access Google Cloud Storage. Populate the `aws_access_key_ID` and `aws_secret_access_key` fields in `.aws/credentials` with an HMAC key created using the Google Cloud console or `gsutil`.
 
 ### Region detection
 
@@ -431,7 +430,7 @@ or an alternative with environment variable
 
 all variants will return your GCS buckets.
 
-`s5cmd` reads `.aws/credentials` to access Google Cloud Storage. Populate the `aws_access_key_id` and `aws_secret_access_key` fields in `.aws/credentials` with an HMAC key created using the Google Cloud console or `gsutil`.
+`s5cmd` reads `.aws/credentials` to access Google Cloud Storage. Populate the `aws_access_key_id` and `aws_secret_access_key` fields in `.aws/credentials` with an HMAC key created using this [procedure](https://cloud.google.com/storage/docs/authentication/managing-hmackeys#create).
 
 `s5cmd` will use virtual-host style bucket resolving for S3, S3 transfer
 acceleration and GCS. If a custom endpoint is provided, it'll fallback to

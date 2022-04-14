@@ -58,6 +58,14 @@ brews:
     license: MIT
     test: |
       system "#{bin}/s5cmd version"
+      
+nfpms:
+  -
+    vendor: Peak
+    homepage:  https://github.com/peak/s5cmd
+    license: MIT
+    formats:
+      - deb
 
 release:
   draft: true

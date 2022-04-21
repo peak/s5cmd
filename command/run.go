@@ -3,6 +3,7 @@ package command
 import (
 	"bufio"
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -153,12 +154,16 @@ func (r Run) Run(ctx context.Context) error {
 	waiter.Wait()
 	<-errDoneCh
 
+	if scanner.Err() != nil {
+		printError(commandFromContext(r.c), r.c.Command.Name, scanner.Err())
+	}
+
 	return multierror.Append(merrorWaiter, scanner.Err()).ErrorOrNil()
 }
 
 // Scanner is a cancelable scanner.
 type Scanner struct {
-	*bufio.Scanner
+	*bufio.Reader
 	err    error
 	linech chan string
 	ctx    context.Context
@@ -167,13 +172,32 @@ type Scanner struct {
 // NewScanner creates a new scanner with cancellation.
 func NewScanner(ctx context.Context, r io.Reader) *Scanner {
 	scanner := &Scanner{
-		ctx:     ctx,
-		Scanner: bufio.NewScanner(r),
-		linech:  make(chan string),
+		ctx:    ctx,
+		Reader: bufio.NewReader(r),
+		linech: make(chan string),
 	}
 
 	go scanner.scan()
 	return scanner
+}
+
+func (s *Scanner) readLine() (string, error) {
+	var (
+		isPrefix = true
+		err      error
+		line, ln []byte
+	)
+
+	// If the line was too long for the buffer then isPrefix is set and
+	// the beginning of the line is returned. The rest of the line will be
+	// returned from future calls. isPrefix will be false when returning
+	// the last fragment of the line.
+	for isPrefix && err == nil {
+		line, isPrefix, err = s.Reader.ReadLine()
+		ln = append(ln, line...)
+	}
+
+	return string(ln), err
 }
 
 // scan read the underlying reader.
@@ -186,11 +210,16 @@ func (s *Scanner) scan() {
 			s.err = s.ctx.Err()
 			return
 		default:
-			if !s.Scanner.Scan() {
-				return
+			line, err := s.readLine()
+			if err != nil {
+				if err == io.EOF {
+					return
+				}
+				s.err = multierror.Append(s.err, err)
+				continue
 			}
 
-			s.linech <- s.Scanner.Text()
+			s.linech <- line
 		}
 	}
 }
@@ -202,11 +231,11 @@ func (s *Scanner) Scan() <-chan string {
 
 // Err returns encountered errors, if any.
 func (s *Scanner) Err() error {
-	if s.err != nil {
-		return s.err
+	if errors.Is(s.err, context.Canceled) {
+		return context.Canceled
 	}
 
-	return s.Scanner.Err()
+	return multierror.Append(s.err).ErrorOrNil()
 }
 
 func validateRunCommand(c *cli.Context) error {

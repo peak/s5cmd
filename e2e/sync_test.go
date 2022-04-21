@@ -1622,7 +1622,7 @@ func TestSyncLocalDirectoryToS3WithExcludeFilter(t *testing.T) {
 	}
 }
 
-// rm s3://bucket/* (removes 10k objects)
+// sync --delete somedir s3://bucket/ (removes 10k objects)
 func TestIssue435(t *testing.T) {
 	t.Parallel()
 

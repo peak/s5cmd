@@ -24,6 +24,7 @@
 - Fixed a bug where errors did not result a non-zero exit code. ([#304](https://github.com/peak/s5cmd/issues/304))
 - Print error if the commands file of `run` command is not accessible. ([#410](https://github.com/peak/s5cmd/pull/410))
 - Updated region detection call to use current session's address resolving method ([#314](https://github.com/peak/s5cmd/issues/314))
+- Fixed a bug where lines with large tokens fail in `run` command. `sync` was failing when it finds multiple files to remove. ([#435](https://github.com/peak/s5cmd/issues/435), [#436](https://github.com/peak/s5cmd/issues/436))
 
 ## v1.4.0 - 21 Sep 2021
 

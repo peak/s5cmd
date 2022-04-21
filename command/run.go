@@ -235,7 +235,7 @@ func (s *Scanner) Err() error {
 		return context.Canceled
 	}
 
-	return multierror.Append(s.err).ErrorOrNil()
+	return s.err
 }
 
 func validateRunCommand(c *cli.Context) error {

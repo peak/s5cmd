@@ -1,4 +1,5 @@
 [![Go Report](https://goreportcard.com/badge/github.com/peak/s5cmd)](https://goreportcard.com/report/github.com/peak/s5cmd) ![Github Actions Status](https://github.com/peak/s5cmd/workflows/CI/badge.svg)
+[![Packaging status](https://repology.org/badge/tiny-repos/s5cmd.svg)](https://repology.org/project/s5cmd/versions)
 
 ![](./doc/s5cmd_header.jpg)
 

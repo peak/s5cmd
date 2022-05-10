@@ -3,7 +3,6 @@ package command
 import (
 	"bufio"
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -213,10 +212,6 @@ func (r *Reader) Read() <-chan string {
 
 // Err returns encountered errors, if any.
 func (r *Reader) Err() error {
-	if errors.Is(r.err, context.Canceled) {
-		return context.Canceled
-	}
-
 	return r.err
 }
 

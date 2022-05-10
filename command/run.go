@@ -82,7 +82,6 @@ func NewRun(c *cli.Context, r io.Reader) Run {
 }
 
 func (r Run) Run(ctx context.Context) error {
-	reader := r.reader
 	pm := parallel.New(r.numWorkers)
 	defer pm.Close()
 
@@ -97,10 +96,10 @@ func (r Run) Run(ctx context.Context) error {
 		}
 	}()
 
-	scanner := NewScanner(ctx, reader)
+	reader := NewReader(ctx, r.reader)
 
 	lineno := -1
-	for line := range scanner.Scan() {
+	for line := range reader.Read() {
 		lineno++
 
 		line = strings.TrimSpace(line)
@@ -154,71 +153,71 @@ func (r Run) Run(ctx context.Context) error {
 	waiter.Wait()
 	<-errDoneCh
 
-	if scanner.Err() != nil {
-		printError(commandFromContext(r.c), r.c.Command.Name, scanner.Err())
+	if reader.Err() != nil {
+		printError(commandFromContext(r.c), r.c.Command.Name, reader.Err())
 	}
 
-	return multierror.Append(merrorWaiter, scanner.Err()).ErrorOrNil()
+	return multierror.Append(merrorWaiter, reader.Err()).ErrorOrNil()
 }
 
-// Scanner is a cancelable scanner.
-type Scanner struct {
+// Reader is a cancelable reader.
+type Reader struct {
 	*bufio.Reader
 	err    error
 	linech chan string
 	ctx    context.Context
 }
 
-// NewScanner creates a new scanner with cancellation.
-func NewScanner(ctx context.Context, r io.Reader) *Scanner {
-	scanner := &Scanner{
+// NewReader creates a new reader with cancellation.
+func NewReader(ctx context.Context, r io.Reader) *Reader {
+	reader := &Reader{
 		ctx:    ctx,
 		Reader: bufio.NewReader(r),
 		linech: make(chan string),
 	}
 
-	go scanner.scan()
-	return scanner
+	go reader.read()
+	return reader
 }
 
-// scan read the underlying reader.
-func (s *Scanner) scan() {
-	defer close(s.linech)
+// read reads lines from the underlying reader.
+func (r *Reader) read() {
+	defer close(r.linech)
 
 	for {
 		select {
-		case <-s.ctx.Done():
-			s.err = s.ctx.Err()
+		case <-r.ctx.Done():
+			r.err = r.ctx.Err()
 			return
 		default:
 			// If ReadString encounters an error before finding a delimiter,
 			// it returns the data read before the error and the error itself (often io.EOF).
-			line, err := s.ReadString('\n')
+			line, err := r.ReadString('\n')
 			if line != "" {
-				s.linech <- line
+				r.linech <- line
 			}
 			if err != nil {
 				if err == io.EOF {
 					return
 				}
-				s.err = multierror.Append(s.err, err)
+				r.err = multierror.Append(r.err, err)
 			}
 		}
 	}
 }
 
-// Scan returns read-only channel to consume lines.
-func (s *Scanner) Scan() <-chan string {
-	return s.linech
+// Read returns read-only channel to consume lines.
+func (r *Reader) Read() <-chan string {
+	return r.linech
 }
 
 // Err returns encountered errors, if any.
-func (s *Scanner) Err() error {
-	if errors.Is(s.err, context.Canceled) {
+func (r *Reader) Err() error {
+	if errors.Is(r.err, context.Canceled) {
 		return context.Canceled
 	}
 
-	return s.err
+	return r.err
 }
 
 func validateRunCommand(c *cli.Context) error {

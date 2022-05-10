@@ -181,25 +181,6 @@ func NewScanner(ctx context.Context, r io.Reader) *Scanner {
 	return scanner
 }
 
-func (s *Scanner) readLine() (string, error) {
-	var (
-		isPrefix = true
-		err      error
-		line, ln []byte
-	)
-
-	// If the line was too long for the buffer then isPrefix is set and
-	// the beginning of the line is returned. The rest of the line will be
-	// returned from future calls. isPrefix will be false when returning
-	// the last fragment of the line.
-	for isPrefix && err == nil {
-		line, isPrefix, err = s.Reader.ReadLine()
-		ln = append(ln, line...)
-	}
-
-	return string(ln), err
-}
-
 // scan read the underlying reader.
 func (s *Scanner) scan() {
 	defer close(s.linech)
@@ -210,16 +191,18 @@ func (s *Scanner) scan() {
 			s.err = s.ctx.Err()
 			return
 		default:
-			line, err := s.readLine()
+			// If ReadString encounters an error before finding a delimiter,
+			// it returns the data read before the error and the error itself (often io.EOF).
+			line, err := s.ReadString('\n')
+			if line != "" {
+				s.linech <- strings.TrimSpace(line)
+			}
 			if err != nil {
 				if err == io.EOF {
 					return
 				}
 				s.err = multierror.Append(s.err, err)
-				continue
 			}
-
-			s.linech <- line
 		}
 	}
 }

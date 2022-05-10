@@ -195,7 +195,7 @@ func (s *Scanner) scan() {
 			// it returns the data read before the error and the error itself (often io.EOF).
 			line, err := s.ReadString('\n')
 			if line != "" {
-				s.linech <- strings.TrimSpace(line)
+				s.linech <- line
 			}
 			if err != nil {
 				if err == io.EOF {

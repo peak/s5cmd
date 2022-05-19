@@ -49,10 +49,13 @@ var app = &cli.App{
 			Name:  "no-verify-ssl",
 			Usage: "disable SSL certificate verification",
 		},
-		&cli.StringFlag{
-			Name:  "log",
-			Value: "info",
-			Usage: "log level: (debug, info, error)",
+		&cli.GenericFlag{
+			Name: "log",
+			Value: &EnumValue{
+				Enum:    []string{"trace", "debug", "info", "error"},
+				Default: "info",
+			},
+			Usage: "log level: (trace, debug, info, error)",
 		},
 		&cli.BoolFlag{
 			Name:  "install-completion",
@@ -152,13 +155,13 @@ var app = &cli.App{
 // NewStorageOpts creates storage.Options object from the given context.
 func NewStorageOpts(c *cli.Context) storage.Options {
 	return storage.Options{
-		MaxRetries:       c.Int("retry-count"),
-		Endpoint:         c.String("endpoint-url"),
-		NoVerifySSL:      c.Bool("no-verify-ssl"),
 		DryRun:           c.Bool("dry-run"),
+		Endpoint:         c.String("endpoint-url"),
+		MaxRetries:       c.Int("retry-count"),
 		NoSignRequest:    c.Bool("no-sign-request"),
-		UseListObjectsV1: c.Bool("use-list-objects-v1"),
+		NoVerifySSL:      c.Bool("no-verify-ssl"),
 		RequestPayer:     c.String("request-payer"),
+		UseListObjectsV1: c.Bool("use-list-objects-v1"),
 	}
 }
 

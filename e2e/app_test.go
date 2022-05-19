@@ -119,3 +119,20 @@ func TestUsageError(t *testing.T) {
 		1: equals("See 's5cmd --help' for usage"),
 	})
 }
+
+func TestInvalidLoglevel(t *testing.T) {
+	t.Parallel()
+
+	_, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	cmd := s5cmd("--log", "notexist", "ls")
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Expected{ExitCode: 1})
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: equals(`Incorrect Usage: invalid value "notexist" for flag -log: allowed values: [trace, debug, info, error]`),
+		1: equals("See 's5cmd --help' for usage"),
+	})
+}

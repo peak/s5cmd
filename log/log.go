@@ -22,6 +22,11 @@ func Init(level string, json bool) {
 	global = New(level, json)
 }
 
+// Trace prints message in trace mode.
+func Trace(msg Message) {
+	global.printf(levelTrace, msg, os.Stdout)
+}
+
 // Debug prints message in debug mode.
 func Debug(msg Message) {
 	global.printf(levelDebug, msg, os.Stdout)
@@ -94,7 +99,8 @@ func (l *Logger) out() {
 type logLevel int
 
 const (
-	levelDebug logLevel = iota
+	levelTrace logLevel = iota
+	levelDebug
 	levelInfo
 	levelError
 )
@@ -108,6 +114,12 @@ func (l logLevel) String() string {
 		return "ERROR "
 	case levelDebug:
 		return "DEBUG "
+	case levelTrace:
+		// levelTrace is used for printing aws sdk logs and
+		// aws-sdk-go already adds "DEBUG" prefix to logs.
+		// So do not add another prefix to log which makes it
+		// look weird.
+		return ""
 	default:
 		return "UNKNOWN "
 	}
@@ -123,6 +135,8 @@ func levelFromString(s string) logLevel {
 		return levelInfo
 	case "error":
 		return levelError
+	case "trace":
+		return levelTrace
 	default:
 		return levelInfo
 	}

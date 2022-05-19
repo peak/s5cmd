@@ -740,6 +740,15 @@ func (s *S3) RemoveBucket(ctx context.Context, name string) error {
 	return err
 }
 
+type sdkLogger struct{}
+
+func (l sdkLogger) Log(args ...interface{}) {
+	msg := log.TraceMessage{
+		Message: fmt.Sprint(args...),
+	}
+	log.Trace(msg)
+}
+
 // SessionCache holds session.Session according to s3Opts and it synchronizes
 // access/modification.
 type SessionCache struct {
@@ -790,7 +799,9 @@ func (sc *SessionCache) newSession(ctx context.Context, opts Options) (*session.
 		WithEndpoint(endpointURL.String()).
 		WithS3ForcePathStyle(!isVirtualHostStyle).
 		WithS3UseAccelerate(useAccelerate).
-		WithHTTPClient(httpClient)
+		WithHTTPClient(httpClient).
+		WithLogLevel(aws.LogDebug).
+		WithLogger(sdkLogger{})
 
 	awsCfg.Retryer = newCustomRetryer(opts.MaxRetries)
 

@@ -6,6 +6,7 @@
 - Dropped inline comment feature for `run` command. Previously s5cmd supported a command with an inline comment like `ls s3://bucket/object.gz  # inline comment`. ([#309](https://github.com/peak/s5cmd/issues/309))
 - Changed homebrew installation command on macOS. Users can install s5cmd via `brew install peak/tap/s5cmd`. ([#356](https://github.com/peak/s5cmd/issues/356))
 - Print usage errors to stderr instead of stdout and do not show help text on usage error. ([#399](https://github.com/peak/s5cmd/issues/399))
+- Working directory of the Docker image changed to `/aws` from `/`. ([#412](https://github.com/peak/s5cmd/pull/412))
 
 #### Features
 - Added `sync` command to synchronize two given buckets, prefixes, or objects. ([#3](https://github.com/peak/s5cmd/issues/3))
@@ -23,7 +24,8 @@
 - Fixed a bug about precedence of region detection, which auto region detection would always override region defined in environment or profile. ([#325](https://github.com/peak/s5cmd/issues/325))
 - Fixed a bug where errors did not result a non-zero exit code. ([#304](https://github.com/peak/s5cmd/issues/304))
 - Print error if the commands file of `run` command is not accessible. ([#410](https://github.com/peak/s5cmd/pull/410))
-- Updated region detection call to use current session's address resolving method. ([#314](https://github.com/peak/s5cmd/issues/314))
+- Updated region detection call to use current session's address resolving method ([#314](https://github.com/peak/s5cmd/issues/314))
+- Fixed a bug where lines with large tokens fail in `run` command. `sync` was failing when it finds multiple files to remove. ([#435](https://github.com/peak/s5cmd/issues/435), [#436](https://github.com/peak/s5cmd/issues/436))
 - Print usage error if given log level(`--log`) is not valid. ([#430](https://github.com/peak/s5cmd/pull/430))
 
 ## v1.4.0 - 21 Sep 2021

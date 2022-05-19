@@ -84,6 +84,10 @@ development happens on `master` branch.
     $ docker pull peakcom/s5cmd
     $ docker run --rm -v ~/.aws:/root/.aws peakcom/s5cmd <S3 operation>
 
+ℹ️ `/aws` directory is the working directory of the image. Mounting your current working directory to it allows you to run `s5cmd` as if it was installed in your system;
+
+    docker run --rm -v $(pwd):/aws -v ~/.aws:/root/.aws peakcom/s5cmd <S3 operation>
+
 #### Build
     $ git clone https://github.com/peak/s5cmd && cd s5cmd
     $ docker build -t s5cmd .
@@ -399,6 +403,7 @@ requests to AWS. Credentials can be provided in a variety of ways:
 The SDK detects and uses the built-in providers automatically, without requiring
 manual configurations.
 
+
 ### Region detection
 
 While executing the commands, `s5cmd` detects the region according to the following order of priority:
@@ -439,6 +444,8 @@ or an alternative with environment variable
 
 all variants will return your GCS buckets.
 
+`s5cmd` reads `.aws/credentials` to access Google Cloud Storage. Populate the `aws_access_key_id` and `aws_secret_access_key` fields in `.aws/credentials` with an HMAC key created using this [procedure](https://cloud.google.com/storage/docs/authentication/managing-hmackeys#create).
+
 `s5cmd` will use virtual-host style bucket resolving for S3, S3 transfer
 acceleration and GCS. If a custom endpoint is provided, it'll fallback to
 path-style.
@@ -455,10 +462,19 @@ via `--retry-count` flag.
 
 ## Using wildcards
 
-Most shells can attempt to expand wildcards before passing the arguments to
-`s5cmd`, resulting in surprising `no matches found` errors.
+On some shells, like zsh, the `*` character gets treated as a file globbing
+wildcard, which causes unexpected results for `s5cmd`. You might see an output
+like:
 
-To avoid this problem, surround the wildcarded expression with single quotes.
+```
+zsh: no matches found
+```
+
+If that happens, you need to wrap your wildcard expression in single quotes, like:
+
+```
+s5cmd cp '*.gz' s3://bucket/
+```
 
 ## Output
 

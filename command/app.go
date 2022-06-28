@@ -143,7 +143,7 @@ var app = &cli.App{
 	},
 	After: func(c *cli.Context) error {
 		if c.Bool("stat") {
-			log.Info(stat.Statistics())
+			log.Stat(stat.Statistics())
 		}
 
 		parallel.Close()

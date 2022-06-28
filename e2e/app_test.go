@@ -69,6 +69,66 @@ func TestAppRetryCount(t *testing.T) {
 	}
 }
 
+// Checks if the stats are written at the end of each log level output.
+func TestAppDashStatForEachLogLevel(t *testing.T) {
+	t.Parallel()
+
+	const (
+		bucket      = "bucket"
+		fileContent = "this is a file content"
+		dst         = "."
+		src         = "file1.txt"
+	)
+
+	testcases := []struct {
+		name  string
+		level string
+	}{
+		{
+			name:  "--stat --log trace cp s3://bucket/object .",
+			level: "trace",
+		},
+		{
+			name:  "--stat --log debug cp s3://bucket/object .",
+			level: "debug",
+		},
+		{
+			name:  "--stat --log info cp s3://bucket/object .",
+			level: "info",
+		},
+		{
+			name:  "--stat --log error cp s3://bucket/object .",
+			level: "error",
+		},
+	}
+
+	for _, tc := range testcases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			s3client, s5cmd, cleanup := setup(t)
+			defer cleanup()
+
+			createBucket(t, s3client, bucket)
+
+			putFile(t, s3client, bucket, src, fileContent)
+
+			srcPath := fmt.Sprintf("s3://%v/%v", bucket, src)
+			cmd := s5cmd("--stat", "--log", tc.level, "cp", srcPath, dst)
+			result := icmd.RunCmd(cmd)
+
+			result.Assert(t, icmd.Success)
+
+			out := result.Stdout()
+			tsv := fmt.Sprintf("%s\t%s\t%s\t%s\t", "Operation", "Total", "Error", "Success")
+
+			assert.Assert(t, strings.Contains(out, tsv))
+
+		})
+	}
+}
+
 func TestAppDashStat(t *testing.T) {
 	t.Parallel()
 

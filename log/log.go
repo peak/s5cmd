@@ -37,6 +37,12 @@ func Info(msg Message) {
 	global.printf(levelInfo, msg, os.Stdout)
 }
 
+// Stat prints stat message regardless of the log level with info print formatting.
+// It uses printfHelper instead of printf to ignore the log level condition.
+func Stat(msg Message) {
+	global.printfHelper(levelInfo, msg, os.Stdout)
+}
+
 // Error prints message in error mode.
 func Error(msg Message) {
 	global.printf(levelError, msg, os.Stderr)
@@ -72,6 +78,10 @@ func (l *Logger) printf(level logLevel, message Message, std *os.File) {
 	if level < l.level {
 		return
 	}
+	l.printfHelper(level, message, std)
+}
+
+func (l *Logger) printfHelper(level logLevel, message Message, std *os.File) {
 
 	if l.json {
 		outputCh <- output{

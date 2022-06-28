@@ -35,7 +35,7 @@ func testStatHelper(level string, t *testing.T) {
 	op := "op"
 
 	var s, e int64 = 1, 0
-	Stat(stat.Stats{{op, s, e}})
+	Stat(stat.Stats{{Operation: op, Success: s, Error: e}})
 
 	// Close closes the output channel so that the current test level can have its output.
 	Close()

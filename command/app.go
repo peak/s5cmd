@@ -81,6 +81,10 @@ var app = &cli.App{
 			Name:  "request-payer",
 			Usage: "who pays for request (access requester pays buckets)",
 		},
+		&cli.StringFlag{
+			Name:  "profile",
+			Usage: "use the specified `ProfileName` from the credential file",
+		},
 	},
 	Before: func(c *cli.Context) error {
 		retryCount := c.Int("retry-count")
@@ -162,6 +166,7 @@ func NewStorageOpts(c *cli.Context) storage.Options {
 		NoVerifySSL:      c.Bool("no-verify-ssl"),
 		RequestPayer:     c.String("request-payer"),
 		UseListObjectsV1: c.Bool("use-list-objects-v1"),
+		Profile:          c.String("profile"),
 	}
 }
 

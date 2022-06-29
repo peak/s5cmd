@@ -128,6 +128,25 @@ func TestNewSessionWithNoSignRequest(t *testing.T) {
 	}
 }
 
+func TestNewSessionWithProfile(t *testing.T) {
+	globalSessionCache.clear()
+	profileName := "default"
+	sess, err := globalSessionCache.newSession(context.Background(), Options{
+		Profile: profileName,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got, _ := sess.Config.Credentials.Get()
+	expected, _ := credentials.NewSharedCredentials("", profileName).Get()
+
+	if expected != got {
+		t.Fatalf("expected credentials does not match the credential we got! (To avoid unintended credential leaks, we don't print them here.)")
+		//t.Fatalf("expected %v, got %v", expected, got)
+	}
+}
+
 func TestS3ListURL(t *testing.T) {
 	url, err := url.New("s3://bucket/key")
 	if err != nil {

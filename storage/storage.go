@@ -55,6 +55,7 @@ func NewRemoteClient(ctx context.Context, url *url.URL, opts Options) (*S3, erro
 		NoSignRequest:    opts.NoSignRequest,
 		UseListObjectsV1: opts.UseListObjectsV1,
 		RequestPayer:     opts.RequestPayer,
+		Profile:          opts.Profile,
 		bucket:           url.Bucket,
 		region:           opts.region,
 	}
@@ -77,6 +78,7 @@ type Options struct {
 	NoSignRequest    bool
 	UseListObjectsV1 bool
 	RequestPayer     string
+	Profile          string
 	bucket           string
 	region           string
 }

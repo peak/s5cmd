@@ -70,7 +70,7 @@ func TestAppRetryCount(t *testing.T) {
 }
 
 // Checks if the stats are written at the end of each log level output.
-func TestAppDashStatForEachLogLevel(t *testing.T) {
+func TestAppDashStat(t *testing.T) {
 	t.Parallel()
 
 	const (
@@ -127,23 +127,6 @@ func TestAppDashStatForEachLogLevel(t *testing.T) {
 
 		})
 	}
-}
-
-func TestAppDashStat(t *testing.T) {
-	t.Parallel()
-
-	_, s5cmd, cleanup := setup(t)
-	defer cleanup()
-
-	cmd := s5cmd("--stat", "ls")
-	result := icmd.RunCmd(cmd)
-
-	result.Assert(t, icmd.Success)
-
-	out := result.Stdout()
-
-	tsv := fmt.Sprintf("%s\t%s\t%s\t%s\t", "Operation", "Total", "Error", "Success")
-	assert.Assert(t, strings.Contains(out, tsv))
 }
 
 func TestAppUnknownCommand(t *testing.T) {

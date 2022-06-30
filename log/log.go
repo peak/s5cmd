@@ -82,7 +82,6 @@ func (l *Logger) printf(level logLevel, message Message, std *os.File) {
 }
 
 func (l *Logger) printfHelper(level logLevel, message Message, std *os.File) {
-
 	if l.json {
 		outputCh <- output{
 			message: message.JSON(),

@@ -143,7 +143,11 @@ var app = &cli.App{
 	},
 	After: func(c *cli.Context) error {
 		if c.Bool("stat") {
-			log.Stat(stat.Statistics())
+			// Fix unnecessary prints if there is no operation applied
+			// https://github.com/peak/s5cmd/issues/452
+			if len(stat.Statistics()) > 0 {
+				log.Stat(stat.Statistics())
+			}
 		}
 
 		parallel.Close()

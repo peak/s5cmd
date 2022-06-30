@@ -69,7 +69,53 @@ func TestAppRetryCount(t *testing.T) {
 	}
 }
 
-// Checks if the stats are written at the end of each log level output.
+// Checks if --stat flag does not print when used with help & version commands
+func TestAppDashStatUnnecessaryPrints(t *testing.T) {
+	t.Parallel()
+
+	const (
+		bucket      = "bucket"
+		fileContent = "this is a file content"
+		dst         = "."
+		src         = "file1.txt"
+	)
+
+	testcases := []struct {
+		name    string
+		command string
+	}{
+		{
+			name:    "--stat help",
+			command: "help",
+		},
+		{
+			name:    "--stat version",
+			command: "version",
+		},
+	}
+
+	for _, tc := range testcases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			_, s5cmd, cleanup := setup(t)
+			defer cleanup()
+
+			cmd := s5cmd("--stat", tc.command)
+			result := icmd.RunCmd(cmd)
+
+			result.Assert(t, icmd.Success)
+
+			out := result.Stdout()
+			tsv := fmt.Sprintf("%s\t%s\t%s\t%s\t", "Operation", "Total", "Error", "Success")
+			assert.Assert(t, !strings.Contains(out, tsv))
+
+		})
+	}
+}
+
+// Checks if the stats are written at the end of each log command output.
 func TestAppDashStat(t *testing.T) {
 	t.Parallel()
 

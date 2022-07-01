@@ -278,8 +278,23 @@ func (u *URL) Clone() *URL {
 }
 
 // SetRelative explicitly sets the relative path of u against given base value.
-func (u *URL) SetRelative(base string) {
-	dir := filepath.Dir(base)
+// if the base path contains `globCharacters` then, the
+// relative path is determined wrt the parent directory
+// of the so called wildcarded object.
+func (u *URL) SetRelative(base *URL) {
+	baseDir := base.Absolute()
+	if base.IsWildcard() {
+		// note: IsWildcard already computes the loc indirectly
+		// so we could've changed the conditon to be slightly more efficient
+		// but "Clear is better than clever."
+		loc := strings.IndexAny(baseDir, globCharacters)
+		if loc >= 0 {
+			baseDir = baseDir[:loc]
+		}
+	}
+
+	dir := filepath.Dir(baseDir)
+
 	u.relativePath, _ = filepath.Rel(dir, u.Absolute())
 }
 

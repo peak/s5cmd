@@ -28,6 +28,7 @@
 - Fixed a bug where lines with large tokens fail in `run` command. `sync` was failing when it finds multiple files to remove. ([#435](https://github.com/peak/s5cmd/issues/435), [#436](https://github.com/peak/s5cmd/issues/436))
 - Print usage error if given log level(`--log`) is not valid. ([#430](https://github.com/peak/s5cmd/pull/430))
 - Fixed a bug where some part of destination path is removed by `cp` and `sync` subcommands  ([#360](https://github.com/peak/s5cmd/issues/360))
+- Fixed a bug where (`--stat`) is ignored when log level is error. ([#359](https://github.com/peak/s5cmd/issues/359))
 
 ## v1.4.0 - 21 Sep 2021
 

@@ -11,7 +11,7 @@ import (
 	"gotest.tools/v3/fs"
 )
 
-func s3ServerEndpoint(t *testing.T, testdir *fs.Dir, loglvl, backend string, timeSource gofakes3.TimeSource) (string, func()) {
+func s3ServerEndpoint(t *testing.T, testdir *fs.Dir, loglvl, backend string, timeSource gofakes3.TimeSource, enableProxy bool) (string, func()) {
 	var s3backend gofakes3.Backend
 	switch backend {
 	case "mem":
@@ -58,5 +58,14 @@ func s3ServerEndpoint(t *testing.T, testdir *fs.Dir, loglvl, backend string, tim
 		// after each test.
 	}
 
+	if enableProxy {
+		splitURL := strings.Split(s3srv.URL, ":")
+		port := splitURL[2]
+		// "http://localhost.proxyman.io" is just a dns which points to localhost
+		// it is needed as some systems are hard to not use proxies for localhost traffic.
+		// another alternative workaround could be to use "http://localhost.charlesproxy.com"
+		proxyEnabledURL := "http://localhost.proxyman.io:" + port
+		return proxyEnabledURL, cleanup
+	}
 	return s3srv.URL, cleanup
 }

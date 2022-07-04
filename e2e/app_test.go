@@ -148,7 +148,7 @@ func TestAppProxy(t *testing.T) {
 	for _, tc := range testcases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			httpProxy, cleanupProxy := proxyFake(t)
+			httpProxy, cleanupProxy := proxyFake()
 			defer cleanupProxy()
 			os.Setenv("http_proxy", httpProxy)
 			_, s5cmd, cleanup := setup(t, withFakeProxy())

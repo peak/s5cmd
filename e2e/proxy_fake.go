@@ -1,13 +1,12 @@
 package e2e
 
 import (
-	io "io"
+	"io"
 	"log"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
-	"testing"
 )
 
 // Hop-by-hop headers. These are removed when sent to the backend.
@@ -104,7 +103,7 @@ func successfulRequests() bool {
 	}
 	return true
 }
-func proxyFake(t *testing.T) (string, func()) {
+func proxyFake() (string, func()) {
 	handler := &proxy{}
 	proxysrv := httptest.NewServer(handler)
 	cleanup := func() {

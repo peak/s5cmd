@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -149,7 +150,7 @@ func TestAppProxy(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			httpProxy, cleanupProxy := proxyFake(t)
 			defer cleanupProxy()
-			t.Setenv("http_proxy", httpProxy)
+			os.Setenv("http_proxy", httpProxy)
 			_, s5cmd, cleanup := setup(t, withFakeProxy())
 			defer cleanup()
 			var cmd icmd.Cmd

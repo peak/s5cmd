@@ -98,7 +98,7 @@ func successfulRequests() bool {
 		return false
 	}
 	for _, value := range requests {
-		if value != true {
+		if !value {
 			return false
 		}
 	}

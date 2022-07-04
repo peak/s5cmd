@@ -129,6 +129,42 @@ func TestAppDashStat(t *testing.T) {
 	}
 }
 
+func TestAppProxy(t *testing.T) {
+
+	testcases := []struct {
+		name string
+		flag string
+	}{
+		{
+			name: "without no-verify-ssl flag",
+			flag: "",
+		},
+		{
+			name: "with no-verify-ssl flag",
+			flag: "--no-verify-ssl",
+		},
+	}
+	for _, tc := range testcases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			httpProxy, cleanupProxy := proxyFake(t)
+			defer cleanupProxy()
+			t.Setenv("http_proxy", httpProxy)
+			_, s5cmd, cleanup := setup(t, withFakeProxy())
+			defer cleanup()
+			var cmd icmd.Cmd
+			if tc.flag != "" {
+				cmd = s5cmd(tc.flag, "--log", "trace", "ls")
+			} else {
+				cmd = s5cmd("--log", "trace", "ls")
+			}
+			result := icmd.RunCmd(cmd)
+			result.Assert(t, icmd.Success)
+			assert.Assert(t, successfulRequests())
+		})
+	}
+}
+
 func TestAppUnknownCommand(t *testing.T) {
 	t.Parallel()
 

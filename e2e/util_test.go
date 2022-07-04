@@ -60,6 +60,7 @@ type setupOpts struct {
 	s3backend   string
 	endpointURL string
 	timeSource  gofakes3.TimeSource
+	enableProxy bool
 }
 
 type option func(*setupOpts)
@@ -79,6 +80,12 @@ func withEndpointURL(url string) option {
 func withTimeSource(timeSource gofakes3.TimeSource) option {
 	return func(opts *setupOpts) {
 		opts.timeSource = timeSource
+	}
+}
+
+func withFakeProxy() option {
+	return func(opts *setupOpts) {
+		opts.enableProxy = true
 	}
 }
 
@@ -124,7 +131,7 @@ func server(t *testing.T, opts *setupOpts) (string, string, func()) {
 		s3LogLevel = "info" // aws has no level other than 'debug'
 	}
 
-	endpoint, dbcleanup := s3ServerEndpoint(t, testdir, s3LogLevel, opts.s3backend, opts.timeSource)
+	endpoint, dbcleanup := s3ServerEndpoint(t, testdir, s3LogLevel, opts.s3backend, opts.timeSource, opts.enableProxy)
 	if opts.endpointURL != "" {
 		endpoint = opts.endpointURL
 	}

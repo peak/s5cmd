@@ -282,20 +282,33 @@ func (u *URL) Clone() *URL {
 // relative path is determined wrt the parent directory
 // of the so called wildcarded object.
 func (u *URL) SetRelative(base *URL) {
-	baseDir := base.Absolute()
+	basePath := base.Absolute()
 	if base.IsWildcard() {
-		// note: IsWildcard already computes the loc indirectly
-		// so we could've changed the conditon to be slightly more efficient
-		// but "Clear is better than clever."
-		loc := strings.IndexAny(baseDir, globCharacters)
+		// When the basePath includes a wildcard character (globCharacters)
+		// replace basePath with its substring up to the
+		// index of the first instance of a wildcard character.
+		//
+		// If we don't handle this, the filepath.Dir()
+		// will assume those wildcards as a part of the name.
+		// Consequently the filepath.Rel() will determine
+		// the relative path incorrectly since the wildcarded
+		// path string won't match with the actual name of the
+		// object.
+		// e.g. base.Absolute(): "/a/*/n"
+		//      u.Absolute()   : "/a/b/n"
+		//
+		// if we don't trim substring from globCharacters on
+		// filepath.Dir() will give: "/a/*"
+		// consequently the
+		// filepath.Rel() will give: "../b/c" rather than "b/c"
+		// since "b" and "*" are not the same.
+		loc := strings.IndexAny(basePath, globCharacters)
 		if loc >= 0 {
-			baseDir = baseDir[:loc]
+			basePath = basePath[:loc]
 		}
 	}
-
-	dir := filepath.Dir(baseDir)
-
-	u.relativePath, _ = filepath.Rel(dir, u.Absolute())
+	baseDir := filepath.Dir(basePath)
+	u.relativePath, _ = filepath.Rel(baseDir, u.Absolute())
 }
 
 // Match reports whether if given key matches with the object.

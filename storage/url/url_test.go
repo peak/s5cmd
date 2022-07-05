@@ -448,21 +448,23 @@ func TestURLSetRelative(t *testing.T) {
 			// from the directory of base object.
 			{"normal file path 1", "/parent/child/object", "/parent/child2/object", "../child2/object"},
 			{"normal file path 2", "/parent/child/object", "/parent/child/object", "object"},
-			{"normal s3  path 1", "s3://parent/child/object", "s3://parent/child2/", "../child2"},
+			{"normal s3   key  1", "s3://bucket/parent/child/object", "s3://bucket/parent/child2/", "../child2"},
 			{"wildcarded path 1", "/parent/*/object", "/parent/child/object", "child/object"},
 			{"wildcarded path 2", "/parent/c*d/object", "/parent/child/object", "child/object"},
 			{"wildcarded path 3", "/parent/?/object", "/parent/c/object", "c/object"},
 			{"back\\slash path 3", "/parent/back\\slash/object", "/parent/back\\slash/object", "object"},
 			{"back\\slash path 3", "/parent/back\\slash/object", "/parent/back\\slash2/object", "../back\\slash2/object"},
+			{"wildcarded s3 key  1", "s3://bucket/parent/*/object", "s3://bucket/parent/child2/", "child2"},
 		}...)
 	} else {
 		tests = append(tests, []testURLSetRelativeStruct{
-			{"normal file path 1", "\\parent\\child\\object", "\\parent\\child2\\object", "..\\child2\\object"},
-			{"normal file path 2", "\\parent\\child\\object", "\\parent\\child\\object", "object"},
-			{"normal s3  path 1", "s3://parent/child/object", "s3://parent/child2/", "../child2"},
-			{"wildcarded path 1", "\\parent\\*\\object", "\\parent\\child\\object", "child\\object"},
-			{"wildcarded path 2", "\\parent\\c*d\\object", "\\parent\\child\\object", "child\\object"},
-			{"wildcarded path 3", "\\parent\\?\\object", "\\parent\\c\\object", "c\\object"},
+			{`normal file path 1`, `\parent\child\object`, `\parent\child2\object`, `..\child2\object`},
+			{`normal file path 2`, `\parent\child\object`, `\parent\child\object`, `object`},
+			{`normal s3   key  1`, `s3://bucket/parent\child\object`, `s3://bucket/parent\child2\`, `..\child2`},
+			{`wildcarded path 1`, `\parent\*\object`, `\parent\child\object`, `child\object`},
+			{`wildcarded path 2`, `\parent\c*d\object`, `\parent\child\object`, `child\object`},
+			{`wildcarded path 3`, `\parent\?\object`, `\parent\c\object`, `c\object`},
+			{`wildcarded s3 key  1`, `s3://bucket/parent\*\object`, `s3://bucket/parent\child2\`, `child2`},
 		}...)
 	}
 

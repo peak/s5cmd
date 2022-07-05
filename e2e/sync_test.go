@@ -357,7 +357,7 @@ func TestSyncS3BucketToEmptyS3Bucket(t *testing.T) {
 
 	// assert s3 objects in dest bucket
 	for key, content := range S3Content {
-		key = fmt.Sprintf("/%s/%s", prefix, key) // add the prefix
+		key = fmt.Sprintf("%s/%s", prefix, key) // add the prefix
 		assert.Assert(t, ensureS3Object(s3client, destbucket, key, content))
 	}
 }

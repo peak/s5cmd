@@ -58,9 +58,9 @@ func WithRaw(mode bool) Option {
 
 // New creates a new URL from given path string.
 func New(s string, opts ...Option) (*URL, error) {
-	split := strings.Split(s, "://")
+	scheme, rest, isFound := strings.Cut(s, "://")
 
-	if len(split) == 1 {
+	if !isFound {
 		url := &URL{
 			Type:   localObject,
 			Scheme: "",
@@ -81,12 +81,6 @@ func New(s string, opts ...Option) (*URL, error) {
 		return url, nil
 	}
 
-	if len(split) != 2 {
-		return nil, fmt.Errorf("storage: unknown url format %q", s)
-	}
-
-	scheme, rest := split[0], split[1]
-
 	if scheme != "s3" {
 		return nil, fmt.Errorf("s3 url should start with %q", s3Scheme)
 	}
@@ -96,7 +90,8 @@ func New(s string, opts ...Option) (*URL, error) {
 	key := ""
 	bucket := parts[0]
 	if len(parts) == 2 {
-		key = strings.TrimLeft(parts[1], s3Separator)
+		// do not trim, use as it is to allow adjacent slashes
+		key = parts[1]
 	}
 
 	if bucket == "" {
@@ -185,8 +180,14 @@ func (u *URL) Join(s string) *URL {
 	}
 
 	clone := u.Clone()
-	clone.Path = path.Join(clone.Path, s)
-
+	if !clone.IsRemote() {
+		//destination is not remote, thus clean the path by using path.Join which removes multiple slashes
+		clone.Path = path.Join(clone.Path, s)
+	} else {
+		//destination is remote: keep them as it is and join using string.Join
+		//this allows to use adjacent slashes
+		clone.Path = strings.Join([]string{clone.Path, s}, "")
+	}
 	return clone
 }
 

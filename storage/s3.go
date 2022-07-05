@@ -794,14 +794,15 @@ func (sc *SessionCache) newSession(ctx context.Context, opts Options) (*session.
 	if opts.NoVerifySSL {
 		httpClient = insecureHTTPClient
 	}
-
+	// WithDisableRestProtocolURICleaning is added to allow adjacent slashes to be used in s3 object keys.
 	awsCfg = awsCfg.
 		WithEndpoint(endpointURL.String()).
 		WithS3ForcePathStyle(!isVirtualHostStyle).
 		WithS3UseAccelerate(useAccelerate).
 		WithHTTPClient(httpClient).
 		WithLogLevel(aws.LogDebug).
-		WithLogger(sdkLogger{})
+		WithLogger(sdkLogger{}).
+		WithDisableRestProtocolURICleaning(true)
 
 	awsCfg.Retryer = newCustomRetryer(opts.MaxRetries)
 

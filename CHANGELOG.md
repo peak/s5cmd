@@ -2,6 +2,9 @@
 
 ## not released yet
 
+#### Features
+- Added `--profile` flag to allow users to specify a [named profile]. ([#353](https://github.com/peak/s5cmd/issues/353))
+
 
 ## v2.0.0 - 4 Jul 2022
 

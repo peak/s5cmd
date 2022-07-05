@@ -69,82 +69,55 @@ func TestAppRetryCount(t *testing.T) {
 	}
 }
 
-// Checks if --stat flag does not print when used with help & version commands
-func TestAppDashStatUnnecessaryPrints(t *testing.T) {
-	t.Parallel()
-
-	const (
-		bucket      = "bucket"
-		fileContent = "this is a file content"
-		dst         = "."
-		src         = "file1.txt"
-	)
-
-	testcases := []struct {
-		name    string
-		command string
-	}{
-		{
-			name:    "--stat help",
-			command: "help",
-		},
-		{
-			name:    "--stat version",
-			command: "version",
-		},
-	}
-
-	for _, tc := range testcases {
-		tc := tc
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			_, s5cmd, cleanup := setup(t)
-			defer cleanup()
-
-			cmd := s5cmd("--stat", tc.command)
-			result := icmd.RunCmd(cmd)
-
-			result.Assert(t, icmd.Success)
-
-			out := result.Stdout()
-			tsv := fmt.Sprintf("%s\t%s\t%s\t%s\t", "Operation", "Total", "Error", "Success")
-			assert.Assert(t, !strings.Contains(out, tsv))
-
-		})
-	}
-}
-
-// Checks if the stats are written at the end of each log command output.
+// Checks if the stats are written in necessary conditions.
+// 1. Print with every log level when there is an operation
+// 2. Do not print when used with help & version commands.
 func TestAppDashStat(t *testing.T) {
 	t.Parallel()
 
 	const (
-		bucket      = "bucket"
-		fileContent = "this is a file content"
-		dst         = "."
-		src         = "file1.txt"
+		bucket                  = "bucket"
+		fileContent             = "this is a file content"
+		dst                     = "."
+		src                     = "file1.txt"
+		ExpectedOutputIfPrinted = "Operation\tTotal\tError\tSuccess\t"
 	)
 
 	testcases := []struct {
-		name  string
-		level string
+		name    string
+		level   string
+		command string
 	}{
 		{
-			name:  "--stat --log trace cp s3://bucket/object .",
-			level: "trace",
+			name:    "--stat --log trace cp s3://bucket/object .",
+			level:   "trace",
+			command: "cp",
 		},
 		{
-			name:  "--stat --log debug cp s3://bucket/object .",
-			level: "debug",
+			name:    "--stat --log debug cp s3://bucket/object .",
+			level:   "debug",
+			command: "cp",
 		},
 		{
-			name:  "--stat --log info cp s3://bucket/object .",
-			level: "info",
+			name:    "--stat --log info cp s3://bucket/object .",
+			level:   "info",
+			command: "cp",
 		},
 		{
-			name:  "--stat --log error cp s3://bucket/object .",
-			level: "error",
+			name:    "--stat --log error cp s3://bucket/object .",
+			level:   "error",
+			command: "cp",
+		},
+		// if level is an empty string, it ignores log levels and uses default.
+		{
+			name:    "--stat help",
+			level:   "",
+			command: "help",
+		},
+		{
+			name:    "--stat version",
+			level:   "",
+			command: "version",
 		},
 	}
 
@@ -159,17 +132,26 @@ func TestAppDashStat(t *testing.T) {
 			createBucket(t, s3client, bucket)
 
 			putFile(t, s3client, bucket, src, fileContent)
+			var cmd icmd.Cmd
+			if tc.level == "" {
+				cmd = s5cmd("--stat", tc.command)
+			} else {
+				srcPath := fmt.Sprintf("s3://%v/%v", bucket, src)
+				cmd = s5cmd("--stat", "--log", tc.level, tc.command, srcPath, dst)
+			}
 
-			srcPath := fmt.Sprintf("s3://%v/%v", bucket, src)
-			cmd := s5cmd("--stat", "--log", tc.level, "cp", srcPath, dst)
 			result := icmd.RunCmd(cmd)
 
 			result.Assert(t, icmd.Success)
 
 			out := result.Stdout()
-			tsv := fmt.Sprintf("%s\t%s\t%s\t%s\t", "Operation", "Total", "Error", "Success")
 
-			assert.Assert(t, strings.Contains(out, tsv))
+			if tc.level == "" {
+				// it should not supposed to print with help and version commands.
+				assert.Assert(t, !strings.Contains(out, ExpectedOutputIfPrinted))
+			} else {
+				assert.Assert(t, strings.Contains(out, ExpectedOutputIfPrinted))
+			}
 
 		})
 	}

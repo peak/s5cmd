@@ -58,8 +58,21 @@ func WithRaw(mode bool) Option {
 
 // New creates a new URL from given path string.
 func New(s string, opts ...Option) (*URL, error) {
-	scheme, rest, isFound := strings.Cut(s, "://")
-
+	//strings.Cut is undefined in go before 1.18.x, thus use Indexing instead.
+	//scheme, rest, isFound := strings.Cut(s, "://")
+	sep := "://"
+	var scheme string
+	var rest string
+	var isFound bool
+	if i := strings.Index(s, sep); i >= 0 {
+		scheme = s[:i]
+		rest = s[i+len(sep):]
+		isFound = true
+	} else {
+		scheme = s
+		rest = ""
+		isFound = false
+	}
 	if !isFound {
 		url := &URL{
 			Type:   localObject,

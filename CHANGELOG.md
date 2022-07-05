@@ -2,6 +2,8 @@
 
 ## not released yet
 
+#### Bugfixes
+- Fixed a bug where (`--stat`) prints unnecessarily when used with help and version commands ([#452](https://github.com/peak/s5cmd/issues/452))
 
 ## v2.0.0 - 4 Jul 2022
 
@@ -31,7 +33,6 @@
 - Fixed a bug where lines with large tokens fail in `run` command. `sync` was failing when it finds multiple files to remove. ([#435](https://github.com/peak/s5cmd/issues/435), [#436](https://github.com/peak/s5cmd/issues/436))
 - Print usage error if given log level(`--log`) is not valid. ([#430](https://github.com/peak/s5cmd/pull/430))
 - Fixed a bug where (`--stat`) is ignored when log level is error. ([#359](https://github.com/peak/s5cmd/issues/359))
-- Fixed a bug where (`--stat`) prints unnecessarily when used with help and version commands ([#452](https://github.com/peak/s5cmd/issues/452))
 
 ## v1.4.0 - 21 Sep 2021
 

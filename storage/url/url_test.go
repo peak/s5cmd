@@ -3,6 +3,7 @@ package url
 import (
 	"reflect"
 	"regexp"
+	"runtime"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -434,20 +435,35 @@ func TestURLWithMode(t *testing.T) {
 }
 
 func TestURLSetRelative(t *testing.T) {
-	tests := []struct {
+	type testURLSetRelativeStruct struct {
 		name   string
 		base   string
 		target string
 		expect string
-	}{
-		// The expectation is the path which will get us to target starting
-		// from the directory of base object.
-		{"normal file path 1", "/parent/child/object", "/parent/child2/object", "../child2/object"},
-		{"normal file path 2", "/parent/child/object", "/parent/child/object", "object"},
-		{"normal s3  path 1", "s3://parent/child/object", "s3://parent/child2/", "../child2"},
-		{"wildcarded path 1", "/parent/*/object", "/parent/child/object", "child/object"},
-		{"wildcarded path 2", "/parent/c*d/object", "/parent/child/object", "child/object"},
-		{"wildcarded path 3", "/parent/?/object", "/parent/c/object", "c/object"},
+	}
+	tests := make([]testURLSetRelativeStruct, 0, 10)
+	if runtime.GOOS != "windows" {
+		tests = append(tests, []testURLSetRelativeStruct{
+			// The expectation is the path which will get us to target starting
+			// from the directory of base object.
+			{"normal file path 1", "/parent/child/object", "/parent/child2/object", "../child2/object"},
+			{"normal file path 2", "/parent/child/object", "/parent/child/object", "object"},
+			{"normal s3  path 1", "s3://parent/child/object", "s3://parent/child2/", "../child2"},
+			{"wildcarded path 1", "/parent/*/object", "/parent/child/object", "child/object"},
+			{"wildcarded path 2", "/parent/c*d/object", "/parent/child/object", "child/object"},
+			{"wildcarded path 3", "/parent/?/object", "/parent/c/object", "c/object"},
+			{"back\\slash path 3", "/parent/back\\slash/object", "/parent/back\\slash/object", "object"},
+			{"back\\slash path 3", "/parent/back\\slash/object", "/parent/back\\slash2/object", "../back\\slash2/object"},
+		}...)
+	} else {
+		tests = append(tests, []testURLSetRelativeStruct{
+			{"normal file path 1", "\\parent\\child\\object", "\\parent\\child2\\object", "..\\child2\\object"},
+			{"normal file path 2", "\\parent\\child\\object", "\\parent\\child\\object", "object"},
+			{"normal s3  path 1", "s3://parent/child/object", "s3://parent/child2/", "../child2"},
+			{"wildcarded path 1", "\\parent\\*\\object", "\\parent\\child\\object", "child\\object"},
+			{"wildcarded path 2", "\\parent\\c*d\\object", "\\parent\\child\\object", "child\\object"},
+			{"wildcarded path 3", "\\parent\\?\\object", "\\parent\\c\\object", "c\\object"},
+		}...)
 	}
 
 	for _, tt := range tests {

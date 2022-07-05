@@ -947,7 +947,6 @@ func TestFlattenCopyDirToS3(t *testing.T) {
 
 // cp dir/* s3://bucket/
 func TestCopyMultipleFilesToS3Bucket(t *testing.T) {
-
 	t.Parallel()
 
 	bucket := s3BucketFromTestName(t)
@@ -1004,10 +1003,8 @@ func TestCopyMultipleFilesToS3Bucket(t *testing.T) {
 	}
 }
 
-// adresses the #360
 // cp parent/*/name.txt s3://bucket/newfolder
 func TestCopyMultipleFilesWithWildcardedDirectoryToS3Bucket(t *testing.T) {
-
 	t.Parallel()
 
 	bucket := s3BucketFromTestName(t)
@@ -1062,7 +1059,6 @@ func TestCopyMultipleFilesWithWildcardedDirectoryToS3Bucket(t *testing.T) {
 
 // cp parent/c*/name.txt s3://bucket/newfolder
 func TestCopyMultipleFilesEndWildcardedToS3Bucket(t *testing.T) {
-
 	t.Parallel()
 
 	bucket := s3BucketFromTestName(t)
@@ -1117,7 +1113,6 @@ func TestCopyMultipleFilesEndWildcardedToS3Bucket(t *testing.T) {
 
 // cp parent/c*1/name.txt s3://bucket/newfolder
 func TestCopyMultipleFilesMiddleWildcardedDirectoryToS3Bucket(t *testing.T) {
-
 	t.Parallel()
 
 	bucket := s3BucketFromTestName(t)
@@ -1165,7 +1160,6 @@ func TestCopyMultipleFilesMiddleWildcardedDirectoryToS3Bucket(t *testing.T) {
 
 // cp --flatten dir/* s3://bucket/
 func TestFlattenCopyMultipleFilesToS3Bucket(t *testing.T) {
-
 	t.Parallel()
 
 	bucket := s3BucketFromTestName(t)

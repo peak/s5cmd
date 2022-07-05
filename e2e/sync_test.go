@@ -246,10 +246,8 @@ func TestSyncLocalFolderToS3EmptyBucket(t *testing.T) {
 	}
 }
 
-// adresses the #360
 // cp parent/*/name.txt s3://bucket/newfolder
 func TestSyncMultipleFilesWithWildcardedDirectoryToS3Bucket(t *testing.T) {
-
 	t.Parallel()
 
 	bucket := s3BucketFromTestName(t)

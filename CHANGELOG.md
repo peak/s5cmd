@@ -2,11 +2,6 @@
 
 ## not released yet
 
-#### Features
-
-#### Improvements
-
-#### Bugfixes
 
 ## v2.0.0 - 4 Jul 2022
 

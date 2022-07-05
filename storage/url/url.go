@@ -278,9 +278,9 @@ func (u *URL) Clone() *URL {
 }
 
 // SetRelative explicitly sets the relative path of u against given base value.
-// if the base path contains `globCharacters` then, the
-// relative path is determined wrt the parent directory
-// of the so called wildcarded object.
+// If the base path contains `globCharacters` then, the relative path is
+// determined with respect to the parent directory of the so called wildcarded
+// object.
 func (u *URL) SetRelative(base *URL) {
 	basePath := base.Absolute()
 	if base.IsWildcard() {

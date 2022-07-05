@@ -2,6 +2,14 @@
 
 ## not released yet
 
+#### Features
+
+#### Improvements
+
+#### Bugfixes
+
+## v2.0.0 - 4 Jul 2022
+
 #### Breaking changes
 - Dropped inline comment feature for `run` command. Previously s5cmd supported a command with an inline comment like `ls s3://bucket/object.gz  # inline comment`. ([#309](https://github.com/peak/s5cmd/issues/309))
 - Changed homebrew installation command on macOS. Users can install s5cmd via `brew install peak/tap/s5cmd`. ([#356](https://github.com/peak/s5cmd/issues/356))

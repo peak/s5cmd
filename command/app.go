@@ -162,6 +162,7 @@ func NewStorageOpts(c *cli.Context) storage.Options {
 		NoVerifySSL:      c.Bool("no-verify-ssl"),
 		RequestPayer:     c.String("request-payer"),
 		UseListObjectsV1: c.Bool("use-list-objects-v1"),
+		LogLevel:         c.String("log"),
 	}
 }
 

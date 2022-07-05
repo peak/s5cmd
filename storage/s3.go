@@ -799,9 +799,12 @@ func (sc *SessionCache) newSession(ctx context.Context, opts Options) (*session.
 		WithEndpoint(endpointURL.String()).
 		WithS3ForcePathStyle(!isVirtualHostStyle).
 		WithS3UseAccelerate(useAccelerate).
-		WithHTTPClient(httpClient).
-		WithLogLevel(aws.LogDebug).
-		WithLogger(sdkLogger{})
+		WithHTTPClient(httpClient)
+
+	if opts.LogLevel == "trace" {
+		awsCfg = awsCfg.WithLogLevel(aws.LogDebug).
+			WithLogger(sdkLogger{})
+	}
 
 	awsCfg.Retryer = newCustomRetryer(opts.MaxRetries)
 

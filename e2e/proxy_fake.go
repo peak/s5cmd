@@ -94,9 +94,10 @@ func (p *proxy) ServeHTTP(wr http.ResponseWriter, req *http.Request) {
 	io.Copy(wr, resp.Body)
 }
 
-// check if all requests got "200 OK" respond.
-func successfulRequests() bool {
-	if len(requests) == 0 {
+// check if all requests got "200 OK" respond and all
+// requests have passed through proxy
+func successfulRequests(totalRequest int) bool {
+	if len(requests) != totalRequest {
 		return false
 	}
 	for _, value := range requests {

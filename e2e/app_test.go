@@ -161,9 +161,9 @@ func TestAppProxy(t *testing.T) {
 			}
 			result := icmd.RunCmd(cmd)
 			result.Assert(t, icmd.Success)
-			assert.Assert(t, successfulRequests())
 		})
 	}
+	assert.Assert(t, successfulRequests(len(testcases)))
 }
 
 func TestAppUnknownCommand(t *testing.T) {

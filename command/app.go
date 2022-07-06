@@ -100,6 +100,10 @@ var app = &cli.App{
 			err := fmt.Errorf("retry count cannot be a negative value")
 			printError(commandFromContext(c), c.Command.Name, err)
 			return err
+		} else if c.Bool("no-verify-ssl") && c.String("profile") != "" {
+			err := fmt.Errorf(`"no-verify-ssl" and "profile" flags cannot be used together`)
+			printError(commandFromContext(c), c.Command.Name, err)
+			return err
 		}
 
 		if isStat {

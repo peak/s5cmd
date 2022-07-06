@@ -142,8 +142,7 @@ func TestNewSessionWithProfile(t *testing.T) {
 	expected, _ := credentials.NewSharedCredentials("", profileName).Get()
 
 	if expected != got {
-		t.Fatalf("expected credentials does not match the credential we got! (To avoid unintended credential leaks, we don't print them here.)")
-		//t.Fatalf("expected %v, got %v", expected, got)
+		t.Error("expected profile credentials does not match the credential we got!")
 	}
 }
 

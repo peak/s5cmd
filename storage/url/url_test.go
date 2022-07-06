@@ -435,37 +435,117 @@ func TestURLWithMode(t *testing.T) {
 }
 
 func TestURLSetRelative(t *testing.T) {
-	type testURLSetRelativeStruct struct {
+	type testcase struct {
 		name   string
 		base   string
 		target string
 		expect string
 	}
-	tests := make([]testURLSetRelativeStruct, 0, 10)
-	if runtime.GOOS != "windows" {
-		tests = append(tests, []testURLSetRelativeStruct{
+	var tests []testcase
+	if runtime.GOOS == "windows" {
+		tests = []testcase{
 			// The expectation is the path which will get us to target starting
 			// from the directory of base object.
-			{"normal file path 1", "/parent/child/object", "/parent/child2/object", "../child2/object"},
-			{"normal file path 2", "/parent/child/object", "/parent/child/object", "object"},
-			{"normal s3   key  1", "s3://bucket/parent/child/object", "s3://bucket/parent/child2/", "../child2"},
-			{"wildcarded path 1", "/parent/*/object", "/parent/child/object", "child/object"},
-			{"wildcarded path 2", "/parent/c*d/object", "/parent/child/object", "child/object"},
-			{"wildcarded path 3", "/parent/?/object", "/parent/c/object", "c/object"},
-			{"back\\slash path 3", "/parent/back\\slash/object", "/parent/back\\slash/object", "object"},
-			{"back\\slash path 3", "/parent/back\\slash/object", "/parent/back\\slash2/object", "../back\\slash2/object"},
-			{"wildcarded s3 key  1", "s3://bucket/parent/*/object", "s3://bucket/parent/child2/", "child2"},
-		}...)
+			{
+				name:   `local_sibling_child_object`,
+				base:   `\parent\child\object`,
+				target: `\parent\child2\object`,
+				expect: `..\child2\object`,
+			},
+			{
+				name:   `local_same_directory_object`,
+				base:   `\parent\child\object`,
+				target: `\parent\child\object2`,
+				expect: `object2`,
+			},
+			{
+				name:   `s3_sibling_child_object`,
+				base:   `s3://bucket/parent\child\object`,
+				target: `s3://bucket/parent\child2\`,
+				expect: `..\child2`,
+			},
+			{
+				name:   `local_child_directory_fully_wildcarded`,
+				base:   `\parent\*\object`,
+				target: `\parent\child\object`,
+				expect: `child\object`,
+			},
+			{
+				name:   `local_child_directory_partially_wildcarded`,
+				base:   `\parent\c*d\object`,
+				target: `\parent\child\object`,
+				expect: `child\object`,
+			},
+			{
+				name:   `local_child_directory_fully_wildcarded_with_question_mark`,
+				base:   `\parent\?\object`,
+				target: `\parent\c\object`,
+				expect: `c\object`,
+			},
+			{
+				name:   `s3_child_directory_wildcarded`,
+				base:   `s3://bucket/parent\*\object`,
+				target: `s3://bucket/parent\child2\`,
+				expect: `child2`,
+			},
+		}
 	} else {
-		tests = append(tests, []testURLSetRelativeStruct{
-			{`normal file path 1`, `\parent\child\object`, `\parent\child2\object`, `..\child2\object`},
-			{`normal file path 2`, `\parent\child\object`, `\parent\child\object`, `object`},
-			{`normal s3   key  1`, `s3://bucket/parent\child\object`, `s3://bucket/parent\child2\`, `..\child2`},
-			{`wildcarded path 1`, `\parent\*\object`, `\parent\child\object`, `child\object`},
-			{`wildcarded path 2`, `\parent\c*d\object`, `\parent\child\object`, `child\object`},
-			{`wildcarded path 3`, `\parent\?\object`, `\parent\c\object`, `c\object`},
-			{`wildcarded s3 key  1`, `s3://bucket/parent\*\object`, `s3://bucket/parent\child2\`, `child2`},
-		}...)
+		tests = []testcase{
+			{
+				name:   "local_sibling_child_object",
+				base:   "/parent/child/object",
+				target: "/parent/child2/object",
+				expect: "../child2/object",
+			},
+			{
+				name:   "local_same_directory_object",
+				base:   "/parent/child/object",
+				target: "/parent/child/object2",
+				expect: "object2",
+			},
+			{
+				name:   "s3_sibling_child_object",
+				base:   "s3://bucket/parent/child/object",
+				target: "s3://bucket/parent/child2/",
+				expect: "../child2",
+			},
+			{
+				name:   "local_child_directory_fully_wildcarded",
+				base:   "/parent/*/object",
+				target: "/parent/child/object",
+				expect: "child/object",
+			},
+			{
+				name:   "local_child_directory_partially_wildcarded",
+				base:   "/parent/c*d/object",
+				target: "/parent/child/object",
+				expect: "child/object",
+			},
+			{
+				name:   "local_child_directory_fully_wildcarded_with_question_mark",
+				base:   "/parent/?/object",
+				target: "/parent/c/object",
+				expect: "c/object",
+			},
+			{
+				name:   "local_directory_with_backslash_in_name",
+				base:   "/parent/back\\slash/object",
+				target: "/parent/back\\slash/object",
+				expect: "object",
+			},
+			{
+				name:   "local_sibling_directory_with_backslash_in_name",
+				base:   "/parent/back\\slash/object",
+				target: "/parent/back\\slash2/object",
+				expect: "../back\\slash2/object",
+			},
+			{
+				name:   "s3_child_directory_wildcarded",
+				base:   "s3://bucket/parent/*/object",
+				target: "s3://bucket/parent/child2/",
+				expect: "child2",
+			},
+		}
 	}
 
 	for _, tt := range tests {

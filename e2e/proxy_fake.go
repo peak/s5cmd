@@ -59,6 +59,9 @@ func (p *proxy) ServeHTTP(wr http.ResponseWriter, req *http.Request) {
 		log.Println(msg)
 		return
 	}
+	//We need to explicitly set New Transport with no Proxy to make
+	//sure ServeHttp only receives the requests once. Otherwise, it
+	//causes proxy to call itself infinitely over and over again.
 	client := &http.Client{
 		Transport: &http.Transport{Proxy: nil},
 	}

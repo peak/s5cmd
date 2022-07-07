@@ -3,7 +3,7 @@
 ## not released yet
 
 #### Improvements
-- disable aws sdk logger if log level is not "trace"
+- Disable AWS SDK logger if log level is not "trace"
 
 ## v2.0.0 - 4 Jul 2022
 

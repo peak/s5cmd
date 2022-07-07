@@ -801,7 +801,7 @@ func (sc *SessionCache) newSession(ctx context.Context, opts Options) (*session.
 		WithS3UseAccelerate(useAccelerate).
 		WithHTTPClient(httpClient)
 
-	if opts.LogLevel == "trace" {
+	if log.LevelFromString(opts.LogLevel) != log.LevelTrace {
 		awsCfg = awsCfg.WithLogLevel(aws.LogDebug).
 			WithLogger(sdkLogger{})
 	}

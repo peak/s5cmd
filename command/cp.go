@@ -2,6 +2,7 @@ package command
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -749,8 +750,12 @@ func prepareLocalDestination(
 	}
 
 	obj, err := client.Stat(ctx, dsturl)
-	if err != nil && err != storage.ErrGivenObjectNotFound {
-		return nil, err
+
+	if err != nil {
+		var givenObjNotFoundErr *storage.ErrGivenObjectNotFound
+		if !errors.As(err, &givenObjNotFoundErr) {
+			return nil, err
+		}
 	}
 
 	if isBatch && !flatten {
@@ -760,8 +765,8 @@ func prepareLocalDestination(
 			return nil, err
 		}
 	}
-
-	if err == storage.ErrGivenObjectNotFound {
+	var givenObjNotFoundErr *storage.ErrGivenObjectNotFound
+	if errors.As(err, &givenObjNotFoundErr) {
 		err := client.MkdirAll(dsturl.Dir())
 		if err != nil {
 			return nil, err
@@ -782,7 +787,8 @@ func prepareLocalDestination(
 // found, error and returning object would be nil.
 func getObject(ctx context.Context, url *url.URL, client storage.Storage) (*storage.Object, error) {
 	obj, err := client.Stat(ctx, url)
-	if err == storage.ErrGivenObjectNotFound {
+	var givenObjNotFoundErr *storage.ErrGivenObjectNotFound
+	if errors.As(err, &givenObjNotFoundErr) {
 		return nil, nil
 	}
 

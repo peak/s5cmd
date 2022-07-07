@@ -2,6 +2,7 @@ package command
 
 import (
 	"context"
+	"errors"
 	"sync"
 
 	"github.com/peak/s5cmd/atomic"
@@ -68,7 +69,8 @@ func expandSources(
 
 				objch, err := expandSource(ctx, client, followSymlinks, origSrc)
 				if err != nil {
-					if err != storage.ErrGivenObjectNotFound {
+					var givenObjNotFoundErr *storage.ErrGivenObjectNotFound
+					if !errors.As(err, &givenObjNotFoundErr) {
 						ch <- &storage.Object{Err: err}
 					}
 					return

@@ -59,6 +59,8 @@ type S3 struct {
 	endpointURL      urlpkg.URL
 	dryRun           bool
 	useListObjectsV1 bool
+	allVersions      bool
+	versionId        string
 	requestPayer     string
 }
 
@@ -106,6 +108,8 @@ func newS3Storage(ctx context.Context, opts Options) (*S3, error) {
 		dryRun:           opts.DryRun,
 		useListObjectsV1: opts.UseListObjectsV1,
 		requestPayer:     opts.RequestPayer,
+		allVersions:      opts.AllVersions,
+		versionId:        opts.VersionId,
 	}, nil
 }
 
@@ -137,11 +141,108 @@ func (s *S3) Stat(ctx context.Context, url *url.URL) (*Object, error) {
 // keys. If no object found or an error is encountered during this period,
 // it sends these errors to object channel.
 func (s *S3) List(ctx context.Context, url *url.URL, _ bool) <-chan *Object {
+	// todo if either of s.versionID or s.allVersions is set, handle that case seperately.
+	if s.versionId != "" || s.allVersions {
+		return s.listObjectsVersion(ctx, url)
+	}
 	if isGoogleEndpoint(s.endpointURL) || s.useListObjectsV1 {
 		return s.listObjects(ctx, url)
 	}
 
 	return s.listObjectsV2(ctx, url)
+}
+
+func (s *S3) listObjectsVersion(ctx context.Context, url *url.URL) <-chan *Object {
+	listInput := s3.ListObjectVersionsInput{
+		Bucket: aws.String(url.Bucket),
+		Prefix: aws.String(url.Prefix),
+		//RequestPayer: s.RequestPayer(),
+	}
+
+	if url.Delimiter != "" {
+		listInput.SetDelimiter(url.Delimiter)
+	}
+
+	objCh := make(chan *Object)
+
+	go func() {
+		defer close(objCh)
+		objectFound := false
+
+		var now time.Time
+
+		err := s.api.ListObjectVersionsPagesWithContext(ctx, &listInput,
+			func(p *s3.ListObjectVersionsOutput, lastPage bool) bool {
+				for _, c := range p.CommonPrefixes {
+					prefix := aws.StringValue(c.Prefix)
+					if !url.Match(prefix) {
+						continue
+					}
+
+					newurl := url.Clone()
+					newurl.Path = prefix
+					objCh <- &Object{
+						URL:  newurl,
+						Type: ObjectType{os.ModeDir},
+					}
+
+					objectFound = true
+				}
+				// track the instant object iteration began,
+				// so it can be used to bypass objects created after this instant
+				if now.IsZero() {
+					now = time.Now().UTC()
+				}
+
+				for _, c := range p.Versions {
+					key := aws.StringValue(c.Key)
+					if !url.Match(key) {
+						continue
+					}
+
+					mod := aws.TimeValue(c.LastModified).UTC()
+					if mod.After(now) {
+						objectFound = true
+						continue
+					}
+
+					var objtype os.FileMode
+					if strings.HasSuffix(key, "/") {
+						objtype = os.ModeDir
+					}
+
+					newurl := url.Clone()
+					newurl.Path = aws.StringValue(c.Key)
+					newurl.VersionId = *c.VersionId
+
+					etag := aws.StringValue(c.ETag)
+
+					objCh <- &Object{
+						URL:          newurl,
+						Etag:         strings.Trim(etag, `"`),
+						ModTime:      &mod,
+						Type:         ObjectType{objtype},
+						Size:         aws.Int64Value(c.Size),
+						StorageClass: StorageClass(aws.StringValue(c.StorageClass)),
+					}
+
+					objectFound = true
+				}
+
+				return !lastPage
+			})
+
+		if err != nil {
+			objCh <- &Object{Err: err}
+			return
+		}
+
+		if !objectFound {
+			objCh <- &Object{Err: ErrNoObjectFound}
+		}
+	}()
+
+	return objCh
 }
 
 func (s *S3) listObjectsV2(ctx context.Context, url *url.URL) <-chan *Object {
@@ -583,6 +684,10 @@ func (s *S3) calculateChunks(ch <-chan *url.URL) <-chan chunk {
 			bucket = url.Bucket
 
 			objid := &s3.ObjectIdentifier{Key: aws.String(url.Path)}
+			if url.VersionId != "" {
+				objid.VersionId = &url.VersionId
+			}
+
 			keys = append(keys, objid)
 			if len(keys) == deleteObjectsMax {
 				chunkch <- chunk{
@@ -628,6 +733,9 @@ func (s *S3) doDelete(ctx context.Context, chunk chunk, resultch chan *Object) {
 		for _, k := range chunk.Keys {
 			key := fmt.Sprintf("s3://%v/%v", chunk.Bucket, aws.StringValue(k.Key))
 			url, _ := url.New(key)
+			if k.VersionId != nil {
+				url.VersionId = *k.VersionId
+			}
 			resultch <- &Object{URL: url}
 		}
 		return
@@ -647,12 +755,18 @@ func (s *S3) doDelete(ctx context.Context, chunk chunk, resultch chan *Object) {
 	for _, d := range o.Deleted {
 		key := fmt.Sprintf("s3://%v/%v", bucket, aws.StringValue(d.Key))
 		url, _ := url.New(key)
+		if d.VersionId != nil {
+			url.VersionId = *d.VersionId
+		}
 		resultch <- &Object{URL: url}
 	}
 
 	for _, e := range o.Errors {
 		key := fmt.Sprintf("s3://%v/%v", bucket, aws.StringValue(e.Key))
 		url, _ := url.New(key)
+		if e.VersionId != nil {
+			url.VersionId = *e.VersionId
+		}
 		resultch <- &Object{
 			URL: url,
 			Err: fmt.Errorf(aws.StringValue(e.Message)),

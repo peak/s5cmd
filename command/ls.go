@@ -73,6 +73,10 @@ func NewListCommand() *cli.Command {
 				Name:  "exclude",
 				Usage: "exclude objects with given pattern",
 			},
+			&cli.BoolFlag{
+				Name:  "all-versions",
+				Usage: "list all versions of object(s)",
+			},
 		},
 		Before: func(c *cli.Context) error {
 			err := validateLSCommand(c)
@@ -99,6 +103,7 @@ func NewListCommand() *cli.Command {
 				showEtag:         c.Bool("etag"),
 				humanize:         c.Bool("humanize"),
 				showStorageClass: c.Bool("storage-class"),
+				showVersions:     c.Bool("all-versions"),
 				exclude:          c.StringSlice("exclude"),
 
 				storageOpts: NewStorageOpts(c),
@@ -117,6 +122,7 @@ type List struct {
 	showEtag         bool
 	humanize         bool
 	showStorageClass bool
+	showVersions     bool
 	exclude          []string
 
 	storageOpts storage.Options
@@ -185,6 +191,7 @@ func (l List) Run(ctx context.Context) error {
 			showEtag:         l.showEtag,
 			showHumanized:    l.humanize,
 			showStorageClass: l.showStorageClass,
+			showVersions:     l.showVersions,
 		}
 
 		log.Info(msg)
@@ -200,6 +207,7 @@ type ListMessage struct {
 	showEtag         bool
 	showHumanized    bool
 	showStorageClass bool
+	showVersions     bool
 }
 
 // humanize is a helper function to humanize bytes.
@@ -226,8 +234,9 @@ func (l ListMessage) String() string {
 		listFormat = "%19s %2s %-38s %12s %s"
 	}
 
+	var s string
 	if l.Object.Type.IsDir() {
-		s := fmt.Sprintf(
+		s = fmt.Sprintf(
 			listFormat,
 			"",
 			"",
@@ -243,7 +252,7 @@ func (l ListMessage) String() string {
 		stclass = fmt.Sprintf("%v", l.Object.StorageClass)
 	}
 
-	s := fmt.Sprintf(
+	s = fmt.Sprintf(
 		listFormat,
 		l.Object.ModTime.Format(dateFormat),
 		stclass,
@@ -251,6 +260,9 @@ func (l ListMessage) String() string {
 		l.humanize(),
 		l.Object.URL.Relative(),
 	)
+	if l.showVersions {
+		s = s + " " + l.Object.URL.VersionId
+	}
 	return s
 }
 

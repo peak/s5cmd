@@ -54,6 +54,14 @@ func NewDeleteCommand() *cli.Command {
 				Name:  "exclude",
 				Usage: "exclude objects with given pattern",
 			},
+			&cli.BoolFlag{
+				Name:  "all-versions",
+				Usage: "list all versions of object(s)",
+			},
+			&cli.StringFlag{
+				Name:  "version-id",
+				Usage: "use the specified `version` of an object",
+			},
 		},
 		CustomHelpTemplate: deleteHelpTemplate,
 		Before: func(c *cli.Context) error {

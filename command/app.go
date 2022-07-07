@@ -161,6 +161,8 @@ func NewStorageOpts(c *cli.Context) storage.Options {
 		NoSignRequest:    c.Bool("no-sign-request"),
 		NoVerifySSL:      c.Bool("no-verify-ssl"),
 		RequestPayer:     c.String("request-payer"),
+		AllVersions:      c.Bool("all-versions"),
+		VersionId:        c.String("version-id"),
 		UseListObjectsV1: c.Bool("use-list-objects-v1"),
 	}
 }

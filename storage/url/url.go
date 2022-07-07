@@ -41,6 +41,7 @@ type URL struct {
 	Path      string
 	Delimiter string
 	Prefix    string
+	VersionId string
 
 	relativePath string
 	filter       string
@@ -270,6 +271,7 @@ func (u *URL) Clone() *URL {
 		Delimiter: u.Delimiter,
 		Path:      u.Path,
 		Prefix:    u.Prefix,
+		VersionId: u.VersionId,
 
 		relativePath: u.relativePath,
 		filter:       u.filter,

@@ -56,6 +56,14 @@ func NewSizeCommand() *cli.Command {
 				Name:  "exclude",
 				Usage: "exclude objects with given pattern",
 			},
+			&cli.BoolFlag{
+				Name:  "all-versions",
+				Usage: "list all versions of object(s)",
+			},
+			&cli.StringFlag{
+				Name:  "version-id",
+				Usage: "use the specified `version` of an object",
+			},
 		},
 		Before: func(c *cli.Context) error {
 			err := validateDUCommand(c)
@@ -74,6 +82,7 @@ func NewSizeCommand() *cli.Command {
 				// flags
 				groupByClass: c.Bool("group"),
 				humanize:     c.Bool("humanize"),
+				showVersions: c.Bool("all-versions") || c.String("version-id") != "",
 				exclude:      c.StringSlice("exclude"),
 
 				storageOpts: NewStorageOpts(c),
@@ -91,6 +100,7 @@ type Size struct {
 	// flags
 	groupByClass bool
 	humanize     bool
+	showVersions bool
 	exclude      []string
 
 	storageOpts storage.Options

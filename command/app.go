@@ -83,7 +83,7 @@ var app = &cli.App{
 		},
 		&cli.StringFlag{
 			Name:  "profile",
-			Usage: "use the specified `ProfileName` from the credential file",
+			Usage: "use the specified profile from the credential file",
 		},
 	},
 	Before: func(c *cli.Context) error {

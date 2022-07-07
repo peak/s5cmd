@@ -288,13 +288,12 @@ func TestSyncMultipleFilesWithWildcardedDirectoryToS3Bucket(t *testing.T) {
 	// assert local filesystem
 	expected := fs.Expected(t, folderLayout...)
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
-	//
 	expectedS3Content := map[string]string{
 		"newfolder/child1/name.txt": "A file in parent/child1/",
 		"newfolder/child2/name.txt": "A file in parent/child2/",
 	}
-	//
-	// // assert s3
+
+	// assert s3
 	for filename, content := range expectedS3Content {
 		assert.Assert(t, ensureS3Object(s3client, bucket, filename, content))
 	}

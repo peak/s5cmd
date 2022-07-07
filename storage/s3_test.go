@@ -128,21 +128,94 @@ func TestNewSessionWithNoSignRequest(t *testing.T) {
 	}
 }
 
-func TestNewSessionWithProfile(t *testing.T) {
-	globalSessionCache.clear()
-	profileName := "default"
-	sess, err := globalSessionCache.newSession(context.Background(), Options{
-		Profile: profileName,
-	})
+func TestNewSessionWithProfileFromFile(t *testing.T) {
+	// create a temporary credential file
+	file, err := os.CreateTemp("", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(file.Name())
+
+	profiles := `[default]
+aws_access_key_id = default_profile_key_id
+aws_secret_access_key = default_profile_access_key
+
+[p1]
+aws_access_key_id = p1_profile_key_id
+aws_secret_access_key = p1_profile_access_key
+
+[p2]
+aws_access_key_id = p2_profile_key_id
+aws_secret_access_key = p2_profile_access_key
+
+[p3]
+aws_access_key_id = p3_profile_key_id
+aws_secret_access_key = p3_profile_access_key`
+
+	_, err = file.Write([]byte(profiles))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	got, _ := sess.Config.Credentials.Get()
-	expected, _ := credentials.NewSharedCredentials("", profileName).Get()
+	testcases := []struct {
+		fileName           string
+		profileName        string
+		expAccessKeyId     string
+		expSecretAccessKey string
+	}{
+		{
+			fileName:           file.Name(),
+			profileName:        "",
+			expAccessKeyId:     "default_profile_key_id",
+			expSecretAccessKey: "default_profile_access_key",
+		},
+		{
+			fileName:           file.Name(),
+			profileName:        "p1",
+			expAccessKeyId:     "p1_profile_key_id",
+			expSecretAccessKey: "p1_profile_access_key",
+		},
+		{
+			fileName:           file.Name(),
+			profileName:        "non-existent-profile",
+			expAccessKeyId:     "",
+			expSecretAccessKey: "",
+		},
+		{
+			fileName:           file.Name(),
+			profileName:        "p2",
+			expAccessKeyId:     "p2_profile_key_id",
+			expSecretAccessKey: "p2_profile_access_key",
+		},
+		{
+			fileName:           file.Name(),
+			profileName:        "p3",
+			expAccessKeyId:     "p3_profile_key_id",
+			expSecretAccessKey: "p3_profile_access_key",
+		},
+	}
+	for _, tc := range testcases {
+		globalSessionCache.clear()
+		sess, err := globalSessionCache.newSession(context.Background(), Options{
+			Profile:        tc.profileName,
+			CredentialFile: tc.fileName,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	if expected != got {
-		t.Error("expected profile credentials does not match the credential we got!")
+		got, err := sess.Config.Credentials.Get()
+		if err != nil {
+			// if there should not be such as profile continue,
+			if tc.expAccessKeyId == "" && tc.expSecretAccessKey == "" {
+				continue
+			}
+			t.Fatal(err)
+		}
+
+		if got.AccessKeyID != tc.expAccessKeyId || got.SecretAccessKey != tc.expSecretAccessKey {
+			t.Errorf("Expected credentials does not match the credential we got!\nExpected: Access Key ID: %v, Secret Access Key: %v\nGot    : Access Key ID: %v, Secret Access Key: %v\n", tc.expAccessKeyId, tc.expSecretAccessKey, got.AccessKeyID, got.SecretAccessKey)
+		}
 	}
 }
 

@@ -771,7 +771,7 @@ func (sc *SessionCache) newSession(ctx context.Context, opts Options) (*session.
 	if opts.NoSignRequest {
 		// do not sign requests when making service API calls
 		awsCfg = awsCfg.WithCredentials(credentials.AnonymousCredentials)
-	} else if opts.Profile != "" { // if they provided a profile
+	} else if opts.Profile != "" {
 		awsCfg = awsCfg.WithCredentials(credentials.NewSharedCredentials("", opts.Profile))
 	}
 

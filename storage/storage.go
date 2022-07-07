@@ -56,6 +56,7 @@ func NewRemoteClient(ctx context.Context, url *url.URL, opts Options) (*S3, erro
 		UseListObjectsV1: opts.UseListObjectsV1,
 		RequestPayer:     opts.RequestPayer,
 		Profile:          opts.Profile,
+		CredentialFile:   opts.CredentialFile,
 		bucket:           url.Bucket,
 		region:           opts.region,
 	}
@@ -79,6 +80,7 @@ type Options struct {
 	UseListObjectsV1 bool
 	RequestPayer     string
 	Profile          string
+	CredentialFile   string
 	bucket           string
 	region           string
 }

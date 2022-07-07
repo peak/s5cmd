@@ -78,81 +78,56 @@ func TestAppDashStat(t *testing.T) {
 	const (
 		bucket                  = "bucket"
 		fileContent             = "this is a file content"
-		dst                     = "."
 		src                     = "file1.txt"
-		ExpectedOutputIfPrinted = "Operation\tTotal\tError\tSuccess\t"
+		expectedOutputIfPrinted = "Operation\tTotal\tError\tSuccess\t"
 	)
 
-	testcases := []struct {
-		name    string
-		level   string
-		command string
+	var testcases = []struct {
+		command         string
+		isPrintExpected bool
 	}{
 		{
-			name:    "--stat --log trace cp s3://bucket/object .",
-			level:   "trace",
-			command: "cp",
+			command:         fmt.Sprintf("--stat --log %v cp s3://bucket/%v .", "trace", src),
+			isPrintExpected: true,
 		},
 		{
-			name:    "--stat --log debug cp s3://bucket/object .",
-			level:   "debug",
-			command: "cp",
+			command:         fmt.Sprintf("--stat --log %v cp s3://bucket/%v .", "debug", src),
+			isPrintExpected: true,
 		},
 		{
-			name:    "--stat --log info cp s3://bucket/object .",
-			level:   "info",
-			command: "cp",
+			command:         fmt.Sprintf("--stat --log %v cp s3://bucket/%v .", "info", src),
+			isPrintExpected: true,
 		},
 		{
-			name:    "--stat --log error cp s3://bucket/object .",
-			level:   "error",
-			command: "cp",
+			command:         fmt.Sprintf("--stat --log %v cp s3://bucket/%v .", "error", src),
+			isPrintExpected: true,
 		},
 		// if level is an empty string, it ignores log levels and uses default.
 		{
-			name:    "--stat help",
-			level:   "",
-			command: "help",
+			command:         "--stat help",
+			isPrintExpected: false,
 		},
 		{
-			name:    "--stat version",
-			level:   "",
-			command: "version",
+			command:         "--stat version",
+			isPrintExpected: false,
 		},
 	}
-
 	for _, tc := range testcases {
 		tc := tc
-		t.Run(tc.name, func(t *testing.T) {
+		t.Run(tc.command, func(t *testing.T) {
 			t.Parallel()
-
 			s3client, s5cmd, cleanup := setup(t)
 			defer cleanup()
 
 			createBucket(t, s3client, bucket)
-
 			putFile(t, s3client, bucket, src, fileContent)
-			var cmd icmd.Cmd
-			if tc.level == "" {
-				cmd = s5cmd("--stat", tc.command)
-			} else {
-				srcPath := fmt.Sprintf("s3://%v/%v", bucket, src)
-				cmd = s5cmd("--stat", "--log", tc.level, tc.command, srcPath, dst)
-			}
+			cmd := s5cmd(strings.Fields(tc.command)...)
 
 			result := icmd.RunCmd(cmd)
 
 			result.Assert(t, icmd.Success)
-
 			out := result.Stdout()
-
-			if tc.level == "" {
-				// it should not supposed to print with help and version commands.
-				assert.Assert(t, !strings.Contains(out, ExpectedOutputIfPrinted))
-			} else {
-				assert.Assert(t, strings.Contains(out, ExpectedOutputIfPrinted))
-			}
-
+			assert.Assert(t, tc.isPrintExpected == strings.Contains(out, expectedOutputIfPrinted))
 		})
 	}
 }

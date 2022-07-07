@@ -2829,7 +2829,7 @@ func TestCopyErrorWhenGivenObjectIsNotFoundUsingWildcard(t *testing.T) {
 	result.Assert(t, icmd.Expected{ExitCode: 1})
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: equals(`ERROR "cp * %v": given b/link1 not found`, dst),
+		0: equals(`ERROR "cp * %v": given object b/link1 not found`, dst),
 	}, sortInput(true))
 }
 

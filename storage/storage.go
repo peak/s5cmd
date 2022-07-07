@@ -24,7 +24,7 @@ type ErrGivenObjectNotFound struct {
 }
 
 func (e *ErrGivenObjectNotFound) Error() string {
-	return fmt.Sprintf("given %v not found", e.ObjectAbsPath)
+	return fmt.Sprintf("given object %v not found", e.ObjectAbsPath)
 }
 
 // Storage is an interface for storage operations that is common

@@ -510,6 +510,32 @@ ERROR "cp s3://somebucket/file.txt file.txt": object already exists
 }
 ```
 
+## Configuring Concurrency
+
+### numworkers
+
+`numworkers` is a global option that sets the size of the global worker pool. Default value of `numworkers` is [256](https://github.com/peak/s5cmd/blob/master/command/app.go#L18).
+Commands such as `cp`, `select` and `run`, which can benefit from parallelism use this worker pool to execute tasks. A task can be an upload, a download or anything in a [`run` file](https://github.com/peak/s5cmd/blob/master/command/app.go#L18).
+
+For example, if you are uploading 100 files to an s3 bucket and the `--numworkers` is set to 10, then `s5cmd` will limit the number of files concurrently uploaded to 10.
+
+```
+s5cmd --numworkers 10 cp '/Users/foo/bar/*' s3://mybucket/foo/bar/
+```
+
+### concurrency
+
+`concurrency` is a `cp` command option. It sets the number of parts that will be uploaded or downloaded in parallel for a single file.
+This parameter is used by the AWS go sdk. Default value of `concurrency` is `5`.
+
+`numworkers` and `concurrency` options can be used together:
+
+```
+s5cmd --numworkers 10 cp --concurrency 10 '/Users/foo/bar/*' s3://mybucket/foo/bar/
+```
+
+If you have a few, large files to download, setting `--numworkers` to a very high value will not affect download speed. In this scenario setting `--concurrency` to a higher value may have a better impact on the download speed.
+
 ## Benchmarks
 Some benchmarks regarding the performance of `s5cmd` are introduced below. For more
 details refer to this [post](https://medium.com/@joshua_robinson/s5cmd-for-high-performance-object-storage-7071352cc09d)

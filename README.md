@@ -526,7 +526,7 @@ s5cmd --numworkers 10 cp '/Users/foo/bar/*' s3://mybucket/foo/bar/
 ### concurrency
 
 `concurrency` is a `cp` command option. It sets the number of parts that will be uploaded or downloaded in parallel for a single file.
-This parameter is used by the AWS go sdk. Default value of `concurrency` is `5`.
+This parameter is used by the AWS Go SDK. Default value of `concurrency` is `5`.
 
 `numworkers` and `concurrency` options can be used together:
 

@@ -367,6 +367,11 @@ func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata Metadata) err
 		input.CacheControl = aws.String(cacheControl)
 	}
 
+	contentEncoding := metadata.ContentEncoding()
+	if contentEncoding != "" {
+		input.ContentEncoding = aws.String(contentEncoding)
+	}
+
 	expires := metadata.Expires()
 	if expires != "" {
 		t, err := time.Parse(time.RFC3339, expires)
@@ -529,6 +534,11 @@ func (s *S3) Put(
 	cacheControl := metadata.CacheControl()
 	if cacheControl != "" {
 		input.CacheControl = aws.String(cacheControl)
+	}
+
+	contentEncoding := metadata.ContentEncoding()
+	if contentEncoding != "" {
+		input.ContentEncoding = aws.String(contentEncoding)
 	}
 
 	expires := metadata.Expires()

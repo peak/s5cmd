@@ -97,6 +97,9 @@ Examples:
 
 	20. Download an S3 object from a requester pays bucket
 		 > s5cmd --request-payer=requester {{.HelpName}} s3://bucket/prefix/object.gz .
+
+	21. Upload a file to S3 bucket with Content-Encoding header
+		 > s5cmd {{.HelpName}} --content-encoding "gzip" myfile.gz s3://bucket/
 `
 
 func NewSharedFlags() []cli.Flag {
@@ -164,6 +167,10 @@ func NewSharedFlags() []cli.Flag {
 		&cli.BoolFlag{
 			Name:  "raw",
 			Usage: "disable the wildcard operations, useful with filenames that contains glob characters",
+		},
+		&cli.StringFlag{
+			Name:  "content-encoding",
+			Usage: "set content-encoding for target: defines Content-Encoding header for object, e.g. cp --content-encoding 'gzip'",
 		},
 	}
 }
@@ -242,6 +249,7 @@ type Copy struct {
 	exclude               []string
 	raw                   bool
 	cacheControl          string
+	contentEncoding       string
 	expires               string
 
 	// region settings
@@ -279,6 +287,7 @@ func NewCopy(c *cli.Context, deleteSource bool) Copy {
 		exclude:               c.StringSlice("exclude"),
 		raw:                   c.Bool("raw"),
 		cacheControl:          c.String("cache-control"),
+		contentEncoding:       c.String("content-encoding"),
 		expires:               c.String("expires"),
 		// region settings
 		srcRegion: c.String("source-region"),
@@ -555,6 +564,7 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 		SetSSEKeyID(c.encryptionKeyID).
 		SetACL(c.acl).
 		SetCacheControl(c.cacheControl).
+		SetContentEncoding(c.contentEncoding).
 		SetExpires(c.expires)
 
 	err = dstClient.Put(ctx, file, dsturl, metadata, c.concurrency, c.partSize)
@@ -603,6 +613,7 @@ func (c Copy) doCopy(ctx context.Context, srcurl, dsturl *url.URL) error {
 		SetSSEKeyID(c.encryptionKeyID).
 		SetACL(c.acl).
 		SetCacheControl(c.cacheControl).
+		SetContentEncoding(c.contentEncoding).
 		SetExpires(c.expires)
 
 	err = c.shouldOverride(ctx, srcurl, dsturl)

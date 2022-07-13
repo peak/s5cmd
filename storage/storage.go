@@ -216,8 +216,17 @@ func (m Metadata) CacheControl() string {
 	return m["CacheControl"]
 }
 
+func (m Metadata) ContentEncoding() string {
+	return m["ContentEncoding"]
+}
+
 func (m Metadata) SetCacheControl(cacheControl string) Metadata {
 	m["CacheControl"] = cacheControl
+	return m
+}
+
+func (m Metadata) SetContentEncoding(contentEncoding string) Metadata {
+	m["ContentEncoding"] = contentEncoding
 	return m
 }
 

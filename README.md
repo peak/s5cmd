@@ -517,7 +517,7 @@ ERROR "cp s3://somebucket/file.txt file.txt": object already exists
 `numworkers` is a global option that sets the size of the global worker pool. Default value of `numworkers` is [256](https://github.com/peak/s5cmd/blob/master/command/app.go#L18).
 Commands such as `cp`, `select` and `run`, which can benefit from parallelism use this worker pool to execute tasks. A task can be an upload, a download or anything in a [`run` file](https://github.com/peak/s5cmd/blob/master/command/app.go#L18).
 
-For example, if you are uploading 100 files to an s3 bucket and the `--numworkers` is set to 10, then `s5cmd` will limit the number of files concurrently uploaded to 10.
+For example, if you are uploading 100 files to an S3 bucket and the `--numworkers` is set to 10, then `s5cmd` will limit the number of files concurrently uploaded to 10.
 
 ```
 s5cmd --numworkers 10 cp '/Users/foo/bar/*' s3://mybucket/foo/bar/

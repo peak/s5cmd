@@ -549,6 +549,11 @@ func (s *S3) Put(
 		}
 	}
 
+	contentEncoding := metadata.ContentEncoding()
+	if contentEncoding != "" {
+		input.ContentEncoding = aws.String(contentEncoding)
+	}
+
 	_, err := s.uploader.UploadWithContext(ctx, input, func(u *s3manager.Uploader) {
 		u.PartSize = partSize
 		u.Concurrency = concurrency

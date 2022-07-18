@@ -63,7 +63,7 @@ For macOS, a [homebrew](https://brew.sh) tap is provided:
 
 ### Unofficial Releases (by Community)
 > **Warning**  
-> These releases are maintained by the community. They might not be up to date or same with the original releases.
+> These releases are maintained by the community. They might be out of date compared to the official releases.
 
 #### MacPorts
 You can also install `s5cmd` from [MacPorts](https://ports.macports.org/port/s5cmd/summary) on macOS:

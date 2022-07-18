@@ -5,6 +5,9 @@
 #### Bugfixes
 - Fixed a bug where (`--stat`) prints unnecessarily when used with help and version commands ([#452](https://github.com/peak/s5cmd/issues/452))
 
+#### Improvements
+- Disable AWS SDK logger if log level is not "trace"
+
 ## v2.0.0 - 4 Jul 2022
 
 #### Breaking changes

@@ -60,7 +60,7 @@ func s3ServerEndpoint(t *testing.T, testdir *fs.Dir, loglvl, backend string, tim
 	}
 
 	if enableProxy {
-		parsedUrl, err := url.ParseRequestURI(s3srv.URL)
+		parsedUrl, err := url.Parse(s3srv.URL)
 		if err != nil {
 			t.Fatal(err)
 		}

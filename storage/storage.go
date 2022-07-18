@@ -8,6 +8,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/peak/s5cmd/log"
 	"github.com/peak/s5cmd/storage/url"
 	"github.com/peak/s5cmd/strutil"
 )
@@ -57,6 +58,7 @@ func NewRemoteClient(ctx context.Context, url *url.URL, opts Options) (*S3, erro
 		RequestPayer:     opts.RequestPayer,
 		Profile:          opts.Profile,
 		CredentialFile:   opts.CredentialFile,
+		LogLevel:         opts.LogLevel,
 		bucket:           url.Bucket,
 		region:           opts.region,
 	}
@@ -78,6 +80,7 @@ type Options struct {
 	DryRun           bool
 	NoSignRequest    bool
 	UseListObjectsV1 bool
+	LogLevel         log.LogLevel
 	RequestPayer     string
 	Profile          string
 	CredentialFile   string

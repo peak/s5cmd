@@ -183,6 +183,7 @@ func NewStorageOpts(c *cli.Context) storage.Options {
 		UseListObjectsV1: c.Bool("use-list-objects-v1"),
 		Profile:          c.String("profile"),
 		CredentialFile:   c.String("credentials-file"),
+		LogLevel:         log.LevelFromString(c.String("log")),
 	}
 }
 

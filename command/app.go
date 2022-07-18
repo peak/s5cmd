@@ -142,12 +142,8 @@ var app = &cli.App{
 		return cli.ShowAppHelp(c)
 	},
 	After: func(c *cli.Context) error {
-		if c.Bool("stat") {
-			// Fix unnecessary prints if there is no operation applied
-			// https://github.com/peak/s5cmd/issues/452
-			if len(stat.Statistics()) > 0 {
-				log.Stat(stat.Statistics())
-			}
+		if c.Bool("stat") && len(stat.Statistics()) > 0 {
+			log.Stat(stat.Statistics())
 		}
 
 		parallel.Close()

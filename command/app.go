@@ -86,9 +86,8 @@ var app = &cli.App{
 			Usage: "use the specified profile from the credentials file",
 		},
 		&cli.StringFlag{
-			Name:    "credentials-file",
-			Aliases: []string{"cf"},
-			Usage:   "use the specified credentials file instead of the default credentials file",
+			Name:  "credentials-file",
+			Usage: "use the specified credentials file instead of the default credentials file",
 		},
 	},
 	Before: func(c *cli.Context) error {

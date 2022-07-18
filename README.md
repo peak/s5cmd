@@ -413,7 +413,7 @@ s5cmd --use-list-objects-v1 ls s3://bucket/
 
 `s5cmd` uses official AWS SDK to access S3. SDK requires credentials to sign
 requests to AWS. Credentials can be provided in a variety of ways:
-- Command line options `--profile` to use a [named profile](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-profiles.html), `--credentials-file` flag (or its alias `--cf`) to use specified credentials file, and `--no-sign-request` to send requests anonymously
+- Command line options `--profile` to use a [named profile](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-profiles.html), `--credentials-file` flag to use the specified credentials file, and `--no-sign-request` to send requests anonymously
 - Environment variables
 - AWS credentials file, including profile selection via `AWS_PROFILE` environment
   variable

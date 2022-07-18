@@ -1036,6 +1036,52 @@ func TestS3ListObjectsAPIVersions(t *testing.T) {
 	})
 }
 
+func TestAWSLogLevel(t *testing.T) {
+	testcases := []struct {
+		name     string
+		level    string
+		expected aws.LogLevelType
+	}{
+		{
+			name:     "Trace: log level must be aws.LogDebug",
+			level:    "trace",
+			expected: aws.LogDebug,
+		},
+		{
+			name:     "Debug: log level must be aws.LogOff",
+			level:    "debug",
+			expected: aws.LogOff,
+		},
+		{
+			name:     "Info: log level must be aws.LogOff",
+			level:    "info",
+			expected: aws.LogOff,
+		},
+		{
+			name:     "Error: log level must be aws.LogOff",
+			level:    "error",
+			expected: aws.LogOff,
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			globalSessionCache.clear()
+			sess, err := globalSessionCache.newSession(context.Background(), Options{
+				LogLevel: log.LevelFromString(tc.level),
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			cfgLogLevel := *sess.Config.LogLevel
+			if diff := cmp.Diff(cfgLogLevel, tc.expected); diff != "" {
+				t.Errorf("%s: (-want +got):\n%v", tc.name, diff)
+			}
+		})
+	}
+}
+
 func valueAtPath(i interface{}, s string) interface{} {
 	v, err := awsutil.ValuesAtPath(i, s)
 	if err != nil || len(v) == 0 {

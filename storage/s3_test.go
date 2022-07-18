@@ -1068,7 +1068,7 @@ func TestAWSLogLevel(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			globalSessionCache.clear()
 			sess, err := globalSessionCache.newSession(context.Background(), Options{
-				LogLevel: tc.level,
+				LogLevel: log.LevelFromString(tc.level),
 			})
 			if err != nil {
 				t.Fatal(err)

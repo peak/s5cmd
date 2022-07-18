@@ -8,6 +8,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/peak/s5cmd/log"
 	"github.com/peak/s5cmd/storage/url"
 	"github.com/peak/s5cmd/strutil"
 )
@@ -77,8 +78,8 @@ type Options struct {
 	DryRun           bool
 	NoSignRequest    bool
 	UseListObjectsV1 bool
+	LogLevel         log.LogLevel
 	RequestPayer     string
-	LogLevel         string
 	bucket           string
 	region           string
 }

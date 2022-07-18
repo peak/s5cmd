@@ -80,7 +80,7 @@ func (p *proxy) ServeHTTP(wr http.ResponseWriter, req *http.Request) {
 		http.Error(wr, "Server Error", http.StatusInternalServerError)
 		log.Fatal("ServeHTTP:", err)
 	}
-	if resp.Status == "200 OK" {
+	if resp.StatusCode == http.StatusOK {
 		requests[req.RemoteAddr] = true
 	} else {
 		requests[req.RemoteAddr] = false

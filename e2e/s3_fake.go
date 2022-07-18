@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"net"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -59,8 +60,10 @@ func s3ServerEndpoint(t *testing.T, testdir *fs.Dir, loglvl, backend string, tim
 	}
 
 	if enableProxy {
-		splitURL := strings.Split(s3srv.URL, ":")
-		port := splitURL[2]
+		_, port, err := net.SplitHostPort(s3srv.URL)
+		if err != nil {
+			t.Fatal(err)
+		}
 		proxyEnabledURL := "http://localhost.:" + port
 		return proxyEnabledURL, cleanup
 	}

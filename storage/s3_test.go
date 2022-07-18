@@ -146,11 +146,7 @@ aws_secret_access_key = p1_profile_access_key
 
 [p2]
 aws_access_key_id = p2_profile_key_id
-aws_secret_access_key = p2_profile_access_key
-
-[p3]
-aws_access_key_id = p3_profile_key_id
-aws_secret_access_key = p3_profile_access_key`
+aws_secret_access_key = p2_profile_access_key`
 
 	_, err = file.Write([]byte(profiles))
 	if err != nil {
@@ -158,64 +154,59 @@ aws_secret_access_key = p3_profile_access_key`
 	}
 
 	testcases := []struct {
+		name               string
 		fileName           string
 		profileName        string
 		expAccessKeyId     string
 		expSecretAccessKey string
 	}{
 		{
+			name:               "use default profile",
 			fileName:           file.Name(),
 			profileName:        "",
 			expAccessKeyId:     "default_profile_key_id",
 			expSecretAccessKey: "default_profile_access_key",
 		},
 		{
+			name:               "use a non-default profile",
 			fileName:           file.Name(),
 			profileName:        "p1",
 			expAccessKeyId:     "p1_profile_key_id",
 			expSecretAccessKey: "p1_profile_access_key",
 		},
 		{
+
+			name:               "use a non-existent profile",
 			fileName:           file.Name(),
 			profileName:        "non-existent-profile",
 			expAccessKeyId:     "",
 			expSecretAccessKey: "",
 		},
-		{
-			fileName:           file.Name(),
-			profileName:        "p2",
-			expAccessKeyId:     "p2_profile_key_id",
-			expSecretAccessKey: "p2_profile_access_key",
-		},
-		{
-			fileName:           file.Name(),
-			profileName:        "p3",
-			expAccessKeyId:     "p3_profile_key_id",
-			expSecretAccessKey: "p3_profile_access_key",
-		},
 	}
 	for _, tc := range testcases {
-		globalSessionCache.clear()
-		sess, err := globalSessionCache.newSession(context.Background(), Options{
-			Profile:        tc.profileName,
-			CredentialFile: tc.fileName,
-		})
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		got, err := sess.Config.Credentials.Get()
-		if err != nil {
-			// if there should not be such as profile continue,
-			if tc.expAccessKeyId == "" && tc.expSecretAccessKey == "" {
-				continue
+		t.Run(tc.name, func(t *testing.T) {
+			globalSessionCache.clear()
+			sess, err := globalSessionCache.newSession(context.Background(), Options{
+				Profile:        tc.profileName,
+				CredentialFile: tc.fileName,
+			})
+			if err != nil {
+				t.Fatal(err)
 			}
-			t.Fatal(err)
-		}
 
-		if got.AccessKeyID != tc.expAccessKeyId || got.SecretAccessKey != tc.expSecretAccessKey {
-			t.Errorf("Expected credentials does not match the credential we got!\nExpected: Access Key ID: %v, Secret Access Key: %v\nGot    : Access Key ID: %v, Secret Access Key: %v\n", tc.expAccessKeyId, tc.expSecretAccessKey, got.AccessKeyID, got.SecretAccessKey)
-		}
+			got, err := sess.Config.Credentials.Get()
+			if err != nil {
+				// if there should be such a profile but received an error fail,
+				// ignore the error otherwise.
+				if tc.expAccessKeyId != "" || tc.expSecretAccessKey != "" {
+					t.Fatal(err)
+				}
+			}
+
+			if got.AccessKeyID != tc.expAccessKeyId || got.SecretAccessKey != tc.expSecretAccessKey {
+				t.Errorf("Expected credentials does not match the credential we got!\nExpected: Access Key ID: %v, Secret Access Key: %v\nGot    : Access Key ID: %v, Secret Access Key: %v\n", tc.expAccessKeyId, tc.expSecretAccessKey, got.AccessKeyID, got.SecretAccessKey)
+			}
+		})
 	}
 }
 

@@ -5,6 +5,8 @@
 #### Bugfixes
 - Fixed a bug where proxy is not being used when `--no-verify-ssl` flag is used. ([#445](https://github.com/peak/s5cmd/issues/445))
 
+#### Improvements
+- Disable AWS SDK logger if log level is not "trace"
 
 ## v2.0.0 - 4 Jul 2022
 

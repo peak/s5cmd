@@ -48,25 +48,45 @@ storage services and local filesystems.
 
 ## Installation
 
-### Binaries
+### Official Releases
+
+#### Binaries
 
 The [Releases](https://github.com/peak/s5cmd/releases) page provides pre-built
 binaries for Linux, macOS and Windows.
 
-### Homebrew
+#### Homebrew
 
 For macOS, a [homebrew](https://brew.sh) tap is provided:
 
     brew install peak/tap/s5cmd
 
-### MacPorts
+### Unofficial Releases (by Community)
+> **Warning**  
+> These releases are maintained by the community. They might not be up to date or same with the original releases.
 
+#### MacPorts
 You can also install `s5cmd` from [MacPorts](https://ports.macports.org/port/s5cmd/summary) on macOS:
 
     sudo port selfupdate
     sudo port install s5cmd
 
-NOTE: MacPorts is not officially supported. The versions might be out of date compared to Homebrew.
+#### Conda
+`s5cmd` is [included](https://anaconda.org/conda-forge/s5cmd ) in the [conda-forge]( https://conda-forge.org ) channel, and it can be downloaded through the [Conda](https://docs.conda.io/).
+
+> Installing `s5cmd` from the `conda-forge` channel can be achieved by adding `conda-forge` to your channels with:
+> ```
+> conda config --add channels conda-forge
+> conda config --set channel_priority strict
+> ```
+> 
+> Once the `conda-forge` channel has been enabled, `s5cmd` can be installed with `conda`:
+> 
+> ```
+> conda install s5cmd
+> ```
+ps.  Quoted from [s5cmd feedstock](https://github.com/conda-forge/s5cmd-feedstock). You can also find further instructions on its [README](https://github.com/conda-forge/s5cmd-feedstock/blob/main/README.md).
+
 
 ### Build from source
 

@@ -2812,8 +2812,8 @@ func TestCopyErrorWhenGivenObjectIsNotFoundUsingWildcard(t *testing.T) {
 	createBucket(t, s3client, bucket)
 
 	folderLayout := []fs.PathOp{
-		//we intentionally did not create a/f1.txt to
-		//trigger given object not found error.
+		// we intentionally did not create a/f1.txt to
+		// trigger given object not found error.
 		fs.WithDir("b"),
 		fs.WithSymlink("b/link1", "a/f1.txt"),
 	}

@@ -83,11 +83,12 @@ var app = &cli.App{
 		},
 		&cli.StringFlag{
 			Name:  "profile",
-			Usage: "use the specified profile from the credential file",
+			Usage: "use the specified profile from the credentials file",
 		},
 		&cli.StringFlag{
-			Name:  "credential-file",
-			Usage: "use the specified credential file instead of the default",
+			Name:    "credentials-file",
+			Aliases: []string{"cf"},
+			Usage:   "use the specified credentials file instead of the default credentials file",
 		},
 	},
 	Before: func(c *cli.Context) error {
@@ -110,8 +111,8 @@ var app = &cli.App{
 			printError(commandFromContext(c), c.Command.Name, err)
 			return err
 		}
-		if c.Bool("no-sign-request") && c.String("credential-file") != "" {
-			err := fmt.Errorf(`"no-sign-request" and "credential-file" flags cannot be used together`)
+		if c.Bool("no-sign-request") && c.String("credentials-file") != "" {
+			err := fmt.Errorf(`"no-sign-request" and "credentials-file" flags cannot be used together`)
 			printError(commandFromContext(c), c.Command.Name, err)
 			return err
 		}
@@ -181,7 +182,7 @@ func NewStorageOpts(c *cli.Context) storage.Options {
 		RequestPayer:     c.String("request-payer"),
 		UseListObjectsV1: c.Bool("use-list-objects-v1"),
 		Profile:          c.String("profile"),
-		CredentialFile:   c.String("credential-file"),
+		CredentialFile:   c.String("credentials-file"),
 	}
 }
 

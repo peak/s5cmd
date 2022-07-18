@@ -129,7 +129,7 @@ func TestNewSessionWithNoSignRequest(t *testing.T) {
 }
 
 func TestNewSessionWithProfileFromFile(t *testing.T) {
-	// create a temporary credential file
+	// create a temporary credentials file
 	file, err := os.CreateTemp("", "")
 	if err != nil {
 		t.Fatal(err)

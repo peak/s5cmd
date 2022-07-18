@@ -18,6 +18,7 @@
 
 #### Improvements
 - Upgraded minimum required Go version to 1.16.
+- Debian packages are provided on [releases page](https://github.com/peak/s5cmd/releases) ([#380](https://github.com/peak/s5cmd/issues/380))
 
 #### Bugfixes
 - Fixed a bug about precedence of region detection, which auto region detection would always override region defined in environment or profile. ([#325](https://github.com/peak/s5cmd/issues/325))

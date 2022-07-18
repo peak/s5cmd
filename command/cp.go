@@ -561,7 +561,6 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 	}
 
 	metadata := storage.NewMetadata().
-		SetContentType(guessContentType(file)).
 		SetStorageClass(string(c.storageClass)).
 		SetSSE(c.encryptionMethod).
 		SetSSEKeyID(c.encryptionKeyID).
@@ -571,7 +570,10 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 
 	if c.contentType != "" {
 		metadata.SetContentType(c.contentType)
+	} else {
+		metadata.SetContentType(guessContentType(file))
 	}
+
 	if c.contentEncoding != "" {
 		metadata.SetContentEncoding(c.contentEncoding)
 	}

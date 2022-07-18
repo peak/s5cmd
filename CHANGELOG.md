@@ -3,9 +3,10 @@
 ## not released yet
 
 #### Bugfixes
-
 - Changed cp error message to be more precise. "given object not found" error message now will also include absolute path of the file. ([#463](https://github.com/peak/s5cmd/pull/463))
 
+#### Improvements
+- Disable AWS SDK logger if log level is not "trace"
 
 ## v2.0.0 - 4 Jul 2022
 

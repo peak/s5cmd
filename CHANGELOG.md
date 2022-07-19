@@ -2,6 +2,8 @@
 
 ## not released yet
 
+#### Breaking changes
+-  Leading slashes in `objectname` are not trimmed anymore when uploading to remote. Before `s5cmd cp /file.txt s3://bucket/` would output `cp /file.txt s3://bucket/file.txt` but now it will output `cp /file.txt s3://bucket//file.txt`.([#459](https://github.com/peak/s5cmd/pull/459))
 #### Improvements
 - Disable AWS SDK logger if log level is not "trace"
 

@@ -58,21 +58,8 @@ func WithRaw(mode bool) Option {
 
 // New creates a new URL from given path string.
 func New(s string, opts ...Option) (*URL, error) {
-	//strings.Cut is undefined in go before 1.18.x, thus use Indexing instead.
-	//scheme, rest, isFound := strings.Cut(s, "://")
-	sep := "://"
-	var scheme string
-	var rest string
-	var isFound bool
-	if i := strings.Index(s, sep); i >= 0 {
-		scheme = s[:i]
-		rest = s[i+len(sep):]
-		isFound = true
-	} else {
-		scheme = s
-		rest = ""
-		isFound = false
-	}
+	// TODO Change strCut to strings.Cut when minimum required Go version is 1.18
+	scheme, rest, isFound := strCut(s, "://")
 	if !isFound {
 		url := &URL{
 			Type:   localObject,
@@ -103,7 +90,6 @@ func New(s string, opts ...Option) (*URL, error) {
 	key := ""
 	bucket := parts[0]
 	if len(parts) == 2 {
-		// do not trim, use as it is to allow adjacent slashes
 		key = parts[1]
 	}
 
@@ -130,6 +116,17 @@ func New(s string, opts ...Option) (*URL, error) {
 		return nil, err
 	}
 	return url, nil
+}
+
+// strCut slices s around the first instance of sep,
+// returning the text before and after sep.
+// The found result reports whether sep appears in s.
+// If sep does not appear in s, cut returns s, "", false.
+func strCut(s string, sep string) (before string, after string, isFound bool) {
+	if i := strings.Index(s, sep); i >= 0 {
+		return s[:i], s[i+len(sep):], true
+	}
+	return s, "", false
 }
 
 // IsRemote reports whether the object is stored on a remote storage system.
@@ -194,13 +191,14 @@ func (u *URL) Join(s string) *URL {
 
 	clone := u.Clone()
 	if !clone.IsRemote() {
-		//destination is not remote, thus clean the path by using path.Join which removes multiple slashes
+		// URL is local, thus clean the path by using path.Join which
+		// removes adjacent slashes.
 		clone.Path = path.Join(clone.Path, s)
-	} else {
-		//destination is remote: keep them as it is and join using string.Join
-		//this allows to use adjacent slashes
-		clone.Path = strings.Join([]string{clone.Path, s}, "")
+		return clone
 	}
+	// URL is remote, keep them as it is and join using string.Join which
+	// allows to use adjacent slashes
+	clone.Path = strings.Join([]string{clone.Path, s}, "")
 	return clone
 }
 

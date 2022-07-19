@@ -78,30 +78,30 @@ func TestCopySingleS3ObjectToLocal(t *testing.T) {
 			expected:       fs.WithDir("dir", fs.WithFile("file1.txt", fileContent, fs.WithMode(0644))),
 			expectedOutput: "cp s3://bucket/file1.txt dir/file1.txt",
 		},
-		//specific cases with adjacent slashes. expected behavior is to remove all duplicate slashes.
+		// Cases with adjacent slashes. Expected behavior is to remove all duplicate slashes in local files.
 		{
-			name:           "cp s3://bucket//b/a//object dir/file",
+			name:           "cp s3://bucket//a/b///c////object .",
 			src:            "/a/b///c////file1.txt",
 			dst:            ".",
 			expected:       fs.WithFile("file1.txt", fileContent, fs.WithMode(0644)),
 			expectedOutput: "cp s3://bucket//a/b///c////file1.txt file1.txt",
 		},
 		{
-			name:           "cp s3://bucket/object file",
+			name:           "cp s3://bucket//a/b///c////object file",
 			src:            "/a/b///c////file1.txt",
 			dst:            "file1.txt",
 			expected:       fs.WithFile("file1.txt", fileContent, fs.WithMode(0644)),
 			expectedOutput: "cp s3://bucket//a/b///c////file1.txt file1.txt",
 		},
 		{
-			name:           "cp s3://bucket/object dir/",
+			name:           "cp s3://bucket//a/b///c////object dir/",
 			src:            "/a/b///c////file1.txt",
 			dst:            "dir/",
 			expected:       fs.WithDir("dir", fs.WithFile("file1.txt", fileContent, fs.WithMode(0644))),
 			expectedOutput: "cp s3://bucket//a/b///c////file1.txt dir/file1.txt",
 		},
 		{
-			name:           "cp s3://bucket//b/a//object dir/file",
+			name:           "cp s3://bucket//a/b///c////object dir/file",
 			src:            "/a/b///c////file1.txt",
 			dst:            "dir/file1.txt",
 			expected:       fs.WithDir("dir", fs.WithFile("file1.txt", fileContent, fs.WithMode(0644))),

@@ -118,6 +118,99 @@ func TestNew(t *testing.T) {
 	}
 }
 
+func TestJoin(t *testing.T) {
+	tests := []struct {
+		name       string
+		before     *URL
+		objectName string
+		after      *URL
+	}{
+		// URL is remote, expected to keep adjacent slashes
+		{
+			name: "remote:url_with_adjacent_slashes",
+			before: &URL{
+				Path: "s3://bucket/a//b/",
+				Type: remoteObject,
+			},
+			objectName: "test.txt",
+			after: &URL{
+				Path: "s3://bucket/a//b/test.txt",
+				Type: remoteObject,
+			},
+		},
+		{
+			name: "remote:objectName_has_adjacent_slashes",
+			before: &URL{
+				Path: "s3://bucket/a/b/",
+				Type: remoteObject,
+			},
+			objectName: "folder//test.txt",
+			after: &URL{
+				Path: "s3://bucket/a/b/folder//test.txt",
+				Type: remoteObject,
+			},
+		},
+		{
+			name: "remote:objectName_url_has_adjacent_slashes",
+			before: &URL{
+				Path: "s3://bucket/a//b/",
+				Type: remoteObject,
+			},
+			objectName: "/folder//test.txt",
+			after: &URL{
+				Path: "s3://bucket/a//b//folder//test.txt",
+				Type: remoteObject,
+			},
+		},
+		// URL is local, expected to clean adjacent slashes
+		{
+			name: "local:url_with_adjacent_slashes",
+			before: &URL{
+				Path: "dir/a//b/",
+				Type: localObject,
+			},
+			objectName: "test.txt",
+			after: &URL{
+				Path: "dir/a/b/test.txt",
+				Type: localObject,
+			},
+		},
+		{
+			name: "local:objectName_has_adjacent_slashes",
+			before: &URL{
+				Path: "dir/a/b/",
+				Type: localObject,
+			},
+			objectName: "folder//test.txt",
+			after: &URL{
+				Path: "dir/a/b/folder/test.txt",
+				Type: localObject,
+			},
+		},
+		{
+			name: "local:objectName_url_has_adjacent_slashes",
+			before: &URL{
+				Path: "dir/a//b/",
+				Type: localObject,
+			},
+			objectName: "/folder//test.txt",
+			after: &URL{
+				Path: "dir/a/b/folder/test.txt",
+				Type: localObject,
+			},
+		},
+	}
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			got := tc.before.Join(tc.objectName)
+			if !reflect.DeepEqual(got, tc.after) {
+				t.Errorf("Join() got = %v, want %v", got, tc.after)
+			}
+		})
+	}
+}
+
 func TestURLSetPrefixAndFilter(t *testing.T) {
 	tests := []struct {
 		name   string

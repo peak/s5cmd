@@ -14,12 +14,19 @@ import (
 )
 
 var (
-	// ErrGivenObjectNotFound indicates a specified object is not found.
-	ErrGivenObjectNotFound = fmt.Errorf("given object not found")
 
 	// ErrNoObjectFound indicates there are no objects found from a given directory.
 	ErrNoObjectFound = fmt.Errorf("no object found")
 )
+
+// ErrGivenObjectNotFound indicates a specified object is not found.
+type ErrGivenObjectNotFound struct {
+	ObjectAbsPath string
+}
+
+func (e *ErrGivenObjectNotFound) Error() string {
+	return fmt.Sprintf("given object %v not found", e.ObjectAbsPath)
+}
 
 // Storage is an interface for storage operations that is common
 // to local filesystem and remote object storage.
@@ -56,6 +63,8 @@ func NewRemoteClient(ctx context.Context, url *url.URL, opts Options) (*S3, erro
 		NoSignRequest:    opts.NoSignRequest,
 		UseListObjectsV1: opts.UseListObjectsV1,
 		RequestPayer:     opts.RequestPayer,
+		Profile:          opts.Profile,
+		CredentialFile:   opts.CredentialFile,
 		LogLevel:         opts.LogLevel,
 		bucket:           url.Bucket,
 		region:           opts.region,
@@ -80,6 +89,8 @@ type Options struct {
 	UseListObjectsV1 bool
 	LogLevel         log.LogLevel
 	RequestPayer     string
+	Profile          string
+	CredentialFile   string
 	bucket           string
 	region           string
 }

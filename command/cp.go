@@ -98,6 +98,9 @@ Examples:
 
 	20. Download an S3 object from a requester pays bucket
 		 > s5cmd --request-payer=requester {{.HelpName}} s3://bucket/prefix/object.gz .
+
+	21. Upload a file to S3 with a content-type and content-encoding header
+		 > s5cmd --content-type "text/css" --content-encoding "br" myfile.css.br s3://bucket/
 `
 
 func NewSharedFlags() []cli.Flag {

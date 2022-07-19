@@ -118,7 +118,7 @@ func (s *S3) Stat(ctx context.Context, url *url.URL) (*Object, error) {
 	})
 	if err != nil {
 		if errHasCode(err, "NotFound") {
-			return nil, ErrGivenObjectNotFound
+			return nil, &ErrGivenObjectNotFound{ObjectAbsPath: url.Absolute()}
 		}
 		return nil, err
 	}
@@ -804,9 +804,12 @@ func (sc *SessionCache) newSession(ctx context.Context, opts Options) (*session.
 		WithEndpoint(endpointURL.String()).
 		WithS3ForcePathStyle(!isVirtualHostStyle).
 		WithS3UseAccelerate(useAccelerate).
-		WithHTTPClient(httpClient).
-		WithLogLevel(aws.LogDebug).
-		WithLogger(sdkLogger{})
+		WithHTTPClient(httpClient)
+
+	if opts.LogLevel == log.LevelTrace {
+		awsCfg = awsCfg.WithLogLevel(aws.LogDebug).
+			WithLogger(sdkLogger{})
+	}
 
 	awsCfg.Retryer = newCustomRetryer(opts.MaxRetries)
 

@@ -22,7 +22,7 @@ func (f *Filesystem) Stat(ctx context.Context, url *url.URL) (*Object, error) {
 	st, err := os.Stat(url.Absolute())
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, ErrGivenObjectNotFound
+			return nil, &ErrGivenObjectNotFound{ObjectAbsPath: url.Absolute()}
 		}
 		return nil, err
 	}

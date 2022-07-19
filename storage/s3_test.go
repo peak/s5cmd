@@ -128,6 +128,88 @@ func TestNewSessionWithNoSignRequest(t *testing.T) {
 	}
 }
 
+func TestNewSessionWithProfileFromFile(t *testing.T) {
+	// create a temporary credentials file
+	file, err := os.CreateTemp("", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(file.Name())
+
+	profiles := `[default]
+aws_access_key_id = default_profile_key_id
+aws_secret_access_key = default_profile_access_key
+
+[p1]
+aws_access_key_id = p1_profile_key_id
+aws_secret_access_key = p1_profile_access_key
+
+[p2]
+aws_access_key_id = p2_profile_key_id
+aws_secret_access_key = p2_profile_access_key`
+
+	_, err = file.Write([]byte(profiles))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	testcases := []struct {
+		name               string
+		fileName           string
+		profileName        string
+		expAccessKeyId     string
+		expSecretAccessKey string
+	}{
+		{
+			name:               "use default profile",
+			fileName:           file.Name(),
+			profileName:        "",
+			expAccessKeyId:     "default_profile_key_id",
+			expSecretAccessKey: "default_profile_access_key",
+		},
+		{
+			name:               "use a non-default profile",
+			fileName:           file.Name(),
+			profileName:        "p1",
+			expAccessKeyId:     "p1_profile_key_id",
+			expSecretAccessKey: "p1_profile_access_key",
+		},
+		{
+
+			name:               "use a non-existent profile",
+			fileName:           file.Name(),
+			profileName:        "non-existent-profile",
+			expAccessKeyId:     "",
+			expSecretAccessKey: "",
+		},
+	}
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			globalSessionCache.clear()
+			sess, err := globalSessionCache.newSession(context.Background(), Options{
+				Profile:        tc.profileName,
+				CredentialFile: tc.fileName,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			got, err := sess.Config.Credentials.Get()
+			if err != nil {
+				// if there should be such a profile but received an error fail,
+				// ignore the error otherwise.
+				if tc.expAccessKeyId != "" || tc.expSecretAccessKey != "" {
+					t.Fatal(err)
+				}
+			}
+
+			if got.AccessKeyID != tc.expAccessKeyId || got.SecretAccessKey != tc.expSecretAccessKey {
+				t.Errorf("Expected credentials does not match the credential we got!\nExpected: Access Key ID: %v, Secret Access Key: %v\nGot    : Access Key ID: %v, Secret Access Key: %v\n", tc.expAccessKeyId, tc.expSecretAccessKey, got.AccessKeyID, got.SecretAccessKey)
+			}
+		})
+	}
+}
+
 func TestS3ListURL(t *testing.T) {
 	url, err := url.New("s3://bucket/key")
 	if err != nil {
@@ -1034,6 +1116,52 @@ func TestS3ListObjectsAPIVersions(t *testing.T) {
 			t.Errorf("expected %T, got: %T", expected, got)
 		}
 	})
+}
+
+func TestAWSLogLevel(t *testing.T) {
+	testcases := []struct {
+		name     string
+		level    string
+		expected aws.LogLevelType
+	}{
+		{
+			name:     "Trace: log level must be aws.LogDebug",
+			level:    "trace",
+			expected: aws.LogDebug,
+		},
+		{
+			name:     "Debug: log level must be aws.LogOff",
+			level:    "debug",
+			expected: aws.LogOff,
+		},
+		{
+			name:     "Info: log level must be aws.LogOff",
+			level:    "info",
+			expected: aws.LogOff,
+		},
+		{
+			name:     "Error: log level must be aws.LogOff",
+			level:    "error",
+			expected: aws.LogOff,
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			globalSessionCache.clear()
+			sess, err := globalSessionCache.newSession(context.Background(), Options{
+				LogLevel: log.LevelFromString(tc.level),
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			cfgLogLevel := *sess.Config.LogLevel
+			if diff := cmp.Diff(cfgLogLevel, tc.expected); diff != "" {
+				t.Errorf("%s: (-want +got):\n%v", tc.name, diff)
+			}
+		})
+	}
 }
 
 func valueAtPath(i interface{}, s string) interface{} {

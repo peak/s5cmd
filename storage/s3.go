@@ -118,7 +118,7 @@ func (s *S3) Stat(ctx context.Context, url *url.URL) (*Object, error) {
 	})
 	if err != nil {
 		if errHasCode(err, "NotFound") {
-			return nil, ErrGivenObjectNotFound
+			return nil, &ErrGivenObjectNotFound{ObjectAbsPath: url.Absolute()}
 		}
 		return nil, err
 	}
@@ -770,7 +770,11 @@ func (sc *SessionCache) newSession(ctx context.Context, opts Options) (*session.
 
 	if opts.NoSignRequest {
 		// do not sign requests when making service API calls
-		awsCfg.Credentials = credentials.AnonymousCredentials
+		awsCfg = awsCfg.WithCredentials(credentials.AnonymousCredentials)
+	} else if opts.CredentialFile != "" || opts.Profile != "" {
+		awsCfg = awsCfg.WithCredentials(
+			credentials.NewSharedCredentials(opts.CredentialFile, opts.Profile),
+		)
 	}
 
 	endpointURL, err := parseEndpoint(opts.Endpoint)

@@ -4,6 +4,15 @@
 
 #### Breaking changes
 -  Leading slashes in `objectname` are not trimmed anymore when uploading to remote. Before `s5cmd cp /file.txt s3://bucket/` would output `cp /file.txt s3://bucket/file.txt` but now it will output `cp /file.txt s3://bucket//file.txt`.([#459](https://github.com/peak/s5cmd/pull/459))
+
+#### Features
+- Added `--profile` flag to allow users to specify a [named profile](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-profiles.html). ([#353](https://github.com/peak/s5cmd/issues/353))
+- Added `--credentials-file` flag to allow users to specify path for the AWS credentials file instead of using the [default location](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html#cli-configure-files-where). 
+
+#### Bugfixes
+- Fixed a bug where (`--stat`) prints unnecessarily when used with help and version commands ([#452](https://github.com/peak/s5cmd/issues/452))
+- Changed cp error message to be more precise. "given object not found" error message now will also include absolute path of the file. ([#463](https://github.com/peak/s5cmd/pull/463))
+
 #### Improvements
 - Disable AWS SDK logger if log level is not "trace"
 

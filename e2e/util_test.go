@@ -83,7 +83,7 @@ func withTimeSource(timeSource gofakes3.TimeSource) option {
 	}
 }
 
-func withFakeProxy() option {
+func withProxy() option {
 	return func(opts *setupOpts) {
 		opts.enableProxy = true
 	}

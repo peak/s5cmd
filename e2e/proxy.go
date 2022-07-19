@@ -2,11 +2,8 @@ package e2e
 
 import (
 	"io"
-	"log"
-	"net"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"sync/atomic"
 )
 
@@ -37,32 +34,20 @@ func delHopHeaders(header http.Header) {
 	}
 }
 
-func appendHostToXForwardHeader(header http.Header, host string) {
-	// If we aren't the first proxy retain prior
-	// X-Forwarded-For information as a comma+space
-	// separated list and fold multiple headers into one.
-	if prior, ok := header["X-Forwarded-For"]; ok {
-		host = strings.Join(prior, ", ") + ", " + host
-	}
-	header.Set("X-Forwarded-For", host)
-}
-
-type proxy struct {
+type httpProxy struct {
 	successReqs int64
 	errorReqs   int64
 }
 
-func (p *proxy) ServeHTTP(wr http.ResponseWriter, req *http.Request) {
-
+func (p *httpProxy) ServeHTTP(wr http.ResponseWriter, req *http.Request) {
 	if req.URL.Scheme != "http" && req.URL.Scheme != "https" {
 		msg := "unsupported protocol scheme " + req.URL.Scheme
 		http.Error(wr, msg, http.StatusBadRequest)
-		log.Println(msg)
 		return
 	}
 	// We need to explicitly set New Transport with no Proxy to make
 	// sure ServeHttp only receives the requests once. Otherwise, it
-	// causes proxy to call itself infinitely over and over again.
+	// causes httpProxy to call itself infinitely over and over again.
 	client := &http.Client{
 		Transport: &http.Transport{Proxy: nil},
 	}
@@ -72,14 +57,9 @@ func (p *proxy) ServeHTTP(wr http.ResponseWriter, req *http.Request) {
 
 	delHopHeaders(req.Header)
 
-	if clientIP, _, err := net.SplitHostPort(req.RemoteAddr); err == nil {
-		appendHostToXForwardHeader(req.Header, clientIP)
-	}
-
 	resp, err := client.Do(req)
 	if err != nil {
 		http.Error(wr, "Server Error", http.StatusInternalServerError)
-		log.Fatal("ServeHTTP:", err)
 	}
 	defer resp.Body.Close()
 
@@ -95,11 +75,11 @@ func (p *proxy) ServeHTTP(wr http.ResponseWriter, req *http.Request) {
 	io.Copy(wr, resp.Body)
 }
 
-func (p *proxy) isSuccessful(totalReqs int64) bool {
-	return totalReqs == p.successReqs && p.errorReqs == 0
+func (p *httpProxy) isSuccessful(totalReqs int64) bool {
+	return totalReqs == atomic.LoadInt64(&p.successReqs) && atomic.LoadInt64(&p.errorReqs) == 0
 }
 
-func proxyFake(p *proxy) (string, func()) {
+func setupProxy(p *httpProxy) (string, func()) {
 	proxysrv := httptest.NewServer(p)
 	return proxysrv.URL, proxysrv.Close
 }

@@ -151,15 +151,15 @@ func TestAppProxy(t *testing.T) {
 	for _, tc := range testcases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			var totalReqs int64 = 1
+			const expectedReqs = 1
 
-			pxy := proxy{successReqs: 0, errorReqs: 0}
-			pxyUrl, cleanup := proxyFake(&pxy)
+			proxy := httpProxy{}
+			pxyUrl, cleanup := setupProxy(&proxy)
 			defer cleanup()
 
 			os.Setenv("http_proxy", pxyUrl)
 
-			_, s5cmd, cleanup := setup(t, withFakeProxy())
+			_, s5cmd, cleanup := setup(t, withProxy())
 			defer cleanup()
 
 			var cmd icmd.Cmd
@@ -172,7 +172,7 @@ func TestAppProxy(t *testing.T) {
 			result := icmd.RunCmd(cmd)
 
 			result.Assert(t, icmd.Success)
-			assert.Assert(t, pxy.isSuccessful(totalReqs))
+			assert.Assert(t, proxy.isSuccessful(expectedReqs))
 		})
 	}
 }

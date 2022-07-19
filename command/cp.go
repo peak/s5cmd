@@ -752,8 +752,8 @@ func prepareLocalDestination(
 	obj, err := client.Stat(ctx, dsturl)
 
 	if err != nil {
-		var givenObjNotFoundErr *storage.ErrGivenObjectNotFound
-		if !errors.As(err, &givenObjNotFoundErr) {
+		var objNotFound *storage.ErrGivenObjectNotFound
+		if !errors.As(err, &objNotFound) {
 			return nil, err
 		}
 	}
@@ -765,8 +765,8 @@ func prepareLocalDestination(
 			return nil, err
 		}
 	}
-	var givenObjNotFoundErr *storage.ErrGivenObjectNotFound
-	if errors.As(err, &givenObjNotFoundErr) {
+	var objNotFound *storage.ErrGivenObjectNotFound
+	if errors.As(err, &objNotFound) {
 		err := client.MkdirAll(dsturl.Dir())
 		if err != nil {
 			return nil, err
@@ -787,8 +787,8 @@ func prepareLocalDestination(
 // found, error and returning object would be nil.
 func getObject(ctx context.Context, url *url.URL, client storage.Storage) (*storage.Object, error) {
 	obj, err := client.Stat(ctx, url)
-	var givenObjNotFoundErr *storage.ErrGivenObjectNotFound
-	if errors.As(err, &givenObjNotFoundErr) {
+	var objNotFound *storage.ErrGivenObjectNotFound
+	if errors.As(err, &objNotFound) {
 		return nil, nil
 	}
 

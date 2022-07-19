@@ -3,7 +3,9 @@
 ## not released yet
 
 #### Bugfixes
+- Fixed a bug where (`--stat`) prints unnecessarily when used with help and version commands ([#452](https://github.com/peak/s5cmd/issues/452))
 - Changed cp error message to be more precise. "given object not found" error message now will also include absolute path of the file. ([#463](https://github.com/peak/s5cmd/pull/463))
+
 
 #### Improvements
 - Disable AWS SDK logger if log level is not "trace"

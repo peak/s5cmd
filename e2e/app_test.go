@@ -69,62 +69,65 @@ func TestAppRetryCount(t *testing.T) {
 	}
 }
 
-// Checks if the stats are written at the end of each log level output.
+// Checks if the stats are written in necessary conditions.
+// 1. Print with every log level when there is an operation
+// 2. Do not print when used with help & version commands.
 func TestAppDashStat(t *testing.T) {
 	t.Parallel()
 
 	const (
-		bucket      = "bucket"
-		fileContent = "this is a file content"
-		dst         = "."
-		src         = "file1.txt"
+		bucket                  = "bucket"
+		fileContent             = "this is a file content"
+		src                     = "file1.txt"
+		expectedOutputIfPrinted = "Operation\tTotal\tError\tSuccess\t"
 	)
 
-	testcases := []struct {
-		name  string
-		level string
+	var testcases = []struct {
+		command         string
+		isPrintExpected bool
 	}{
 		{
-			name:  "--stat --log trace cp s3://bucket/object .",
-			level: "trace",
+			command:         fmt.Sprintf("--stat --log %v cp s3://bucket/%v .", "trace", src),
+			isPrintExpected: true,
 		},
 		{
-			name:  "--stat --log debug cp s3://bucket/object .",
-			level: "debug",
+			command:         fmt.Sprintf("--stat --log %v cp s3://bucket/%v .", "debug", src),
+			isPrintExpected: true,
 		},
 		{
-			name:  "--stat --log info cp s3://bucket/object .",
-			level: "info",
+			command:         fmt.Sprintf("--stat --log %v cp s3://bucket/%v .", "info", src),
+			isPrintExpected: true,
 		},
 		{
-			name:  "--stat --log error cp s3://bucket/object .",
-			level: "error",
+			command:         fmt.Sprintf("--stat --log %v cp s3://bucket/%v .", "error", src),
+			isPrintExpected: true,
+		},
+		// if level is an empty string, it ignores log levels and uses default.
+		{
+			command:         "--stat help",
+			isPrintExpected: false,
+		},
+		{
+			command:         "--stat version",
+			isPrintExpected: false,
 		},
 	}
-
 	for _, tc := range testcases {
 		tc := tc
-		t.Run(tc.name, func(t *testing.T) {
+		t.Run(tc.command, func(t *testing.T) {
 			t.Parallel()
-
 			s3client, s5cmd, cleanup := setup(t)
 			defer cleanup()
 
 			createBucket(t, s3client, bucket)
-
 			putFile(t, s3client, bucket, src, fileContent)
+			cmd := s5cmd(strings.Fields(tc.command)...)
 
-			srcPath := fmt.Sprintf("s3://%v/%v", bucket, src)
-			cmd := s5cmd("--stat", "--log", tc.level, "cp", srcPath, dst)
 			result := icmd.RunCmd(cmd)
 
 			result.Assert(t, icmd.Success)
-
 			out := result.Stdout()
-			tsv := fmt.Sprintf("%s\t%s\t%s\t%s\t", "Operation", "Total", "Error", "Success")
-
-			assert.Assert(t, strings.Contains(out, tsv))
-
+			assert.Assert(t, tc.isPrintExpected == strings.Contains(out, expectedOutputIfPrinted))
 		})
 	}
 }

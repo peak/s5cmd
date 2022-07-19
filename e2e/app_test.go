@@ -148,22 +148,30 @@ func TestAppProxy(t *testing.T) {
 	for _, tc := range testcases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			httpProxy, cleanupProxy := proxyFake()
-			defer cleanupProxy()
-			os.Setenv("http_proxy", httpProxy)
+			var totalReqs int64 = 1
+
+			pxy := proxy{successReqs: 0, errorReqs: 0}
+			pxyUrl, cleanup := proxyFake(&pxy)
+			defer cleanup()
+
+			os.Setenv("http_proxy", pxyUrl)
+
 			_, s5cmd, cleanup := setup(t, withFakeProxy())
 			defer cleanup()
+
 			var cmd icmd.Cmd
 			if tc.flag != "" {
-				cmd = s5cmd(tc.flag, "--log", "trace", "ls")
+				cmd = s5cmd(tc.flag, "ls")
 			} else {
-				cmd = s5cmd("--log", "trace", "ls")
+				cmd = s5cmd("ls")
 			}
+
 			result := icmd.RunCmd(cmd)
+
 			result.Assert(t, icmd.Success)
+			assert.Assert(t, pxy.isSuccessful(totalReqs))
 		})
 	}
-	assert.Assert(t, successfulRequests(len(testcases)))
 }
 
 func TestAppUnknownCommand(t *testing.T) {

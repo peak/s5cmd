@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 )
 
 // Hop-by-hop headers. These are removed when sent to the backend.
@@ -47,26 +48,26 @@ func appendHostToXForwardHeader(header http.Header, host string) {
 }
 
 type proxy struct {
+	successReqs int64
+	errorReqs   int64
 }
 
-var requests = make(map[string]bool)
-
 func (p *proxy) ServeHTTP(wr http.ResponseWriter, req *http.Request) {
-	//log.Println(req.RemoteAddr, " ", req.Method, " ", req.URL)
+
 	if req.URL.Scheme != "http" && req.URL.Scheme != "https" {
 		msg := "unsupported protocol scheme " + req.URL.Scheme
 		http.Error(wr, msg, http.StatusBadRequest)
 		log.Println(msg)
 		return
 	}
-	//We need to explicitly set New Transport with no Proxy to make
-	//sure ServeHttp only receives the requests once. Otherwise, it
-	//causes proxy to call itself infinitely over and over again.
+	// We need to explicitly set New Transport with no Proxy to make
+	// sure ServeHttp only receives the requests once. Otherwise, it
+	// causes proxy to call itself infinitely over and over again.
 	client := &http.Client{
 		Transport: &http.Transport{Proxy: nil},
 	}
-	//http: Request.RequestURI can't be set in client requests.
-	//http://golang.org/src/pkg/net/http/client.go
+	// http: Request.RequestURI can't be set in client requests.
+	// http://golang.org/src/pkg/net/http/client.go
 	req.RequestURI = ""
 
 	delHopHeaders(req.Header)
@@ -80,13 +81,13 @@ func (p *proxy) ServeHTTP(wr http.ResponseWriter, req *http.Request) {
 		http.Error(wr, "Server Error", http.StatusInternalServerError)
 		log.Fatal("ServeHTTP:", err)
 	}
-	if resp.StatusCode == http.StatusOK {
-		requests[req.RemoteAddr] = true
-	} else {
-		requests[req.RemoteAddr] = false
-	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode == http.StatusOK {
+		atomic.AddInt64(&p.successReqs, 1)
+	} else {
+		atomic.AddInt64(&p.errorReqs, 1)
+	}
 	delHopHeaders(resp.Header)
 
 	copyHeader(wr.Header(), resp.Header)
@@ -94,24 +95,11 @@ func (p *proxy) ServeHTTP(wr http.ResponseWriter, req *http.Request) {
 	io.Copy(wr, resp.Body)
 }
 
-// check if all requests got "200 OK" respond and all
-// requests have passed through proxy
-func successfulRequests(totalRequest int) bool {
-	if len(requests) != totalRequest {
-		return false
-	}
-	for _, value := range requests {
-		if !value {
-			return false
-		}
-	}
-	return true
+func (p *proxy) isSuccessful(totalReqs int64) bool {
+	return totalReqs == p.successReqs && p.errorReqs == 0
 }
-func proxyFake() (string, func()) {
-	handler := &proxy{}
-	proxysrv := httptest.NewServer(handler)
-	cleanup := func() {
-		proxysrv.Close()
-	}
-	return proxysrv.URL, cleanup
+
+func proxyFake(p *proxy) (string, func()) {
+	proxysrv := httptest.NewServer(p)
+	return proxysrv.URL, proxysrv.Close
 }

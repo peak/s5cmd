@@ -64,6 +64,7 @@ nfpms:
     vendor: Peak
     homepage: https://github.com/peak/s5cmd
     license: MIT
+    maintainer: Peak <packaging@peak.com>
     description: |-
       Very fast S3 and local filesystem execution tool. It comes with support
       for a multitude of operations including tab completion and wildcard

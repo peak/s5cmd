@@ -2,6 +2,8 @@
 
 ## not released yet
 
+#### Features
+- Added `--content-type` and `--content-encoding` flags to `cp` command. ([#264](https://github.com/peak/s5cmd/issues/264))
 
 ## v2.0.0 - 4 Jul 2022
 

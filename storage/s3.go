@@ -118,7 +118,7 @@ func (s *S3) Stat(ctx context.Context, url *url.URL) (*Object, error) {
 	})
 	if err != nil {
 		if errHasCode(err, "NotFound") {
-			return nil, ErrGivenObjectNotFound
+			return nil, &ErrGivenObjectNotFound{ObjectAbsPath: url.Absolute()}
 		}
 		return nil, err
 	}

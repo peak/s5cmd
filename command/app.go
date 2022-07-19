@@ -160,7 +160,7 @@ var app = &cli.App{
 		return cli.ShowAppHelp(c)
 	},
 	After: func(c *cli.Context) error {
-		if c.Bool("stat") {
+		if c.Bool("stat") && len(stat.Statistics()) > 0 {
 			log.Stat(stat.Statistics())
 		}
 

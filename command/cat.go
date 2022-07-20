@@ -29,9 +29,15 @@ Examples:
 
 func NewCatCommand() *cli.Command {
 	return &cli.Command{
-		Name:               "cat",
-		HelpName:           "cat",
-		Usage:              "print remote object content",
+		Name:     "cat",
+		HelpName: "cat",
+		Usage:    "print remote object content",
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:  "version-id",
+				Usage: "use the specified `version` of an object",
+			},
+		},
 		CustomHelpTemplate: catHelpTemplate,
 		Before: func(c *cli.Context) error {
 			err := validateCatCommand(c)

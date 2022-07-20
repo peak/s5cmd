@@ -153,10 +153,22 @@ func (s *S3) List(ctx context.Context, url *url.URL, _ bool) <-chan *Object {
 }
 
 func (s *S3) listObjectsVersion(ctx context.Context, url *url.URL) <-chan *Object {
-	listInput := s3.ListObjectVersionsInput{
-		Bucket: aws.String(url.Bucket),
-		Prefix: aws.String(url.Prefix),
-		//RequestPayer: s.RequestPayer(),
+	var listInput s3.ListObjectVersionsInput
+
+	if s.versionId != "" {
+		listInput = s3.ListObjectVersionsInput{
+			Bucket:    aws.String(url.Bucket),
+			KeyMarker: aws.String(url.Path),
+			//RequestPayer: s.RequestPayer(),
+			VersionIdMarker: aws.String(s.versionId),
+		}
+	} else if s.allVersions {
+
+		listInput = s3.ListObjectVersionsInput{
+			Bucket: aws.String(url.Bucket),
+			Prefix: aws.String(url.Prefix),
+			//RequestPayer: s.RequestPayer(),
+		}
 	}
 
 	if url.Delimiter != "" {
@@ -487,6 +499,7 @@ func (s *S3) Read(ctx context.Context, src *url.URL) (io.ReadCloser, error) {
 		Bucket:       aws.String(src.Bucket),
 		Key:          aws.String(src.Path),
 		RequestPayer: s.RequestPayer(),
+		VersionId:    &s.versionId,
 	})
 	if err != nil {
 		return nil, err
@@ -512,6 +525,7 @@ func (s *S3) Get(
 		Bucket:       aws.String(from.Bucket),
 		Key:          aws.String(from.Path),
 		RequestPayer: s.RequestPayer(),
+		VersionId:    &s.versionId,
 	}, func(u *s3manager.Downloader) {
 		u.PartSize = partSize
 		u.Concurrency = concurrency

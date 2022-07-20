@@ -81,6 +81,14 @@ var app = &cli.App{
 			Name:  "request-payer",
 			Usage: "who pays for request (access requester pays buckets)",
 		},
+		&cli.StringFlag{
+			Name:  "profile",
+			Usage: "use the specified profile from the credentials file",
+		},
+		&cli.StringFlag{
+			Name:  "credentials-file",
+			Usage: "use the specified credentials file instead of the default credentials file",
+		},
 	},
 	Before: func(c *cli.Context) error {
 		retryCount := c.Int("retry-count")
@@ -94,6 +102,16 @@ var app = &cli.App{
 
 		if retryCount < 0 {
 			err := fmt.Errorf("retry count cannot be a negative value")
+			printError(commandFromContext(c), c.Command.Name, err)
+			return err
+		}
+		if c.Bool("no-sign-request") && c.String("profile") != "" {
+			err := fmt.Errorf(`"no-sign-request" and "profile" flags cannot be used together`)
+			printError(commandFromContext(c), c.Command.Name, err)
+			return err
+		}
+		if c.Bool("no-sign-request") && c.String("credentials-file") != "" {
+			err := fmt.Errorf(`"no-sign-request" and "credentials-file" flags cannot be used together`)
 			printError(commandFromContext(c), c.Command.Name, err)
 			return err
 		}
@@ -142,7 +160,7 @@ var app = &cli.App{
 		return cli.ShowAppHelp(c)
 	},
 	After: func(c *cli.Context) error {
-		if c.Bool("stat") {
+		if c.Bool("stat") && len(stat.Statistics()) > 0 {
 			log.Stat(stat.Statistics())
 		}
 
@@ -164,6 +182,9 @@ func NewStorageOpts(c *cli.Context) storage.Options {
 		AllVersions:      c.Bool("all-versions"),
 		VersionId:        c.String("version-id"),
 		UseListObjectsV1: c.Bool("use-list-objects-v1"),
+		Profile:          c.String("profile"),
+		CredentialFile:   c.String("credentials-file"),
+		LogLevel:         log.LevelFromString(c.String("log")),
 	}
 }
 

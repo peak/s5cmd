@@ -2802,6 +2802,37 @@ func TestCopyWithFollowSymlink(t *testing.T) {
 	assert.Assert(t, ensureS3Object(s3client, bucket, "prefix/c/link2", fileContent))
 }
 
+func TestCopyErrorWhenGivenObjectIsNotFoundUsingWildcard(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	const bucket = "bucket"
+	createBucket(t, s3client, bucket)
+
+	folderLayout := []fs.PathOp{
+		// we intentionally did not create a/f1.txt to
+		// trigger given object not found error.
+		fs.WithDir("b"),
+		fs.WithSymlink("b/link1", "a/f1.txt"),
+	}
+
+	workdir := fs.NewDir(t, t.Name(), folderLayout...)
+	defer workdir.Remove()
+
+	dst := fmt.Sprintf("s3://%v/prefix/", bucket)
+
+	cmd := s5cmd("cp", "*", dst)
+	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
+
+	result.Assert(t, icmd.Expected{ExitCode: 1})
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: equals(`ERROR "cp * %v": given object b/link1 not found`, dst),
+	}, sortInput(true))
+}
+
 // cp --no-follow-symlinks * s3://bucket/prefix/
 func TestCopyWithNoFollowSymlink(t *testing.T) {
 	t.Parallel()

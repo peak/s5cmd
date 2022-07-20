@@ -8,17 +8,25 @@ import (
 	"os"
 	"time"
 
+	"github.com/peak/s5cmd/log"
 	"github.com/peak/s5cmd/storage/url"
 	"github.com/peak/s5cmd/strutil"
 )
 
 var (
-	// ErrGivenObjectNotFound indicates a specified object is not found.
-	ErrGivenObjectNotFound = fmt.Errorf("given object not found")
 
 	// ErrNoObjectFound indicates there are no objects found from a given directory.
 	ErrNoObjectFound = fmt.Errorf("no object found")
 )
+
+// ErrGivenObjectNotFound indicates a specified object is not found.
+type ErrGivenObjectNotFound struct {
+	ObjectAbsPath string
+}
+
+func (e *ErrGivenObjectNotFound) Error() string {
+	return fmt.Sprintf("given object %v not found", e.ObjectAbsPath)
+}
 
 // Storage is an interface for storage operations that is common
 // to local filesystem and remote object storage.
@@ -57,6 +65,9 @@ func NewRemoteClient(ctx context.Context, url *url.URL, opts Options) (*S3, erro
 		VersionId:        opts.VersionId,
 		Endpoint:         opts.Endpoint,
 		RequestPayer:     opts.RequestPayer,
+		Profile:          opts.Profile,
+		CredentialFile:   opts.CredentialFile,
+		LogLevel:         opts.LogLevel,
 		bucket:           url.Bucket,
 		region:           opts.region,
 	}
@@ -80,7 +91,10 @@ type Options struct {
 	AllVersions      bool
 	VersionId        string
 	Endpoint         string
+	LogLevel         log.LogLevel
 	RequestPayer     string
+	Profile          string
+	CredentialFile   string
 	bucket           string
 	region           string
 }
@@ -267,5 +281,14 @@ func (m Metadata) SSEKeyID() string {
 
 func (m Metadata) SetSSEKeyID(kid string) Metadata {
 	m["EncryptionKeyID"] = kid
+	return m
+}
+
+func (m Metadata) ContentEncoding() string {
+	return m["ContentEncoding"]
+}
+
+func (m Metadata) SetContentEncoding(contentEncoding string) Metadata {
+	m["ContentEncoding"] = contentEncoding
 	return m
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
 	cmpinstall "github.com/posener/complete/cmd/install"
 	"github.com/urfave/cli/v2"
@@ -20,6 +21,8 @@ const (
 
 	appName = "s5cmd"
 )
+
+var startTime = time.Now()
 
 var app = &cli.App{
 	Name:  appName,

@@ -3,15 +3,16 @@
 ## not released yet
 
 #### Features
+- Added `--content-type` and `--content-encoding` flags to `cp` command. ([#264](https://github.com/peak/s5cmd/issues/264))
 - Added `--profile` flag to allow users to specify a [named profile](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-profiles.html). ([#353](https://github.com/peak/s5cmd/issues/353))
 - Added `--credentials-file` flag to allow users to specify path for the AWS credentials file instead of using the [default location](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html#cli-configure-files-where). 
+
+#### Improvements
+- Disable AWS SDK logger if log level is not "trace"
 
 #### Bugfixes
 - Fixed a bug where (`--stat`) prints unnecessarily when used with help and version commands ([#452](https://github.com/peak/s5cmd/issues/452))
 - Changed cp error message to be more precise. "given object not found" error message now will also include absolute path of the file. ([#463](https://github.com/peak/s5cmd/pull/463))
-
-#### Improvements
-- Disable AWS SDK logger if log level is not "trace"
 
 ## v2.0.0 - 4 Jul 2022
 

@@ -13,6 +13,8 @@
 #### Bugfixes
 - Fixed a bug where (`--stat`) prints unnecessarily when used with help and version commands ([#452](https://github.com/peak/s5cmd/issues/452))
 - Changed cp error message to be more precise. "given object not found" error message now will also include absolute path of the file. ([#463](https://github.com/peak/s5cmd/pull/463))
+- Fixed a bug where proxy is not being used when `--no-verify-ssl` flag is used. ([#445](https://github.com/peak/s5cmd/issues/445))
+
 
 ## v2.0.0 - 4 Jul 2022
 

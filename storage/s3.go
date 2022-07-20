@@ -939,6 +939,7 @@ func (c *customRetryer) ShouldRetry(req *request.Request) bool {
 var insecureHTTPClient = &http.Client{
 	Transport: &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		Proxy:           http.ProxyFromEnvironment,
 	},
 }
 

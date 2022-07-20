@@ -279,3 +279,12 @@ func (m Metadata) SetSSEKeyID(kid string) Metadata {
 	m["EncryptionKeyID"] = kid
 	return m
 }
+
+func (m Metadata) ContentEncoding() string {
+	return m["ContentEncoding"]
+}
+
+func (m Metadata) SetContentEncoding(contentEncoding string) Metadata {
+	m["ContentEncoding"] = contentEncoding
+	return m
+}

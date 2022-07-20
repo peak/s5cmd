@@ -461,7 +461,17 @@ func (c Copy) prepareUploadTask(
 ) func() error {
 	return func() error {
 		dsturl = prepareRemoteDestination(srcurl, dsturl, c.flatten, isBatch)
-		err := c.doUpload(ctx, srcurl, dsturl)
+
+		var err error
+		for i := 1; i <= 5; i++ {
+			err = c.doUpload(ctx, srcurl, dsturl)
+			if err == nil {
+				break
+			}
+			msg := log.ErrorMessage{Err: "retiring from scratch: " + dsturl.String()}
+			log.Error(msg)
+		}
+
 		if err != nil {
 			return &errorpkg.Error{
 				Op:  c.op,

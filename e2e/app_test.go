@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -128,6 +129,50 @@ func TestAppDashStat(t *testing.T) {
 			result.Assert(t, icmd.Success)
 			out := result.Stdout()
 			assert.Assert(t, tc.isPrintExpected == strings.Contains(out, expectedOutputIfPrinted))
+		})
+	}
+}
+
+func TestAppProxy(t *testing.T) {
+
+	testcases := []struct {
+		name string
+		flag string
+	}{
+		{
+			name: "without no-verify-ssl flag",
+			flag: "",
+		},
+		{
+			name: "with no-verify-ssl flag",
+			flag: "--no-verify-ssl",
+		},
+	}
+	for _, tc := range testcases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			const expectedReqs = 1
+
+			proxy := httpProxy{}
+			pxyUrl, cleanup := setupProxy(&proxy)
+			defer cleanup()
+
+			os.Setenv("http_proxy", pxyUrl)
+
+			_, s5cmd, cleanup := setup(t, withProxy())
+			defer cleanup()
+
+			var cmd icmd.Cmd
+			if tc.flag != "" {
+				cmd = s5cmd(tc.flag, "ls")
+			} else {
+				cmd = s5cmd("ls")
+			}
+
+			result := icmd.RunCmd(cmd)
+
+			result.Assert(t, icmd.Success)
+			assert.Assert(t, proxy.isSuccessful(expectedReqs))
 		})
 	}
 }

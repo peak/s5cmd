@@ -18,6 +18,8 @@ BUCKET=example
 KEY_PREFIX=benchmark
 NEW=v2.0.0
 OLD=v1.4.0
+GLOBAL_FLAGS=""
+HYPERFINE_FLAGS=""
 
 main() {
    read_options "$@"
@@ -37,7 +39,7 @@ main() {
 }
 
 read_options() {
-   while getopts b:k:w:r:o:n: flag; do
+   while getopts b:k:w:r:o:n:f:h: flag; do
       case "${flag}" in
       b) BUCKET=${OPTARG} ;;
       k) KEY_PREFIX=${OPTARG} ;;
@@ -45,6 +47,8 @@ read_options() {
       r) RUN_COUNT=${OPTARG} ;;
       o) OLD=${OPTARG} ;;
       n) NEW=${OPTARG} ;;
+      h) HYPERFINE_FLAGS=${OPTARG} ;;
+      f) GLOBAL_FLAGS=${OPTARG} ;;
       *) echo "Invalid flag(s) are used" ;;
       esac
    done
@@ -142,10 +146,10 @@ upload() {
    print_info $1 Upload
    first_dst=${dst_prefix}/${1}1/
    second_dst=${dst_prefix}/${1}2/
-   first_up="$tmp_dir/$OLD_EXEC_NAME  cp "'"'${2}'"'" $first_dst"
-   second_up="$tmp_dir/$NEW_EXEC_NAME cp "'"'${2}'"'" $second_dst"
+   first_up="$tmp_dir/$OLD_EXEC_NAME  $GLOBAL_FLAGS cp "'"'${2}'"'" $first_dst"
+   second_up="$tmp_dir/$NEW_EXEC_NAME $GLOBAL_FLAGS cp "'"'${2}'"'" $second_dst"
 
-   hyperfine --warmup $WARMUP_COUNT --runs $RUN_COUNT "$first_up" "$second_up"
+   hyperfine "$HYPERFINE_FLAGS" --warmup $WARMUP_COUNT --runs $RUN_COUNT "$first_up" "$second_up"
 }
 
 download() {
@@ -154,10 +158,10 @@ download() {
    print_info $1 Download
    first_dst=${dst_prefix}/${1}1/*
    second_dst=${dst_prefix}/${1}2/*
-   first_dl="$tmp_dir/$OLD_EXEC_NAME  cp "'"'$first_dst'"'" $2/"
-   second_dl="$tmp_dir/$NEW_EXEC_NAME cp "'"'$second_dst'"'" $2/"
+   first_dl="$tmp_dir/$OLD_EXEC_NAME  $GLOBAL_FLAGS cp "'"'$first_dst'"'" $2/"
+   second_dl="$tmp_dir/$NEW_EXEC_NAME $GLOBAL_FLAGS cp "'"'$second_dst'"'" $2/"
 
-   hyperfine --warmup $WARMUP_COUNT --runs $RUN_COUNT "$first_dl" "$second_dl"
+   hyperfine "$HYPERFINE_FLAGS" --warmup $WARMUP_COUNT --runs $RUN_COUNT "$first_dl" "$second_dl"
 }
 
 remove() {
@@ -166,11 +170,11 @@ remove() {
    print_info $1 Remove
    first_dst=${dst_prefix}/${1}1/*
    second_dst=${dst_prefix}/${1}2/*
-   first_rm="$tmp_dir/$OLD_EXEC_NAME rm ${first_dst}"
-   second_rm="$tmp_dir/$NEW_EXEC_NAME rm ${second_dst}"
+   first_rm="$tmp_dir/$OLD_EXEC_NAME $GLOBAL_FLAGS rm ${first_dst}"
+   second_rm="$tmp_dir/$NEW_EXEC_NAME $GLOBAL_FLAGS rm ${second_dst}"
 
    # one can delete files once! So --warmup 0 --runs 1!
-   hyperfine --warmup 0 --runs 1 "$first_rm" "$second_rm"
+   hyperfine "$HYPERFINE_FLAGS" --warmup 0 --runs 1 "$first_rm" "$second_rm"
 }
 
 ## Make the tests!

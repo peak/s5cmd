@@ -98,6 +98,9 @@ Examples:
 
 	20. Download an S3 object from a requester pays bucket
 		 > s5cmd --request-payer=requester {{.HelpName}} s3://bucket/prefix/object.gz .
+
+	21. Upload a file to S3 with a content-type and content-encoding header
+		 > s5cmd --content-type "text/css" --content-encoding "br" myfile.css.br s3://bucket/
 `
 
 func NewSharedFlags() []cli.Flag {
@@ -165,6 +168,14 @@ func NewSharedFlags() []cli.Flag {
 		&cli.BoolFlag{
 			Name:  "raw",
 			Usage: "disable the wildcard operations, useful with filenames that contains glob characters",
+		},
+		&cli.StringFlag{
+			Name:  "content-type",
+			Usage: "set content type for target: defines content type header for object, e.g. --content-type text/plain",
+		},
+		&cli.StringFlag{
+			Name:  "content-encoding",
+			Usage: "set content encoding for target: defines content encoding header for object, e.g. --content-encoding gzip",
 		},
 	}
 }
@@ -244,6 +255,8 @@ type Copy struct {
 	raw                   bool
 	cacheControl          string
 	expires               string
+	contentType           string
+	contentEncoding       string
 
 	// region settings
 	srcRegion string
@@ -281,6 +294,8 @@ func NewCopy(c *cli.Context, deleteSource bool) Copy {
 		raw:                   c.Bool("raw"),
 		cacheControl:          c.String("cache-control"),
 		expires:               c.String("expires"),
+		contentType:           c.String("content-type"),
+		contentEncoding:       c.String("content-encoding"),
 		// region settings
 		srcRegion: c.String("source-region"),
 		dstRegion: c.String("destination-region"),
@@ -550,13 +565,22 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 	}
 
 	metadata := storage.NewMetadata().
-		SetContentType(guessContentType(file)).
 		SetStorageClass(string(c.storageClass)).
 		SetSSE(c.encryptionMethod).
 		SetSSEKeyID(c.encryptionKeyID).
 		SetACL(c.acl).
 		SetCacheControl(c.cacheControl).
 		SetExpires(c.expires)
+
+	if c.contentType != "" {
+		metadata.SetContentType(c.contentType)
+	} else {
+		metadata.SetContentType(guessContentType(file))
+	}
+
+	if c.contentEncoding != "" {
+		metadata.SetContentEncoding(c.contentEncoding)
+	}
 
 	err = dstClient.Put(ctx, file, dsturl, metadata, c.concurrency, c.partSize)
 	if err != nil {
@@ -605,6 +629,13 @@ func (c Copy) doCopy(ctx context.Context, srcurl, dsturl *url.URL) error {
 		SetACL(c.acl).
 		SetCacheControl(c.cacheControl).
 		SetExpires(c.expires)
+
+	if c.contentType != "" {
+		metadata.SetContentType(c.contentType)
+	}
+	if c.contentEncoding != "" {
+		metadata.SetContentEncoding(c.contentEncoding)
+	}
 
 	err = c.shouldOverride(ctx, srcurl, dsturl)
 	if err != nil {

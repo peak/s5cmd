@@ -109,6 +109,9 @@ func (d Delete) Run(ctx context.Context) error {
 		printError(d.fullCommand, d.op, err)
 		return err
 	}
+	if d.storageOpts.VersionId != "" {
+		srcurls[0].VersionId = d.storageOpts.VersionId
+	}
 	srcurl := srcurls[0]
 
 	client, err := storage.NewClient(ctx, srcurl, d.storageOpts)

@@ -156,7 +156,6 @@ func (s *S3) listObjectsVersion(ctx context.Context, url *url.URL) <-chan *Objec
 	listInput := s3.ListObjectVersionsInput{
 		Bucket: aws.String(url.Bucket),
 		Prefix: aws.String(url.Prefix),
-		//RequestPayer: s.RequestPayer(),
 	}
 
 	if url.Delimiter != "" {
@@ -199,6 +198,9 @@ func (s *S3) listObjectsVersion(ctx context.Context, url *url.URL) <-chan *Objec
 					if !url.Match(key) {
 						continue
 					}
+					if s.versionId != "" && s.versionId != *c.VersionId {
+						continue
+					}
 
 					mod := aws.TimeValue(c.LastModified).UTC()
 					if mod.After(now) {
@@ -214,7 +216,6 @@ func (s *S3) listObjectsVersion(ctx context.Context, url *url.URL) <-chan *Objec
 					newurl := url.Clone()
 					newurl.Path = aws.StringValue(c.Key)
 					newurl.VersionId = *c.VersionId
-
 					etag := aws.StringValue(c.ETag)
 
 					objCh <- &Object{
@@ -483,11 +484,16 @@ func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata Metadata) err
 
 // Read fetches the remote object and returns its contents as an io.ReadCloser.
 func (s *S3) Read(ctx context.Context, src *url.URL) (io.ReadCloser, error) {
-	resp, err := s.api.GetObjectWithContext(ctx, &s3.GetObjectInput{
+	goi := &s3.GetObjectInput{
 		Bucket:       aws.String(src.Bucket),
 		Key:          aws.String(src.Path),
 		RequestPayer: s.RequestPayer(),
-	})
+	}
+	if s.versionId != "" {
+		goi.VersionId = aws.String(s.versionId)
+	}
+	resp, err := s.api.GetObjectWithContext(ctx, goi)
+
 	if err != nil {
 		return nil, err
 	}
@@ -512,6 +518,7 @@ func (s *S3) Get(
 		Bucket:       aws.String(from.Bucket),
 		Key:          aws.String(from.Path),
 		RequestPayer: s.RequestPayer(),
+		VersionId:    &s.versionId,
 	}, func(u *s3manager.Downloader) {
 		u.PartSize = partSize
 		u.Concurrency = concurrency

@@ -6,8 +6,8 @@
 readonly START_DIR=$(pwd)
 readonly GO_REQ_VERSION=1.16.0
 readonly HYPERFINE_REQ_VERSION=1.14.0
-readonly LARGE_FILE_SIZE=100M
-readonly SMALLER_TO_LARGE=100
+readonly LARGE_FILE_SIZE=1G
+readonly SMALLER_TO_LARGE=1000
 readonly OLD_EXEC_NAME=olds5cmd
 readonly NEW_EXEC_NAME=news5cmd
 readonly YELLOW='\033[1;33m'
@@ -15,6 +15,7 @@ readonly GREEN='\033[0;32m>>'
 readonly RED='\033[0;31m'
 readonly NOCOLOR='\033[0m'
 readonly BENCH_RESULT=bench_results.md
+readonly SUMMARY=summary.md
 
 # default values of options/flags
 WARMUP_COUNT=2
@@ -158,65 +159,90 @@ create_temp_files() {
 
 print_info() {
 	echo
-	if [[ "$1" == large ]]; then
-		echo -e "${YELLOW}$2 the large file of size $LARGE_FILE_SIZE:${NOCOLOR}"
-	elif [[ "$1" == small ]]; then
-		echo -e "${YELLOW}$2 $SMALLER_TO_LARGE small files:${NOCOLOR}"
+	if [[ "$2" == large ]]; then
+		echo -e "${YELLOW}$1 the large file of size $LARGE_FILE_SIZE:${NOCOLOR}"
+	elif [[ "$2" == small ]]; then
+		echo -e "${YELLOW}$1 $SMALLER_TO_LARGE small files:${NOCOLOR}"
 	fi
 }
 
-save_results() {
+save_summary() {
 	sed -i -e "1,2d" tmp.md
-	sed -i -e "s/^/|$2_$1/" tmp.md
-	cat tmp.md >>$BENCH_RESULT
+	sed -i -e "s/^/|$1 $2/" tmp.md
+	cat tmp.md >> $SUMMARY
 }
 
+save_result() {
+	result=$(grep -B 1 "faster than" tmp.txt | tr -d '\n')
+	echo "|$1 $2|$result|" >> $BENCH_RESULT
+}
+
+
 upload() {
-	print_info $1 Upload
+	print_info Upload $1
 	first_dst=${dst_prefix}/${1}1/
 	second_dst=${dst_prefix}/${1}2/
 	first_up="$tmp_dir/$OLD_EXEC_NAME  $GLOBAL_FLAGS cp "'"'${2}'"'" $first_dst"
 	second_up="$tmp_dir/$NEW_EXEC_NAME $GLOBAL_FLAGS cp "'"'${2}'"'" $second_dst"
 
-	hyperfine --export-markdown tmp.md $HYPERFINE_FLAGS --warmup $WARMUP_COUNT --runs $RUN_COUNT -n $type_old:$OLD "$first_up" -n $type_new:$NEW "$second_up"
-
-	save_results $1 Upload
+	hyperfine --export-markdown tmp.md $HYPERFINE_FLAGS \
+	--warmup $WARMUP_COUNT --runs $RUN_COUNT -n $type_old:$OLD \
+	"$first_up" -n $type_new:$NEW "$second_up" | tee tmp.txt
+	
+	save_result Upload $1
+	save_summary Upload $1 
 }
 
 download() {
 	# We can download to the same directory that we uploaded the files from, and we will.
 	# Both of them writes to the same directory, but, for now, I don't care.
-	print_info $1 Download
+	print_info Download $1 
 	first_dst=${dst_prefix}/${1}1/*
 	second_dst=${dst_prefix}/${1}2/*
 	first_dl="$tmp_dir/$OLD_EXEC_NAME  $GLOBAL_FLAGS cp "'"'$first_dst'"'" $2/"
 	second_dl="$tmp_dir/$NEW_EXEC_NAME $GLOBAL_FLAGS cp "'"'$second_dst'"'" $2/"
 
-	hyperfine --export-markdown tmp.md $HYPERFINE_FLAGS --warmup $WARMUP_COUNT --runs $RUN_COUNT -n $type_old:$OLD "$first_dl" -n $type_new:$NEW "$second_dl"
+	hyperfine --export-markdown tmp.md $HYPERFINE_FLAGS \
+	--warmup $WARMUP_COUNT --runs $RUN_COUNT -n $type_old:$OLD \
+	"$first_dl" -n $type_new:$NEW "$second_dl" | tee tmp.txt
 
-	save_results $1 Download
+	save_result Download $1
+	save_summary Download $1 
 }
 
 remove() {
 	### clear the remote files --iff bucket is unversioned, otherwise just puts
 	### delete marker(s), sorry about that!
-	print_info $1 Remove
+	print_info Remove $1 
 	first_dst=${dst_prefix}/${1}1/*
 	second_dst=${dst_prefix}/${1}2/*
 	first_rm="$tmp_dir/$OLD_EXEC_NAME $GLOBAL_FLAGS rm ${first_dst}"
 	second_rm="$tmp_dir/$NEW_EXEC_NAME $GLOBAL_FLAGS rm ${second_dst}"
 
 	# one can delete files once! So --warmup 0 --runs 1!
-	hyperfine --export-markdown tmp.md $HYPERFINE_FLAGS --warmup 0 --runs 1 -n $type_old:$OLD "$first_rm" -n $type_new:$NEW "$second_rm"
+	hyperfine --export-markdown tmp.md $HYPERFINE_FLAGS \
+	--warmup 0 --runs 1 -n $type_old:$OLD "$first_rm"\
+	 -n $type_new:$NEW "$second_rm" | tee tmp.txt
 
-	save_results $1 Remove
+	save_result Remove $1
+	save_summary Remove $1
 }
 init_bench_results() {
-	header="|Scenario| Command | Mean [ms] | Min [ms] | Max [ms] | Relative |"
-	header2="|:---|:---|---:|---:|---:|---:|"
 
+	# initialize bench results
 	touch $BENCH_RESULT
 	echo "$header"$'\n'"$header2" >$BENCH_RESULT
+	echo "### Benchmark summary:"$'\n'"Large File Size: "\
+	$LARGE_FILE_SIZE$'\n'"Number of Small Files: \
+	"$SMALLER_TO_LARGE$'\n'$'\n'"|Scenario| Summary |"\
+	$'\n'"|:---|:---|" > $BENCH_RESULT
+
+	# initialize detailed summary
+	header="### Detailed summary:"
+	header2="|Scenario| Command | Mean [ms] | Min [ms] | Max [ms] | Relative |"
+	header3="|:---|:---|---:|---:|---:|---:|"
+	touch $SUMMARY
+	echo $'\n'$header$'\n'"$header2"$'\n'"$header3" >$SUMMARY
 }
 
 ## Make the tests!
@@ -224,14 +250,16 @@ make_test() {
 
 	init_bench_results
 
-	upload large $large_file
-	upload small ${small_file}"*"
+	upload Large $large_file
+	upload Small ${small_file}"*"
 
-	download large $large_file_dir
-	download small $small_file_dir
+	download Large $large_file_dir
+	download Small $small_file_dir
 
-	remove large
-	remove small
+	remove Large
+	remove Small
+
+	cat $SUMMARY >> $BENCH_RESULT
 }
 
 cleanup() {
@@ -240,6 +268,9 @@ cleanup() {
 	echo "Deleting the temporary directories and files in local from $tmp_dir..."
 	rm tmp.md*
 	rm -rf "$tmp_dir"
+	rm tmp.txt
+	rm $SUMMARY
+
 	echo -e "${GREEN}Deleted the temporary directories and files.${NOCOLOR}"
 }
 

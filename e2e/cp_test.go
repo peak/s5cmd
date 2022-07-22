@@ -78,6 +78,35 @@ func TestCopySingleS3ObjectToLocal(t *testing.T) {
 			expected:       fs.WithDir("dir", fs.WithFile("file1.txt", fileContent, fs.WithMode(0644))),
 			expectedOutput: "cp s3://bucket/file1.txt dir/file1.txt",
 		},
+		// Cases with adjacent slashes. Expected behavior is to remove all duplicate slashes in local files.
+		{
+			name:           "cp s3://bucket//a/b///c////object .",
+			src:            "/a/b///c////file1.txt",
+			dst:            ".",
+			expected:       fs.WithFile("file1.txt", fileContent, fs.WithMode(0644)),
+			expectedOutput: "cp s3://bucket//a/b///c////file1.txt file1.txt",
+		},
+		{
+			name:           "cp s3://bucket//a/b///c////object file",
+			src:            "/a/b///c////file1.txt",
+			dst:            "file1.txt",
+			expected:       fs.WithFile("file1.txt", fileContent, fs.WithMode(0644)),
+			expectedOutput: "cp s3://bucket//a/b///c////file1.txt file1.txt",
+		},
+		{
+			name:           "cp s3://bucket//a/b///c////object dir/",
+			src:            "/a/b///c////file1.txt",
+			dst:            "dir/",
+			expected:       fs.WithDir("dir", fs.WithFile("file1.txt", fileContent, fs.WithMode(0644))),
+			expectedOutput: "cp s3://bucket//a/b///c////file1.txt dir/file1.txt",
+		},
+		{
+			name:           "cp s3://bucket//a/b///c////object dir/file",
+			src:            "/a/b///c////file1.txt",
+			dst:            "dir/file1.txt",
+			expected:       fs.WithDir("dir", fs.WithFile("file1.txt", fileContent, fs.WithMode(0644))),
+			expectedOutput: "cp s3://bucket//a/b///c////file1.txt dir/file1.txt",
+		},
 	}
 
 	for _, tc := range testcases {
@@ -706,6 +735,83 @@ func TestCopySingleFileToS3(t *testing.T) {
 
 	// assert S3
 	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content, ensureContentType(expectedContentType)))
+}
+
+func TestCopySingleFileToS3WithAdjacentSlashes(t *testing.T) {
+	t.Parallel()
+
+	const (
+		bucket   = "testbucket"
+		filename = "index.txt"
+		content  = "this is a test file"
+	)
+
+	testcases := []struct {
+		name          string
+		dstpathprefix string
+	}{
+		{
+			name:          "cp dir/file s3://bucket//a/b/",
+			dstpathprefix: "/a/b/",
+		},
+		{
+			name:          "cp dir/file s3://bucket/a//b/",
+			dstpathprefix: "a//b/",
+		},
+		{
+			name:          "cp dir/file s3://bucket/a/b//",
+			dstpathprefix: "a/b//",
+		},
+		{
+			name:          "cp dir/file s3://bucket//a///b/",
+			dstpathprefix: "/a///b/",
+		},
+		{
+			name:          "cp dir/file s3://bucket/a//b///",
+			dstpathprefix: "a//b///",
+		},
+		{
+			name:          "cp dir/file s3://bucket/a//b//c//d///",
+			dstpathprefix: "a//b//c//d///",
+		},
+		{
+			name:          "cp dir/file s3://bucket/bar/s3://",
+			dstpathprefix: "bar/s3://",
+		},
+	}
+	for _, tc := range testcases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			s3client, s5cmd, cleanup := setup(t)
+			defer cleanup()
+
+			createBucket(t, s3client, bucket)
+
+			workdir := fs.NewDir(t, bucket, fs.WithFile(filename, content))
+			defer workdir.Remove()
+
+			srcpath := workdir.Join(filename)
+
+			dstpath := fmt.Sprintf("s3://%v/%v", bucket, tc.dstpathprefix)
+			srcpath = filepath.ToSlash(srcpath)
+			cmd := s5cmd("cp", srcpath, dstpath)
+			result := icmd.RunCmd(cmd)
+			result.Assert(t, icmd.Success)
+
+			assertLines(t, result.Stdout(), map[int]compareFunc{
+				0: suffix(`cp %v %v%v`, srcpath, dstpath, filename),
+			})
+			// assert local filesystem
+			expected := fs.Expected(t, fs.WithFile(filename, content))
+			assert.Assert(t, fs.Equal(workdir.Path(), expected))
+			// assert S3
+			assert.Assert(t, ensureS3Object(s3client, bucket, tc.dstpathprefix+filename, content))
+		})
+
+	}
+
 }
 
 // --json cp dir/file s3://bucket
@@ -1871,6 +1977,7 @@ func TestCopyAllObjectsIntoAnotherBucketIncludingSpecialCharacter(t *testing.T) 
 		"sub&@$/test+1.txt":           "this is a test file 1",
 		"sub:,?/test; =2.txt":         "this is a test file 2",
 		"test&@$:,?;= 3.txt":          "this is a test file 3",
+		"sub///test&@$:,?;= 4.txt":    "this is a test file with adjacent slashes",
 		"sub/this-is-normal-file.txt": "this is a normal file",
 	}
 
@@ -1887,9 +1994,10 @@ func TestCopyAllObjectsIntoAnotherBucketIncludingSpecialCharacter(t *testing.T) 
 	result.Assert(t, icmd.Success)
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(`cp s3://%v/sub&@$/test+1.txt s3://%v/sub&@$/test+1.txt`, srcbucket, dstbucket),
-		1: equals(`cp s3://%v/sub/this-is-normal-file.txt s3://%v/sub/this-is-normal-file.txt`, srcbucket, dstbucket),
-		2: equals(`cp s3://%v/sub:,?/test; =2.txt s3://%v/sub:,?/test; =2.txt`, srcbucket, dstbucket),
-		3: equals(`cp s3://%v/test&@$:,?;= 3.txt s3://%v/test&@$:,?;= 3.txt`, srcbucket, dstbucket),
+		1: equals(`cp s3://%v/sub///test&@$:,?;= 4.txt s3://%v/sub///test&@$:,?;= 4.txt`, srcbucket, dstbucket),
+		2: equals(`cp s3://%v/sub/this-is-normal-file.txt s3://%v/sub/this-is-normal-file.txt`, srcbucket, dstbucket),
+		3: equals(`cp s3://%v/sub:,?/test; =2.txt s3://%v/sub:,?/test; =2.txt`, srcbucket, dstbucket),
+		4: equals(`cp s3://%v/test&@$:,?;= 3.txt s3://%v/test&@$:,?;= 3.txt`, srcbucket, dstbucket),
 	}, sortInput(true))
 }
 

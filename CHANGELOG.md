@@ -2,6 +2,9 @@
 
 ## not released yet
 
+#### Breaking changes
+- Adjacent slashes in key are no longer removed when uploading to remote. Before `s5cmd cp file.txt s3://bucket/a//b///c/` would copy to `s3://bucket/a/b/c/file.txt` but now to `s3://bucket/a//b///c/file.txt`.([#459](https://github.com/peak/s5cmd/pull/459))
+
 #### Features
 - Added `--content-type` and `--content-encoding` flags to `cp` command. ([#264](https://github.com/peak/s5cmd/issues/264))
 - Added `--profile` flag to allow users to specify a [named profile](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-profiles.html). ([#353](https://github.com/peak/s5cmd/issues/353))
@@ -15,6 +18,11 @@
 - Changed cp error message to be more precise. "given object not found" error message now will also include absolute path of the file. ([#463](https://github.com/peak/s5cmd/pull/463))
 - Fixed a bug where some part of the destination path is removed by `cp` and `sync` subcommands ([#360](https://github.com/peak/s5cmd/issues/360))
 - Fixed a bug where proxy is not being used when `--no-verify-ssl` flag is used. ([#445](https://github.com/peak/s5cmd/issues/445))
+- Fixed `unknown url format` error when object key also includes `s3://` e.g. `s5cmd ls s3://foo/bar/s3://baz` ([#449](https://github.com/peak/s5cmd/issues/449))
+
+#### Improvements
+- Disable AWS SDK logger if log level is not "trace"
+- Allow adjacent slashes to be used as keys when uploading to remote. ([#459](https://github.com/peak/s5cmd/pull/459))
 
 ## v2.0.0 - 4 Jul 2022
 
@@ -35,6 +43,7 @@
 
 #### Improvements
 - Upgraded minimum required Go version to 1.16.
+- Debian packages are provided on [releases page](https://github.com/peak/s5cmd/releases) ([#380](https://github.com/peak/s5cmd/issues/380))
 
 #### Bugfixes
 - Fixed a bug about precedence of region detection, which auto region detection would always override region defined in environment or profile. ([#325](https://github.com/peak/s5cmd/issues/325))

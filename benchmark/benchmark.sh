@@ -164,9 +164,9 @@ create_temp_files() {
 
 print_info() {
 	echo
-	if [[ "$2" == large ]]; then
+	if [[ "$2" == Large ]]; then
 		echo -e "${YELLOW}$1 the large file of size $LARGE_FILE_SIZE:${NOCOLOR}"
-	elif [[ "$2" == small ]]; then
+	elif [[ "$2" == Small ]]; then
 		echo -e "${YELLOW}$1 $SMALL_FILE_COUNT small files:${NOCOLOR}"
 	fi
 }

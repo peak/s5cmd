@@ -14,6 +14,7 @@ import (
 	"os"
 	"reflect"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -570,26 +571,22 @@ func TestS3RetryOnNoSuchUpload(t *testing.T) {
 
 	noSuchUploadError := awserr.New(s3.ErrCodeNoSuchUpload, "The specified upload does not exist. The upload ID may be invalid, or the upload may have been aborted or completed. status code: 404, request id: PJXXXXX, host id: HOSTIDXX", nil)
 	testcases := []struct {
-		name                 string
-		expectedErrorContent string
-		err                  error
-		retryCount           int
+		name       string
+		err        error
+		retryCount int32
 	}{
 		{
-			name:                 "Don't retry",
-			err:                  noSuchUploadError,
-			expectedErrorContent: noSuchUploadError.Error(),
-			retryCount:           0,
+			name:       "Don't retry",
+			err:        noSuchUploadError,
+			retryCount: 0,
 		}, {
-			name:                 "Retry 5 times on NoSuchUpload error",
-			err:                  noSuchUploadError,
-			expectedErrorContent: awserr.New(s3.ErrCodeNoSuchUpload, fmt.Sprintf("RetryOnNoSuchUpload: %v attempts to retry resulted in %v", 5, s3.ErrCodeNoSuchUpload), noSuchUploadError).Error(),
-			retryCount:           5,
+			name:       "Retry 5 times on NoSuchUpload error",
+			err:        noSuchUploadError,
+			retryCount: 5,
 		}, {
-			name:                 "No error",
-			err:                  nil,
-			expectedErrorContent: "",
-			retryCount:           0,
+			name:       "No error",
+			err:        nil,
+			retryCount: 0,
 		},
 	}
 
@@ -611,11 +608,14 @@ func TestS3RetryOnNoSuchUpload(t *testing.T) {
 					LeavePartsOnError: false,
 					MaxUploadParts:    s3manager.MaxUploadParts,
 				},
-				retryOnNoSuchUploadError: tc.retryCount,
+				retryOnNoSuchUploadError: int(tc.retryCount),
 			}
 
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
+
+			atomicCounter := new(int32)
+			atomic.StoreInt32(atomicCounter, 0)
 
 			mockApi.Handlers.Send.Clear()
 			mockApi.Handlers.Unmarshal.Clear()
@@ -625,6 +625,9 @@ func TestS3RetryOnNoSuchUpload(t *testing.T) {
 				r.Error = tc.err
 				r.HTTPResponse = &http.Response{}
 			})
+			mockApi.Handlers.Unmarshal.PushBack(func(r *request.Request) {
+				atomic.AddInt32(atomicCounter, 1)
+			})
 
 			f, err := os.CreateTemp("", "")
 			if err != nil {
@@ -632,13 +635,13 @@ func TestS3RetryOnNoSuchUpload(t *testing.T) {
 			}
 			defer os.Remove(f.Name())
 
-			err = mockS3.Put(ctx, f, url, NewMetadata(), s3manager.DefaultUploadConcurrency, s3manager.DefaultUploadPartSize)
-			if tc.err != nil && err == nil {
-				t.Errorf("Expected to receive %v, but  no error was present", s3.ErrCodeNoSuchUpload)
-			} else if tc.err != nil {
-				if diff := cmp.Diff(err.Error(), tc.expectedErrorContent); diff != "" {
-					t.Errorf("(-want +got):\n%v", diff)
-				}
+			mockS3.Put(ctx, f, url, NewMetadata(), s3manager.DefaultUploadConcurrency, s3manager.DefaultUploadPartSize)
+
+			// +1 is for the original request
+			// *2 is to account for the "Stat" requests that are made to obtain
+			// last modification date( retry decision are made according to mod. date)
+			if *atomicCounter != 1+2*tc.retryCount {
+				t.Errorf("expected retry %d, got %d", tc.retryCount, *atomicCounter)
 			}
 		})
 	}

@@ -58,9 +58,9 @@ func WithRaw(mode bool) Option {
 
 // New creates a new URL from given path string.
 func New(s string, opts ...Option) (*URL, error) {
-	split := strings.Split(s, "://")
-
-	if len(split) == 1 {
+	// TODO Change strCut to strings.Cut when minimum required Go version is 1.18
+	scheme, rest, isFound := strCut(s, "://")
+	if !isFound {
 		url := &URL{
 			Type:   localObject,
 			Scheme: "",
@@ -81,12 +81,6 @@ func New(s string, opts ...Option) (*URL, error) {
 		return url, nil
 	}
 
-	if len(split) != 2 {
-		return nil, fmt.Errorf("storage: unknown url format %q", s)
-	}
-
-	scheme, rest := split[0], split[1]
-
 	if scheme != "s3" {
 		return nil, fmt.Errorf("s3 url should start with %q", s3Scheme)
 	}
@@ -96,7 +90,7 @@ func New(s string, opts ...Option) (*URL, error) {
 	key := ""
 	bucket := parts[0]
 	if len(parts) == 2 {
-		key = strings.TrimLeft(parts[1], s3Separator)
+		key = parts[1]
 	}
 
 	if bucket == "" {
@@ -122,6 +116,17 @@ func New(s string, opts ...Option) (*URL, error) {
 		return nil, err
 	}
 	return url, nil
+}
+
+// strCut slices s around the first instance of sep,
+// returning the text before and after sep.
+// The found result reports whether sep appears in s.
+// If sep does not appear in s, cut returns s, "", false.
+func strCut(s string, sep string) (before string, after string, isFound bool) {
+	if i := strings.Index(s, sep); i >= 0 {
+		return s[:i], s[i+len(sep):], true
+	}
+	return s, "", false
 }
 
 // IsRemote reports whether the object is stored on a remote storage system.
@@ -185,8 +190,15 @@ func (u *URL) Join(s string) *URL {
 	}
 
 	clone := u.Clone()
-	clone.Path = path.Join(clone.Path, s)
-
+	if !clone.IsRemote() {
+		// URL is local, thus clean the path by using path.Join which
+		// removes adjacent slashes.
+		clone.Path = path.Join(clone.Path, s)
+		return clone
+	}
+	// URL is remote, keep them as it is and join using string.Join which
+	// allows to use adjacent slashes
+	clone.Path = strings.Join([]string{clone.Path, s}, "")
 	return clone
 }
 

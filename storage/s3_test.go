@@ -565,6 +565,85 @@ func TestS3Retry(t *testing.T) {
 	}
 }
 
+func TestS3RetryOnNoSuchUpload(t *testing.T) {
+	log.Init("debug", false)
+
+	noSuchUploadError := awserr.New(s3.ErrCodeNoSuchUpload, "The specified upload does not exist. The upload ID may be invalid, or the upload may have been aborted or completed. status code: 404, request id: PJXXXXX, host id: HOSTIDXX", nil)
+	testcases := []struct {
+		name                 string
+		expectedErrorContent string
+		err                  error
+		retryCount           int
+	}{
+		{
+			name:                 "Don't retry",
+			err:                  noSuchUploadError,
+			expectedErrorContent: noSuchUploadError.Error(),
+			retryCount:           0,
+		}, {
+			name:                 "Retry 5 times on NoSuchUpload error",
+			err:                  noSuchUploadError,
+			expectedErrorContent: awserr.New(s3.ErrCodeNoSuchUpload, fmt.Sprintf("RetryOnNoSuchUpload: %v attempts to retry resulted in %v", 5, s3.ErrCodeNoSuchUpload), noSuchUploadError).Error(),
+			retryCount:           5,
+		}, {
+			name:                 "No error",
+			err:                  nil,
+			expectedErrorContent: "",
+			retryCount:           0,
+		},
+	}
+
+	url, err := url.New("s3://bucket/key")
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	for _, tc := range testcases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			mockApi := s3.New(unit.Session)
+			mockS3 := &S3{
+				api: mockApi,
+				uploader: &s3manager.Uploader{
+					S3:                mockApi,
+					PartSize:          s3manager.DefaultUploadPartSize,
+					Concurrency:       s3manager.DefaultUploadConcurrency,
+					LeavePartsOnError: false,
+					MaxUploadParts:    s3manager.MaxUploadParts,
+				},
+				retryOnNoSuchUploadError: tc.retryCount,
+			}
+
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			mockApi.Handlers.Send.Clear()
+			mockApi.Handlers.Unmarshal.Clear()
+			mockApi.Handlers.UnmarshalMeta.Clear()
+			mockApi.Handlers.ValidateResponse.Clear()
+			mockApi.Handlers.Unmarshal.PushBack(func(r *request.Request) {
+				r.Error = tc.err
+				r.HTTPResponse = &http.Response{}
+			})
+
+			f, err := os.CreateTemp("", "")
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer os.Remove(f.Name())
+
+			err = mockS3.Put(ctx, f, url, NewMetadata(), s3manager.DefaultUploadConcurrency, s3manager.DefaultUploadPartSize)
+			if tc.err != nil && err == nil {
+				t.Errorf("Expected to receive %v, but  no error was present", s3.ErrCodeNoSuchUpload)
+			} else if tc.err != nil {
+				if diff := cmp.Diff(err.Error(), tc.expectedErrorContent); diff != "" {
+					t.Errorf("(-want +got):\n%v", diff)
+				}
+			}
+		})
+	}
+}
+
 func TestS3CopyEncryptionRequest(t *testing.T) {
 	testcases := []struct {
 		name     string

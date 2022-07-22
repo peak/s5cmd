@@ -12,7 +12,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	s3 "github.com/aws/aws-sdk-go/service/s3"
 	"github.com/hashicorp/go-multierror"
 	"github.com/urfave/cli/v2"
 
@@ -247,24 +246,23 @@ type Copy struct {
 	deleteSource bool
 
 	// flags
-	noClobber                bool
-	ifSizeDiffer             bool
-	ifSourceNewer            bool
-	flatten                  bool
-	followSymlinks           bool
-	retryOnNoSuchUploadError int
-	storageClass             storage.StorageClass
-	encryptionMethod         string
-	encryptionKeyID          string
-	acl                      string
-	forceGlacierTransfer     bool
-	ignoreGlacierWarnings    bool
-	raw                      bool
-	exclude                  []string
-	cacheControl             string
-	expires                  string
-	contentType              string
-	contentEncoding          string
+	noClobber             bool
+	ifSizeDiffer          bool
+	ifSourceNewer         bool
+	flatten               bool
+	followSymlinks        bool
+	storageClass          storage.StorageClass
+	encryptionMethod      string
+	encryptionKeyID       string
+	acl                   string
+	forceGlacierTransfer  bool
+	ignoreGlacierWarnings bool
+	raw                   bool
+	exclude               []string
+	cacheControl          string
+	expires               string
+	contentType           string
+	contentEncoding       string
 
 	// region settings
 	srcRegion string
@@ -285,26 +283,25 @@ func NewCopy(c *cli.Context, deleteSource bool) Copy {
 		fullCommand:  commandFromContext(c),
 		deleteSource: deleteSource,
 		// flags
-		noClobber:                c.Bool("no-clobber"),
-		ifSizeDiffer:             c.Bool("if-size-differ"),
-		ifSourceNewer:            c.Bool("if-source-newer"),
-		flatten:                  c.Bool("flatten"),
-		followSymlinks:           !c.Bool("no-follow-symlinks"),
-		retryOnNoSuchUploadError: c.Int("retry-on-no-such-upload"),
-		storageClass:             storage.StorageClass(c.String("storage-class")),
-		concurrency:              c.Int("concurrency"),
-		partSize:                 c.Int64("part-size") * megabytes,
-		encryptionMethod:         c.String("sse"),
-		encryptionKeyID:          c.String("sse-kms-key-id"),
-		acl:                      c.String("acl"),
-		forceGlacierTransfer:     c.Bool("force-glacier-transfer"),
-		ignoreGlacierWarnings:    c.Bool("ignore-glacier-warnings"),
-		exclude:                  c.StringSlice("exclude"),
-		raw:                      c.Bool("raw"),
-		cacheControl:             c.String("cache-control"),
-		expires:                  c.String("expires"),
-		contentType:              c.String("content-type"),
-		contentEncoding:          c.String("content-encoding"),
+		noClobber:             c.Bool("no-clobber"),
+		ifSizeDiffer:          c.Bool("if-size-differ"),
+		ifSourceNewer:         c.Bool("if-source-newer"),
+		flatten:               c.Bool("flatten"),
+		followSymlinks:        !c.Bool("no-follow-symlinks"),
+		storageClass:          storage.StorageClass(c.String("storage-class")),
+		concurrency:           c.Int("concurrency"),
+		partSize:              c.Int64("part-size") * megabytes,
+		encryptionMethod:      c.String("sse"),
+		encryptionKeyID:       c.String("sse-kms-key-id"),
+		acl:                   c.String("acl"),
+		forceGlacierTransfer:  c.Bool("force-glacier-transfer"),
+		ignoreGlacierWarnings: c.Bool("ignore-glacier-warnings"),
+		exclude:               c.StringSlice("exclude"),
+		raw:                   c.Bool("raw"),
+		cacheControl:          c.String("cache-control"),
+		expires:               c.String("expires"),
+		contentType:           c.String("content-type"),
+		contentEncoding:       c.String("content-encoding"),
 		// region settings
 		srcRegion: c.String("source-region"),
 		dstRegion: c.String("destination-region"),
@@ -591,36 +588,7 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 		metadata.SetContentEncoding(c.contentEncoding)
 	}
 
-	// todo (mck)
-	// 1) If upload really failed but a third person succesfuly modified the
-	// remote file (dsturl), then this code will incorrectly return "success".
-	// 2) Can we embed this logic into storage.customRetryer?
-	// 3) What about other methods(operations): doCopy, doDownload
-	// 4) It would be better to use checksum rather than the last modification
-	// date but, unfortunately it is not supported in aws-sdk-go v1.*, and it is
-	// a bit tricky for the multipart uploads. Refer https://docs.aws.amazon.com/AmazonS3/latest/userguide/checking-object-integrity.html#large-object-checksums
-	// see also https://github.com/peak/s3hash
 	err = dstClient.Put(ctx, file, dsturl, metadata, c.concurrency, c.partSize)
-	for i := 0; i < c.retryOnNoSuchUploadError && err != nil; i++ {
-		if strings.Contains(err.Error(), s3.ErrCodeNoSuchUpload) {
-			// check if object exists in the destination
-			obj, sErr := dstClient.Stat(ctx, srcurl)
-			if sErr == nil {
-				// if object is modified after the start of execution then it is
-				// interpreted as indication of success of the previous upload,
-				// even though we received an error.
-				if obj.ModTime.After(startTime) {
-					break
-				}
-			}
-			msg := log.ErrorMessage{Err: fmt.Sprintf("Retrying upon error: %q", err.Error()), Command: c.fullCommand}
-			log.Error(msg)
-
-			err = dstClient.Put(ctx, file, dsturl, metadata, c.concurrency, c.partSize)
-		} else {
-			return err
-		}
-	}
 	if err != nil {
 		return err
 	}

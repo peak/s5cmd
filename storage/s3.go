@@ -31,7 +31,10 @@ import (
 	"github.com/peak/s5cmd/storage/url"
 )
 
-var sentinelURL = urlpkg.URL{}
+var (
+	sentinelURL = urlpkg.URL{}
+	StartTime   = time.Now()
+)
 
 const (
 	// deleteObjectsMax is the max allowed objects to be deleted on single HTTP
@@ -53,13 +56,14 @@ var globalSessionCache = &SessionCache{
 // S3 is a storage type which interacts with S3API, DownloaderAPI and
 // UploaderAPI.
 type S3 struct {
-	api              s3iface.S3API
-	downloader       s3manageriface.DownloaderAPI
-	uploader         s3manageriface.UploaderAPI
-	endpointURL      urlpkg.URL
-	dryRun           bool
-	useListObjectsV1 bool
-	requestPayer     string
+	api                      s3iface.S3API
+	downloader               s3manageriface.DownloaderAPI
+	uploader                 s3manageriface.UploaderAPI
+	endpointURL              urlpkg.URL
+	dryRun                   bool
+	useListObjectsV1         bool
+	retryOnNoSuchUploadError int
+	requestPayer             string
 }
 
 func (s *S3) RequestPayer() *string {
@@ -99,13 +103,14 @@ func newS3Storage(ctx context.Context, opts Options) (*S3, error) {
 	}
 
 	return &S3{
-		api:              s3.New(awsSession),
-		downloader:       s3manager.NewDownloader(awsSession),
-		uploader:         s3manager.NewUploader(awsSession),
-		endpointURL:      endpointURL,
-		dryRun:           opts.DryRun,
-		useListObjectsV1: opts.UseListObjectsV1,
-		requestPayer:     opts.RequestPayer,
+		api:                      s3.New(awsSession),
+		downloader:               s3manager.NewDownloader(awsSession),
+		uploader:                 s3manager.NewUploader(awsSession),
+		endpointURL:              endpointURL,
+		dryRun:                   opts.DryRun,
+		useListObjectsV1:         opts.UseListObjectsV1,
+		requestPayer:             opts.RequestPayer,
+		retryOnNoSuchUploadError: opts.RetryOnNoSuchUploadError,
 	}, nil
 }
 
@@ -558,6 +563,36 @@ func (s *S3) Put(
 		u.PartSize = partSize
 		u.Concurrency = concurrency
 	})
+
+	i := 0
+	for ; i < s.retryOnNoSuchUploadError && err != nil; i++ {
+		// check if the error is NoSuchUpload error
+		if strings.Contains(err.Error(), s3.ErrCodeNoSuchUpload) {
+			// check if object exists in the destination
+			obj, sErr := s.Stat(ctx, to)
+			if sErr == nil {
+				// if object is modified after the start of execution then it is
+				// interpreted as indication of success of the previous upload,
+				// even though we received an error.
+				if obj.ModTime.After(StartTime) {
+					break
+				}
+			}
+			msg := log.ErrorMessage{Err: fmt.Sprintf("Retrying to upload  %v upon error: %q", to, err.Error())}
+			log.Error(msg)
+
+			_, err = s.uploader.UploadWithContext(ctx, input, func(u *s3manager.Uploader) {
+				u.PartSize = partSize
+				u.Concurrency = concurrency
+			})
+		} else {
+			break
+		}
+	}
+	if err != nil && strings.Contains(err.Error(), s3.ErrCodeNoSuchUpload) && s.retryOnNoSuchUploadError > 0 {
+		err = awserr.New(s3.ErrCodeNoSuchUpload, fmt.Sprintf("RetryOnNoSuchUpload: %v attempts to retry resulted in %v", i, s3.ErrCodeNoSuchUpload), err)
+		log.Error(log.ErrorMessage{Err: err.Error()})
+	}
 
 	return err
 }

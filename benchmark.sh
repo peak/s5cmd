@@ -6,8 +6,6 @@
 readonly START_DIR=$(pwd)
 readonly GO_REQ_VERSION=1.16.0
 readonly HYPERFINE_REQ_VERSION=1.14.0
-readonly LARGE_FILE_SIZE=1G
-readonly SMALLER_TO_LARGE=1000
 readonly OLD_EXEC_NAME=olds5cmd
 readonly NEW_EXEC_NAME=news5cmd
 readonly YELLOW='\033[1;33m'
@@ -26,6 +24,8 @@ NEW=v2.0.0
 OLD=v1.4.0
 GLOBAL_FLAGS=""
 HYPERFINE_FLAGS=""
+LARGE_FILE_SIZE=1G
+SMALL_FILE_COUNT=100
 
 main() {
 	read_options "$@"
@@ -47,7 +47,7 @@ main() {
 }
 
 read_options() {
-	while getopts b:k:w:r:o:n:h:g: flag; do
+	while getopts b:k:w:r:o:n:h:g:s:c: flag; do
 		case "${flag}" in
 		b) BUCKET=${OPTARG} ;;
 		k) KEY_PREFIX=${OPTARG} ;;
@@ -57,6 +57,9 @@ read_options() {
 		n) NEW=${OPTARG} ;;
 		h) HYPERFINE_FLAGS=${OPTARG} ;;
 		g) GLOBAL_FLAGS=${OPTARG} ;;
+		s) LARGE_FILE_SIZE=${OPTARG} ;;
+		c) SMALL_FILE_COUNT=${OPTARG} ;;
+
 		*) echo "Invalid flag(s) are used" ;;
 		esac
 	done
@@ -66,6 +69,8 @@ read_options() {
 	readonly RUN_COUNT
 	readonly OLD
 	readonly NEW
+	readonly LARGE_FILE_SIZE
+	readonly SMALL_FILE_COUNT
 }
 
 ## check version of a program and exit if it is less than required version
@@ -153,7 +158,7 @@ create_temp_files() {
 	small_file_dir=${tmp_dir}/small
 	mkdir $small_file_dir
 	small_file=${small_file_dir}/small
-	split -a 3 -n $SMALLER_TO_LARGE $large_file $small_file
+	split -a 3 -n $SMALL_FILE_COUNT $large_file $small_file
 	echo -e "${GREEN}Created temporary files in $tmp_dir${NOCOLOR}"
 }
 
@@ -162,7 +167,7 @@ print_info() {
 	if [[ "$2" == large ]]; then
 		echo -e "${YELLOW}$1 the large file of size $LARGE_FILE_SIZE:${NOCOLOR}"
 	elif [[ "$2" == small ]]; then
-		echo -e "${YELLOW}$1 $SMALLER_TO_LARGE small files:${NOCOLOR}"
+		echo -e "${YELLOW}$1 $SMALL_FILE_COUNT small files:${NOCOLOR}"
 	fi
 }
 
@@ -234,7 +239,7 @@ init_bench_results() {
 	echo "$header"$'\n'"$header2" >$BENCH_RESULT
 	echo "### Benchmark summary:"$'\n'"Large File Size: "\
 	$LARGE_FILE_SIZE$'\n'"Number of Small Files: \
-	"$SMALLER_TO_LARGE$'\n'$'\n'"|Scenario| Summary |"\
+	"$SMALL_FILE_COUNT$'\n'$'\n'"|Scenario| Summary |"\
 	$'\n'"|:---|:---|" > $BENCH_RESULT
 
 	# initialize detailed summary

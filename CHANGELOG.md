@@ -3,8 +3,7 @@
 ## not released yet
 
 #### Breaking changes
-- Leading slashes in `objectname` are not trimmed anymore when uploading to remote. Before `s5cmd cp /file.txt s3://bucket/` would output `cp /file.txt s3://bucket/file.txt` but now it will output `cp /file.txt s3://bucket//file.txt`. ([#459](https://github.com/peak/s5cmd/pull/459))
-- Adjacent slashes are no longer removed when uploading to remote. Before `s5cmd cp file.txt s3://bucket/a//b///c/` would copy to `s3://bucket/a/b/c/file.txt` but now to `s3://bucket/a//b///c/file.txt`.([#459](https://github.com/peak/s5cmd/pull/459))
+- Adjacent slashes in key are no longer removed when uploading to remote. Before `s5cmd cp file.txt s3://bucket/a//b///c/` would copy to `s3://bucket/a/b/c/file.txt` but now to `s3://bucket/a//b///c/file.txt`.([#459](https://github.com/peak/s5cmd/pull/459))
 
 #### Features
 - Added `--content-type` and `--content-encoding` flags to `cp` command. ([#264](https://github.com/peak/s5cmd/issues/264))

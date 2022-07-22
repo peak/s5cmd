@@ -1,6 +1,7 @@
 package url
 
 import (
+	"path/filepath"
 	"reflect"
 	"regexp"
 	"testing"
@@ -523,5 +524,79 @@ func TestURLWithMode(t *testing.T) {
 		if url.filter != tc.filterExpected {
 			t.Errorf("%s: url filter %s does not match with expected filter %s\n", tc.input, url.Prefix, tc.filterExpected)
 		}
+	}
+}
+
+func TestURLSetRelative(t *testing.T) {
+	type testcase struct {
+		name   string
+		base   string
+		target string
+		expect string
+	}
+
+	sep := string(filepath.Separator)
+	tests := []testcase{
+		{
+			name:   "local_sibling_child_object",
+			base:   sep + "parent" + sep + "child" + sep + "object",
+			target: sep + "parent" + sep + "child2" + sep + "object",
+			expect: ".." + sep + "child2" + sep + "object",
+		},
+		{
+			name:   "local_same_directory_object",
+			base:   sep + "parent" + sep + "child" + sep + "object",
+			target: sep + "parent" + sep + "child" + sep + "object2",
+			expect: "object2",
+		},
+		{
+			name:   "s3_sibling_child_object",
+			base:   "s3://bucket/parent" + sep + "child" + sep + "object",
+			target: "s3://bucket/parent" + sep + "child2" + sep + "",
+			expect: ".." + sep + "child2",
+		},
+		{
+			name:   "local_child_directory_fully_wildcarded",
+			base:   sep + "parent" + sep + "*" + sep + "object",
+			target: sep + "parent" + sep + "child" + sep + "object",
+			expect: "child" + sep + "object",
+		},
+		{
+			name:   "local_child_directory_partially_wildcarded",
+			base:   sep + "parent" + sep + "c*d" + sep + "object",
+			target: sep + "parent" + sep + "child" + sep + "object",
+			expect: "child" + sep + "object",
+		},
+		{
+			name:   "local_child_directory_fully_wildcarded_with_question_mark",
+			base:   sep + "parent" + sep + "?" + sep + "object",
+			target: sep + "parent" + sep + "c" + sep + "object",
+			expect: "c" + sep + "object",
+		},
+		{
+			name:   "s3_child_directory_wildcarded",
+			base:   "s3://bucket/parent" + sep + "*" + sep + "object",
+			target: "s3://bucket/parent" + sep + "child2" + sep + "",
+			expect: "child2",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			baseURL, err := New(tt.base)
+			if err != nil {
+				t.Errorf("URL cannot be instantiated: \nPath: %v, Error: %v", tt.base, err)
+			}
+			targUrl, err := New(tt.target)
+			if err != nil {
+				t.Errorf("URL cannot be instantiated:\nPath: %v, Error: %v", tt.base, err)
+			}
+
+			targUrl.SetRelative(baseURL)
+
+			if diff := cmp.Diff(tt.expect, targUrl.Relative()); diff != "" {
+				t.Errorf("SetRelative() with %s did not produce expected path (-want +got):\n%s", tt.name, diff)
+			}
+		})
 	}
 }

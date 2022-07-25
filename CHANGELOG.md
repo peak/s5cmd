@@ -11,7 +11,8 @@
 - Added `--credentials-file` flag to allow users to specify path for the AWS credentials file instead of using the [default location](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html#cli-configure-files-where). 
 
 #### Improvements
-- Disable AWS SDK logger if log level is not "trace"
+- Disable AWS SDK logger if log level is not `trace`. ([##460](https://github.com/peak/s5cmd/pull/460))
+- Allow adjacent slashes to be used as keys when uploading to remote. ([#459](https://github.com/peak/s5cmd/pull/459))
 
 #### Bugfixes
 - Fixed a bug where (`--stat`) prints unnecessarily when used with help and version commands ([#452](https://github.com/peak/s5cmd/issues/452))
@@ -19,10 +20,6 @@
 - Fixed a bug where some part of the destination path is removed by `cp` and `sync` subcommands ([#360](https://github.com/peak/s5cmd/issues/360))
 - Fixed a bug where proxy is not being used when `--no-verify-ssl` flag is used. ([#445](https://github.com/peak/s5cmd/issues/445))
 - Fixed `unknown url format` error when object key also includes `s3://` e.g. `s5cmd ls s3://foo/bar/s3://baz` ([#449](https://github.com/peak/s5cmd/issues/449))
-
-#### Improvements
-- Disable AWS SDK logger if log level is not "trace"
-- Allow adjacent slashes to be used as keys when uploading to remote. ([#459](https://github.com/peak/s5cmd/pull/459))
 
 ## v2.0.0 - 4 Jul 2022
 

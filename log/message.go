@@ -63,6 +63,18 @@ type DebugMessage struct {
 	Err       string `json:"error"`
 }
 
+type TraceMessage struct {
+	Message string `json:"message"`
+}
+
+func (t TraceMessage) String() string {
+	return t.Message
+}
+
+func (t TraceMessage) JSON() string {
+	return strutil.JSON(t)
+}
+
 // String is the string representation of ErrorMessage.
 func (d DebugMessage) String() string {
 	if d.Command == "" {

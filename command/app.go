@@ -49,10 +49,13 @@ var app = &cli.App{
 			Name:  "no-verify-ssl",
 			Usage: "disable SSL certificate verification",
 		},
-		&cli.StringFlag{
-			Name:  "log",
-			Value: "info",
-			Usage: "log level: (debug, info, error)",
+		&cli.GenericFlag{
+			Name: "log",
+			Value: &EnumValue{
+				Enum:    []string{"trace", "debug", "info", "error"},
+				Default: "info",
+			},
+			Usage: "log level: (trace, debug, info, error)",
 		},
 		&cli.BoolFlag{
 			Name:  "install-completion",
@@ -78,6 +81,14 @@ var app = &cli.App{
 			Name:  "request-payer",
 			Usage: "who pays for request (access requester pays buckets)",
 		},
+		&cli.StringFlag{
+			Name:  "profile",
+			Usage: "use the specified profile from the credentials file",
+		},
+		&cli.StringFlag{
+			Name:  "credentials-file",
+			Usage: "use the specified credentials file instead of the default credentials file",
+		},
 	},
 	Before: func(c *cli.Context) error {
 		retryCount := c.Int("retry-count")
@@ -91,6 +102,16 @@ var app = &cli.App{
 
 		if retryCount < 0 {
 			err := fmt.Errorf("retry count cannot be a negative value")
+			printError(commandFromContext(c), c.Command.Name, err)
+			return err
+		}
+		if c.Bool("no-sign-request") && c.String("profile") != "" {
+			err := fmt.Errorf(`"no-sign-request" and "profile" flags cannot be used together`)
+			printError(commandFromContext(c), c.Command.Name, err)
+			return err
+		}
+		if c.Bool("no-sign-request") && c.String("credentials-file") != "" {
+			err := fmt.Errorf(`"no-sign-request" and "credentials-file" flags cannot be used together`)
 			printError(commandFromContext(c), c.Command.Name, err)
 			return err
 		}
@@ -139,8 +160,8 @@ var app = &cli.App{
 		return cli.ShowAppHelp(c)
 	},
 	After: func(c *cli.Context) error {
-		if c.Bool("stat") {
-			log.Info(stat.Statistics())
+		if c.Bool("stat") && len(stat.Statistics()) > 0 {
+			log.Stat(stat.Statistics())
 		}
 
 		parallel.Close()
@@ -152,13 +173,16 @@ var app = &cli.App{
 // NewStorageOpts creates storage.Options object from the given context.
 func NewStorageOpts(c *cli.Context) storage.Options {
 	return storage.Options{
-		MaxRetries:       c.Int("retry-count"),
-		Endpoint:         c.String("endpoint-url"),
-		NoVerifySSL:      c.Bool("no-verify-ssl"),
 		DryRun:           c.Bool("dry-run"),
+		Endpoint:         c.String("endpoint-url"),
+		MaxRetries:       c.Int("retry-count"),
 		NoSignRequest:    c.Bool("no-sign-request"),
-		UseListObjectsV1: c.Bool("use-list-objects-v1"),
+		NoVerifySSL:      c.Bool("no-verify-ssl"),
 		RequestPayer:     c.String("request-payer"),
+		UseListObjectsV1: c.Bool("use-list-objects-v1"),
+		Profile:          c.String("profile"),
+		CredentialFile:   c.String("credentials-file"),
+		LogLevel:         log.LevelFromString(c.String("log")),
 	}
 }
 

@@ -246,6 +246,59 @@ func TestSyncLocalFolderToS3EmptyBucket(t *testing.T) {
 	}
 }
 
+// cp parent/*/name.txt s3://bucket/newfolder
+func TestSyncMultipleFilesWithWildcardedDirectoryToS3Bucket(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+
+	folderLayout := []fs.PathOp{
+		fs.WithDir("parent", fs.WithDir(
+			"child1",
+			fs.WithFile("name.txt", "A file in parent/child1/"),
+		),
+			fs.WithDir(
+				"child2",
+				fs.WithFile("name.txt", "A file in parent/child2/"),
+			),
+		),
+	}
+
+	workdir := fs.NewDir(t, "somedir", folderLayout...)
+	dstpath := fmt.Sprintf("s3://%v/newfolder/", bucket)
+	srcpath := workdir.Path()
+	srcpath = filepath.ToSlash(srcpath)
+	defer workdir.Remove()
+
+	cmd := s5cmd("sync", srcpath+"/parent/*/name.txt", dstpath)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+	rs := result.Stdout()
+	assertLines(t, rs, map[int]compareFunc{
+		0: equals(`cp %v/parent/child1/name.txt %vchild1/name.txt`, srcpath, dstpath),
+		1: equals(`cp %v/parent/child2/name.txt %vchild2/name.txt`, srcpath, dstpath),
+	}, sortInput(true))
+
+	// assert local filesystem
+	expected := fs.Expected(t, folderLayout...)
+	assert.Assert(t, fs.Equal(workdir.Path(), expected))
+	expectedS3Content := map[string]string{
+		"newfolder/child1/name.txt": "A file in parent/child1/",
+		"newfolder/child2/name.txt": "A file in parent/child2/",
+	}
+
+	// assert s3
+	for filename, content := range expectedS3Content {
+		assert.Assert(t, ensureS3Object(s3client, bucket, filename, content))
+	}
+}
+
 // sync  s3://bucket/* folder/
 func TestSyncS3BucketToEmptyFolder(t *testing.T) {
 	t.Parallel()
@@ -357,7 +410,7 @@ func TestSyncS3BucketToEmptyS3Bucket(t *testing.T) {
 
 	// assert s3 objects in dest bucket
 	for key, content := range S3Content {
-		key = fmt.Sprintf("/%s/%s", prefix, key) // add the prefix
+		key = fmt.Sprintf("%s/%s", prefix, key) // add the prefix
 		assert.Assert(t, ensureS3Object(s3client, destbucket, key, content))
 	}
 }
@@ -1619,5 +1672,61 @@ func TestSyncLocalDirectoryToS3WithExcludeFilter(t *testing.T) {
 				assertError(t, err, errS3NoSuchKey)
 			}
 		})
+	}
+}
+
+// sync --delete somedir s3://bucket/ (removes 10k objects)
+func TestIssue435(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t, withS3Backend("mem"))
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+
+	// empty folder
+	folderLayout := []fs.PathOp{}
+
+	workdir := fs.NewDir(t, "somedir", folderLayout...)
+	defer workdir.Remove()
+
+	const filecount = 10_000
+
+	filenameFunc := func(i int) string { return fmt.Sprintf("file_%06d", i) }
+	contentFunc := func(i int) string { return fmt.Sprintf("file body %06d", i) }
+
+	for i := 0; i < filecount; i++ {
+		filename := filenameFunc(i)
+		content := contentFunc(i)
+		putFile(t, s3client, bucket, filename, content)
+	}
+
+	src := fmt.Sprintf("%v/", workdir.Path())
+	src = filepath.ToSlash(src)
+	dst := fmt.Sprintf("s3://%v/", bucket)
+
+	cmd := s5cmd("--log", "debug", "sync", "--delete", src, dst)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{})
+
+	expected := make(map[int]compareFunc)
+	for i := 0; i < filecount; i++ {
+		expected[i] = contains("rm s3://%v/file_%06d", bucket, i)
+	}
+
+	assertLines(t, result.Stdout(), expected, sortInput(true))
+
+	// assert s3 objects
+	for i := 0; i < filecount; i++ {
+		filename := filenameFunc(i)
+		content := contentFunc(i)
+
+		err := ensureS3Object(s3client, bucket, filename, content)
+		assertError(t, err, errS3NoSuchKey)
 	}
 }

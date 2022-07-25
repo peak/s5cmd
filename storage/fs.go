@@ -22,7 +22,7 @@ func (f *Filesystem) Stat(ctx context.Context, url *url.URL) (*Object, error) {
 	st, err := os.Stat(url.Absolute())
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, ErrGivenObjectNotFound
+			return nil, &ErrGivenObjectNotFound{ObjectAbsPath: url.Absolute()}
 		}
 		return nil, err
 	}
@@ -86,7 +86,7 @@ func (f *Filesystem) expandGlob(ctx context.Context, src *url.URL, followSymlink
 			filename := filename
 
 			fileurl, _ := url.New(filename)
-			fileurl.SetRelative(src.Absolute())
+			fileurl.SetRelative(src)
 
 			obj, _ := f.Stat(ctx, fileurl)
 
@@ -120,7 +120,7 @@ func walkDir(ctx context.Context, fs *Filesystem, src *url.URL, followSymlinks b
 				return err
 			}
 
-			fileurl.SetRelative(src.Absolute())
+			fileurl.SetRelative(src)
 
 			//skip if symlink is pointing to a file and --no-follow-symlink
 			if !ShouldProcessUrl(fileurl, followSymlinks) {

@@ -118,7 +118,7 @@ func (s *S3) Stat(ctx context.Context, url *url.URL) (*Object, error) {
 	})
 	if err != nil {
 		if errHasCode(err, "NotFound") {
-			return nil, ErrGivenObjectNotFound
+			return nil, &ErrGivenObjectNotFound{ObjectAbsPath: url.Absolute()}
 		}
 		return nil, err
 	}
@@ -549,6 +549,11 @@ func (s *S3) Put(
 		}
 	}
 
+	contentEncoding := metadata.ContentEncoding()
+	if contentEncoding != "" {
+		input.ContentEncoding = aws.String(contentEncoding)
+	}
+
 	_, err := s.uploader.UploadWithContext(ctx, input, func(u *s3manager.Uploader) {
 		u.PartSize = partSize
 		u.Concurrency = concurrency
@@ -740,6 +745,15 @@ func (s *S3) RemoveBucket(ctx context.Context, name string) error {
 	return err
 }
 
+type sdkLogger struct{}
+
+func (l sdkLogger) Log(args ...interface{}) {
+	msg := log.TraceMessage{
+		Message: fmt.Sprint(args...),
+	}
+	log.Trace(msg)
+}
+
 // SessionCache holds session.Session according to s3Opts and it synchronizes
 // access/modification.
 type SessionCache struct {
@@ -761,7 +775,11 @@ func (sc *SessionCache) newSession(ctx context.Context, opts Options) (*session.
 
 	if opts.NoSignRequest {
 		// do not sign requests when making service API calls
-		awsCfg.Credentials = credentials.AnonymousCredentials
+		awsCfg = awsCfg.WithCredentials(credentials.AnonymousCredentials)
+	} else if opts.CredentialFile != "" || opts.Profile != "" {
+		awsCfg = awsCfg.WithCredentials(
+			credentials.NewSharedCredentials(opts.CredentialFile, opts.Profile),
+		)
 	}
 
 	endpointURL, err := parseEndpoint(opts.Endpoint)
@@ -785,12 +803,18 @@ func (sc *SessionCache) newSession(ctx context.Context, opts Options) (*session.
 	if opts.NoVerifySSL {
 		httpClient = insecureHTTPClient
 	}
-
 	awsCfg = awsCfg.
 		WithEndpoint(endpointURL.String()).
 		WithS3ForcePathStyle(!isVirtualHostStyle).
 		WithS3UseAccelerate(useAccelerate).
-		WithHTTPClient(httpClient)
+		WithHTTPClient(httpClient).
+		// Disable URI cleaning to allow adjacent slashes to be used in S3 object keys.
+		WithDisableRestProtocolURICleaning(true)
+
+	if opts.LogLevel == log.LevelTrace {
+		awsCfg = awsCfg.WithLogLevel(aws.LogDebug).
+			WithLogger(sdkLogger{})
+	}
 
 	awsCfg.Retryer = newCustomRetryer(opts.MaxRetries)
 
@@ -916,6 +940,7 @@ func (c *customRetryer) ShouldRetry(req *request.Request) bool {
 var insecureHTTPClient = &http.Client{
 	Transport: &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		Proxy:           http.ProxyFromEnvironment,
 	},
 }
 

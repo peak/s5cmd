@@ -3,6 +3,30 @@
 ## not released yet
 
 #### Breaking changes
+- Adjacent slashes in key are no longer removed when uploading to remote. Before `s5cmd cp file.txt s3://bucket/a//b///c/` would copy to `s3://bucket/a/b/c/file.txt` but now to `s3://bucket/a//b///c/file.txt`.([#459](https://github.com/peak/s5cmd/pull/459))
+
+#### Features
+- Added `--content-type` and `--content-encoding` flags to `cp` command. ([#264](https://github.com/peak/s5cmd/issues/264))
+- Added `--profile` flag to allow users to specify a [named profile](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-profiles.html). ([#353](https://github.com/peak/s5cmd/issues/353))
+- Added `--credentials-file` flag to allow users to specify path for the AWS credentials file instead of using the [default location](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html#cli-configure-files-where). 
+
+#### Improvements
+- Disable AWS SDK logger if log level is not "trace"
+
+#### Bugfixes
+- Fixed a bug where (`--stat`) prints unnecessarily when used with help and version commands ([#452](https://github.com/peak/s5cmd/issues/452))
+- Changed cp error message to be more precise. "given object not found" error message now will also include absolute path of the file. ([#463](https://github.com/peak/s5cmd/pull/463))
+- Fixed a bug where some part of the destination path is removed by `cp` and `sync` subcommands ([#360](https://github.com/peak/s5cmd/issues/360))
+- Fixed a bug where proxy is not being used when `--no-verify-ssl` flag is used. ([#445](https://github.com/peak/s5cmd/issues/445))
+- Fixed `unknown url format` error when object key also includes `s3://` e.g. `s5cmd ls s3://foo/bar/s3://baz` ([#449](https://github.com/peak/s5cmd/issues/449))
+
+#### Improvements
+- Disable AWS SDK logger if log level is not "trace"
+- Allow adjacent slashes to be used as keys when uploading to remote. ([#459](https://github.com/peak/s5cmd/pull/459))
+
+## v2.0.0 - 4 Jul 2022
+
+#### Breaking changes
 - Dropped inline comment feature for `run` command. Previously s5cmd supported a command with an inline comment like `ls s3://bucket/object.gz  # inline comment`. ([#309](https://github.com/peak/s5cmd/issues/309))
 - Changed homebrew installation command on macOS. Users can install s5cmd via `brew install peak/tap/s5cmd`. ([#356](https://github.com/peak/s5cmd/issues/356))
 - Print usage errors to stderr instead of stdout and do not show help text on usage error. ([#399](https://github.com/peak/s5cmd/issues/399))
@@ -15,15 +39,20 @@
 - Added `--ignore-glacier-warnings` flag to `cp`, `mv` and `select` commands. ([#346](https://github.com/peak/s5cmd/issues/346))
 - Added `--request-payer` flag to include `x-amz-request-payer` in header while sending GET, POST and HEAD requests. ([#297](https://github.com/peak/s5cmd/issues/297)) [@Kirill888](https://github.com/Kirill888)
 - Added `--use-list-objects-v1` flag to force using S3 ListObjects API instead of ListObjectsV2 API. ([#405](https://github.com/peak/s5cmd/issues/405)) [@greenpau](https://github.com/greenpau)
+- Added trace log level(`--log=trace`) which enables SDK debug logs.([#363](https://github.com/peak/s5cmd/issues/363))
 
 #### Improvements
 - Upgraded minimum required Go version to 1.16.
+- Debian packages are provided on [releases page](https://github.com/peak/s5cmd/releases) ([#380](https://github.com/peak/s5cmd/issues/380))
 
 #### Bugfixes
 - Fixed a bug about precedence of region detection, which auto region detection would always override region defined in environment or profile. ([#325](https://github.com/peak/s5cmd/issues/325))
 - Fixed a bug where errors did not result a non-zero exit code. ([#304](https://github.com/peak/s5cmd/issues/304))
 - Print error if the commands file of `run` command is not accessible. ([#410](https://github.com/peak/s5cmd/pull/410))
 - Updated region detection call to use current session's address resolving method ([#314](https://github.com/peak/s5cmd/issues/314))
+- Fixed a bug where lines with large tokens fail in `run` command. `sync` was failing when it finds multiple files to remove. ([#435](https://github.com/peak/s5cmd/issues/435), [#436](https://github.com/peak/s5cmd/issues/436))
+- Print usage error if given log level(`--log`) is not valid. ([#430](https://github.com/peak/s5cmd/pull/430))
+- Fixed a bug where (`--stat`) is ignored when log level is error. ([#359](https://github.com/peak/s5cmd/issues/359))
 
 ## v1.4.0 - 21 Sep 2021
 

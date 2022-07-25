@@ -60,6 +60,7 @@ type setupOpts struct {
 	s3backend   string
 	endpointURL string
 	timeSource  gofakes3.TimeSource
+	enableProxy bool
 }
 
 type option func(*setupOpts)
@@ -79,6 +80,12 @@ func withEndpointURL(url string) option {
 func withTimeSource(timeSource gofakes3.TimeSource) option {
 	return func(opts *setupOpts) {
 		opts.timeSource = timeSource
+	}
+}
+
+func withProxy() option {
+	return func(opts *setupOpts) {
+		opts.enableProxy = true
 	}
 }
 
@@ -124,7 +131,7 @@ func server(t *testing.T, opts *setupOpts) (string, string, func()) {
 		s3LogLevel = "info" // aws has no level other than 'debug'
 	}
 
-	endpoint, dbcleanup := s3ServerEndpoint(t, testdir, s3LogLevel, opts.s3backend, opts.timeSource)
+	endpoint, dbcleanup := s3ServerEndpoint(t, testdir, s3LogLevel, opts.s3backend, opts.timeSource, opts.enableProxy)
 	if opts.endpointURL != "" {
 		endpoint = opts.endpointURL
 	}
@@ -144,12 +151,13 @@ func s3client(t *testing.T, options storage.Options) *s3.S3 {
 	if *flagTestLogLevel == "debug" {
 		awsLogLevel = aws.LogDebug
 	}
-
+	// WithDisableRestProtocolURICleaning is added to allow adjacent slashes to be used in s3 object keys.
 	s3Config := aws.NewConfig().
 		WithEndpoint(options.Endpoint).
 		WithRegion(endpoints.UsEast1RegionID).
 		WithCredentials(credentials.NewStaticCredentials(defaultAccessKeyID, defaultSecretAccessKey, "")).
 		WithDisableSSL(options.NoVerifySSL).
+		WithDisableRestProtocolURICleaning(true).
 		WithS3ForcePathStyle(true).
 		WithCredentialsChainVerboseErrors(true).
 		WithLogLevel(awsLogLevel)

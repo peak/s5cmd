@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -11,7 +12,7 @@ import (
 	"gotest.tools/v3/fs"
 )
 
-func s3ServerEndpoint(t *testing.T, testdir *fs.Dir, loglvl, backend string, timeSource gofakes3.TimeSource) (string, func()) {
+func s3ServerEndpoint(t *testing.T, testdir *fs.Dir, loglvl, backend string, timeSource gofakes3.TimeSource, enableProxy bool) (string, func()) {
 	var s3backend gofakes3.Backend
 	switch backend {
 	case "mem":
@@ -58,5 +59,13 @@ func s3ServerEndpoint(t *testing.T, testdir *fs.Dir, loglvl, backend string, tim
 		// after each test.
 	}
 
+	if enableProxy {
+		parsedUrl, err := url.Parse(s3srv.URL)
+		if err != nil {
+			t.Fatal(err)
+		}
+		proxyEnabledURL := "http://localhost.:" + parsedUrl.Port()
+		return proxyEnabledURL, cleanup
+	}
 	return s3srv.URL, cleanup
 }

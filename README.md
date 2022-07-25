@@ -1,5 +1,4 @@
 [![Go Report](https://goreportcard.com/badge/github.com/peak/s5cmd)](https://goreportcard.com/report/github.com/peak/s5cmd) ![Github Actions Status](https://github.com/peak/s5cmd/workflows/CI/badge.svg)
-[![Packaging status](https://repology.org/badge/tiny-repos/s5cmd.svg)](https://repology.org/project/s5cmd/versions)
 
 ![](./doc/s5cmd_header.jpg)
 
@@ -63,6 +62,7 @@ For macOS, a [homebrew](https://brew.sh) tap is provided:
     brew install peak/tap/s5cmd
 
 ### Unofficial Releases (by Community)
+[![Packaging status](https://repology.org/badge/tiny-repos/s5cmd.svg)](https://repology.org/project/s5cmd/versions)
 > **Warning**  
 > These releases are maintained by the community. They might be out of date compared to the official releases.
 

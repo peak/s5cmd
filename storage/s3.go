@@ -2,11 +2,14 @@ package storage
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"math"
+	"math/big"
 	"net/http"
 	urlpkg "net/url"
 	"os"
@@ -46,6 +49,9 @@ const (
 
 	// Google Cloud Storage endpoint
 	gcsEndpoint = "storage.googleapis.com"
+
+	// the key of the object metadata which is used to handle retry decision on NoSuchUpload error
+	retryMetaDataKey = "s5cmd-retry-code"
 )
 
 // Re-used AWS sessions dramatically improve performance.
@@ -130,6 +136,20 @@ func (s *S3) Stat(ctx context.Context, url *url.URL) (*Object, error) {
 
 	etag := aws.StringValue(output.ETag)
 	mod := aws.TimeValue(output.LastModified)
+
+	if s.retryOnNoSuchUploadError > 0 {
+		m := output.Metadata
+		if res, ok := m[retryMetaDataKey]; ok {
+			return &Object{
+				URL:       url,
+				Etag:      strings.Trim(etag, `"`),
+				ModTime:   &mod,
+				Size:      aws.Int64Value(output.ContentLength),
+				retryCode: *res,
+			}, nil
+		}
+	}
+
 	return &Object{
 		URL:     url,
 		Etag:    strings.Trim(etag, `"`),
@@ -509,6 +529,8 @@ func (s *S3) Put(
 		return nil
 	}
 
+	var retryCode string
+
 	contentType := metadata.ContentType()
 	if contentType == "" {
 		contentType = "application/octet-stream"
@@ -559,6 +581,15 @@ func (s *S3) Put(
 		input.ContentEncoding = aws.String(contentEncoding)
 	}
 
+	// add retry code to the object metadata
+	if s.retryOnNoSuchUploadError > 0 {
+		objectMetaData := make(map[string]*string)
+		num, _ := rand.Int(rand.Reader, big.NewInt(math.MaxInt64))
+		retryCode = num.String()
+		objectMetaData[retryMetaDataKey] = &retryCode
+		input.Metadata = objectMetaData
+	}
+
 	_, err := s.uploader.UploadWithContext(ctx, input, func(u *s3manager.Uploader) {
 		u.PartSize = partSize
 		u.Concurrency = concurrency
@@ -571,15 +602,20 @@ func (s *S3) Put(
 			// check if object exists in the destination
 			obj, sErr := s.Stat(ctx, to)
 			if sErr == nil {
-				// if object is modified after the start of execution then it is
-				// interpreted as indication of success of the previous upload,
-				// even though we received an error.
-				if obj.ModTime.After(StartTime) {
+				// if object has the retry code we provided then it means
+				// the upload was succesfull despite the received error.
+				if obj.retryCode == retryCode {
+					err = nil
 					break
 				}
 			}
-			msg := log.ErrorMessage{Err: fmt.Sprintf("Retrying to upload  %v upon error: %q", to, err.Error())}
+			msg := log.ErrorMessage{Err: fmt.Sprintf("Retrying to upload %v upon error: %q", to, err.Error())}
 			log.Error(msg)
+
+			// generate new retry code for this upload attempt
+			num, _ := rand.Int(rand.Reader, big.NewInt(math.MaxInt64))
+			retryCode = num.String()
+			input.Metadata[retryMetaDataKey] = &retryCode
 
 			_, err = s.uploader.UploadWithContext(ctx, input, func(u *s3manager.Uploader) {
 				u.PartSize = partSize

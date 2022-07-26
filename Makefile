@@ -18,7 +18,10 @@ endif
 
 .PHONY: test
 test:
-	@go test -mod=vendor -count=1 ${RACE_FLAG} ./...
+	@S5CMD_TEST_DISABLE_RACE=0 go test -mod=vendor -count=1 ${RACE_FLAG} ./...
+
+test_without_race:
+	@S5CMD_TEST_DISABLE_RACE=1 go test -mod=vendor -count=1 ${RACE_FLAG} ./...
 
 .PHONY: check
 check: vet staticcheck unparam check-fmt

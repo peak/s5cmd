@@ -38,6 +38,12 @@ import (
 	"gotest.tools/v3/icmd"
 )
 
+const (
+	// Don't use "race" flag in the build arguments.
+	TEST_DISABLE_RACE_FLAG_KEY   = "S5CMD_TEST_DISABLE_RACE"
+	TEST_DISABLE_RACE_FLAG_VALUE = "1"
+)
+
 var (
 	defaultAccessKeyID     = "s5cmd-test-access-key-id"
 	defaultSecretAccessKey = "s5cmd-test-secret-access-key"
@@ -48,9 +54,8 @@ var (
 var dateRe = `(\d{4}\/\d{2}\/\d{2} \d{2}:\d{2}:\d{2})`
 
 var (
-	flagTestLogLevel     = flag.String("test.log.level", "err", "Test log level: {debug|warn|err}")
-	flagTestRaceDisabled = flag.Bool("test.race.disabled", false, `Don't use "race" flag in the build arguments.`)
-	s5cmdPath            string
+	flagTestLogLevel = flag.String("test.log.level", "err", "Test log level: {debug|warn|err}")
+	s5cmdPath        string
 )
 
 func init() {
@@ -211,7 +216,8 @@ func goBuildS5cmd() func() {
 	workdir = filepath.Dir(workdir)
 
 	var args []string
-	if runtime.GOOS == "windows" || *flagTestRaceDisabled {
+
+	if os.Getenv(TEST_DISABLE_RACE_FLAG_KEY) == TEST_DISABLE_RACE_FLAG_VALUE {
 		/*
 		 1. disable '-race' flag because CI fails with below error.
 

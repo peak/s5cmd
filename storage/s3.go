@@ -924,12 +924,13 @@ func (sc *SessionCache) newSession(ctx context.Context, opts Options) (*session.
 	if opts.NoVerifySSL {
 		httpClient = insecureHTTPClient
 	}
-
 	awsCfg = awsCfg.
 		WithEndpoint(endpointURL.String()).
 		WithS3ForcePathStyle(!isVirtualHostStyle).
 		WithS3UseAccelerate(useAccelerate).
-		WithHTTPClient(httpClient)
+		WithHTTPClient(httpClient).
+		// Disable URI cleaning to allow adjacent slashes to be used in S3 object keys.
+		WithDisableRestProtocolURICleaning(true)
 
 	if opts.LogLevel == log.LevelTrace {
 		awsCfg = awsCfg.WithLogLevel(aws.LogDebug).

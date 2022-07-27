@@ -608,7 +608,7 @@ func TestS3RetryOnNoSuchUpload(t *testing.T) {
 					LeavePartsOnError: false,
 					MaxUploadParts:    s3manager.MaxUploadParts,
 				},
-				retryOnNoSuchUploadError: int(tc.retryCount),
+				noSuchUploadRetryCount: int(tc.retryCount),
 			}
 
 			ctx, cancel := context.WithCancel(context.Background())

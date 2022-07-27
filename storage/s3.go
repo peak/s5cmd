@@ -36,7 +36,6 @@ import (
 
 var (
 	sentinelURL = urlpkg.URL{}
-	StartTime   = time.Now()
 )
 
 const (
@@ -51,7 +50,7 @@ const (
 	gcsEndpoint = "storage.googleapis.com"
 
 	// the key of the object metadata which is used to handle retry decision on NoSuchUpload error
-	retryMetaDataKey = "s5cmd-retry-code"
+	META_DATA_S5CMD_RETRY_CODE_KEY = "s5cmd-retry-code"
 )
 
 // Re-used AWS sessions dramatically improve performance.
@@ -62,14 +61,14 @@ var globalSessionCache = &SessionCache{
 // S3 is a storage type which interacts with S3API, DownloaderAPI and
 // UploaderAPI.
 type S3 struct {
-	api                      s3iface.S3API
-	downloader               s3manageriface.DownloaderAPI
-	uploader                 s3manageriface.UploaderAPI
-	endpointURL              urlpkg.URL
-	dryRun                   bool
-	useListObjectsV1         bool
-	retryOnNoSuchUploadError int
-	requestPayer             string
+	api                    s3iface.S3API
+	downloader             s3manageriface.DownloaderAPI
+	uploader               s3manageriface.UploaderAPI
+	endpointURL            urlpkg.URL
+	dryRun                 bool
+	useListObjectsV1       bool
+	noSuchUploadRetryCount int
+	requestPayer           string
 }
 
 func (s *S3) RequestPayer() *string {
@@ -109,14 +108,14 @@ func newS3Storage(ctx context.Context, opts Options) (*S3, error) {
 	}
 
 	return &S3{
-		api:                      s3.New(awsSession),
-		downloader:               s3manager.NewDownloader(awsSession),
-		uploader:                 s3manager.NewUploader(awsSession),
-		endpointURL:              endpointURL,
-		dryRun:                   opts.DryRun,
-		useListObjectsV1:         opts.UseListObjectsV1,
-		requestPayer:             opts.RequestPayer,
-		retryOnNoSuchUploadError: opts.RetryOnNoSuchUploadError,
+		api:                    s3.New(awsSession),
+		downloader:             s3manager.NewDownloader(awsSession),
+		uploader:               s3manager.NewUploader(awsSession),
+		endpointURL:            endpointURL,
+		dryRun:                 opts.DryRun,
+		useListObjectsV1:       opts.UseListObjectsV1,
+		requestPayer:           opts.RequestPayer,
+		noSuchUploadRetryCount: opts.NoSuchUploadRetryCount,
 	}, nil
 }
 
@@ -137,9 +136,9 @@ func (s *S3) Stat(ctx context.Context, url *url.URL) (*Object, error) {
 	etag := aws.StringValue(output.ETag)
 	mod := aws.TimeValue(output.LastModified)
 
-	if s.retryOnNoSuchUploadError > 0 {
+	if s.noSuchUploadRetryCount > 0 {
 		m := output.Metadata
-		if res, ok := m[retryMetaDataKey]; ok {
+		if res, ok := m[META_DATA_S5CMD_RETRY_CODE_KEY]; ok {
 			return &Object{
 				URL:       url,
 				Etag:      strings.Trim(etag, `"`),
@@ -541,6 +540,7 @@ func (s *S3) Put(
 		Key:          aws.String(to.Path),
 		Body:         reader,
 		ContentType:  aws.String(contentType),
+		Metadata:     make(map[string]*string),
 		RequestPayer: s.RequestPayer(),
 	}
 
@@ -582,12 +582,8 @@ func (s *S3) Put(
 	}
 
 	// add retry code to the object metadata
-	if s.retryOnNoSuchUploadError > 0 {
-		objectMetaData := make(map[string]*string)
-		num, _ := rand.Int(rand.Reader, big.NewInt(math.MaxInt64))
-		retryCode = num.String()
-		objectMetaData[retryMetaDataKey] = &retryCode
-		input.Metadata = objectMetaData
+	if s.noSuchUploadRetryCount > 0 {
+		input.Metadata[META_DATA_S5CMD_RETRY_CODE_KEY] = generateRetryCode()
 	}
 
 	_, err := s.uploader.UploadWithContext(ctx, input, func(u *s3manager.Uploader) {
@@ -595,10 +591,12 @@ func (s *S3) Put(
 		u.Concurrency = concurrency
 	})
 
-	i := 0
-	for ; i < s.retryOnNoSuchUploadError && err != nil; i++ {
+	attempts := 0
+	for ; attempts < s.noSuchUploadRetryCount && err != nil; attempts++ {
 		// check if the error is NoSuchUpload error
-		if strings.Contains(err.Error(), s3.ErrCodeNoSuchUpload) {
+		if !strings.Contains(err.Error(), s3.ErrCodeNoSuchUpload) {
+			break
+		} else {
 			// check if object exists in the destination
 			obj, sErr := s.Stat(ctx, to)
 			if sErr == nil {
@@ -612,25 +610,27 @@ func (s *S3) Put(
 			msg := log.ErrorMessage{Err: fmt.Sprintf("Retrying to upload %v upon error: %q", to, err.Error())}
 			log.Error(msg)
 
-			// generate new retry code for this upload attempt
-			num, _ := rand.Int(rand.Reader, big.NewInt(math.MaxInt64))
-			retryCode = num.String()
-			input.Metadata[retryMetaDataKey] = &retryCode
+			// renew retry code
+			input.Metadata[META_DATA_S5CMD_RETRY_CODE_KEY] = generateRetryCode()
 
 			_, err = s.uploader.UploadWithContext(ctx, input, func(u *s3manager.Uploader) {
 				u.PartSize = partSize
 				u.Concurrency = concurrency
 			})
-		} else {
-			break
 		}
 	}
-	if err != nil && strings.Contains(err.Error(), s3.ErrCodeNoSuchUpload) && s.retryOnNoSuchUploadError > 0 {
-		err = awserr.New(s3.ErrCodeNoSuchUpload, fmt.Sprintf("RetryOnNoSuchUpload: %v attempts to retry resulted in %v", i, s3.ErrCodeNoSuchUpload), err)
+	if err != nil && strings.Contains(err.Error(), s3.ErrCodeNoSuchUpload) && s.noSuchUploadRetryCount > 0 {
+		err = awserr.New(s3.ErrCodeNoSuchUpload, fmt.Sprintf("RetryOnNoSuchUpload: %v attempts to retry resulted in %v", attempts, s3.ErrCodeNoSuchUpload), err)
 		log.Error(log.ErrorMessage{Err: err.Error()})
 	}
 
 	return err
+}
+
+// generate a retry code for this upload attempt
+func generateRetryCode() *string {
+	num, _ := rand.Int(rand.Reader, big.NewInt(math.MaxInt64))
+	return aws.String(num.String())
 }
 
 // chunk is an object identifier container which is used on MultiDelete

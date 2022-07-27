@@ -179,7 +179,7 @@ func NewSharedFlags() []cli.Flag {
 		},
 		&cli.IntFlag{
 			Name:        "no-such-upload-retry-count",
-			Usage:       "if this flag is given, the multipart upload operation will be retried on NoSuchUpload error. You should not use this, if you're not informally informed to use it.",
+			Usage:       "number of times that a request will be retried on NoSuchUpload error. You should not use this unless you really know what you're doing.",
 			DefaultText: "0",
 			Hidden:      true,
 		},

@@ -319,8 +319,9 @@ def create_bench_dir(args):
 
 def run_cmd(cmd):
     process = subprocess.run(cmd, capture_output=True, text=True)
-    process.check_returncode()
+    print(process.stderr, end='')
     print(process.stdout, end='')
+    process.check_returncode()
     return process.stdout
 
 

@@ -4171,4 +4171,6 @@ func TestDeleteFailedDownload(t *testing.T) {
 	l, _ := os.ReadDir(cmd.Dir)
 	fmt.Println(expected, "###\n", cmd.Dir, "###\n", l, "###")
 	assert.Assert(t, fs.Equal(cmd.Dir, expected))
+
+	t.Fatal()
 }

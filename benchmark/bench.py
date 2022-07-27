@@ -1,36 +1,16 @@
 #!/usr/bin/env python
 import argparse
-import math
 import re
 import shutil
 import os
-import time
 import subprocess
-from collections import namedtuple
 from tempfile import mkdtemp, mkstemp
-
-
-def init_bench_results(cwd):
-    summary = "### Benchmark summary: " \
-              "\n|Scenario| Summary |" \
-              "\n|:---|:---|" \
-              "\n"
-    with open(f"{cwd}/summary.md", "w") as file:
-        file.write(summary)
-
-    detailed_summary = '\n### Detailed summary: ' \
-                       '\n|Scenario| Command | Mean [ms] | Min [ms] | Max [ms] | Relative |' \
-                       '\n|:---|:---|---:|---:|---:|---:|' \
-                       '\n'
-
-    with open(f"{cwd}/detailed_summary.md", "w") as file:
-        file.write(detailed_summary)
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description='Compare performance of two different builds of s5cmd.')
 
-    parser.add_argument('-s', '--s5cmd', nargs=2, required=True, metavar=("OLD", "NEW"), default=('v1.4.0', 'v2.0.0')
+    parser.add_argument('-s', '--s5cmd', nargs=2, metavar=("OLD", "NEW"), default=('v1.4.0', 'v2.0.0')
                         , help='Reference to old and new s5cmd.'
                                ' It can be a decimal indicating PR number, '
                                'any of the version tags like v2.0.0 or commit tag.')
@@ -39,7 +19,7 @@ def main(argv=None):
     parser.add_argument('-b', '--bucket', required=True, help='Name of the bucket in remote')
     parser.add_argument('-p', '--prefix', default='s5cmd-benchmarks-',
                         help='Key prefix to be used while uploading to a specified bucket')
-    parser.add_argument('-hf', '--hyperfine-extra-flags', help='hyperfine global extra flags.'
+    parser.add_argument('-hf', '--hyperfine-extra-flags', help='hyperfine global extra flags. '
                                                                'Write in between quotation marks '
                                                                'and start with a space to avoid bugs.')
     parser.add_argument('-sf', '--s5cmd-extra-flags', help='s5cmd global extra flags. '
@@ -47,8 +27,8 @@ def main(argv=None):
                                                            'and start with a space to avoid bugs.')
 
     args = parser.parse_args(argv)
-
     cwd = os.getcwd()
+
     local_dir, dst_path = create_bench_dir(args)
     old_s5cmd, new_s5cmd = build_s5cmd_exec(args.s5cmd[0], args.s5cmd[1], local_dir)
 
@@ -97,6 +77,7 @@ def main(argv=None):
             local_dir=local_dir,
         ),
         # TODO: add prepare flag for scenarios that tests remove
+        # This scenario depends on the remote files uploaded by the scenario 'upload small files'
         Scenario(
             name='remove small files',
             cwd=cwd,
@@ -106,6 +87,7 @@ def main(argv=None):
             hyperfine_args=dict({'runs': 1, 'warmup': 0, 'extra_flags': args.hyperfine_extra_flags}),
             local_dir=local_dir,
         ),
+        # This scenario depends on the remote files uploaded by the scenario 'upload large files'
         Scenario(
             name='remove large files',
             cwd=cwd,
@@ -124,10 +106,8 @@ def main(argv=None):
         scenario.run(old_s5cmd, new_s5cmd)
 
     # append detailed_summary to summary.md
-
     with open(f'{cwd}/detailed_summary.md', 'r+') as f:
-        detailed_summary = "".join(f.readlines())
-
+        detailed_summary = join_with_spaces(f.readlines())
     with open(f'{cwd}/summary.md', 'a') as f:
         f.write(detailed_summary)
 
@@ -143,9 +123,9 @@ class S5cmd:
         self.tag = tag
         self.git_type = ""
         self.path = f'{folder_path}/{self.name}'
-        self.build(folder_path)
+        self.build()
 
-    def build(self, folder_path):
+    def build(self):
 
         if re.match('^[0-9]+$', self.tag):
             run_cmd(['git', '-C', f'{self.clone_path}', 'fetch', 'origin', f'pull/{self.tag}/head', '-q'])
@@ -242,7 +222,7 @@ class Scenario:
             'old,new',
             '-n', f'{old_name}',
             '-n', f'{new_name}',
-            f"{old_s5cmd.path} {join(self.s5cmd_args)}",
+            f"{old_s5cmd.path} {join_with_spaces(self.s5cmd_args)}",
         ]
         if self.hyperfine_args["extra_flags"]:
             cmd.append(self.hyperfine_args["extra_flags"].strip())
@@ -256,8 +236,8 @@ class Scenario:
         with open(f"{self.local_dir}/temp.md", "r+") as f:
             lines = f.readlines()
             # get markdown table and add a new column in the front as scenario name
-            detailed_summary = f"| {self.name} {''.join(lines[-1])}" \
-                               f"| {self.name} {''.join(lines[-2])}"
+            detailed_summary = f"| {self.name} {join_with_spaces(lines[-1])}" \
+                               f"| {self.name} {join_with_spaces(lines[-2])}"
 
         with open(f"{self.cwd}/detailed_summary.md", "a") as f:
             f.write(detailed_summary)
@@ -274,8 +254,25 @@ class Scenario:
         return summary
 
 
-def join(l):
-    return " ".join(l)
+def init_bench_results(cwd):
+    summary = "### Benchmark summary: " \
+              "\n|Scenario| Summary |" \
+              "\n|:---|:---|" \
+              "\n"
+    with open(f"{cwd}/summary.md", "w") as file:
+        file.write(summary)
+
+    detailed_summary = '\n### Detailed summary: ' \
+                       '\n|Scenario| Command | Mean [ms] | Min [ms] | Max [ms] | Relative |' \
+                       '\n|:---|:---|---:|---:|---:|---:|' \
+                       '\n'
+
+    with open(f"{cwd}/detailed_summary.md", "w") as file:
+        file.write(detailed_summary)
+
+
+def join_with_spaces(lst):
+    return " ".join(lst)
 
 
 def to_bytes(size):
@@ -307,7 +304,7 @@ def build_s5cmd_exec(old, new, local_dir):
 
 
 def create_bench_dir(args):
-    local_dir = mkdtemp(prefix=args.prefix)  # create dir
+    local_dir = mkdtemp(prefix=args.prefix)
     dst_path = f's3://{args.bucket}/{args.prefix}'
     print(f'All the local temporary files will be created at {local_dir}')
     print(f'All the remote files will be uploaded to {dst_path}')
@@ -320,7 +317,7 @@ def create_bench_dir(args):
 
 def run_cmd(cmd):
     process = subprocess.run(cmd, capture_output=True, text=True)
-    # process.check_returncode()
+    process.check_returncode()
     print(process.stdout, end='')
     return process.stdout
 

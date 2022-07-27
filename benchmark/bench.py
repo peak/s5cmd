@@ -10,21 +10,23 @@ from tempfile import mkdtemp
 def main(argv=None):
     parser = argparse.ArgumentParser(description='Compare performance of two different builds of s5cmd.')
 
-    parser.add_argument('-s', '--s5cmd', nargs=2, metavar=("OLD", "NEW"), default=('v1.4.0', 'v2.0.0')
-                        , help='Reference to old and new s5cmd.'
-                               ' It can be a decimal indicating PR number, '
-                               'any of the version tags like v2.0.0 or commit tag.')
+    parser.add_argument('-s', '--s5cmd', nargs=2, metavar=("OLD", "NEW"), default=('v1.4.0', 'v2.0.0'),
+                        help='Reference to old and new s5cmd.'
+                             ' It can be a decimal indicating PR number, '
+                             'any of the version tags like v2.0.0 or commit tag.')
     parser.add_argument('-w', '--warmup', default=2, help='Number of program executions before the actual benchmark:')
     parser.add_argument('-r', '--runs', default=10, help='Number of runs to perform for each command')
     parser.add_argument('-b', '--bucket', required=True, help='Name of the bucket in remote')
     parser.add_argument('-p', '--prefix', default='s5cmd-benchmarks-',
                         help='Key prefix to be used while uploading to a specified bucket')
-    parser.add_argument('-hf', '--hyperfine-extra-flags', help='hyperfine global extra flags. '
-                                                               'Write in between quotation marks '
-                                                               'and start with a space to avoid bugs.')
-    parser.add_argument('-sf', '--s5cmd-extra-flags', help='s5cmd global extra flags. '
-                                                           'Write in between quotation marks '
-                                                           'and start with a space to avoid bugs.')
+    parser.add_argument('-hf', '--hyperfine-extra-flags',
+                        help='hyperfine global extra flags. '
+                             'Write in between quotation marks '
+                             'and start with a space to avoid bugs.')
+    parser.add_argument('-sf', '--s5cmd-extra-flags', default="",
+                        help='s5cmd global extra flags. '
+                             'Write in between quotation marks '
+                             'and start with a space to avoid bugs.')
 
     args = parser.parse_args(argv)
     cwd = os.getcwd()

@@ -28,15 +28,23 @@ def init_bench_results(cwd):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description='Compare performance of Download, Upload and Remove of s5cmd.')
+    parser = argparse.ArgumentParser(description='Compare performance of two different builds of s5cmd.')
 
-    parser.add_argument('-s', '--s5cmd', nargs=2, required=True, metavar=("OLD", "NEW"), default=('v1.4.0', 'v2.0.0'))
-    parser.add_argument('-w', '--warmup', default=2)
-    parser.add_argument('-r', '--runs', default=10)
-    parser.add_argument('-b', '--bucket', required=True)
-    parser.add_argument('-p', '--prefix', default='s5cmd-benchmarks-')
-    parser.add_argument('-hf', '--hyperfine-extra-flags')
-    parser.add_argument('-sf', '--s5cmd-extra-flags')
+    parser.add_argument('-s', '--s5cmd', nargs=2, required=True, metavar=("OLD", "NEW"), default=('v1.4.0', 'v2.0.0')
+                        , help='Reference to old and new s5cmd.'
+                               ' It can be a decimal indicating PR number, '
+                               'any of the version tags like v2.0.0 or commit tag.')
+    parser.add_argument('-w', '--warmup', default=2, help='Number of program executions before the actual benchmark:')
+    parser.add_argument('-r', '--runs', default=10, help='Number of runs to perform for each command')
+    parser.add_argument('-b', '--bucket', required=True, help='Name of the bucket in remote')
+    parser.add_argument('-p', '--prefix', default='s5cmd-benchmarks-',
+                        help='Key prefix to be used while uploading to a specified bucket')
+    parser.add_argument('-hf', '--hyperfine-extra-flags', help='hyperfine global extra flags.'
+                                                               'Write in between quotation marks '
+                                                               'and start with a space to avoid bugs.')
+    parser.add_argument('-sf', '--s5cmd-extra-flags', help='s5cmd global extra flags. '
+                                                           'Write in between quotation marks '
+                                                           'and start with a space to avoid bugs.')
 
     args = parser.parse_args(argv)
 
@@ -51,7 +59,7 @@ def main(argv=None):
             name='upload small files',
             cwd=cwd,
             file_size='1M',
-            file_count='10',
+            file_count='10000',
             s5cmd_args=[args.s5cmd_extra_flags, 'cp', '\"*\"', f's3://{args.bucket}/{args.prefix}/1/{{dir}}/'],
             hyperfine_args=dict({'runs': args.runs, 'warmup': args.warmup, 'extra_flags': args.hyperfine_extra_flags}),
             local_dir=local_dir,
@@ -69,7 +77,7 @@ def main(argv=None):
         Scenario(
             name='upload large files',
             cwd=cwd,
-            file_size='10M',
+            file_size='10G',
             file_count='1',
             s5cmd_args=[args.s5cmd_extra_flags, 'cp', '\"*\"',
                         f's3://{args.bucket}/{args.prefix}/2/{{dir}}/'],

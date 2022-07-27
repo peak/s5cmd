@@ -44,7 +44,7 @@ jobs:
         go-version: ${{ matrix.go-version }}
 
     - run: make test
-    
+
   qa:
     strategy:
       matrix:

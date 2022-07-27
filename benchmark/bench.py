@@ -106,6 +106,7 @@ def main(argv=None):
         # local files, and download can use
         scenario.setup()
         scenario.run(old_s5cmd, new_s5cmd)
+        scenario.teardown()
 
     # append detailed_summary to summary.md
     with open(f'{cwd}/detailed_summary.md', 'r+') as f:
@@ -202,7 +203,9 @@ class Scenario:
             os.remove(temp_bigfile_dir)
 
     def teardown(self):
-        pass
+        # if local files are created, remove at teardown
+        if self.file_count:
+            shutil.rmtree(self.folder_dir)
 
     def run(self, old_s5cmd, new_s5cmd):
         old_name = f'{old_s5cmd.git_type}:{old_s5cmd.tag}'

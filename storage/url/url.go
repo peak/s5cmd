@@ -35,13 +35,14 @@ const (
 // URL is the canonical representation of an object, either on local or remote
 // storage.
 type URL struct {
-	Type      urlType
-	Scheme    string
-	Bucket    string
-	Path      string
-	Delimiter string
-	Prefix    string
-	VersionId string
+	Type        urlType
+	Scheme      string
+	Bucket      string
+	Path        string
+	Delimiter   string
+	Prefix      string
+	VersionId   string
+	AllVersions bool
 
 	relativePath string
 	filter       string
@@ -54,6 +55,18 @@ type Option func(u *URL)
 func WithRaw(mode bool) Option {
 	return func(u *URL) {
 		u.raw = mode
+	}
+}
+
+func WithVersion(versionId string) Option {
+	return func(u *URL) {
+		u.VersionId = versionId
+	}
+}
+
+func WithAllVersions(isAllVersions bool) Option {
+	return func(u *URL) {
+		u.AllVersions = isAllVersions
 	}
 }
 

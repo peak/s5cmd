@@ -73,13 +73,23 @@ func NewDeleteCommand() *cli.Command {
 		},
 		Action: func(c *cli.Context) (err error) {
 			defer stat.Collect(c.Command.FullName(), &err)()
+			raw := c.Bool("raw")
+			fullCommand := commandFromContext(c)
+
+			sources := c.Args().Slice()
+			srcUrls, err := newURLs(raw, c.String("version-id"), c.Bool("all-versions"), sources...)
+			if err != nil {
+				printError(fullCommand, c.Command.Name, err)
+				return err
+			}
+
 			return Delete{
-				src:         c.Args().Slice(),
+				src:         srcUrls,
 				op:          c.Command.Name,
-				fullCommand: commandFromContext(c),
+				fullCommand: fullCommand,
 
 				// flags
-				raw:     c.Bool("raw"),
+				raw:     raw,
 				exclude: c.StringSlice("exclude"),
 
 				storageOpts: NewStorageOpts(c),
@@ -90,7 +100,7 @@ func NewDeleteCommand() *cli.Command {
 
 // Delete holds delete operation flags and states.
 type Delete struct {
-	src         []string
+	src         []*url.URL
 	op          string
 	fullCommand string
 
@@ -104,15 +114,8 @@ type Delete struct {
 
 // Run remove given sources.
 func (d Delete) Run(ctx context.Context) error {
-	srcurls, err := newURLs(d.raw, d.src...)
-	if err != nil {
-		printError(d.fullCommand, d.op, err)
-		return err
-	}
-	if d.storageOpts.VersionId != "" {
-		srcurls[0].VersionId = d.storageOpts.VersionId
-	}
-	srcurl := srcurls[0]
+
+	srcurl := d.src[0]
 
 	client, err := storage.NewClient(ctx, srcurl, d.storageOpts)
 	if err != nil {
@@ -126,7 +129,7 @@ func (d Delete) Run(ctx context.Context) error {
 		return err
 	}
 
-	objch := expandSources(ctx, client, false, srcurls...)
+	objch := expandSources(ctx, client, false, d.src...)
 
 	var (
 		merrorObjects error
@@ -181,10 +184,11 @@ func (d Delete) Run(ctx context.Context) error {
 }
 
 // newSources creates object URL list from given sources.
-func newURLs(urlMode bool, sources ...string) ([]*url.URL, error) {
+func newURLs(urlMode bool, versionId string, isAllVersions bool, sources ...string) ([]*url.URL, error) {
 	var urls []*url.URL
 	for _, src := range sources {
-		srcurl, err := url.New(src, url.WithRaw(urlMode))
+		srcurl, err := url.New(src, url.WithRaw(urlMode), url.WithVersion(versionId),
+			url.WithAllVersions(isAllVersions))
 		if err != nil {
 			return nil, err
 		}
@@ -198,7 +202,7 @@ func validateRMCommand(c *cli.Context) error {
 		return fmt.Errorf("expected at least 1 object to remove")
 	}
 
-	srcurls, err := newURLs(c.Bool("raw"), c.Args().Slice()...)
+	srcurls, err := newURLs(c.Bool("raw"), c.String("version-id"), c.Bool("all-versions"), c.Args().Slice()...)
 	if err != nil {
 		return err
 	}

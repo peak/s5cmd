@@ -32,8 +32,7 @@ func expandSource(
 	}
 
 	// call storage.List for only walking operations.
-	// todo it doesn't handle the case of "all-versions"
-	if srcurl.IsWildcard() || isDir {
+	if srcurl.IsWildcard() || srcurl.AllVersions || isDir {
 		return client.List(ctx, srcurl, followSymlinks), nil
 	}
 

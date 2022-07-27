@@ -142,7 +142,7 @@ func (s *S3) Stat(ctx context.Context, url *url.URL) (*Object, error) {
 // it sends these errors to object channel.
 func (s *S3) List(ctx context.Context, url *url.URL, _ bool) <-chan *Object {
 	// todo if either of s.versionID or s.allVersions is set, handle that case seperately.
-	if s.versionId != "" || s.allVersions {
+	if url.VersionId != "" || url.AllVersions {
 		return s.listObjectsVersion(ctx, url)
 	}
 	if isGoogleEndpoint(s.endpointURL) || s.useListObjectsV1 {

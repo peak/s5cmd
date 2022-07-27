@@ -35,6 +35,35 @@ import (
 	"gotest.tools/v3/icmd"
 )
 
+func TestDeleteFailedDownload(t *testing.T) {
+	// t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	filename := bucket + "testfile1.txt"
+
+	_, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	// it will try downloading a file from a nonexistent bucket
+	// so it will fail. In this case we don't want it to keep
+	// the local file.
+	cmd := s5cmd("cp", "s3://"+bucket+"/"+filename, filename)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Expected{ExitCode: 1})
+
+	// assert local filesystem does not have any (such) file
+	expected := fs.Expected(t)
+	//  todo delete next two lines
+	l, _ := os.ReadDir(cmd.Dir)
+	fmt.Println(expected, "###\n", cmd.Dir, "###\n", l, "###")
+	assert.Assert(t, fs.Equal(cmd.Dir, expected))
+
+	time.Sleep(20 * time.Second)
+	t.Fatal()
+}
+
 func TestCopySingleS3ObjectToLocal(t *testing.T) {
 	t.Parallel()
 
@@ -4145,32 +4174,4 @@ func TestCopyExpectExitCode1OnUnreachableHost(t *testing.T) {
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Expected{ExitCode: 1})
-}
-
-func TestDeleteFailedDownload(t *testing.T) {
-	t.Parallel()
-
-	bucket := s3BucketFromTestName(t)
-
-	filename := bucket + "testfile1.txt"
-
-	_, s5cmd, cleanup := setup(t)
-	defer cleanup()
-
-	// it will try downloading a file from a nonexistent bucket
-	// so it will fail. In this case we don't want it to keep
-	// the local file.
-	cmd := s5cmd("cp", "s3://"+bucket+"/"+filename, filename)
-	result := icmd.RunCmd(cmd)
-
-	result.Assert(t, icmd.Expected{ExitCode: 1})
-
-	// assert local filesystem does not have any (such) file
-	expected := fs.Expected(t)
-	//  todo delete next two lines
-	l, _ := os.ReadDir(cmd.Dir)
-	fmt.Println(expected, "###\n", cmd.Dir, "###\n", l, "###")
-	assert.Assert(t, fs.Equal(cmd.Dir, expected))
-
-	t.Fatal()
 }

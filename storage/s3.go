@@ -596,28 +596,28 @@ func (s *S3) Put(
 		// check if the error is NoSuchUpload error
 		if !strings.Contains(err.Error(), s3.ErrCodeNoSuchUpload) {
 			break
-		} else {
-			// check if object exists in the destination
-			obj, sErr := s.Stat(ctx, to)
-			if sErr == nil {
-				// if object has the retry code we provided then it means
-				// the upload was succesfull despite the received error.
-				if obj.retryCode == retryCode {
-					err = nil
-					break
-				}
-			}
-			msg := log.ErrorMessage{Err: fmt.Sprintf("Retrying to upload %v upon error: %q", to, err.Error())}
-			log.Error(msg)
-
-			// renew retry code
-			input.Metadata[META_DATA_S5CMD_RETRY_CODE_KEY] = generateRetryCode()
-
-			_, err = s.uploader.UploadWithContext(ctx, input, func(u *s3manager.Uploader) {
-				u.PartSize = partSize
-				u.Concurrency = concurrency
-			})
 		}
+		// check if object exists in the destination
+		obj, sErr := s.Stat(ctx, to)
+		if sErr == nil {
+			// if object has the retry code we provided then it means
+			// the upload was succesfull despite the received error.
+			if obj.retryCode == retryCode {
+				err = nil
+				break
+			}
+		}
+
+		msg := log.ErrorMessage{Err: fmt.Sprintf("Retrying to upload %v upon error: %q", to, err.Error())}
+		log.Debug(msg)
+
+		// renew retry code
+		input.Metadata[META_DATA_S5CMD_RETRY_CODE_KEY] = generateRetryCode()
+
+		_, err = s.uploader.UploadWithContext(ctx, input, func(u *s3manager.Uploader) {
+			u.PartSize = partSize
+			u.Concurrency = concurrency
+		})
 	}
 	if err != nil && strings.Contains(err.Error(), s3.ErrCodeNoSuchUpload) && s.noSuchUploadRetryCount > 0 {
 		err = awserr.New(s3.ErrCodeNoSuchUpload, fmt.Sprintf("RetryOnNoSuchUpload: %v attempts to retry resulted in %v", attempts, s3.ErrCodeNoSuchUpload), err)

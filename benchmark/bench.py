@@ -16,6 +16,7 @@ def main(argv=None):
                              'any of the version tags like v2.0.0 or commit tag.')
     parser.add_argument('-w', '--warmup', default=2, help='Number of program executions before the actual benchmark:')
     parser.add_argument('-r', '--runs', default=10, help='Number of runs to perform for each command')
+    parser.add_argument('-o', '--output_file_name', default="summary.md", help='Name of the output file')
     parser.add_argument('-b', '--bucket', required=True, help='Name of the bucket in remote')
     parser.add_argument('-p', '--prefix', default='s5cmd-benchmarks-',
                         help='Key prefix to be used while uploading to a specified bucket')
@@ -33,8 +34,6 @@ def main(argv=None):
 
     local_dir, dst_path = create_bench_dir(args)
     old_s5cmd, new_s5cmd = build_s5cmd_exec(args.s5cmd[0], args.s5cmd[1], local_dir)
-
-    init_bench_results(cwd)
 
     scenarios = [
         Scenario(
@@ -100,18 +99,21 @@ def main(argv=None):
             local_dir=local_dir,
         ),
     ]
+
+    init_bench_results(cwd, args.output_file_name)
+
     for scenario in scenarios:
         # Any scenario that needs to download from remote
         # has to be executed after an upload test, as upload creates
         # local files, and download can use
-        scenario.setup()
+        scenario.setup(args.output_file_name)
         scenario.run(old_s5cmd, new_s5cmd)
         scenario.teardown()
 
-    # append detailed_summary to summary.md
+    # append detailed_summary to output_file_name
     with open(f'{cwd}/detailed_summary.md', 'r+') as f:
         detailed_summary = join_with_spaces(f.readlines())
-    with open(f'{cwd}/summary.md', 'a') as f:
+    with open(f'{cwd}/{args.output_file_name}', 'a') as f:
         f.write(detailed_summary)
 
     cleanup(local_dir, cwd)
@@ -154,8 +156,11 @@ class Scenario:
         self.hyperfine_args = hyperfine_args
         self.local_dir = local_dir
         self.folder_dir = ""
+        self.output_file_name = ""
 
-    def setup(self):
+    def setup(self,output_file_name):
+
+        self.output_file_name = output_file_name
 
         if self.file_count:
             self.file_count = int(self.file_count)
@@ -229,12 +234,13 @@ class Scenario:
             '-n', f'{new_name}',
             f"{old_s5cmd.path} {join_with_spaces(self.s5cmd_args)}",
         ]
+
         if self.hyperfine_args["extra_flags"]:
             cmd.append(self.hyperfine_args["extra_flags"].strip())
 
         output = run_cmd(cmd)
         summary = self.parse_output(output)
-        with open(f"{self.cwd}/summary.md", "a") as f:
+        with open(f"{self.cwd}/{self.output_file_name}", "a") as f:
             f.write(summary)
 
         detailed_summary = ""
@@ -259,12 +265,12 @@ class Scenario:
         return summary
 
 
-def init_bench_results(cwd):
+def init_bench_results(cwd, output_file_name):
     summary = "### Benchmark summary: " \
               "\n|Scenario| Summary |" \
               "\n|:---|:---|" \
               "\n"
-    with open(f"{cwd}/summary.md", "w") as file:
+    with open(f"{cwd}/{output_file_name}", "w") as file:
         file.write(summary)
 
     detailed_summary = '\n### Detailed summary: ' \

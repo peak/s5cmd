@@ -608,7 +608,7 @@ func (s *S3) Put(
 			}
 		}
 
-		msg := log.ErrorMessage{Err: fmt.Sprintf("Retrying to upload %v upon error: %q", to, err.Error())}
+		msg := log.DebugMessage{Err: fmt.Sprintf("Retrying to upload %v upon error: %q", to, err.Error())}
 		log.Debug(msg)
 
 		// renew retry code

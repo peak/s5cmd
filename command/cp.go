@@ -516,6 +516,7 @@ func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) 
 
 	size, err := srcClient.Get(ctx, srcurl, file, c.concurrency, c.partSize)
 	if err != nil {
+		// file.Close()
 		_ = dstClient.Delete(ctx, dsturl)
 		return err
 	}

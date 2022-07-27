@@ -11,17 +11,21 @@ LDFLAGS=-ldflags "-X=github.com/peak/s5cmd/version.Version=$(VERSION) -X=github.
 build:
 	@go build ${GCFLAGS} ${LDFLAGS} -mod=vendor .
 
-RACE_FLAG := -race
+TEST_TYPE:=test_with_race
 ifeq ($(OS),Windows_NT)
-	RACE_FLAG =
+	TEST_TYPE=test_without_race
 endif
 
 .PHONY: test
-test:
-	@S5CMD_TEST_DISABLE_RACE=0 go test -mod=vendor -count=1 ${RACE_FLAG} ./...
+test: $(TEST_TYPE)
 
+.PHONY: test_with_race
+test_with_race:
+	@S5CMD_TEST_DISABLE_RACE=0 go test -mod=vendor -count=1 -race ./...
+
+.PHONY: test_without_race
 test_without_race:
-	@S5CMD_TEST_DISABLE_RACE=1 go test -mod=vendor -count=1 ${RACE_FLAG} ./...
+	@S5CMD_TEST_DISABLE_RACE=1 go test -mod=vendor -count=1 ./...
 
 .PHONY: check
 check: vet staticcheck unparam check-fmt

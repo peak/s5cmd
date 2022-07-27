@@ -33,6 +33,7 @@ jobs:
         os:
           - macos
           - ubuntu
+          - windows
 
     name: test (${{ matrix.os }}/go-${{ matrix.go-version }})
     runs-on: ${{ matrix.os }}-latest
@@ -44,27 +45,6 @@ jobs:
 
     - run: make test
     
-  test_windows:
-    strategy:
-      matrix:
-        go-version:
-          - 1.18.x
-          - 1.17.x
-          - 1.16.x
-        os:
-          - windows
-
-    name: test (${{ matrix.os }}/go-${{ matrix.go-version }})
-    runs-on: ${{ matrix.os }}-latest
-    steps:
-    - uses: actions/checkout@v2
-    - uses: actions/setup-go@v2
-      with:
-        go-version: ${{ matrix.go-version }}
-
-    # tests fail in windows if the race flag is used
-    - run: make test_without_race
-
   qa:
     strategy:
       matrix:

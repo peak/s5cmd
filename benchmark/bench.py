@@ -4,7 +4,7 @@ import re
 import shutil
 import os
 import subprocess
-from tempfile import mkdtemp, mkstemp
+from tempfile import mkdtemp
 
 
 def main(argv=None):

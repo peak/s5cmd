@@ -34,9 +34,7 @@ import (
 	"github.com/peak/s5cmd/storage/url"
 )
 
-var (
-	sentinelURL = urlpkg.URL{}
-)
+var sentinelURL = urlpkg.URL{}
 
 const (
 	// deleteObjectsMax is the max allowed objects to be deleted on single HTTP
@@ -136,24 +134,18 @@ func (s *S3) Stat(ctx context.Context, url *url.URL) (*Object, error) {
 	etag := aws.StringValue(output.ETag)
 	mod := aws.TimeValue(output.LastModified)
 
-	if s.noSuchUploadRetryCount > 0 {
-		if res, ok := output.Metadata[metadataKeyRetryCode]; ok {
-			return &Object{
-				URL:       url,
-				Etag:      strings.Trim(etag, `"`),
-				ModTime:   &mod,
-				Size:      aws.Int64Value(output.ContentLength),
-				retryCode: *res,
-			}, nil
-		}
-	}
-
-	return &Object{
+	obj := &Object{
 		URL:     url,
 		Etag:    strings.Trim(etag, `"`),
 		ModTime: &mod,
 		Size:    aws.Int64Value(output.ContentLength),
-	}, nil
+	}
+
+	if res, ok := output.Metadata[metadataKeyRetryCode]; ok && s.noSuchUploadRetryCount > 0 {
+		obj.retryCode = *res
+	}
+
+	return obj, nil
 }
 
 // List is a non-blocking S3 list operation which paginates and filters S3
@@ -1034,9 +1026,8 @@ func (s *S3) retryOnNoSuchUpload(ctx aws.Context, to *url.URL, input *s3manager.
 
 	attempts := 0
 	for ; errHasCode(err, s3.ErrCodeNoSuchUpload) && attempts < s.noSuchUploadRetryCount; attempts++ {
-		// check if object exists in the destination
-		// if object has the retry code we provided then it means
-		// the upload was succesfull despite the received error.
+		// check if object exists and has the retry code we provided, if it does
+		// then it means that previous upload was succesfull despite the received error.
 		obj, sErr := s.Stat(ctx, to)
 		if sErr == nil && obj.retryCode == retryCode {
 			err = nil
@@ -1050,7 +1041,9 @@ func (s *S3) retryOnNoSuchUpload(ctx aws.Context, to *url.URL, input *s3manager.
 	}
 
 	if errHasCode(err, s3.ErrCodeNoSuchUpload) && s.noSuchUploadRetryCount > 0 {
-		err = awserr.New(s3.ErrCodeNoSuchUpload, fmt.Sprintf("RetryOnNoSuchUpload: %v attempts to retry resulted in %v", attempts, s3.ErrCodeNoSuchUpload), err)
+		err = awserr.New(s3.ErrCodeNoSuchUpload, fmt.Sprintf(
+			"RetryOnNoSuchUpload: %v attempts to retry resulted in %v", attempts,
+			s3.ErrCodeNoSuchUpload), err)
 	}
 	return err
 }

@@ -633,6 +633,7 @@ func TestS3RetryOnNoSuchUpload(t *testing.T) {
 
 			// +1 is for the original request
 			// *2 is to account for the "Stat" requests that are made to obtain
+			// retry code from object metada.
 			want := 2*tc.retryCount + 1
 			if *atomicCounter != want {
 				t.Errorf("expected retry request count %d, got %d", want, *atomicCounter)

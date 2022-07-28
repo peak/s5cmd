@@ -3900,9 +3900,8 @@ func TestCopySingleFileToS3WithNoSuchUploadRetryCount(t *testing.T) {
 	createBucket(t, s3client, bucket)
 
 	const (
-		filename            = "example.txt"
-		content             = "Some example text"
-		expectedContentType = "text/html; charset=utf-8"
+		filename = "example.txt"
+		content  = "Some example text"
 	)
 
 	workdir := fs.NewDir(t, bucket, fs.WithFile(filename, content))

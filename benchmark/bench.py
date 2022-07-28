@@ -40,7 +40,7 @@ def main(argv=None):
             name='upload small files',
             cwd=cwd,
             file_size='1M',
-            file_count='10000',
+            file_count='1000',
             s5cmd_args=[args.s5cmd_extra_flags, 'cp', '\"*\"', f's3://{args.bucket}/{args.prefix}/1/{{dir}}/'],
             hyperfine_args=dict({'runs': args.runs, 'warmup': args.warmup, 'extra_flags': args.hyperfine_extra_flags}),
             local_dir=local_dir,
@@ -58,7 +58,7 @@ def main(argv=None):
         Scenario(
             name='upload large files',
             cwd=cwd,
-            file_size='10G',
+            file_size='1G',
             file_count='1',
             s5cmd_args=[args.s5cmd_extra_flags, 'cp', '\"*\"',
                         f's3://{args.bucket}/{args.prefix}/2/{{dir}}/'],
@@ -100,7 +100,7 @@ def main(argv=None):
         ),
     ]
 
-    init_bench_results(cwd, args.output_file_name)
+    init_bench_results(cwd, args.output_file_name,scenarios)
 
     for scenario in scenarios:
         # Any scenario that needs to download from remote
@@ -158,7 +158,7 @@ class Scenario:
         self.folder_dir = ""
         self.output_file_name = ""
 
-    def setup(self,output_file_name):
+    def setup(self, output_file_name):
 
         self.output_file_name = output_file_name
 
@@ -247,8 +247,8 @@ class Scenario:
         with open(f"{self.local_dir}/temp.md", "r+") as f:
             lines = f.readlines()
             # get markdown table and add a new column in the front as scenario name
-            detailed_summary = f"| {self.name} {join_with_spaces(lines[-1])}" \
-                               f"| {self.name} {join_with_spaces(lines[-2])}"
+            detailed_summary = f"| {self.name} {lines[-1]}" \
+                               f"| {self.name} {lines[-2]}"
 
         with open(f"{self.cwd}/detailed_summary.md", "a") as f:
             f.write(detailed_summary)
@@ -265,11 +265,21 @@ class Scenario:
         return summary
 
 
-def init_bench_results(cwd, output_file_name):
-    summary = "### Benchmark summary: " \
-              "\n|Scenario| Summary |" \
-              "\n|:---|:---|" \
-              "\n"
+def init_bench_results(cwd, output_file_name, scenarios):
+    header = "### Benchmark summary: " \
+             "\n|Scenarios that create local files | File Size | File Count |" \
+             "\n|:---|:---|:---|"\
+             "\n"
+    scenario_details = []
+    for s in scenarios:
+        if s.file_size and s.file_count:
+            scenario_details.append(f'| {s.name} | {s.file_size} | {s.file_count} |' )
+
+    summary = f"{header}" \
+              f"{join_with_newlines(scenario_details)}" \
+              f"\n\n|Scenario| Summary |" \
+              f"\n|:---|:---|" \
+              f"\n"
     with open(f"{cwd}/{output_file_name}", "w") as file:
         file.write(summary)
 
@@ -283,7 +293,11 @@ def init_bench_results(cwd, output_file_name):
 
 
 def join_with_spaces(lst):
-    return " ".join(lst)
+    return f' '.join(lst)
+
+
+def join_with_newlines(lst):
+    return f'\n'.join(lst)
 
 
 def to_bytes(size):

@@ -41,7 +41,7 @@ def main(argv=None):
             cwd=cwd,
             file_size='1M',
             file_count='1000',
-            s5cmd_args=[args.s5cmd_extra_flags, 'cp', '\"*\"', f's3://{args.bucket}/{args.prefix}/1/{{dir}}/'],
+            s5cmd_args=[args.s5cmd_extra_flags, 'cp', '\"*\"', f'{dst_path}/1/{{dir}}/'],
             hyperfine_args=dict({'runs': args.runs, 'warmup': args.warmup, 'extra_flags': args.hyperfine_extra_flags}),
             local_dir=local_dir,
         ),
@@ -51,7 +51,7 @@ def main(argv=None):
             cwd=cwd,
             file_size=None,
             file_count=None,
-            s5cmd_args=[args.s5cmd_extra_flags, 'cp', f'\"s3://{args.bucket}/{args.prefix}/1/{{dir}}/*\"', f'1/'],
+            s5cmd_args=[args.s5cmd_extra_flags, 'cp', f'\"{dst_path}/1/{{dir}}/*\"', f'1/'],
             hyperfine_args=dict({'runs': args.runs, 'warmup': args.warmup, 'extra_flags': args.hyperfine_extra_flags}),
             local_dir=local_dir,
         ),
@@ -61,7 +61,7 @@ def main(argv=None):
             file_size='1G',
             file_count='1',
             s5cmd_args=[args.s5cmd_extra_flags, 'cp', '\"*\"',
-                        f's3://{args.bucket}/{args.prefix}/2/{{dir}}/'],
+                        f'{dst_path}/2/{{dir}}/'],
             hyperfine_args=dict({'runs': args.runs, 'warmup': args.warmup, 'extra_flags': args.hyperfine_extra_flags}),
             local_dir=local_dir,
         ),
@@ -73,7 +73,7 @@ def main(argv=None):
             file_size=None,
             file_count=None,
             s5cmd_args=[args.s5cmd_extra_flags, 'cp',
-                        f'\"s3://{args.bucket}/{args.prefix}/2/{{dir}}/*\"', f'2/'],
+                        f'\"{dst_path}/2/{{dir}}/*\"', f'2/'],
             hyperfine_args=dict({'runs': args.runs, 'warmup': args.warmup, 'extra_flags': args.hyperfine_extra_flags}),
             local_dir=local_dir,
         ),
@@ -84,7 +84,7 @@ def main(argv=None):
             cwd=cwd,
             file_size=None,
             file_count=None,
-            s5cmd_args=[args.s5cmd_extra_flags, 'rm', f's3://{args.bucket}/{args.prefix}/1/{{dir}}/*'],
+            s5cmd_args=[args.s5cmd_extra_flags, 'rm', f'{dst_path}/1/{{dir}}/*'],
             hyperfine_args=dict({'runs': 1, 'warmup': 0, 'extra_flags': args.hyperfine_extra_flags}),
             local_dir=local_dir,
         ),
@@ -94,7 +94,7 @@ def main(argv=None):
             cwd=cwd,
             file_size=None,
             file_count=None,
-            s5cmd_args=[args.s5cmd_extra_flags, 'rm', f's3://{args.bucket}/{args.prefix}/2/{{dir}}/*'],
+            s5cmd_args=[args.s5cmd_extra_flags, 'rm', f'{dst_path}/2/{{dir}}/*'],
             hyperfine_args=dict({'runs': 1, 'warmup': 0, 'extra_flags': args.hyperfine_extra_flags}),
             local_dir=local_dir,
         ),
@@ -116,7 +116,7 @@ def main(argv=None):
     with open(f'{cwd}/{args.output_file_name}', 'a') as f:
         f.write(detailed_summary)
 
-    cleanup(local_dir, cwd)
+    #cleanup(local_dir, cwd)
 
     return 0
 
@@ -330,7 +330,8 @@ def build_s5cmd_exec(old, new, local_dir):
 
 def create_bench_dir(args):
     local_dir = mkdtemp(prefix=args.prefix)
-    dst_path = f's3://{args.bucket}/{args.prefix}'
+    idx = local_dir.rfind(args.prefix[-1]) + 1
+    dst_path = f's3://{args.bucket}/{args.prefix}/{local_dir[idx:]}'
     print(f'All the local temporary files will be created at {local_dir}')
     print(f'All the remote files will be uploaded to {dst_path}')
     print(f'The created local&remote files will be deleted at the end of tests.')

@@ -50,7 +50,7 @@ const (
 	gcsEndpoint = "storage.googleapis.com"
 
 	// the key of the object metadata which is used to handle retry decision on NoSuchUpload error
-	META_DATA_S5CMD_RETRY_CODE_KEY = "s5cmd-retry-code"
+	metadataKeyRetryCode = "s5cmd-retry-code"
 )
 
 // Re-used AWS sessions dramatically improve performance.
@@ -137,8 +137,7 @@ func (s *S3) Stat(ctx context.Context, url *url.URL) (*Object, error) {
 	mod := aws.TimeValue(output.LastModified)
 
 	if s.noSuchUploadRetryCount > 0 {
-		m := output.Metadata
-		if res, ok := m[META_DATA_S5CMD_RETRY_CODE_KEY]; ok {
+		if res, ok := output.Metadata[metadataKeyRetryCode]; ok {
 			return &Object{
 				URL:       url,
 				Etag:      strings.Trim(etag, `"`),
@@ -583,7 +582,7 @@ func (s *S3) Put(
 
 	// add retry code to the object metadata
 	if s.noSuchUploadRetryCount > 0 {
-		input.Metadata[META_DATA_S5CMD_RETRY_CODE_KEY] = generateRetryCode()
+		input.Metadata[metadataKeyRetryCode] = generateRetryCode()
 	}
 
 	_, err := s.uploader.UploadWithContext(ctx, input, func(u *s3manager.Uploader) {
@@ -612,7 +611,7 @@ func (s *S3) Put(
 		log.Debug(msg)
 
 		// renew retry code
-		input.Metadata[META_DATA_S5CMD_RETRY_CODE_KEY] = generateRetryCode()
+		input.Metadata[metadataKeyRetryCode] = generateRetryCode()
 
 		_, err = s.uploader.UploadWithContext(ctx, input, func(u *s3manager.Uploader) {
 			u.PartSize = partSize

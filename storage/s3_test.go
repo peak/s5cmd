@@ -639,9 +639,9 @@ func TestS3RetryOnNoSuchUpload(t *testing.T) {
 
 			// +1 is for the original request
 			// *2 is to account for the "Stat" requests that are made to obtain
-			// last modification date( retry decision are made according to mod. date)
-			if *atomicCounter != 1+2*tc.retryCount {
-				t.Errorf("expected retry %d, got %d", tc.retryCount, *atomicCounter)
+			want := 2*tc.retryCount + 1
+			if *atomicCounter != want {
+				t.Errorf("expected retry request count %d, got %d", want, *atomicCounter)
 			}
 		})
 	}

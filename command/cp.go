@@ -179,7 +179,7 @@ func NewSharedFlags() []cli.Flag {
 		},
 		&cli.IntFlag{
 			Name:        "no-such-upload-retry-count",
-			Usage:       "number of times that a request will be retried on NoSuchUpload error. You should not use this unless you really know what you're doing.",
+			Usage:       "number of times that a request will be retried on NoSuchUpload error; you should not use this unless you really know what you're doing.",
 			DefaultText: "0",
 			Hidden:      true,
 		},

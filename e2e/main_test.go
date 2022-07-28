@@ -7,9 +7,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	if !flag.Parsed() {
-		flag.Parse()
-	}
+	flag.Parse()
 
 	cleanup := goBuildS5cmd()
 	code := m.Run()

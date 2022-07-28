@@ -40,8 +40,8 @@ import (
 
 const (
 	// Don't use "race" flag in the build arguments.
-	TEST_DISABLE_RACE_FLAG_KEY   = "S5CMD_TEST_DISABLE_RACE"
-	TEST_DISABLE_RACE_FLAG_VALUE = "1"
+	testDisableRaceFlagKey = "S5CMD_BUILD_BINARY_WITHOUT_RACE_FLAG"
+	testDisableRaceFlagVal = "1"
 )
 
 var (
@@ -217,7 +217,7 @@ func goBuildS5cmd() func() {
 
 	var args []string
 
-	if os.Getenv(TEST_DISABLE_RACE_FLAG_KEY) == TEST_DISABLE_RACE_FLAG_VALUE {
+	if os.Getenv(testDisableRaceFlagKey) == testDisableRaceFlagVal {
 		/*
 		 1. disable '-race' flag because CI fails with below error.
 

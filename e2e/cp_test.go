@@ -36,14 +36,14 @@ import (
 )
 
 func TestDeleteFailedDownload(t *testing.T) {
-	// t.Parallel()
-
+	t.Parallel()
 	bucket := s3BucketFromTestName(t)
+	filename := "testfile1.txt"
 
-	filename := bucket + "testfile1.txt"
-
-	_, s5cmd, cleanup := setup(t)
+	s3client, s5cmd, cleanup := setup(t)
 	defer cleanup()
+
+	createBucket(t, s3client, bucket)
 
 	// it will try downloading a file from a nonexistent bucket
 	// so it will fail. In this case we don't want it to keep
@@ -55,13 +55,7 @@ func TestDeleteFailedDownload(t *testing.T) {
 
 	// assert local filesystem does not have any (such) file
 	expected := fs.Expected(t)
-	//  todo delete next two lines
-	l, _ := os.ReadDir(cmd.Dir)
-	fmt.Println(expected, "###\n", cmd.Dir, "###\n", l, "###")
 	assert.Assert(t, fs.Equal(cmd.Dir, expected))
-
-	time.Sleep(20 * time.Second)
-	t.Fatal()
 }
 
 func TestCopySingleS3ObjectToLocal(t *testing.T) {

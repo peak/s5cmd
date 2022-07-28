@@ -4147,21 +4147,20 @@ func TestCopyExpectExitCode1OnUnreachableHost(t *testing.T) {
 	result.Assert(t, icmd.Expected{ExitCode: 1})
 }
 
-// Before downloading a file from s3 a local target file is created. If the download
+// Before downloading a file from s3 a local target file is created. If download
 // fails the created file should be deleted.
 func TestDeleteFileWhenDownloadFailed(t *testing.T) {
 	t.Parallel()
-	bucket := s3BucketFromTestName(t)
-	filename := "testfile1.txt"
 
 	s3client, s5cmd, cleanup := setup(t)
 	defer cleanup()
 
+	bucket := s3BucketFromTestName(t)
+	filename := "testfile1.txt"
 	createBucket(t, s3client, bucket)
 
-	// it will try downloading a file from a nonexistent bucket
-	// so it will fail. In this case we don't want it to keep
-	// the local file.
+	// It will try downloading a nonexistent file from the s3 so it will fail.
+	// In this case we don't expect to have a local file with the name `filename`.
 	cmd := s5cmd("cp", "s3://"+bucket+"/"+filename, filename)
 	result := icmd.RunCmd(cmd)
 

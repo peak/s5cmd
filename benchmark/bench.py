@@ -116,7 +116,7 @@ def main(argv=None):
     with open(f'{cwd}/{args.output_file_name}', 'a') as f:
         f.write(detailed_summary)
 
-    #cleanup(local_dir, cwd)
+    cleanup(local_dir, cwd)
 
     return 0
 

@@ -629,13 +629,7 @@ func TestS3RetryOnNoSuchUpload(t *testing.T) {
 				atomic.AddInt32(atomicCounter, 1)
 			})
 
-			f, err := os.CreateTemp("", "")
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer os.Remove(f.Name())
-
-			mockS3.Put(ctx, f, url, NewMetadata(), s3manager.DefaultUploadConcurrency, s3manager.DefaultUploadPartSize)
+			mockS3.Put(ctx, strings.NewReader(""), url, NewMetadata(), s3manager.DefaultUploadConcurrency, s3manager.DefaultUploadPartSize)
 
 			// +1 is for the original request
 			// *2 is to account for the "Stat" requests that are made to obtain

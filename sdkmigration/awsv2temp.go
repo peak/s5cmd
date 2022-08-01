@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -9,11 +10,13 @@ import (
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
+	"github.com/aws/smithy-go/logging"
 	"github.com/peak/s5cmd/command"
 	"github.com/peak/s5cmd/log"
 	"github.com/peak/s5cmd/storage"
 	url "github.com/peak/s5cmd/storage/url"
 	"io"
+	"net/http"
 	urlpkg "net/url"
 	"strings"
 	"sync"
@@ -87,20 +90,63 @@ func parseEndpoint(endpoint string) (urlpkg.URL, error) {
 
 func newS3Storage(ctx context.Context, opts storage.Options) (*S3, error) {
 
+	var awsOpts []func(*config.LoadOptions) error
+
+	if opts.NoSignRequest {
+		// do not sign requests when making service API calls
+		awsOpts = append(awsOpts, config.WithCredentialsProvider(aws.AnonymousCredentials{}))
+	} else if opts.CredentialFile != "" || opts.Profile != "" {
+		//todo: Not Sure about this one.
+		awsOpts = append(awsOpts, config.WithSharedConfigProfile(opts.Profile))
+		awsOpts = append(awsOpts, config.WithSharedCredentialsFiles([]string{opts.CredentialFile}))
+	}
+
 	endpointURL, err := parseEndpoint(opts.Endpoint)
+	fmt.Println(endpointURL)
 	if err != nil {
 		return nil, err
 	}
-	//TODO(bora): write further necessary config settings from globalSessionCache.newSession func
 
-	cfg, err := config.LoadDefaultConfig(ctx,
-		config.WithEndpointResolverWithOptions(aws.EndpointResolverWithOptionsFunc(
-			func(service, region string, options ...interface{}) (aws.Endpoint, error) {
-				return aws.Endpoint{URL: "http://127.0.0.1:56229",
-					Source:            aws.EndpointSourceCustom,
-					HostnameImmutable: true}, nil
-			})),
-	)
+	// use virtual-host-style if the endpoint is known to support it,
+	// otherwise use the path-style approach.
+	isVirtualHostStyle := isVirtualHostStyle(endpointURL)
+	fmt.Println(isVirtualHostStyle)
+
+	useAccelerate := supportsTransferAcceleration(endpointURL)
+	// AWS SDK handles transfer acceleration automatically. Setting the
+	// Endpoint to a transfer acceleration endpoint would cause bucket
+	// operations fail.
+	if useAccelerate {
+		endpointURL = sentinelURL
+		//todo: Couldn't find a setting to turn on S3UseAccelerate, might be already built in
+	}
+
+	//todo: Adding proxy to the env is supported by the sdk now, change it to that.
+	//https://aws.github.io/aws-sdk-go-v2/docs/configuring-sdk/custom-http/
+	if opts.NoVerifySSL {
+		httpClient := insecureHTTPClient
+		awsOpts = append(awsOpts, config.WithHTTPClient(httpClient))
+	}
+
+	endpoint := config.WithEndpointResolverWithOptions(aws.EndpointResolverWithOptionsFunc(
+		func(service, region string, options ...interface{}) (aws.Endpoint, error) {
+			return aws.Endpoint{URL: endpointURL.String(),
+				Source:            aws.EndpointSourceCustom,
+				HostnameImmutable: !isVirtualHostStyle}, nil
+		}))
+	awsOpts = append(awsOpts, endpoint)
+
+	if opts.LogLevel == log.LevelTrace {
+		awsOpts = append(awsOpts, config.WithClientLogMode(aws.LogResponse))
+		awsOpts = append(awsOpts, config.WithLogger(sdkLogger{}))
+	}
+
+	//todo: add retryer
+
+	//todo: use shared config
+
+	cfg, err := config.LoadDefaultConfig(ctx, awsOpts...)
+
 	if err != nil {
 		return nil, err
 	}
@@ -114,6 +160,16 @@ func newS3Storage(ctx context.Context, opts storage.Options) (*S3, error) {
 		endpointURL:  endpointURL,
 	}, nil
 
+}
+
+type sdkLogger struct{}
+
+func (l sdkLogger) Logf(classification logging.Classification, format string, v ...interface{}) {
+	//todo: Should we add classification to our logging?
+	msg := log.TraceMessage{
+		Message: fmt.Sprintf(format, v...),
+	}
+	log.Trace(msg)
 }
 
 func (s *S3) Stat(ctx context.Context, url *url.URL) (*storage.Object, error) {
@@ -185,8 +241,11 @@ func (s *S3) listObjectsV2(ctx context.Context, url *url.URL) <-chan *storage.Ob
 				if !url.Match(prefix) {
 					continue
 				}
+				fmt.Println(url.Relative())
 				newurl := url.Clone()
+				fmt.Println(newurl.Relative())
 				newurl.Path = prefix
+
 				objCh <- &storage.Object{
 					URL: newurl,
 					//todo : cannot set type as it is not exported, fix it later
@@ -664,8 +723,25 @@ func (s *S3) RemoveBucket(ctx context.Context, name string) error {
 	return err
 }
 
+var insecureHTTPClient = &http.Client{
+	Transport: &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		Proxy:           http.ProxyFromEnvironment,
+	},
+}
+
+func supportsTransferAcceleration(endpoint urlpkg.URL) bool {
+	return endpoint.Hostname() == transferAccelEndpoint
+}
 func isGoogleEndpoint(endpoint urlpkg.URL) bool {
 	return endpoint.Hostname() == gcsEndpoint
+}
+
+// isVirtualHostStyle reports whether the given endpoint supports S3 virtual
+// host style bucket name resolving. If a custom S3 API compatible endpoint is
+// given, resolve the bucketname from the URL path.
+func isVirtualHostStyle(endpoint urlpkg.URL) bool {
+	return endpoint == sentinelURL || supportsTransferAcceleration(endpoint) || isGoogleEndpoint(endpoint)
 }
 
 func main() {
@@ -674,14 +750,14 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	var opts = storage.Options{}
+	var opts = storage.Options{Endpoint: "http://127.0.0.1:56229"}
 	s3, err := newS3Storage(context.TODO(), opts)
 	if err != nil {
 		panic(err)
 	}
 
-	//obj, err := s3.Stat(context.TODO(), nurl)
-
+	obj, err := s3.Stat(context.TODO(), nurl)
+	fmt.Println(obj.Size)
 	if err != nil {
 		panic(err)
 	}
@@ -689,7 +765,6 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	err = s3.RemoveBucket(context.TODO(), "bucket3")
 	if err != nil {
 		panic(err)
 	}

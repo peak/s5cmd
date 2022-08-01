@@ -2,17 +2,21 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/peak/s5cmd/command"
 	"github.com/peak/s5cmd/log"
 	"github.com/peak/s5cmd/storage"
 	url "github.com/peak/s5cmd/storage/url"
+	"io"
 	urlpkg "net/url"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -33,6 +37,8 @@ const (
 type S3 struct {
 	client           s3Client
 	client2          s3.Client
+	downloader       downloader
+	uploader         manager.Uploader
 	requestPayer     types.RequestPayer
 	endpointURL      urlpkg.URL
 	dryRun           bool
@@ -42,8 +48,18 @@ type S3 struct {
 type s3Client interface {
 	GetObject(ctx context.Context, params *s3.GetObjectInput, optFns ...func(*s3.Options)) (*s3.GetObjectOutput, error)
 	CopyObject(ctx context.Context, params *s3.CopyObjectInput, optFns ...func(*s3.Options)) (*s3.CopyObjectOutput, error)
+	//manager.DownloadAPIClient this interface includes getObject, should we use it here?
 	s3.HeadObjectAPIClient
 	s3.ListObjectsV2APIClient
+	manager.DeleteObjectsAPIClient
+	CreateBucket(ctx context.Context, params *s3.CreateBucketInput, optFns ...func(*s3.Options)) (*s3.CreateBucketOutput, error)
+	ListBuckets(ctx context.Context, params *s3.ListBucketsInput, optFns ...func(*s3.Options)) (*s3.ListBucketsOutput, error)
+	DeleteBucket(ctx context.Context, params *s3.DeleteBucketInput, optFns ...func(*s3.Options)) (*s3.DeleteBucketOutput, error)
+	SelectObjectContent(ctx context.Context, params *s3.SelectObjectContentInput, optFns ...func(*s3.Options)) (*s3.SelectObjectContentOutput, error)
+}
+
+type downloader interface {
+	Download(ctx context.Context, w io.WriterAt, input *s3.GetObjectInput, options ...func(*manager.Downloader)) (n int64, err error)
 }
 
 func (s *S3) RequestPayer() types.RequestPayer {
@@ -76,6 +92,7 @@ func newS3Storage(ctx context.Context, opts storage.Options) (*S3, error) {
 		return nil, err
 	}
 	//TODO(bora): write further necessary config settings from globalSessionCache.newSession func
+
 	cfg, err := config.LoadDefaultConfig(ctx,
 		config.WithEndpointResolverWithOptions(aws.EndpointResolverWithOptionsFunc(
 			func(service, region string, options ...interface{}) (aws.Endpoint, error) {
@@ -92,6 +109,7 @@ func newS3Storage(ctx context.Context, opts storage.Options) (*S3, error) {
 	// from todo until here put it in a method
 	return &S3{
 		client:       client,
+		downloader:   manager.NewDownloader(client),
 		requestPayer: "",
 		endpointURL:  endpointURL,
 	}, nil
@@ -106,9 +124,9 @@ func (s *S3) Stat(ctx context.Context, url *url.URL) (*storage.Object, error) {
 		RequestPayer: s.RequestPayer(),
 	})
 	if err != nil {
-		//todo: did not export errHasCode, use commented line later
-		//if storage.errHasCode(err, "NotFound") {
-		//return nil, &storage.ErrGivenObjectNotFound{ObjectAbsPath: url.Absolute()}
+		//TODO: errHasCode is not exported, use commented lines later
+		//if storage.ErrHasCode(err, "NotFound") {
+		//	return nil, &storage.ErrGivenObjectNotFound{ObjectAbsPath: url.Absolute()}
 		//}
 		return nil, err
 	}
@@ -227,6 +245,12 @@ func (s *S3) listObjectsV2(ctx context.Context, url *url.URL) <-chan *storage.Ob
 	return objCh
 
 }
+func (s *S3) listObjects(ctx context.Context, url *url.URL) <-chan *storage.Object {
+	//todo: Implement paginator for listObjectsV1
+	objCh := make(chan *storage.Object)
+
+	return objCh
+}
 
 func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata storage.Metadata) error {
 
@@ -279,13 +303,374 @@ func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata storage.Metad
 	return err
 }
 
+// Read fetches the remote object and returns its contents as an io.ReadCloser.
+func (s *S3) Read(ctx context.Context, src *url.URL) (io.ReadCloser, error) {
+
+	resp, err := s.client.GetObject(ctx, &s3.GetObjectInput{
+		Bucket:       aws.String(src.Bucket),
+		Key:          aws.String(src.Path),
+		RequestPayer: s.RequestPayer(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resp.Body, nil
+}
+
+func (s *S3) Get(
+	ctx context.Context,
+	from *url.URL,
+	to io.WriterAt,
+	concurrency int,
+	partSize int64,
+) (int64, error) {
+	if s.dryRun {
+		return 0, nil
+	}
+
+	return s.downloader.Download(ctx, to, &s3.GetObjectInput{
+		Bucket:       aws.String(from.Bucket),
+		Key:          aws.String(from.Path),
+		RequestPayer: s.RequestPayer(),
+	}, func(u *manager.Downloader) {
+		u.PartSize = partSize
+		u.Concurrency = concurrency
+	})
+}
+
+type SelectQuery struct {
+	ExpressionType  string
+	Expression      string
+	CompressionType string
+}
+
+func (s *S3) Select(ctx context.Context, url *url.URL, query *SelectQuery, resultCh chan<- json.RawMessage) error {
+	if s.dryRun {
+		return nil
+	}
+
+	input := &s3.SelectObjectContentInput{
+		Bucket:         aws.String(url.Bucket),
+		Key:            aws.String(url.Path),
+		ExpressionType: types.ExpressionType(*aws.String(query.ExpressionType)),
+		Expression:     aws.String(query.Expression),
+		InputSerialization: &types.InputSerialization{
+			CompressionType: types.CompressionType(query.CompressionType),
+			JSON: &types.JSONInput{
+				Type: types.JSONTypeLines,
+			},
+		},
+		OutputSerialization: &types.OutputSerialization{
+			JSON: &types.JSONOutput{},
+		},
+	}
+
+	resp, err := s.client.SelectObjectContent(ctx, input)
+	if err != nil {
+		return err
+	}
+
+	reader, writer := io.Pipe()
+
+	go func() {
+		defer writer.Close()
+
+		eventch := resp.GetStream().Reader.Events()
+		defer resp.GetStream().Close()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case event, ok := <-eventch:
+				if !ok {
+					return
+				}
+
+				switch e := event.(type) {
+				case *types.SelectObjectContentEventStreamMemberRecords:
+					writer.Write(e.Value.Payload)
+				}
+			}
+		}
+	}()
+
+	decoder := json.NewDecoder(reader)
+	for {
+		var record json.RawMessage
+		err := decoder.Decode(&record)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
+		resultCh <- record
+	}
+
+	return resp.GetStream().Reader.Err()
+}
+
+// Put is a multipart upload operation to upload resources, which implements
+// io.Reader interface, into S3 destination.
+func (s *S3) Put(
+	ctx context.Context,
+	reader io.Reader,
+	to *url.URL,
+	metadata storage.Metadata,
+	concurrency int,
+	partSize int64,
+) error {
+	if s.dryRun {
+		return nil
+	}
+
+	contentType := metadata.ContentType()
+	if contentType == "" {
+		contentType = "application/octet-stream"
+	}
+	input := &s3.PutObjectInput{
+		Bucket:       aws.String(to.Bucket),
+		Key:          aws.String(to.Path),
+		Body:         reader,
+		ContentType:  aws.String(contentType),
+		RequestPayer: s.RequestPayer(),
+	}
+
+	storageClass := metadata.StorageClass()
+	if storageClass != "" {
+		input.StorageClass = types.StorageClass(storageClass)
+	}
+	acl := metadata.ACL()
+	if acl != "" {
+		input.ACL = types.ObjectCannedACL(acl)
+	}
+
+	cacheControl := metadata.CacheControl()
+	if cacheControl != "" {
+		input.CacheControl = aws.String(cacheControl)
+	}
+
+	expires := metadata.Expires()
+	if expires != "" {
+		t, err := time.Parse(time.RFC3339, expires)
+		if err != nil {
+			return err
+		}
+		input.Expires = aws.Time(t)
+	}
+
+	sseEncryption := metadata.SSE()
+	if sseEncryption != "" {
+		input.ServerSideEncryption = types.ServerSideEncryption(sseEncryption)
+		sseKmsKeyID := metadata.SSEKeyID()
+		if sseKmsKeyID != "" {
+			input.SSEKMSKeyId = aws.String(sseKmsKeyID)
+		}
+	}
+
+	contentEncoding := metadata.ContentEncoding()
+	if contentEncoding != "" {
+		input.ContentEncoding = aws.String(contentEncoding)
+	}
+
+	_, err := s.uploader.Upload(ctx, input, func(u *manager.Uploader) {
+		u.PartSize = partSize
+		u.Concurrency = concurrency
+	})
+
+	return err
+}
+
+// chunk is an object identifier container which is used on MultiDelete
+// operations. Since DeleteObjects API allows deleting objects up to 1000,
+// splitting keys into multiple chunks is required.
+type chunk struct {
+	Bucket string
+	Keys   []types.ObjectIdentifier
+}
+
+// calculateChunks calculates chunks for given URL channel and returns
+// read-only chunk channel.
+func (s *S3) calculateChunks(ch <-chan *url.URL) <-chan chunk {
+	chunkch := make(chan chunk)
+
+	go func() {
+		defer close(chunkch)
+
+		var keys []types.ObjectIdentifier
+		initKeys := func() {
+			keys = make([]types.ObjectIdentifier, 0)
+		}
+
+		var bucket string
+		for url := range ch {
+			bucket = url.Bucket
+
+			objid := types.ObjectIdentifier{Key: aws.String(url.Path)}
+			keys = append(keys, objid)
+			if len(keys) == deleteObjectsMax {
+				chunkch <- chunk{
+					Bucket: bucket,
+					Keys:   keys,
+				}
+				initKeys()
+			}
+		}
+
+		if len(keys) > 0 {
+			chunkch <- chunk{
+				Bucket: bucket,
+				Keys:   keys,
+			}
+		}
+	}()
+
+	return chunkch
+}
+
+// Delete is a single object delete operation.
+func (s *S3) Delete(ctx context.Context, url *url.URL) error {
+	chunk := chunk{
+		Bucket: url.Bucket,
+		Keys: []types.ObjectIdentifier{
+			{Key: aws.String(url.Path)},
+		},
+	}
+
+	resultch := make(chan *storage.Object, 1)
+	defer close(resultch)
+
+	s.doDelete(ctx, chunk, resultch)
+	obj := <-resultch
+	return obj.Err
+}
+
+// doDelete deletes the given keys given by chunk. Results are piggybacked via
+// the Object container.
+func (s *S3) doDelete(ctx context.Context, chunk chunk, resultch chan *storage.Object) {
+	if s.dryRun {
+		for _, k := range chunk.Keys {
+			key := fmt.Sprintf("s3://%v/%v", chunk.Bucket, aws.ToString(k.Key))
+			url, _ := url.New(key)
+			resultch <- &storage.Object{URL: url}
+		}
+		return
+	}
+
+	bucket := chunk.Bucket
+	o, err := s.client.DeleteObjects(ctx, &s3.DeleteObjectsInput{
+		Bucket:       aws.String(bucket),
+		Delete:       &types.Delete{Objects: chunk.Keys},
+		RequestPayer: s.RequestPayer(),
+	})
+	if err != nil {
+		resultch <- &storage.Object{Err: err}
+		return
+	}
+
+	for _, d := range o.Deleted {
+		key := fmt.Sprintf("s3://%v/%v", bucket, aws.ToString(d.Key))
+		url, _ := url.New(key)
+		resultch <- &storage.Object{URL: url}
+	}
+
+	for _, e := range o.Errors {
+		key := fmt.Sprintf("s3://%v/%v", bucket, aws.ToString(e.Key))
+		url, _ := url.New(key)
+		resultch <- &storage.Object{
+			URL: url,
+			Err: fmt.Errorf(aws.ToString(e.Message)),
+		}
+	}
+}
+
+// MultiDelete is an asynchronous removal operation for multiple objects.
+// It reads given url channel, creates multiple chunks and run these
+// chunks in parallel. Each chunk may have at most 1000 objects since DeleteObjects
+// API has a limitation.
+// See: https://docs.aws.amazon.com/AmazonS3/latest/API/API_DeleteObjects.html.
+func (s *S3) MultiDelete(ctx context.Context, urlch <-chan *url.URL) <-chan *storage.Object {
+	resultch := make(chan *storage.Object)
+
+	go func() {
+		sem := make(chan bool, 10)
+		defer close(sem)
+		defer close(resultch)
+
+		chunks := s.calculateChunks(urlch)
+
+		var wg sync.WaitGroup
+		for chunk := range chunks {
+			chunk := chunk
+
+			wg.Add(1)
+			sem <- true
+
+			go func() {
+				defer wg.Done()
+				s.doDelete(ctx, chunk, resultch)
+				<-sem
+			}()
+		}
+
+		wg.Wait()
+	}()
+
+	return resultch
+}
+
+// ListBuckets is a blocking list-operation which gets bucket list and returns
+// the buckets that match with given prefix.
+func (s *S3) ListBuckets(ctx context.Context, prefix string) ([]storage.Bucket, error) {
+	o, err := s.client.ListBuckets(ctx, &s3.ListBucketsInput{})
+	if err != nil {
+		return nil, err
+	}
+
+	var buckets []storage.Bucket
+	for _, b := range o.Buckets {
+		bucketName := aws.ToString(b.Name)
+		if prefix == "" || strings.HasPrefix(bucketName, prefix) {
+			buckets = append(buckets, storage.Bucket{
+				CreationDate: aws.ToTime(b.CreationDate),
+				Name:         bucketName,
+			})
+		}
+	}
+	return buckets, nil
+}
+
+// MakeBucket creates an S3 bucket with the given name.
+func (s *S3) MakeBucket(ctx context.Context, name string) error {
+	if s.dryRun {
+		return nil
+	}
+	_, err := s.client.CreateBucket(ctx, &s3.CreateBucketInput{
+		Bucket: aws.String(name),
+	})
+	return err
+}
+
+// RemoveBucket removes an S3 bucket with the given name.
+func (s *S3) RemoveBucket(ctx context.Context, name string) error {
+	if s.dryRun {
+		return nil
+	}
+
+	_, err := s.client.DeleteBucket(ctx, &s3.DeleteBucketInput{
+		Bucket: aws.String(name),
+	})
+	return err
+}
+
 func isGoogleEndpoint(endpoint urlpkg.URL) bool {
 	return endpoint.Hostname() == gcsEndpoint
 }
 
 func main() {
 
-	nurl, err := url.New("s3://bucket/s5cmd*")
+	nurl, err := url.New("s3://bucket/s5cmd-benchmarks-/fd11r13e/1/old/tmpaaah")
 	if err != nil {
 		panic(err)
 	}
@@ -301,6 +686,18 @@ func main() {
 		panic(err)
 	}
 
+	if err != nil {
+		panic(err)
+	}
+	err = s3.RemoveBucket(context.TODO(), "bucket3")
+	if err != nil {
+		panic(err)
+	}
+	buckets, err := s3.ListBuckets(context.TODO(), "bucket")
+
+	for i, bucket := range buckets {
+		fmt.Println(i, bucket.Name)
+	}
 	for object := range s3.listObjectsV2(context.TODO(), nurl) {
 
 		msg := command.ListMessage{

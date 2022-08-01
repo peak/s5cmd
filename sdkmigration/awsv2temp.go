@@ -106,9 +106,10 @@ func (s *S3) Stat(ctx context.Context, url *url.URL) (*storage.Object, error) {
 		RequestPayer: s.RequestPayer(),
 	})
 	if err != nil {
-		if storage.ErrHasCode(err, "NotFound") {
-			return nil, &storage.ErrGivenObjectNotFound{ObjectAbsPath: url.Absolute()}
-		}
+		//todo: did not export errHasCode, use commented line later
+		//if storage.errHasCode(err, "NotFound") {
+		//return nil, &storage.ErrGivenObjectNotFound{ObjectAbsPath: url.Absolute()}
+		//}
 		return nil, err
 	}
 

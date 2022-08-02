@@ -48,7 +48,7 @@ const (
 	gcsEndpoint = "storage.googleapis.com"
 
 	// the key of the object metadata which is used to handle retry decision on NoSuchUpload error
-	metadataKeyRetryId = "S5cmd--Upload-Retry-Id"
+	metadataKeyRetryID = "s5cmd-upload-retry-id"
 )
 
 // Re-used AWS sessions dramatically improve performance.
@@ -142,8 +142,8 @@ func (s *S3) Stat(ctx context.Context, url *url.URL) (*Object, error) {
 	}
 
 	if s.noSuchUploadRetryCount > 0 {
-		if retryId, ok := output.Metadata[metadataKeyRetryId]; ok {
-			obj.retryId = *retryId
+		if retryID, ok := output.Metadata[metadataKeyRetryID]; ok {
+			obj.retryID = *retryID
 		}
 	}
 
@@ -574,7 +574,7 @@ func (s *S3) Put(
 
 	// add retry id to the object metadata
 	if s.noSuchUploadRetryCount > 0 {
-		input.Metadata[metadataKeyRetryId] = generateRetryId()
+		input.Metadata[metadataKeyRetryID] = generateRetryID()
 	}
 
 	uploaderOptsFn := func(u *s3manager.Uploader) {
@@ -594,7 +594,7 @@ func (s *S3) retryOnNoSuchUpload(ctx aws.Context, to *url.URL, input *s3manager.
 	err error, uploaderOpts ...func(*s3manager.Uploader)) error {
 
 	var expectedRetryID string
-	if id, ok := input.Metadata[metadataKeyRetryId]; ok {
+	if id, ok := input.Metadata[metadataKeyRetryID]; ok {
 		expectedRetryID = *id
 	}
 
@@ -603,7 +603,7 @@ func (s *S3) retryOnNoSuchUpload(ctx aws.Context, to *url.URL, input *s3manager.
 		// check if object exists and has the retry id we provided, if it does
 		// then it means that one of previous uploads was succesfull despite the received error.
 		obj, sErr := s.Stat(ctx, to)
-		if sErr == nil && obj.retryId == expectedRetryID {
+		if sErr == nil && obj.retryID == expectedRetryID {
 			err = nil
 			break
 		}
@@ -868,7 +868,10 @@ func (sc *SessionCache) newSession(ctx context.Context, opts Options) (*session.
 		WithEndpoint(endpointURL.String()).
 		WithS3ForcePathStyle(!isVirtualHostStyle).
 		WithS3UseAccelerate(useAccelerate).
-		WithHTTPClient(httpClient)
+		WithHTTPClient(httpClient).
+		// todo WithLowerCaseHeaderMaps option is going to be unnecessary and
+		// unsupported in AWS-SDK version 2. To be removed during migration.
+		WithLowerCaseHeaderMaps(true)
 
 	if opts.LogLevel == log.LevelTrace {
 		awsCfg = awsCfg.WithLogLevel(aws.LogDebug).
@@ -1045,7 +1048,7 @@ func IsCancelationError(err error) bool {
 }
 
 // generate a retry id for this upload attempt
-func generateRetryId() *string {
+func generateRetryID() *string {
 	num, _ := rand.Int(rand.Reader, big.NewInt(math.MaxInt64))
 	return aws.String(num.String())
 }

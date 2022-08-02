@@ -117,7 +117,7 @@ func (s *S3) Stat(ctx context.Context, url *url.URL) (*Object, error) {
 		RequestPayer: s.RequestPayer(),
 	})
 	if err != nil {
-		if errHasCode(err, "NotFound") {
+		if ErrHasCode(err, "NotFound") {
 			return nil, &ErrGivenObjectNotFound{ObjectAbsPath: url.Absolute()}
 		}
 		return nil, err
@@ -844,10 +844,10 @@ func (sc *SessionCache) newSession(ctx context.Context, opts Options) (*session.
 	// is not provided, it means we want region-independent session
 	// for operations such as listing buckets, making a new bucket etc.
 	// only get bucket region when it is not specified.
-	if opts.region != "" {
-		sess.Config.Region = aws.String(opts.region)
+	if opts.Region != "" {
+		sess.Config.Region = aws.String(opts.Region)
 	} else {
-		if err := setSessionRegion(ctx, sess, opts.bucket); err != nil {
+		if err := setSessionRegion(ctx, sess, opts.Bucket); err != nil {
 			return nil, err
 		}
 	}
@@ -886,7 +886,7 @@ func setSessionRegion(ctx context.Context, sess *session.Session, bucket string)
 		r.Config.Credentials = sess.Config.Credentials
 	})
 	if err != nil {
-		if errHasCode(err, "NotFound") {
+		if ErrHasCode(err, "NotFound") {
 			return err
 		}
 		// don't deny any request to the service if region auto-fetching
@@ -918,13 +918,13 @@ func newCustomRetryer(maxRetries int) *customRetryer {
 // ShouldRetry overrides SDK's built in DefaultRetryer, adding custom retry
 // logics that are not included in the SDK.
 func (c *customRetryer) ShouldRetry(req *request.Request) bool {
-	shouldRetry := errHasCode(req.Error, "InternalError") || errHasCode(req.Error, "RequestTimeTooSkewed") || strings.Contains(req.Error.Error(), "connection reset") || strings.Contains(req.Error.Error(), "connection timed out")
+	shouldRetry := ErrHasCode(req.Error, "InternalError") || ErrHasCode(req.Error, "RequestTimeTooSkewed") || strings.Contains(req.Error.Error(), "connection reset") || strings.Contains(req.Error.Error(), "connection timed out")
 	if !shouldRetry {
 		shouldRetry = c.DefaultRetryer.ShouldRetry(req)
 	}
 
 	// Errors related to tokens
-	if errHasCode(req.Error, "ExpiredToken") || errHasCode(req.Error, "ExpiredTokenException") || errHasCode(req.Error, "InvalidToken") {
+	if ErrHasCode(req.Error, "ExpiredToken") || ErrHasCode(req.Error, "ExpiredTokenException") || ErrHasCode(req.Error, "InvalidToken") {
 		return false
 	}
 
@@ -959,7 +959,7 @@ func isVirtualHostStyle(endpoint urlpkg.URL) bool {
 	return endpoint == sentinelURL || supportsTransferAcceleration(endpoint) || isGoogleEndpoint(endpoint)
 }
 
-func errHasCode(err error, code string) bool {
+func ErrHasCode(err error, code string) bool {
 	if err == nil || code == "" {
 		return false
 	}
@@ -973,7 +973,7 @@ func errHasCode(err error, code string) bool {
 
 	var multiUploadErr s3manager.MultiUploadFailure
 	if errors.As(err, &multiUploadErr) {
-		return errHasCode(multiUploadErr.OrigErr(), code)
+		return ErrHasCode(multiUploadErr.OrigErr(), code)
 	}
 
 	return false
@@ -983,5 +983,5 @@ func errHasCode(err error, code string) bool {
 // IsCancelationError reports whether given error is a storage related
 // cancelation error.
 func IsCancelationError(err error) bool {
-	return errHasCode(err, request.CanceledErrorCode)
+	return ErrHasCode(err, request.CanceledErrorCode)
 }

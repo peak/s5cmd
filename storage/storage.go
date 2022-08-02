@@ -66,8 +66,8 @@ func NewRemoteClient(ctx context.Context, url *url.URL, opts Options) (*S3, erro
 		Profile:          opts.Profile,
 		CredentialFile:   opts.CredentialFile,
 		LogLevel:         opts.LogLevel,
-		bucket:           url.Bucket,
-		region:           opts.region,
+		Bucket:           url.Bucket,
+		Region:           opts.Region,
 	}
 	return newS3Storage(ctx, newOpts)
 }
@@ -91,12 +91,12 @@ type Options struct {
 	RequestPayer     string
 	Profile          string
 	CredentialFile   string
-	bucket           string
-	region           string
+	Bucket           string
+	Region           string
 }
 
 func (o *Options) SetRegion(region string) {
-	o.region = region
+	o.Region = region
 }
 
 // Object is a generic type which contains metadata for storage items.
@@ -122,12 +122,12 @@ func (o *Object) JSON() string {
 
 // ObjectType is the type of Object.
 type ObjectType struct {
-	mode os.FileMode
+	Mode os.FileMode
 }
 
 // String returns the string representation of ObjectType.
 func (o ObjectType) String() string {
-	switch mode := o.mode; {
+	switch mode := o.Mode; {
 	case mode.IsRegular():
 		return "file"
 	case mode.IsDir():
@@ -145,12 +145,12 @@ func (o ObjectType) MarshalJSON() ([]byte, error) {
 
 // IsDir checks if the object is a directory.
 func (o ObjectType) IsDir() bool {
-	return o.mode.IsDir()
+	return o.Mode.IsDir()
 }
 
 // IsSymlink checks if the object is a symbolic link.
 func (o ObjectType) IsSymlink() bool {
-	return o.mode&os.ModeSymlink != 0
+	return o.Mode&os.ModeSymlink != 0
 }
 
 // ShouldProcessUrl returns true if follow symlinks is enabled.

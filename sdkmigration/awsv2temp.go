@@ -20,6 +20,7 @@ import (
 	"io"
 	"net/http"
 	urlpkg "net/url"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -41,13 +42,13 @@ const (
 
 type S3 struct {
 	client           s3Client
-	client2          s3.Client
+	config           aws.Config
 	downloader       downloader
-	uploader         manager.Uploader
-	requestPayer     types.RequestPayer
+	uploader         uploader
 	endpointURL      urlpkg.URL
 	dryRun           bool
 	useListObjectsV1 bool
+	requestPayer     types.RequestPayer
 }
 
 type s3Client interface {
@@ -65,6 +66,10 @@ type s3Client interface {
 
 type downloader interface {
 	Download(ctx context.Context, w io.WriterAt, input *s3.GetObjectInput, options ...func(*manager.Downloader)) (n int64, err error)
+}
+
+type uploader interface {
+	Upload(ctx context.Context, input *s3.PutObjectInput, opts ...func(*manager.Uploader)) (*manager.UploadOutput, error)
 }
 
 func (s *S3) RequestPayer() types.RequestPayer {
@@ -111,7 +116,6 @@ func newS3Storage(ctx context.Context, opts storage.Options) (*S3, error) {
 	// use virtual-host-style if the endpoint is known to support it,
 	// otherwise use the path-style approach.
 	isVirtualHostStyle := isVirtualHostStyle(endpointURL)
-	fmt.Println(isVirtualHostStyle)
 
 	useAccelerate := supportsTransferAcceleration(endpointURL)
 	// AWS SDK handles transfer acceleration automatically. Setting the
@@ -151,33 +155,39 @@ func newS3Storage(ctx context.Context, opts storage.Options) (*S3, error) {
 	//todo: by default it uses shared config and credentials files.
 	awsOpts = append(awsOpts, config.WithDefaultRegion("us-east-1"))
 
-	cfg, err := config.LoadDefaultConfig(ctx, awsOpts...)
-
-	if err != nil {
-		return nil, err
-	}
-
-	client := s3.NewFromConfig(cfg)
-
 	//todo: opts.region is not exported, this will fix itself when transferred to s3.go
 	if opts.Region != "" {
 		awsOpts = append(awsOpts, config.WithRegion(opts.Region))
 	} else {
-		regionOpts, err := setClientRegion(ctx, client, cfg.Credentials, opts.Bucket)
+		tmpCfg, err := config.LoadDefaultConfig(ctx, awsOpts...)
 		if err != nil {
 			return nil, err
 		}
+
+		tmpClient := s3.NewFromConfig(tmpCfg, func(o *s3.Options) {
+			o.UsePathStyle = !isVirtualHostStyle
+		})
+
+		regionOpts, err := getClientRegion(ctx, tmpClient, tmpCfg.Credentials, opts.Bucket)
+		if err != nil {
+			return nil, err
+		}
+
 		awsOpts = append(awsOpts, regionOpts...)
 	}
 
-	cfg, err = config.LoadDefaultConfig(ctx, awsOpts...)
+	cfg, err := config.LoadDefaultConfig(ctx, awsOpts...)
 	if err != nil {
 		return nil, err
 	}
-	client = s3.NewFromConfig(cfg)
+	client := s3.NewFromConfig(cfg, func(o *s3.Options) {
+
+		o.UsePathStyle = !isVirtualHostStyle
+	})
 
 	return &S3{
 		client:     client,
+		config:     cfg,
 		downloader: manager.NewDownloader(client),
 		//todo: add uploader
 		//uploader: manager.NewUploader(client),
@@ -187,7 +197,7 @@ func newS3Storage(ctx context.Context, opts storage.Options) (*S3, error) {
 
 }
 
-func setClientRegion(ctx context.Context,
+func getClientRegion(ctx context.Context,
 	client manager.HeadBucketAPIClient,
 	cred aws.CredentialsProvider,
 	bucket string) ([]func(*config.LoadOptions) error, error) {
@@ -205,7 +215,7 @@ func setClientRegion(ctx context.Context,
 		o.UsePathStyle = true
 	})
 	if err != nil {
-		if storage.errHasCode(err, "NotFound") {
+		if storage.ErrHasCode(err, "NotFound") {
 			return nil, err
 		}
 		// don't deny any request to the service if region auto-fetching
@@ -316,7 +326,7 @@ func (s *S3) listObjectsV2(ctx context.Context, url *url.URL) <-chan *storage.Ob
 				objCh <- &storage.Object{
 					URL: newurl,
 					//todo : cannot set type as it is not exported, fix it later
-					Type: storage.ObjectType{},
+					Type: storage.ObjectType{os.ModeDir},
 				}
 
 				objectFound = true
@@ -339,10 +349,10 @@ func (s *S3) listObjectsV2(ctx context.Context, url *url.URL) <-chan *storage.Ob
 					continue
 				}
 				//todo : cannot set type as it is not exported, fix it later
-				//var objtype os.FileMode
-				//if strings.HasSuffix(key, "/") {
-				//	objtype = os.ModeDir
-				//}
+				var objtype os.FileMode
+				if strings.HasSuffix(key, "/") {
+					objtype = os.ModeDir
+				}
 
 				newurl := url.Clone()
 				newurl.Path = aws.ToString(c.Key)
@@ -353,7 +363,7 @@ func (s *S3) listObjectsV2(ctx context.Context, url *url.URL) <-chan *storage.Ob
 					Etag:    strings.Trim(etag, `"`),
 					ModTime: &mod,
 					//todo : cannot set type as it is not exported, fix it later
-					Type:         storage.ObjectType{},
+					Type:         storage.ObjectType{Mode: objtype},
 					Size:         c.Size,
 					StorageClass: storage.StorageClass(c.StorageClass),
 				}
@@ -812,22 +822,23 @@ func isVirtualHostStyle(endpoint urlpkg.URL) bool {
 }
 
 func main() {
-
-	nurl, err := url.New("s3://bucket/s5cmd-benchmarks-/fd11r13e/1/old/tmpaaah")
+	log.Init("debug", false)
+	nurl, err := url.New("s3://bucket/s5cmd-benchmarks-/fd11r13e/1/*")
 	if err != nil {
 		panic(err)
 	}
 	var opts = storage.Options{Endpoint: "http://127.0.0.1:56229"}
 	s3, err := newS3Storage(context.TODO(), opts)
+
 	if err != nil {
 		panic(err)
 	}
 
-	obj, err := s3.Stat(context.TODO(), nurl)
-	fmt.Println(obj.Size)
-	if err != nil {
-		panic(err)
-	}
+	//obj, err := s3.Stat(context.TODO(), nurl)
+	//fmt.Println(obj.Size)
+	//if err != nil {
+	//	panic(err)
+	//}
 
 	if err != nil {
 		panic(err)
@@ -840,16 +851,16 @@ func main() {
 	for i, bucket := range buckets {
 		fmt.Println(i, bucket.Name)
 	}
+	count := 0
 	for object := range s3.listObjectsV2(context.TODO(), nurl) {
-
+		count++
 		msg := command.ListMessage{
 			Object: object,
 		}
-
-		log.Init("debug", false)
-		fmt.Println(object.URL)
-		log.Info(msg)
+		//time.Sleep(time.Second / 20)
+		log.Error(msg)
 
 	}
+	fmt.Println("count", count)
 
 }

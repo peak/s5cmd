@@ -857,7 +857,7 @@ func TestSessionCreateAndCachingWithDifferentBuckets(t *testing.T) {
 
 	for _, tc := range testcases {
 		awsSess, err := globalSessionCache.newSession(context.Background(), Options{
-			bucket: tc.bucket,
+			Bucket: tc.bucket,
 		})
 		if err != nil {
 			t.Error(err)
@@ -936,7 +936,7 @@ func TestSessionRegionDetection(t *testing.T) {
 			}
 
 			if tc.optsRegion != "" {
-				opts.region = tc.optsRegion
+				opts.Region = tc.optsRegion
 			}
 
 			if tc.envRegion != "" {
@@ -945,7 +945,7 @@ func TestSessionRegionDetection(t *testing.T) {
 			}
 
 			if tc.bucket != "" {
-				opts.bucket = tc.bucket
+				opts.Bucket = tc.bucket
 			}
 
 			globalSessionCache.clear()
@@ -1055,7 +1055,7 @@ func TestSessionAutoRegion(t *testing.T) {
 			})
 
 			err := setSessionRegion(context.Background(), awsSess, tc.bucket)
-			if tc.expectedErrorCode != "" && !errHasCode(err, tc.expectedErrorCode) {
+			if tc.expectedErrorCode != "" && !ErrHasCode(err, tc.expectedErrorCode) {
 				t.Errorf("expected error code: %v, got error: %v", tc.expectedErrorCode, err)
 				return
 			}

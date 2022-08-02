@@ -148,14 +148,33 @@ func newS3Storage(ctx context.Context, opts storage.Options) (*S3, error) {
 
 	awsOpts = append(awsOpts, config.WithRetryer(customRetryer(opts.MaxRetries)))
 
-	//todo: use shared config
+	//todo: by default it uses shared config and credentials files.
+	awsOpts = append(awsOpts, config.WithDefaultRegion("us-east-1"))
 
 	cfg, err := config.LoadDefaultConfig(ctx, awsOpts...)
+
 	if err != nil {
 		return nil, err
 	}
 
 	client := s3.NewFromConfig(cfg)
+
+	//todo: opts.region is not exported, this will fix itself when transferred to s3.go
+	if opts.Region != "" {
+		awsOpts = append(awsOpts, config.WithRegion(opts.Region))
+	} else {
+		regionOpts, err := setClientRegion(ctx, client, cfg.Credentials, opts.Bucket)
+		if err != nil {
+			return nil, err
+		}
+		awsOpts = append(awsOpts, regionOpts...)
+	}
+
+	cfg, err = config.LoadDefaultConfig(ctx, awsOpts...)
+	if err != nil {
+		return nil, err
+	}
+	client = s3.NewFromConfig(cfg)
 
 	return &S3{
 		client:     client,
@@ -168,9 +187,44 @@ func newS3Storage(ctx context.Context, opts storage.Options) (*S3, error) {
 
 }
 
+func setClientRegion(ctx context.Context,
+	client manager.HeadBucketAPIClient,
+	cred aws.CredentialsProvider,
+	bucket string) ([]func(*config.LoadOptions) error, error) {
+
+	var awsOpts []func(*config.LoadOptions) error
+
+	if bucket == "" {
+		return nil, nil
+	}
+
+	// auto-detection
+	region, err := manager.GetBucketRegion(ctx, client, bucket, func(o *s3.Options) {
+		o.Credentials = cred
+		//todo change below to a variable
+		o.UsePathStyle = true
+	})
+	if err != nil {
+		if storage.errHasCode(err, "NotFound") {
+			return nil, err
+		}
+		// don't deny any request to the service if region auto-fetching
+		// receives an error. Delegate error handling to command execution.
+		err = fmt.Errorf("session: fetching region failed: %v", err)
+		msg := log.ErrorMessage{Err: err.Error()}
+		log.Error(msg)
+	} else {
+		awsOpts = append(awsOpts, config.WithRegion(region))
+	}
+
+	return awsOpts, nil
+}
+
 func customRetryer(maxRetries int) func() aws.Retryer {
 	return func() aws.Retryer {
 		customRetryer := retry.AddWithMaxAttempts(retry.NewStandard(), maxRetries)
+		//todo: add additional retry logics for other errors similar to ShouldRetry in previous s5cmd version
+
 		return retry.AddWithMaxBackoffDelay(customRetryer, time.Second*0)
 	}
 }

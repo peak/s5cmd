@@ -32,19 +32,29 @@ Examples:
 		 > s5cmd {{.HelpName}} s3://bucket/
 
 	3. List all objects in a bucket
-		 > s5cmd {{.HelpName}} s3://bucket/*
+		 > s5cmd {{.HelpName}} "s3://bucket/*"
 
 	4. List all objects that matches a wildcard
-		 > s5cmd {{.HelpName}} s3://bucket/prefix/*/*.gz
+		 > s5cmd {{.HelpName}} "s3://bucket/prefix/*/*.gz"
 
 	5. List all objects in a public bucket
-		 > s5cmd --no-sign-request {{.HelpName}} s3://bucket/*
+		 > s5cmd --no-sign-request {{.HelpName}} "s3://bucket/*"
 
 	6. List all objects in a bucket but exclude the ones with prefix abc
-		 > s5cmd {{.HelpName}} --exclude "abc*" s3://bucket/*
+		 > s5cmd {{.HelpName}} --exclude "abc*" "s3://bucket/*"
 
 	7. List all object in a requester pays bucket
-		 > s5cmd --request-payer=requester {{.HelpName}} s3://bucket/*
+		 > s5cmd --request-payer=requester {{.HelpName}} "s3://bucket/*"
+
+	8. List all versions of an object in the bucket
+		> s5cmd {{.HelpName}} --all-versions s3://bucket/object
+
+	9. List all versions of all objects that starts with a prefix in the bucket
+		> s5cmd {{.HelpName}} --all-versions "s3://bucket/prefix*"
+		
+	10. List all versions of all objects in the bucket
+		> s5cmd {{.HelpName}} --all-versions "s3://bucket/*"
+
 `
 
 func NewListCommand() *cli.Command {
@@ -95,15 +105,22 @@ func NewListCommand() *cli.Command {
 				return err
 			}
 
+			fullCommand := commandFromContext(c)
+
+			srcurl, err := url.New(c.Args().First(),
+				url.WithAllVersions(c.Bool("all-versions")))
+			if err != nil {
+				printError(fullCommand, c.Command.Name, err)
+				return err
+			}
 			return List{
-				src:         c.Args().First(),
+				src:         *srcurl,
 				op:          c.Command.Name,
-				fullCommand: commandFromContext(c),
+				fullCommand: fullCommand,
 				// flags
 				showEtag:         c.Bool("etag"),
 				humanize:         c.Bool("humanize"),
 				showStorageClass: c.Bool("storage-class"),
-				showVersions:     c.Bool("all-versions"),
 				exclude:          c.StringSlice("exclude"),
 
 				storageOpts: NewStorageOpts(c),
@@ -114,7 +131,7 @@ func NewListCommand() *cli.Command {
 
 // List holds list operation flags and states.
 type List struct {
-	src         string
+	src         url.URL
 	op          string
 	fullCommand string
 
@@ -122,7 +139,6 @@ type List struct {
 	showEtag         bool
 	humanize         bool
 	showStorageClass bool
-	showVersions     bool
 	exclude          []string
 
 	storageOpts storage.Options
@@ -151,13 +167,8 @@ func ListBuckets(ctx context.Context, storageOpts storage.Options) error {
 
 // Run prints objects at given source.
 func (l List) Run(ctx context.Context) error {
-	srcurl, err := url.New(l.src)
-	if err != nil {
-		printError(l.fullCommand, l.op, err)
-		return err
-	}
 
-	client, err := storage.NewClient(ctx, srcurl, l.storageOpts)
+	client, err := storage.NewClient(ctx, &l.src, l.storageOpts)
 	if err != nil {
 		printError(l.fullCommand, l.op, err)
 		return err
@@ -171,7 +182,7 @@ func (l List) Run(ctx context.Context) error {
 		return err
 	}
 
-	for object := range client.List(ctx, srcurl, false) {
+	for object := range client.List(ctx, &l.src, false) {
 		if errorpkg.IsCancelation(object.Err) {
 			continue
 		}
@@ -182,7 +193,7 @@ func (l List) Run(ctx context.Context) error {
 			continue
 		}
 
-		if isURLExcluded(excludePatterns, object.URL.Path, srcurl.Prefix) {
+		if isURLExcluded(excludePatterns, object.URL.Path, l.src.Prefix) {
 			continue
 		}
 
@@ -191,7 +202,7 @@ func (l List) Run(ctx context.Context) error {
 			showEtag:         l.showEtag,
 			showHumanized:    l.humanize,
 			showStorageClass: l.showStorageClass,
-			showVersions:     l.showVersions,
+			showVersions:     l.src.AllVersions,
 		}
 
 		log.Info(msg)

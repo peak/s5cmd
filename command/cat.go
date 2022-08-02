@@ -25,6 +25,9 @@ Options:
 Examples:
 	1. Print a remote object's content to stdout
 		 > s5cmd {{.HelpName}} s3://bucket/prefix/object
+
+	2. Print specific version of a remote object's content to stdout
+	> s5cmd {{.HelpName}} --version-id VERSION_ID s3://bucket/prefix/object
 `
 
 func NewCatCommand() *cli.Command {
@@ -33,6 +36,10 @@ func NewCatCommand() *cli.Command {
 		HelpName: "cat",
 		Usage:    "print remote object content",
 		Flags: []cli.Flag{
+			&cli.BoolFlag{
+				Name:  "raw",
+				Usage: "disable the wildcard operations, useful with filenames that contains glob characters",
+			},
 			&cli.StringFlag{
 				Name:  "version-id",
 				Usage: "use the specified `version` of an object",
@@ -49,9 +56,11 @@ func NewCatCommand() *cli.Command {
 		Action: func(c *cli.Context) (err error) {
 			defer stat.Collect(c.Command.FullName(), &err)()
 
-			src, err := url.New(c.Args().Get(0))
 			op := c.Command.Name
 			fullCommand := commandFromContext(c)
+
+			src, err := url.New(c.Args().Get(0), url.WithVersion(c.String("version-id")),
+				url.WithRaw(c.Bool("raw")))
 			if err != nil {
 				printError(fullCommand, op, err)
 				return err
@@ -106,8 +115,8 @@ func validateCatCommand(c *cli.Context) error {
 		return fmt.Errorf("expected only one argument")
 	}
 
-	src, err := url.New(c.Args().Get(0))
-
+	src, err := url.New(c.Args().Get(0), url.WithVersion(c.String("version-id")),
+		url.WithRaw(c.Bool("raw")))
 	if err != nil {
 		return err
 	}

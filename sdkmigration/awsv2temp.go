@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/aws/retry"
+	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
@@ -102,7 +104,6 @@ func newS3Storage(ctx context.Context, opts storage.Options) (*S3, error) {
 	}
 
 	endpointURL, err := parseEndpoint(opts.Endpoint)
-	fmt.Println(endpointURL)
 	if err != nil {
 		return nil, err
 	}
@@ -124,13 +125,17 @@ func newS3Storage(ctx context.Context, opts storage.Options) (*S3, error) {
 	//todo: Adding proxy to the env is supported by the sdk now, change it to that.
 	//https://aws.github.io/aws-sdk-go-v2/docs/configuring-sdk/custom-http/
 	if opts.NoVerifySSL {
-		httpClient := insecureHTTPClient
+		httpClient := awshttp.NewBuildableClient().WithTransportOptions(func(tr *http.Transport) {
+			tr.Proxy = http.ProxyFromEnvironment
+			tr.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+		})
 		awsOpts = append(awsOpts, config.WithHTTPClient(httpClient))
 	}
 
 	endpoint := config.WithEndpointResolverWithOptions(aws.EndpointResolverWithOptionsFunc(
 		func(service, region string, options ...interface{}) (aws.Endpoint, error) {
-			return aws.Endpoint{URL: endpointURL.String(),
+			return aws.Endpoint{
+				URL:               endpointURL.String(),
 				Source:            aws.EndpointSourceCustom,
 				HostnameImmutable: !isVirtualHostStyle}, nil
 		}))
@@ -141,25 +146,33 @@ func newS3Storage(ctx context.Context, opts storage.Options) (*S3, error) {
 		awsOpts = append(awsOpts, config.WithLogger(sdkLogger{}))
 	}
 
-	//todo: add retryer
+	awsOpts = append(awsOpts, config.WithRetryer(customRetryer(opts.MaxRetries)))
 
 	//todo: use shared config
 
 	cfg, err := config.LoadDefaultConfig(ctx, awsOpts...)
-
 	if err != nil {
 		return nil, err
 	}
+
 	client := s3.NewFromConfig(cfg)
 
-	// from todo until here put it in a method
 	return &S3{
-		client:       client,
-		downloader:   manager.NewDownloader(client),
+		client:     client,
+		downloader: manager.NewDownloader(client),
+		//todo: add uploader
+		//uploader: manager.NewUploader(client),
 		requestPayer: "",
 		endpointURL:  endpointURL,
 	}, nil
 
+}
+
+func customRetryer(maxRetries int) func() aws.Retryer {
+	return func() aws.Retryer {
+		customRetryer := retry.AddWithMaxAttempts(retry.NewStandard(), maxRetries)
+		return retry.AddWithMaxBackoffDelay(customRetryer, time.Second*0)
+	}
 }
 
 type sdkLogger struct{}

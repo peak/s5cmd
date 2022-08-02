@@ -56,20 +56,21 @@ func NewLocalClient(opts Options) *Filesystem {
 
 func NewRemoteClient(ctx context.Context, url *url.URL, opts Options) (*S3, error) {
 	newOpts := Options{
-		MaxRetries:       opts.MaxRetries,
-		NoVerifySSL:      opts.NoVerifySSL,
-		DryRun:           opts.DryRun,
-		NoSignRequest:    opts.NoSignRequest,
-		UseListObjectsV1: opts.UseListObjectsV1,
-		AllVersions:      opts.AllVersions,
-		VersionId:        opts.VersionId,
-		Endpoint:         opts.Endpoint,
-		RequestPayer:     opts.RequestPayer,
-		Profile:          opts.Profile,
-		CredentialFile:   opts.CredentialFile,
-		LogLevel:         opts.LogLevel,
-		bucket:           url.Bucket,
-		region:           opts.region,
+		MaxRetries:             opts.MaxRetries,
+		NoVerifySSL:            opts.NoVerifySSL,
+		DryRun:                 opts.DryRun,
+		NoSignRequest:          opts.NoSignRequest,
+		UseListObjectsV1:       opts.UseListObjectsV1,
+		AllVersions:            opts.AllVersions,
+		VersionId:              opts.VersionId,
+		Endpoint:               opts.Endpoint,
+		RequestPayer:           opts.RequestPayer,
+		Profile:                opts.Profile,
+		CredentialFile:         opts.CredentialFile,
+		LogLevel:               opts.LogLevel,
+		bucket:                 url.Bucket,
+		region:                 opts.region,
+		NoSuchUploadRetryCount: opts.NoSuchUploadRetryCount,
 	}
 	return newS3Storage(ctx, newOpts)
 }
@@ -83,20 +84,21 @@ func NewClient(ctx context.Context, url *url.URL, opts Options) (Storage, error)
 
 // Options stores configuration for storage.
 type Options struct {
-	MaxRetries       int
-	NoVerifySSL      bool
-	DryRun           bool
-	NoSignRequest    bool
-	UseListObjectsV1 bool
-	AllVersions      bool
-	VersionId        string
-	Endpoint         string
-	LogLevel         log.LogLevel
-	RequestPayer     string
-	Profile          string
-	CredentialFile   string
-	bucket           string
-	region           string
+	MaxRetries             int
+	NoSuchUploadRetryCount int
+	NoVerifySSL            bool
+	DryRun                 bool
+	NoSignRequest          bool
+	UseListObjectsV1       bool
+	AllVersions            bool
+	VersionId              string
+	Endpoint               string
+	LogLevel               log.LogLevel
+	RequestPayer           string
+	Profile                string
+	CredentialFile         string
+	bucket                 string
+	region                 string
 }
 
 func (o *Options) SetRegion(region string) {
@@ -112,7 +114,7 @@ type Object struct {
 	Size         int64        `json:"size,omitempty"`
 	StorageClass StorageClass `json:"storage_class,omitempty"`
 	Err          error        `json:"error,omitempty"`
-	//VersionID    string       `json:"version_id,omitempty"`
+	retryID      string
 }
 
 // String returns the string representation of Object.

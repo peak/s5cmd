@@ -48,7 +48,7 @@ const (
 	gcsEndpoint = "storage.googleapis.com"
 
 	// the key of the object metadata which is used to handle retry decision on NoSuchUpload error
-	metadataKeyRetryCode = "s5cmd-retry-code"
+	metadataKeyRetryCode = "S5cmd-Retry-Code"
 )
 
 // Re-used AWS sessions dramatically improve performance.

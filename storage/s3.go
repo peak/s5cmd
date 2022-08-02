@@ -583,11 +583,11 @@ func (s *S3) Put(
 	}
 	_, err := s.uploader.UploadWithContext(ctx, input, uploaderOptsFn)
 
-	if !(errHasCode(err, s3.ErrCodeNoSuchUpload) && s.noSuchUploadRetryCount > 0) {
-		return err
+	if errHasCode(err, s3.ErrCodeNoSuchUpload) && s.noSuchUploadRetryCount > 0 {
+		return s.retryOnNoSuchUpload(ctx, to, input, err, uploaderOptsFn)
 	}
 
-	return s.retryOnNoSuchUpload(ctx, to, input, err, uploaderOptsFn)
+	return err
 }
 
 func (s *S3) retryOnNoSuchUpload(ctx aws.Context, to *url.URL, input *s3manager.UploadInput,

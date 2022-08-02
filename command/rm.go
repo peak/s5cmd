@@ -14,6 +14,7 @@ import (
 	"github.com/peak/s5cmd/storage/url"
 )
 
+// TODO add examples for versioning
 var deleteHelpTemplate = `Name:
 	{{.HelpName}} - {{.Usage}}
 
@@ -73,11 +74,10 @@ func NewDeleteCommand() *cli.Command {
 		},
 		Action: func(c *cli.Context) (err error) {
 			defer stat.Collect(c.Command.FullName(), &err)()
-			raw := c.Bool("raw")
 			fullCommand := commandFromContext(c)
 
 			sources := c.Args().Slice()
-			srcUrls, err := newURLs(raw, c.String("version-id"), c.Bool("all-versions"), sources...)
+			srcUrls, err := newURLs(c.Bool("raw"), c.String("version-id"), c.Bool("all-versions"), sources...)
 			if err != nil {
 				printError(fullCommand, c.Command.Name, err)
 				return err
@@ -89,7 +89,6 @@ func NewDeleteCommand() *cli.Command {
 				fullCommand: fullCommand,
 
 				// flags
-				raw:     raw,
 				exclude: c.StringSlice("exclude"),
 
 				storageOpts: NewStorageOpts(c),
@@ -106,7 +105,6 @@ type Delete struct {
 
 	// flag options
 	exclude []string
-	raw     bool
 
 	// storage options
 	storageOpts storage.Options
@@ -184,10 +182,10 @@ func (d Delete) Run(ctx context.Context) error {
 }
 
 // newSources creates object URL list from given sources.
-func newURLs(urlMode bool, versionId string, isAllVersions bool, sources ...string) ([]*url.URL, error) {
+func newURLs(isRaw bool, versionID string, isAllVersions bool, sources ...string) ([]*url.URL, error) {
 	var urls []*url.URL
 	for _, src := range sources {
-		srcurl, err := url.New(src, url.WithRaw(urlMode), url.WithVersion(versionId),
+		srcurl, err := url.New(src, url.WithRaw(isRaw), url.WithVersion(versionID),
 			url.WithAllVersions(isAllVersions))
 		if err != nil {
 			return nil, err

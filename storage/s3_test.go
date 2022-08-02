@@ -14,6 +14,7 @@ import (
 	"os"
 	"reflect"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -560,6 +561,83 @@ func TestS3Retry(t *testing.T) {
 
 			if retried != tc.expectedRetry {
 				t.Errorf("expected retry %v, got %v", tc.expectedRetry, retried)
+			}
+		})
+	}
+}
+
+func TestS3RetryOnNoSuchUpload(t *testing.T) {
+	log.Init("debug", false)
+
+	noSuchUploadError := awserr.New(s3.ErrCodeNoSuchUpload, "The specified upload does not exist. The upload ID may be invalid, or the upload may have been aborted or completed. status code: 404, request id: PJXXXXX, host id: HOSTIDXX", nil)
+	testcases := []struct {
+		name       string
+		err        error
+		retryCount int32
+	}{
+		{
+			name:       "Don't retry",
+			err:        noSuchUploadError,
+			retryCount: 0,
+		}, {
+			name:       "Retry 5 times on NoSuchUpload error",
+			err:        noSuchUploadError,
+			retryCount: 5,
+		}, {
+			name:       "No error",
+			err:        nil,
+			retryCount: 0,
+		},
+	}
+
+	url, err := url.New("s3://bucket/key")
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	for _, tc := range testcases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			mockApi := s3.New(unit.Session)
+			mockS3 := &S3{
+				api: mockApi,
+				uploader: &s3manager.Uploader{
+					S3:                mockApi,
+					PartSize:          s3manager.DefaultUploadPartSize,
+					Concurrency:       s3manager.DefaultUploadConcurrency,
+					LeavePartsOnError: false,
+					MaxUploadParts:    s3manager.MaxUploadParts,
+				},
+				noSuchUploadRetryCount: int(tc.retryCount),
+			}
+
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			atomicCounter := new(int32)
+			atomic.StoreInt32(atomicCounter, 0)
+
+			mockApi.Handlers.Send.Clear()
+			mockApi.Handlers.Unmarshal.Clear()
+			mockApi.Handlers.UnmarshalMeta.Clear()
+			mockApi.Handlers.ValidateResponse.Clear()
+			mockApi.Handlers.Unmarshal.PushBack(func(r *request.Request) {
+				r.Error = tc.err
+				r.HTTPResponse = &http.Response{}
+			})
+			mockApi.Handlers.Unmarshal.PushBack(func(r *request.Request) {
+				atomic.AddInt32(atomicCounter, 1)
+			})
+
+			mockS3.Put(ctx, strings.NewReader(""), url, NewMetadata(), s3manager.DefaultUploadConcurrency, s3manager.DefaultUploadPartSize)
+
+			// +1 is for the original request
+			// *2 is to account for the "Stat" requests that are made to obtain
+			// retry code from object metada.
+			want := 2*tc.retryCount + 1
+			counter := atomic.LoadInt32(atomicCounter)
+			if counter != want {
+				t.Errorf("expected retry request count %d, got %d", want, counter)
 			}
 		})
 	}

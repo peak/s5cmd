@@ -38,6 +38,12 @@ import (
 	"gotest.tools/v3/icmd"
 )
 
+const (
+	// Don't use "race" flag in the build arguments.
+	testDisableRaceFlagKey = "S5CMD_BUILD_BINARY_WITHOUT_RACE_FLAG"
+	testDisableRaceFlagVal = "1"
+)
+
 var (
 	defaultAccessKeyID     = "s5cmd-test-access-key-id"
 	defaultSecretAccessKey = "s5cmd-test-secret-access-key"
@@ -60,6 +66,7 @@ type setupOpts struct {
 	s3backend   string
 	endpointURL string
 	timeSource  gofakes3.TimeSource
+	enableProxy bool
 }
 
 type option func(*setupOpts)
@@ -79,6 +86,12 @@ func withEndpointURL(url string) option {
 func withTimeSource(timeSource gofakes3.TimeSource) option {
 	return func(opts *setupOpts) {
 		opts.timeSource = timeSource
+	}
+}
+
+func withProxy() option {
+	return func(opts *setupOpts) {
+		opts.enableProxy = true
 	}
 }
 
@@ -124,7 +137,7 @@ func server(t *testing.T, opts *setupOpts) (string, string, func()) {
 		s3LogLevel = "info" // aws has no level other than 'debug'
 	}
 
-	endpoint, dbcleanup := s3ServerEndpoint(t, testdir, s3LogLevel, opts.s3backend, opts.timeSource)
+	endpoint, dbcleanup := s3ServerEndpoint(t, testdir, s3LogLevel, opts.s3backend, opts.timeSource, opts.enableProxy)
 	if opts.endpointURL != "" {
 		endpoint = opts.endpointURL
 	}
@@ -144,12 +157,13 @@ func s3client(t *testing.T, options storage.Options) *s3.S3 {
 	if *flagTestLogLevel == "debug" {
 		awsLogLevel = aws.LogDebug
 	}
-
+	// WithDisableRestProtocolURICleaning is added to allow adjacent slashes to be used in s3 object keys.
 	s3Config := aws.NewConfig().
 		WithEndpoint(options.Endpoint).
 		WithRegion(endpoints.UsEast1RegionID).
 		WithCredentials(credentials.NewStaticCredentials(defaultAccessKeyID, defaultSecretAccessKey, "")).
 		WithDisableSSL(options.NoVerifySSL).
+		WithDisableRestProtocolURICleaning(true).
 		WithS3ForcePathStyle(true).
 		WithCredentialsChainVerboseErrors(true).
 		WithLogLevel(awsLogLevel)
@@ -202,14 +216,23 @@ func goBuildS5cmd() func() {
 	workdir = filepath.Dir(workdir)
 
 	var args []string
-	if runtime.GOOS == "windows" {
+
+	if os.Getenv(testDisableRaceFlagKey) == testDisableRaceFlagVal {
 		/*
-		 disable '-race' flag because CI fails with below error.
+		 1. disable '-race' flag because CI fails with below error.
 
 		 ==2688==ERROR: ThreadSanitizer failed to allocate 0x000001000000
 		 (16777216) bytes at 0x040140000000 (error code: 1455)
 
 		 Ref: https://github.com/golang/go/issues/22553
+
+		 2.  Some distributions default to buildmode pie which is incompatible with race flag.
+
+		 Ref: Alpine Linux: "All userland binaries are compiled as Position
+		 Independent Executables (PIE)..." https://www.alpinelinux.org/about/
+
+		 Ref 2: "-buildmode=pie not supported when -race is enabled"
+		 https://cs.opensource.google/go/go/+/master:src/cmd/go/internal/work/init.go;l=245;drc=eaf21256545ae04a35fa070763faa6eb2098591d
 		*/
 		args = []string{"build", "-mod=vendor", "-o", s5cmdPath}
 	} else {

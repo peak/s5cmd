@@ -69,7 +69,7 @@ github.com/hashicorp/errwrap
 github.com/hashicorp/go-multierror
 # github.com/iancoleman/strcase v0.0.0-20191112232945-16388991a334
 github.com/iancoleman/strcase
-# github.com/igungor/gofakes3 v0.0.10
+# github.com/igungor/gofakes3 v0.0.11
 github.com/igungor/gofakes3
 github.com/igungor/gofakes3/backend/s3bolt
 github.com/igungor/gofakes3/backend/s3mem

@@ -202,17 +202,6 @@ func (s StorageClass) IsGlacier() bool {
 	return s == "GLACIER"
 }
 
-// notImplemented is a structure which is used on the unsupported operations.
-type notImplemented struct {
-	apiType string
-	method  string
-}
-
-// Error returns the string representation of Error for notImplemented.
-func (e notImplemented) Error() string {
-	return fmt.Sprintf("%q is not supported on %q storage", e.method, e.apiType)
-}
-
 type Metadata map[string]string
 
 // NewMetadata will return an empty metadata object.

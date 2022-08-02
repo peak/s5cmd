@@ -863,15 +863,17 @@ func (sc *SessionCache) newSession(ctx context.Context, opts Options) (*session.
 	if opts.NoVerifySSL {
 		httpClient = insecureHTTPClient
 	}
-
 	awsCfg = awsCfg.
 		WithEndpoint(endpointURL.String()).
 		WithS3ForcePathStyle(!isVirtualHostStyle).
 		WithS3UseAccelerate(useAccelerate).
 		WithHTTPClient(httpClient).
-		// todo WithLowerCaseHeaderMaps option is going to be unnecessary and
-		// unsupported in AWS-SDK version 2. To be removed during migration.
-		WithLowerCaseHeaderMaps(true)
+		// TODO WithLowerCaseHeaderMaps and WithDisableRestProtocolURICleaning options
+		// are going to be unnecessary and unsupported in AWS-SDK version 2.
+		// They should be removed during migration.
+		WithLowerCaseHeaderMaps(true).
+		// Disable URI cleaning to allow adjacent slashes to be used in S3 object keys.
+		WithDisableRestProtocolURICleaning(true)
 
 	if opts.LogLevel == log.LevelTrace {
 		awsCfg = awsCfg.WithLogLevel(aws.LogDebug).
@@ -1002,6 +1004,7 @@ func (c *customRetryer) ShouldRetry(req *request.Request) bool {
 var insecureHTTPClient = &http.Client{
 	Transport: &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		Proxy:           http.ProxyFromEnvironment,
 	},
 }
 

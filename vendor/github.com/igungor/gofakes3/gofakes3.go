@@ -23,6 +23,8 @@ import (
 //
 // Logic is delegated to other components, like Backend or uploader.
 type GoFakeS3 struct {
+	requestID uint64
+
 	storage   Backend
 	versioned VersionedBackend
 
@@ -33,7 +35,6 @@ type GoFakeS3 struct {
 	failOnUnimplementedPage bool
 	hostBucket              bool
 	uploader                *uploader
-	requestID               uint64
 	log                     Logger
 }
 

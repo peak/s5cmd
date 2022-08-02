@@ -141,8 +141,10 @@ func (s *S3) Stat(ctx context.Context, url *url.URL) (*Object, error) {
 		Size:    aws.Int64Value(output.ContentLength),
 	}
 
-	if res, ok := output.Metadata[metadataKeyRetryCode]; ok && s.noSuchUploadRetryCount > 0 {
-		obj.retryCode = *res
+	if s.noSuchUploadRetryCount > 0 {
+		if retryCode, ok := output.Metadata[metadataKeyRetryCode]; ok {
+			obj.retryCode = *retryCode
+		}
 	}
 
 	return obj, nil
@@ -588,6 +590,38 @@ func (s *S3) Put(
 	return s.retryOnNoSuchUpload(ctx, to, input, err, uploaderOptsFn)
 }
 
+func (s *S3) retryOnNoSuchUpload(ctx aws.Context, to *url.URL, input *s3manager.UploadInput,
+	err error, uploaderOpts ...func(*s3manager.Uploader)) error {
+
+	var retryCode string
+	if code, ok := input.Metadata[metadataKeyRetryCode]; ok {
+		retryCode = *code
+	}
+
+	attempts := 0
+	for ; errHasCode(err, s3.ErrCodeNoSuchUpload) && attempts < s.noSuchUploadRetryCount; attempts++ {
+		// check if object exists and has the retry code we provided, if it does
+		// then it means that previous upload was succesfull despite the received error.
+		obj, sErr := s.Stat(ctx, to)
+		if sErr == nil && obj.retryCode == retryCode {
+			err = nil
+			break
+		}
+
+		msg := log.DebugMessage{Err: fmt.Sprintf("Retrying to upload %v upon error: %q", to, err.Error())}
+		log.Debug(msg)
+
+		_, err = s.uploader.UploadWithContext(ctx, input, uploaderOpts...)
+	}
+
+	if errHasCode(err, s3.ErrCodeNoSuchUpload) && s.noSuchUploadRetryCount > 0 {
+		err = awserr.New(s3.ErrCodeNoSuchUpload, fmt.Sprintf(
+			"RetryOnNoSuchUpload: %v attempts to retry resulted in %v", attempts,
+			s3.ErrCodeNoSuchUpload), err)
+	}
+	return err
+}
+
 // chunk is an object identifier container which is used on MultiDelete
 // operations. Since DeleteObjects API allows deleting objects up to 1000,
 // splitting keys into multiple chunks is required.
@@ -1014,36 +1048,4 @@ func IsCancelationError(err error) bool {
 func generateRetryCode() *string {
 	num, _ := rand.Int(rand.Reader, big.NewInt(math.MaxInt64))
 	return aws.String(num.String())
-}
-
-func (s *S3) retryOnNoSuchUpload(ctx aws.Context, to *url.URL, input *s3manager.UploadInput,
-	err error, uploaderOpts ...func(*s3manager.Uploader)) error {
-
-	var retryCode string
-	if code, ok := input.Metadata[metadataKeyRetryCode]; ok {
-		retryCode = *code
-	}
-
-	attempts := 0
-	for ; errHasCode(err, s3.ErrCodeNoSuchUpload) && attempts < s.noSuchUploadRetryCount; attempts++ {
-		// check if object exists and has the retry code we provided, if it does
-		// then it means that previous upload was succesfull despite the received error.
-		obj, sErr := s.Stat(ctx, to)
-		if sErr == nil && obj.retryCode == retryCode {
-			err = nil
-			break
-		}
-
-		msg := log.DebugMessage{Err: fmt.Sprintf("Retrying to upload %v upon error: %q", to, err.Error())}
-		log.Debug(msg)
-
-		_, err = s.uploader.UploadWithContext(ctx, input, uploaderOpts...)
-	}
-
-	if errHasCode(err, s3.ErrCodeNoSuchUpload) && s.noSuchUploadRetryCount > 0 {
-		err = awserr.New(s3.ErrCodeNoSuchUpload, fmt.Sprintf(
-			"RetryOnNoSuchUpload: %v attempts to retry resulted in %v", attempts,
-			s3.ErrCodeNoSuchUpload), err)
-	}
-	return err
 }

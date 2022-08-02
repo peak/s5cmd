@@ -110,7 +110,7 @@ type Object struct {
 	Size         int64        `json:"size,omitempty"`
 	StorageClass StorageClass `json:"storage_class,omitempty"`
 	Err          error        `json:"error,omitempty"`
-	retryCode    string
+	retryId      string
 }
 
 // String returns the string representation of Object.

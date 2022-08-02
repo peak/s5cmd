@@ -48,7 +48,7 @@ const (
 	gcsEndpoint = "storage.googleapis.com"
 
 	// the key of the object metadata which is used to handle retry decision on NoSuchUpload error
-	metadataKeyRetryCode = "S5cmd-Retry-Code"
+	metadataKeyRetryId = "S5cmd--Upload-Retry-Id"
 )
 
 // Re-used AWS sessions dramatically improve performance.
@@ -142,8 +142,8 @@ func (s *S3) Stat(ctx context.Context, url *url.URL) (*Object, error) {
 	}
 
 	if s.noSuchUploadRetryCount > 0 {
-		if retryCode, ok := output.Metadata[metadataKeyRetryCode]; ok {
-			obj.retryCode = *retryCode
+		if retryId, ok := output.Metadata[metadataKeyRetryId]; ok {
+			obj.retryId = *retryId
 		}
 	}
 
@@ -572,9 +572,9 @@ func (s *S3) Put(
 		input.ContentEncoding = aws.String(contentEncoding)
 	}
 
-	// add retry code to the object metadata
+	// add retry id to the object metadata
 	if s.noSuchUploadRetryCount > 0 {
-		input.Metadata[metadataKeyRetryCode] = generateRetryCode()
+		input.Metadata[metadataKeyRetryId] = generateRetryId()
 	}
 
 	uploaderOptsFn := func(u *s3manager.Uploader) {
@@ -593,17 +593,17 @@ func (s *S3) Put(
 func (s *S3) retryOnNoSuchUpload(ctx aws.Context, to *url.URL, input *s3manager.UploadInput,
 	err error, uploaderOpts ...func(*s3manager.Uploader)) error {
 
-	var retryCode string
-	if code, ok := input.Metadata[metadataKeyRetryCode]; ok {
-		retryCode = *code
+	var expectedRetryID string
+	if code, ok := input.Metadata[metadataKeyRetryId]; ok {
+		expectedRetryID = *code
 	}
 
 	attempts := 0
 	for ; errHasCode(err, s3.ErrCodeNoSuchUpload) && attempts < s.noSuchUploadRetryCount; attempts++ {
-		// check if object exists and has the retry code we provided, if it does
-		// then it means that previous upload was succesfull despite the received error.
+		// check if object exists and has the retry id we provided, if it does
+		// then it means that one of previous uploads was succesfull despite the received error.
 		obj, sErr := s.Stat(ctx, to)
-		if sErr == nil && obj.retryCode == retryCode {
+		if sErr == nil && obj.retryId == expectedRetryID {
 			err = nil
 			break
 		}
@@ -1044,8 +1044,8 @@ func IsCancelationError(err error) bool {
 	return errHasCode(err, request.CanceledErrorCode)
 }
 
-// generate a retry code for this upload attempt
-func generateRetryCode() *string {
+// generate a retry id for this upload attempt
+func generateRetryId() *string {
 	num, _ := rand.Int(rand.Reader, big.NewInt(math.MaxInt64))
 	return aws.String(num.String())
 }

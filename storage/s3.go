@@ -572,7 +572,7 @@ func (s *S3) Put(
 		input.ContentEncoding = aws.String(contentEncoding)
 	}
 
-	// add retry id to the object metadata
+	// add retry ID to the object metadata
 	if s.noSuchUploadRetryCount > 0 {
 		input.Metadata[metadataKeyRetryID] = generateRetryID()
 	}
@@ -594,13 +594,13 @@ func (s *S3) retryOnNoSuchUpload(ctx aws.Context, to *url.URL, input *s3manager.
 	err error, uploaderOpts ...func(*s3manager.Uploader)) error {
 
 	var expectedRetryID string
-	if id, ok := input.Metadata[metadataKeyRetryID]; ok {
-		expectedRetryID = *id
+	if ID, ok := input.Metadata[metadataKeyRetryID]; ok {
+		expectedRetryID = *ID
 	}
 
 	attempts := 0
 	for ; errHasCode(err, s3.ErrCodeNoSuchUpload) && attempts < s.noSuchUploadRetryCount; attempts++ {
-		// check if object exists and has the retry id we provided, if it does
+		// check if object exists and has the retry ID we provided, if it does
 		// then it means that one of previous uploads was succesfull despite the received error.
 		obj, sErr := s.Stat(ctx, to)
 		if sErr == nil && obj.retryID == expectedRetryID {
@@ -1050,7 +1050,7 @@ func IsCancelationError(err error) bool {
 	return errHasCode(err, request.CanceledErrorCode)
 }
 
-// generate a retry id for this upload attempt
+// generate a retry ID for this upload attempt
 func generateRetryID() *string {
 	num, _ := rand.Int(rand.Reader, big.NewInt(math.MaxInt64))
 	return aws.String(num.String())

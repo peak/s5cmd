@@ -134,6 +134,7 @@ func (s *S3) Stat(ctx context.Context, url *url.URL) (*Object, error) {
 		Etag:    strings.Trim(etag, `"`),
 		ModTime: &mod,
 		Size:    aws.Int64Value(output.ContentLength),
+		//	VersionID: *output.VersionId,
 	}, nil
 }
 
@@ -142,7 +143,7 @@ func (s *S3) Stat(ctx context.Context, url *url.URL) (*Object, error) {
 // it sends these errors to object channel.
 func (s *S3) List(ctx context.Context, url *url.URL, _ bool) <-chan *Object {
 	// todo if either of s.versionID or s.allVersions is set, handle that case seperately.
-	if url.VersionId != "" || url.AllVersions {
+	if url.VersionID != "" || url.AllVersions {
 		return s.listObjectsVersion(ctx, url)
 	}
 	if isGoogleEndpoint(s.endpointURL) || s.useListObjectsV1 {
@@ -215,7 +216,7 @@ func (s *S3) listObjectsVersion(ctx context.Context, url *url.URL) <-chan *Objec
 
 					newurl := url.Clone()
 					newurl.Path = aws.StringValue(c.Key)
-					newurl.VersionId = *c.VersionId
+					newurl.VersionID = *c.VersionId
 					etag := aws.StringValue(c.ETag)
 
 					objCh <- &Object{
@@ -225,6 +226,8 @@ func (s *S3) listObjectsVersion(ctx context.Context, url *url.URL) <-chan *Objec
 						Type:         ObjectType{objtype},
 						Size:         aws.Int64Value(c.Size),
 						StorageClass: StorageClass(aws.StringValue(c.StorageClass)),
+						// todo think: do we need it?
+						//	VersionID: *c.VersionId,
 					}
 
 					objectFound = true
@@ -488,10 +491,9 @@ func (s *S3) Read(ctx context.Context, src *url.URL) (io.ReadCloser, error) {
 		Bucket:       aws.String(src.Bucket),
 		Key:          aws.String(src.Path),
 		RequestPayer: s.RequestPayer(),
+		VersionId:    aws.String(src.VersionID),
 	}
-	if s.versionId != "" {
-		goi.VersionId = aws.String(s.versionId)
-	}
+
 	resp, err := s.api.GetObjectWithContext(ctx, goi)
 
 	if err != nil {
@@ -696,8 +698,8 @@ func (s *S3) calculateChunks(ch <-chan *url.URL) <-chan chunk {
 			bucket = url.Bucket
 
 			objid := &s3.ObjectIdentifier{Key: aws.String(url.Path)}
-			if url.VersionId != "" {
-				objid.VersionId = &url.VersionId
+			if url.VersionID != "" {
+				objid.VersionId = &url.VersionID
 			}
 
 			keys = append(keys, objid)
@@ -746,7 +748,7 @@ func (s *S3) doDelete(ctx context.Context, chunk chunk, resultch chan *Object) {
 			key := fmt.Sprintf("s3://%v/%v", chunk.Bucket, aws.StringValue(k.Key))
 			url, _ := url.New(key)
 			if k.VersionId != nil {
-				url.VersionId = *k.VersionId
+				url.VersionID = *k.VersionId
 			}
 			resultch <- &Object{URL: url}
 		}
@@ -768,7 +770,7 @@ func (s *S3) doDelete(ctx context.Context, chunk chunk, resultch chan *Object) {
 		key := fmt.Sprintf("s3://%v/%v", bucket, aws.StringValue(d.Key))
 		url, _ := url.New(key)
 		if d.VersionId != nil {
-			url.VersionId = *d.VersionId
+			url.VersionID = *d.VersionId
 		}
 		resultch <- &Object{URL: url}
 	}
@@ -777,7 +779,7 @@ func (s *S3) doDelete(ctx context.Context, chunk chunk, resultch chan *Object) {
 		key := fmt.Sprintf("s3://%v/%v", bucket, aws.StringValue(e.Key))
 		url, _ := url.New(key)
 		if e.VersionId != nil {
-			url.VersionId = *e.VersionId
+			url.VersionID = *e.VersionId
 		}
 		resultch <- &Object{
 			URL: url,

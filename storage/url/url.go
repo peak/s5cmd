@@ -41,7 +41,7 @@ type URL struct {
 	Path        string
 	Delimiter   string
 	Prefix      string
-	VersionId   string
+	VersionID   string
 	AllVersions bool
 
 	relativePath string
@@ -60,7 +60,7 @@ func WithRaw(mode bool) Option {
 
 func WithVersion(versionId string) Option {
 	return func(u *URL) {
-		u.VersionId = versionId
+		u.VersionID = versionId
 	}
 }
 
@@ -296,7 +296,7 @@ func (u *URL) Clone() *URL {
 		Delimiter: u.Delimiter,
 		Path:      u.Path,
 		Prefix:    u.Prefix,
-		VersionId: u.VersionId,
+		VersionID: u.VersionID,
 
 		relativePath: u.relativePath,
 		filter:       u.filter,

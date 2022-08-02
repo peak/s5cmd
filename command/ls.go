@@ -261,7 +261,7 @@ func (l ListMessage) String() string {
 		l.Object.URL.Relative(),
 	)
 	if l.showVersions {
-		s = s + " " + l.Object.URL.VersionId
+		s = s + " " + l.Object.URL.VersionID
 	}
 	return s
 }

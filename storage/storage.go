@@ -112,6 +112,7 @@ type Object struct {
 	Size         int64        `json:"size,omitempty"`
 	StorageClass StorageClass `json:"storage_class,omitempty"`
 	Err          error        `json:"error,omitempty"`
+	//VersionID    string       `json:"version_id,omitempty"`
 }
 
 // String returns the string representation of Object.

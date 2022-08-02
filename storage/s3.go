@@ -594,8 +594,8 @@ func (s *S3) retryOnNoSuchUpload(ctx aws.Context, to *url.URL, input *s3manager.
 	err error, uploaderOpts ...func(*s3manager.Uploader)) error {
 
 	var expectedRetryID string
-	if code, ok := input.Metadata[metadataKeyRetryId]; ok {
-		expectedRetryID = *code
+	if id, ok := input.Metadata[metadataKeyRetryId]; ok {
+		expectedRetryID = *id
 	}
 
 	attempts := 0

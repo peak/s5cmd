@@ -4198,7 +4198,7 @@ func TestDeleteFileWhenDownloadFailed(t *testing.T) {
 	filename := "testfile1.txt"
 	createBucket(t, s3client, bucket)
 
-	// It will try downloading a nonexistent file from the s3 so it will fail.
+	// It is going try downloading a nonexistent file from the s3 so it will fail.
 	// In this case we don't expect to have a local file with the name `filename`.
 	cmd := s5cmd("cp", "s3://"+bucket+"/"+filename, filename)
 	result := icmd.RunCmd(cmd)

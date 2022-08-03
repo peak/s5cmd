@@ -1,137 +1,130 @@
 #!/usr/bin/env python
 import argparse
+import datetime
+import os
 import re
 import shutil
-import os
 import subprocess
 from tempfile import mkdtemp
 
+cwd = ""
+
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description='Compare performance of two different builds of s5cmd.')
+    parser = argparse.ArgumentParser(
+        description="Compare performance of two different builds of s5cmd.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
 
-    parser.add_argument('-s', '--s5cmd', nargs=2, metavar=("OLD", "NEW"), default=('v1.4.0', 'v2.0.0'),
-                        help='Reference to old and new s5cmd.'
-                             ' It can be a decimal indicating PR number, '
-                             'any of the version tags like v2.0.0 or commit tag.')
-    parser.add_argument('-w', '--warmup', default=2, help='Number of program executions before the actual benchmark:')
-    parser.add_argument('-r', '--runs', default=10, help='Number of runs to perform for each command')
-    parser.add_argument('-o', '--output_file_name', default="summary.md", help='Name of the output file')
-    parser.add_argument('-b', '--bucket', required=True, help='Name of the bucket in remote')
-    parser.add_argument('-p', '--prefix', default='s5cmd-benchmarks-',
-                        help='Key prefix to be used while uploading to a specified bucket')
-    parser.add_argument('-hf', '--hyperfine-extra-flags',
-                        help='hyperfine global extra flags. '
-                             'Write in between quotation marks '
-                             'and start with a space to avoid bugs.')
-    parser.add_argument('-sf', '--s5cmd-extra-flags', default="",
-                        help='s5cmd global extra flags. '
-                             'Write in between quotation marks '
-                             'and start with a space to avoid bugs.')
+    parser.add_argument(
+        "-s",
+        "--s5cmd",
+        nargs=2,
+        metavar=("OLD", "NEW"),
+        default=("v1.4.0", "v2.0.0"),
+        help="Reference to old and new s5cmd."
+        " It can be a decimal indicating PR number, "
+        "any of the version tags like v2.0.0 or commit tag.",
+    )
+    parser.add_argument(
+        "-w",
+        "--warmup",
+        default=2,
+        help="Number of program executions before the actual benchmark:",
+    )
+    parser.add_argument(
+        "-r", "--runs", default=10, help="Number of runs to perform for each command"
+    )
+    parser.add_argument(
+        "-o", "--output_file_name", default="summary.md", help="Name of the output file"
+    )
+    parser.add_argument(
+        "-b", "--bucket", required=True, help="Name of the bucket in remote"
+    )
+    parser.add_argument(
+        "-l",
+        "--local-path",
+        help="specify a local path for temporary files to be loaded.",
+    )
+    parser.add_argument(
+        "-p",
+        "--prefix",
+        default="s5cmd-benchmarks-",
+        help="Key prefix to be used while uploading to a specified bucket",
+    )
+    parser.add_argument(
+        "-hf",
+        "--hyperfine-extra-flags",
+        help="hyperfine global extra flags. "
+        "Write in between quotation marks "
+        "and start with a space to avoid bugs.",
+    )
+    parser.add_argument(
+        "-sf",
+        "--s5cmd-extra-flags",
+        default="",
+        help="s5cmd global extra flags. "
+        "Write in between quotation marks "
+        "and start with a space to avoid bugs.",
+    )
 
     args = parser.parse_args(argv)
+    global cwd
     cwd = os.getcwd()
 
-    local_dir, dst_path = create_bench_dir(args)
+    local_dir, dst_path = create_bench_dir(args.bucket, args.prefix, args.local_path)
+    print("The created local&remote files will be deleted at the end of tests.")
+    print(
+        f"Hyperfine will execute s5cmd uploads {args.warmup} times to warmup, and {args.runs} times for measurements."
+    )
     old_s5cmd, new_s5cmd = build_s5cmd_exec(args.s5cmd[0], args.s5cmd[1], local_dir)
 
     scenarios = [
         Scenario(
-            name='upload small files',
+            name="small files",
             cwd=cwd,
-            file_size='1M',
-            file_count='10000',
-            s5cmd_args=[args.s5cmd_extra_flags, 'cp', '\"*\"', f'{dst_path}/1/{{dir}}/'],
-            hyperfine_args=dict({'runs': args.runs, 'warmup': args.warmup, 'extra_flags': args.hyperfine_extra_flags}),
+            dst_path=dst_path,
             local_dir=local_dir,
-        ),
-        # This scenario depends on the remote files uploaded by the scenario above.
-        Scenario(
-            name='download small files',
-            cwd=cwd,
-            file_size=None,
-            file_count=None,
-            s5cmd_args=[args.s5cmd_extra_flags, 'cp', f'\"{dst_path}/1/{{dir}}/*\"', f'1/'],
-            hyperfine_args=dict({'runs': args.runs, 'warmup': args.warmup, 'extra_flags': args.hyperfine_extra_flags}),
-            local_dir=local_dir,
+            file_size="1M",
+            file_count="10000",
+            s5cmd_args=args.s5cmd_extra_flags,
+            hyperfine_args={
+                "runs": args.runs,
+                "warmup": args.warmup,
+                "extra_flags": args.hyperfine_extra_flags,
+            },
         ),
         Scenario(
-            name='upload large files',
+            name="large file",
             cwd=cwd,
-            file_size='10G',
-            file_count='1',
-            s5cmd_args=[args.s5cmd_extra_flags, 'cp', '\"*\"',
-                        f'{dst_path}/2/{{dir}}/'],
-            hyperfine_args=dict({'runs': args.runs, 'warmup': args.warmup, 'extra_flags': args.hyperfine_extra_flags}),
+            dst_path=dst_path,
             local_dir=local_dir,
-        ),
-
-        # This scenario depends on the remote files uploaded by the scenario above.
-        Scenario(
-            name='download large files',
-            cwd=cwd,
-            file_size=None,
-            file_count=None,
-            s5cmd_args=[args.s5cmd_extra_flags, 'cp',
-                        f'\"{dst_path}/2/{{dir}}/*\"', f'2/'],
-            hyperfine_args=dict({'runs': args.runs, 'warmup': args.warmup, 'extra_flags': args.hyperfine_extra_flags}),
-            local_dir=local_dir,
+            file_size="10G",
+            file_count="1",
+            s5cmd_args=args.s5cmd_extra_flags,
+            hyperfine_args={
+                "runs": args.runs,
+                "warmup": args.warmup,
+                "extra_flags": args.hyperfine_extra_flags,
+            },
         ),
         Scenario(
-            name='upload very large files',
+            name="very large file",
             cwd=cwd,
-            file_size='300G',
-            file_count='1',
-            s5cmd_args=[args.s5cmd_extra_flags, 'cp', '\"*\"',
-                        f'{dst_path}/3/{{dir}}/'],
-            hyperfine_args=dict({'runs': args.runs, 'warmup': args.warmup, 'extra_flags': args.hyperfine_extra_flags}),
+            dst_path=dst_path,
             local_dir=local_dir,
-        ),
-        # This scenario depends on the remote files uploaded by the scenario above.
-        Scenario(
-            name='download very large files',
-            cwd=cwd,
-            file_size=None,
-            file_count=None,
-            s5cmd_args=[args.s5cmd_extra_flags, 'cp',
-                        f'\"{dst_path}/3/{{dir}}/*\"', f'3/'],
-            hyperfine_args=dict({'runs': args.runs, 'warmup': args.warmup, 'extra_flags': args.hyperfine_extra_flags}),
-            local_dir=local_dir,
-        ),
-        # TODO: add prepare flag for scenarios that tests remove
-        # This scenario depends on the remote files uploaded by the scenario 'upload small files'
-        Scenario(
-            name='remove small files',
-            cwd=cwd,
-            file_size=None,
-            file_count=None,
-            s5cmd_args=[args.s5cmd_extra_flags, 'rm', f'{dst_path}/1/{{dir}}/*'],
-            hyperfine_args=dict({'runs': 1, 'warmup': 0, 'extra_flags': args.hyperfine_extra_flags}),
-            local_dir=local_dir,
-        ),
-        # This scenario depends on the remote files uploaded by the scenario 'upload large files'
-        Scenario(
-            name='remove large files',
-            cwd=cwd,
-            file_size=None,
-            file_count=None,
-            s5cmd_args=[args.s5cmd_extra_flags, 'rm', f'{dst_path}/2/{{dir}}/*'],
-            hyperfine_args=dict({'runs': 1, 'warmup': 0, 'extra_flags': args.hyperfine_extra_flags}),
-            local_dir=local_dir,
-        ),
-        # This scenario depends on the remote files uploaded by the scenario 'upload very large file'
-        Scenario(
-            name='remove large files',
-            cwd=cwd,
-            file_size=None,
-            file_count=None,
-            s5cmd_args=[args.s5cmd_extra_flags, 'rm', f'{dst_path}/3/{{dir}}/*'],
-            hyperfine_args=dict({'runs': 1, 'warmup': 0, 'extra_flags': args.hyperfine_extra_flags}),
-            local_dir=local_dir,
+            file_size="300G",
+            file_count="1",
+            s5cmd_args=args.s5cmd_extra_flags,
+            hyperfine_args={
+                "runs": "1",
+                "warmup": "0",
+                "extra_flags": args.hyperfine_extra_flags,
+            },
         ),
     ]
 
-    init_bench_results(cwd, args.output_file_name,scenarios)
+    init_bench_results(cwd, args.output_file_name, scenarios)
 
     for scenario in scenarios:
         # Any scenario that needs to download from remote
@@ -142,9 +135,9 @@ def main(argv=None):
         scenario.teardown()
 
     # append detailed_summary to output_file_name
-    with open(f'{cwd}/detailed_summary.md', 'r+') as f:
+    with open(os.path.join(cwd, "detailed_summary.md"), "r+") as f:
         detailed_summary = join_with_spaces(f.readlines())
-    with open(f'{cwd}/{args.output_file_name}', 'a') as f:
+    with open(os.path.join(cwd, args.output_file_name), "a") as f:
         f.write(detailed_summary)
 
     cleanup(local_dir, cwd)
@@ -158,27 +151,57 @@ class S5cmd:
         self.name = name
         self.tag = tag
         self.git_type = ""
-        self.path = f'{folder_path}/{self.name}'
+        self.path = os.path.join(folder_path, self.name)
         self.build()
 
     def build(self):
 
-        if re.match('^[0-9]+$', self.tag):
-            run_cmd(['git', '-C', f'{self.clone_path}', 'fetch', 'origin', f'pull/{self.tag}/head', '-q'])
-            self.git_type = 'PR'
-        elif re.match('^v([0-9]+\.){2}([0-9])(-[a-z]*\.?[0-9]?)?$', self.tag):
-            run_cmd(['git', '-C', f'{self.clone_path}', 'checkout', f'tags/{self.tag}', '-q'])
-            self.git_type = 'version'
+        if re.match("^[0-9]+$", self.tag):
+            run_cmd(
+                [
+                    "git",
+                    "-C",
+                    self.clone_path,
+                    "fetch",
+                    "origin",
+                    f"pull/{self.tag}/head",
+                    "-q",
+                ]
+            )
+            self.git_type = "PR"
+        elif re.match("^v([0-9]+\.){2}([0-9])(-[a-z]*\.?[0-9]?)?$", self.tag):
+            run_cmd(
+                [
+                    "git",
+                    "-C",
+                    self.clone_path,
+                    "checkout",
+                    f"tags/{self.tag}",
+                    "-q",
+                ]
+            )
+            self.git_type = "version"
         else:
-            run_cmd(['git', '-C', f'{self.clone_path}', 'checkout', f'{self.tag}', '-q'])
-            self.git_type = 'commit'
+            run_cmd(["git", "-C", self.clone_path, "checkout", self.tag, "-q"])
+            self.git_type = "commit"
 
         os.chdir(self.clone_path)
-        run_cmd(['go', 'build', '-o', f'{self.path}'])
+        run_cmd(["go", "build", "-o", self.path])
 
 
 class Scenario:
-    def __init__(self, name, cwd, file_size, file_count, s5cmd_args, hyperfine_args, local_dir):
+    def __init__(
+        self,
+        name,
+        cwd,
+        file_size,
+        file_count,
+        s5cmd_args,
+        hyperfine_args,
+        local_dir,
+        dst_path,
+    ):
+        self.run_name = None
         self.name = name
         self.cwd = cwd
         self.file_size = file_size
@@ -188,6 +211,9 @@ class Scenario:
         self.local_dir = local_dir
         self.folder_dir = ""
         self.output_file_name = ""
+        self.run_types = ["upload", "download", "remove"]
+
+        self.dst_path = dst_path
 
     def setup(self, output_file_name):
 
@@ -197,7 +223,7 @@ class Scenario:
             self.file_count = int(self.file_count)
             self.create_files()
         else:
-            self.folder_dir = f'{self.local_dir}/'
+            self.folder_dir = f"{self.local_dir}/"
 
     def create_files(self):
         # create subdirectory under local_dir named with a scenario name
@@ -209,34 +235,11 @@ class Scenario:
 
         if self.file_count <= 0:
             raise ValueError(f"{self.file_count} cannot be negative.")
-        elif self.file_count == 1:
-            run_cmd(['dd',
-                     'if=/dev/urandom',
-                     'of=tmp',
-                     'status=none',
-                     'bs=1M',
-                     f'count={int(to_bytes(self.file_size) / (1024 ** 2))}'])
-
         else:
-            # create one big file first, then split it into
-            # smaller pieces. This reduces time consumption.
-            temp_bigfile_dir = self.folder_dir + '/tmp'
-            large_file_size = to_bytes(self.file_size) * self.file_count
-            run_cmd(['dd',
-                     'if=/dev/urandom',
-                     'of=tmp',
-                     'status=none',
-                     'bs=1M',
-                     f'count={int(large_file_size / (1024 ** 2))}'])
-            run_cmd(['split',
-                     '-a',
-                     '4',
-                     '-n',
-                     f'{self.file_count}',
-                     f'{temp_bigfile_dir}',
-                     'tmp'
-                     ])
-            os.remove(temp_bigfile_dir)
+            for i in range(self.file_count):
+                run_cmd(
+                    ["truncate", "-s", f"{int(to_bytes(self.file_size))}", f"tmp{i}"]
+                )
 
     def teardown(self):
         # if local files are created, remove at teardown
@@ -244,145 +247,255 @@ class Scenario:
             shutil.rmtree(self.folder_dir)
 
     def run(self, old_s5cmd, new_s5cmd):
-        old_name = f'{old_s5cmd.git_type}:{old_s5cmd.tag}'
-        new_name = f'{new_s5cmd.git_type}:{new_s5cmd.tag}'
-        print(f'{self.name}: ')
 
-        os.chdir(self.folder_dir)
+        old_name = f"{old_s5cmd.git_type}:{old_s5cmd.tag}"
+        new_name = f"{new_s5cmd.git_type}:{new_s5cmd.tag}"
 
-        cmd = [
-            'hyperfine',
-            f'--export-markdown',
-            f'{self.local_dir}/temp.md',
-            '--runs',
-            f'{self.hyperfine_args["runs"]}',
-            '--warmup',
-            f'{self.hyperfine_args["warmup"]}',
-            '--parameter-list',
-            'dir',
-            'old,new',
-            '-n', f'{old_name}',
-            '-n', f'{new_name}',
-            f"{old_s5cmd.path} {join_with_spaces(self.s5cmd_args)}",
-        ]
+        s5cmd_cmds = self.get_s5cmd_commands(old_s5cmd, new_s5cmd)
 
-        if self.hyperfine_args["extra_flags"]:
-            cmd.append(self.hyperfine_args["extra_flags"].strip())
+        for run in self.run_types:
+            os.chdir(self.folder_dir)
 
-        output = run_cmd(cmd)
-        summary = self.parse_output(output)
-        with open(f"{self.cwd}/{self.output_file_name}", "a") as f:
-            f.write(summary)
+            cmd = [
+                "hyperfine",
+                f"--export-markdown",
+                os.path.join(self.local_dir, "temp.md"),
+                "--runs",
+                self.hyperfine_args["runs"],
+                "--warmup",
+                self.hyperfine_args["warmup"],
+                "-n",
+                old_name,
+                "-n",
+                new_name,
+            ]
 
-        detailed_summary = ""
-        with open(f"{self.local_dir}/temp.md", "r+") as f:
-            lines = f.readlines()
-            # get markdown table and add a new column in the front as scenario name
-            detailed_summary = f"| {self.name} {lines[-1]}" \
-                               f"| {self.name} {lines[-2]}"
+            self.run_name = f"{run} {self.name}"
 
-        with open(f"{self.cwd}/detailed_summary.md", "a") as f:
-            f.write(detailed_summary)
+            print(f"Running: {self.run_name}:\n")
+
+            if run == "upload":
+                cmd.append(s5cmd_cmds["old_upload"])
+                cmd.append(s5cmd_cmds["new_upload"])
+            elif run == "download":
+                cmd.append(s5cmd_cmds["old_download"])
+                cmd.append(s5cmd_cmds["new_download"])
+            elif run == "remove":
+                cmd.append(s5cmd_cmds["old_remove"])
+                cmd.append(s5cmd_cmds["new_remove"])
+
+                # if there is only one run without warmups, then do not prepare.
+                if (
+                    int(self.hyperfine_args["runs"]) > 1
+                    or int(self.hyperfine_args["warmup"]) >= 1
+                ):
+                    cmd.append("--prepare")
+                    cmd.append(s5cmd_cmds["old_upload"])
+                    cmd.append("--prepare")
+                    cmd.append(s5cmd_cmds["new_upload"])
+
+            if self.hyperfine_args["extra_flags"]:
+                cmd.append(self.hyperfine_args["extra_flags"].strip())
+
+            output = run_cmd(cmd)
+            summary = self.parse_output(output)
+            with open(os.path.join(self.cwd, self.output_file_name), "a") as f:
+                f.write(summary)
+
+            detailed_summary = ""
+            temp_dir = os.path.join(self.local_dir, "temp.md")
+            with open(temp_dir, "r+") as f:
+                lines = f.readlines()
+                # get markdown table and add a new column in the front as scenario name
+                detailed_summary = (
+                    f"| {self.run_name} {lines[-1]}" f"| {self.run_name} {lines[-2]}"
+                )
+
+            with open(os.path.join(self.cwd, "detailed_summary.md"), "a") as f:
+                f.write(detailed_summary)
+
+    def get_s5cmd_commands(self, old_s5cmd, new_s5cmd):
+        result = {}
+
+        old_upload = join_with_spaces(
+            [self.s5cmd_args, "cp", f'"*"', f"{self.dst_path}/old/"]
+        )
+        old_upload = f"{old_s5cmd.path} {old_upload}"
+        result["old_upload"] = old_upload
+
+        new_upload = join_with_spaces(
+            [self.s5cmd_args, "cp", '"*"', f"{self.dst_path}/new/"]
+        )
+        new_upload = f"{new_s5cmd.path} {new_upload}"
+        result["new_upload"] = new_upload
+
+        old_download = join_with_spaces(
+            [self.s5cmd_args, "cp", f'"{self.dst_path}/old/*"', "old/"]
+        )
+        old_download = f"{old_s5cmd.path} {old_download}"
+        result["old_download"] = old_download
+
+        new_download = join_with_spaces(
+            [self.s5cmd_args, "cp", f'"{self.dst_path}/new/*"', "new/"]
+        )
+        new_download = f"{new_s5cmd.path} {new_download}"
+        result["new_download"] = new_download
+
+        new_remove = join_with_spaces(
+            [self.s5cmd_args, "rm", f'"{self.dst_path}/new/*"']
+        )
+        new_remove = f"{new_s5cmd.path} {new_remove}"
+        result["new_remove"] = new_remove
+
+        old_remove = join_with_spaces(
+            [self.s5cmd_args, "rm", f'"{self.dst_path}/old/*"']
+        )
+        old_remove = f"{old_s5cmd.path} {old_remove}"
+        result["old_remove"] = old_remove
+
+        return result
 
     def parse_output(self, output):
-        lines = output.split('\n')
+        lines = output.split("\n")
         summary = ""
         for i, line in enumerate(lines):
             # get the next two lines after summary and format it as markdown table.
-            if 'Summary' in line:
+            if "Summary" in line:
                 line1 = lines[i + 1].replace("\n", "").strip()
                 line2 = lines[i + 2].replace("\n", "").strip()
-                summary = f"| {self.name} | {line1} {line2} |\n"
+                summary = f"| {self.run_name} | {line1} {line2} |\n"
         return summary
 
 
 def init_bench_results(cwd, output_file_name, scenarios):
-    header = "### Benchmark summary: " \
-             "\n|Scenarios that create local files | File Size | File Count |" \
-             "\n|:---|:---|:---|"\
-             "\n"
+    header = (
+        "### Benchmark summary: "
+        "\n|Scenarios | File Size | File Count |"
+        "\n|:---|:---|:---|"
+        "\n"
+    )
     scenario_details = []
     for s in scenarios:
         if s.file_size and s.file_count:
-            scenario_details.append(f'| {s.name} | {s.file_size} | {s.file_count} |' )
+            scenario_details.append(f"| {s.name} | {s.file_size} | {s.file_count} |")
 
-    summary = f"{header}" \
-              f"{join_with_newlines(scenario_details)}" \
-              f"\n\n|Scenario| Summary |" \
-              f"\n|:---|:---|" \
-              f"\n"
-    with open(f"{cwd}/{output_file_name}", "w") as file:
+    summary = (
+        f"{header}"
+        f"{join_with_newlines(scenario_details)}"
+        f"\n\n|Scenario| Summary |"
+        f"\n|:---|:---|"
+        f"\n"
+    )
+    with open(os.path.join(cwd, output_file_name), "w") as file:
         file.write(summary)
 
-    detailed_summary = '\n### Detailed summary: ' \
-                       '\n|Scenario| Command | Mean [ms] | Min [ms] | Max [ms] | Relative |' \
-                       '\n|:---|:---|---:|---:|---:|---:|' \
-                       '\n'
+    detailed_summary = (
+        "\n### Detailed summary: "
+        "\n|Scenario| Command | Mean [ms] | Min [ms] | Max [ms] | Relative |"
+        "\n|:---|:---|---:|---:|---:|---:|"
+        "\n"
+    )
 
-    with open(f"{cwd}/detailed_summary.md", "w") as file:
+    with open(os.path.join(cwd, "detailed_summary.md"), "w") as file:
         file.write(detailed_summary)
 
 
 def join_with_spaces(lst):
-    return f' '.join(lst)
+    return f" ".join(lst)
 
 
 def join_with_newlines(lst):
-    return f'\n'.join(lst)
+    return f"\n".join(lst)
 
 
 def to_bytes(size):
     if size.isdigit():
         return int(size)
     unit = size[-1]
-    if unit == 'K':
+    if unit == "K":
         return int(size[:-1]) * 1024
-    elif unit == 'M':
-        return int(size[:-1]) * (1024 ** 2)
-    elif unit == 'G':
-        return int(size[:-1]) * (1024 ** 3)
-    elif unit == 'T':
-        return int(size[:-1]) * (1024 ** 4)
-    elif unit == 'P':
-        return int(size[:-1]) * (1024 ** 5)
+    elif unit == "M":
+        return int(size[:-1]) * (1024**2)
+    elif unit == "G":
+        return int(size[:-1]) * (1024**3)
+    elif unit == "T":
+        return int(size[:-1]) * (1024**4)
+    elif unit == "P":
+        return int(size[:-1]) * (1024**5)
     else:
-        raise ValueError('Given size is not correct.')
+        raise ValueError("Given size is not correct.")
 
 
 def build_s5cmd_exec(old, new, local_dir):
-    run_cmd(['git', '-C', f'{local_dir}', 'clone', 'https://github.com/peak/s5cmd.git', '-q'])
+    run_cmd(
+        [
+            "git",
+            "-C",
+            local_dir,
+            "clone",
+            "https://github.com/peak/s5cmd.git",
+            "-q",
+        ]
+    )
 
-    clone_dir = f'{local_dir}/s5cmd/'
+    clone_dir = os.path.join(local_dir, "s5cmd")
 
-    old = S5cmd(local_dir, clone_dir, 'old', old)
-    new = S5cmd(local_dir, clone_dir, 'new', new)
+    old = S5cmd(local_dir, clone_dir, "old", old)
+    new = S5cmd(local_dir, clone_dir, "new", new)
     return old, new
 
 
-def create_bench_dir(args):
-    local_dir = mkdtemp(prefix=args.prefix)
-    idx = local_dir.rfind(args.prefix[-1]) + 1
-    dst_path = f's3://{args.bucket}/{args.prefix}/{local_dir[idx:]}'
-    print(f'All the local temporary files will be created at {local_dir}')
-    print(f'All the remote files will be uploaded to {dst_path}')
-    print(f'The created local&remote files will be deleted at the end of tests.')
-    print(
-        f'Hyperfine will execute s5cmd uploads {args.warmup} times to warmup, and {args.runs} times for measurements.')
+def create_bench_dir(bucket, prefix, local_path):
+    """
+    Create a benchmark directory with a unique name to specified local_path.
+    If no path is specified, create temporary directory using mkdtemp.
+    In both of those cases, use the same unique name to create remote path name.
 
-    return local_dir, dst_path
+    :param bucket: remote bucket to be used to create remote_path
+    :param prefix: prefix to be used after specified bucket for remote_path
+    :param local_path: specify a path for temporary files to be created in your local. If empty,
+    use default temporary folder path of your device.
+    :returns:
+        - local_dir - created local_dir path as local_path/bench-unique_suffix
+        - remote_path - created remote_path as s3://bucket/prefix/unique_suffix
+
+    """
+    if local_path:
+        basename = "bench"
+        suffix = datetime.datetime.now().strftime("%y%m%d_%H%M%S")
+        tmp_dir = "_".join([basename, suffix])
+        if os.path.isdir(local_path):
+            os.chdir(local_path)
+        else:
+            raise NotADirectoryError(local_path)
+        os.chdir(local_path)
+        os.mkdir(tmp_dir)
+        os.chdir(tmp_dir)
+
+        local_dir = os.getcwd()
+        remote_path = f"s3://{bucket}/{prefix}/{suffix}"
+    else:
+        local_dir = mkdtemp(prefix=prefix)
+        idx = local_dir.rfind(prefix[-1]) + 1
+        remote_path = f"s3://{bucket}/{prefix}/{local_dir[idx:]}"
+    print(f"All the local temporary files will be created at {local_dir}")
+    print(f"All the remote files will be uploaded to {remote_path}")
+
+    return local_dir, remote_path
 
 
 def run_cmd(cmd):
     process = subprocess.run(cmd, capture_output=True, text=True)
-    print(process.stderr, end='')
-    print(process.stdout, end='')
-    process.check_returncode()
+    print(process.stdout, end="")
+    print(process.stderr, end="")
     return process.stdout
 
 
 def cleanup(tmp_dir, temp_result_file_dir):
-    if os.path.isfile(f'{temp_result_file_dir}/detailed_summary.md'):
-        os.remove(f'{temp_result_file_dir}/detailed_summary.md')
+    temp_summary = os.path.join(temp_result_file_dir, "detailed_summary.md")
+    if os.path.isfile(temp_summary):
+        os.remove(temp_summary)
+
     shutil.rmtree(tmp_dir)
 
 

@@ -466,6 +466,14 @@ func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata Metadata) err
 		CopySource:   aws.String(copySource),
 		RequestPayer: s.RequestPayer(),
 	}
+	if from.VersionID != "" {
+		// Unlike many other *Input and *Output types version ID is not a field,
+		// but rather something that must be appended to CopySource string.
+		// This is same in both v1 and v2 SDKs:
+		// https://pkg.go.dev/github.com/aws/aws-sdk-go/service/s3#CopyObjectInput
+		// https://pkg.go.dev/github.com/aws/aws-sdk-go-v2/service/s3#CopyObjectInput
+		input.CopySource = aws.String(copySource + "?versionId=" + from.VersionID)
+	}
 
 	storageClass := metadata.StorageClass()
 	if storageClass != "" {

@@ -208,6 +208,10 @@ func NewCopyCommandFlags() []cli.Flag {
 			Aliases: []string{"u"},
 			Usage:   "only overwrite destination if source modtime is newer",
 		},
+		&cli.StringFlag{
+			Name:  "version-id",
+			Usage: "use the specified `version` of an object",
+		},
 	}
 	sharedFlags := NewSharedFlags()
 	return append(copyFlags, sharedFlags...)
@@ -231,15 +235,19 @@ func NewCopyCommand() *cli.Command {
 			defer stat.Collect(c.Command.FullName(), &err)()
 
 			// don't delete source
-			return NewCopy(c, false).Run(c.Context)
+			copy, err := NewCopy(c, false)
+			if err != nil {
+				return err
+			}
+			return copy.Run(c.Context)
 		},
 	}
 }
 
 // Copy holds copy operation flags and states.
 type Copy struct {
-	src         string
-	dst         string
+	src         *url.URL
+	dst         *url.URL
 	op          string
 	fullCommand string
 
@@ -257,7 +265,6 @@ type Copy struct {
 	acl                   string
 	forceGlacierTransfer  bool
 	ignoreGlacierWarnings bool
-	raw                   bool
 	exclude               []string
 	cacheControl          string
 	expires               string
@@ -275,10 +282,25 @@ type Copy struct {
 }
 
 // NewCopy creates Copy from cli.Context.
-func NewCopy(c *cli.Context, deleteSource bool) Copy {
-	return Copy{
-		src:          c.Args().Get(0),
-		dst:          c.Args().Get(1),
+func NewCopy(c *cli.Context, deleteSource bool) (*Copy, error) {
+	fullCommand := commandFromContext(c)
+
+	src, err := url.New(c.Args().Get(0), url.WithVersion(c.String("version-id")),
+		url.WithRaw(c.Bool("raw")))
+	if err != nil {
+		printError(fullCommand, c.Command.Name, err)
+		return nil, err
+	}
+
+	dst, err := url.New(c.Args().Get(1), url.WithRaw(c.Bool("raw")))
+	if err != nil {
+		printError(fullCommand, c.Command.Name, err)
+		return nil, err
+	}
+
+	return &Copy{
+		src:          src,
+		dst:          dst,
 		op:           c.Command.Name,
 		fullCommand:  commandFromContext(c),
 		deleteSource: deleteSource,
@@ -297,7 +319,6 @@ func NewCopy(c *cli.Context, deleteSource bool) Copy {
 		forceGlacierTransfer:  c.Bool("force-glacier-transfer"),
 		ignoreGlacierWarnings: c.Bool("ignore-glacier-warnings"),
 		exclude:               c.StringSlice("exclude"),
-		raw:                   c.Bool("raw"),
 		cacheControl:          c.String("cache-control"),
 		expires:               c.String("expires"),
 		contentType:           c.String("content-type"),
@@ -307,7 +328,7 @@ func NewCopy(c *cli.Context, deleteSource bool) Copy {
 		dstRegion: c.String("destination-region"),
 
 		storageOpts: NewStorageOpts(c),
-	}
+	}, nil
 }
 
 const fdlimitWarning = `
@@ -318,30 +339,18 @@ increase the open file limit or try to decrease the number of workers with
 
 // Run starts copying given source objects to destination.
 func (c Copy) Run(ctx context.Context) error {
-	srcurl, err := url.New(c.src, url.WithRaw(c.raw))
-	if err != nil {
-		printError(c.fullCommand, c.op, err)
-		return err
-	}
-
-	dsturl, err := url.New(c.dst, url.WithRaw(c.raw))
-	if err != nil {
-		printError(c.fullCommand, c.op, err)
-		return err
-	}
-
 	// override source region if set
 	if c.srcRegion != "" {
 		c.storageOpts.SetRegion(c.srcRegion)
 	}
 
-	client, err := storage.NewClient(ctx, srcurl, c.storageOpts)
+	client, err := storage.NewClient(ctx, c.src, c.storageOpts)
 	if err != nil {
 		printError(c.fullCommand, c.op, err)
 		return err
 	}
 
-	objch, err := expandSource(ctx, client, c.followSymlinks, srcurl)
+	objch, err := expandSource(ctx, client, c.followSymlinks, c.src)
 
 	if err != nil {
 		printError(c.fullCommand, c.op, err)
@@ -370,9 +379,9 @@ func (c Copy) Run(ctx context.Context) error {
 		}
 	}()
 
-	isBatch := srcurl.IsWildcard()
-	if !isBatch && !srcurl.IsRemote() {
-		obj, _ := client.Stat(ctx, srcurl)
+	isBatch := c.src.IsWildcard()
+	if !isBatch && !c.src.IsRemote() {
+		obj, _ := client.Stat(ctx, c.src)
 		isBatch = obj != nil && obj.Type.IsDir()
 	}
 
@@ -402,7 +411,7 @@ func (c Copy) Run(ctx context.Context) error {
 			continue
 		}
 
-		if isURLExcluded(excludePatterns, object.URL.Path, srcurl.Prefix) {
+		if isURLExcluded(excludePatterns, object.URL.Path, c.src.Prefix) {
 			continue
 		}
 
@@ -410,12 +419,12 @@ func (c Copy) Run(ctx context.Context) error {
 		var task parallel.Task
 
 		switch {
-		case srcurl.Type == dsturl.Type: // local->local or remote->remote
-			task = c.prepareCopyTask(ctx, srcurl, dsturl, isBatch)
+		case srcurl.Type == c.dst.Type: // local->local or remote->remote
+			task = c.prepareCopyTask(ctx, srcurl, c.dst, isBatch)
 		case srcurl.IsRemote(): // remote->local
-			task = c.prepareDownloadTask(ctx, srcurl, dsturl, isBatch)
-		case dsturl.IsRemote(): // local->remote
-			task = c.prepareUploadTask(ctx, srcurl, dsturl, isBatch)
+			task = c.prepareDownloadTask(ctx, srcurl, c.dst, isBatch)
+		case c.dst.IsRemote(): // local->remote
+			task = c.prepareUploadTask(ctx, srcurl, c.dst, isBatch)
 		default:
 			panic("unexpected src-dst pair")
 		}
@@ -841,7 +850,8 @@ func validateCopyCommand(c *cli.Context) error {
 	src := c.Args().Get(0)
 	dst := c.Args().Get(1)
 
-	srcurl, err := url.New(src, url.WithRaw(c.Bool("raw")))
+	srcurl, err := url.New(src, url.WithVersion(c.String("version-id")),
+		url.WithRaw(c.Bool("raw")))
 	if err != nil {
 		return err
 	}

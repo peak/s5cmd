@@ -173,16 +173,17 @@ var app = &cli.App{
 // NewStorageOpts creates storage.Options object from the given context.
 func NewStorageOpts(c *cli.Context) storage.Options {
 	return storage.Options{
-		DryRun:           c.Bool("dry-run"),
-		Endpoint:         c.String("endpoint-url"),
-		MaxRetries:       c.Int("retry-count"),
-		NoSignRequest:    c.Bool("no-sign-request"),
-		NoVerifySSL:      c.Bool("no-verify-ssl"),
-		RequestPayer:     c.String("request-payer"),
-		UseListObjectsV1: c.Bool("use-list-objects-v1"),
-		Profile:          c.String("profile"),
-		CredentialFile:   c.String("credentials-file"),
-		LogLevel:         log.LevelFromString(c.String("log")),
+		DryRun:                 c.Bool("dry-run"),
+		Endpoint:               c.String("endpoint-url"),
+		MaxRetries:             c.Int("retry-count"),
+		NoSignRequest:          c.Bool("no-sign-request"),
+		NoVerifySSL:            c.Bool("no-verify-ssl"),
+		RequestPayer:           c.String("request-payer"),
+		UseListObjectsV1:       c.Bool("use-list-objects-v1"),
+		Profile:                c.String("profile"),
+		CredentialFile:         c.String("credentials-file"),
+		LogLevel:               log.LevelFromString(c.String("log")),
+		NoSuchUploadRetryCount: c.Int("no-such-upload-retry-count"),
 	}
 }
 

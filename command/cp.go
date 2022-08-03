@@ -177,6 +177,12 @@ func NewSharedFlags() []cli.Flag {
 			Name:  "content-encoding",
 			Usage: "set content encoding for target: defines content encoding header for object, e.g. --content-encoding gzip",
 		},
+		&cli.IntFlag{
+			Name:        "no-such-upload-retry-count",
+			Usage:       "number of times that a request will be retried on NoSuchUpload error; you should not use this unless you really know what you're doing",
+			DefaultText: "0",
+			Hidden:      true,
+		},
 	}
 }
 
@@ -251,8 +257,8 @@ type Copy struct {
 	acl                   string
 	forceGlacierTransfer  bool
 	ignoreGlacierWarnings bool
-	exclude               []string
 	raw                   bool
+	exclude               []string
 	cacheControl          string
 	expires               string
 	contentType           string

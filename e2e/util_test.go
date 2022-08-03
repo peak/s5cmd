@@ -38,6 +38,12 @@ import (
 	"gotest.tools/v3/icmd"
 )
 
+const (
+	// Don't use "race" flag in the build arguments.
+	testDisableRaceFlagKey = "S5CMD_BUILD_BINARY_WITHOUT_RACE_FLAG"
+	testDisableRaceFlagVal = "1"
+)
+
 var (
 	defaultAccessKeyID     = "s5cmd-test-access-key-id"
 	defaultSecretAccessKey = "s5cmd-test-secret-access-key"
@@ -210,14 +216,23 @@ func goBuildS5cmd() func() {
 	workdir = filepath.Dir(workdir)
 
 	var args []string
-	if runtime.GOOS == "windows" {
+
+	if os.Getenv(testDisableRaceFlagKey) == testDisableRaceFlagVal {
 		/*
-		 disable '-race' flag because CI fails with below error.
+		 1. disable '-race' flag because CI fails with below error.
 
 		 ==2688==ERROR: ThreadSanitizer failed to allocate 0x000001000000
 		 (16777216) bytes at 0x040140000000 (error code: 1455)
 
 		 Ref: https://github.com/golang/go/issues/22553
+
+		 2.  Some distributions default to buildmode pie which is incompatible with race flag.
+
+		 Ref: Alpine Linux: "All userland binaries are compiled as Position
+		 Independent Executables (PIE)..." https://www.alpinelinux.org/about/
+
+		 Ref 2: "-buildmode=pie not supported when -race is enabled"
+		 https://cs.opensource.google/go/go/+/master:src/cmd/go/internal/work/init.go;l=245;drc=eaf21256545ae04a35fa070763faa6eb2098591d
 		*/
 		args = []string{"build", "-mod=vendor", "-o", s5cmdPath}
 	} else {

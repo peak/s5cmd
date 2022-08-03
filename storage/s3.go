@@ -972,6 +972,34 @@ func (s *S3) RemoveBucket(ctx context.Context, name string) error {
 	return err
 }
 
+// SetBucketVersioning sets the versioning property of the bucket
+func (s *S3) SetBucketVersioning(ctx context.Context, versioningStatus, bucket string) error {
+	if s.dryRun {
+		return nil
+	}
+
+	_, err := s.api.PutBucketVersioningWithContext(ctx, &s3.PutBucketVersioningInput{
+		Bucket: aws.String(bucket),
+		VersioningConfiguration: &s3.VersioningConfiguration{
+			Status: aws.String(versioningStatus),
+		},
+	})
+	return err
+}
+
+// SetBucketVersioning sets the versioning property of the bucket
+func (s *S3) GetBucketVersioning(ctx context.Context, bucket string) (string, error) {
+
+	output, err := s.api.GetBucketVersioningWithContext(ctx, &s3.GetBucketVersioningInput{
+		Bucket: aws.String(bucket),
+	})
+	if err != nil {
+		return "", err
+	}
+	return *output.Status, nil
+
+}
+
 type sdkLogger struct{}
 
 func (l sdkLogger) Log(args ...interface{}) {

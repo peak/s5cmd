@@ -213,16 +213,17 @@ func (s *S3) listObjectsVersion(ctx context.Context, url *url.URL) <-chan *Objec
 					now = time.Now().UTC()
 				}
 
-				for _, c := range p.Versions {
-					key := aws.StringValue(c.Key)
+				// iterate over all versions of the objects (except the delete markers)
+				for _, v := range p.Versions {
+					key := aws.StringValue(v.Key)
 					if !url.Match(key) {
 						continue
 					}
-					if s.versionId != "" && s.versionId != *c.VersionId {
+					if s.versionId != "" && s.versionId != *v.VersionId {
 						continue
 					}
 
-					mod := aws.TimeValue(c.LastModified).UTC()
+					mod := aws.TimeValue(v.LastModified).UTC()
 					if mod.After(now) {
 						objectFound = true
 						continue
@@ -234,19 +235,52 @@ func (s *S3) listObjectsVersion(ctx context.Context, url *url.URL) <-chan *Objec
 					}
 
 					newurl := url.Clone()
-					newurl.Path = aws.StringValue(c.Key)
-					newurl.VersionID = *c.VersionId
-					etag := aws.StringValue(c.ETag)
+					newurl.Path = aws.StringValue(v.Key)
+					newurl.VersionID = *v.VersionId
+					etag := aws.StringValue(v.ETag)
 
 					objCh <- &Object{
 						URL:          newurl,
 						Etag:         strings.Trim(etag, `"`),
 						ModTime:      &mod,
 						Type:         ObjectType{objtype},
-						Size:         aws.Int64Value(c.Size),
-						StorageClass: StorageClass(aws.StringValue(c.StorageClass)),
-						// todo think: do we need it?
-						//	VersionID: *c.VersionId,
+						Size:         aws.Int64Value(v.Size),
+						StorageClass: StorageClass(aws.StringValue(v.StorageClass)),
+					}
+
+					objectFound = true
+				}
+
+				// iterate over all delete marker versions of the objects
+				for _, d := range p.DeleteMarkers {
+					key := aws.StringValue(d.Key)
+					if !url.Match(key) {
+						continue
+					}
+					if s.versionId != "" && s.versionId != *d.VersionId {
+						continue
+					}
+
+					mod := aws.TimeValue(d.LastModified).UTC()
+					if mod.After(now) {
+						objectFound = true
+						continue
+					}
+
+					var objtype os.FileMode
+					if strings.HasSuffix(key, "/") {
+						objtype = os.ModeDir
+					}
+
+					newurl := url.Clone()
+					newurl.Path = aws.StringValue(d.Key)
+					newurl.VersionID = *d.VersionId
+
+					objCh <- &Object{
+						URL:     newurl,
+						ModTime: &mod,
+						Type:    ObjectType{objtype},
+						Size:    0,
 					}
 
 					objectFound = true

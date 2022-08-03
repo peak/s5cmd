@@ -67,10 +67,7 @@ type S3 struct {
 	useListObjectsV1       bool
 	noSuchUploadRetryCount int
 	requestPayer           string
-	// todo remove versioning
-
-	allVersions bool
-	versionId   string
+	versionId              string
 }
 
 func (s *S3) RequestPayer() *string {
@@ -110,16 +107,13 @@ func newS3Storage(ctx context.Context, opts Options) (*S3, error) {
 	}
 
 	return &S3{
-		api:              s3.New(awsSession),
-		downloader:       s3manager.NewDownloader(awsSession),
-		uploader:         s3manager.NewUploader(awsSession),
-		endpointURL:      endpointURL,
-		dryRun:           opts.DryRun,
-		useListObjectsV1: opts.UseListObjectsV1,
-		requestPayer:     opts.RequestPayer,
-		// todo remove versioning
-		allVersions:            opts.AllVersions,
-		versionId:              opts.VersionId,
+		api:                    s3.New(awsSession),
+		downloader:             s3manager.NewDownloader(awsSession),
+		uploader:               s3manager.NewUploader(awsSession),
+		endpointURL:            endpointURL,
+		dryRun:                 opts.DryRun,
+		useListObjectsV1:       opts.UseListObjectsV1,
+		requestPayer:           opts.RequestPayer,
 		noSuchUploadRetryCount: opts.NoSuchUploadRetryCount,
 	}, nil
 }

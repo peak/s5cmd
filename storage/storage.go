@@ -61,8 +61,6 @@ func NewRemoteClient(ctx context.Context, url *url.URL, opts Options) (*S3, erro
 		DryRun:                 opts.DryRun,
 		NoSignRequest:          opts.NoSignRequest,
 		UseListObjectsV1:       opts.UseListObjectsV1,
-		AllVersions:            opts.AllVersions,
-		VersionId:              opts.VersionId,
 		Endpoint:               opts.Endpoint,
 		RequestPayer:           opts.RequestPayer,
 		Profile:                opts.Profile,
@@ -90,8 +88,6 @@ type Options struct {
 	DryRun                 bool
 	NoSignRequest          bool
 	UseListObjectsV1       bool
-	AllVersions            bool
-	VersionId              string
 	Endpoint               string
 	LogLevel               log.LogLevel
 	RequestPayer           string

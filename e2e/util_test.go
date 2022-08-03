@@ -96,10 +96,14 @@ func withProxy() option {
 }
 
 func setup(t *testing.T, options ...option) (*s3.S3, func(...string) icmd.Cmd, func()) {
+	return setupWithBackend(t, "bolt", options...)
+}
+
+func setupWithBackend(t *testing.T, backend string, options ...option) (*s3.S3, func(...string) icmd.Cmd, func()) {
 	t.Helper()
 
 	opts := &setupOpts{
-		s3backend: "bolt",
+		s3backend: backend,
 	}
 
 	for _, option := range options {

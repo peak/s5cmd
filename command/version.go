@@ -60,6 +60,14 @@ func NewVersionCommand() *cli.Command {
 		},
 		Before: func(c *cli.Context) error {
 			// todo validate commmand
+			// check if the status  argument is valid
+			// to be handled by using GenericFlags  & Enum values
+			status := c.String("set")
+			if c.IsSet("set") && status != "Suspended" && status != "Enabled" {
+				errMessage := "Incorrect Usage: invalid value \"" + status + "\" for flag --set: allowed values: [Suspended, Enabled]"
+				fmt.Println(errMessage)
+				return fmt.Errorf(errMessage)
+			}
 			return nil
 		},
 		Action: func(c *cli.Context) error {
@@ -115,6 +123,7 @@ func (v Versioning) Run(ctx context.Context) error {
 		}
 		err := client.SetBucketVersioning(ctx, v.status, v.src.Bucket)
 		if err != nil {
+			printError(v.fullCommand, v.op, err)
 			return err
 		}
 		msg := VersioningMessage{
@@ -127,6 +136,7 @@ func (v Versioning) Run(ctx context.Context) error {
 	}
 	status, err := client.GetBucketVersioning(ctx, v.src.Bucket)
 	if err != nil {
+		printError(v.fullCommand, v.op, err)
 		return err
 	}
 

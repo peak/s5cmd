@@ -290,9 +290,9 @@ class Scenario:
                     or int(self.hyperfine_args["warmup"]) >= 1
                 ):
                     cmd.append("--prepare")
-                    cmd.append(s5cmd_cmds["old_upload"])
+                    cmd.append(s5cmd_cmds["prepare_old_for_remove"])
                     cmd.append("--prepare")
-                    cmd.append(s5cmd_cmds["new_upload"])
+                    cmd.append(s5cmd_cmds["prepare_new_for_remove"])
 
             if self.hyperfine_args["extra_flags"]:
                 cmd.append(self.hyperfine_args["extra_flags"].strip())
@@ -323,11 +323,17 @@ class Scenario:
         old_upload = f"{old_s5cmd.path} {old_upload}"
         result["old_upload"] = old_upload
 
+        prepare_old_for_remove = f"{old_upload} | sleep 10"
+        result["prepare_old_for_remove"] = prepare_old_for_remove
+
         new_upload = join_with_spaces(
             [self.s5cmd_args, "cp", '"*"', f"{self.dst_path}/new/"]
         )
         new_upload = f"{new_s5cmd.path} {new_upload}"
         result["new_upload"] = new_upload
+
+        prepare_new_for_remove = f"{new_upload} | sleep 10"
+        result["prepare_new_for_remove"] = prepare_new_for_remove
 
         old_download = join_with_spaces(
             [self.s5cmd_args, "cp", f'"{self.dst_path}/old/*"', "old/"]
@@ -344,6 +350,7 @@ class Scenario:
         new_remove = join_with_spaces(
             [self.s5cmd_args, "rm", f'"{self.dst_path}/new/*"']
         )
+
         new_remove = f"{new_s5cmd.path} {new_remove}"
         result["new_remove"] = new_remove
 
@@ -486,6 +493,9 @@ def create_bench_dir(bucket, prefix, local_path):
 
 def run_cmd(cmd):
     process = subprocess.run(cmd, capture_output=True, text=True)
+    with open(os.path.join(cwd, "stdout"), "a") as file:
+        file.write(process.stdout)
+        file.write(process.stderr)
     print(process.stdout, end="")
     print(process.stderr, end="")
     return process.stdout

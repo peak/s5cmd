@@ -6,6 +6,8 @@ import (
 	"runtime"
 	"testing"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/s3"
 	"gotest.tools/v3/assert"
 	"gotest.tools/v3/fs"
 	"gotest.tools/v3/icmd"
@@ -1188,4 +1190,77 @@ func TestRemovetNonexistingLocalFile(t *testing.T) {
 	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: equals(`ERROR "rm nonexistentfile": no object found`),
 	}, strictLineCheck(true))
+}
+
+func TestVersionedListAndRemove(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	// versioninng is only supported with in memory backend!
+	s3client, s5cmd, cleanup := setup(t, withS3Backend("mem"))
+	defer cleanup()
+
+	const (
+		filename              = "testfile.txt"
+		firstContent          = "this is the first content"
+		firstExpectedContent  = firstContent + "\n"
+		secondContent         = "this is the second content: Haza Kitâb-i Ebâ Mûslim."
+		secondExpectedContent = secondContent + "\n"
+	)
+
+	workdir := fs.NewDir(t, t.Name(), fs.WithFile(filename+"1", firstContent), fs.WithFile(filename+"2", firstContent))
+	defer workdir.Remove()
+
+	// create a bucket and Enable versioning
+	createBucket(t, s3client, bucket)
+	s3client.PutBucketVersioning(&s3.PutBucketVersioningInput{
+		Bucket: aws.String(bucket),
+		VersioningConfiguration: &s3.VersioningConfiguration{
+			Status: aws.String("Enabled"),
+		},
+	})
+
+	// upload two versions of the file with same key
+	putFile(t, s3client, bucket, filename, firstExpectedContent)
+	putFile(t, s3client, bucket, filename, secondExpectedContent)
+
+	//  remove (add a delete marker)
+	cmd := s5cmd("rm", "s3://"+bucket+"/"+filename)
+	result := icmd.RunCmd(cmd)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: contains("rm s3://%v/%v", bucket, filename),
+	})
+
+	// we expect to see it empty
+	cmd = s5cmd("ls", "s3://"+bucket+"/"+filename)
+	result = icmd.RunCmd(cmd)
+
+	assert.Assert(t, result.Stdout() == "")
+
+	// we expect to see 3 versions of objects of which is a delete marker
+	cmd = s5cmd("ls", "--all-versions", "s3://"+bucket+"/"+filename)
+	result = icmd.RunCmd(cmd)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: contains("%v", filename),
+		1: contains("%v", filename),
+		2: contains("%v", filename),
+	})
+
+	// / we expect to 3 versions of objects of which is a delete marker to be deleted
+	cmd = s5cmd("rm", "--all-versions", "s3://"+bucket+"/"+filename)
+	result = icmd.RunCmd(cmd)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: contains("rm s3://%v/%v", bucket, filename),
+		1: contains("rm s3://%v/%v", bucket, filename),
+		2: contains("rm s3://%v/%v", bucket, filename),
+	})
+
+	// we expect to see 3 versions of objects of which is a delete marker
+	cmd = s5cmd("ls", "--all-versions", "s3://"+bucket+"/"+filename)
+	result = icmd.RunCmd(cmd)
+	assert.Assert(t, result.Stdout() == "")
 }

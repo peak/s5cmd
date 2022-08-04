@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/igungor/gofakes3/internal/goskipiter"
+	"github.com/Kucukaslan/gofakes3/internal/goskipiter"
 	"github.com/ryszard/goskiplist/skiplist"
 )
 

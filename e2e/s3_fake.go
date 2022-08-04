@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/igungor/gofakes3"
-	"github.com/igungor/gofakes3/backend/s3bolt"
-	"github.com/igungor/gofakes3/backend/s3mem"
+	"github.com/Kucukaslan/gofakes3"
+	"github.com/Kucukaslan/gofakes3/backend/s3bolt"
+	"github.com/Kucukaslan/gofakes3/backend/s3mem"
 	"gotest.tools/v3/fs"
 )
 

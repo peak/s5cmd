@@ -24,6 +24,7 @@ import (
 
 	"github.com/peak/s5cmd/storage"
 
+	"github.com/Kucukaslan/gofakes3"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -32,7 +33,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/google/go-cmp/cmp"
 	"github.com/iancoleman/strcase"
-	"github.com/igungor/gofakes3"
 	"gotest.tools/v3/assert"
 	"gotest.tools/v3/fs"
 	"gotest.tools/v3/icmd"

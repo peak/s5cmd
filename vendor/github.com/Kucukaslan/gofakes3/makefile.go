@@ -1,4 +1,5 @@
-//+build tools
+//go:build tools
+// +build tools
 
 // Run this script like so:
 //
@@ -65,7 +66,7 @@ func runBuildDocker() error {
 		return err
 	}
 
-	cmd = command("docker", "build", "-t", "igungor/gofakes3", ".")
+	cmd = command("docker", "build", "-t", "Kucukaslan/gofakes3", ".")
 	if err := cmd.Run(); err != nil {
 		return err
 	}

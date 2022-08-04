@@ -8,8 +8,8 @@ import (
 	"io"
 	"log"
 
-	"github.com/igungor/gofakes3"
-	"github.com/igungor/gofakes3/internal/s3io"
+	"github.com/Kucukaslan/gofakes3"
+	"github.com/Kucukaslan/gofakes3/internal/s3io"
 	bolt "go.etcd.io/bbolt"
 	"gopkg.in/mgo.v2/bson"
 )

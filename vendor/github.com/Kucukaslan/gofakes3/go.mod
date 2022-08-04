@@ -1,4 +1,4 @@
-module github.com/igungor/gofakes3
+module github.com/Kucukaslan/gofakes3
 
 require (
 	github.com/aws/aws-sdk-go v1.17.4

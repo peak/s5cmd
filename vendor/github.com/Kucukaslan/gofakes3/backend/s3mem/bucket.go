@@ -5,8 +5,8 @@ import (
 	"io"
 	"time"
 
-	"github.com/igungor/gofakes3"
-	"github.com/igungor/gofakes3/internal/s3io"
+	"github.com/Kucukaslan/gofakes3"
+	"github.com/Kucukaslan/gofakes3/internal/s3io"
 	"github.com/ryszard/goskiplist/skiplist"
 )
 
@@ -179,6 +179,13 @@ func (b *bucket) object(objectName string) (obj *bucketObject) {
 
 func (b *bucket) objectVersion(objectName string, versionID gofakes3.VersionID) (*bucketData, error) {
 	obj := b.object(objectName)
+	if versionID == "" {
+		if obj.data.deleteMarker {
+			return nil, gofakes3.KeyNotFound(objectName)
+		}
+		return obj.data, nil
+	}
+
 	if obj == nil {
 		return nil, gofakes3.KeyNotFound(objectName)
 	}

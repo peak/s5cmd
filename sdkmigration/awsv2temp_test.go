@@ -7,7 +7,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/aws/request"
+	"github.com/aws/smithy-go"
+	"github.com/aws/smithy-go/middleware"
 	"github.com/golang/mock/gomock"
 	"github.com/google/go-cmp/cmp"
 	"github.com/peak/s5cmd/log"
@@ -17,6 +18,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 )
 
@@ -349,153 +351,34 @@ func TestS3Retry(t *testing.T) {
 	}{
 		// Internal error
 		{
-			name:          "InternalError",
+			name:          "InvalidToken",
 			err:           awserr.New("InternalError", "internal error", nil),
 			expectedRetry: 5,
 		},
-
-		// Request errors
-		{
-			name:          "RequestError",
-			err:           awserr.New(request.ErrCodeRequestError, "request error", nil),
-			expectedRetry: 5,
-		},
-		{
-			name:          "UseOfClosedNetworkConnection",
-			err:           awserr.New(request.ErrCodeRequestError, "use of closed network connection", nil),
-			expectedRetry: 5,
-		},
-		{
-			name:          "ConnectionResetByPeer",
-			err:           awserr.New(request.ErrCodeRequestError, "connection reset by peer", nil),
-			expectedRetry: 5,
-		},
-		{
-			name: "RequestFailureRequestError",
-			err: awserr.NewRequestFailure(
-				awserr.New(request.ErrCodeRequestError, "request failure: request error", nil),
-				400,
-				"0",
-			),
-			expectedRetry: 5,
-		},
-		{
-			name:          "RequestTimeout",
-			err:           awserr.New("RequestTimeout", "request timeout", nil),
-			expectedRetry: 5,
-		},
-		{
-			name:          "ResponseTimeout",
-			err:           awserr.New(request.ErrCodeResponseTimeout, "response timeout", nil),
-			expectedRetry: 5,
-		},
-		{
-			name:          "RequestTimeTooSkewed",
-			err:           awserr.New("RequestTimeTooSkewed", "The difference between the request time and the server's time is too large.", nil),
-			expectedRetry: 5,
-		},
-
-		// Throttling errors
-		{
-			name:          "ProvisionedThroughputExceededException",
-			err:           awserr.New("ProvisionedThroughputExceededException", "provisioned throughput exceeded exception", nil),
-			expectedRetry: 5,
-		},
-		{
-			name:          "Throttling",
-			err:           awserr.New("Throttling", "throttling", nil),
-			expectedRetry: 5,
-		},
-		{
-			name:          "ThrottlingException",
-			err:           awserr.New("ThrottlingException", "throttling exception", nil),
-			expectedRetry: 5,
-		},
-		{
-			name:          "RequestLimitExceeded",
-			err:           awserr.New("RequestLimitExceeded", "request limit exceeded", nil),
-			expectedRetry: 5,
-		},
-		{
-			name:          "RequestThrottled",
-			err:           awserr.New("RequestThrottled", "request throttled", nil),
-			expectedRetry: 5,
-		},
-		{
-			name:          "RequestThrottledException",
-			err:           awserr.New("RequestThrottledException", "request throttled exception", nil),
-			expectedRetry: 5,
-		},
-
-		// Expired credential errors
-		{
-			name:          "ExpiredToken",
-			err:           awserr.New("ExpiredToken", "expired token", nil),
-			expectedRetry: 0,
-		},
-		{
-			name:          "ExpiredTokenException",
-			err:           awserr.New("ExpiredTokenException", "expired token exception", nil),
-			expectedRetry: 0,
-		},
-
-		// Invalid Token errors
-		{
-			name:          "InvalidToken",
-			err:           awserr.New("InvalidToken", "invalid token", nil),
-			expectedRetry: 0,
-		},
-
-		// Connection errors
-		{
-			name:          "ConnectionReset",
-			err:           fmt.Errorf("connection reset by peer"),
-			expectedRetry: 5,
-		},
-		//todo check this later
-		//{
-		//	name:          "ConnectionTimedOut",
-		//	err:           awserr.New(request.ErrCodeRequestError, "", tempError{err: errors.New("connection timed out")}),
-		//	expectedRetry: 5,
-		//},
-		{
-			name:          "BrokenPipe",
-			err:           fmt.Errorf("broken pipe"),
-			expectedRetry: 5,
-		},
-
-		// Unknown errors
-		{
-			name:          "UnknownSDKError",
-			err:           fmt.Errorf("an error that is not known to the SDK"),
-			expectedRetry: 5,
-		},
 	}
 
-	url, err := url.New("s3://bucket/key")
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
+	//url, err := url.New("s3://bucket/keyyyy")
+	//if err != nil {
+	//	t.Errorf("unexpected error: %v", err)
+	//}
 
-	const expectedRetry = 5
 	for _, tc := range testcases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 
-			if err != nil {
-				t.Fatal(err)
-			}
-			ctrl := gomock.NewController(t)
-			defer ctrl.Finish()
-			m := NewMocks3Client(ctrl)
-			mockS3 := &S3{
-				client: m,
-			}
-			ctx := context.Background()
-			mockS3, err := newS3Storage(ctx, storage.Options{MaxRetries: 5})
-			//m.EXPECT().GetObject(gomock.Any(), gomock.Any()).Return(&s3.GetObjectOutput{}, tc.err).MaxTimes(100)
+			//if err != nil {
+			//	t.Fatal(err)
+			//}
 
-			_, err = mockS3.Read(ctx, url)
+			ctx := context.Background()
+
+			s33, err := newS3Storage(ctx, storage.Options{MaxRetries: 5})
+			m := mockS3{
+
+				s3Client:  s33.client,
+				errorCode: "InvalidToken",
+			}
+			_, err = m.GetObject(context.Background(), &s3.GetObjectInput{Bucket: aws.String("bucket"), Key: aws.String("ket")})
 			fmt.Println(err)
 			if !strings.Contains(err.Error(), strconv.Itoa(tc.expectedRetry)) {
 				t.Fatalf("expected: %v, got: %v", tc.expectedRetry, err)
@@ -503,4 +386,34 @@ func TestS3Retry(t *testing.T) {
 
 		})
 	}
+
+}
+
+type mockS3 struct {
+	s3Client  s3Client
+	errorCode string
+}
+
+func (d *mockS3) GetObject(ctx context.Context, params *s3.GetObjectInput, optFns ...func(*s3.Options)) (*s3.GetObjectOutput, error) {
+	return d.s3Client.GetObject(ctx, params, func(options *s3.Options) {
+		options.APIOptions = append(options.APIOptions, d.funcName)
+	})
+}
+
+func (d *mockS3) funcName(stack *middleware.Stack) error {
+	var count int32
+	mw := middleware.InitializeMiddlewareFunc("DefaultBucket", func(
+		ctx context.Context,
+		in middleware.InitializeInput,
+		next middleware.InitializeHandler,
+	) (
+		out middleware.InitializeOutput,
+		metadata middleware.Metadata,
+		err error,
+	) {
+		atomic.AddInt32(&count, 1)
+		fmt.Println(count)
+		return out, metadata, &smithy.GenericAPIError{Code: d.errorCode}
+	})
+	return stack.Initialize.Add(mw, middleware.Before)
 }

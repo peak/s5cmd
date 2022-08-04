@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/retry"
@@ -12,8 +13,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
+	"github.com/aws/smithy-go"
 	"github.com/aws/smithy-go/logging"
-	"github.com/peak/s5cmd/command"
+	"github.com/aws/smithy-go/middleware"
 	"github.com/peak/s5cmd/log"
 	"github.com/peak/s5cmd/storage"
 	url "github.com/peak/s5cmd/storage/url"
@@ -23,6 +25,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -177,6 +180,10 @@ func newS3Storage(ctx context.Context, opts storage.Options) (*S3, error) {
 	}
 
 	cfg, err := config.LoadDefaultConfig(ctx, awsOpts...)
+
+	// Added to be able to test specific error codes.
+	//InjectError(&cfg, "InvalidToken")
+
 	if err != nil {
 		return nil, err
 	}
@@ -184,7 +191,6 @@ func newS3Storage(ctx context.Context, opts storage.Options) (*S3, error) {
 
 		o.UsePathStyle = !isVirtualHostStyle
 	})
-
 	return &S3{
 		client:     client,
 		config:     cfg,
@@ -194,6 +200,31 @@ func newS3Storage(ctx context.Context, opts storage.Options) (*S3, error) {
 		requestPayer: "",
 		endpointURL:  endpointURL,
 	}, nil
+
+}
+
+func InjectError(cfg *aws.Config, errorCode string) {
+	if errorCode == "" {
+		return
+	}
+	var count int32
+	mw := middleware.FinalizeMiddlewareFunc("DefaultBucket", func(
+		ctx context.Context,
+		in middleware.FinalizeInput,
+		next middleware.FinalizeHandler,
+	) (
+		out middleware.FinalizeOutput,
+		metadata middleware.Metadata,
+		err error,
+	) {
+		atomic.AddInt32(&count, 1)
+		fmt.Println(count)
+		fmt.Println("naber?")
+		return out, metadata, &smithy.GenericAPIError{Code: errorCode}
+	})
+	cfg.APIOptions = append(cfg.APIOptions, func(stack *middleware.Stack) error {
+		return stack.Finalize.Add(mw, middleware.After)
+	})
 
 }
 
@@ -232,10 +263,11 @@ func getClientRegion(ctx context.Context,
 
 func customRetryer(maxRetries int) func() aws.Retryer {
 	return func() aws.Retryer {
-		customRetryer := retry.AddWithMaxAttempts(retry.NewStandard(), maxRetries)
+		retrier := retry.AddWithMaxAttempts(retry.NewStandard(), maxRetries)
+		retrier = retry.AddWithErrorCodes(retrier, "InvalidToken")
 		//todo: add additional retry logics for other errors similar to ShouldRetry in previous s5cmd version
 
-		return retry.AddWithMaxBackoffDelay(customRetryer, time.Second*0)
+		return retry.AddWithMaxBackoffDelay(retrier, time.Second*0)
 	}
 }
 
@@ -823,12 +855,8 @@ func isVirtualHostStyle(endpoint urlpkg.URL) bool {
 
 func main() {
 	log.Init("debug", false)
-	nurl, err := url.New("s3://bucket/s5cmd-benchmarks-/fd11r13e/1/*")
-	if err != nil {
-		panic(err)
-	}
 	var opts = storage.Options{Endpoint: "http://127.0.0.1:56229"}
-	s3, err := newS3Storage(context.TODO(), opts)
+	S3, err := newS3Storage(context.TODO(), opts)
 
 	if err != nil {
 		panic(err)
@@ -846,21 +874,18 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	buckets, err := s3.ListBuckets(context.TODO(), "bucket")
-
-	for i, bucket := range buckets {
-		fmt.Println(i, bucket.Name)
+	_, err = S3.client.GetObject(context.TODO(), &s3.GetObjectInput{
+		Bucket: aws.String("bigtmp"),
+		Key:    aws.String("ibrahim/test1/100gbfile"),
+	})
+	var ae smithy.APIError
+	if errors.As(err, &ae) {
+		fmt.Printf(
+			"GetObject error. code: %s, message: %s, fault: %s",
+			ae.ErrorCode(),
+			ae.ErrorMessage(),
+			ae.ErrorFault().String(),
+		)
 	}
-	count := 0
-	for object := range s3.listObjectsV2(context.TODO(), nurl) {
-		count++
-		msg := command.ListMessage{
-			Object: object,
-		}
-		//time.Sleep(time.Second / 20)
-		log.Error(msg)
-
-	}
-	fmt.Println("count", count)
 
 }

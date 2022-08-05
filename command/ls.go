@@ -3,7 +3,6 @@ package command
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/urfave/cli/v2"
@@ -269,7 +268,7 @@ func (l ListMessage) String() string {
 			l.Object.URL.Relative(),
 			"",
 		)
-		return strings.TrimRight(s, " ")
+		return s
 	}
 
 	stclass := ""

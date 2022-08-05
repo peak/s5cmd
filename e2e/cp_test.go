@@ -4243,7 +4243,7 @@ func TestVersionedDownload(t *testing.T) {
 	for i, version := range versionIDs {
 		cmd = s5cmd("cp", "--version-id", version,
 			fmt.Sprintf("s3://%v/%v", bucket, filename), newDir.Path()+"/"+filename+strconv.Itoa(1+i))
-		result = icmd.RunCmd(cmd)
+		_ = icmd.RunCmd(cmd)
 	}
 
 	assert.Assert(t, fs.Equal(workdir.Path(), fs.ManifestFromDir(t, newDir.Path())))

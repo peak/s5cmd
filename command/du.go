@@ -38,10 +38,10 @@ Examples:
 		 > s5cmd {{.HelpName}} --all-versions s3://bucket/object
 
 	5. Show disk usage of all versions of all objects that starts with a prefix in the bucket
-		> s5cmd {{.HelpName}} --all-versions "s3://bucket/prefix*"
+		 > s5cmd {{.HelpName}} --all-versions "s3://bucket/prefix*"
 		
 	6. Show disk usage of all versions of all objects in the bucket
-		> s5cmd {{.HelpName}} --all-versions "s3://bucket/*"
+		 > s5cmd {{.HelpName}} --all-versions "s3://bucket/*"
 `
 
 func NewSizeCommand() *cli.Command {

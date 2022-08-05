@@ -120,11 +120,16 @@ func newS3Storage(ctx context.Context, opts Options) (*S3, error) {
 
 // Stat retrieves metadata from S3 object without returning the object itself.
 func (s *S3) Stat(ctx context.Context, url *url.URL) (*Object, error) {
-	output, err := s.api.HeadObjectWithContext(ctx, &s3.HeadObjectInput{
+	input := &s3.HeadObjectInput{
 		Bucket:       aws.String(url.Bucket),
 		Key:          aws.String(url.Path),
 		RequestPayer: s.RequestPayer(),
-	})
+	}
+	if url.VersionID != "" {
+		input.SetVersionId(url.VersionID)
+	}
+
+	output, err := s.api.HeadObjectWithContext(ctx, input)
 	if err != nil {
 		if errHasCode(err, "NotFound") {
 			return nil, &ErrGivenObjectNotFound{ObjectAbsPath: url.Absolute()}

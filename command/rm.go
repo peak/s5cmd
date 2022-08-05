@@ -41,7 +41,7 @@ Examples:
 	
 	6. Delete the specific version of a remote object's content to stdout
 		 > s5cmd {{.HelpName}} --version-id VERSION_ID s3://bucket/prefix/object
-		 
+
 	7. Delete all versions of an object in the bucket
 		 > s5cmd {{.HelpName}} --all-versions s3://bucket/object
 
@@ -211,6 +211,14 @@ func validateRMCommand(c *cli.Context) error {
 		return fmt.Errorf("expected at least 1 object to remove")
 	}
 
+	if c.Bool("all-versions") && c.String("version-id") != "" {
+		// it might be a reasonable request. Consider that I want to delete all-versions
+		// of "a" and "b", but  want to delete only singe version of "c" "someversion"
+		// I might want to express this as
+		// s5cmd rm --all-versions a --all-versions b version-id someversion c
+		// but, anyway, this is not supported in current implementation.
+		return fmt.Errorf(`it is not allowed to combine "all-versions" and "version-id" flags`)
+	}
 	srcurls, err := newURLs(c.Bool("raw"), c.String("version-id"), c.Bool("all-versions"), c.Args().Slice()...)
 	if err != nil {
 		return err

@@ -27,7 +27,7 @@ Examples:
 		 > s5cmd {{.HelpName}} s3://bucket/prefix/object
 
 	2. Print specific version of a remote object's content to stdout
-	> s5cmd {{.HelpName}} --version-id VERSION_ID s3://bucket/prefix/object
+		 > s5cmd {{.HelpName}} --version-id VERSION_ID s3://bucket/prefix/object
 `
 
 func NewCatCommand() *cli.Command {

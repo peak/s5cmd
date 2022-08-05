@@ -3,6 +3,7 @@ package command
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/urfave/cli/v2"
@@ -47,13 +48,13 @@ Examples:
 		 > s5cmd --request-payer=requester {{.HelpName}} "s3://bucket/*"
 
 	8. List all versions of an object in the bucket
-		> s5cmd {{.HelpName}} --all-versions s3://bucket/object
+		 > s5cmd {{.HelpName}} --all-versions s3://bucket/object
 
 	9. List all versions of all objects that starts with a prefix in the bucket
-		> s5cmd {{.HelpName}} --all-versions "s3://bucket/prefix*"
+		 > s5cmd {{.HelpName}} --all-versions "s3://bucket/prefix*"
 		
 	10. List all versions of all objects in the bucket
-		> s5cmd {{.HelpName}} --all-versions "s3://bucket/*"
+		 > s5cmd {{.HelpName}} --all-versions "s3://bucket/*"
 
 `
 
@@ -202,7 +203,6 @@ func (l List) Run(ctx context.Context) error {
 			showEtag:         l.showEtag,
 			showHumanized:    l.humanize,
 			showStorageClass: l.showStorageClass,
-			showVersions:     l.src.AllVersions,
 		}
 
 		log.Info(msg)
@@ -218,7 +218,6 @@ type ListMessage struct {
 	showEtag         bool
 	showHumanized    bool
 	showStorageClass bool
-	showVersions     bool
 }
 
 // humanize is a helper function to humanize bytes.
@@ -238,11 +237,25 @@ const (
 
 // String returns the string representation of ListMessage.
 func (l ListMessage) String() string {
-	var listFormat = "%19s %2s %-1s %12s %s"
 	var etag string
+	// date and storage fiels
+	var listFormat = "%19s %2s"
+
+	// align etag
 	if l.showEtag {
 		etag = l.Object.Etag
-		listFormat = "%19s %2s %-38s %12s %s"
+		listFormat = listFormat + " %-38s"
+	} else {
+		listFormat = listFormat + " %-1s"
+	}
+
+	// format file size
+	listFormat = listFormat + " %12s "
+	// format key and version ID
+	if l.Object.URL.VersionID != "" {
+		listFormat = listFormat + " %-50s %s"
+	} else {
+		listFormat = listFormat + " %s%s"
 	}
 
 	var s string
@@ -254,8 +267,9 @@ func (l ListMessage) String() string {
 			"",
 			"DIR",
 			l.Object.URL.Relative(),
+			"",
 		)
-		return s
+		return strings.TrimRight(s, " ")
 	}
 
 	stclass := ""
@@ -270,10 +284,9 @@ func (l ListMessage) String() string {
 		etag,
 		l.humanize(),
 		l.Object.URL.Relative(),
+		l.Object.URL.VersionID,
 	)
-	if l.showVersions {
-		s = s + " " + l.Object.URL.VersionID
-	}
+
 	return s
 }
 

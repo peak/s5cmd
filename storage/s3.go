@@ -576,16 +576,16 @@ func (s *S3) Get(
 		return 0, nil
 	}
 
-	goi := &s3.GetObjectInput{
+	input := &s3.GetObjectInput{
 		Bucket:       aws.String(from.Bucket),
 		Key:          aws.String(from.Path),
 		RequestPayer: s.RequestPayer(),
 	}
 	if from.VersionID != "" {
-		goi.VersionId = aws.String(from.VersionID)
+		input.VersionId = aws.String(from.VersionID)
 	}
 
-	return s.downloader.DownloadWithContext(ctx, to, goi, func(u *s3manager.Downloader) {
+	return s.downloader.DownloadWithContext(ctx, to, input, func(u *s3manager.Downloader) {
 		u.PartSize = partSize
 		u.Concurrency = concurrency
 	})

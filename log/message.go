@@ -27,6 +27,9 @@ func (i InfoMessage) String() string {
 	if i.Destination != nil {
 		return fmt.Sprintf("%v %v %v", i.Operation, i.Source, i.Destination)
 	}
+	if i.Source.VersionID != "" {
+		return fmt.Sprintf("%v %-50v %v", i.Operation, i.Source, i.Source.VersionID)
+	}
 	return fmt.Sprintf("%v %v", i.Operation, i.Source)
 }
 

@@ -659,7 +659,6 @@ func TestListLocalFilesWithExcludeFilters(t *testing.T) {
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: match("readme.md"),
 	}, trimMatch(dateRe), alignment(true))
-
 }
 
 // ls --exclude "main*" directory/*.txt

@@ -4,10 +4,9 @@ import (
 	"fmt"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/s3"
 	"gotest.tools/v3/assert"
 	"gotest.tools/v3/fs"
 	"gotest.tools/v3/icmd"
@@ -1214,12 +1213,7 @@ func TestVersionedListAndRemove(t *testing.T) {
 
 	// create a bucket and Enable versioning
 	createBucket(t, s3client, bucket)
-	s3client.PutBucketVersioning(&s3.PutBucketVersioningInput{
-		Bucket: aws.String(bucket),
-		VersioningConfiguration: &s3.VersioningConfiguration{
-			Status: aws.String("Enabled"),
-		},
-	})
+	setBucketVersioning(t, s3client, bucket, "Enabled")
 
 	// upload two versions of the file with same key
 	putFile(t, s3client, bucket, filename, firstExpectedContent)
@@ -1239,7 +1233,7 @@ func TestVersionedListAndRemove(t *testing.T) {
 
 	assert.Assert(t, result.Stdout() == "")
 
-	// we expect to see 3 versions of objects of which is a delete marker
+	// we expect to see 3 versions of objects one of which is a delete marker
 	cmd = s5cmd("ls", "--all-versions", "s3://"+bucket+"/"+filename)
 	result = icmd.RunCmd(cmd)
 
@@ -1249,7 +1243,7 @@ func TestVersionedListAndRemove(t *testing.T) {
 		2: contains("%v", filename),
 	})
 
-	// / we expect to 3 versions of objects of which is a delete marker to be deleted
+	// / we expect all 3 versions of objects (one of which is a delete marker) to be deleted
 	cmd = s5cmd("rm", "--all-versions", "s3://"+bucket+"/"+filename)
 	result = icmd.RunCmd(cmd)
 
@@ -1259,7 +1253,69 @@ func TestVersionedListAndRemove(t *testing.T) {
 		2: contains("rm s3://%v/%v", bucket, filename),
 	})
 
-	// we expect to see 3 versions of objects of which is a delete marker
+	// all versions are deleted so we don't expect to see any result
+	cmd = s5cmd("ls", "--all-versions", "s3://"+bucket+"/"+filename)
+	result = icmd.RunCmd(cmd)
+	assert.Assert(t, result.Stdout() == "")
+}
+
+func TestRemoveByVersionID(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	// versioninng is only supported with in memory backend!
+	s3client, s5cmd, cleanup := setup(t, withS3Backend("mem"))
+	defer cleanup()
+
+	const (
+		filename      = "testfile.txt"
+		firstContent  = "Sen\nSen esirliğim ve hürriyetimsin,"
+		secondContent = "Sen büyük, güzel ve muzaffer\nve ulaşıldıkça ulaşılmaz olan hasretimsin..."
+	)
+
+	// create a bucket and Enable versioning
+	createBucket(t, s3client, bucket)
+	setBucketVersioning(t, s3client, bucket, "Enabled")
+
+	// upload two versions of the file with same key
+	putFile(t, s3client, bucket, filename, firstContent)
+	putFile(t, s3client, bucket, filename, secondContent)
+
+	//  remove (add a delete marker)
+	cmd := s5cmd("rm", "s3://"+bucket+"/"+filename)
+	result := icmd.RunCmd(cmd)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: contains("rm s3://%v/%v", bucket, filename),
+	})
+
+	// we expect to see 3 versions of objects
+	cmd = s5cmd("ls", "--all-versions", "s3://"+bucket+"/"+filename)
+	result = icmd.RunCmd(cmd)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: contains("%v", filename),
+		1: contains("%v", filename),
+		2: contains("%v", filename),
+	})
+
+	// now we will parse their version IDs and remove them one by one
+	versionIDs := make([]string, 0)
+	for _, row := range strings.Split(result.Stdout(), "\n") {
+		if row != "" {
+			arr := strings.Split(row, " ")
+			versionIDs = append(versionIDs, arr[len(arr)-1])
+		}
+	}
+
+	for _, version := range versionIDs {
+		cmd = s5cmd("rm", "--version-id", version,
+			fmt.Sprintf("s3://%v/%v", bucket, filename))
+		_ = icmd.RunCmd(cmd)
+	}
+
+	// all versions are deleted so we don't expect to see any result
 	cmd = s5cmd("ls", "--all-versions", "s3://"+bucket+"/"+filename)
 	result = icmd.RunCmd(cmd)
 	assert.Assert(t, result.Stdout() == "")

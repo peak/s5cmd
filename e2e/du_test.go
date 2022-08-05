@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -245,4 +246,71 @@ func TestDiskUsageWildcardWithExcludeFilters(t *testing.T) {
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: suffix(`84 bytes in 3 objects: s3://%v/*`, bucket),
 	})
+}
+
+func TestDiskUsageByVersionIDAndAllVersions(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	// versioninng is only supported with in memory backend!
+	s3client, s5cmd, cleanup := setup(t, withS3Backend("mem"))
+	defer cleanup()
+
+	const (
+		filename      = "testfile.txt"
+		firstContent  = "Sen\nSen esirliğim ve hürriyetimsin,"
+		secondContent = "Sen büyük, güzel ve muzaffer\nve ulaşıldıkça ulaşılmaz olan hasretimsin..."
+	)
+	sizes := []int{len(firstContent), len(secondContent)}
+
+	// create a bucket and Enable versioning
+	createBucket(t, s3client, bucket)
+	setBucketVersioning(t, s3client, bucket, "Enabled")
+
+	// upload two versions of the file with same key
+	putFile(t, s3client, bucket, filename, firstContent)
+	putFile(t, s3client, bucket, filename, secondContent)
+
+	//  get disk usage
+	cmd := s5cmd("du", "s3://"+bucket+"/"+filename)
+	result := icmd.RunCmd(cmd)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(fmt.Sprintf("%d bytes in %d objects: s3://%v/%v", sizes[1], 1, bucket, filename)),
+	})
+
+	// we expect to see disk usage of 2 versions of objects
+	cmd = s5cmd("du", "--all-versions", "s3://"+bucket+"/"+filename)
+	result = icmd.RunCmd(cmd)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(fmt.Sprintf("%d bytes in %d objects: s3://%v/%v", sizes[0]+sizes[1], 2, bucket, filename)),
+	})
+
+	// now we will list and parse their version IDs
+	cmd = s5cmd("ls", "--all-versions", "s3://"+bucket+"/"+filename)
+	result = icmd.RunCmd(cmd)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: contains("%v", filename),
+		1: contains("%v", filename),
+	})
+
+	versionIDs := make([]string, 0)
+	for _, row := range strings.Split(result.Stdout(), "\n") {
+		if row != "" {
+			arr := strings.Split(row, " ")
+			versionIDs = append(versionIDs, arr[len(arr)-1])
+		}
+	}
+
+	for i, version := range versionIDs {
+		cmd = s5cmd("du", "--version-id", version,
+			fmt.Sprintf("s3://%v/%v", bucket, filename))
+		result = icmd.RunCmd(cmd)
+		assertLines(t, result.Stdout(), map[int]compareFunc{
+			0: equals(fmt.Sprintf("%d bytes in %d objects: s3://%v/%v", sizes[i], 1, bucket, filename)),
+		})
+	}
 }

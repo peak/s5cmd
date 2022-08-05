@@ -271,6 +271,19 @@ func createBucket(t *testing.T, client *s3.S3, bucket string) {
 	}
 }
 
+func setBucketVersioning(t *testing.T, s3client *s3.S3, bucket string, versioning string) {
+	t.Helper()
+	_, err := s3client.PutBucketVersioning(&s3.PutBucketVersioningInput{
+		Bucket: aws.String(bucket),
+		VersioningConfiguration: &s3.VersioningConfiguration{
+			Status: aws.String(versioning),
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 var errS3NoSuchKey = fmt.Errorf("s3: no such key")
 
 type ensureOpts struct {

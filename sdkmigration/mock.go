@@ -137,6 +137,26 @@ func (mr *Mocks3ClientMockRecorder) GetObject(ctx, params interface{}, optFns ..
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetObject", reflect.TypeOf((*Mocks3Client)(nil).GetObject), varargs...)
 }
 
+// HeadBucket mocks base method.
+func (m *Mocks3Client) HeadBucket(arg0 context.Context, arg1 *s3.HeadBucketInput, arg2 ...func(*s3.Options)) (*s3.HeadBucketOutput, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "HeadBucket", varargs...)
+	ret0, _ := ret[0].(*s3.HeadBucketOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// HeadBucket indicates an expected call of HeadBucket.
+func (mr *Mocks3ClientMockRecorder) HeadBucket(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HeadBucket", reflect.TypeOf((*Mocks3Client)(nil).HeadBucket), varargs...)
+}
+
 // HeadObject mocks base method.
 func (m *Mocks3Client) HeadObject(arg0 context.Context, arg1 *s3.HeadObjectInput, arg2 ...func(*s3.Options)) (*s3.HeadObjectOutput, error) {
 	m.ctrl.T.Helper()
@@ -258,4 +278,47 @@ func (mr *MockdownloaderMockRecorder) Download(ctx, w, input interface{}, option
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{ctx, w, input}, options...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Download", reflect.TypeOf((*Mockdownloader)(nil).Download), varargs...)
+}
+
+// Mockuploader is a mock of uploader interface.
+type Mockuploader struct {
+	ctrl     *gomock.Controller
+	recorder *MockuploaderMockRecorder
+}
+
+// MockuploaderMockRecorder is the mock recorder for Mockuploader.
+type MockuploaderMockRecorder struct {
+	mock *Mockuploader
+}
+
+// NewMockuploader creates a new mock instance.
+func NewMockuploader(ctrl *gomock.Controller) *Mockuploader {
+	mock := &Mockuploader{ctrl: ctrl}
+	mock.recorder = &MockuploaderMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *Mockuploader) EXPECT() *MockuploaderMockRecorder {
+	return m.recorder
+}
+
+// Upload mocks base method.
+func (m *Mockuploader) Upload(ctx context.Context, input *s3.PutObjectInput, opts ...func(*manager.Uploader)) (*manager.UploadOutput, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{ctx, input}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "Upload", varargs...)
+	ret0, _ := ret[0].(*manager.UploadOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Upload indicates an expected call of Upload.
+func (mr *MockuploaderMockRecorder) Upload(ctx, input interface{}, opts ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{ctx, input}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Upload", reflect.TypeOf((*Mockuploader)(nil).Upload), varargs...)
 }

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"io"
 	"net/http"
 	urlpkg "net/url"
@@ -26,6 +27,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager/s3manageriface"
+	smithy "github.com/aws/smithy-go"
 
 	"github.com/peak/s5cmd/log"
 	"github.com/peak/s5cmd/storage/url"
@@ -971,6 +973,19 @@ func ErrHasCode(err error, code string) bool {
 		}
 	}
 
+	var ae smithy.APIError
+	if errors.As(err, &ae) {
+		if ae.ErrorCode() == code {
+			return true
+		}
+	}
+
+	var bucketNotFoundErr manager.BucketNotFound
+	if errors.As(err, &bucketNotFoundErr) {
+		if err.Error() == code {
+			return true
+		}
+	}
 	var multiUploadErr s3manager.MultiUploadFailure
 	if errors.As(err, &multiUploadErr) {
 		return ErrHasCode(multiUploadErr.OrigErr(), code)

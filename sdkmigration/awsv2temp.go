@@ -15,7 +15,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/aws/smithy-go"
 	"github.com/aws/smithy-go/logging"
-	"github.com/aws/smithy-go/middleware"
 	"github.com/peak/s5cmd/log"
 	"github.com/peak/s5cmd/storage"
 	url "github.com/peak/s5cmd/storage/url"
@@ -25,7 +24,6 @@ import (
 	"os"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 )
 
@@ -61,6 +59,7 @@ type s3Client interface {
 	s3.HeadObjectAPIClient
 	s3.ListObjectsV2APIClient
 	manager.DeleteObjectsAPIClient
+	manager.HeadBucketAPIClient
 	CreateBucket(ctx context.Context, params *s3.CreateBucketInput, optFns ...func(*s3.Options)) (*s3.CreateBucketOutput, error)
 	ListBuckets(ctx context.Context, params *s3.ListBucketsInput, optFns ...func(*s3.Options)) (*s3.ListBucketsOutput, error)
 	DeleteBucket(ctx context.Context, params *s3.DeleteBucketInput, optFns ...func(*s3.Options)) (*s3.DeleteBucketOutput, error)
@@ -149,19 +148,18 @@ func newS3Storage(ctx context.Context, opts storage.Options) (*S3, error) {
 	awsOpts = append(awsOpts, endpoint)
 
 	if opts.LogLevel == log.LevelTrace {
-		awsOpts = append(awsOpts, config.WithClientLogMode(aws.LogResponse))
+		awsOpts = append(awsOpts, config.WithClientLogMode(aws.LogResponse|aws.LogRequest))
 		awsOpts = append(awsOpts, config.WithLogger(sdkLogger{}))
 	}
-
 	awsOpts = append(awsOpts, config.WithRetryer(customRetryer(opts.MaxRetries)))
 
-	//todo: by default it uses shared config and credentials files.
 	awsOpts = append(awsOpts, config.WithDefaultRegion("us-east-1"))
 
-	//todo: opts.region is not exported, this will fix itself when transferred to s3.go
+	_, isSet := os.LookupEnv("AWS_REGION")
+
 	if opts.Region != "" {
 		awsOpts = append(awsOpts, config.WithRegion(opts.Region))
-	} else {
+	} else if !isSet {
 		tmpCfg, err := config.LoadDefaultConfig(ctx, awsOpts...)
 		if err != nil {
 			return nil, err
@@ -181,9 +179,6 @@ func newS3Storage(ctx context.Context, opts storage.Options) (*S3, error) {
 
 	cfg, err := config.LoadDefaultConfig(ctx, awsOpts...)
 
-	// Added to be able to test specific error codes.
-	//InjectError(&cfg, "InvalidToken")
-
 	if err != nil {
 		return nil, err
 	}
@@ -200,31 +195,6 @@ func newS3Storage(ctx context.Context, opts storage.Options) (*S3, error) {
 		requestPayer: "",
 		endpointURL:  endpointURL,
 	}, nil
-
-}
-
-func InjectError(cfg *aws.Config, errorCode string) {
-	if errorCode == "" {
-		return
-	}
-	var count int32
-	mw := middleware.FinalizeMiddlewareFunc("DefaultBucket", func(
-		ctx context.Context,
-		in middleware.FinalizeInput,
-		next middleware.FinalizeHandler,
-	) (
-		out middleware.FinalizeOutput,
-		metadata middleware.Metadata,
-		err error,
-	) {
-		atomic.AddInt32(&count, 1)
-		fmt.Println(count)
-		fmt.Println("naber?")
-		return out, metadata, &smithy.GenericAPIError{Code: errorCode}
-	})
-	cfg.APIOptions = append(cfg.APIOptions, func(stack *middleware.Stack) error {
-		return stack.Finalize.Add(mw, middleware.After)
-	})
 
 }
 
@@ -246,12 +216,13 @@ func getClientRegion(ctx context.Context,
 		o.UsePathStyle = true
 	})
 	if err != nil {
-		if storage.ErrHasCode(err, "NotFound") {
-			return nil, err
+
+		if storage.ErrHasCode(err, "bucket not found") {
+			return awsOpts, err
 		}
 		// don't deny any request to the service if region auto-fetching
 		// receives an error. Delegate error handling to command execution.
-		err = fmt.Errorf("session: fetching region failed: %v", err)
+		err = fmt.Errorf("client: fetching region failed: %v", err)
 		msg := log.ErrorMessage{Err: err.Error()}
 		log.Error(msg)
 	} else {
@@ -264,7 +235,26 @@ func getClientRegion(ctx context.Context,
 func customRetryer(maxRetries int) func() aws.Retryer {
 	return func() aws.Retryer {
 		retrier := retry.AddWithMaxAttempts(retry.NewStandard(), maxRetries)
-		retrier = retry.AddWithErrorCodes(retrier, "InvalidToken")
+		retrier = retry.AddWithErrorCodes(retrier,
+			"InternalError",
+			"RequestError",
+			"UseOfClosedNetworkConnection",
+			"ConnectionResetByPeer",
+			"RequestFailureRequestError",
+			"RequestTimeout",
+			"ResponseTimeout",
+			"RequestTimeTooSkewed",
+			"ProvisionedThroughputExceededException",
+			"Throttling",
+			"ThrottlingException",
+			"RequestLimitExceeded",
+			"RequestThrottled",
+			"RequestThrottledException",
+			"ConnectionReset",
+			"ConnectionTimedOut",
+			"BrokenPipe",
+			"UnknownSDKError",
+		)
 		//todo: add additional retry logics for other errors similar to ShouldRetry in previous s5cmd version
 
 		return retry.AddWithMaxBackoffDelay(retrier, time.Second*0)
@@ -275,6 +265,7 @@ type sdkLogger struct{}
 
 func (l sdkLogger) Logf(classification logging.Classification, format string, v ...interface{}) {
 	//todo: Should we add classification to our logging?
+	_ = classification
 	msg := log.TraceMessage{
 		Message: fmt.Sprintf(format, v...),
 	}

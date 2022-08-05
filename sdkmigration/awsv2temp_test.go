@@ -6,7 +6,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
-	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/smithy-go"
 	"github.com/aws/smithy-go/middleware"
 	"github.com/golang/mock/gomock"
@@ -14,12 +13,16 @@ import (
 	"github.com/peak/s5cmd/log"
 	"github.com/peak/s5cmd/storage"
 	"github.com/peak/s5cmd/storage/url"
+	"gotest.tools/v3/assert"
+	"math/rand"
+	"net/http"
+	"net/http/httptest"
 	urlpkg "net/url"
 	"os"
-	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 )
 
 func TestS3ImplementsStorageInterface(t *testing.T) {
@@ -29,6 +32,7 @@ func TestS3ImplementsStorageInterface(t *testing.T) {
 	}
 }
 
+//todo: problematice
 func TestNewSessionPathStyle(t *testing.T) {
 	testcases := []struct {
 		name            string
@@ -65,7 +69,6 @@ func TestNewSessionPathStyle(t *testing.T) {
 	for _, tc := range testcases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			log.Init("trace", false)
 			opts := storage.Options{Endpoint: tc.endpoint.Hostname()}
 			s3, err := newS3Storage(context.Background(), opts)
 			if err != nil {
@@ -73,6 +76,7 @@ func TestNewSessionPathStyle(t *testing.T) {
 			}
 			buckets, err := s3.ListBuckets(context.TODO(), "bucket")
 			fmt.Println(buckets)
+
 			epu := s3.endpointURL
 			fmt.Println("epu", epu)
 			bol := true
@@ -342,78 +346,459 @@ func TestS3ListNoItemFound(t *testing.T) {
 }
 
 func TestS3Retry(t *testing.T) {
-	log.Init("debug", false)
 
 	testcases := []struct {
 		name          string
-		err           error
 		expectedRetry int
 	}{
 		// Internal error
 		{
+			name:          "InternalError",
+			expectedRetry: 5,
+		},
+
+		// Request errors
+		{
+			name:          "RequestError",
+			expectedRetry: 5,
+		},
+		{
+			name:          "UseOfClosedNetworkConnection",
+			expectedRetry: 5,
+		},
+		{
+			name:          "ConnectionResetByPeer",
+			expectedRetry: 5,
+		},
+		{
+			name:          "RequestFailureRequestError",
+			expectedRetry: 5,
+		},
+		{
+			name:          "RequestTimeout",
+			expectedRetry: 5,
+		},
+		{
+			name:          "ResponseTimeout",
+			expectedRetry: 5,
+		},
+		{
+			name:          "RequestTimeTooSkewed",
+			expectedRetry: 5,
+		},
+
+		// Throttling errors
+		{
+			name:          "ProvisionedThroughputExceededException",
+			expectedRetry: 5,
+		},
+		{
+			name:          "Throttling",
+			expectedRetry: 5,
+		},
+		{
+			name:          "ThrottlingException",
+			expectedRetry: 5,
+		},
+		{
+			name:          "RequestLimitExceeded",
+			expectedRetry: 5,
+		},
+		{
+			name:          "RequestThrottled",
+			expectedRetry: 5,
+		},
+		{
+			name:          "RequestThrottledException",
+			expectedRetry: 5,
+		},
+
+		// Expired credential errors
+		{
+			name:          "ExpiredToken",
+			expectedRetry: 0,
+		},
+		{
+			name:          "ExpiredTokenException",
+			expectedRetry: 0,
+		},
+
+		// Invalid Token errors
+		{
 			name:          "InvalidToken",
-			err:           awserr.New("InternalError", "internal error", nil),
+			expectedRetry: 0,
+		},
+
+		// Connection errors
+		{
+			name:          "ConnectionReset",
+			expectedRetry: 5,
+		},
+		{
+			name:          "ConnectionTimedOut",
+			expectedRetry: 5,
+		},
+		{
+			name:          "BrokenPipe",
+			expectedRetry: 5,
+		},
+
+		// Unknown errors
+		{
+			name:          "UnknownSDKError",
 			expectedRetry: 5,
 		},
 	}
-
-	//url, err := url.New("s3://bucket/keyyyy")
-	//if err != nil {
-	//	t.Errorf("unexpected error: %v", err)
-	//}
+	const expectedRetry = 5
 
 	for _, tc := range testcases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-
-			//if err != nil {
-			//	t.Fatal(err)
-			//}
-
 			ctx := context.Background()
 
-			s33, err := newS3Storage(ctx, storage.Options{MaxRetries: 5})
-			m := mockS3{
+			var count int32
+			mw := middleware.DeserializeMiddlewareFunc("GetObject", func(
+				ctx context.Context,
+				in middleware.DeserializeInput,
+				next middleware.DeserializeHandler,
+			) (
+				out middleware.DeserializeOutput,
+				metadata middleware.Metadata,
+				err error,
+			) {
+				atomic.AddInt32(&count, 1)
+				return out, metadata, &smithy.GenericAPIError{Code: tc.name}
+			})
 
-				s3Client:  s33.client,
-				errorCode: "InvalidToken",
-			}
-			_, err = m.GetObject(context.Background(), &s3.GetObjectInput{Bucket: aws.String("bucket"), Key: aws.String("ket")})
-			fmt.Println(err)
-			if !strings.Contains(err.Error(), strconv.Itoa(tc.expectedRetry)) {
-				t.Fatalf("expected: %v, got: %v", tc.expectedRetry, err)
+			s3c, err := newS3Storage(ctx, storage.Options{MaxRetries: expectedRetry})
+			_, err = s3c.client.GetObject(
+				context.Background(),
+				&s3.GetObjectInput{Bucket: aws.String("bucket"), Key: aws.String("key")},
+				func(options *s3.Options) {
+					options.APIOptions = append(options.APIOptions, func(stack *middleware.Stack) error {
+						return stack.Deserialize.Add(mw, middleware.After)
+					})
+				},
+			)
+			fmt.Println(err.Error())
+
+			got := int(atomic.LoadInt32(&count))
+			expected := tc.expectedRetry
+
+			if strings.Contains(err.Error(), "exceeded maximum number of attempts") {
+				if got != expected {
+					t.Errorf("expected %v retries, got %v", expected, got)
+				}
+			} else if expected != 0 {
+				t.Errorf("expected %v retries, got %v", expected, got)
 			}
 
 		})
 	}
-
 }
 
-type mockS3 struct {
-	s3Client  s3Client
-	errorCode string
-}
+func TestS3listObjectsV2(t *testing.T) {
+	const (
+		numObjectsToReturn = 10100
+		numObjectsToIgnore = 1127
 
-func (d *mockS3) GetObject(ctx context.Context, params *s3.GetObjectInput, optFns ...func(*s3.Options)) (*s3.GetObjectOutput, error) {
-	return d.s3Client.GetObject(ctx, params, func(options *s3.Options) {
-		options.APIOptions = append(options.APIOptions, d.funcName)
+		pre = "s3://bucket/key"
+	)
+
+	u, err := url.New(pre)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	mapReturnObjNameToModtime := map[string]time.Time{}
+	mapIgnoreObjNameToModtime := map[string]time.Time{}
+
+	s3objs := make([]types.Object, 0, numObjectsToIgnore+numObjectsToReturn)
+
+	for i := 0; i < numObjectsToReturn; i++ {
+		fname := fmt.Sprintf("%s/%d", pre, i)
+		now := time.Now()
+
+		mapReturnObjNameToModtime[pre+"/"+fname] = now
+		s3objs = append(s3objs, types.Object{
+			Key:          aws.String("key/" + fname),
+			LastModified: aws.Time(now),
+		})
+	}
+
+	for i := 0; i < numObjectsToIgnore; i++ {
+		fname := fmt.Sprintf("%s/%d", pre, numObjectsToReturn+i)
+		later := time.Now().Add(time.Second * 10)
+
+		mapIgnoreObjNameToModtime[pre+"/"+fname] = later
+		s3objs = append(s3objs, types.Object{
+			Key:          aws.String("key/" + fname),
+			LastModified: aws.Time(later),
+		})
+	}
+
+	// shuffle the objects array to remove possible assumptions about how objects
+	// are stored.
+	rand.Shuffle(len(s3objs), func(i, j int) {
+		s3objs[i], s3objs[j] = s3objs[j], s3objs[i]
 	})
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	m := NewMocks3Client(ctrl)
+	mockS3 := &S3{
+		client: m,
+	}
+
+	m.EXPECT().ListObjectsV2(gomock.Any(), gomock.Any()).Return(&s3.ListObjectsV2Output{
+		Contents: s3objs,
+	}, nil)
+
+	ouputCh := mockS3.listObjectsV2(context.Background(), u)
+
+	for obj := range ouputCh {
+		if _, ok := mapReturnObjNameToModtime[obj.String()]; ok {
+			delete(mapReturnObjNameToModtime, obj.String())
+			continue
+		}
+		t.Errorf("%v should not have been returned\n", obj)
+	}
+	assert.Equal(t, len(mapReturnObjNameToModtime), 0)
 }
 
-func (d *mockS3) funcName(stack *middleware.Stack) error {
-	var count int32
-	mw := middleware.InitializeMiddlewareFunc("DefaultBucket", func(
-		ctx context.Context,
-		in middleware.InitializeInput,
-		next middleware.InitializeHandler,
-	) (
-		out middleware.InitializeOutput,
-		metadata middleware.Metadata,
-		err error,
-	) {
-		atomic.AddInt32(&count, 1)
-		fmt.Println(count)
-		return out, metadata, &smithy.GenericAPIError{Code: d.errorCode}
-	})
-	return stack.Initialize.Add(mw, middleware.Before)
+func TestSessionRegionDetection(t *testing.T) {
+	bucketRegion := "sa-east-1"
+
+	testcases := []struct {
+		name           string
+		bucket         string
+		optsRegion     string
+		envRegion      string
+		expectedRegion string
+	}{
+		{
+			name:           "RegionWithSourceRegionParameter",
+			bucket:         "bucket",
+			optsRegion:     "ap-east-1",
+			envRegion:      "ca-central-1",
+			expectedRegion: "ap-east-1",
+		},
+		{
+			name:           "RegionWithEnvironmentVariable",
+			bucket:         "bucket",
+			optsRegion:     "",
+			envRegion:      "ca-central-1",
+			expectedRegion: "ca-central-1",
+		},
+		{
+			name:           "RegionWithBucketRegion",
+			bucket:         "bucket",
+			optsRegion:     "",
+			envRegion:      "",
+			expectedRegion: bucketRegion,
+		},
+		{
+			name:           "DefaultRegion",
+			bucket:         "",
+			optsRegion:     "",
+			envRegion:      "",
+			expectedRegion: "us-east-1",
+		},
+	}
+
+	// ignore local profile loading
+	os.Setenv("AWS_SDK_LOAD_CONFIG", "0")
+
+	// mock auto bucket detection
+	server := func() *httptest.Server {
+		return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("X-Amz-Bucket-Region", bucketRegion)
+			w.WriteHeader(http.StatusOK)
+		}))
+	}()
+	defer server.Close()
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			opts := storage.Options{
+				LogLevel: log.LevelError,
+				Endpoint: server.URL,
+
+				// since profile loading disabled above, we need to provide
+				// credentials to the session. NoSignRequest could be used
+				// for anonymous credentials.
+				NoSignRequest: false,
+			}
+
+			if tc.optsRegion != "" {
+				opts.Region = tc.optsRegion
+			}
+
+			if tc.envRegion != "" {
+				os.Setenv("AWS_REGION", tc.envRegion)
+				defer os.Unsetenv("AWS_REGION")
+			}
+
+			if tc.bucket != "" {
+				opts.Bucket = tc.bucket
+			}
+
+			s3c, err := newS3Storage(context.Background(), opts)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			got := s3c.config.Region
+			if got != tc.expectedRegion {
+				t.Fatalf("expected %v, got %v", tc.expectedRegion, got)
+			}
+		})
+	}
+}
+
+func TestSessionAutoRegion(t *testing.T) {
+	log.Init("error", false)
+
+	testcases := []struct {
+		name              string
+		bucket            string
+		region            string
+		status            int
+		expectedRegion    string
+		expectedErrorCode string
+	}{
+		{
+			name:           "NoLocationConstraint",
+			bucket:         "bucket",
+			region:         "",
+			status:         http.StatusOK,
+			expectedRegion: "us-east-1",
+		},
+		{
+			name:           "LocationConstraintDefaultRegion",
+			bucket:         "bucket",
+			region:         "us-east-1",
+			status:         http.StatusOK,
+			expectedRegion: "us-east-1",
+		},
+		{
+			name:           "LocationConstraintAnotherRegion",
+			bucket:         "bucket",
+			region:         "us-west-2",
+			status:         http.StatusOK,
+			expectedRegion: "us-west-2",
+		},
+		{
+			name:              "BucketNotFoundErrorMustFail",
+			bucket:            "bucket",
+			status:            http.StatusNotFound,
+			expectedRegion:    "us-east-1",
+			expectedErrorCode: "bucket not found",
+		},
+		{
+			name:           "AccessDeniedErrorMustNotFail",
+			bucket:         "bucket",
+			status:         http.StatusForbidden,
+			expectedRegion: "us-east-1",
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+
+			// mock auto bucket detection
+			server := func() *httptest.Server {
+				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					if tc.region != "" {
+						w.Header().Set("X-Amz-Bucket-Region", tc.region)
+					}
+					w.WriteHeader(tc.status)
+				}))
+			}()
+			defer server.Close()
+
+			opts := storage.Options{
+				LogLevel: log.LevelError,
+				Endpoint: server.URL,
+
+				// since profile loading disabled above, we need to provide
+				// credentials to the session. NoSignRequest could be used
+				// for anonymous credentials.
+				NoSignRequest: false,
+			}
+
+			if tc.bucket != "" {
+				opts.Bucket = tc.bucket
+			}
+
+			s3c, err := newS3Storage(context.Background(), opts)
+			if tc.expectedErrorCode != "" {
+				if !storage.ErrHasCode(err, tc.expectedErrorCode) {
+					t.Errorf("expected error code: %v, got error: %v", tc.expectedErrorCode, err)
+					return
+				}
+			} else if expected, got := tc.expectedRegion, s3c.config.Region; expected != got {
+				t.Errorf("expected: %v, got: %v", expected, got)
+			}
+
+		})
+	}
+}
+
+func TestAWSLogLevel(t *testing.T) {
+	testcases := []struct {
+		name     string
+		level    string
+		expected []aws.ClientLogMode
+	}{
+		{
+			name:     "Trace: log level must be aws.LogResponse and aws.LogRequest",
+			level:    "trace",
+			expected: []aws.ClientLogMode{aws.LogResponse, aws.LogRequest},
+		},
+		{
+			name:     "Debug: log level must be 0",
+			level:    "debug",
+			expected: []aws.ClientLogMode{0},
+		},
+		{
+			name:     "Info: log level must be 0",
+			level:    "info",
+			expected: []aws.ClientLogMode{0},
+		},
+		{
+			name:     "Error: log level must be 0",
+			level:    "error",
+			expected: []aws.ClientLogMode{0},
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+
+			s3c, err := newS3Storage(context.Background(), storage.Options{
+				LogLevel: log.LevelFromString(tc.level),
+			})
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			cfgLogLevel := s3c.config.ClientLogMode
+			for _, expectedLogLevel := range tc.expected {
+				if expectedLogLevel == aws.LogRequest {
+					assert.Equal(t, cfgLogLevel.IsRequest(), true)
+				}
+				if expectedLogLevel == aws.LogResponse {
+					assert.Equal(t, cfgLogLevel.IsResponse(), true)
+				}
+				if expectedLogLevel == 0 {
+					assert.Equal(t, int(expectedLogLevel), 0)
+				}
+
+			}
+
+		})
+	}
 }

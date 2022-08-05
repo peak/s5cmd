@@ -108,7 +108,8 @@ func (l *Logger) out() {
 type LogLevel int
 
 const (
-	LevelTrace LogLevel = iota
+	LevelUnknown LogLevel = iota
+	LevelTrace
 	LevelDebug
 	LevelInfo
 	LevelError

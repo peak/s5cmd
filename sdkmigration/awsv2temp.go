@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/retry"
@@ -13,7 +12,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
-	"github.com/aws/smithy-go"
 	"github.com/aws/smithy-go/logging"
 	"github.com/peak/s5cmd/log"
 	"github.com/peak/s5cmd/storage"
@@ -119,6 +117,9 @@ func newS3Storage(ctx context.Context, opts storage.Options) (*S3, error) {
 	// otherwise use the path-style approach.
 	isVirtualHostStyle := isVirtualHostStyle(endpointURL)
 
+	endpoint := getEndpointOpts(endpointURL, isVirtualHostStyle)
+	awsOpts = append(awsOpts, endpoint)
+
 	useAccelerate := supportsTransferAcceleration(endpointURL)
 	// AWS SDK handles transfer acceleration automatically. Setting the
 	// Endpoint to a transfer acceleration endpoint would cause bucket
@@ -138,43 +139,16 @@ func newS3Storage(ctx context.Context, opts storage.Options) (*S3, error) {
 		awsOpts = append(awsOpts, config.WithHTTPClient(httpClient))
 	}
 
-	endpoint := config.WithEndpointResolverWithOptions(aws.EndpointResolverWithOptionsFunc(
-		func(service, region string, options ...interface{}) (aws.Endpoint, error) {
-			return aws.Endpoint{
-				URL:               endpointURL.String(),
-				Source:            aws.EndpointSourceCustom,
-				HostnameImmutable: !isVirtualHostStyle}, nil
-		}))
-	awsOpts = append(awsOpts, endpoint)
-
-	if opts.LogLevel == log.LevelTrace {
-		awsOpts = append(awsOpts, config.WithClientLogMode(aws.LogResponse|aws.LogRequest))
-		awsOpts = append(awsOpts, config.WithLogger(sdkLogger{}))
-	}
+	//if opts.LogLevel == log.LevelTrace {
+	//	awsOpts = append(awsOpts, config.WithClientLogMode(aws.LogResponse|aws.LogRequest))
+	//	awsOpts = append(awsOpts, config.WithLogger(sdkLogger{}))
+	//}
 	awsOpts = append(awsOpts, config.WithRetryer(customRetryer(opts.MaxRetries)))
 
-	awsOpts = append(awsOpts, config.WithDefaultRegion("us-east-1"))
+	awsOpts, err = getRegionOpts(ctx, opts, isVirtualHostStyle, awsOpts...)
 
-	_, isSet := os.LookupEnv("AWS_REGION")
-
-	if opts.Region != "" {
-		awsOpts = append(awsOpts, config.WithRegion(opts.Region))
-	} else if !isSet {
-		tmpCfg, err := config.LoadDefaultConfig(ctx, awsOpts...)
-		if err != nil {
-			return nil, err
-		}
-
-		tmpClient := s3.NewFromConfig(tmpCfg, func(o *s3.Options) {
-			o.UsePathStyle = !isVirtualHostStyle
-		})
-
-		regionOpts, err := getClientRegion(ctx, tmpClient, tmpCfg.Credentials, opts.Bucket)
-		if err != nil {
-			return nil, err
-		}
-
-		awsOpts = append(awsOpts, regionOpts...)
+	if err != nil {
+		return nil, err
 	}
 
 	cfg, err := config.LoadDefaultConfig(ctx, awsOpts...)
@@ -198,35 +172,65 @@ func newS3Storage(ctx context.Context, opts storage.Options) (*S3, error) {
 
 }
 
-func getClientRegion(ctx context.Context,
-	client manager.HeadBucketAPIClient,
-	cred aws.CredentialsProvider,
-	bucket string) ([]func(*config.LoadOptions) error, error) {
+func getEndpointOpts(endpointURL urlpkg.URL, isVirtualHostStyle bool) config.LoadOptionsFunc {
+	endpoint := config.WithEndpointResolverWithOptions(aws.EndpointResolverWithOptionsFunc(
+		func(service, region string, options ...interface{}) (aws.Endpoint, error) {
+			return aws.Endpoint{
+				URL:               endpointURL.String(),
+				Source:            aws.EndpointSourceCustom,
+				HostnameImmutable: !isVirtualHostStyle}, nil
+		}))
+	return endpoint
+}
 
-	var awsOpts []func(*config.LoadOptions) error
+func getRegionOpts(ctx context.Context, opts storage.Options, isVirtualHostStyle bool, awsOpts ...func(*config.LoadOptions) error) ([]func(*config.LoadOptions) error, error) {
+	// While executing the commands, s5cmd detects the region according to the following order of priority:
+	// 1. --source-region or --destination-region flags of cp command.
+	// 2. AWS_REGION environment variable.
+	// 3. Region section of AWS profile.
+	// 4. Auto-detection from bucket region (via HeadBucket).
+	// 5. us-east-1 as default region.
+	_, isEnvSet := os.LookupEnv("AWS_REGION")
+	awsOpts = append(awsOpts, config.WithDefaultRegion("us-east-1"))
 
-	if bucket == "" {
-		return nil, nil
-	}
+	if opts.Region != "" {
+		awsOpts = append(awsOpts, config.WithRegion(opts.Region))
+	} else if isEnvSet {
+		//default config will load environment variable itself.
+		return awsOpts, nil
+	} else if opts.Bucket == "" {
+		return awsOpts, nil
 
-	// auto-detection
-	region, err := manager.GetBucketRegion(ctx, client, bucket, func(o *s3.Options) {
-		o.Credentials = cred
-		//todo change below to a variable
-		o.UsePathStyle = true
-	})
-	if err != nil {
-
-		if storage.ErrHasCode(err, "bucket not found") {
-			return awsOpts, err
-		}
-		// don't deny any request to the service if region auto-fetching
-		// receives an error. Delegate error handling to command execution.
-		err = fmt.Errorf("client: fetching region failed: %v", err)
-		msg := log.ErrorMessage{Err: err.Error()}
-		log.Error(msg)
 	} else {
-		awsOpts = append(awsOpts, config.WithRegion(region))
+		tmpCfg, err := config.LoadDefaultConfig(ctx, awsOpts...)
+		if err != nil {
+			return nil, err
+		}
+
+		tmpClient := s3.NewFromConfig(tmpCfg, func(o *s3.Options) {
+			o.UsePathStyle = !isVirtualHostStyle
+		})
+
+		// auto-detection
+		region, err := manager.GetBucketRegion(ctx, tmpClient, opts.Bucket, func(o *s3.Options) {
+			o.Credentials = tmpCfg.Credentials
+			//todo change below to a variable
+			o.UsePathStyle = true
+		})
+		if err != nil {
+
+			if storage.ErrHasCode(err, "bucket not found") {
+				return awsOpts, err
+			}
+			// don't deny any request to the service if region auto-fetching
+			// receives an error. Delegate error handling to command execution.
+			err = fmt.Errorf("client: fetching region failed: %v", err)
+			msg := log.ErrorMessage{Err: err.Error()}
+			log.Error(msg)
+		} else {
+			awsOpts = append(awsOpts, config.WithRegion(region))
+			return awsOpts, nil
+		}
 	}
 
 	return awsOpts, nil
@@ -416,14 +420,13 @@ func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata storage.Metad
 	if s.dryRun {
 		return nil
 	}
-	// SDK expects CopySource like "bucket[/key]"
+	// SDK expects CopySource like "bucket[/key]
 	copySource := from.EscapedPath()
 
 	input := s3.CopyObjectInput{
-		Bucket:       aws.String(to.Bucket),
-		Key:          aws.String(to.Path),
-		CopySource:   aws.String(copySource),
-		RequestPayer: s.RequestPayer(),
+		Bucket:     aws.String(to.Bucket),
+		Key:        aws.String(to.Path),
+		CopySource: aws.String(copySource),
 	}
 
 	storageClass := metadata.StorageClass()
@@ -846,37 +849,22 @@ func isVirtualHostStyle(endpoint urlpkg.URL) bool {
 
 func main() {
 	log.Init("debug", false)
-	var opts = storage.Options{Endpoint: "http://127.0.0.1:56229"}
-	S3, err := newS3Storage(context.TODO(), opts)
-
-	if err != nil {
-		panic(err)
-	}
-
-	//obj, err := s3.Stat(context.TODO(), nurl)
-	//fmt.Println(obj.Size)
-	//if err != nil {
-	//	panic(err)
-	//}
-
-	if err != nil {
-		panic(err)
-	}
-	if err != nil {
-		panic(err)
-	}
-	_, err = S3.client.GetObject(context.TODO(), &s3.GetObjectInput{
-		Bucket: aws.String("bigtmp"),
-		Key:    aws.String("ibrahim/test1/100gbfile"),
+	var opts = storage.Options{Endpoint: "http://127.0.0.1:60409"}
+	s33, _ := newS3Storage(context.TODO(), opts)
+	to, _ := url.New("s3://bucket/file2.txt")
+	from, _ := url.New("/Users/boraberkesahin/Documents/s5cmd/sdkmigration/mock.go")
+	fmt.Println(from.String())
+	fmt.Println(from.EscapedPath())
+	fmt.Println(to.Bucket)
+	_, err := s33.client.CopyObject(context.Background(), &s3.CopyObjectInput{
+		Bucket:     aws.String(to.Bucket),
+		Key:        aws.String(to.Path),
+		CopySource: aws.String(from.EscapedPath()),
 	})
-	var ae smithy.APIError
-	if errors.As(err, &ae) {
-		fmt.Printf(
-			"GetObject error. code: %s, message: %s, fault: %s",
-			ae.ErrorCode(),
-			ae.ErrorMessage(),
-			ae.ErrorFault().String(),
-		)
+
+	//err := s33.Copy(context.Background(), from, to, storage.Metadata{})
+	if err != nil {
+		panic(err)
 	}
 
 }

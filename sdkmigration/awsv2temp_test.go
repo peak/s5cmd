@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/aws/smithy-go"
@@ -87,27 +88,6 @@ func TestNewSessionPathStyle(t *testing.T) {
 				t.Fatalf("expected: %v, got: %v", tc.expectPathStyle, got)
 			}
 		})
-	}
-}
-
-func TestNewSessionWithRegionSetViaEnv(t *testing.T) {
-
-	const expectedRegion = "us-west-2"
-
-	os.Setenv("AWS_REGION", expectedRegion)
-	defer os.Unsetenv("AWS_REGION")
-
-	opts := storage.Options{}
-	s3, err := newS3Storage(context.Background(), opts)
-
-	if err != nil {
-		t.Fatal(err)
-	}
-	got := s3.config.Region
-	s3.config.Region = "us-test-1"
-	fmt.Println(s3.config.Region)
-	if got != expectedRegion {
-		t.Fatalf("expected %v, got %v", expectedRegion, got)
 	}
 }
 
@@ -348,105 +328,105 @@ func TestS3ListNoItemFound(t *testing.T) {
 func TestS3Retry(t *testing.T) {
 
 	testcases := []struct {
-		name          string
-		expectedRetry int
+		name            string
+		expectedRequest int
 	}{
 		// Internal error
 		{
-			name:          "InternalError",
-			expectedRetry: 5,
+			name:            "InternalError",
+			expectedRequest: 5,
 		},
 
 		// Request errors
 		{
-			name:          "RequestError",
-			expectedRetry: 5,
+			name:            "RequestError",
+			expectedRequest: 5,
 		},
 		{
-			name:          "UseOfClosedNetworkConnection",
-			expectedRetry: 5,
+			name:            "UseOfClosedNetworkConnection",
+			expectedRequest: 5,
 		},
 		{
-			name:          "ConnectionResetByPeer",
-			expectedRetry: 5,
+			name:            "ConnectionResetByPeer",
+			expectedRequest: 5,
 		},
 		{
-			name:          "RequestFailureRequestError",
-			expectedRetry: 5,
+			name:            "RequestFailureRequestError",
+			expectedRequest: 5,
 		},
 		{
-			name:          "RequestTimeout",
-			expectedRetry: 5,
+			name:            "RequestTimeout",
+			expectedRequest: 5,
 		},
 		{
-			name:          "ResponseTimeout",
-			expectedRetry: 5,
+			name:            "ResponseTimeout",
+			expectedRequest: 5,
 		},
 		{
-			name:          "RequestTimeTooSkewed",
-			expectedRetry: 5,
+			name:            "RequestTimeTooSkewed",
+			expectedRequest: 5,
 		},
 
 		// Throttling errors
 		{
-			name:          "ProvisionedThroughputExceededException",
-			expectedRetry: 5,
+			name:            "ProvisionedThroughputExceededException",
+			expectedRequest: 5,
 		},
 		{
-			name:          "Throttling",
-			expectedRetry: 5,
+			name:            "Throttling",
+			expectedRequest: 5,
 		},
 		{
-			name:          "ThrottlingException",
-			expectedRetry: 5,
+			name:            "ThrottlingException",
+			expectedRequest: 5,
 		},
 		{
-			name:          "RequestLimitExceeded",
-			expectedRetry: 5,
+			name:            "RequestLimitExceeded",
+			expectedRequest: 5,
 		},
 		{
-			name:          "RequestThrottled",
-			expectedRetry: 5,
+			name:            "RequestThrottled",
+			expectedRequest: 5,
 		},
 		{
-			name:          "RequestThrottledException",
-			expectedRetry: 5,
+			name:            "RequestThrottledException",
+			expectedRequest: 5,
 		},
 
 		// Expired credential errors
 		{
-			name:          "ExpiredToken",
-			expectedRetry: 0,
+			name:            "ExpiredToken",
+			expectedRequest: 1,
 		},
 		{
-			name:          "ExpiredTokenException",
-			expectedRetry: 0,
+			name:            "ExpiredTokenException",
+			expectedRequest: 1,
 		},
 
 		// Invalid Token errors
 		{
-			name:          "InvalidToken",
-			expectedRetry: 0,
+			name:            "InvalidToken",
+			expectedRequest: 1,
 		},
 
 		// Connection errors
 		{
-			name:          "ConnectionReset",
-			expectedRetry: 5,
+			name:            "ConnectionReset",
+			expectedRequest: 5,
 		},
 		{
-			name:          "ConnectionTimedOut",
-			expectedRetry: 5,
+			name:            "ConnectionTimedOut",
+			expectedRequest: 5,
 		},
 		{
-			name:          "BrokenPipe",
-			expectedRetry: 5,
+			name:            "BrokenPipe",
+			expectedRequest: 5,
 		},
 
 		// Unknown errors
 		{
-			name:          "UnknownSDKError",
-			expectedRetry: 5,
+			name:            "UnknownSDKError",
+			expectedRequest: 5,
 		},
 	}
 	const expectedRetry = 5
@@ -471,7 +451,10 @@ func TestS3Retry(t *testing.T) {
 			})
 
 			s3c, err := newS3Storage(ctx, storage.Options{MaxRetries: expectedRetry})
-			_, err = s3c.client.GetObject(
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, _ = s3c.client.GetObject(
 				context.Background(),
 				&s3.GetObjectInput{Bucket: aws.String("bucket"), Key: aws.String("key")},
 				func(options *s3.Options) {
@@ -480,16 +463,11 @@ func TestS3Retry(t *testing.T) {
 					})
 				},
 			)
-			fmt.Println(err.Error())
 
 			got := int(atomic.LoadInt32(&count))
-			expected := tc.expectedRetry
+			expected := tc.expectedRequest
 
-			if strings.Contains(err.Error(), "exceeded maximum number of attempts") {
-				if got != expected {
-					t.Errorf("expected %v retries, got %v", expected, got)
-				}
-			} else if expected != 0 {
+			if got != expected {
 				t.Errorf("expected %v retries, got %v", expected, got)
 			}
 
@@ -497,6 +475,176 @@ func TestS3Retry(t *testing.T) {
 	}
 }
 
+func TestS3CopyEncryptionRequest(t *testing.T) {
+	testcases := []struct {
+		name     string
+		sse      string
+		sseKeyID string
+		acl      string
+
+		expectedSSE      string
+		expectedSSEKeyID string
+		expectedAcl      string
+	}{
+		{
+			name: "no encryption/no acl, by default",
+		},
+		{
+			name: "aws:kms encryption with server side generated keys",
+			sse:  "aws:kms",
+
+			expectedSSE: "aws:kms",
+		},
+		{
+			name:     "aws:kms encryption with user provided key",
+			sse:      "aws:kms",
+			sseKeyID: "sdkjn12SDdci#@#EFRFERTqW/ke",
+
+			expectedSSE:      "aws:kms",
+			expectedSSEKeyID: "sdkjn12SDdci#@#EFRFERTqW/ke",
+		},
+		{
+			name:     "provide key without encryption flag, shall be ignored",
+			sseKeyID: "1234567890",
+		},
+		{
+			name:        "acl flag with a value",
+			acl:         "bucket-owner-full-control",
+			expectedAcl: "bucket-owner-full-control",
+		},
+	}
+	u, err := url.New("s3://bucket/key")
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	for _, tc := range testcases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+
+			mw := middleware.InitializeMiddlewareFunc("anything", func(
+				ctx context.Context,
+				in middleware.InitializeInput,
+				next middleware.InitializeHandler,
+			) (
+				out middleware.InitializeOutput,
+				metadata middleware.Metadata,
+				err error,
+			) {
+				switch v := in.Parameters.(type) {
+				case *s3.CopyObjectInput:
+					sse := v.ServerSideEncryption
+					key := v.SSEKMSKeyId
+					aclVal := v.ACL
+					if !(sse == "" && tc.expectedSSE == "") {
+						assert.Equal(t, sse, tc.expectedSSE)
+					}
+					if !(key == nil && tc.expectedSSEKeyID == "") {
+						assert.Equal(t, key, tc.expectedSSEKeyID)
+					}
+					if aclVal == "" && tc.expectedAcl == "" {
+						return
+					}
+
+					assert.Equal(t, aclVal, tc.expectedAcl)
+				}
+				return next.HandleInitialize(ctx, in)
+			})
+
+			s3c, err := newS3Storage(context.Background(), storage.Options{MaxRetries: 5})
+			if err != nil {
+				t.Fatal(err)
+			}
+			metadata := storage.NewMetadata().SetSSE(tc.sse).SetSSEKeyID(tc.sseKeyID).SetACL(tc.acl)
+			copySource := u.EscapedPath()
+			_, err = s3c.client.CopyObject(
+				context.Background(),
+				&s3.CopyObjectInput{Bucket: aws.String(u.Bucket), Key: aws.String(u.Path),
+					CopySource: aws.String(copySource),
+					Metadata:   metadata},
+				func(options *s3.Options) {
+					options.APIOptions = append(options.APIOptions, func(stack *middleware.Stack) error {
+						return stack.Initialize.Add(mw, middleware.Before)
+					})
+				},
+			)
+
+			if err != nil {
+				t.Errorf("Expected %v, but received %q", nil, err)
+			}
+		})
+	}
+}
+
+func TestS3CopyEncryptionRequest2(t *testing.T) {
+	testcases := []struct {
+		name     string
+		sse      string
+		sseKeyID string
+		acl      string
+
+		expectedSSE      string
+		expectedSSEKeyID string
+		expectedAcl      string
+	}{
+		{
+			name: "no encryption/no acl, by default",
+		},
+		{
+			name: "aws:kms encryption with server side generated keys",
+			sse:  "aws:kms",
+
+			expectedSSE: "aws:kms",
+		},
+		{
+			name:     "aws:kms encryption with user provided key",
+			sse:      "aws:kms",
+			sseKeyID: "sdkjn12SDdci#@#EFRFERTqW/ke",
+
+			expectedSSE:      "aws:kms",
+			expectedSSEKeyID: "sdkjn12SDdci#@#EFRFERTqW/ke",
+		},
+		{
+			name:     "provide key without encryption flag, shall be ignored",
+			sseKeyID: "1234567890",
+		},
+		{
+			name:        "acl flag with a value",
+			acl:         "bucket-owner-full-control",
+			expectedAcl: "bucket-owner-full-control",
+		},
+	}
+	u, err := url.New("s3://bucket/key")
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	for _, tc := range testcases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			m := NewMocks3Client(ctrl)
+			mockS3 := &S3{
+				client: m,
+			}
+
+			if err != nil {
+				t.Fatal(err)
+			}
+			metadata := storage.NewMetadata().SetSSE(tc.sse).SetSSEKeyID(tc.sseKeyID).SetACL(tc.acl)
+			m.EXPECT().CopyObject(gomock.Any(), s3.CopyObjectInput{
+				Bucket:     aws.String(u.Bucket),
+				CopySource: aws.String(u.EscapedPath()),
+				Key:        aws.String(u.Path),
+				ACL:        types.ObjectCannedACL(tc.acl),
+			})
+
+			mockS3.Copy(context.Background(), u, u, metadata)
+
+		})
+	}
+}
 func TestS3listObjectsV2(t *testing.T) {
 	const (
 		numObjectsToReturn = 10100
@@ -567,7 +715,7 @@ func TestS3listObjectsV2(t *testing.T) {
 	assert.Equal(t, len(mapReturnObjNameToModtime), 0)
 }
 
-func TestSessionRegionDetection(t *testing.T) {
+func TestRegionDetectionPriority(t *testing.T) {
 	bucketRegion := "sa-east-1"
 
 	testcases := []struct {
@@ -607,9 +755,6 @@ func TestSessionRegionDetection(t *testing.T) {
 		},
 	}
 
-	// ignore local profile loading
-	os.Setenv("AWS_SDK_LOAD_CONFIG", "0")
-
 	// mock auto bucket detection
 	server := func() *httptest.Server {
 		return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -618,17 +763,12 @@ func TestSessionRegionDetection(t *testing.T) {
 		}))
 	}()
 	defer server.Close()
+	log.Init("error", false)
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			opts := storage.Options{
 				LogLevel: log.LevelError,
-				Endpoint: server.URL,
-
-				// since profile loading disabled above, we need to provide
-				// credentials to the session. NoSignRequest could be used
-				// for anonymous credentials.
-				NoSignRequest: false,
 			}
 
 			if tc.optsRegion != "" {
@@ -644,12 +784,26 @@ func TestSessionRegionDetection(t *testing.T) {
 				opts.Bucket = tc.bucket
 			}
 
-			s3c, err := newS3Storage(context.Background(), opts)
+			endpointURL, err := parseEndpoint(server.URL)
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			got := s3c.config.Region
+			isVirtualHostStyle := isVirtualHostStyle(endpointURL)
+			var awsOpts []func(*config.LoadOptions) error
+			awsOpts = append(awsOpts, getEndpointOpts(endpointURL, isVirtualHostStyle))
+			// ignore local profile loading
+			awsOpts = append(awsOpts, config.WithSharedConfigFiles([]string{}))
+
+			awsOpts, err = getRegionOpts(context.Background(), opts, isVirtualHostStyle, awsOpts...)
+
+			cfg, err := config.LoadDefaultConfig(context.Background(), awsOpts...)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			got := cfg.Region
 			if got != tc.expectedRegion {
 				t.Fatalf("expected %v, got %v", tc.expectedRegion, got)
 			}
@@ -657,7 +811,7 @@ func TestSessionRegionDetection(t *testing.T) {
 	}
 }
 
-func TestSessionAutoRegion(t *testing.T) {
+func TestAutoRegionFromHeadBucket(t *testing.T) {
 	log.Init("error", false)
 
 	testcases := []struct {
@@ -720,25 +874,33 @@ func TestSessionAutoRegion(t *testing.T) {
 
 			opts := storage.Options{
 				LogLevel: log.LevelError,
-				Endpoint: server.URL,
-
-				// since profile loading disabled above, we need to provide
-				// credentials to the session. NoSignRequest could be used
-				// for anonymous credentials.
-				NoSignRequest: false,
 			}
 
 			if tc.bucket != "" {
 				opts.Bucket = tc.bucket
 			}
 
-			s3c, err := newS3Storage(context.Background(), opts)
+			endpointURL, err := parseEndpoint(server.URL)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			isVirtualHostStyle := isVirtualHostStyle(endpointURL)
+			var awsOpts []func(*config.LoadOptions) error
+			awsOpts = append(awsOpts, getEndpointOpts(endpointURL, isVirtualHostStyle))
+			// ignore local profile loading
+			awsOpts = append(awsOpts, config.WithSharedConfigFiles([]string{}))
+
+			awsOpts, err = getRegionOpts(context.Background(), opts, isVirtualHostStyle, awsOpts...)
+			gotErr := err
+			cfg, _ := config.LoadDefaultConfig(context.Background(), awsOpts...)
+
 			if tc.expectedErrorCode != "" {
-				if !storage.ErrHasCode(err, tc.expectedErrorCode) {
-					t.Errorf("expected error code: %v, got error: %v", tc.expectedErrorCode, err)
+				if !storage.ErrHasCode(gotErr, tc.expectedErrorCode) {
+					t.Errorf("expected error code: %v, got error: %v", tc.expectedErrorCode, gotErr)
 					return
 				}
-			} else if expected, got := tc.expectedRegion, s3c.config.Region; expected != got {
+			} else if expected, got := tc.expectedRegion, cfg.Region; expected != got {
 				t.Errorf("expected: %v, got: %v", expected, got)
 			}
 

@@ -67,7 +67,6 @@ type S3 struct {
 	useListObjectsV1       bool
 	noSuchUploadRetryCount int
 	requestPayer           string
-	versionId              string
 }
 
 func (s *S3) RequestPayer() *string {
@@ -160,7 +159,6 @@ func (s *S3) Stat(ctx context.Context, url *url.URL) (*Object, error) {
 // keys. If no object found or an error is encountered during this period,
 // it sends these errors to object channel.
 func (s *S3) List(ctx context.Context, url *url.URL, _ bool) <-chan *Object {
-	// todo if either of s.versionID or s.allVersions is set, handle that case seperately.
 	if url.VersionID != "" || url.AllVersions {
 		return s.listObjectsVersion(ctx, url)
 	}
@@ -218,7 +216,7 @@ func (s *S3) listObjectsVersion(ctx context.Context, url *url.URL) <-chan *Objec
 					if !url.Match(key) {
 						continue
 					}
-					if s.versionId != "" && s.versionId != *v.VersionId {
+					if url.VersionID != "" && url.VersionID != *v.VersionId {
 						continue
 					}
 
@@ -256,7 +254,7 @@ func (s *S3) listObjectsVersion(ctx context.Context, url *url.URL) <-chan *Objec
 					if !url.Match(key) {
 						continue
 					}
-					if s.versionId != "" && s.versionId != *d.VersionId {
+					if url.VersionID != "" && url.VersionID != *d.VersionId {
 						continue
 					}
 
@@ -547,16 +545,16 @@ func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata Metadata) err
 
 // Read fetches the remote object and returns its contents as an io.ReadCloser.
 func (s *S3) Read(ctx context.Context, src *url.URL) (io.ReadCloser, error) {
-	goi := &s3.GetObjectInput{
+	input := &s3.GetObjectInput{
 		Bucket:       aws.String(src.Bucket),
 		Key:          aws.String(src.Path),
 		RequestPayer: s.RequestPayer(),
 	}
 	if src.VersionID != "" {
-		goi.VersionId = aws.String(src.VersionID)
+		input.SetVersionId(src.VersionID)
 	}
 
-	resp, err := s.api.GetObjectWithContext(ctx, goi)
+	resp, err := s.api.GetObjectWithContext(ctx, input)
 
 	if err != nil {
 		return nil, err

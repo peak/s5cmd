@@ -290,17 +290,19 @@ func (u *URL) setPrefixAndFilter() error {
 // Clone creates a copy of the receiver.
 func (u *URL) Clone() *URL {
 	return &URL{
-		Type:      u.Type,
-		Scheme:    u.Scheme,
-		Bucket:    u.Bucket,
-		Delimiter: u.Delimiter,
-		Path:      u.Path,
-		Prefix:    u.Prefix,
-		VersionID: u.VersionID,
+		Type:        u.Type,
+		Scheme:      u.Scheme,
+		Bucket:      u.Bucket,
+		Path:        u.Path,
+		Delimiter:   u.Delimiter,
+		Prefix:      u.Prefix,
+		VersionID:   u.VersionID,
+		AllVersions: u.AllVersions,
 
 		relativePath: u.relativePath,
 		filter:       u.filter,
 		filterRegex:  u.filterRegex,
+		raw:          u.raw,
 	}
 }
 

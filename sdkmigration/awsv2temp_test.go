@@ -37,7 +37,6 @@ func TestS3ImplementsStorageInterface(t *testing.T) {
 	}
 }
 
-//todo: problematic
 func TestNewSessionPathStyle(t *testing.T) {
 	testcases := []struct {
 		name            string
@@ -124,7 +123,7 @@ func TestNewSessionWithNoSignRequest(t *testing.T) {
 	_, gotErr := s3.config.Credentials.Retrieve(context.Background())
 
 	expectedErr := "AnonymousCredentials is not a valid credential provider, and cannot be used to sign AWS requests with"
-	//todo search if there is a better way to test this.
+
 	if !strings.Contains(gotErr.Error(), expectedErr) {
 		t.Fatalf("expected %v, got %v", expectedErr, gotErr)
 	}

@@ -36,7 +36,7 @@ func TestVersioning(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals("Bucket versioning for %q is %q", bucket, ""),
+		0: equals("%q is an unversioned bucket", bucket),
 	})
 
 	testcases := []struct {

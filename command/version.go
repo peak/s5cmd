@@ -159,7 +159,10 @@ func (v VersioningMessage) String() string {
 	if v.isSet {
 		return fmt.Sprintf("Bucket versioning for %q is set to %q", v.Bucket, v.Status)
 	}
-	return fmt.Sprintf("Bucket versioning for %q is %q", v.Bucket, v.Status)
+	if v.Status != "" {
+		return fmt.Sprintf("Bucket versioning for %q is %q", v.Bucket, v.Status)
+	}
+	return fmt.Sprintf("%q is an unversioned bucket", v.Bucket)
 }
 
 func (v VersioningMessage) JSON() string {

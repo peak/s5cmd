@@ -298,5 +298,16 @@ func validateLSCommand(c *cli.Context) error {
 	if c.Args().Len() > 1 {
 		return fmt.Errorf("expected only 1 argument")
 	}
+
+	srcurl, err := url.New(c.Args().First(),
+		url.WithAllVersions(c.Bool("all-versions")))
+	if err != nil {
+		return err
+	}
+
+	if c.Bool("all-versions") && !srcurl.IsRemote() {
+		return fmt.Errorf("all-versions flag can only be used with remote objects")
+	}
+
 	return nil
 }

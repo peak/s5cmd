@@ -244,5 +244,15 @@ func validateDUCommand(c *cli.Context) error {
 	if c.Bool("all-versions") && c.String("version-id") != "" {
 		return fmt.Errorf(`it is not allowed to combine "all-versions" and "version-id" flags`)
 	}
+
+	srcurl, err := url.New(c.Args().First(),
+		url.WithAllVersions(c.Bool("all-versions")))
+	if err != nil {
+		return err
+	}
+
+	if !srcurl.IsRemote() && (c.Bool("all-versions") || c.String("version-id") != "") {
+		return fmt.Errorf("all-versions and version-id flags can only be used with remote objects")
+	}
 	return nil
 }

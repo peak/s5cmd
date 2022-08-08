@@ -219,6 +219,10 @@ func validateRMCommand(c *cli.Context) error {
 		// but, anyway, this is not supported in current implementation.
 		return fmt.Errorf(`it is not allowed to combine "all-versions" and "version-id" flags`)
 	}
+	if len(c.Args().Slice()) > 1 && c.String("version-id") != "" {
+		return fmt.Errorf("version-id flag can only be used with single source object")
+	}
+
 	srcurls, err := newURLs(c.Bool("raw"), c.String("version-id"), c.Bool("all-versions"), c.Args().Slice()...)
 	if err != nil {
 		return err
@@ -250,6 +254,10 @@ func validateRMCommand(c *cli.Context) error {
 		if srcurl.Bucket != firstBucket {
 			return fmt.Errorf("removal of objects with different buckets in a single command is not allowed")
 		}
+	}
+
+	if hasLocal && (c.Bool("all-versions") || c.String("version-id") != "") {
+		return fmt.Errorf("all-versions and version-id flags can only be used with remote objects")
 	}
 
 	return nil

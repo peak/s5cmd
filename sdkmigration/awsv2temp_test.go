@@ -11,6 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/aws/smithy-go"
 	"github.com/aws/smithy-go/middleware"
+	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"github.com/golang/mock/gomock"
 	"github.com/google/go-cmp/cmp"
 	"github.com/peak/s5cmd/log"
@@ -82,15 +83,15 @@ func TestNewSessionPathStyle(t *testing.T) {
 				metadata middleware.Metadata,
 				err error,
 			) {
-				//todo: cannot do type conversion, ask later
-				fmt.Println(reflect.TypeOf(in.Request))
-
-				if r, ok := in.Request.(*http.Request); ok {
-					fmt.Println(r.URL.Host)
+				switch r := in.Request.(type) {
+				case *smithyhttp.Request:
+					got := r.URL.Host == tc.endpoint.Host
+					if got != tc.expectPathStyle {
+						t.Fatalf("expected: %v, got: %v", tc.expectPathStyle, got)
+					}
 				}
 
 				return next.HandleSerialize(ctx, in)
-
 			})
 			opts := storage.Options{Endpoint: tc.endpoint.Hostname()}
 			_ = reflect.TypeOf(opts)
@@ -98,7 +99,6 @@ func TestNewSessionPathStyle(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			t.Fatal("not Implemented")
 			_, _ = mockS3.client.ListObjects(
 				context.Background(),
 				&s3.ListObjectsInput{Bucket: aws.String("bucket"), Prefix: aws.String("key")},

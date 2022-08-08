@@ -9,7 +9,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"os/exec"
@@ -195,7 +194,7 @@ func s5cmd(workdir, endpoint string) func(args ...string) icmd.Cmd {
 }
 
 func goBuildS5cmd() func() {
-	tmpdir, err := ioutil.TempDir("", "")
+	tmpdir, err := os.MkdirTemp("", "")
 	if err != nil {
 		panic(err)
 	}

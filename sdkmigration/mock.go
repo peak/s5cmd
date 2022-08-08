@@ -197,6 +197,26 @@ func (mr *Mocks3ClientMockRecorder) ListBuckets(ctx, params interface{}, optFns 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListBuckets", reflect.TypeOf((*Mocks3Client)(nil).ListBuckets), varargs...)
 }
 
+// ListObjects mocks base method.
+func (m *Mocks3Client) ListObjects(ctx context.Context, params *s3.ListObjectsInput, optFns ...func(*s3.Options)) (*s3.ListObjectsOutput, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{ctx, params}
+	for _, a := range optFns {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "ListObjects", varargs...)
+	ret0, _ := ret[0].(*s3.ListObjectsOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListObjects indicates an expected call of ListObjects.
+func (mr *Mocks3ClientMockRecorder) ListObjects(ctx, params interface{}, optFns ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{ctx, params}, optFns...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListObjects", reflect.TypeOf((*Mocks3Client)(nil).ListObjects), varargs...)
+}
+
 // ListObjectsV2 mocks base method.
 func (m *Mocks3Client) ListObjectsV2(arg0 context.Context, arg1 *s3.ListObjectsV2Input, arg2 ...func(*s3.Options)) (*s3.ListObjectsV2Output, error) {
 	m.ctrl.T.Helper()
@@ -321,4 +341,47 @@ func (mr *MockuploaderMockRecorder) Upload(ctx, input interface{}, opts ...inter
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{ctx, input}, opts...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Upload", reflect.TypeOf((*Mockuploader)(nil).Upload), varargs...)
+}
+
+// MockListObjectsAPIClient is a mock of ListObjectsAPIClient interface.
+type MockListObjectsAPIClient struct {
+	ctrl     *gomock.Controller
+	recorder *MockListObjectsAPIClientMockRecorder
+}
+
+// MockListObjectsAPIClientMockRecorder is the mock recorder for MockListObjectsAPIClient.
+type MockListObjectsAPIClientMockRecorder struct {
+	mock *MockListObjectsAPIClient
+}
+
+// NewMockListObjectsAPIClient creates a new mock instance.
+func NewMockListObjectsAPIClient(ctrl *gomock.Controller) *MockListObjectsAPIClient {
+	mock := &MockListObjectsAPIClient{ctrl: ctrl}
+	mock.recorder = &MockListObjectsAPIClientMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockListObjectsAPIClient) EXPECT() *MockListObjectsAPIClientMockRecorder {
+	return m.recorder
+}
+
+// ListObjects mocks base method.
+func (m *MockListObjectsAPIClient) ListObjects(ctx context.Context, params *s3.ListObjectsInput, optFns ...func(*s3.Options)) (*s3.ListObjectsOutput, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{ctx, params}
+	for _, a := range optFns {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "ListObjects", varargs...)
+	ret0, _ := ret[0].(*s3.ListObjectsOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListObjects indicates an expected call of ListObjects.
+func (mr *MockListObjectsAPIClientMockRecorder) ListObjects(ctx, params interface{}, optFns ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{ctx, params}, optFns...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListObjects", reflect.TypeOf((*MockListObjectsAPIClient)(nil).ListObjects), varargs...)
 }

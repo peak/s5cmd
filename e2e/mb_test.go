@@ -1,11 +1,12 @@
 package e2e
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"gotest.tools/v3/icmd"
 )
 
@@ -27,7 +28,7 @@ func TestMakeBucket_success(t *testing.T) {
 		0: equals(`mb %v`, src),
 	})
 
-	_, err := s3client.HeadBucket(&s3.HeadBucketInput{Bucket: aws.String(bucketName)})
+	_, err := s3client.HeadBucket(context.Background(), &s3.HeadBucketInput{Bucket: aws.String(bucketName)})
 	if err != nil {
 		t.Errorf("unexpected error %v", err)
 	}
@@ -59,7 +60,7 @@ func TestMakeBucket_success_json(t *testing.T) {
 		0: json(jsonText, src),
 	}, jsonCheck(true))
 
-	_, err := s3client.HeadBucket(&s3.HeadBucketInput{Bucket: aws.String(bucketName)})
+	_, err := s3client.HeadBucket(context.Background(), &s3.HeadBucketInput{Bucket: aws.String(bucketName)})
 	if err != nil {
 		t.Errorf("unexpected error %v", err)
 	}

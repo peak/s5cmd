@@ -56,6 +56,7 @@ type s3Client interface {
 	//manager.DownloadAPIClient this interface includes getObject, should we use it here?
 	s3.HeadObjectAPIClient
 	s3.ListObjectsV2APIClient
+	ListObjectsAPIClient
 	manager.DeleteObjectsAPIClient
 	manager.HeadBucketAPIClient
 	CreateBucket(ctx context.Context, params *s3.CreateBucketInput, optFns ...func(*s3.Options)) (*s3.CreateBucketOutput, error)
@@ -129,8 +130,6 @@ func newS3Storage(ctx context.Context, opts storage.Options) (*S3, error) {
 		//todo: Couldn't find a setting to turn on S3UseAccelerate, might be already built in
 	}
 
-	//todo: Adding proxy to the env is supported by the sdk now, change it to that.
-	//https://aws.github.io/aws-sdk-go-v2/docs/configuring-sdk/custom-http/
 	if opts.NoVerifySSL {
 		httpClient := awshttp.NewBuildableClient().WithTransportOptions(func(tr *http.Transport) {
 			tr.Proxy = http.ProxyFromEnvironment
@@ -139,10 +138,10 @@ func newS3Storage(ctx context.Context, opts storage.Options) (*S3, error) {
 		awsOpts = append(awsOpts, config.WithHTTPClient(httpClient))
 	}
 
-	//if opts.LogLevel == log.LevelTrace {
-	//	awsOpts = append(awsOpts, config.WithClientLogMode(aws.LogResponse|aws.LogRequest))
-	//	awsOpts = append(awsOpts, config.WithLogger(sdkLogger{}))
-	//}
+	if opts.LogLevel == log.LevelTrace {
+		awsOpts = append(awsOpts, config.WithClientLogMode(aws.LogResponse|aws.LogRequest))
+		awsOpts = append(awsOpts, config.WithLogger(sdkLogger{}))
+	}
 	awsOpts = append(awsOpts, config.WithRetryer(customRetryer(opts.MaxRetries)))
 
 	awsOpts, err = getRegionOpts(ctx, opts, isVirtualHostStyle, awsOpts...)
@@ -161,11 +160,10 @@ func newS3Storage(ctx context.Context, opts storage.Options) (*S3, error) {
 		o.UsePathStyle = !isVirtualHostStyle
 	})
 	return &S3{
-		client:     client,
-		config:     cfg,
-		downloader: manager.NewDownloader(client),
-		//todo: add uploader
-		//uploader: manager.NewUploader(client),
+		client:       client,
+		config:       cfg,
+		downloader:   manager.NewDownloader(client),
+		uploader:     manager.NewUploader(client),
 		requestPayer: "",
 		endpointURL:  endpointURL,
 	}, nil
@@ -306,9 +304,8 @@ func (s *S3) Stat(ctx context.Context, url *url.URL) (*storage.Object, error) {
 // it sends these errors to object channel.
 func (s *S3) List(ctx context.Context, url *url.URL, _ bool) <-chan *storage.Object {
 
-	//TODO: switch to listObjectsV2 for GCS
-	if isGoogleEndpoint(s.endpointURL) || s.useListObjectsV1 {
-		return nil
+	if s.useListObjectsV1 {
+		return s.listObjects(ctx, url)
 	}
 
 	return s.listObjectsV2(ctx, url)
@@ -345,14 +342,11 @@ func (s *S3) listObjectsV2(ctx context.Context, url *url.URL) <-chan *storage.Ob
 				if !url.Match(prefix) {
 					continue
 				}
-				fmt.Println(url.Relative())
 				newurl := url.Clone()
-				fmt.Println(newurl.Relative())
 				newurl.Path = prefix
 
 				objCh <- &storage.Object{
-					URL: newurl,
-					//todo : cannot set type as it is not exported, fix it later
+					URL:  newurl,
 					Type: storage.ObjectType{os.ModeDir},
 				}
 
@@ -375,7 +369,6 @@ func (s *S3) listObjectsV2(ctx context.Context, url *url.URL) <-chan *storage.Ob
 					objectFound = true
 					continue
 				}
-				//todo : cannot set type as it is not exported, fix it later
 				var objtype os.FileMode
 				if strings.HasSuffix(key, "/") {
 					objtype = os.ModeDir
@@ -386,10 +379,9 @@ func (s *S3) listObjectsV2(ctx context.Context, url *url.URL) <-chan *storage.Ob
 				etag := aws.ToString(c.ETag)
 
 				objCh <- &storage.Object{
-					URL:     newurl,
-					Etag:    strings.Trim(etag, `"`),
-					ModTime: &mod,
-					//todo : cannot set type as it is not exported, fix it later
+					URL:          newurl,
+					Etag:         strings.Trim(etag, `"`),
+					ModTime:      &mod,
 					Type:         storage.ObjectType{Mode: objtype},
 					Size:         c.Size,
 					StorageClass: storage.StorageClass(c.StorageClass),
@@ -408,13 +400,186 @@ func (s *S3) listObjectsV2(ctx context.Context, url *url.URL) <-chan *storage.Ob
 	return objCh
 
 }
+
+// listObjects is used for cloud services that does not support S3
 func (s *S3) listObjects(ctx context.Context, url *url.URL) <-chan *storage.Object {
-	//todo: Implement paginator for listObjectsV1
+
+	listInput := s3.ListObjectsInput{
+		Bucket:       aws.String(url.Bucket),
+		Prefix:       aws.String(url.Prefix),
+		RequestPayer: s.RequestPayer(),
+	}
+
+	if url.Delimiter != "" {
+		listInput.Delimiter = &url.Delimiter
+	}
 	objCh := make(chan *storage.Object)
 
+	go func() {
+		defer close(objCh)
+		objectFound := false
+
+		var now time.Time
+
+		paginator := NewListObjectsPaginator(s.client, &listInput)
+		for paginator.HasMorePages() {
+			p, err := paginator.NextPage(ctx)
+			if err != nil {
+				objCh <- &storage.Object{Err: err}
+				return
+			}
+			for _, c := range p.CommonPrefixes {
+				prefix := aws.ToString(c.Prefix)
+				if !url.Match(prefix) {
+					continue
+				}
+
+				newurl := url.Clone()
+				newurl.Path = prefix
+				objCh <- &storage.Object{
+					URL:  newurl,
+					Type: storage.ObjectType{os.ModeDir},
+				}
+
+				objectFound = true
+			}
+			// track the instant object iteration began,
+			// so it can be used to bypass objects created after this instant
+			if now.IsZero() {
+				now = time.Now().UTC()
+			}
+			for _, c := range p.Contents {
+				key := aws.ToString(c.Key)
+				if !url.Match(key) {
+					continue
+				}
+
+				mod := aws.ToTime(c.LastModified).UTC()
+				if mod.After(now) {
+					objectFound = true
+					continue
+				}
+
+				var objtype os.FileMode
+				if strings.HasSuffix(key, "/") {
+					objtype = os.ModeDir
+				}
+
+				newurl := url.Clone()
+				newurl.Path = aws.ToString(c.Key)
+				etag := aws.ToString(c.ETag)
+
+				objCh <- &storage.
+					Object{
+					URL:          newurl,
+					Etag:         strings.Trim(etag, `"`),
+					ModTime:      &mod,
+					Type:         storage.ObjectType{Mode: objtype},
+					Size:         c.Size,
+					StorageClass: storage.StorageClass(c.StorageClass),
+				}
+
+				objectFound = true
+			}
+
+		}
+		if !objectFound {
+			objCh <- &storage.Object{Err: storage.ErrNoObjectFound}
+		}
+
+	}()
 	return objCh
 }
 
+// ListObjectsAPIClient is a client that implements the ListObjectsV2 operation.
+type ListObjectsAPIClient interface {
+	ListObjects(ctx context.Context, params *s3.ListObjectsInput, optFns ...func(*s3.Options)) (*s3.ListObjectsOutput, error)
+}
+
+var _ ListObjectsAPIClient = (*s3.Client)(nil)
+
+// ListObjectsPaginatorOptions is the paginator options for ListObjects
+type ListObjectsPaginatorOptions struct {
+	// Sets the maximum number of keys returned in the response. By default the action
+	// returns up to 1,000 key names. The response might contain fewer keys but will
+	// never contain more.
+	Limit int32
+
+	// Set to true if pagination should stop if the service returns a pagination token
+	// that matches the most recent token provided to the service.
+	StopOnDuplicateToken bool
+}
+
+// ListObjectsPaginator is a paginator for ListObjects
+type ListObjectsPaginator struct {
+	options    ListObjectsPaginatorOptions
+	client     ListObjectsAPIClient
+	params     *s3.ListObjectsInput
+	nextMarker *string
+	firstPage  bool
+}
+
+// NewListObjectsPaginator returns a new ListObjectsV2Paginator
+func NewListObjectsPaginator(client ListObjectsAPIClient, params *s3.ListObjectsInput, optFns ...func(*ListObjectsPaginatorOptions)) *ListObjectsPaginator {
+	if params == nil {
+		params = &s3.ListObjectsInput{}
+	}
+
+	options := ListObjectsPaginatorOptions{}
+	if params.MaxKeys != 0 {
+		options.Limit = params.MaxKeys
+	}
+
+	for _, fn := range optFns {
+		fn(&options)
+	}
+
+	return &ListObjectsPaginator{
+		options:    options,
+		client:     client,
+		params:     params,
+		firstPage:  true,
+		nextMarker: params.Marker,
+	}
+}
+
+// HasMorePages returns a boolean indicating whether more pages are available
+func (p *ListObjectsPaginator) HasMorePages() bool {
+	return p.firstPage || (p.nextMarker != nil && len(*p.nextMarker) != 0)
+}
+
+// NextPage retrieves the next ListObjectsV2 page.
+func (p *ListObjectsPaginator) NextPage(ctx context.Context, optFns ...func(*s3.Options)) (*s3.ListObjectsOutput, error) {
+	if !p.HasMorePages() {
+		return nil, fmt.Errorf("no more pages available")
+	}
+
+	params := *p.params
+	params.Marker = p.nextMarker
+
+	params.MaxKeys = p.options.Limit
+
+	result, err := p.client.ListObjects(ctx, &params, optFns...)
+	if err != nil {
+		return nil, err
+	}
+	p.firstPage = false
+
+	prevToken := p.nextMarker
+	p.nextMarker = nil
+	if result.IsTruncated {
+		p.nextMarker = result.NextMarker
+	}
+
+	if p.options.StopOnDuplicateToken &&
+		prevToken != nil &&
+		p.nextMarker != nil &&
+		*prevToken == *p.nextMarker {
+		p.nextMarker = nil
+	}
+
+	return result, nil
+}
 func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata storage.Metadata) error {
 
 	if s.dryRun {
@@ -851,20 +1016,22 @@ func main() {
 	log.Init("debug", false)
 	var opts = storage.Options{Endpoint: "http://127.0.0.1:60409"}
 	s33, _ := newS3Storage(context.TODO(), opts)
-	to, _ := url.New("s3://bucket/file2.txt")
-	from, _ := url.New("/Users/boraberkesahin/Documents/s5cmd/sdkmigration/mock.go")
-	fmt.Println(from.String())
-	fmt.Println(from.EscapedPath())
-	fmt.Println(to.Bucket)
-	_, err := s33.client.CopyObject(context.Background(), &s3.CopyObjectInput{
-		Bucket:     aws.String(to.Bucket),
-		Key:        aws.String(to.Path),
-		CopySource: aws.String(from.EscapedPath()),
-	})
+	to, _ := url.New("s3://bucket/*")
+	//	from, _ := url.New("/Users/boraberkesahin/Documents/s5cmd/sdkmigration/mock.go")
+
+	//s33.useListObjectsV1 = true
+
+	objs := s33.listObjects(context.Background(), to)
+
+	for obj := range objs {
+		fmt.Println(obj.String())
+	}
+	//_, err := s33.client.CopyObject(context.Background(), &s3.CopyObjectInput{
+	//	Bucket:     aws.String(to.Bucket),
+	//	Key:        aws.String(to.Path),
+	//	CopySource: aws.String(from.EscapedPath()),
+	//})
 
 	//err := s33.Copy(context.Background(), from, to, storage.Metadata{})
-	if err != nil {
-		panic(err)
-	}
 
 }

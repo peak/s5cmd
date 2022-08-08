@@ -4,13 +4,21 @@ package e2e
 
 import (
 	"bytes"
+	"context"
+	"crypto/tls"
 	jsonpkg "encoding/json"
 	"errors"
 	"flag"
 	"fmt"
+	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/smithy-go"
+	"github.com/aws/smithy-go/logging"
+	"github.com/peak/s5cmd/log"
 	"io"
 	"io/ioutil"
 	"math/rand"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -24,12 +32,9 @@ import (
 
 	"github.com/peak/s5cmd/storage"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/endpoints"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/google/go-cmp/cmp"
 	"github.com/iancoleman/strcase"
 	"github.com/igungor/gofakes3"
@@ -95,7 +100,7 @@ func withProxy() option {
 	}
 }
 
-func setup(t *testing.T, options ...option) (*s3.S3, func(...string) icmd.Cmd, func()) {
+func setup(t *testing.T, options ...option) (*s3.Client, func(...string) icmd.Cmd, func()) {
 	t.Helper()
 
 	opts := &setupOpts{
@@ -150,28 +155,57 @@ func server(t *testing.T, opts *setupOpts) (string, string, func()) {
 	return endpoint, workdir, cleanup
 }
 
-func s3client(t *testing.T, options storage.Options) *s3.S3 {
+type sdkLogger struct{}
+
+func (l sdkLogger) Logf(classification logging.Classification, format string, v ...interface{}) {
+	//todo: Should we add classification to our logging?
+	_ = classification
+	msg := log.TraceMessage{
+		Message: fmt.Sprintf(format, v...),
+	}
+	log.Trace(msg)
+}
+
+func s3client(t *testing.T, opts storage.Options) *s3.Client {
 	t.Helper()
 
-	awsLogLevel := aws.LogOff
-	if *flagTestLogLevel == "debug" {
-		awsLogLevel = aws.LogDebug
-	}
-	// WithDisableRestProtocolURICleaning is added to allow adjacent slashes to be used in s3 object keys.
-	s3Config := aws.NewConfig().
-		WithEndpoint(options.Endpoint).
-		WithRegion(endpoints.UsEast1RegionID).
-		WithCredentials(credentials.NewStaticCredentials(defaultAccessKeyID, defaultSecretAccessKey, "")).
-		WithDisableSSL(options.NoVerifySSL).
-		WithDisableRestProtocolURICleaning(true).
-		WithS3ForcePathStyle(true).
-		WithCredentialsChainVerboseErrors(true).
-		WithLogLevel(awsLogLevel)
+	var awsOpts []func(*config.LoadOptions) error
 
-	sess, err := session.NewSession(s3Config)
+	if *flagTestLogLevel == "debug" {
+		awsOpts = append(awsOpts, config.WithClientLogMode(aws.LogResponse|aws.LogRequest))
+		//todo: find a way to use the original sdkLogger.
+		awsOpts = append(awsOpts, config.WithLogger(sdkLogger{}))
+	}
+
+	awsOpts = append(awsOpts, config.WithRegion("us-east-1"))
+
+	if opts.NoVerifySSL {
+		httpClient := awshttp.NewBuildableClient().WithTransportOptions(func(tr *http.Transport) {
+			tr.Proxy = http.ProxyFromEnvironment
+			tr.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+		})
+		awsOpts = append(awsOpts, config.WithHTTPClient(httpClient))
+	}
+
+	endpoint := config.WithEndpointResolverWithOptions(aws.EndpointResolverWithOptionsFunc(
+		func(service, region string, options ...interface{}) (aws.Endpoint, error) {
+			return aws.Endpoint{
+				URL:               opts.Endpoint,
+				Source:            aws.EndpointSourceCustom,
+				HostnameImmutable: true}, nil
+		}))
+	awsOpts = append(awsOpts, endpoint)
+
+	awsOpts = append(awsOpts, config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(defaultAccessKeyID, defaultSecretAccessKey, "")))
+	cfg, err := config.LoadDefaultConfig(context.Background(), awsOpts...)
+	assert.NilError(t, err)
+	client := s3.NewFromConfig(cfg, func(o *s3.Options) {
+		o.UsePathStyle = true
+	})
+	// todo: find an equivalent setting to ChainVerboseErrors
 	assert.NilError(t, err)
 
-	return s3.New(sess)
+	return client
 }
 
 func s5cmd(workdir, endpoint string) func(args ...string) icmd.Cmd {
@@ -258,14 +292,14 @@ func goBuildS5cmd() func() {
 	}
 }
 
-func createBucket(t *testing.T, client *s3.S3, bucket string) {
+func createBucket(t *testing.T, client *s3.Client, bucket string) {
 	t.Helper()
 
 	input := &s3.CreateBucketInput{
 		Bucket: aws.String(bucket),
 	}
 
-	_, err := client.CreateBucket(input)
+	_, err := client.CreateBucket(context.Background(), input)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -293,7 +327,7 @@ func ensureStorageClass(expected string) ensureOption {
 }
 
 func ensureS3Object(
-	client *s3.S3,
+	client *s3.Client,
 	bucket string,
 	key string,
 	content string,
@@ -304,15 +338,14 @@ func ensureS3Object(
 		fn(opts)
 	}
 
-	output, err := client.GetObject(&s3.GetObjectInput{
+	output, err := client.GetObject(context.Background(), &s3.GetObjectInput{
 		Bucket: aws.String(bucket),
 		Key:    aws.String(key),
 	})
 
-	awsErr, ok := err.(awserr.Error)
-	if ok {
-		switch awsErr.Code() {
-		case s3.ErrCodeNoSuchKey:
+	var ae smithy.APIError
+	if errors.As(err, &ae) {
+		if ae.ErrorCode() == "NoSuchKey" {
 			return fmt.Errorf("%v: %w", key, errS3NoSuchKey)
 		}
 	}
@@ -345,10 +378,10 @@ func ensureS3Object(
 	return nil
 }
 
-func putFile(t *testing.T, client *s3.S3, bucket string, filename string, content string) {
+func putFile(t *testing.T, client *s3.Client, bucket string, filename string, content string) {
 	t.Helper()
 
-	_, err := client.PutObject(&s3.PutObjectInput{
+	_, err := client.PutObject(context.Background(), &s3.PutObjectInput{
 		Body:   strings.NewReader(content),
 		Bucket: aws.String(bucket),
 		Key:    aws.String(filename),

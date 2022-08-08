@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -20,6 +22,7 @@ import (
 	"net/http/httptest"
 	urlpkg "net/url"
 	"os"
+	"reflect"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -33,7 +36,7 @@ func TestS3ImplementsStorageInterface(t *testing.T) {
 	}
 }
 
-//todo: problematice
+//todo: problematic
 func TestNewSessionPathStyle(t *testing.T) {
 	testcases := []struct {
 		name            string
@@ -70,23 +73,41 @@ func TestNewSessionPathStyle(t *testing.T) {
 	for _, tc := range testcases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
+			mw := middleware.SerializeMiddlewareFunc("GetObject", func(
+				ctx context.Context,
+				in middleware.SerializeInput,
+				next middleware.SerializeHandler,
+			) (
+				out middleware.SerializeOutput,
+				metadata middleware.Metadata,
+				err error,
+			) {
+				//todo: cannot do type conversion, ask later
+				fmt.Println(reflect.TypeOf(in.Request))
+
+				if r, ok := in.Request.(*http.Request); ok {
+					fmt.Println(r.URL.Host)
+				}
+
+				return next.HandleSerialize(ctx, in)
+
+			})
 			opts := storage.Options{Endpoint: tc.endpoint.Hostname()}
-			s3, err := newS3Storage(context.Background(), opts)
+			_ = reflect.TypeOf(opts)
+			mockS3, err := newS3Storage(context.Background(), opts)
 			if err != nil {
 				t.Fatal(err)
 			}
-			buckets, err := s3.ListBuckets(context.TODO(), "bucket")
-			fmt.Println(buckets)
-
-			epu := s3.endpointURL
-			fmt.Println("epu", epu)
-			bol := true
-			//s3.Config.S3ForcePathStyle
-			fmt.Println(s3.config.APIOptions)
-			got := aws.ToBool(&bol)
-			if got != tc.expectPathStyle {
-				t.Fatalf("expected: %v, got: %v", tc.expectPathStyle, got)
-			}
+			t.Fatal("not Implemented")
+			_, _ = mockS3.client.ListObjects(
+				context.Background(),
+				&s3.ListObjectsInput{Bucket: aws.String("bucket"), Prefix: aws.String("key")},
+				func(options *s3.Options) {
+					options.APIOptions = append(options.APIOptions, func(stack *middleware.Stack) error {
+						return stack.Serialize.Add(mw, middleware.After)
+					})
+				},
+			)
 		})
 	}
 }
@@ -490,109 +511,8 @@ func TestS3CopyEncryptionRequest(t *testing.T) {
 			name: "no encryption/no acl, by default",
 		},
 		{
-			name: "aws:kms encryption with server side generated keys",
-			sse:  "aws:kms",
-
-			expectedSSE: "aws:kms",
-		},
-		{
-			name:     "aws:kms encryption with user provided key",
-			sse:      "aws:kms",
-			sseKeyID: "sdkjn12SDdci#@#EFRFERTqW/ke",
-
-			expectedSSE:      "aws:kms",
-			expectedSSEKeyID: "sdkjn12SDdci#@#EFRFERTqW/ke",
-		},
-		{
-			name:     "provide key without encryption flag, shall be ignored",
-			sseKeyID: "1234567890",
-		},
-		{
-			name:        "acl flag with a value",
-			acl:         "bucket-owner-full-control",
-			expectedAcl: "bucket-owner-full-control",
-		},
-	}
-	u, err := url.New("s3://bucket/key")
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	for _, tc := range testcases {
-		tc := tc
-		t.Run(tc.name, func(t *testing.T) {
-
-			mw := middleware.InitializeMiddlewareFunc("anything", func(
-				ctx context.Context,
-				in middleware.InitializeInput,
-				next middleware.InitializeHandler,
-			) (
-				out middleware.InitializeOutput,
-				metadata middleware.Metadata,
-				err error,
-			) {
-				switch v := in.Parameters.(type) {
-				case *s3.CopyObjectInput:
-					sse := v.ServerSideEncryption
-					key := v.SSEKMSKeyId
-					aclVal := v.ACL
-					if !(sse == "" && tc.expectedSSE == "") {
-						assert.Equal(t, sse, tc.expectedSSE)
-					}
-					if !(key == nil && tc.expectedSSEKeyID == "") {
-						assert.Equal(t, key, tc.expectedSSEKeyID)
-					}
-					if aclVal == "" && tc.expectedAcl == "" {
-						return
-					}
-
-					assert.Equal(t, aclVal, tc.expectedAcl)
-				}
-				return next.HandleInitialize(ctx, in)
-			})
-
-			s3c, err := newS3Storage(context.Background(), storage.Options{MaxRetries: 5})
-			if err != nil {
-				t.Fatal(err)
-			}
-			metadata := storage.NewMetadata().SetSSE(tc.sse).SetSSEKeyID(tc.sseKeyID).SetACL(tc.acl)
-			copySource := u.EscapedPath()
-			_, err = s3c.client.CopyObject(
-				context.Background(),
-				&s3.CopyObjectInput{Bucket: aws.String(u.Bucket), Key: aws.String(u.Path),
-					CopySource: aws.String(copySource),
-					Metadata:   metadata},
-				func(options *s3.Options) {
-					options.APIOptions = append(options.APIOptions, func(stack *middleware.Stack) error {
-						return stack.Initialize.Add(mw, middleware.Before)
-					})
-				},
-			)
-
-			if err != nil {
-				t.Errorf("Expected %v, but received %q", nil, err)
-			}
-		})
-	}
-}
-
-func TestS3CopyEncryptionRequest2(t *testing.T) {
-	testcases := []struct {
-		name     string
-		sse      string
-		sseKeyID string
-		acl      string
-
-		expectedSSE      string
-		expectedSSEKeyID string
-		expectedAcl      string
-	}{
-		{
-			name: "no encryption/no acl, by default",
-		},
-		{
-			name: "aws:kms encryption with server side generated keys",
-			sse:  "aws:kms",
-
+			name:        "aws:kms encryption with server side generated keys",
+			sse:         "aws:kms",
 			expectedSSE: "aws:kms",
 		},
 		{
@@ -629,22 +549,146 @@ func TestS3CopyEncryptionRequest2(t *testing.T) {
 				client: m,
 			}
 
-			if err != nil {
-				t.Fatal(err)
+			copyObjectInput := &s3.CopyObjectInput{
+				Bucket:               aws.String(u.Bucket),
+				CopySource:           aws.String(u.EscapedPath()),
+				Key:                  aws.String(u.Path),
+				ServerSideEncryption: types.ServerSideEncryption(tc.sse),
+				ACL:                  types.ObjectCannedACL(tc.acl),
+				SSEKMSKeyId:          aws.String(tc.expectedSSEKeyID),
 			}
-			metadata := storage.NewMetadata().SetSSE(tc.sse).SetSSEKeyID(tc.sseKeyID).SetACL(tc.acl)
-			m.EXPECT().CopyObject(gomock.Any(), s3.CopyObjectInput{
-				Bucket:     aws.String(u.Bucket),
-				CopySource: aws.String(u.EscapedPath()),
-				Key:        aws.String(u.Path),
-				ACL:        types.ObjectCannedACL(tc.acl),
-			})
 
+			metadata := storage.NewMetadata().SetSSE(tc.sse).SetSSEKeyID(tc.sseKeyID).SetACL(tc.acl)
+			m.EXPECT().CopyObject(
+				gomock.Any(),
+				matchCopyObjectInput(copyObjectInput),
+			)
 			mockS3.Copy(context.Background(), u, u, metadata)
 
 		})
 	}
 }
+
+type copyObjectMatcher struct {
+	input *s3.CopyObjectInput
+}
+
+func matchCopyObjectInput(input *s3.CopyObjectInput) gomock.Matcher {
+	return copyObjectMatcher{input: input}
+}
+
+func (m copyObjectMatcher) Matches(x interface{}) bool {
+	input, ok := x.(*s3.CopyObjectInput)
+	if ok {
+		return input.ACL == m.input.ACL && input.ServerSideEncryption == m.input.ServerSideEncryption && aws.ToString(input.SSEKMSKeyId) == aws.ToString(m.input.SSEKMSKeyId)
+	}
+
+	return false
+}
+
+func (m copyObjectMatcher) String() string {
+	b, _ := json.Marshal(m)
+	return string(b)
+}
+
+func TestS3PutEncryptionRequest(t *testing.T) {
+	testcases := []struct {
+		name     string
+		sse      string
+		sseKeyID string
+		acl      string
+
+		expectedSSE      string
+		expectedSSEKeyID string
+		expectedAcl      string
+	}{
+		{
+			name: "no encryption/no acl, by default",
+		},
+		{
+			name:        "aws:kms encryption with server side generated keys",
+			sse:         "aws:kms",
+			expectedSSE: "aws:kms",
+		},
+		{
+			name:     "aws:kms encryption with user provided key",
+			sse:      "aws:kms",
+			sseKeyID: "sdkjn12SDdci#@#EFRFERTqW/ke",
+
+			expectedSSE:      "aws:kms",
+			expectedSSEKeyID: "sdkjn12SDdci#@#EFRFERTqW/ke",
+		},
+		{
+			name:     "provide key without encryption flag, shall be ignored",
+			sseKeyID: "1234567890",
+		},
+		{
+			name:        "acl flag with a value",
+			acl:         "bucket-owner-full-control",
+			expectedAcl: "bucket-owner-full-control",
+		},
+	}
+	u, err := url.New("s3://bucket/key")
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	for _, tc := range testcases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			mockUploader := NewMockuploader(ctrl)
+			mockS3 := &S3{
+				uploader: mockUploader,
+			}
+
+			putObjectInput := &s3.PutObjectInput{
+				Bucket:               aws.String(u.Bucket),
+				Key:                  aws.String(u.Path),
+				ServerSideEncryption: types.ServerSideEncryption(tc.sse),
+				ACL:                  types.ObjectCannedACL(tc.acl),
+				SSEKMSKeyId:          aws.String(tc.expectedSSEKeyID),
+			}
+
+			metadata := storage.NewMetadata().SetSSE(tc.sse).SetSSEKeyID(tc.sseKeyID).SetACL(tc.acl)
+			mockUploader.EXPECT().Upload(
+				gomock.Any(),
+				matchPutObjectInput(putObjectInput),
+				gomock.Any(),
+			)
+			err := mockS3.Put(context.Background(), bytes.NewReader([]byte("")), u, metadata, 1, 5242880)
+			if err != nil {
+				fmt.Println(err.Error())
+			}
+
+		})
+	}
+}
+
+type putObjectMatcher struct {
+	input *s3.PutObjectInput
+}
+
+func matchPutObjectInput(input *s3.PutObjectInput) gomock.Matcher {
+	return putObjectMatcher{input: input}
+}
+
+func (m putObjectMatcher) Matches(x interface{}) bool {
+	input, ok := x.(*s3.PutObjectInput)
+	if ok {
+		return input.ACL == m.input.ACL && input.ServerSideEncryption == m.input.ServerSideEncryption && aws.ToString(input.SSEKMSKeyId) == aws.ToString(m.input.SSEKMSKeyId)
+	}
+
+	return false
+}
+
+func (m putObjectMatcher) String() string {
+	b, _ := json.Marshal(m)
+	return string(b)
+}
+
 func TestS3listObjectsV2(t *testing.T) {
 	const (
 		numObjectsToReturn = 10100
@@ -906,6 +950,43 @@ func TestAutoRegionFromHeadBucket(t *testing.T) {
 
 		})
 	}
+}
+func TestS3ListObjectsAPIVersions(t *testing.T) {
+	url, err := url.New("s3://bucket/key")
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	m := NewMocks3Client(ctrl)
+	mockS3 := &S3{
+		client: m,
+	}
+
+	t.Run("list-objects-v2", func(t *testing.T) {
+
+		m.EXPECT().ListObjectsV2(gomock.Any(), gomock.Any(), gomock.Any()).Return(&s3.ListObjectsV2Output{}, nil)
+		ctx := context.Background()
+
+		mockS3.useListObjectsV1 = false
+		for range mockS3.List(ctx, url, false) {
+
+		}
+
+	})
+	t.Run("list-objects-v1", func(t *testing.T) {
+
+		m.EXPECT().ListObjects(gomock.Any(), gomock.Any(), gomock.Any()).Return(&s3.ListObjectsOutput{}, nil)
+		ctx := context.Background()
+
+		mockS3.useListObjectsV1 = true
+		for range mockS3.List(ctx, url, false) {
+
+		}
+
+	})
 }
 
 func TestAWSLogLevel(t *testing.T) {

@@ -1204,7 +1204,7 @@ func TestVersionedListAndRemove(t *testing.T) {
 		filename              = "testfile.txt"
 		firstContent          = "this is the first content"
 		firstExpectedContent  = firstContent + "\n"
-		secondContent         = "this is the second content: Haza Kitâb-i Ebâ Mûslim."
+		secondContent         = "this is the second content: different than the first."
 		secondExpectedContent = secondContent + "\n"
 	)
 
@@ -1243,7 +1243,7 @@ func TestVersionedListAndRemove(t *testing.T) {
 		2: contains("%v", filename),
 	})
 
-	// / we expect all 3 versions of objects (one of which is a delete marker) to be deleted
+	// we expect all 3 versions of objects (one of which is a delete marker) to be deleted
 	cmd = s5cmd("rm", "--all-versions", "s3://"+bucket+"/"+filename)
 	result = icmd.RunCmd(cmd)
 
@@ -1268,19 +1268,20 @@ func TestRemoveByVersionID(t *testing.T) {
 	s3client, s5cmd, cleanup := setup(t, withS3Backend("mem"))
 	defer cleanup()
 
-	const (
-		filename      = "testfile.txt"
-		firstContent  = "Sen\nSen esirliğim ve hürriyetimsin,"
-		secondContent = "Sen büyük, güzel ve muzaffer\nve ulaşıldıkça ulaşılmaz olan hasretimsin..."
-	)
+	const filename = "testfile.txt"
+
+	var contents = []string{
+		"This is first content",
+		"Second content it is, and it is a bit longer!!!",
+	}
 
 	// create a bucket and Enable versioning
 	createBucket(t, s3client, bucket)
 	setBucketVersioning(t, s3client, bucket, "Enabled")
 
 	// upload two versions of the file with same key
-	putFile(t, s3client, bucket, filename, firstContent)
-	putFile(t, s3client, bucket, filename, secondContent)
+	putFile(t, s3client, bucket, filename, contents[0])
+	putFile(t, s3client, bucket, filename, contents[1])
 
 	//  remove (add a delete marker)
 	cmd := s5cmd("rm", "s3://"+bucket+"/"+filename)

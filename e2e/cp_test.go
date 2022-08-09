@@ -4197,15 +4197,14 @@ func TestVersionedDownload(t *testing.T) {
 	s3client, s5cmd, cleanup := setup(t, withS3Backend("mem"))
 	defer cleanup()
 
-	const (
-		filename              = "testfile.txt"
-		firstContent          = "this is the first content"
-		firstExpectedContent  = firstContent
-		secondContent         = "this is the second content: Haza Kitâb-i Ebâ Mûslim."
-		secondExpectedContent = secondContent
-	)
+	const filename = "testfile.txt"
 
-	workdir := fs.NewDir(t, t.Name(), fs.WithFile(filename+"1", firstContent), fs.WithFile(filename+"2", secondContent))
+	var contents = []string{
+		"This is first content",
+		"Second content it is, and it is a bit longer!!!",
+	}
+
+	workdir := fs.NewDir(t, t.Name(), fs.WithFile(filename+"1", contents[0]), fs.WithFile(filename+"2", contents[1]))
 	defer workdir.Remove()
 
 	// create a bucket and Enable versioning
@@ -4213,8 +4212,8 @@ func TestVersionedDownload(t *testing.T) {
 	setBucketVersioning(t, s3client, bucket, "Enabled")
 
 	// upload two versions of the file with same key
-	putFile(t, s3client, bucket, filename, firstExpectedContent)
-	putFile(t, s3client, bucket, filename, secondExpectedContent)
+	putFile(t, s3client, bucket, filename, contents[0])
+	putFile(t, s3client, bucket, filename, contents[1])
 
 	// we expect to see 2 versions of objects
 	cmd := s5cmd("ls", "--all-versions", "s3://"+bucket+"/"+filename)

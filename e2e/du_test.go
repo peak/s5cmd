@@ -257,20 +257,23 @@ func TestDiskUsageByVersionIDAndAllVersions(t *testing.T) {
 	s3client, s5cmd, cleanup := setup(t, withS3Backend("mem"))
 	defer cleanup()
 
-	const (
-		filename      = "testfile.txt"
-		firstContent  = "Sen\nSen esirliğim ve hürriyetimsin,"
-		secondContent = "Sen büyük, güzel ve muzaffer\nve ulaşıldıkça ulaşılmaz olan hasretimsin..."
+	const filename = "testfile.txt"
+
+	var (
+		contents = []string{
+			"This is first content",
+			"Second content it is, and it is a bit longer!!!",
+		}
+		sizes = []int{len(contents[0]), len(contents[1])}
 	)
-	sizes := []int{len(firstContent), len(secondContent)}
 
 	// create a bucket and Enable versioning
 	createBucket(t, s3client, bucket)
 	setBucketVersioning(t, s3client, bucket, "Enabled")
 
 	// upload two versions of the file with same key
-	putFile(t, s3client, bucket, filename, firstContent)
-	putFile(t, s3client, bucket, filename, secondContent)
+	putFile(t, s3client, bucket, filename, contents[0])
+	putFile(t, s3client, bucket, filename, contents[1])
 
 	//  get disk usage
 	cmd := s5cmd("du", "s3://"+bucket+"/"+filename)

@@ -7,7 +7,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"gotest.tools/v3/assert"
-	"gotest.tools/v3/fs"
 	"gotest.tools/v3/icmd"
 )
 
@@ -234,18 +233,12 @@ func TestCatByVersionID(t *testing.T) {
 	s3client, s5cmd, cleanup := setup(t, withS3Backend("mem"))
 	defer cleanup()
 
-	const (
-		filename = "testfile.txt"
-	)
-	var (
-		contents = []string{
-			"Sen\nSen esirliğim ve hürriyetimsin,",
-			"Sen büyük, güzel ve muzaffer\nve ulaşıldıkça ulaşılmaz olan hasretimsin...",
-		}
-	)
+	const filename = "testfile.txt"
 
-	workdir := fs.NewDir(t, t.Name(), fs.WithFile(filename+"1", contents[0]), fs.WithFile(filename+"2", contents[1]))
-	defer workdir.Remove()
+	var contents = []string{
+		"This is first content",
+		"Second content it is, and it is a bit longer!!!",
+	}
 
 	// create a bucket and Enable versioning
 	createBucket(t, s3client, bucket)

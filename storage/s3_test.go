@@ -469,11 +469,11 @@ func TestS3Retry(t *testing.T) {
 				return out, metadata, &smithy.GenericAPIError{Code: tc.name}
 			})
 
-			s3c, err := newS3Storage(ctx, Options{MaxRetries: expectedRetry})
+			s3c, err := newS3Storage(ctx, Options{MaxRetries: expectedRetry, NoSignRequest: true})
 			if err != nil {
 				t.Fatal(err)
 			}
-			_, _ = s3c.client.GetObject(
+			_, err = s3c.client.GetObject(
 				context.Background(),
 				&s3.GetObjectInput{Bucket: aws.String("bucket"), Key: aws.String("key")},
 				func(options *s3.Options) {
@@ -482,6 +482,7 @@ func TestS3Retry(t *testing.T) {
 					})
 				},
 			)
+			assert.ErrorContains(t, err, tc.name)
 
 			got := int(atomic.LoadInt32(&count))
 			expected := tc.expectedRequest

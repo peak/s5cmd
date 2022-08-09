@@ -24,6 +24,7 @@ package e2e
 
 import (
 	"fmt"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -975,7 +976,7 @@ func TestCopySingleFileToS3WithStorageClassGlacier(t *testing.T) {
 		// make sure that Put reads the file header, not the extension
 		filename             = "index.txt"
 		content              = "content"
-		expectedStorageClass = "GLACIER"
+		expectedStorageClass = types.StorageClassGlacier
 	)
 
 	workdir := fs.NewDir(t, bucket, fs.WithFile(filename, content))
@@ -3576,11 +3577,13 @@ func TestCopyMultipleS3ObjectsWithPrefixToS3WithRawMode(t *testing.T) {
 
 	result.Assert(t, icmd.Expected{ExitCode: 1})
 
-	expected := fmt.Sprintf(`ERROR "cp %v %v/file*": NoSuchKey:`, src, dst)
-
-	assertLines(t, result.Stderr()[:len(expected)], map[int]compareFunc{
-		0: equals(expected),
+	expectedPrefix := fmt.Sprintf(`ERROR "cp %v %v/file*":`, src, dst)
+	expectedErr := "NoSuchKey:"
+	fmt.Println(result.Stderr())
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: containsMultiple(expectedPrefix, expectedErr),
 	})
+
 }
 
 // cp --raw s3://bucket/file* s3://destbucket

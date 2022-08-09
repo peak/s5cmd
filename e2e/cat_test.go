@@ -93,7 +93,7 @@ func TestCatS3ObjectFail(t *testing.T) {
 				src,
 			},
 			expected: map[int]compareFunc{
-				0: contains(`ERROR "cat s3://bucket/prefix/file.txt": NoSuchKey: status code: 404`),
+				0: containsMultiple(`ERROR "cat s3://bucket/prefix/file.txt":`, `NoSuchKey:`, `StatusCode: 404`),
 			},
 		},
 		{
@@ -104,7 +104,7 @@ func TestCatS3ObjectFail(t *testing.T) {
 				src,
 			},
 			expected: map[int]compareFunc{
-				0: contains(`{"operation":"cat","command":"cat s3://bucket/prefix/file.txt","error":"NoSuchKey: status code: 404,`),
+				0: containsMultiple(`"operation":"cat","command":"cat s3://bucket/prefix/file.txt"`, `NoSuchKey:`, `StatusCode: 404,`),
 			},
 			assertOps: []assertOp{
 				jsonCheck(true),
@@ -147,7 +147,7 @@ func TestCatS3ObjectFail(t *testing.T) {
 
 			cmd := s5cmd(tc.cmd...)
 			result := icmd.RunCmd(cmd)
-
+			fmt.Println(result.Stderr())
 			result.Assert(t, icmd.Expected{ExitCode: 1})
 			assertLines(t, result.Stderr(), tc.expected, tc.assertOps...)
 		})

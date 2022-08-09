@@ -12,6 +12,7 @@ import (
 	"fmt"
 	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/aws/smithy-go"
 	"github.com/aws/smithy-go/logging"
 	"github.com/peak/s5cmd/log"
@@ -309,7 +310,7 @@ var errS3NoSuchKey = fmt.Errorf("s3: no such key")
 
 type ensureOpts struct {
 	contentType  *string
-	storageClass *string
+	storageClass types.StorageClass
 }
 
 type ensureOption func(*ensureOpts)
@@ -320,9 +321,9 @@ func ensureContentType(contentType string) ensureOption {
 	}
 }
 
-func ensureStorageClass(expected string) ensureOption {
+func ensureStorageClass(expected types.StorageClass) ensureOption {
 	return func(opts *ensureOpts) {
-		opts.storageClass = &expected
+		opts.storageClass = expected
 	}
 }
 
@@ -369,7 +370,7 @@ func ensureS3Object(
 		}
 	}
 
-	if opts.storageClass != nil {
+	if opts.storageClass != "" {
 		if diff := cmp.Diff(opts.storageClass, output.StorageClass); diff != "" {
 			return fmt.Errorf("storage-class of %v/%v: (-want +got):\n%v", bucket, key, diff)
 		}
@@ -677,6 +678,21 @@ func contains(format string, args ...interface{}) compareFunc {
 	}
 }
 
+func containsMultiple(format ...string) compareFunc {
+
+	return func(actual string) error {
+		for _, expected := range format {
+			if strings.Contains(actual, expected) {
+				continue
+			}
+
+			diff := cmp.Diff(expected, actual)
+			return fmt.Errorf("contains multiple: (-want +got):\n%v", diff)
+		}
+
+		return nil
+	}
+}
 func newFixedTimeSource(t time.Time) *fixedTimeSource {
 	return &fixedTimeSource{time: t}
 }

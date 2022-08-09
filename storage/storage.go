@@ -122,12 +122,12 @@ func (o *Object) JSON() string {
 
 // ObjectType is the type of Object.
 type ObjectType struct {
-	Mode os.FileMode
+	mode os.FileMode
 }
 
 // String returns the string representation of ObjectType.
 func (o ObjectType) String() string {
-	switch mode := o.Mode; {
+	switch mode := o.mode; {
 	case mode.IsRegular():
 		return "file"
 	case mode.IsDir():
@@ -145,12 +145,12 @@ func (o ObjectType) MarshalJSON() ([]byte, error) {
 
 // IsDir checks if the object is a directory.
 func (o ObjectType) IsDir() bool {
-	return o.Mode.IsDir()
+	return o.mode.IsDir()
 }
 
 // IsSymlink checks if the object is a symbolic link.
 func (o ObjectType) IsSymlink() bool {
-	return o.Mode&os.ModeSymlink != 0
+	return o.mode&os.ModeSymlink != 0
 }
 
 // ShouldProcessUrl returns true if follow symlinks is enabled.

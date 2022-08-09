@@ -67,6 +67,18 @@ func NewSelectCommand() *cli.Command {
 				Name:  "ignore-glacier-warnings",
 				Usage: "turns off glacier warnings: ignore errors encountered during selecting objects",
 			},
+			&cli.BoolFlag{
+				Name:  "raw",
+				Usage: "disable the wildcard operations, useful with filenames that contains glob characters",
+			},
+			&cli.BoolFlag{
+				Name:  "all-versions",
+				Usage: "list all versions of object(s)",
+			},
+			&cli.StringFlag{
+				Name:  "version-id",
+				Usage: "use the specified `version` of an object",
+			},
 		},
 		CustomHelpTemplate: selectHelpTemplate,
 		Before: func(c *cli.Context) error {
@@ -79,10 +91,18 @@ func NewSelectCommand() *cli.Command {
 		Action: func(c *cli.Context) (err error) {
 			defer stat.Collect(c.Command.FullName(), &err)()
 
+			fullCommand := commandFromContext(c)
+
+			src, err := url.New(c.Args().Get(0), url.WithVersion(c.String("version-id")),
+				url.WithRaw(c.Bool("raw")), url.WithAllVersions(c.Bool("all-versions")))
+			if err != nil {
+				printError(fullCommand, c.Command.Name, err)
+				return err
+			}
 			return Select{
-				src:         c.Args().Get(0),
+				src:         src,
 				op:          c.Command.Name,
-				fullCommand: commandFromContext(c),
+				fullCommand: fullCommand,
 				// flags
 				query:                 c.String("query"),
 				compressionType:       c.String("compression"),
@@ -98,7 +118,7 @@ func NewSelectCommand() *cli.Command {
 
 // Select holds select operation flags and states.
 type Select struct {
-	src         string
+	src         *url.URL
 	op          string
 	fullCommand string
 
@@ -114,13 +134,7 @@ type Select struct {
 
 // Run starts copying given source objects to destination.
 func (s Select) Run(ctx context.Context) error {
-	srcurl, err := url.New(s.src)
-	if err != nil {
-		printError(s.fullCommand, s.op, err)
-		return err
-	}
-
-	client, err := storage.NewRemoteClient(ctx, srcurl, s.storageOpts)
+	client, err := storage.NewRemoteClient(ctx, s.src, s.storageOpts)
 	if err != nil {
 		printError(s.fullCommand, s.op, err)
 		return err
@@ -129,7 +143,7 @@ func (s Select) Run(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	objch, err := expandSource(ctx, client, false, srcurl)
+	objch, err := expandSource(ctx, client, false, s.src)
 	if err != nil {
 		printError(s.fullCommand, s.op, err)
 		return err
@@ -200,7 +214,7 @@ func (s Select) Run(ctx context.Context) error {
 			continue
 		}
 
-		if isURLExcluded(excludePatterns, object.URL.Path, srcurl.Prefix) {
+		if isURLExcluded(excludePatterns, object.URL.Path, s.src.Prefix) {
 			continue
 		}
 
@@ -234,9 +248,12 @@ func validateSelectCommand(c *cli.Context) error {
 		return fmt.Errorf("expected source argument")
 	}
 
-	src := c.Args().Get(0)
+	if c.Bool("all-versions") && c.String("version-id") != "" {
+		return fmt.Errorf(`it is not allowed to combine "all-versions" and "version-id" flags`)
+	}
 
-	srcurl, err := url.New(src)
+	srcurl, err := url.New(c.Args().Get(0), url.WithVersion(c.String("version-id")),
+		url.WithRaw(c.Bool("raw")), url.WithAllVersions(c.Bool("all-versions")))
 	if err != nil {
 		return err
 	}

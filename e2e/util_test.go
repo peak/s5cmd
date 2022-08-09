@@ -14,8 +14,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/aws/smithy-go"
-	"github.com/aws/smithy-go/logging"
-	"github.com/peak/s5cmd/log"
 	"io"
 	"io/ioutil"
 	"math/rand"
@@ -156,17 +154,6 @@ func server(t *testing.T, opts *setupOpts) (string, string, func()) {
 	return endpoint, workdir, cleanup
 }
 
-type sdkLogger struct{}
-
-func (l sdkLogger) Logf(classification logging.Classification, format string, v ...interface{}) {
-	//todo: Should we add classification to our logging?
-	_ = classification
-	msg := log.TraceMessage{
-		Message: fmt.Sprintf(format, v...),
-	}
-	log.Trace(msg)
-}
-
 func s3client(t *testing.T, opts storage.Options) *s3.Client {
 	t.Helper()
 
@@ -174,8 +161,7 @@ func s3client(t *testing.T, opts storage.Options) *s3.Client {
 
 	if *flagTestLogLevel == "debug" {
 		awsOpts = append(awsOpts, config.WithClientLogMode(aws.LogResponse|aws.LogRequest))
-		//todo: find a way to use the original sdkLogger.
-		awsOpts = append(awsOpts, config.WithLogger(sdkLogger{}))
+		awsOpts = append(awsOpts, config.WithLogger(storage.SdkLogger{}))
 	}
 
 	awsOpts = append(awsOpts, config.WithRegion("us-east-1"))
@@ -203,7 +189,7 @@ func s3client(t *testing.T, opts storage.Options) *s3.Client {
 	client := s3.NewFromConfig(cfg, func(o *s3.Options) {
 		o.UsePathStyle = true
 	})
-	// todo: find an equivalent setting to ChainVerboseErrors
+
 	assert.NilError(t, err)
 
 	return client

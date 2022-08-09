@@ -104,7 +104,6 @@ func newS3Storage(ctx context.Context, opts Options) (*S3, error) {
 		// do not sign requests when making service API calls
 		awsOpts = append(awsOpts, config.WithCredentialsProvider(aws.AnonymousCredentials{}))
 	} else if opts.CredentialFile != "" || opts.Profile != "" {
-		//todo: Not Sure about this one.
 		awsOpts = append(awsOpts, config.WithSharedConfigProfile(opts.Profile))
 		awsOpts = append(awsOpts, config.WithSharedCredentialsFiles([]string{opts.CredentialFile}))
 	}
@@ -123,7 +122,6 @@ func newS3Storage(ctx context.Context, opts Options) (*S3, error) {
 	// operations fail.
 	if useAccelerate {
 		endpointURL = sentinelURL
-		//todo: Couldn't find a setting to turn on S3UseAccelerate, might be already built in
 	}
 
 	if opts.NoVerifySSL {
@@ -136,7 +134,7 @@ func newS3Storage(ctx context.Context, opts Options) (*S3, error) {
 
 	if opts.LogLevel == log.LevelTrace {
 		awsOpts = append(awsOpts, config.WithClientLogMode(aws.LogResponse|aws.LogRequest))
-		awsOpts = append(awsOpts, config.WithLogger(sdkLogger{}))
+		awsOpts = append(awsOpts, config.WithLogger(SdkLogger{}))
 	}
 	awsOpts = append(awsOpts, config.WithRetryer(customRetryer(opts.MaxRetries)))
 
@@ -154,6 +152,7 @@ func newS3Storage(ctx context.Context, opts Options) (*S3, error) {
 	client := s3.NewFromConfig(cfg, func(o *s3.Options) {
 
 		o.UsePathStyle = !isVirtualHostStyle
+		o.UseAccelerate = useAccelerate
 	})
 	return &S3{
 		client:           client,
@@ -214,8 +213,7 @@ func getRegionOpts(ctx context.Context, opts Options, isVirtualHostStyle bool, a
 		// auto-detection
 		region, err := manager.GetBucketRegion(ctx, tmpClient, opts.bucket, func(o *s3.Options) {
 			o.Credentials = tmpCfg.Credentials
-			//todo change below to a variable
-			o.UsePathStyle = true
+			o.UsePathStyle = !isVirtualHostStyle
 		})
 		if err != nil {
 
@@ -259,16 +257,14 @@ func customRetryer(maxRetries int) func() aws.Retryer {
 			"BrokenPipe",
 			"UnknownSDKError",
 		)
-		//todo: add additional retry logics for other errors similar to ShouldRetry in previous s5cmd version
 
 		return retry.AddWithMaxBackoffDelay(retrier, time.Second*0)
 	}
 }
 
-type sdkLogger struct{}
+type SdkLogger struct{}
 
-func (l sdkLogger) Logf(classification logging.Classification, format string, v ...interface{}) {
-	//todo: Should we add classification to our logging?
+func (l SdkLogger) Logf(classification logging.Classification, format string, v ...interface{}) {
 	_ = classification
 	msg := log.TraceMessage{
 		Message: fmt.Sprintf(format, v...),

@@ -93,11 +93,11 @@ func TestNewSessionPathStyle(t *testing.T) {
 			})
 			opts := Options{Endpoint: tc.endpoint.Hostname(), NoSignRequest: true}
 			_ = reflect.TypeOf(opts)
-			mockS3, err := newS3Storage(context.Background(), opts)
+			s3c, err := newS3Storage(context.Background(), opts)
 			if err != nil {
 				t.Fatal(err)
 			}
-			_, _ = mockS3.client.ListObjects(
+			_, _ = s3c.client.ListObjects(
 				context.Background(),
 				&s3.ListObjectsInput{Bucket: aws.String("bucket"), Prefix: aws.String("key")},
 				func(options *s3.Options) {
@@ -113,14 +113,13 @@ func TestNewSessionPathStyle(t *testing.T) {
 func TestNewSessionWithNoSignRequest(t *testing.T) {
 
 	opts := Options{NoSignRequest: true}
-	s3, err := newS3Storage(context.Background(), opts)
+	s3c, err := newS3Storage(context.Background(), opts)
 
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, gotErr := s3.config.Credentials.Retrieve(context.Background())
-
+	_, gotErr := s3c.config.Credentials.Retrieve(context.Background())
 	expectedErr := "AnonymousCredentials is not a valid credential provider, and cannot be used to sign AWS requests with"
 
 	if !strings.Contains(gotErr.Error(), expectedErr) {
@@ -186,7 +185,7 @@ aws_secret_access_key = p2_profile_access_key`
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 
-			s3, err := newS3Storage(context.Background(), Options{
+			s3c, err := newS3Storage(context.Background(), Options{
 				Profile:        tc.profileName,
 				CredentialFile: tc.fileName,
 			})
@@ -194,7 +193,7 @@ aws_secret_access_key = p2_profile_access_key`
 				t.Fatal(err)
 			}
 
-			got, err := s3.config.Credentials.Retrieve(context.Background())
+			got, err := s3c.config.Credentials.Retrieve(context.Background())
 			if err != nil {
 				// if there should be such a profile but received an error fail,
 				// ignore the error otherwise.

@@ -91,7 +91,7 @@ func TestNewSessionPathStyle(t *testing.T) {
 
 				return next.HandleSerialize(ctx, in)
 			})
-			opts := Options{Endpoint: tc.endpoint.Hostname()}
+			opts := Options{Endpoint: tc.endpoint.Hostname(), NoSignRequest: true}
 			_ = reflect.TypeOf(opts)
 			mockS3, err := newS3Storage(context.Background(), opts)
 			if err != nil {
@@ -1025,7 +1025,8 @@ func TestAWSLogLevel(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 
 			s3c, err := newS3Storage(context.Background(), Options{
-				LogLevel: log.LevelFromString(tc.level),
+				LogLevel:      log.LevelFromString(tc.level),
+				NoSignRequest: true,
 			})
 
 			if err != nil {

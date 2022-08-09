@@ -11,8 +11,8 @@
 - Added `--credentials-file` flag to allow users to specify path for the AWS credentials file instead of using the [default location](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html#cli-configure-files-where). 
 - Added `--all-versions` flag to `ls`, `rm`, `du` and `select` subcommands to apply operation on(/over) all versions of the objects. ([#475](https://github.com/peak/s5cmd/pull/475))
 - Added `--version-id` flag to `cat`, `cp`/`mv`, `rm`, `du`  and `select` subcommands to apply operation on(/over) a specific versions of the object. ([#475](https://github.com/peak/s5cmd/pull/475))
-- Added `--set` flag to `version` subcommand to configure bucket versioning. Flag only accepts "Enabled" and "Suspended", to enable and suspend bucket versioning, respectively.
-- Added `--get` flag to `version` subcommand to query bucket versioning
+- Added `--set` flag to `version` subcommand to configure bucket versioning. Flag only accepts "Enabled" and "Suspended", to enable and suspend bucket versioning, respectively. ([#475](https://github.com/peak/s5cmd/pull/475)) 
+- Added `--get` flag to `version` subcommand to query bucket versioning ([#475](https://github.com/peak/s5cmd/pull/475)) 
 - Added `--raw` flag to `cat` and `select` subcommands. It disables the wildcard operations. ([#475](https://github.com/peak/s5cmd/pull/475)) 
 
 #### Improvements

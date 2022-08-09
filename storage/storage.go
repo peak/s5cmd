@@ -66,8 +66,8 @@ func NewRemoteClient(ctx context.Context, url *url.URL, opts Options) (*S3, erro
 		Profile:          opts.Profile,
 		CredentialFile:   opts.CredentialFile,
 		LogLevel:         opts.LogLevel,
-		Bucket:           url.Bucket,
-		Region:           opts.Region,
+		bucket:           url.Bucket,
+		region:           opts.region,
 	}
 	return newS3Storage(ctx, newOpts)
 }
@@ -91,12 +91,12 @@ type Options struct {
 	RequestPayer     string
 	Profile          string
 	CredentialFile   string
-	Bucket           string
-	Region           string
+	bucket           string
+	region           string
 }
 
 func (o *Options) SetRegion(region string) {
-	o.Region = region
+	o.region = region
 }
 
 // Object is a generic type which contains metadata for storage items.

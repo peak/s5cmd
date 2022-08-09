@@ -13,9 +13,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/aws/request"
-	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/aws/smithy-go"
 	"github.com/aws/smithy-go/logging"
 	"github.com/peak/s5cmd/log"
@@ -196,12 +193,12 @@ func getRegionOpts(ctx context.Context, opts Options, isVirtualHostStyle bool, a
 	_, isEnvSet := os.LookupEnv("AWS_REGION")
 	awsOpts = append(awsOpts, config.WithDefaultRegion("us-east-1"))
 
-	if opts.Region != "" {
-		awsOpts = append(awsOpts, config.WithRegion(opts.Region))
+	if opts.region != "" {
+		awsOpts = append(awsOpts, config.WithRegion(opts.region))
 	} else if isEnvSet {
 		//default config will load environment variable itself.
 		return awsOpts, nil
-	} else if opts.Bucket == "" {
+	} else if opts.bucket == "" {
 		return awsOpts, nil
 
 	} else {
@@ -215,7 +212,7 @@ func getRegionOpts(ctx context.Context, opts Options, isVirtualHostStyle bool, a
 		})
 
 		// auto-detection
-		region, err := manager.GetBucketRegion(ctx, tmpClient, opts.Bucket, func(o *s3.Options) {
+		region, err := manager.GetBucketRegion(ctx, tmpClient, opts.bucket, func(o *s3.Options) {
 			o.Credentials = tmpCfg.Credentials
 			//todo change below to a variable
 			o.UsePathStyle = true
@@ -1021,13 +1018,6 @@ func ErrHasCode(err error, code string) bool {
 		return false
 	}
 
-	var awsErr awserr.Error
-	if errors.As(err, &awsErr) {
-		if awsErr.Code() == code {
-			return true
-		}
-	}
-
 	var ae smithy.APIError
 	if errors.As(err, &ae) {
 		if ae.ErrorCode() == code {
@@ -1041,10 +1031,6 @@ func ErrHasCode(err error, code string) bool {
 			return true
 		}
 	}
-	var multiUploadErr s3manager.MultiUploadFailure
-	if errors.As(err, &multiUploadErr) {
-		return ErrHasCode(multiUploadErr.OrigErr(), code)
-	}
 
 	return false
 
@@ -1053,5 +1039,5 @@ func ErrHasCode(err error, code string) bool {
 // IsCancelationError reports whether given error is a storage related
 // cancelation error.
 func IsCancelationError(err error) bool {
-	return ErrHasCode(err, request.CanceledErrorCode)
+	return ErrHasCode(err, "RequestCanceled")
 }

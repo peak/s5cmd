@@ -814,7 +814,7 @@ func TestRegionDetectionPriority(t *testing.T) {
 			}
 
 			if tc.optsRegion != "" {
-				opts.Region = tc.optsRegion
+				opts.region = tc.optsRegion
 			}
 
 			if tc.envRegion != "" {
@@ -823,7 +823,7 @@ func TestRegionDetectionPriority(t *testing.T) {
 			}
 
 			if tc.bucket != "" {
-				opts.Bucket = tc.bucket
+				opts.bucket = tc.bucket
 			}
 
 			endpointURL, err := parseEndpoint(server.URL)
@@ -924,7 +924,7 @@ func TestAutoRegionFromHeadBucket(t *testing.T) {
 			}
 
 			if tc.bucket != "" {
-				opts.Bucket = tc.bucket
+				opts.bucket = tc.bucket
 			}
 
 			endpointURL, err := parseEndpoint(server.URL)

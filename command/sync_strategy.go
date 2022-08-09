@@ -31,10 +31,11 @@ func (s *SizeOnlyStrategy) ShouldSync(srcObj, dstObj *storage.Object) error {
 
 // SizeAndModificationStrategy determines to sync based on objects' both sizes and modification times.
 // It treats source object as the source-of-truth;
-//     time: src > dst        size: src != dst    should sync: yes
-//     time: src > dst        size: src == dst    should sync: yes
-//     time: src <= dst       size: src != dst    should sync: yes
-//     time: src <= dst       size: src == dst    should sync: no
+//
+//	time: src > dst        size: src != dst    should sync: yes
+//	time: src > dst        size: src == dst    should sync: yes
+//	time: src <= dst       size: src != dst    should sync: yes
+//	time: src <= dst       size: src == dst    should sync: no
 type SizeAndModificationStrategy struct{}
 
 func (sm *SizeAndModificationStrategy) ShouldSync(srcObj, dstObj *storage.Object) error {

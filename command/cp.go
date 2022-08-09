@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"mime"
 	"net/http"
 	"os"
@@ -928,7 +927,7 @@ func guessContentType(file *os.File) string {
 		defer file.Seek(0, io.SeekStart)
 
 		const bufsize = 512
-		buf, err := ioutil.ReadAll(io.LimitReader(file, bufsize))
+		buf, err := io.ReadAll(io.LimitReader(file, bufsize))
 		if err != nil {
 			return ""
 		}

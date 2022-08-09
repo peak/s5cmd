@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/lanrat/extsort"
@@ -220,9 +221,9 @@ func (s Sync) Run(c *cli.Context) error {
 func compareObjects(sourceObjects, destObjects chan *storage.Object) (chan *url.URL, chan *url.URL, chan *ObjectPair) {
 
 	var (
-		srcOnly   = make(chan *url.URL)
-		dstOnly   = make(chan *url.URL)
-		commonObj = make(chan *ObjectPair)
+		srcOnly   = make(chan *url.URL, 100)
+		dstOnly   = make(chan *url.URL, 100)
+		commonObj = make(chan *ObjectPair, 100)
 		srcName,
 		dstName string
 	)
@@ -297,8 +298,8 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 	}
 
 	var (
-		sourceObjects = make(chan *storage.Object)
-		destObjects   = make(chan *storage.Object)
+		sourceObjects = make(chan *storage.Object, 100)
+		destObjects   = make(chan *storage.Object, 100)
 	)
 
 	// get source objects.
@@ -377,8 +378,12 @@ func (s Sync) planRun(
 		"raw": true,
 	}
 
+	var wg sync.WaitGroup
+
 	// only in source
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		for srcurl := range onlySource {
 			curDestURL := generateDestinationURL(srcurl, dsturl, isBatch)
 			command, err := generateCommand(c, "cp", defaultFlags, srcurl, curDestURL)
@@ -391,7 +396,9 @@ func (s Sync) planRun(
 	}()
 
 	// both in source and destination
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		for commonObject := range common {
 			sourceObject, destObject := commonObject.src, commonObject.dst
 			curSourceURL, curDestURL := sourceObject.URL, destObject.URL
@@ -426,6 +433,7 @@ func (s Sync) planRun(
 		}
 		fmt.Fprintln(w, command)
 	}
+	wg.Wait()
 }
 
 // generateDestinationURL generates destination url for given

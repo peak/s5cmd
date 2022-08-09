@@ -2,7 +2,6 @@ package command
 
 import (
 	"io"
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -46,7 +45,7 @@ func TestGuessContentType(t *testing.T) {
 	for _, tc := range testcases {
 		tc := tc
 
-		f, err := ioutil.TempFile("", tc.filename)
+		f, err := os.CreateTemp("", tc.filename)
 		if err != nil {
 			t.Error(err)
 		}

@@ -91,7 +91,7 @@ ps.  Quoted from [s5cmd feedstock](https://github.com/conda-forge/s5cmd-feedstoc
 
 ### Build from source
 
-You can build `s5cmd` from source if you have [Go](https://golang.org/dl/) 1.16+
+You can build `s5cmd` from source if you have [Go](https://golang.org/dl/) 1.17+
 installed.
 
     go get github.com/peak/s5cmd

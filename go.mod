@@ -3,12 +3,12 @@ module github.com/peak/s5cmd
 go 1.13
 
 require (
-	github.com/Kucukaslan/gofakes3 v0.0.12-alpha8 // todo change back to igungor's fork!
 	github.com/aws/aws-sdk-go v1.40.25
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/google/go-cmp v0.4.0
 	github.com/hashicorp/go-multierror v1.0.0
 	github.com/iancoleman/strcase v0.0.0-20191112232945-16388991a334
+	github.com/igungor/gofakes3 v0.0.12
 	github.com/karrick/godirwalk v1.15.3
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/kr/pretty v0.2.0 // indirect

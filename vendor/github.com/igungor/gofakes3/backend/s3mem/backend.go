@@ -6,8 +6,8 @@ import (
 	"io"
 	"sync"
 
-	"github.com/Kucukaslan/gofakes3"
-	"github.com/Kucukaslan/gofakes3/internal/goskipiter"
+	"github.com/igungor/gofakes3"
+	"github.com/igungor/gofakes3/internal/goskipiter"
 )
 
 var (
@@ -104,7 +104,6 @@ func (db *Backend) ListBucket(name string, prefix *gofakes3.Prefix, page gofakes
 
 		if !prefix.Match(item.data.name, &match) {
 			continue
-
 		} else if item.data.deleteMarker {
 			continue
 		} else if match.CommonPrefix {

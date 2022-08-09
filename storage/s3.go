@@ -21,6 +21,7 @@ import (
 	"net/http"
 	urlpkg "net/url"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -97,7 +98,6 @@ func parseEndpoint(endpoint string) (urlpkg.URL, error) {
 }
 
 func newS3Storage(ctx context.Context, opts Options) (*S3, error) {
-
 	var awsOpts []func(*config.LoadOptions) error
 
 	if opts.NoSignRequest {
@@ -108,6 +108,16 @@ func newS3Storage(ctx context.Context, opts Options) (*S3, error) {
 		awsOpts = append(awsOpts, config.WithSharedCredentialsFiles([]string{opts.CredentialFile}))
 	}
 
+	loadCfg := os.Getenv("AWS_SDK_LOAD_CONFIG")
+	// sdk does not check AWS_SDK_LOAD_CONFIG environment variable
+	// check here explicitly for backwards compatibility
+	// if AWS_SDK_LOAD_CONFIG is 0 (or a falsy value) disable shared configs
+
+	if loadCfg != "" {
+		if enable, _ := strconv.ParseBool(loadCfg); !enable {
+			awsOpts = append(awsOpts, config.WithSharedConfigFiles([]string{}))
+		}
+	}
 	endpointURL, err := parseEndpoint(opts.Endpoint)
 	if err != nil {
 		return nil, err
@@ -164,7 +174,7 @@ func newS3Storage(ctx context.Context, opts Options) (*S3, error) {
 		useListObjectsV1: opts.UseListObjectsV1,
 		dryRun:           opts.DryRun,
 	}, nil
-
+	
 }
 
 func getEndpointOpts(endpointURL urlpkg.URL) (config.LoadOptionsFunc, bool) {

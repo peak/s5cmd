@@ -4,10 +4,12 @@ package storage
 import (
 	"context"
 	"encoding/json"
+	"encoding/xml"
 	"fmt"
 	"os"
 	"time"
 
+	"github.com/lanrat/extsort"
 	"github.com/peak/s5cmd/log"
 	"github.com/peak/s5cmd/storage/url"
 	"github.com/peak/s5cmd/strutil"
@@ -279,4 +281,22 @@ func (m Metadata) ContentEncoding() string {
 func (m Metadata) SetContentEncoding(contentEncoding string) Metadata {
 	m["ContentEncoding"] = contentEncoding
 	return m
+}
+
+func (o Object) ToBytes() []byte {
+	data, err := xml.Marshal(o)
+	if err != nil {
+		return make([]byte, 0)
+	}
+	return data
+}
+
+func FromBytes(data []byte) extsort.SortType {
+	u := Object{}
+	xml.Unmarshal(data, &u)
+	return u
+}
+
+func Less(a, b extsort.SortType) bool {
+	return a.(Object).URL.Relative() < b.(Object).URL.Relative()
 }

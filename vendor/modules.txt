@@ -81,6 +81,10 @@ github.com/jmespath/go-jmespath
 github.com/karrick/godirwalk
 # github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 github.com/kballard/go-shellquote
+# github.com/lanrat/extsort v1.0.0
+github.com/lanrat/extsort
+github.com/lanrat/extsort/queue
+github.com/lanrat/extsort/tempfile
 # github.com/pkg/errors v0.9.1
 github.com/pkg/errors
 # github.com/pmezard/go-difflib v1.0.0
@@ -108,6 +112,8 @@ github.com/termie/go-shutil
 github.com/urfave/cli/v2
 # go.etcd.io/bbolt v1.3.6
 go.etcd.io/bbolt
+# golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
+golang.org/x/sync/errgroup
 # golang.org/x/sys v0.0.0-20220405210540-1e041c57c461
 golang.org/x/sys/internal/unsafeheader
 golang.org/x/sys/unix

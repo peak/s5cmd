@@ -6,11 +6,11 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"sync"
 
 	"github.com/hashicorp/go-multierror"
+	"github.com/lanrat/extsort"
 	"github.com/urfave/cli/v2"
 
 	errorpkg "github.com/peak/s5cmd/error"
@@ -219,13 +219,6 @@ func (s Sync) Run(c *cli.Context) error {
 // The algorithm is taken from;
 // https://github.com/rclone/rclone/blob/HEAD/fs/march/march.go#L304
 func compareObjects(sourceObjects, destObjects []*storage.Object) ([]*url.URL, []*url.URL, []*ObjectPair) {
-	// sort the source and destination objects.
-	sort.SliceStable(sourceObjects, func(i, j int) bool {
-		return sourceObjects[i].URL.Relative() < sourceObjects[j].URL.Relative()
-	})
-	sort.SliceStable(destObjects, func(i, j int) bool {
-		return destObjects[i].URL.Relative() < destObjects[j].URL.Relative()
-	})
 
 	var (
 		srcOnly   []*url.URL
@@ -304,19 +297,34 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 	var (
 		sourceObjects []*storage.Object
 		destObjects   []*storage.Object
-		wg            sync.WaitGroup
+		// todo WaitGroup will be unwanted after refactor
+		wg sync.WaitGroup
 	)
 
 	// get source objects.
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		srcObjectChannel := sourceClient.List(ctx, srcurl, s.followSymlinks)
-		for srcObject := range srcObjectChannel {
-			if s.shouldSkipObject(srcObject, true) {
-				continue
+		unfilteredSrcObjectChannel := sourceClient.List(ctx, srcurl, s.followSymlinks)
+		filteredSrcObjectChannel := make(chan extsort.SortType)
+
+		go func() {
+			// filter and redirect objects to
+			for st := range unfilteredSrcObjectChannel {
+				if s.shouldSkipObject(st, true) {
+					continue
+				}
+				filteredSrcObjectChannel <- *st
 			}
-			sourceObjects = append(sourceObjects, srcObject)
+			close(filteredSrcObjectChannel)
+		}()
+
+		sorter, outputChan, _ := extsort.New(filteredSrcObjectChannel, storage.FromBytes, storage.Less, nil)
+		sorter.Sort(context.Background())
+
+		for srcObject := range outputChan {
+			o := srcObject.(storage.Object)
+			sourceObjects = append(sourceObjects, &o)
 		}
 	}()
 
@@ -324,13 +332,28 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		destObjectsChannel := destClient.List(ctx, destObjectsURL, false)
-		for destObject := range destObjectsChannel {
-			if s.shouldSkipObject(destObject, false) {
-				continue
+		unfilteredDestObjectsChannel := destClient.List(ctx, destObjectsURL, false)
+		filteredDstObjectChannel := make(chan extsort.SortType)
+
+		go func() {
+			// filter and redirect objects to
+			for dt := range unfilteredDestObjectsChannel {
+				if s.shouldSkipObject(dt, true) {
+					continue
+				}
+				filteredDstObjectChannel <- *dt
 			}
-			destObjects = append(destObjects, destObject)
+			close(filteredDstObjectChannel)
+		}()
+
+		sorter, dstOutputChan, _ := extsort.New(filteredDstObjectChannel, storage.FromBytes, storage.Less, nil)
+		sorter.Sort(context.Background())
+
+		for destObject := range dstOutputChan {
+			o := destObject.(storage.Object)
+			destObjects = append(destObjects, &o)
 		}
+
 	}()
 
 	wg.Wait()

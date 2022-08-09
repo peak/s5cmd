@@ -42,7 +42,7 @@ type URL struct {
 	Delimiter string
 	Prefix    string
 
-	relativePath string
+	RelativePath string
 	filter       string
 	filterRegex  *regexp.Regexp
 	raw          bool
@@ -156,8 +156,8 @@ func (u *URL) Absolute() string {
 
 // Relative returns a URI reference based on the calculated prefix.
 func (u *URL) Relative() string {
-	if u.relativePath != "" {
-		return u.relativePath
+	if u.RelativePath != "" {
+		return u.RelativePath
 	}
 	return u.Absolute()
 }
@@ -283,7 +283,7 @@ func (u *URL) Clone() *URL {
 		Path:      u.Path,
 		Prefix:    u.Prefix,
 
-		relativePath: u.relativePath,
+		RelativePath: u.RelativePath,
 		filter:       u.filter,
 		filterRegex:  u.filterRegex,
 	}
@@ -320,7 +320,7 @@ func (u *URL) SetRelative(base *URL) {
 		}
 	}
 	baseDir := filepath.Dir(basePath)
-	u.relativePath, _ = filepath.Rel(baseDir, u.Absolute())
+	u.RelativePath, _ = filepath.Rel(baseDir, u.Absolute())
 }
 
 // Match reports whether if given key matches with the object.
@@ -332,12 +332,12 @@ func (u *URL) Match(key string) bool {
 	isBatch := u.filter != ""
 	if isBatch {
 		v := parseBatch(u.Prefix, key)
-		u.relativePath = v
+		u.RelativePath = v
 		return true
 	}
 
 	v := parseNonBatch(u.Prefix, key)
-	u.relativePath = v
+	u.RelativePath = v
 	return true
 }
 

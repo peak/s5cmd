@@ -12,6 +12,7 @@ require (
 	github.com/karrick/godirwalk v1.15.3
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/kr/pretty v0.2.0 // indirect
+	github.com/lanrat/extsort v1.0.0
 	github.com/posener/complete v1.2.3
 	github.com/stretchr/testify v1.4.0
 	github.com/termie/go-shutil v0.0.0-20140729215957-bcacb06fecae

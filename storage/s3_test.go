@@ -1278,3 +1278,43 @@ func (e tempError) Error() string { return e.err.Error() }
 func (e tempError) Temporary() bool { return e.temp }
 
 func (e *tempError) Unwrap() error { return e.err }
+
+/*
+func TestURL_ToBytes(t *testing.T) {
+	tests := []struct {
+		name string
+		path string
+		want []byte
+	}{
+		// TODO: Add test cases.
+		{
+			name: "ordinary s3",
+			path: "s3://bucket/file<!'^+%&/()=?_:ÇŞİÜİ>",
+			want: []byte(""),
+		},
+		{
+			name: "ordinary local",
+			path: "/dir/file",
+			want: []byte(""),
+		},
+		{
+			name: "weird s3",
+			path: "s3://bucket/file<!'^+%&/()=?_:ÇŞİÜİ>",
+			want: []byte(""),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			url, _ := url.New(tt.path)
+			u := Object{URL: url}
+			if got := u.ToBytes(); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("URL.ToBytes() = %v, want %v", string(got), tt.want)
+			}
+
+			f := FromBytes(u.ToBytes())
+
+			fmt.Print(f)
+		})
+	}
+}
+*/

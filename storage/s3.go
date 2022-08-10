@@ -56,15 +56,15 @@ var globalClientCache = &ClientCache{
 // S3 is a storage type which interacts with S3API, DownloaderAPI and
 // UploaderAPI.
 type S3 struct {
-	client           s3Client
-	config           aws.Config
-	downloader       downloader
-	uploader         uploader
-	endpointURL      urlpkg.URL
-	dryRun           bool
-	useListObjectsV1 bool
+	client                 s3Client
+	config                 aws.Config
+	downloader             downloader
+	uploader               uploader
+	endpointURL            urlpkg.URL
+	dryRun                 bool
+	useListObjectsV1       bool
 	noSuchUploadRetryCount int
-	requestPayer     types.RequestPayer
+	requestPayer           types.RequestPayer
 }
 type s3Client interface {
 	CopyObject(ctx context.Context, params *s3.CopyObjectInput, optFns ...func(*s3.Options)) (*s3.CopyObjectOutput, error)
@@ -125,15 +125,15 @@ func newS3Storage(ctx context.Context, opts Options) (*S3, error) {
 	}
 
 	return &S3{
-		client:           client,
-		config:           *cfg,
-		downloader:       manager.NewDownloader(client),
-		uploader:         manager.NewUploader(client),
-		endpointURL:      endpointURL,
-		requestPayer:     types.RequestPayer(opts.RequestPayer),
+		client:                 client,
+		config:                 *cfg,
+		downloader:             manager.NewDownloader(client),
+		uploader:               manager.NewUploader(client),
+		endpointURL:            endpointURL,
+		requestPayer:           types.RequestPayer(opts.RequestPayer),
 		noSuchUploadRetryCount: opts.NoSuchUploadRetryCount,
-		useListObjectsV1: opts.UseListObjectsV1,
-		dryRun:           opts.DryRun,
+		useListObjectsV1:       opts.UseListObjectsV1,
+		dryRun:                 opts.DryRun,
 	}, nil
 }
 
@@ -373,7 +373,7 @@ func (s *S3) Stat(ctx context.Context, url *url.URL) (*Object, error) {
 	}
 	if s.noSuchUploadRetryCount > 0 {
 		if retryID, ok := output.Metadata[metadataKeyRetryID]; ok {
-			obj.retryID = *retryID
+			obj.retryID = retryID
 		}
 	}
 
@@ -843,7 +843,7 @@ func (s *S3) Put(
 		Key:          aws.String(to.Path),
 		Body:         reader,
 		ContentType:  aws.String(contentType),
-		Metadata:     make(map[string]*string),
+		Metadata:     make(map[string]string),
 		RequestPayer: s.RequestPayer(),
 	}
 
@@ -903,14 +903,14 @@ func (s *S3) Put(
 
 func (s *S3) retryOnNoSuchUpload(ctx context.Context, to *url.URL, input *s3.PutObjectInput,
 	err error, uploaderOpts ...func(*manager.Uploader)) error {
-	return err
+
 	var expectedRetryID string
 	if ID, ok := input.Metadata[metadataKeyRetryID]; ok {
-		expectedRetryID = *ID
+		expectedRetryID = ID
 	}
 
 	attempts := 0
-	for ; errHasCode(err, s3.ErrCodeNoSuchUpload) && attempts < s.noSuchUploadRetryCount; attempts++ {
+	for ; ErrHasCode(err, "NoSuchUpload") && attempts < s.noSuchUploadRetryCount; attempts++ {
 		// check if object exists and has the retry ID we provided, if it does
 		// then it means that one of previous uploads was succesfull despite the received error.
 		obj, sErr := s.Stat(ctx, to)
@@ -922,14 +922,17 @@ func (s *S3) retryOnNoSuchUpload(ctx context.Context, to *url.URL, input *s3.Put
 		msg := log.DebugMessage{Err: fmt.Sprintf("Retrying to upload %v upon error: %q", to, err.Error())}
 		log.Debug(msg)
 
-		_, err = s.uploader.UploadWithContext(ctx, input, uploaderOpts...)
+		_, err = s.uploader.Upload(ctx, input, uploaderOpts...)
 	}
 
-	if errHasCode(err, s3.ErrCodeNoSuchUpload) && s.noSuchUploadRetryCount > 0 {
-		err = awserr.New(s3.ErrCodeNoSuchUpload, fmt.Sprintf(
-			"RetryOnNoSuchUpload: %v attempts to retry resulted in %v", attempts,
-			s3.ErrCodeNoSuchUpload), err)
+	if ErrHasCode(err, "NoSuchUpload") && s.noSuchUploadRetryCount > 0 {
+		err = &smithy.GenericAPIError{
+			Code: "RetryOnNoSuchUpload",
+			Message: fmt.Sprintf("RetryOnNoSuchUpload: %v attempts to retry resulted in %v", attempts,
+				"NoSuchUpload"),
+		}
 	}
+	return nil
 }
 
 // chunk is an object identifier container which is used on MultiDelete
@@ -1164,7 +1167,7 @@ func IsCancelationError(err error) bool {
 }
 
 // generate a retry ID for this upload attempt
-func generateRetryID() *string {
+func generateRetryID() string {
 	num, _ := rand.Int(rand.Reader, big.NewInt(math.MaxInt64))
-	return aws.String(num.String())
+	return num.String()
 }

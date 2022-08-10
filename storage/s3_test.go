@@ -497,6 +497,83 @@ func TestS3Retry(t *testing.T) {
 	}
 }
 
+func TestS3RetryOnNoSuchUpload(t *testing.T) {
+	log.Init("debug", false)
+
+	noSuchUploadError := awserr.New(s3.ErrCodeNoSuchUpload, "The specified upload does not exist. The upload ID may be invalid, or the upload may have been aborted or completed. status code: 404, request id: PJXXXXX, host id: HOSTIDXX", nil)
+	testcases := []struct {
+		name       string
+		err        error
+		retryCount int32
+	}{
+		{
+			name:       "Don't retry",
+			err:        noSuchUploadError,
+			retryCount: 0,
+		}, {
+			name:       "Retry 5 times on NoSuchUpload error",
+			err:        noSuchUploadError,
+			retryCount: 5,
+		}, {
+			name:       "No error",
+			err:        nil,
+			retryCount: 0,
+		},
+	}
+
+	url, err := url.New("s3://bucket/key")
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	for _, tc := range testcases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			mockApi := s3.New(unit.Session)
+			mockS3 := &S3{
+				api: mockApi,
+				uploader: &s3manager.Uploader{
+					S3:                mockApi,
+					PartSize:          s3manager.DefaultUploadPartSize,
+					Concurrency:       s3manager.DefaultUploadConcurrency,
+					LeavePartsOnError: false,
+					MaxUploadParts:    s3manager.MaxUploadParts,
+				},
+				noSuchUploadRetryCount: int(tc.retryCount),
+			}
+
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			atomicCounter := new(int32)
+			atomic.StoreInt32(atomicCounter, 0)
+
+			mockApi.Handlers.Send.Clear()
+			mockApi.Handlers.Unmarshal.Clear()
+			mockApi.Handlers.UnmarshalMeta.Clear()
+			mockApi.Handlers.ValidateResponse.Clear()
+			mockApi.Handlers.Unmarshal.PushBack(func(r *request.Request) {
+				r.Error = tc.err
+				r.HTTPResponse = &http.Response{}
+			})
+			mockApi.Handlers.Unmarshal.PushBack(func(r *request.Request) {
+				atomic.AddInt32(atomicCounter, 1)
+			})
+
+			mockS3.Put(ctx, strings.NewReader(""), url, NewMetadata(), s3manager.DefaultUploadConcurrency, s3manager.DefaultUploadPartSize)
+
+			// +1 is for the original request
+			// *2 is to account for the "Stat" requests that are made to obtain
+			// retry code from object metada.
+			want := 2*tc.retryCount + 1
+			counter := atomic.LoadInt32(atomicCounter)
+			if counter != want {
+				t.Errorf("expected retry request count %d, got %d", want, counter)
+			}
+		})
+	}
+}
+
 func TestS3CopyEncryptionRequest(t *testing.T) {
 	testcases := []struct {
 		name     string
@@ -1083,3 +1160,26 @@ func TestAWSLogLevel(t *testing.T) {
 		})
 	}
 }
+
+// tempError is a wrapper error type that implements anonymous
+// interface getting checked in url.Error.Temporary;
+//
+//	interface { Temporary() bool }
+//
+// see: https://github.com/golang/go/blob/2ebe77a2fda1ee9ff6fd9a3e08933ad1ebaea039/src/net/url/url.go#L38-L43
+//
+// AWS SDK checks if the underlying error in received url.Error implements it;
+// see: https://github.com/aws/aws-sdk-go/blob/b8fe768e4ce7f8f7c002bd7b27f4f5a8723fb1a5/aws/request/retryer.go#L191-L208
+//
+// It's used to mimic errors like tls.permanentError that would
+// be received in a url.Error when the connection timed out.
+type tempError struct {
+	err  error
+	temp bool
+}
+
+func (e tempError) Error() string { return e.err.Error() }
+
+func (e tempError) Temporary() bool { return e.temp }
+
+func (e *tempError) Unwrap() error { return e.err }

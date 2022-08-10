@@ -226,23 +226,24 @@ func (u *URL) remoteURL() string {
 // prefix is the part that comes before the wildcard string.
 //
 // Example:
-//		key: a/b/test?/c/*.tsv
-//		prefix: a/b/test
-//		filter: ?/c/*
-//		regex: ^a/b/test./c/.*?\\.tsv$
-//		delimiter: ""
+//
+//	key: a/b/test?/c/*.tsv
+//	prefix: a/b/test
+//	filter: ?/c/*
+//	regex: ^a/b/test./c/.*?\\.tsv$
+//	delimiter: ""
 //
 // It prepares delimiter, prefix and regex for regular strings.
 // These are used in S3 listing operations.
 // See: https://docs.aws.amazon.com/AmazonS3/latest/dev/ListingKeysHierarchy.html
 //
 // Example:
-//		key: a/b/c
-//		prefix: a/b/c
-//		filter: ""
-//		regex: ^a/b/c.*$
-//		delimiter: "/"
 //
+//	key: a/b/c
+//	prefix: a/b/c
+//	filter: ""
+//	regex: ^a/b/c.*$
+//	delimiter: "/"
 func (u *URL) setPrefixAndFilter() error {
 	if u.raw {
 		return nil
@@ -361,10 +362,10 @@ func (u *URL) IsWildcard() bool {
 // wildcard part (filter)
 //
 // Example:
-//		key: a/b/test2/c/example_file.tsv
-//		prefix: a/b/
-//		output: test2/c/example_file.tsv
 //
+//	key: a/b/test2/c/example_file.tsv
+//	prefix: a/b/
+//	output: test2/c/example_file.tsv
 func parseBatch(prefix string, key string) string {
 	index := strings.LastIndex(prefix, s3Separator)
 	if index < 0 || !strings.HasPrefix(key, prefix) {
@@ -380,10 +381,10 @@ func parseBatch(prefix string, key string) string {
 // path.
 //
 // Example:
-//		key: a/b/c/d
-//		prefix: a/b
-//		output: c/
 //
+//	key: a/b/c/d
+//	prefix: a/b
+//	output: c/
 func parseNonBatch(prefix string, key string) string {
 	if key == prefix || !strings.HasPrefix(key, prefix) {
 		return key

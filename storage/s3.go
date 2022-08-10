@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/tls"
 	"encoding/json"
 	"errors"
@@ -18,6 +19,8 @@ import (
 	"github.com/peak/s5cmd/log"
 	url "github.com/peak/s5cmd/storage/url"
 	"io"
+	"math"
+	"math/big"
 	"net/http"
 	urlpkg "net/url"
 	"os"
@@ -39,6 +42,9 @@ const (
 
 	// Google Cloud Storage endpoint
 	gcsEndpoint = "storage.googleapis.com"
+
+	// the key of the object metadata which is used to handle retry decision on NoSuchUpload error
+	metadataKeyRetryID = "s5cmd-upload-retry-id"
 )
 
 // Re-used AWS sessions dramatically improve performance.
@@ -47,6 +53,8 @@ var globalClientCache = &ClientCache{
 	configs: map[Options]*aws.Config{},
 }
 
+// S3 is a storage type which interacts with S3API, DownloaderAPI and
+// UploaderAPI.
 type S3 struct {
 	client           s3Client
 	config           aws.Config
@@ -55,6 +63,7 @@ type S3 struct {
 	endpointURL      urlpkg.URL
 	dryRun           bool
 	useListObjectsV1 bool
+	noSuchUploadRetryCount int
 	requestPayer     types.RequestPayer
 }
 type s3Client interface {
@@ -103,6 +112,7 @@ func parseEndpoint(endpoint string) (urlpkg.URL, error) {
 	return *u, nil
 }
 
+// NewS3Storage creates new S3 client.
 func newS3Storage(ctx context.Context, opts Options) (*S3, error) {
 	endpointURL, err := parseEndpoint(opts.Endpoint)
 	if err != nil {
@@ -121,10 +131,10 @@ func newS3Storage(ctx context.Context, opts Options) (*S3, error) {
 		uploader:         manager.NewUploader(client),
 		endpointURL:      endpointURL,
 		requestPayer:     types.RequestPayer(opts.RequestPayer),
+		noSuchUploadRetryCount: opts.NoSuchUploadRetryCount,
 		useListObjectsV1: opts.UseListObjectsV1,
 		dryRun:           opts.DryRun,
 	}, nil
-
 }
 
 func (cc *ClientCache) newClient(ctx context.Context, opts Options) (*aws.Config, s3Client, error) {
@@ -355,19 +365,25 @@ func (s *S3) Stat(ctx context.Context, url *url.URL) (*Object, error) {
 
 	etag := aws.ToString(output.ETag)
 	mod := aws.ToTime(output.LastModified)
-	return &Object{
+	obj := &Object{
 		URL:     url,
-		Etag:    etag,
+		Etag:    strings.Trim(etag, `"`),
 		ModTime: &mod,
 		Size:    aws.ToInt64(&output.ContentLength),
-	}, nil
+	}
+	if s.noSuchUploadRetryCount > 0 {
+		if retryID, ok := output.Metadata[metadataKeyRetryID]; ok {
+			obj.retryID = *retryID
+		}
+	}
+
+	return obj, nil
 }
 
 // List is a non-blocking S3 list operation which paginates and filters S3
 // keys. If no object found or an error is encountered during this period,
 // it sends these errors to object channel.
 func (s *S3) List(ctx context.Context, url *url.URL, _ bool) <-chan *Object {
-
 	if isGoogleEndpoint(s.endpointURL) || s.useListObjectsV1 {
 		return s.listObjects(ctx, url)
 	}
@@ -408,7 +424,6 @@ func (s *S3) listObjectsV2(ctx context.Context, url *url.URL) <-chan *Object {
 				}
 				newurl := url.Clone()
 				newurl.Path = prefix
-
 				objCh <- &Object{
 					URL:  newurl,
 					Type: ObjectType{os.ModeDir},
@@ -645,7 +660,6 @@ func (p *ListObjectsPaginator) NextPage(ctx context.Context, optFns ...func(*s3.
 }
 
 func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata Metadata) error {
-
 	if s.dryRun {
 		return nil
 	}
@@ -709,6 +723,9 @@ func (s *S3) Read(ctx context.Context, src *url.URL) (io.ReadCloser, error) {
 	return resp.Body, nil
 }
 
+// Get is a multipart download operation which downloads S3 objects into any
+// destination that implements io.WriterAt interface.
+// Makes a single 'GetObject' call if 'concurrency' is 1 and ignores 'partSize'.
 func (s *S3) Get(
 	ctx context.Context,
 	from *url.URL,
@@ -826,6 +843,7 @@ func (s *S3) Put(
 		Key:          aws.String(to.Path),
 		Body:         reader,
 		ContentType:  aws.String(contentType),
+		Metadata:     make(map[string]*string),
 		RequestPayer: s.RequestPayer(),
 	}
 
@@ -865,13 +883,53 @@ func (s *S3) Put(
 	if contentEncoding != "" {
 		input.ContentEncoding = aws.String(contentEncoding)
 	}
+	// add retry ID to the object metadata
+	if s.noSuchUploadRetryCount > 0 {
+		input.Metadata[metadataKeyRetryID] = generateRetryID()
+	}
 
-	_, err := s.uploader.Upload(ctx, input, func(u *manager.Uploader) {
+	uploaderOptsFn := func(u *manager.Uploader) {
 		u.PartSize = partSize
 		u.Concurrency = concurrency
-	})
+	}
+	_, err := s.uploader.Upload(ctx, input, uploaderOptsFn)
+
+	if ErrHasCode(err, "NoSuchUpload") && s.noSuchUploadRetryCount > 0 {
+		return s.retryOnNoSuchUpload(ctx, to, input, err, uploaderOptsFn)
+	}
 
 	return err
+}
+
+func (s *S3) retryOnNoSuchUpload(ctx context.Context, to *url.URL, input *s3.PutObjectInput,
+	err error, uploaderOpts ...func(*manager.Uploader)) error {
+	return err
+	var expectedRetryID string
+	if ID, ok := input.Metadata[metadataKeyRetryID]; ok {
+		expectedRetryID = *ID
+	}
+
+	attempts := 0
+	for ; errHasCode(err, s3.ErrCodeNoSuchUpload) && attempts < s.noSuchUploadRetryCount; attempts++ {
+		// check if object exists and has the retry ID we provided, if it does
+		// then it means that one of previous uploads was succesfull despite the received error.
+		obj, sErr := s.Stat(ctx, to)
+		if sErr == nil && obj.retryID == expectedRetryID {
+			err = nil
+			break
+		}
+
+		msg := log.DebugMessage{Err: fmt.Sprintf("Retrying to upload %v upon error: %q", to, err.Error())}
+		log.Debug(msg)
+
+		_, err = s.uploader.UploadWithContext(ctx, input, uploaderOpts...)
+	}
+
+	if errHasCode(err, s3.ErrCodeNoSuchUpload) && s.noSuchUploadRetryCount > 0 {
+		err = awserr.New(s3.ErrCodeNoSuchUpload, fmt.Sprintf(
+			"RetryOnNoSuchUpload: %v attempts to retry resulted in %v", attempts,
+			s3.ErrCodeNoSuchUpload), err)
+	}
 }
 
 // chunk is an object identifier container which is used on MultiDelete
@@ -1103,4 +1161,10 @@ func ErrHasCode(err error, code string) bool {
 // cancelation error.
 func IsCancelationError(err error) bool {
 	return ErrHasCode(err, "RequestCanceled")
+}
+
+// generate a retry ID for this upload attempt
+func generateRetryID() *string {
+	num, _ := rand.Int(rand.Reader, big.NewInt(math.MaxInt64))
+	return aws.String(num.String())
 }

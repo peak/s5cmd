@@ -4149,3 +4149,42 @@ func TestCopyExpectExitCode1OnUnreachableHost(t *testing.T) {
 
 	result.Assert(t, icmd.Expected{ExitCode: 1})
 }
+
+func TestCopySingleFileToS3WithNoSuchUploadRetryCount(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	createBucket(t, s3client, bucket)
+
+	const (
+		filename = "example.txt"
+		content  = "Some example text"
+	)
+
+	workdir := fs.NewDir(t, bucket, fs.WithFile(filename, content))
+	defer workdir.Remove()
+
+	srcpath := workdir.Join(filename)
+	dstpath := fmt.Sprintf("s3://%v/", bucket)
+
+	srcpath = filepath.ToSlash(srcpath)
+	cmd := s5cmd("cp", "--no-such-upload-retry-count", "5", srcpath, dstpath)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: suffix(`cp %v %v%v`, srcpath, dstpath, filename),
+	})
+
+	// assert local filesystem
+	expected := fs.Expected(t, fs.WithFile(filename, content))
+	assert.Assert(t, fs.Equal(workdir.Path(), expected))
+
+	// assert S3
+	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content))
+}

@@ -15,7 +15,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/aws/smithy-go"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"os"
@@ -216,7 +215,7 @@ func s5cmd(workdir, endpoint string) func(args ...string) icmd.Cmd {
 }
 
 func goBuildS5cmd() func() {
-	tmpdir, err := ioutil.TempDir("", "")
+	tmpdir, err := os.MkdirTemp("", "")
 	if err != nil {
 		panic(err)
 	}

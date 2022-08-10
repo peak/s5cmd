@@ -168,6 +168,16 @@ class S5cmd:
                     "-q",
                 ]
             )
+            run_cmd(
+                [
+                    "git",
+                    "-C",
+                    self.clone_path,
+                    "checkout",
+                    "FETCH_HEAD",
+                    "-q",
+                ]
+            )
             self.git_type = "PR"
         elif re.match("^v([0-9]+\.){2}([0-9])(-[a-z]*\.?[0-9]?)?$", self.tag):
             run_cmd(

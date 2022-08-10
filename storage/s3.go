@@ -246,7 +246,7 @@ func getRegionOpts(ctx context.Context, opts Options, isVirtualHostStyle bool, a
 
 func customRetryer(maxRetries int) func() aws.Retryer {
 	return func() aws.Retryer {
-		retrier := retry.AddWithMaxAttempts(retry.NewStandard(), maxRetries)
+		retrier := retry.AddWithMaxAttempts(aws.NopRetryer{}, maxRetries)
 		retrier = retry.AddWithErrorCodes(retrier,
 			"InternalError",
 			"RequestError",

@@ -160,9 +160,6 @@ func (cc *ClientCache) newClient(ctx context.Context, opts Options) (*aws.Config
 		return &aws.Config{}, nil, err
 	}
 
-	endpoint, isVirtualHostStyle := getEndpointOpts(endpointURL)
-	awsOpts = append(awsOpts, endpoint)
-
 	useAccelerate := supportsTransferAcceleration(endpointURL)
 	// AWS SDK handles transfer acceleration automatically. Setting the
 	// Endpoint to a transfer acceleration endpoint would cause bucket
@@ -170,6 +167,9 @@ func (cc *ClientCache) newClient(ctx context.Context, opts Options) (*aws.Config
 	if useAccelerate {
 		endpointURL = sentinelURL
 	}
+
+	endpoint, isVirtualHostStyle := getEndpointOpts(endpointURL)
+	awsOpts = append(awsOpts, endpoint)
 
 	if opts.NoVerifySSL {
 		httpClient := awshttp.NewBuildableClient().WithTransportOptions(func(tr *http.Transport) {

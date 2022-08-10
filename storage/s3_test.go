@@ -501,9 +501,6 @@ func TestS3Retry(t *testing.T) {
 func TestS3RetryOnNoSuchUpload(t *testing.T) {
 	log.Init("debug", false)
 
-	//noSuchUploadError := types.NoSuchUpload{Message: aws.String("The specified upload does not exist. The upload ID may be invalid, or the upload may have been aborted or completed. status code: 404, request id: PJXXXXX, host id: HOSTIDXX")}
-	t.Skip()
-
 	testcases := []struct {
 		name       string
 		err        string
@@ -546,26 +543,33 @@ func TestS3RetryOnNoSuchUpload(t *testing.T) {
 				return out, metadata, &smithy.GenericAPIError{Code: tc.err}
 			})
 
-			s3c, err := newS3Storage(ctx, Options{NoSignRequest: true, MaxRetries: 5})
+			// create a S3storage with original options
+			s3c, err := newS3Storage(ctx, Options{NoSuchUploadRetryCount: int(tc.retryCount), NoSignRequest: true})
 			if err != nil {
 				t.Fatal(err)
 			}
-			_ = mw
+
+			// add error and re-assign uploader and client
+			mocks3c := s3.NewFromConfig(s3c.config, func(o *s3.Options) {
+				o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
+					return stack.Deserialize.Add(mw, middleware.After)
+				})
+			})
+			s3c.client = mocks3c
+			s3c.uploader = manager.NewUploader(s3c.client)
+
 			err = s3c.Put(ctx, strings.NewReader(""), url, NewMetadata(), manager.DefaultUploadConcurrency, manager.DefaultUploadPartSize)
 			if err != nil {
 				fmt.Println("****", err)
 			}
 
-			atomicCounter := new(int32)
-			atomic.StoreInt32(atomicCounter, 0)
-
 			// +1 is for the original request
 			// *2 is to account for the "Stat" requests that are made to obtain
 			// retry code from object metadata.
 			want := 2*tc.retryCount + 1
-			counter := atomic.LoadInt32(atomicCounter)
-			if counter != want {
-				t.Errorf("expected retry request count %d, got %d", want, counter)
+
+			if count != want {
+				t.Errorf("expected retry request count %d, got %d", want, count)
 			}
 		})
 	}

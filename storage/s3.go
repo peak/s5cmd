@@ -289,7 +289,13 @@ func customRetryer(maxRetries int) func() aws.Retryer {
 	maxAttempts := maxRetries + 1
 
 	return func() aws.Retryer {
-		retrier := retry.AddWithMaxAttempts(aws.NopRetryer{}, maxAttempts)
+
+		retrier := retry.AddWithMaxAttempts(retry.NewStandard(func(o *retry.StandardOptions) {
+			o.MaxBackoff = 0 * time.Nanosecond
+			o.RetryCost = 0
+			o.RetryTimeoutCost = 0
+			o.NoRetryIncrement = 0
+		}), maxAttempts)
 		retrier = retry.AddWithErrorCodes(retrier,
 			"InternalError",
 			"RequestError",

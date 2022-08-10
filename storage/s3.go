@@ -169,7 +169,9 @@ func (cc *ClientCache) newClient(ctx context.Context, opts Options) (*aws.Config
 	}
 
 	endpoint, isVirtualHostStyle := getEndpointOpts(endpointURL)
-	awsOpts = append(awsOpts, endpoint)
+	if endpointURL.String() != "" {
+		awsOpts = append(awsOpts, endpoint)
+	}
 
 	if opts.NoVerifySSL {
 		httpClient := awshttp.NewBuildableClient().WithTransportOptions(func(tr *http.Transport) {

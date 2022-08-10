@@ -503,7 +503,7 @@ func TestS3RetryOnNoSuchUpload(t *testing.T) {
 
 	//noSuchUploadError := types.NoSuchUpload{Message: aws.String("The specified upload does not exist. The upload ID may be invalid, or the upload may have been aborted or completed. status code: 404, request id: PJXXXXX, host id: HOSTIDXX")}
 	t.Skip()
-	
+
 	testcases := []struct {
 		name       string
 		err        string

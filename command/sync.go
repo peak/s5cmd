@@ -76,7 +76,7 @@ func NewSyncCommandFlags() []cli.Flag {
 		&cli.IntFlag{
 			Name:  "chunk-size",
 			Usage: "number of objects in a chunk of external sort",
-			Value: 200_000,
+			Value: 100_000,
 		},
 	}
 	sharedFlags := NewSharedFlags()

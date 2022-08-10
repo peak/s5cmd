@@ -4,7 +4,6 @@ package storage
 import (
 	"context"
 	"encoding/json"
-	"encoding/xml"
 	"fmt"
 	"os"
 	"time"
@@ -284,7 +283,14 @@ func (m Metadata) SetContentEncoding(contentEncoding string) Metadata {
 }
 
 func (o Object) ToBytes() []byte {
-	data, err := xml.Marshal(o)
+	mp := make(map[string]string)
+	mp["url"] = string(o.URL.ToBytes())
+	mp["etag"] = o.Etag // todo is it needed?
+	mp["mod-time"] = strutil.JSON(o.ModTime)
+	mp["type"] = strutil.JSON(o.Type.mode)
+	mp["size"] = strutil.JSON(o.Size)
+
+	data, err := json.Marshal(mp)
 	if err != nil {
 		return make([]byte, 0)
 	}
@@ -292,9 +298,25 @@ func (o Object) ToBytes() []byte {
 }
 
 func FromBytes(data []byte) extsort.SortType {
-	u := Object{}
-	xml.Unmarshal(data, &u)
-	return u
+	var (
+		mp      = make(map[string]string)
+		modTime time.Time
+		objType os.FileMode
+		size    int64
+	)
+
+	json.Unmarshal(data, &mp)
+	json.Unmarshal([]byte(mp["mod-time"]), &modTime)
+	json.Unmarshal([]byte(mp["type"]), &objType)
+	json.Unmarshal([]byte(mp["size"]), &size)
+
+	return Object{
+		URL:     url.FromBytes([]byte(mp["url"])).(*url.URL),
+		Etag:    mp["etag"],
+		ModTime: &modTime,
+		Type:    ObjectType{mode: objType},
+		Size:    size,
+	}
 }
 
 func Less(a, b extsort.SortType) bool {

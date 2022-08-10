@@ -10,6 +10,8 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+
+	"github.com/lanrat/extsort"
 )
 
 const (
@@ -350,6 +352,29 @@ func (u *URL) String() string {
 // MarshalJSON is the json.Marshaler implementation of URL.
 func (u *URL) MarshalJSON() ([]byte, error) {
 	return json.Marshal(u.String())
+}
+
+func (u URL) ToBytes() []byte {
+	mp := make(map[string]string)
+	mp["absolute"] = u.Absolute()
+	mp["relative"] = u.RelativePath
+	// todo: is raw needed
+	// versionID?
+	// mp["version_id"] = u.VersionID
+
+	data, err := json.Marshal(mp)
+	if err != nil {
+		return make([]byte, 0)
+	}
+	return data
+}
+
+func FromBytes(data []byte) extsort.SortType {
+	mp := make(map[string]string)
+	json.Unmarshal(data, &mp)
+	url, _ := New(mp["absolute"])
+	url.RelativePath = mp["relative"]
+	return url
 }
 
 // IsWildcard reports whether if a string contains any wildcard chars.

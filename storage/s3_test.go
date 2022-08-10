@@ -346,105 +346,105 @@ func TestS3ListNoItemFound(t *testing.T) {
 func TestS3Retry(t *testing.T) {
 
 	testcases := []struct {
-		name            string
-		expectedRequest int
+		name          string
+		expectedRetry int
 	}{
 		// Internal error
 		{
-			name:            "InternalError",
-			expectedRequest: 5,
+			name:          "InternalError",
+			expectedRetry: 5,
 		},
 
 		// Request errors
 		{
-			name:            "RequestError",
-			expectedRequest: 5,
+			name:          "RequestError",
+			expectedRetry: 5,
 		},
 		{
-			name:            "UseOfClosedNetworkConnection",
-			expectedRequest: 5,
+			name:          "UseOfClosedNetworkConnection",
+			expectedRetry: 5,
 		},
 		{
-			name:            "ConnectionResetByPeer",
-			expectedRequest: 5,
+			name:          "ConnectionResetByPeer",
+			expectedRetry: 5,
 		},
 		{
-			name:            "RequestFailureRequestError",
-			expectedRequest: 5,
+			name:          "RequestFailureRequestError",
+			expectedRetry: 5,
 		},
 		{
-			name:            "RequestTimeout",
-			expectedRequest: 5,
+			name:          "RequestTimeout",
+			expectedRetry: 5,
 		},
 		{
-			name:            "ResponseTimeout",
-			expectedRequest: 5,
+			name:          "ResponseTimeout",
+			expectedRetry: 5,
 		},
 		{
-			name:            "RequestTimeTooSkewed",
-			expectedRequest: 5,
+			name:          "RequestTimeTooSkewed",
+			expectedRetry: 5,
 		},
 
 		// Throttling errors
 		{
-			name:            "ProvisionedThroughputExceededException",
-			expectedRequest: 5,
+			name:          "ProvisionedThroughputExceededException",
+			expectedRetry: 5,
 		},
 		{
-			name:            "Throttling",
-			expectedRequest: 5,
+			name:          "Throttling",
+			expectedRetry: 5,
 		},
 		{
-			name:            "ThrottlingException",
-			expectedRequest: 5,
+			name:          "ThrottlingException",
+			expectedRetry: 5,
 		},
 		{
-			name:            "RequestLimitExceeded",
-			expectedRequest: 5,
+			name:          "RequestLimitExceeded",
+			expectedRetry: 5,
 		},
 		{
-			name:            "RequestThrottled",
-			expectedRequest: 5,
+			name:          "RequestThrottled",
+			expectedRetry: 5,
 		},
 		{
-			name:            "RequestThrottledException",
-			expectedRequest: 5,
+			name:          "RequestThrottledException",
+			expectedRetry: 5,
 		},
 
 		// Expired credential errors
 		{
-			name:            "ExpiredToken",
-			expectedRequest: 1,
+			name:          "ExpiredToken",
+			expectedRetry: 0,
 		},
 		{
-			name:            "ExpiredTokenException",
-			expectedRequest: 1,
+			name:          "ExpiredTokenException",
+			expectedRetry: 0,
 		},
 
 		// Invalid Token errors
 		{
-			name:            "InvalidToken",
-			expectedRequest: 1,
+			name:          "InvalidToken",
+			expectedRetry: 0,
 		},
 
 		// Connection errors
 		{
-			name:            "ConnectionReset",
-			expectedRequest: 5,
+			name:          "ConnectionReset",
+			expectedRetry: 5,
 		},
 		{
-			name:            "ConnectionTimedOut",
-			expectedRequest: 5,
+			name:          "ConnectionTimedOut",
+			expectedRetry: 5,
 		},
 		{
-			name:            "BrokenPipe",
-			expectedRequest: 5,
+			name:          "BrokenPipe",
+			expectedRetry: 5,
 		},
 
 		// Unknown errors
 		{
-			name:            "UnknownSDKError",
-			expectedRequest: 5,
+			name:          "UnknownSDKError",
+			expectedRetry: 5,
 		},
 	}
 	const expectedRetry = 5
@@ -483,11 +483,14 @@ func TestS3Retry(t *testing.T) {
 			)
 			assert.ErrorContains(t, err, tc.name)
 
-			got := int(atomic.LoadInt32(&count))
-			expected := tc.expectedRequest
+			gotAttempts := int(atomic.LoadInt32(&count))
 
-			if got != expected {
-				t.Errorf("expected %v retries, got %v", expected, got)
+			// AWS SDK counts attempts instead of retries.
+			// Increase retries by one to get attempts.
+			expectedAttempts := tc.expectedRetry + 1
+
+			if gotAttempts != expectedAttempts {
+				t.Errorf("expected %v retries, got %v", expectedAttempts, gotAttempts)
 			}
 
 		})

@@ -160,10 +160,10 @@ func newS3Storage(ctx context.Context, opts Options) (*S3, error) {
 		return nil, err
 	}
 	client := s3.NewFromConfig(cfg, func(o *s3.Options) {
-
 		o.UsePathStyle = !isVirtualHostStyle
 		o.UseAccelerate = useAccelerate
 	})
+
 	return &S3{
 		client:           client,
 		config:           cfg,
@@ -174,7 +174,7 @@ func newS3Storage(ctx context.Context, opts Options) (*S3, error) {
 		useListObjectsV1: opts.UseListObjectsV1,
 		dryRun:           opts.DryRun,
 	}, nil
-	
+
 }
 
 func getEndpointOpts(endpointURL urlpkg.URL) (config.LoadOptionsFunc, bool) {
@@ -245,8 +245,12 @@ func getRegionOpts(ctx context.Context, opts Options, isVirtualHostStyle bool, a
 }
 
 func customRetryer(maxRetries int) func() aws.Retryer {
+	// AWS SDK counts maxAttempts instead of maxRetries.
+	// Increase maxRetries by one to get maxAttempts.
+	maxAttempts := maxRetries + 1
+
 	return func() aws.Retryer {
-		retrier := retry.AddWithMaxAttempts(aws.NopRetryer{}, maxRetries)
+		retrier := retry.AddWithMaxAttempts(aws.NopRetryer{}, maxAttempts)
 		retrier = retry.AddWithErrorCodes(retrier,
 			"InternalError",
 			"RequestError",

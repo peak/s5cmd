@@ -20,10 +20,7 @@ import (
 	"github.com/peak/s5cmd/storage/url"
 )
 
-const (
-	extsortChannelBufferSize = 1_000
-	extsortChunkSize         = 50_000
-)
+const extsortChannelBufferSize = 1_000
 
 var syncHelpTemplate = `Name:
 	{{.HelpName}} - {{.Usage}}
@@ -76,6 +73,11 @@ func NewSyncCommandFlags() []cli.Flag {
 			Name:  "size-only",
 			Usage: "make size of object only criteria to decide whether an object should be synced",
 		},
+		&cli.IntFlag{
+			Name:  "chunk-size",
+			Usage: "number of objects in a chunk of external sort",
+			Value: 200_000,
+		},
 	}
 	sharedFlags := NewSharedFlags()
 	return append(syncFlags, sharedFlags...)
@@ -116,8 +118,9 @@ type Sync struct {
 	fullCommand string
 
 	// flags
-	delete   bool
-	sizeOnly bool
+	delete           bool
+	sizeOnly         bool
+	extsortChunkSize int
 
 	// s3 options
 	storageOpts storage.Options
@@ -139,8 +142,9 @@ func NewSync(c *cli.Context) Sync {
 		fullCommand: commandFromContext(c),
 
 		// flags
-		delete:   c.Bool("delete"),
-		sizeOnly: c.Bool("size-only"),
+		delete:           c.Bool("delete"),
+		sizeOnly:         c.Bool("size-only"),
+		extsortChunkSize: c.Int("chunk-size"),
 
 		// flags
 		followSymlinks: !c.Bool("no-follow-symlinks"),
@@ -309,7 +313,7 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 
 	extsortDefaultConfig := extsort.DefaultConfig()
 	extsortConfig := &extsort.Config{
-		ChunkSize:          extsortChunkSize,
+		ChunkSize:          s.extsortChunkSize,
 		NumWorkers:         extsortDefaultConfig.NumWorkers,
 		ChanBuffSize:       extsortChannelBufferSize,
 		SortedChanBuffSize: extsortChannelBufferSize,

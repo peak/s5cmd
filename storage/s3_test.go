@@ -184,7 +184,7 @@ aws_secret_access_key = p2_profile_access_key`
 	}
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-
+			globalClientCache.clear()
 			s3c, err := newS3Storage(context.Background(), Options{
 				Profile:        tc.profileName,
 				CredentialFile: tc.fileName,
@@ -760,6 +760,36 @@ func TestS3listObjectsV2(t *testing.T) {
 	assert.Equal(t, len(mapReturnObjNameToModtime), 0)
 }
 
+func TestClientCreateAndCachingWithDifferentBuckets(t *testing.T) {
+	log.Init("error", false)
+	testcases := []struct {
+		bucket         string
+		alreadyCreated bool // sessions should not be created again if they already have been created before
+	}{
+		{bucket: "bucket"},
+		{bucket: "bucket", alreadyCreated: true},
+		{bucket: "test-bucket"},
+	}
+
+	clients := map[string]*s3Client{}
+	for _, tc := range testcases {
+		_, client, err := globalClientCache.newClient(context.Background(), Options{
+			bucket: tc.bucket,
+			region: "us-east-1",
+		})
+		if err != nil {
+			t.Error(err)
+		}
+
+		if tc.alreadyCreated {
+			_, ok := clients[tc.bucket]
+			assert.Check(t, ok, "session should not have been created again")
+		} else {
+			clients[tc.bucket] = &client
+		}
+	}
+}
+
 func TestRegionDetectionPriority(t *testing.T) {
 	bucketRegion := "sa-east-1"
 
@@ -940,6 +970,7 @@ func TestAutoRegionFromHeadBucket(t *testing.T) {
 			awsOpts = append(awsOpts, endpointOpts)
 			// ignore local profile loading
 			awsOpts = append(awsOpts, config.WithSharedConfigFiles([]string{}))
+			awsOpts = append(awsOpts, config.WithRetryer(customRetryer(0)))
 
 			awsOpts, err = getRegionOpts(context.Background(), opts, isVirtualHostStyle, awsOpts...)
 			gotErr := err

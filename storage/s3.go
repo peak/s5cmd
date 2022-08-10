@@ -41,6 +41,12 @@ const (
 	gcsEndpoint = "storage.googleapis.com"
 )
 
+// Re-used AWS sessions dramatically improve performance.
+var globalClientCache = &ClientCache{
+	clients: map[Options]*s3.Client{},
+	configs: map[Options]*aws.Config{},
+}
+
 type S3 struct {
 	client           s3Client
 	config           aws.Config
@@ -52,12 +58,12 @@ type S3 struct {
 	requestPayer     types.RequestPayer
 }
 type s3Client interface {
-	GetObject(ctx context.Context, params *s3.GetObjectInput, optFns ...func(*s3.Options)) (*s3.GetObjectOutput, error)
 	CopyObject(ctx context.Context, params *s3.CopyObjectInput, optFns ...func(*s3.Options)) (*s3.CopyObjectOutput, error)
-	//manager.DownloadAPIClient this interface includes getObject, should we use it here?
 	s3.HeadObjectAPIClient
 	s3.ListObjectsV2APIClient
 	ListObjectsAPIClient
+	manager.UploadAPIClient
+	manager.DownloadAPIClient
 	manager.DeleteObjectsAPIClient
 	manager.HeadBucketAPIClient
 	CreateBucket(ctx context.Context, params *s3.CreateBucketInput, optFns ...func(*s3.Options)) (*s3.CreateBucketOutput, error)
@@ -98,6 +104,37 @@ func parseEndpoint(endpoint string) (urlpkg.URL, error) {
 }
 
 func newS3Storage(ctx context.Context, opts Options) (*S3, error) {
+	endpointURL, err := parseEndpoint(opts.Endpoint)
+	if err != nil {
+		return nil, err
+	}
+
+	cfg, client, err := globalClientCache.newClient(ctx, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	return &S3{
+		client:           client,
+		config:           *cfg,
+		downloader:       manager.NewDownloader(client),
+		uploader:         manager.NewUploader(client),
+		endpointURL:      endpointURL,
+		requestPayer:     types.RequestPayer(opts.RequestPayer),
+		useListObjectsV1: opts.UseListObjectsV1,
+		dryRun:           opts.DryRun,
+	}, nil
+
+}
+
+func (cc *ClientCache) newClient(ctx context.Context, opts Options) (*aws.Config, s3Client, error) {
+	cc.Lock()
+	defer cc.Unlock()
+
+	if client, ok := cc.clients[opts]; ok {
+		cfg := cc.configs[opts]
+		return cfg, client, nil
+	}
 	var awsOpts []func(*config.LoadOptions) error
 
 	if opts.NoSignRequest {
@@ -120,7 +157,7 @@ func newS3Storage(ctx context.Context, opts Options) (*S3, error) {
 	}
 	endpointURL, err := parseEndpoint(opts.Endpoint)
 	if err != nil {
-		return nil, err
+		return &aws.Config{}, nil, err
 	}
 
 	endpoint, isVirtualHostStyle := getEndpointOpts(endpointURL)
@@ -151,30 +188,30 @@ func newS3Storage(ctx context.Context, opts Options) (*S3, error) {
 	awsOpts, err = getRegionOpts(ctx, opts, isVirtualHostStyle, awsOpts...)
 
 	if err != nil {
-		return nil, err
+		return &aws.Config{}, nil, err
 	}
 
 	cfg, err := config.LoadDefaultConfig(ctx, awsOpts...)
 
 	if err != nil {
-		return nil, err
+		return &aws.Config{}, nil, err
 	}
 	client := s3.NewFromConfig(cfg, func(o *s3.Options) {
 		o.UsePathStyle = !isVirtualHostStyle
 		o.UseAccelerate = useAccelerate
 	})
 
-	return &S3{
-		client:           client,
-		config:           cfg,
-		downloader:       manager.NewDownloader(client),
-		uploader:         manager.NewUploader(client),
-		endpointURL:      endpointURL,
-		requestPayer:     types.RequestPayer(opts.RequestPayer),
-		useListObjectsV1: opts.UseListObjectsV1,
-		dryRun:           opts.DryRun,
-	}, nil
+	cc.clients[opts] = client
+	cc.configs[opts] = &cfg
 
+	return &cfg, client, nil
+}
+
+func (cc *ClientCache) clear() {
+	cc.Lock()
+	defer cc.Unlock()
+	cc.clients = map[Options]*s3.Client{}
+	cc.configs = map[Options]*aws.Config{}
 }
 
 func getEndpointOpts(endpointURL urlpkg.URL) (config.LoadOptionsFunc, bool) {
@@ -286,6 +323,14 @@ func (l SdkLogger) Logf(classification logging.Classification, format string, v 
 	log.Trace(msg)
 }
 
+// ClientCache holds client.Client according to s3Opts and it synchronizes
+// access/modification.
+type ClientCache struct {
+	sync.Mutex
+	clients map[Options]*s3.Client
+	configs map[Options]*aws.Config
+}
+
 func (s *S3) Stat(ctx context.Context, url *url.URL) (*Object, error) {
 
 	output, err := s.client.HeadObject(ctx, &s3.HeadObjectInput{
@@ -315,7 +360,7 @@ func (s *S3) Stat(ctx context.Context, url *url.URL) (*Object, error) {
 // it sends these errors to object channel.
 func (s *S3) List(ctx context.Context, url *url.URL, _ bool) <-chan *Object {
 
-	if s.useListObjectsV1 {
+	if isGoogleEndpoint(s.endpointURL) || s.useListObjectsV1 {
 		return s.listObjects(ctx, url)
 	}
 

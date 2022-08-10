@@ -20,6 +20,11 @@ import (
 	"github.com/peak/s5cmd/storage/url"
 )
 
+const (
+	extsortChannelBufferSize = 1_000
+	extsortChunkSize         = 50_000
+)
+
 var syncHelpTemplate = `Name:
 	{{.HelpName}} - {{.Usage}}
 
@@ -221,9 +226,9 @@ func (s Sync) Run(c *cli.Context) error {
 func compareObjects(sourceObjects, destObjects chan *storage.Object) (chan *url.URL, chan *url.URL, chan *ObjectPair) {
 
 	var (
-		srcOnly   = make(chan *url.URL, 100)
-		dstOnly   = make(chan *url.URL, 100)
-		commonObj = make(chan *ObjectPair, 100)
+		srcOnly   = make(chan *url.URL, extsortChannelBufferSize)
+		dstOnly   = make(chan *url.URL, extsortChannelBufferSize)
+		commonObj = make(chan *ObjectPair, extsortChannelBufferSize)
 		srcName,
 		dstName string
 	)
@@ -298,15 +303,24 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 	}
 
 	var (
-		sourceObjects = make(chan *storage.Object, 100)
-		destObjects   = make(chan *storage.Object, 100)
+		sourceObjects = make(chan *storage.Object, extsortChannelBufferSize)
+		destObjects   = make(chan *storage.Object, extsortChannelBufferSize)
 	)
+
+	extsortDefaultConfig := extsort.DefaultConfig()
+	extsortConfig := &extsort.Config{
+		ChunkSize:          extsortChunkSize,
+		NumWorkers:         extsortDefaultConfig.NumWorkers,
+		ChanBuffSize:       extsortChannelBufferSize,
+		SortedChanBuffSize: extsortChannelBufferSize,
+	}
+	extsortDefaultConfig = nil
 
 	// get source objects.
 	go func() {
 		defer close(sourceObjects)
 		unfilteredSrcObjectChannel := sourceClient.List(ctx, srcurl, s.followSymlinks)
-		filteredSrcObjectChannel := make(chan extsort.SortType)
+		filteredSrcObjectChannel := make(chan extsort.SortType, extsortChannelBufferSize)
 
 		go func() {
 			defer close(filteredSrcObjectChannel)
@@ -319,7 +333,7 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 			}
 		}()
 
-		sorter, outputChan, _ := extsort.New(filteredSrcObjectChannel, storage.FromBytes, storage.Less, nil)
+		sorter, outputChan, _ := extsort.New(filteredSrcObjectChannel, storage.FromBytes, storage.Less, extsortConfig)
 		sorter.Sort(context.Background())
 
 		for srcObject := range outputChan {
@@ -332,7 +346,7 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 	go func() {
 		defer close(destObjects)
 		unfilteredDestObjectsChannel := destClient.List(ctx, destObjectsURL, false)
-		filteredDstObjectChannel := make(chan extsort.SortType)
+		filteredDstObjectChannel := make(chan extsort.SortType, extsortChannelBufferSize)
 
 		go func() {
 			defer close(filteredDstObjectChannel)
@@ -346,7 +360,7 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 			}
 		}()
 
-		sorter, dstOutputChan, _ := extsort.New(filteredDstObjectChannel, storage.FromBytes, storage.Less, nil)
+		sorter, dstOutputChan, _ := extsort.New(filteredDstObjectChannel, storage.FromBytes, storage.Less, extsortConfig)
 		sorter.Sort(context.Background())
 
 		for destObject := range dstOutputChan {

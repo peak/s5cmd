@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 
@@ -345,10 +346,10 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 
 		if s.extsortChunkSize > 0 {
 			sorter, srcOutputChan, _ = extsort.New(filteredSrcObjectChannel, storage.FromBytes, storage.Less, extsortConfig)
+			sorter.Sort(context.Background())
 		} else {
-			sorter, srcOutputChan, _ = extsort.NewMock(filteredSrcObjectChannel, storage.FromBytes, storage.Less, extsortConfig, 100*(1<<20) /*100 MB*/)
+			srcOutputChan = internalSort(filteredSrcObjectChannel, storage.Less)
 		}
-		sorter.Sort(context.Background())
 
 		for srcObject := range srcOutputChan {
 			o := srcObject.(storage.Object)
@@ -381,10 +382,10 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 
 		if s.extsortChunkSize > 0 {
 			dstSorter, dstOutputChan, _ = extsort.New(filteredDstObjectChannel, storage.FromBytes, storage.Less, extsortConfig)
+			dstSorter.Sort(context.Background())
 		} else {
-			dstSorter, dstOutputChan, _ = extsort.NewMock(filteredDstObjectChannel, storage.FromBytes, storage.Less, extsortConfig, 100*(1<<20) /*100 MB*/)
+			dstOutputChan = internalSort(filteredDstObjectChannel, storage.Less)
 		}
-		dstSorter.Sort(context.Background())
 
 		for destObject := range dstOutputChan {
 			o := destObject.(storage.Object)
@@ -394,6 +395,29 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 	}()
 
 	return sourceObjects, destObjects, nil
+}
+
+func internalSort(objectChannel chan extsort.SortType, less func(a extsort.SortType, b extsort.SortType) bool) chan extsort.SortType {
+	arr := make([]extsort.SortType, 0, 100000)
+
+	for obj := range objectChannel {
+		arr = append(arr, obj)
+	}
+
+	sort.SliceStable(arr, func(i, j int) bool {
+		return less(arr[i], arr[j])
+	})
+	ch := make(chan extsort.SortType, extsortChannelBufferSize)
+
+	go func() {
+		defer close(ch)
+
+		for _, obj := range arr {
+			ch <- obj
+		}
+	}()
+
+	return ch
 }
 
 // planRun prepares the commands and writes them to writer 'w'.

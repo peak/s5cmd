@@ -11,10 +11,11 @@
 - Added `--credentials-file` flag to allow users to specify path for the AWS credentials file instead of using the [default location](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html#cli-configure-files-where). 
 
 #### Improvements
-- Disable AWS SDK logger if log level is not `trace`. ([##460](https://github.com/peak/s5cmd/pull/460))
+- Disable AWS SDK logger if log level is not `trace`. ([#460](https://github.com/peak/s5cmd/pull/460))
 - Allow adjacent slashes to be used as keys when uploading to remote. ([#459](https://github.com/peak/s5cmd/pull/459))
 - Debian packages are provided on [releases page](https://github.com/peak/s5cmd/releases) ([#380](https://github.com/peak/s5cmd/issues/380))
 - Upgraded minimum required Go version to 1.17.
+- Migrated from [aws-sdk-go](https://github.com/aws/aws-sdk-go/) to [aws-sdk-go-v2](https://github.com/aws/aws-sdk-go-v2/). ([#478](https://github.com/peak/s5cmd/pull/478))
 
 
 #### Bugfixes

@@ -75,7 +75,7 @@ func NewSyncCommandFlags() []cli.Flag {
 		},
 		&cli.IntFlag{
 			Name:  "chunk-size",
-			Usage: "number of objects in a chunk of external sort",
+			Usage: "number of objects in a chunk of external sort; nonpositive argument forces in memory sorting",
 			Value: 100_000,
 		},
 	}
@@ -337,10 +337,19 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 			}
 		}()
 
-		sorter, outputChan, _ := extsort.New(filteredSrcObjectChannel, storage.FromBytes, storage.Less, extsortConfig)
+		var (
+			sorter        *extsort.SortTypeSorter
+			srcOutputChan chan extsort.SortType
+		)
+
+		if s.extsortChunkSize > 0 {
+			sorter, srcOutputChan, _ = extsort.New(filteredSrcObjectChannel, storage.FromBytes, storage.Less, extsortConfig)
+		} else {
+			sorter, srcOutputChan, _ = extsort.NewMock(filteredSrcObjectChannel, storage.FromBytes, storage.Less, extsortConfig, 100*(1<<20) /*100 MB*/)
+		}
 		sorter.Sort(context.Background())
 
-		for srcObject := range outputChan {
+		for srcObject := range srcOutputChan {
 			o := srcObject.(storage.Object)
 			sourceObjects <- &o
 		}
@@ -364,8 +373,17 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 			}
 		}()
 
-		sorter, dstOutputChan, _ := extsort.New(filteredDstObjectChannel, storage.FromBytes, storage.Less, extsortConfig)
-		sorter.Sort(context.Background())
+		var (
+			dstSorter     *extsort.SortTypeSorter
+			dstOutputChan chan extsort.SortType
+		)
+
+		if s.extsortChunkSize > 0 {
+			dstSorter, dstOutputChan, _ = extsort.New(filteredDstObjectChannel, storage.FromBytes, storage.Less, extsortConfig)
+		} else {
+			dstSorter, dstOutputChan, _ = extsort.NewMock(filteredDstObjectChannel, storage.FromBytes, storage.Less, extsortConfig, 100*(1<<20) /*100 MB*/)
+		}
+		dstSorter.Sort(context.Background())
 
 		for destObject := range dstOutputChan {
 			o := destObject.(storage.Object)

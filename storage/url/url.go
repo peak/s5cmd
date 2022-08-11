@@ -372,7 +372,7 @@ func (u URL) ToBytes() []byte {
 func FromBytes(data []byte) extsort.SortType {
 	mp := make(map[string]string)
 	json.Unmarshal(data, &mp)
-	url, _ := New(mp["absolute"])
+	url, _ := New(mp["absolute"], WithRaw(true))
 	url.RelativePath = mp["relative"]
 	return url
 }

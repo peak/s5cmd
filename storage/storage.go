@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/lanrat/extsort"
@@ -285,10 +286,9 @@ func (m Metadata) SetContentEncoding(contentEncoding string) Metadata {
 func (o Object) ToBytes() []byte {
 	mp := make(map[string]string)
 	mp["url"] = string(o.URL.ToBytes())
-	mp["etag"] = o.Etag // todo is it needed?
-	mp["mod-time"] = strutil.JSON(o.ModTime)
+	mp["mod-time"] = o.ModTime.Format(time.RFC3339Nano)
 	mp["type"] = strutil.JSON(o.Type.mode)
-	mp["size"] = strutil.JSON(o.Size)
+	mp["size"] = strconv.FormatInt(o.Size, 10)
 
 	data, err := json.Marshal(mp)
 	if err != nil {
@@ -300,19 +300,17 @@ func (o Object) ToBytes() []byte {
 func FromBytes(data []byte) extsort.SortType {
 	var (
 		mp      = make(map[string]string)
-		modTime time.Time
 		objType os.FileMode
-		size    int64
 	)
 
 	json.Unmarshal(data, &mp)
-	json.Unmarshal([]byte(mp["mod-time"]), &modTime)
 	json.Unmarshal([]byte(mp["type"]), &objType)
-	json.Unmarshal([]byte(mp["size"]), &size)
+
+	modTime, _ := time.Parse(time.RFC3339Nano, mp["mod-time"])
+	size, _ := strconv.ParseInt(mp["size"], 10, 64)
 
 	return Object{
 		URL:     url.FromBytes([]byte(mp["url"])).(*url.URL),
-		Etag:    mp["etag"],
 		ModTime: &modTime,
 		Type:    ObjectType{mode: objType},
 		Size:    size,

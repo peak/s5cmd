@@ -216,7 +216,7 @@ func validateRMCommand(c *cli.Context) error {
 		// all-versions of "a" and "b", but want to delete only a single
 		// version of "c" "someversion". User might want to express this as
 		// `s5cmd rm --all-versions a --all-versions b version-id someversion c`
-		// but, current implementatition does not take repetitive flags into account,
+		// but, current implementation does not take repetitive flags into account,
 		// anyway, this is not supported in current implementation.
 		return fmt.Errorf(`it is not allowed to combine "all-versions" and "version-id" flags`)
 	}

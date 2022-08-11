@@ -29,7 +29,7 @@ func TestVersioning(t *testing.T) {
 
 	createBucket(t, s3client, bucket)
 
-	// check that when bucket is created, the versioning is null (empty string)
+	// check that when bucket is created, it is unversioned
 	cmd := s5cmd("version", "--get", "s3://"+bucket)
 	result := icmd.RunCmd(cmd)
 
@@ -51,10 +51,6 @@ func TestVersioning(t *testing.T) {
 			name:             "Suspend Bucket Versioning",
 			versioningStatus: "Suspended",
 		},
-		// {
-		// 	 name:             "Invalid Bucket Versioning",
-		// 	 versioningStatus: "rndmTXT",
-		// } ,
 	}
 	for _, tc := range testcases {
 		tc := tc

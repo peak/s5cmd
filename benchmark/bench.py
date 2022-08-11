@@ -268,7 +268,9 @@ class Scenario:
 
             cmd = [
                 "hyperfine",
-                f"--export-markdown",
+                "--export-markdown",
+                "-u",
+                "second",
                 os.path.join(self.local_dir, "temp.md"),
                 "--runs",
                 self.hyperfine_args["runs"],
@@ -399,9 +401,9 @@ def init_bench_results(cwd, output_file_name, scenarios):
     summary = (
         f"{header}"
         f"{join_with_newlines(scenario_details)}"
-        f"\n\n|Scenario| Summary |"
-        f"\n|:---|:---|"
-        f"\n"
+        "\n\n|Scenario| Summary |"
+        "\n|:---|:---|"
+        "\n"
     )
     with open(os.path.join(cwd, output_file_name), "w") as file:
         file.write(summary)
@@ -418,11 +420,11 @@ def init_bench_results(cwd, output_file_name, scenarios):
 
 
 def join_with_spaces(lst):
-    return f" ".join(lst)
+    return " ".join(lst)
 
 
 def join_with_newlines(lst):
-    return f"\n".join(lst)
+    return "\n".join(lst)
 
 
 def to_bytes(size):

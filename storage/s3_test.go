@@ -1055,7 +1055,7 @@ func TestAutoRegionFromHeadBucket(t *testing.T) {
 			cfg, _ := config.LoadDefaultConfig(context.Background(), awsOpts...)
 
 			if tc.expectedErrorCode != "" {
-				if !ErrHasCode(gotErr, tc.expectedErrorCode) {
+				if !errHasCode(gotErr, tc.expectedErrorCode) {
 					t.Errorf("expected error code: %v, got error: %v", tc.expectedErrorCode, gotErr)
 					return
 				}

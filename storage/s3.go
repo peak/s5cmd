@@ -276,7 +276,7 @@ func getRegionOpts(ctx context.Context, opts Options, isVirtualHostStyle bool, a
 		})
 		if err != nil {
 
-			if ErrHasCode(err, "bucket not found") {
+			if errHasCode(err, "bucket not found") {
 				return awsOpts, err
 			}
 			// don't deny any request to the service if region auto-fetching
@@ -349,6 +349,7 @@ type ClientCache struct {
 	configs map[Options]*aws.Config
 }
 
+// Stat retrieves metadata from S3 object without returning the object itself.
 func (s *S3) Stat(ctx context.Context, url *url.URL) (*Object, error) {
 
 	output, err := s.client.HeadObject(ctx, &s3.HeadObjectInput{
@@ -357,7 +358,7 @@ func (s *S3) Stat(ctx context.Context, url *url.URL) (*Object, error) {
 		RequestPayer: s.RequestPayer(),
 	})
 	if err != nil {
-		if ErrHasCode(err, "NotFound") {
+		if errHasCode(err, "NotFound") {
 			return nil, &ErrGivenObjectNotFound{ObjectAbsPath: url.Absolute()}
 		}
 		return nil, err
@@ -482,7 +483,6 @@ func (s *S3) listObjectsV2(ctx context.Context, url *url.URL) <-chan *Object {
 
 // listObjects is used for cloud services that does not support S3
 func (s *S3) listObjects(ctx context.Context, url *url.URL) <-chan *Object {
-
 	listInput := s3.ListObjectsInput{
 		Bucket:       aws.String(url.Bucket),
 		Prefix:       aws.String(url.Prefix),
@@ -711,7 +711,6 @@ func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata Metadata) err
 
 // Read fetches the remote object and returns its contents as an io.ReadCloser.
 func (s *S3) Read(ctx context.Context, src *url.URL) (io.ReadCloser, error) {
-
 	resp, err := s.client.GetObject(ctx, &s3.GetObjectInput{
 		Bucket:       aws.String(src.Bucket),
 		Key:          aws.String(src.Path),
@@ -894,7 +893,7 @@ func (s *S3) Put(
 	}
 	_, err := s.uploader.Upload(ctx, input, uploaderOptsFn)
 
-	if ErrHasCode(err, "NoSuchUpload") && s.noSuchUploadRetryCount > 0 {
+	if errHasCode(err, "NoSuchUpload") && s.noSuchUploadRetryCount > 0 {
 		return s.retryOnNoSuchUpload(ctx, to, input, err, uploaderOptsFn)
 	}
 
@@ -910,7 +909,7 @@ func (s *S3) retryOnNoSuchUpload(ctx context.Context, to *url.URL, input *s3.Put
 	}
 
 	attempts := 0
-	for ; ErrHasCode(err, "NoSuchUpload") && attempts < s.noSuchUploadRetryCount; attempts++ {
+	for ; errHasCode(err, "NoSuchUpload") && attempts < s.noSuchUploadRetryCount; attempts++ {
 		// check if object exists and has the retry ID we provided, if it does
 		// then it means that one of previous uploads was succesfull despite the received error.
 		obj, sErr := s.Stat(ctx, to)
@@ -925,7 +924,7 @@ func (s *S3) retryOnNoSuchUpload(ctx context.Context, to *url.URL, input *s3.Put
 		_, err = s.uploader.Upload(ctx, input, uploaderOpts...)
 	}
 
-	if ErrHasCode(err, "NoSuchUpload") && s.noSuchUploadRetryCount > 0 {
+	if errHasCode(err, "NoSuchUpload") && s.noSuchUploadRetryCount > 0 {
 		err = &smithy.GenericAPIError{
 			Code: "RetryOnNoSuchUpload",
 			Message: fmt.Sprintf("RetryOnNoSuchUpload: %v attempts to retry resulted in %v", attempts,
@@ -1137,7 +1136,7 @@ func isGoogleEndpoint(endpoint urlpkg.URL) bool {
 func isVirtualHostStyle(endpoint urlpkg.URL) bool {
 	return endpoint == sentinelURL || supportsTransferAcceleration(endpoint) || isGoogleEndpoint(endpoint)
 }
-func ErrHasCode(err error, code string) bool {
+func errHasCode(err error, code string) bool {
 	if err == nil || code == "" {
 		return false
 	}
@@ -1163,7 +1162,7 @@ func ErrHasCode(err error, code string) bool {
 // IsCancelationError reports whether given error is a storage related
 // cancelation error.
 func IsCancelationError(err error) bool {
-	return ErrHasCode(err, "RequestCanceled")
+	return errHasCode(err, "RequestCanceled")
 }
 
 // generate a retry ID for this upload attempt

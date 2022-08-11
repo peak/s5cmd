@@ -75,7 +75,7 @@ func NewSyncCommandFlags() []cli.Flag {
 		},
 		&cli.IntFlag{
 			Name:  "chunk-size",
-			Usage: "number of objects in a chunk of external sort; nonpositive argument forces in memory sorting",
+			Usage: "number of objects in a chunk of external sort; nonpositive arguments enforces internal sort",
 			Value: 100_000,
 		},
 	}
@@ -222,13 +222,13 @@ func (s Sync) Run(c *cli.Context) error {
 	return multierror.Append(err, merrorWaiter).ErrorOrNil()
 }
 
-// compareObjects compares source and destination objects.
+// compareObjects compares source and destination objects. It assumes that
+// sourceObjects and destObjects channels are already sorted in ascending order.
 // Returns objects those in only source, only destination
 // and both.
 // The algorithm is taken from;
 // https://github.com/rclone/rclone/blob/HEAD/fs/march/march.go#L304
 func compareObjects(sourceObjects, destObjects chan *storage.Object) (chan *url.URL, chan *url.URL, chan *ObjectPair) {
-
 	var (
 		srcOnly   = make(chan *url.URL, extsortChannelBufferSize)
 		dstOnly   = make(chan *url.URL, extsortChannelBufferSize)
@@ -237,10 +237,10 @@ func compareObjects(sourceObjects, destObjects chan *storage.Object) (chan *url.
 		dstName string
 	)
 
-	src, srcOk := <-sourceObjects
-	dst, dstOk := <-destObjects
-
 	go func() {
+		src, srcOk := <-sourceObjects
+		dst, dstOk := <-destObjects
+
 		defer close(srcOnly)
 		defer close(dstOnly)
 		defer close(commonObj)
@@ -280,8 +280,9 @@ func compareObjects(sourceObjects, destObjects chan *storage.Object) (chan *url.
 	return srcOnly, dstOnly, commonObj
 }
 
-// getSourceAndDestinationObjects returns source and destination
-// objects from given urls.
+// getSourceAndDestinationObjects returns source and destination objects from
+// given URLs. The returned channels gives objects sorted in ascending order
+// with respect to their url.Relative path. See also storage.Less.
 func (s Sync) getSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl *url.URL) (chan *storage.Object, chan *storage.Object, error) {
 	sourceClient, err := storage.NewClient(ctx, srcurl, s.storageOpts)
 	if err != nil {
@@ -414,6 +415,8 @@ func (s Sync) planRun(
 		"raw": true,
 	}
 
+	// it should wait until both of onlySource and onlyDest channels are closed
+	// before closing the WriteCloser to ensure that all URLs are processed.
 	var wg sync.WaitGroup
 
 	// only in source

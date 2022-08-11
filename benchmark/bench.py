@@ -269,9 +269,9 @@ class Scenario:
             cmd = [
                 "hyperfine",
                 "--export-markdown",
+                os.path.join(self.local_dir, "temp.md"),
                 "-u",
                 "second",
-                os.path.join(self.local_dir, "temp.md"),
                 "--runs",
                 self.hyperfine_args["runs"],
                 "--warmup",

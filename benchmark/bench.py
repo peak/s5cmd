@@ -410,7 +410,7 @@ def init_bench_results(cwd, output_file_name, scenarios):
 
     detailed_summary = (
         "\n### Detailed summary: "
-        "\n|Scenario| Command | Mean [ms] | Min [ms] | Max [ms] | Relative |"
+        "\n|Scenario| Command | Mean [s] | Min [s] | Max [s] | Relative |"
         "\n|:---|:---|---:|---:|---:|---:|"
         "\n"
     )

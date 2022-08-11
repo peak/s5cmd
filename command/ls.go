@@ -114,7 +114,7 @@ func NewListCommand() *cli.Command {
 				return err
 			}
 			return List{
-				src:         *srcurl,
+				src:         srcurl,
 				op:          c.Command.Name,
 				fullCommand: fullCommand,
 				// flags
@@ -131,7 +131,7 @@ func NewListCommand() *cli.Command {
 
 // List holds list operation flags and states.
 type List struct {
-	src         url.URL
+	src         *url.URL
 	op          string
 	fullCommand string
 
@@ -168,7 +168,7 @@ func ListBuckets(ctx context.Context, storageOpts storage.Options) error {
 // Run prints objects at given source.
 func (l List) Run(ctx context.Context) error {
 
-	client, err := storage.NewClient(ctx, &l.src, l.storageOpts)
+	client, err := storage.NewClient(ctx, l.src, l.storageOpts)
 	if err != nil {
 		printError(l.fullCommand, l.op, err)
 		return err
@@ -182,7 +182,7 @@ func (l List) Run(ctx context.Context) error {
 		return err
 	}
 
-	for object := range client.List(ctx, &l.src, false) {
+	for object := range client.List(ctx, l.src, false) {
 		if errorpkg.IsCancelation(object.Err) {
 			continue
 		}

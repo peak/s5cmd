@@ -100,6 +100,9 @@ Examples:
 
 	21. Upload a file to S3 with a content-type and content-encoding header
 		 > s5cmd --content-type "text/css" --content-encoding "br" myfile.css.br s3://bucket/
+		 
+	22. Download the specific version of a remote object to working directory
+		 > s5cmd {{.HelpName}} --version-id VERSION_ID s3://bucket/prefix/object .
 `
 
 func NewSharedFlags() []cli.Flag {
@@ -209,7 +212,7 @@ func NewCopyCommandFlags() []cli.Flag {
 		},
 		&cli.StringFlag{
 			Name:  "version-id",
-			Usage: "use the specified `version` of an object",
+			Usage: "use the specified version of an object",
 		},
 	}
 	sharedFlags := NewSharedFlags()
@@ -301,7 +304,7 @@ func NewCopy(c *cli.Context, deleteSource bool) (*Copy, error) {
 		src:          src,
 		dst:          dst,
 		op:           c.Command.Name,
-		fullCommand:  commandFromContext(c),
+		fullCommand:  fullCommand,
 		deleteSource: deleteSource,
 		// flags
 		noClobber:             c.Bool("no-clobber"),

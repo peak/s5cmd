@@ -77,7 +77,7 @@ func NewSelectCommand() *cli.Command {
 			},
 			&cli.StringFlag{
 				Name:  "version-id",
-				Usage: "use the specified `version` of an object",
+				Usage: "use the specified version of the object",
 			},
 		},
 		CustomHelpTemplate: selectHelpTemplate,

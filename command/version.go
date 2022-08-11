@@ -41,12 +41,12 @@ func NewVersionCommand() *cli.Command {
 		Name:               "version",
 		CustomHelpTemplate: versionHelpTemplate,
 		HelpName:           "version",
-		Usage:              "print version",
+		Usage:              "print version of s5cmd or manage bucket versioning",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name: "set",
 				// todo use generic flag when https://github.com/urfave/cli/issues/1441
-				// solved
+				// solved. Unlike "global flags" this structure does not work here.
 				// Value: &EnumValue{
 				// 	Enum:    []string{"Suspended", "Enabled"},
 				// 	Default: "",
@@ -59,7 +59,6 @@ func NewVersionCommand() *cli.Command {
 			},
 		},
 		Before: func(c *cli.Context) error {
-			// todo validate commmand
 			// check if the status  argument is valid
 			// to be handled by using GenericFlags  & Enum values
 			status := c.String("set")

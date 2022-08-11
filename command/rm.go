@@ -72,7 +72,7 @@ func NewDeleteCommand() *cli.Command {
 			},
 			&cli.StringFlag{
 				Name:  "version-id",
-				Usage: "use the specified `version` of an object",
+				Usage: "use the specified version of an object",
 			},
 		},
 		CustomHelpTemplate: deleteHelpTemplate,
@@ -212,11 +212,12 @@ func validateRMCommand(c *cli.Context) error {
 	}
 
 	if c.Bool("all-versions") && c.String("version-id") != "" {
-		// it might be a reasonable request. Consider that I want to delete all-versions
-		// of "a" and "b", but  want to delete only singe version of "c" "someversion"
-		// I might want to express this as
-		// s5cmd rm --all-versions a --all-versions b version-id someversion c
-		// but, anyway, this is not supported in current implementation.
+		// It might be a reasonable request too. Consider that user wants to delete
+		// all-versions of "a" and "b", but want to delete only a single
+		// version of "c" "someversion". User might want to express this as
+		// `s5cmd rm --all-versions a --all-versions b version-id someversion c`
+		// but, current implementatition does not take repetitive flags into account,
+		// anyway, this is not supported in current implementation.
 		return fmt.Errorf(`it is not allowed to combine "all-versions" and "version-id" flags`)
 	}
 	if len(c.Args().Slice()) > 1 && c.String("version-id") != "" {

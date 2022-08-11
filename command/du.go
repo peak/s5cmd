@@ -29,7 +29,7 @@ Examples:
 		 > s5cmd {{.HelpName}} "s3://bucket/*"
 
 	2. Show disk usage of all objects that match a wildcard, grouped by storage class
-		 > s5cmd {{.HelpName}} --group s3://bucket/prefix/obj*.gz
+		 > s5cmd {{.HelpName}} --group "s3://bucket/prefix/obj*.gz"
 
 	3. Show disk usage of all objects in a bucket but exclude the ones with py extension or starts with main
 		 > s5cmd {{.HelpName}} --exclude "*.py" --exclude "main*" "s3://bucket/*"
@@ -42,6 +42,9 @@ Examples:
 		
 	6. Show disk usage of all versions of all objects in the bucket
 		 > s5cmd {{.HelpName}} --all-versions "s3://bucket/*"
+	
+	7. Show disk usage of a specific version of an object in the bucket
+		 > s5cmd {{.HelpName}} --version-id VERSION_ID s3://bucket/object
 `
 
 func NewSizeCommand() *cli.Command {

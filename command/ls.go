@@ -3,6 +3,7 @@ package command
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/urfave/cli/v2"
@@ -54,27 +55,24 @@ func NewListCommand() *cli.Command {
 		Usage:              "list buckets and objects",
 		CustomHelpTemplate: listHelpTemplate,
 		BashComplete: func(ctx *cli.Context) {
-			ListBuckets(ctx.Context, NewStorageOpts(ctx))
-			// fmt.Println("Argüman:", ctx.Args().First(), "BİTTİ")
-			//
-			// if !ctx.Args().Present() || strings.HasPrefix(ctx.Args().First(), "s3://") {
-			// 	url := &url.URL{Type: 0}
-			// 	c := ctx.Context
-			// 	client, err := storage.NewRemoteClient(c, url, NewStorageOpts(ctx))
-			// 	if err != nil {
-			// 		return
-			// 	}
-			//
-			// 	buckets, err := client.ListBuckets(c, "")
-			// 	if err != nil {
-			// 		return
-			// 	}
-			//
-			// 	for _, bucket := range buckets {
-			// 		fmt.Println("s3://" + bucket.Name)
-			// 	}
-			// }
-			// fmt.Println(ctx.Args().First())
+			if !ctx.Args().Present() || strings.HasPrefix(ctx.Args().First(), "s3://") {
+				url := &url.URL{Type: 0}
+				c := ctx.Context
+				client, err := storage.NewRemoteClient(c, url, NewStorageOpts(ctx))
+				if err != nil {
+					return
+				}
+
+				buckets, err := client.ListBuckets(c, "")
+				if err != nil {
+					return
+				}
+
+				for _, bucket := range buckets {
+					fmt.Println(escapeColon("s3://" + bucket.Name))
+				}
+			}
+			fmt.Println(ctx.Args().First())
 		},
 		Flags: []cli.Flag{
 			&cli.BoolFlag{
@@ -287,4 +285,12 @@ func validateLSCommand(c *cli.Context) error {
 		return fmt.Errorf("expected only 1 argument")
 	}
 	return nil
+}
+
+// replace every colon : with \:
+// colons are used as a seperator for the autocompletion script
+// so "literal colons in completion must be quoted with a backslash"
+// see also https://zsh.sourceforge.io/Doc/Release/Completion-System.html#:~:text=This%20is%20followed,as%20name1%3B
+func escapeColon(str string) string {
+	return strings.ReplaceAll(str, ":", "\\:")
 }

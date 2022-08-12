@@ -53,6 +53,29 @@ func NewListCommand() *cli.Command {
 		HelpName:           "ls",
 		Usage:              "list buckets and objects",
 		CustomHelpTemplate: listHelpTemplate,
+		BashComplete: func(ctx *cli.Context) {
+			ListBuckets(ctx.Context, NewStorageOpts(ctx))
+			// fmt.Println("Argüman:", ctx.Args().First(), "BİTTİ")
+			//
+			// if !ctx.Args().Present() || strings.HasPrefix(ctx.Args().First(), "s3://") {
+			// 	url := &url.URL{Type: 0}
+			// 	c := ctx.Context
+			// 	client, err := storage.NewRemoteClient(c, url, NewStorageOpts(ctx))
+			// 	if err != nil {
+			// 		return
+			// 	}
+			//
+			// 	buckets, err := client.ListBuckets(c, "")
+			// 	if err != nil {
+			// 		return
+			// 	}
+			//
+			// 	for _, bucket := range buckets {
+			// 		fmt.Println("s3://" + bucket.Name)
+			// 	}
+			// }
+			// fmt.Println(ctx.Args().First())
+		},
 		Flags: []cli.Flag{
 			&cli.BoolFlag{
 				Name:    "etag",

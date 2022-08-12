@@ -7,9 +7,6 @@ import shutil
 import subprocess
 from tempfile import mkdtemp
 
-cwd = ""
-
-
 def main(argv=None):
     parser = argparse.ArgumentParser(
         description="Compare performance of two different builds of s5cmd.",
@@ -69,7 +66,7 @@ def main(argv=None):
     )
 
     args = parser.parse_args(argv)
-    global cwd
+
     cwd = os.getcwd()
 
     local_dir, dst_path = create_bench_dir(args.bucket, args.prefix, args.local_path)
@@ -505,9 +502,6 @@ def create_bench_dir(bucket, prefix, local_path):
 
 def run_cmd(cmd):
     process = subprocess.run(cmd, capture_output=True, text=True)
-    with open(os.path.join(cwd, "stdout"), "a") as file:
-        file.write(process.stdout)
-        file.write(process.stderr)
     print(process.stdout, end="")
     print(process.stderr, end="")
     return process.stdout

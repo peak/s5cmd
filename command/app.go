@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 
-	cmpinstall "github.com/posener/complete/cmd/install"
 	"github.com/urfave/cli/v2"
 
 	"github.com/peak/s5cmd/log"
@@ -61,10 +61,6 @@ var app = &cli.App{
 		&cli.BoolFlag{
 			Name:  "install-completion",
 			Usage: "install completion for your shell (only avialble for bash, zsh, and fish)",
-		},
-		&cli.BoolFlag{
-			Name:  "uninstall-completion",
-			Usage: "uninstall completion from your shell",
 		},
 		&cli.BoolFlag{
 			Name:  "dry-run",
@@ -149,20 +145,11 @@ var app = &cli.App{
 	},
 	Action: func(c *cli.Context) error {
 		if c.Bool("install-completion") {
-			if cmpinstall.IsInstalled(appName) {
-				return nil
-			}
-
-			return cmpinstall.Install(appName)
+			shell := os.Getenv("SHELL")
+			// todo printout the script
+			fmt.Println("You should add following script to ~/." + filepath.Base(shell) + "rc\nTODO")
+			return nil
 		}
-		if c.Bool("unsinstall-completion") {
-			if !cmpinstall.IsInstalled(appName) {
-				return nil
-			}
-
-			return cmpinstall.Uninstall(appName)
-		}
-
 		args := c.Args()
 		if args.Present() {
 			cli.ShowCommandHelp(c, args.First())
@@ -229,10 +216,6 @@ func AppCommand(name string) *cli.Command {
 // Main is the entrypoint function to run given commands.
 func Main(ctx context.Context, args []string) error {
 	app.Commands = Commands()
-
-	if maybeAutoComplete() {
-		return nil
-	}
 
 	return app.RunContext(ctx, args)
 }

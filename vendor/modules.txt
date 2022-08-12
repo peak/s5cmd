@@ -53,8 +53,8 @@ github.com/aws/aws-sdk-go/service/sso
 github.com/aws/aws-sdk-go/service/sso/ssoiface
 github.com/aws/aws-sdk-go/service/sts
 github.com/aws/aws-sdk-go/service/sts/stsiface
-# github.com/cpuguy83/go-md2man/v2 v2.0.0-20190314233015-f79a8a8ca69d
-## explicit; go 1.12
+# github.com/cpuguy83/go-md2man/v2 v2.0.2
+## explicit; go 1.11
 github.com/cpuguy83/go-md2man/v2/md2man
 # github.com/davecgh/go-spew v1.1.1
 ## explicit
@@ -105,7 +105,7 @@ github.com/pmezard/go-difflib/difflib
 github.com/posener/complete
 github.com/posener/complete/cmd
 github.com/posener/complete/cmd/install
-# github.com/russross/blackfriday/v2 v2.0.1
+# github.com/russross/blackfriday/v2 v2.1.0
 ## explicit
 github.com/russross/blackfriday/v2
 # github.com/ryszard/goskiplist v0.0.0-20150312221310-2dfbae5fcf46
@@ -114,9 +114,6 @@ github.com/ryszard/goskiplist/skiplist
 # github.com/shabbyrobe/gocovmerge v0.0.0-20180507124511-f6ea450bfb63
 ## explicit
 github.com/shabbyrobe/gocovmerge
-# github.com/shurcooL/sanitized_anchor_name v1.0.0
-## explicit
-github.com/shurcooL/sanitized_anchor_name
 # github.com/stretchr/objx v0.1.0
 ## explicit
 github.com/stretchr/objx
@@ -127,9 +124,12 @@ github.com/stretchr/testify/mock
 # github.com/termie/go-shutil v0.0.0-20140729215957-bcacb06fecae
 ## explicit
 github.com/termie/go-shutil
-# github.com/urfave/cli/v2 v2.2.0
-## explicit; go 1.11
+# github.com/urfave/cli/v2 v2.11.1
+## explicit; go 1.18
 github.com/urfave/cli/v2
+# github.com/xrash/smetrics v0.0.0-20201216005158-039620a65673
+## explicit
+github.com/xrash/smetrics
 # go.etcd.io/bbolt v1.3.6
 ## explicit; go 1.12
 go.etcd.io/bbolt

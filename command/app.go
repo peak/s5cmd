@@ -22,8 +22,9 @@ const (
 )
 
 var app = &cli.App{
-	Name:  appName,
-	Usage: "Blazing fast S3 and local filesystem execution tool",
+	Name:                 appName,
+	Usage:                "Blazing fast S3 and local filesystem execution tool",
+	EnableBashCompletion: true,
 	Flags: []cli.Flag{
 		&cli.BoolFlag{
 			Name:  "json",
@@ -59,7 +60,11 @@ var app = &cli.App{
 		},
 		&cli.BoolFlag{
 			Name:  "install-completion",
-			Usage: "install completion for your shell",
+			Usage: "install completion for your shell (only avialble for bash, zsh, and fish)",
+		},
+		&cli.BoolFlag{
+			Name:  "uninstall-completion",
+			Usage: "uninstall completion from your shell",
 		},
 		&cli.BoolFlag{
 			Name:  "dry-run",
@@ -149,6 +154,13 @@ var app = &cli.App{
 			}
 
 			return cmpinstall.Install(appName)
+		}
+		if c.Bool("unsinstall-completion") {
+			if !cmpinstall.IsInstalled(appName) {
+				return nil
+			}
+
+			return cmpinstall.Uninstall(appName)
 		}
 
 		args := c.Args()

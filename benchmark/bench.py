@@ -68,6 +68,8 @@ def main(argv=None):
 
     args = parser.parse_args(argv)
 
+    check_dependencies()
+
     cwd = os.getcwd()
 
     local_dir, dst_path = create_bench_dir(args.bucket, args.prefix, args.local_path)
@@ -512,6 +514,16 @@ def cleanup(tmp_dir, temp_result_file_dir):
         os.remove(temp_summary)
 
     shutil.rmtree(tmp_dir)
+
+def check_dependencies():
+    '''
+    Checks external binary dependencies and raises ModuleNotFoundError if
+    required binary is not found.
+    '''
+    dependencies = ['truncate', 'git', 'hyperfine']
+    for d in dependencies:
+        if shutil.which(d) is None:
+            raise ModuleNotFoundError(f'{d} is not found. Please install it to your system and run the script again.')
 
 
 if __name__ == "__main__":

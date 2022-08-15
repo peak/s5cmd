@@ -7,6 +7,7 @@ import shutil
 import subprocess
 from tempfile import mkdtemp
 
+
 def main(argv=None):
     parser = argparse.ArgumentParser(
         description="Compare performance of two different builds of s5cmd.",
@@ -138,8 +139,6 @@ def main(argv=None):
         f.write(detailed_summary)
 
     cleanup(local_dir, cwd)
-
-    return 0
 
 
 class S5cmd:
@@ -516,4 +515,4 @@ def cleanup(tmp_dir, temp_result_file_dir):
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    main()

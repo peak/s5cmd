@@ -12,8 +12,9 @@
 
 ### required tools
 This script is dependent on the following tools. Make sure you install them to your system before running `bench.py`.
-- hyperfine
+- git
 - go 
+- hyperfine
 - truncate
 
 

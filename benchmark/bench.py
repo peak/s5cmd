@@ -130,9 +130,6 @@ def main(argv=None):
         scenario_details.append(f"| {s.name} | {s.file_size} | {s.file_count} |")
 
     for idx, scenario in enumerate(scenarios):
-        # Any scenario that needs to download from remote
-        # has to be executed after an upload test, as upload creates
-        # local files, and download can use
         if idx == 0:
             scenario.setup(
                 args.output_file_name,
@@ -168,18 +165,22 @@ class S5cmd:
             self.tag = self._get_master_commit_tag().strip()
             self._checkout_commit()
             self.descriptive_name = "master"
+
         elif self.tag == "latest_release":
             releases = self._get_all_releases()
             self.tag = releases.strip().split("\n")[-1]
             self.tag = self.tag.removeprefix("'refs/tags/").removesuffix("'")
             self._checkout_version()
             self.descriptive_name = "latest_release:" + self.tag
-        elif re.match("^[0-9]+$", self.tag):
+
+        elif is_pr(self.tag):
             self._checkout_pr()
             self.descriptive_name = "PR:" + self.tag
-        elif re.match("^v([0-9]+\.){2}([0-9])(-[a-z]*\.?[0-9]?)?$", self.tag):
+
+        elif is_version_tag(self.tag):
             self._checkout_version()
             self.descriptive_name = "version:" + self.tag
+
         else:
             self._checkout_commit()
             self.descriptive_name = "commit" + self.tag
@@ -188,12 +189,13 @@ class S5cmd:
         run_cmd(["go", "build", "-o", self.path])
 
     def _checkout_commit(self):
-
         cmd = ["git", "-C", self.clone_path, "checkout", self.tag, "-q"]
+
         return run_cmd(cmd)
 
     def _get_master_commit_tag(self):
         cmd = ["git", "-C", self.clone_path, "rev-parse", "--short", "origin/master"]
+
         return run_cmd(cmd, verbose=False)
 
     def _get_all_releases(self):
@@ -221,10 +223,12 @@ class S5cmd:
         ]
         checkout_cmd = ["git", "-C", self.clone_path, "checkout", "FETCH_HEAD", "-q"]
         stdout = [run_cmd(fetch_cmd), run_cmd(checkout_cmd)]
+
         return stdout
 
     def _checkout_version(self):
         cmd = ["git", "-C", self.clone_path, "checkout", f"tags/{self.tag}", "-q"]
+
         return run_cmd(cmd)
 
 
@@ -265,9 +269,11 @@ class Scenario:
         self.output_file_name = output_file_name
         self.initialize_bench = initialize_bench
         self.all_scenario_details = all_scenario_details
+
         if self.file_count:
             self.file_count = int(self.file_count)
             self.create_files()
+
         else:
             self.folder_dir = f"{self.local_dir}/"
 
@@ -288,9 +294,8 @@ class Scenario:
                 )
 
     def teardown(self):
-        # if local files are created, remove at teardown
-        if self.file_count:
-            shutil.rmtree(self.folder_dir)
+        # remove local files at teardown
+        shutil.rmtree(self.folder_dir)
 
     def run(self, old_s5cmd, new_s5cmd):
 
@@ -315,15 +320,16 @@ class Scenario:
             ]
 
             self.run_name = f"{run} {self.name}"
-
             print(f"Running: {self.run_name}:\n")
 
             if run == "upload":
                 cmd.append(s5cmd_cmds["old_upload"])
                 cmd.append(s5cmd_cmds["new_upload"])
+
             elif run == "download":
                 cmd.append(s5cmd_cmds["old_download"])
                 cmd.append(s5cmd_cmds["new_download"])
+
             elif run == "remove":
                 cmd.append(s5cmd_cmds["old_remove"])
                 cmd.append(s5cmd_cmds["new_remove"])
@@ -348,14 +354,16 @@ class Scenario:
                     self.cwd, self.output_file_name, self.all_scenario_details
                 )
                 self.initialize_bench = False
+
             with open(os.path.join(self.cwd, self.output_file_name), "a") as f:
                 f.write(summary)
 
             detailed_summary = ""
             temp_dir = os.path.join(self.local_dir, "temp.md")
+
             with open(temp_dir, "r+") as f:
                 lines = f.readlines()
-                # get markdown table and add a new column in the front as scenario name
+                # get hyperfine markdown output and add a new column in the front as scenario name
                 detailed_summary = (
                     f"| {self.run_name} {lines[-1]}" f"| {self.run_name} {lines[-2]}"
                 )
@@ -438,6 +446,7 @@ def init_bench_results(cwd, output_file_name, scenario_details):
         "\n|:---|:---|"
         "\n"
     )
+
     with open(os.path.join(cwd, output_file_name), "w") as file:
         file.write(summary)
 
@@ -494,8 +503,22 @@ def build_s5cmd_exec(old, new, local_dir):
 
     old = S5cmd(local_dir, clone_dir, "old", old)
     new = S5cmd(local_dir, clone_dir, "new", new)
+
     return old, new
 
+
+def is_pr(tag):
+    if tag is None or tag == "" or tag == "0":
+        return False
+
+    return re.match(r"^\d+$", tag) is not None
+
+
+def is_version_tag(tag):
+    if tag is None or tag == "":
+        return False
+    
+    return re.match(r"^v(\d+.){2}(\d)(-[a-z]*.?\d?)?$", tag) is not None
 
 def create_bench_dir(bucket, prefix, local_path):
     """
@@ -530,6 +553,7 @@ def create_bench_dir(bucket, prefix, local_path):
         local_dir = mkdtemp(prefix=prefix)
         idx = local_dir.rfind(prefix[-1]) + 1
         remote_path = f"s3://{bucket}/{prefix}/{local_dir[idx:]}"
+
     print(f"All the local temporary files will be created at {local_dir}")
     print(f"All the remote files will be uploaded to {remote_path}")
 
@@ -557,7 +581,7 @@ def check_dependencies():
     Checks external binary dependencies and raises ModuleNotFoundError if
     required binary is not found.
     """
-    dependencies = ["truncate", "git", "hyperfine"]
+    dependencies = ["git", "go", "hyperfine", "truncate"]
     for d in dependencies:
         if shutil.which(d) is None:
             return (

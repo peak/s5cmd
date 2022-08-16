@@ -22,16 +22,16 @@ def main(argv=None):
         default=("latest_release", "master"),
         help="Reference to old and new s5cmd."
         "It can be a decimal indicating PR number,any of the version tags like v2.0.0 or any commit tag. Additionally "
-             "it can be 'latest_release' or 'master'.",
+        "it can be 'latest_release' or 'master'.",
     )
     parser.add_argument(
         "-w",
         "--warmup",
-        default=2,
+        default="2",
         help="Number of program executions before the actual benchmark:",
     )
     parser.add_argument(
-        "-r", "--runs", default=10, help="Number of runs to perform for each command"
+        "-r", "--runs", default="10", help="Number of runs to perform for each command"
     )
     parser.add_argument(
         "-o", "--output_file_name", default="summary.md", help="Name of the output file"
@@ -125,14 +125,22 @@ def main(argv=None):
             },
         ),
     ]
+    scenario_details = []
+    for s in scenarios:
+        scenario_details.append(f"| {s.name} | {s.file_size} | {s.file_count} |")
 
-    init_bench_results(cwd, args.output_file_name, scenarios)
-
-    for scenario in scenarios:
+    for idx, scenario in enumerate(scenarios):
         # Any scenario that needs to download from remote
         # has to be executed after an upload test, as upload creates
         # local files, and download can use
-        scenario.setup(args.output_file_name)
+        if idx == 0:
+            scenario.setup(
+                args.output_file_name,
+                initialize_bench=True,
+                all_scenario_details=scenario_details,
+            )
+        else:
+            scenario.setup(args.output_file_name)
         scenario.run(old_s5cmd, new_s5cmd)
         scenario.teardown()
 
@@ -181,12 +189,12 @@ class S5cmd:
 
     def _checkout_commit(self):
 
-        cmd = ["git", "-C", self.clone_path, "checkout", self.tag,'-q']
+        cmd = ["git", "-C", self.clone_path, "checkout", self.tag, "-q"]
         return run_cmd(cmd)
 
     def _get_master_commit_tag(self):
         cmd = ["git", "-C", self.clone_path, "rev-parse", "--short", "origin/master"]
-        return run_cmd(cmd)
+        return run_cmd(cmd, verbose=False)
 
     def _get_all_releases(self):
         cmd = [
@@ -232,6 +240,8 @@ class Scenario:
         local_dir,
         dst_path,
     ):
+        self.all_scenario_details = None
+        self.initialize_bench = False
         self.run_name = None
         self.name = name
         self.cwd = cwd
@@ -248,10 +258,13 @@ class Scenario:
 
         self.dst_path = dst_path
 
-    def setup(self, output_file_name):
+    def setup(
+        self, output_file_name, initialize_bench=False, all_scenario_details=None
+    ):
 
         self.output_file_name = output_file_name
-
+        self.initialize_bench = initialize_bench
+        self.all_scenario_details = all_scenario_details
         if self.file_count:
             self.file_count = int(self.file_count)
             self.create_files()
@@ -282,7 +295,6 @@ class Scenario:
     def run(self, old_s5cmd, new_s5cmd):
 
         s5cmd_cmds = self.get_s5cmd_commands(old_s5cmd, new_s5cmd)
-
         for run in self.run_types:
             os.chdir(self.folder_dir)
 
@@ -331,6 +343,11 @@ class Scenario:
 
             output = run_cmd(cmd)
             summary = self.parse_output(output)
+            if self.initialize_bench:
+                init_bench_results(
+                    self.cwd, self.output_file_name, self.all_scenario_details
+                )
+                self.initialize_bench = False
             with open(os.path.join(self.cwd, self.output_file_name), "a") as f:
                 f.write(summary)
 
@@ -406,17 +423,13 @@ class Scenario:
         return summary
 
 
-def init_bench_results(cwd, output_file_name, scenarios):
+def init_bench_results(cwd, output_file_name, scenario_details):
     header = (
         "### Benchmark summary: "
-        "\n|Scenarios | File Size | File Count |"
+        "\n| Scenario | File Size | File Count |"
         "\n|:---|:---|:---|"
         "\n"
     )
-    scenario_details = []
-    for s in scenarios:
-        if s.file_size and s.file_count:
-            scenario_details.append(f"| {s.name} | {s.file_size} | {s.file_count} |")
 
     summary = (
         f"{header}"

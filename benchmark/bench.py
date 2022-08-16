@@ -170,7 +170,8 @@ class S5cmd:
             self.descriptive_name = "master"
         elif self.tag == "latest_release":
             releases = self._get_all_releases()
-            self.tag = releases.strip().split("\n")[-1].removeprefix("refs/tags/")
+            self.tag = releases.strip().split("\n")[-1]
+            self.tag = self.tag.removeprefix("'refs/tags/").removesuffix("'")
             self._checkout_version()
             self.descriptive_name = "latest_release:" + self.tag
         elif re.match("^[0-9]+$", self.tag):
@@ -203,7 +204,7 @@ class S5cmd:
             "for-each-ref",
             "--sort=creatordate",
             "--format",
-            "%(refname)",
+            "'%(refname)'",
             "refs/tags",
         ]
         return run_cmd(cmd, verbose=False)

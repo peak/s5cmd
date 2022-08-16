@@ -358,9 +358,6 @@ func (u URL) ToBytes() []byte {
 	mp := make(map[string]string)
 	mp["absolute"] = u.Absolute()
 	mp["relative"] = u.relativePath
-	// todo: is raw needed
-	// versionID?
-	// mp["version_id"] = u.VersionID
 
 	data, err := json.Marshal(mp)
 	if err != nil {

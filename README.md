@@ -290,9 +290,6 @@ rm s3://bucket/2020/03/19/file2.gz
 
 # rename an S3 object
 mv s3://bucket/2020/03/18/file1.gz s3://bucket/2020/03/18/original/file.gz
-
-# list all buckets
-ls # inline comments are OK too
 ```
 
 #### Sync

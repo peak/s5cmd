@@ -174,7 +174,6 @@ class S5cmd:
             self._checkout_version()
             self.descriptive_name = "latest_release:" + self.tag
         elif re.match("^[0-9]+$", self.tag):
-            self._fetch_pr()
             self._checkout_pr()
             self.descriptive_name = "PR:" + self.tag
         elif re.match("^v([0-9]+\.){2}([0-9])(-[a-z]*\.?[0-9]?)?$", self.tag):
@@ -209,7 +208,7 @@ class S5cmd:
         ]
         return run_cmd(cmd, verbose=False)
 
-    def _fetch_pr(self):
+    def _checkout_pr(self):
         fetch_cmd = [
             "git",
             "-C",

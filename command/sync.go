@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
@@ -248,10 +247,10 @@ func compareObjects(sourceObjects, destObjects chan *storage.Object) (chan *url.
 
 		for {
 			if srcOk {
-				srcName = filepath.ToSlash(src.URL.Relative())
+				srcName = src.URL.Relative()
 			}
 			if dstOk {
-				dstName = filepath.ToSlash(dst.URL.Relative())
+				dstName = dst.URL.Relative()
 			}
 
 			if srcOk && dstOk {

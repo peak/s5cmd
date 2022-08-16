@@ -19,10 +19,10 @@ def main(argv=None):
         "--s5cmd",
         nargs=2,
         metavar=("OLD", "NEW"),
-        default=("v1.4.0", "v2.0.0"),
+        default=("latest_release", "master"),
         help="Reference to old and new s5cmd."
-        " It can be a decimal indicating PR number, "
-        "any of the version tags like v2.0.0 or commit tag.",
+        "It can be a decimal indicating PR number,any of the version tags like v2.0.0 or any commit tag. Additionally "
+             "it can be 'latest_release' or 'master'.",
     )
     parser.add_argument(
         "-w",
@@ -60,15 +60,17 @@ def main(argv=None):
     parser.add_argument(
         "-sf",
         "--s5cmd-extra-flags",
-        default="",
         help="s5cmd global extra flags. "
         "Write in between quotation marks "
         "and start with a space to avoid bugs.",
     )
 
-    args = parser.parse_args(argv)
+    ok, err_msg = check_dependencies()
+    if not ok:
+        print(err_msg)
+        raise SystemExit(1)
 
-    check_dependencies()
+    args = parser.parse_args(argv)
 
     cwd = os.getcwd()
 
@@ -148,53 +150,74 @@ class S5cmd:
         self.clone_path = clone_path
         self.name = name
         self.tag = tag
-        self.git_type = ""
+        self.descriptive_name = ""
         self.path = os.path.join(folder_path, self.name)
         self.build()
 
     def build(self):
 
-        if re.match("^[0-9]+$", self.tag):
-            run_cmd(
-                [
-                    "git",
-                    "-C",
-                    self.clone_path,
-                    "fetch",
-                    "origin",
-                    f"pull/{self.tag}/head",
-                    "-q",
-                ]
-            )
-            run_cmd(
-                [
-                    "git",
-                    "-C",
-                    self.clone_path,
-                    "checkout",
-                    "FETCH_HEAD",
-                    "-q",
-                ]
-            )
-            self.git_type = "PR"
+        if self.tag == "master":
+            self.tag = self._get_master_commit_tag().strip()
+            self._checkout_commit()
+            self.descriptive_name = "master"
+        elif self.tag == "latest_release":
+            releases = self._get_all_releases()
+            self.tag = releases.strip().split("\n")[-1].removeprefix("refs/tags/")
+            self._checkout_version()
+            self.descriptive_name = "latest_release:" + self.tag
+        elif re.match("^[0-9]+$", self.tag):
+            self._fetch_pr()
+            self._checkout_pr()
+            self.descriptive_name = "PR:" + self.tag
         elif re.match("^v([0-9]+\.){2}([0-9])(-[a-z]*\.?[0-9]?)?$", self.tag):
-            run_cmd(
-                [
-                    "git",
-                    "-C",
-                    self.clone_path,
-                    "checkout",
-                    f"tags/{self.tag}",
-                    "-q",
-                ]
-            )
-            self.git_type = "version"
+            self._checkout_version()
+            self.descriptive_name = "version:" + self.tag
         else:
-            run_cmd(["git", "-C", self.clone_path, "checkout", self.tag, "-q"])
-            self.git_type = "commit"
+            self._checkout_commit()
+            self.descriptive_name = "commit" + self.tag
 
         os.chdir(self.clone_path)
         run_cmd(["go", "build", "-o", self.path])
+
+    def _checkout_commit(self):
+
+        cmd = ["git", "-C", self.clone_path, "checkout", self.tag,'-q']
+        return run_cmd(cmd)
+
+    def _get_master_commit_tag(self):
+        cmd = ["git", "-C", self.clone_path, "rev-parse", "--short", "origin/master"]
+        return run_cmd(cmd)
+
+    def _get_all_releases(self):
+        cmd = [
+            "git",
+            "-C",
+            self.clone_path,
+            "for-each-ref",
+            "--sort=creatordate",
+            "--format",
+            "%(refname)",
+            "refs/tags",
+        ]
+        return run_cmd(cmd, verbose=False)
+
+    def _fetch_pr(self):
+        fetch_cmd = [
+            "git",
+            "-C",
+            self.clone_path,
+            "fetch",
+            "origin",
+            f"pull/{self.tag}/head",
+            "-q",
+        ]
+        checkout_cmd = ["git", "-C", self.clone_path, "checkout", "FETCH_HEAD", "-q"]
+        stdout = [run_cmd(fetch_cmd), run_cmd(checkout_cmd)]
+        return stdout
+
+    def _checkout_version(self):
+        cmd = ["git", "-C", self.clone_path, "checkout", f"tags/{self.tag}", "-q"]
+        return run_cmd(cmd)
 
 
 class Scenario:
@@ -214,7 +237,9 @@ class Scenario:
         self.cwd = cwd
         self.file_size = file_size
         self.file_count = file_count
-        self.s5cmd_args = s5cmd_args
+        self.s5cmd_args = ""
+        if s5cmd_args is not None:
+            self.s5cmd_args = s5cmd_args
         self.hyperfine_args = hyperfine_args
         self.local_dir = local_dir
         self.folder_dir = ""
@@ -256,9 +281,6 @@ class Scenario:
 
     def run(self, old_s5cmd, new_s5cmd):
 
-        old_name = f"{old_s5cmd.git_type}:{old_s5cmd.tag}"
-        new_name = f"{new_s5cmd.git_type}:{new_s5cmd.tag}"
-
         s5cmd_cmds = self.get_s5cmd_commands(old_s5cmd, new_s5cmd)
 
         for run in self.run_types:
@@ -275,9 +297,9 @@ class Scenario:
                 "--warmup",
                 self.hyperfine_args["warmup"],
                 "-n",
-                old_name,
+                old_s5cmd.descriptive_name,
                 "-n",
-                new_name,
+                new_s5cmd.descriptive_name,
             ]
 
             self.run_name = f"{run} {self.name}"
@@ -501,10 +523,11 @@ def create_bench_dir(bucket, prefix, local_path):
     return local_dir, remote_path
 
 
-def run_cmd(cmd):
+def run_cmd(cmd, verbose=True):
     process = subprocess.run(cmd, capture_output=True, text=True)
-    print(process.stdout, end="")
-    print(process.stderr, end="")
+    if verbose:
+        print(process.stdout, end="")
+        print(process.stderr, end="")
     return process.stdout
 
 
@@ -515,15 +538,20 @@ def cleanup(tmp_dir, temp_result_file_dir):
 
     shutil.rmtree(tmp_dir)
 
+
 def check_dependencies():
-    '''
+    """
     Checks external binary dependencies and raises ModuleNotFoundError if
     required binary is not found.
-    '''
-    dependencies = ['truncate', 'git', 'hyperfine']
+    """
+    dependencies = ["truncate", "git", "hyperfine"]
     for d in dependencies:
         if shutil.which(d) is None:
-            raise ModuleNotFoundError(f'{d} is not found. Please install it to your system and run the script again.')
+            return (
+                False,
+                f"{d} is not found. Please install it to your system and run the script again.",
+            )
+    return True, None
 
 
 if __name__ == "__main__":

@@ -517,8 +517,9 @@ def is_pr(tag):
 def is_version_tag(tag):
     if tag is None or tag == "":
         return False
-    
+
     return re.match(r"^v(\d+.){2}(\d)(-[a-z]*.?\d?)?$", tag) is not None
+
 
 def create_bench_dir(bucket, prefix, local_path):
     """
@@ -578,8 +579,9 @@ def cleanup(tmp_dir, temp_result_file_dir):
 
 def check_dependencies():
     """
-    Checks external binary dependencies and raises ModuleNotFoundError if
-    required binary is not found.
+    Checks external binary dependencies and returns bool, str tuple.
+    Returns True, None if all dependencies are installed.
+    Returns False, Descriptive Message if any of the dependencies is not installed.
     """
     dependencies = ["git", "go", "hyperfine", "truncate"]
     for d in dependencies:

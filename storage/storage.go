@@ -317,6 +317,9 @@ func FromBytes(data []byte) extsort.SortType {
 	}
 }
 
+// Less returns if relative path of storage.Object a's URL comes before the one
+// of b's in the lexicographic order.
+// It assumes that both a, and b are the instances of Object
 func Less(a, b extsort.SortType) bool {
 	return a.(Object).URL.Relative() < b.(Object).URL.Relative()
 }

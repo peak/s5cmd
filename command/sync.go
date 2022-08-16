@@ -397,16 +397,31 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 	return sourceObjects, destObjects, nil
 }
 
+// sort the storage object received according to less function, using in memory sort
+// it assummes that each element of objectChannel is an instance of storage.Objects
+// it starts sort only if the objects are not already sorted.
 func internalSort(objectChannel chan extsort.SortType, less func(a extsort.SortType, b extsort.SortType) bool) chan extsort.SortType {
-	arr := make([]extsort.SortType, 0, 100000)
-
+	var (
+		arr      = make([]extsort.SortType, 0, 100000)
+		isSorted = true
+		prev     = "" // empty string is Less than any other strings
+	)
 	for obj := range objectChannel {
+		cur := obj.(storage.Object).URL.Relative()
+		if prev > cur {
+			isSorted = false
+		}
+		prev = cur
 		arr = append(arr, obj)
 	}
 
-	sort.SliceStable(arr, func(i, j int) bool {
-		return less(arr[i], arr[j])
-	})
+	if !isSorted {
+		sort.Slice(arr, func(i, j int) bool {
+			return less(arr[i], arr[j])
+		})
+	}
+
+	//	fmt.Println("isSorted", isSorted)
 	ch := make(chan extsort.SortType, extsortChannelBufferSize)
 
 	go func() {

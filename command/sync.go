@@ -226,8 +226,6 @@ func (s Sync) Run(c *cli.Context) error {
 // sourceObjects and destObjects channels are already sorted in ascending order.
 // Returns objects those in only source, only destination
 // and both.
-// The algorithm is taken from;
-// https://github.com/rclone/rclone/blob/HEAD/fs/march/march.go#L304
 func compareObjects(sourceObjects, destObjects chan *storage.Object) (chan *url.URL, chan *url.URL, chan *ObjectPair) {
 	var (
 		srcOnly   = make(chan *url.URL, extsortChannelBufferSize)
@@ -329,7 +327,7 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 
 		go func() {
 			defer close(filteredSrcObjectChannel)
-			// filter and redirect objects to
+			// filter and redirect objects
 			for st := range unfilteredSrcObjectChannel {
 				if s.shouldSkipObject(st, true) {
 					continue
@@ -365,7 +363,7 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 		go func() {
 			defer close(filteredDstObjectChannel)
 
-			// filter and redirect objects to
+			// filter and redirect objects
 			for dt := range unfilteredDestObjectsChannel {
 				if s.shouldSkipObject(dt, true) {
 					continue
@@ -454,7 +452,7 @@ func (s Sync) planRun(
 	}
 
 	// it should wait until both of onlySource and onlyDest channels are closed
-	// before closing the WriteCloser to ensure that all URLs are processed.
+	// before closing the WriteCloser w to ensure that all URLs are processed.
 	var wg sync.WaitGroup
 
 	// only in source

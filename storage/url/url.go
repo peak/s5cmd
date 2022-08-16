@@ -44,7 +44,7 @@ type URL struct {
 	Delimiter string
 	Prefix    string
 
-	RelativePath string
+	relativePath string
 	filter       string
 	filterRegex  *regexp.Regexp
 	raw          bool
@@ -158,8 +158,8 @@ func (u *URL) Absolute() string {
 
 // Relative returns a URI reference based on the calculated prefix.
 func (u *URL) Relative() string {
-	if u.RelativePath != "" {
-		return u.RelativePath
+	if u.relativePath != "" {
+		return u.relativePath
 	}
 	return u.Absolute()
 }
@@ -286,7 +286,7 @@ func (u *URL) Clone() *URL {
 		Path:      u.Path,
 		Prefix:    u.Prefix,
 
-		RelativePath: u.RelativePath,
+		relativePath: u.relativePath,
 		filter:       u.filter,
 		filterRegex:  u.filterRegex,
 	}
@@ -323,7 +323,7 @@ func (u *URL) SetRelative(base *URL) {
 		}
 	}
 	baseDir := filepath.Dir(basePath)
-	u.RelativePath, _ = filepath.Rel(baseDir, u.Absolute())
+	u.relativePath, _ = filepath.Rel(baseDir, u.Absolute())
 }
 
 // Match reports whether if given key matches with the object.
@@ -335,12 +335,12 @@ func (u *URL) Match(key string) bool {
 	isBatch := u.filter != ""
 	if isBatch {
 		v := parseBatch(u.Prefix, key)
-		u.RelativePath = v
+		u.relativePath = v
 		return true
 	}
 
 	v := parseNonBatch(u.Prefix, key)
-	u.RelativePath = v
+	u.relativePath = v
 	return true
 }
 
@@ -357,7 +357,7 @@ func (u *URL) MarshalJSON() ([]byte, error) {
 func (u URL) ToBytes() []byte {
 	mp := make(map[string]string)
 	mp["absolute"] = u.Absolute()
-	mp["relative"] = u.RelativePath
+	mp["relative"] = u.relativePath
 	// todo: is raw needed
 	// versionID?
 	// mp["version_id"] = u.VersionID
@@ -373,7 +373,7 @@ func FromBytes(data []byte) extsort.SortType {
 	mp := make(map[string]string)
 	json.Unmarshal(data, &mp)
 	url, _ := New(mp["absolute"], WithRaw(true))
-	url.RelativePath = mp["relative"]
+	url.relativePath = mp["relative"]
 	return url
 }
 

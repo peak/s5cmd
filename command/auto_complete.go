@@ -30,18 +30,37 @@ _cli_zsh_autocomplete() {
   
   compdef _cli_zsh_autocomplete s5cmd
 `
-	bash = `_cli_bash_autocomplete() {
-		if [[ "${COMP_WORDS[0]}" != "source" ]]; then
-		  local cur opts base
-		  COMPREPLY=()
-		  cur="${COMP_WORDS[COMP_CWORD]}"
-			opts=$( ${COMP_WORDS[@]:0:$COMP_CWORD} ${cur} --generate-bash-completion )
-		  COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
-		  return 0
-		fi
-	  }
-	  
-	  complete -o bashdefault -o default -o nospace -F _cli_bash_autocomplete s5cmd`
+	// NOTE: Broken, WIP. Requires `bash-completion` to be installed/sourced;
+	//	- https://github.com/scop/bash-completion
+	bash = `
+_cli_bash_autocomplete() {
+
+	local cur prev words cword split
+	_init_completion -n : -s || return
+
+	# print cur prev words cword split
+    echo '---------' >> bash.log
+	echo "cur: ${cur}" >> bash.log
+	echo "prev: ${prev}" >> bash.log
+	echo "words: ${words[*]}" >> bash.log
+	echo "cword: ${cword}" >> bash.log
+	echo "split: ${split}" >> bash.log
+    echo "cmd : ${words[@]:0:$cword}" >> bash.log
+    echo '---------' >> bash.log
+    local cmd="${words[@]:0:$cword}"
+
+	if [[ "${COMP_WORDS[0]}" != "source" ]]; then
+		COMPREPLY=()
+		local opts=$(${cmd} ${cur} --generate-bash-completion)
+
+		echo "opts: ${opts}" >>bash.log
+		COMPREPLY=($(compgen -W "${opts}" -- ${cur}))
+        __ltrim_colon_completions "$cur"
+		return 0
+	fi
+}
+complete -o bashdefault -o default -o nospace -F _cli_bash_autocomplete s5cmd
+`
 
 	powershell = `$fn = $($MyInvocation.MyCommand.Name)
 	  $name = $fn -replace "(.*)\.ps1$", '$1'

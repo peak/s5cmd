@@ -597,7 +597,7 @@ type ListObjectsPaginator struct {
 	firstPage  bool
 }
 
-// NewListObjectsPaginator returns a new ListObjectsV2Paginator
+// NewListObjectsPaginator returns a new ListObjectsPaginator
 func NewListObjectsPaginator(client ListObjectsAPIClient, params *s3.ListObjectsInput, optFns ...func(*ListObjectsPaginatorOptions)) *ListObjectsPaginator {
 	if params == nil {
 		params = &s3.ListObjectsInput{}

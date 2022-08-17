@@ -49,31 +49,11 @@ Examples:
 `
 
 func NewListCommand() *cli.Command {
-	return &cli.Command{
+	cmd := &cli.Command{
 		Name:               "ls",
 		HelpName:           "ls",
 		Usage:              "list buckets and objects",
 		CustomHelpTemplate: listHelpTemplate,
-		BashComplete: func(ctx *cli.Context) {
-			if !ctx.Args().Present() || strings.HasPrefix(ctx.Args().First(), "s3://") {
-				url := &url.URL{Type: 0}
-				c := ctx.Context
-				client, err := storage.NewRemoteClient(c, url, NewStorageOpts(ctx))
-				if err != nil {
-					return
-				}
-
-				buckets, err := client.ListBuckets(c, "")
-				if err != nil {
-					return
-				}
-
-				for _, bucket := range buckets {
-					fmt.Println(escapeColon("s3://" + bucket.Name))
-				}
-			}
-			fmt.Println(ctx.Args().First())
-		},
 		Flags: []cli.Flag{
 			&cli.BoolFlag{
 				Name:    "etag",
@@ -126,6 +106,21 @@ func NewListCommand() *cli.Command {
 			}.Run(c.Context)
 		},
 	}
+	cmd.BashComplete = func(ctx *cli.Context) {
+		// todo do not print errors and other unrelated things
+		arg := ctx.Args().First()
+		if strings.HasPrefix(arg, "s3://") {
+			// fmt.Println("£", ctx.Args().Slice(), "£")
+			printS3Suggestions(ctx, arg)
+
+		} else {
+			// fmt.Println("$", ctx.Args().Slice(), "$")
+			cli.DefaultCompleteWithFlags(cmd)(ctx)
+		}
+		// fmt.Println(escapeColon(first, ctx.Args().Slice(), "₺"))
+
+	}
+	return cmd
 }
 
 // List holds list operation flags and states.
@@ -291,6 +286,6 @@ func validateLSCommand(c *cli.Context) error {
 // colons are used as a seperator for the autocompletion script
 // so "literal colons in completion must be quoted with a backslash"
 // see also https://zsh.sourceforge.io/Doc/Release/Completion-System.html#:~:text=This%20is%20followed,as%20name1%3B
-func escapeColon(str string) string {
-	return strings.ReplaceAll(str, ":", "\\:")
+func escapeColon(str ...interface{}) string {
+	return strings.ReplaceAll(fmt.Sprint(str...), ":", `\:`)
 }

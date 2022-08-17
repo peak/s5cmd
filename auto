@@ -1,5 +1,3 @@
-#compdef $PROG
-
 _cli_zsh_autocomplete() {
   local -a opts
   local cur
@@ -17,4 +15,4 @@ _cli_zsh_autocomplete() {
   fi
 }
 
-compdef _cli_zsh_autocomplete $PROG
+compdef _cli_zsh_autocomplete s5cmd

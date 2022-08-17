@@ -103,7 +103,7 @@ func New(s string, opts ...Option) (*URL, error) {
 
 	url := &URL{
 		Type:   remoteObject,
-		Scheme: "s3",
+		Scheme: scheme,
 		Bucket: bucket,
 		Path:   key,
 	}

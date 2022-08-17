@@ -106,19 +106,19 @@ func NewListCommand() *cli.Command {
 			}.Run(c.Context)
 		},
 	}
+
 	cmd.BashComplete = func(ctx *cli.Context) {
-		// todo do not print errors and other unrelated things
-		arg := ctx.Args().First()
+		var arg string
+		args := ctx.Args()
+		if args.Len() > 0 {
+			arg = args.Get(args.Len() - 1)
+		}
 		if strings.HasPrefix(arg, "s3://") {
-			// fmt.Println("£", ctx.Args().Slice(), "£")
 			printS3Suggestions(ctx, arg)
 
 		} else {
-			// fmt.Println("$", ctx.Args().Slice(), "$")
 			cli.DefaultCompleteWithFlags(cmd)(ctx)
 		}
-		// fmt.Println(escapeColon(first, ctx.Args().Slice(), "₺"))
-
 	}
 	return cmd
 }

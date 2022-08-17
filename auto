@@ -2,11 +2,7 @@ _cli_zsh_autocomplete() {
   local -a opts
   local cur
   cur=${words[-1]}
-  if [[ "$cur" == "-"* ]]; then
-    opts=("${(@f)$(${words[@]:0:#words[@]-1} ${cur} --generate-bash-completion)}")
-  else
-    opts=("${(@f)$(${words[@]:0:#words[@]-1} --generate-bash-completion)}")
-  fi
+  opts=("${(@f)$(${words[@]:0:#words[@]-1} ${cur} --generate-bash-completion)}")
 
   if [[ "${opts[1]}" != "" ]]; then
     _describe 'values' opts

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/urfave/cli/v2"
 
@@ -146,8 +145,8 @@ var app = &cli.App{
 	Action: func(c *cli.Context) error {
 		if c.Bool("install-completion") {
 			shell := os.Getenv("SHELL")
-			// todo printout the script
-			fmt.Println("You should add following script to ~/." + filepath.Base(shell) + "rc\nTODO")
+			installCompletionHelp(shell)
+
 			return nil
 		}
 		args := c.Args()

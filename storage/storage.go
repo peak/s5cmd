@@ -69,6 +69,7 @@ func NewRemoteClient(ctx context.Context, url *url.URL, opts Options) (*S3, erro
 		bucket:                 url.Bucket,
 		region:                 opts.region,
 		NoSuchUploadRetryCount: opts.NoSuchUploadRetryCount,
+		EnableChecksum:         opts.EnableChecksum,
 	}
 	return newS3Storage(ctx, newOpts)
 }
@@ -90,6 +91,7 @@ type Options struct {
 	NoSignRequest          bool
 	UseListObjectsV1       bool
 	LogLevel               log.LogLevel
+	EnableChecksum         bool
 	RequestPayer           string
 	Profile                string
 	CredentialFile         string

@@ -182,6 +182,10 @@ func NewSharedFlags() []cli.Flag {
 			DefaultText: "0",
 			Hidden:      true,
 		},
+		&cli.BoolFlag{
+			Name:  "disable-checksum",
+			Usage: "disable sha256 checksum verification",
+		},
 	}
 }
 

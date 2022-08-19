@@ -63,6 +63,19 @@ type DebugMessage struct {
 	Err       string `json:"error"`
 }
 
+// String is the string representation of ErrorMessage.
+func (d DebugMessage) String() string {
+	if d.Command == "" {
+		return d.Err
+	}
+	return fmt.Sprintf("%q: %v", d.Command, d.Err)
+}
+
+// JSON is the JSON representation of ErrorMessage.
+func (d DebugMessage) JSON() string {
+	return strutil.JSON(d)
+}
+
 type TraceMessage struct {
 	Message string `json:"message"`
 }
@@ -75,15 +88,14 @@ func (t TraceMessage) JSON() string {
 	return strutil.JSON(t)
 }
 
-// String is the string representation of ErrorMessage.
-func (d DebugMessage) String() string {
-	if d.Command == "" {
-		return d.Err
-	}
-	return fmt.Sprintf("%q: %v", d.Command, d.Err)
+type WarnMessage struct {
+	Message string `json:"message"`
 }
 
-// JSON is the JSON representation of ErrorMessage.
-func (d DebugMessage) JSON() string {
-	return strutil.JSON(d)
+func (t WarnMessage) String() string {
+	return t.Message
+}
+
+func (t WarnMessage) JSON() string {
+	return strutil.JSON(t)
 }

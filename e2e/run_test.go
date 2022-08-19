@@ -86,7 +86,7 @@ func TestRunFromStdinWithErrors(t *testing.T) {
 	input := strings.NewReader(
 		strings.Join([]string{
 			"ls s3/", // windows does not allow directory to contain substring `:/`
-			fmt.Sprintf("cp s3://%v/nonexistentobject .", bucket),
+			fmt.Sprintf("cp --disable-checksum s3://%v/nonexistentobject .", bucket),
 		}, "\n"),
 	)
 	cmd := s5cmd("run")
@@ -229,9 +229,9 @@ func TestRunWildcardCountGreaterEqualThanWorkerCount(t *testing.T) {
 	putFile(t, s3client, bucket, "file.txt", "content")
 
 	content := []string{
-		"cp s3://" + bucket + "/f*.txt .",
-		"cp s3://" + bucket + "/f*.txt .",
-		"cp s3://" + bucket + "/f*.txt .",
+		"cp --disable-checksum s3://" + bucket + "/f*.txt .",
+		"cp --disable-checksum s3://" + bucket + "/f*.txt .",
+		"cp --disable-checksum s3://" + bucket + "/f*.txt .",
 	}
 	file := fs.NewFile(t, "prefix", fs.WithContent(strings.Join(content, "\n")))
 	defer file.Remove()
@@ -265,7 +265,7 @@ func TestRunSpecialCharactersInPrefix(t *testing.T) {
 	putFile(t, s3client, bucket, sourceFileName, "content")
 
 	content := []string{
-		`cp "s3://` + bucket + `/` + sourceFileName + `" ` + targetFilePath,
+		`cp --disable-checksum "s3://` + bucket + `/` + sourceFileName + `" ` + targetFilePath,
 	}
 	file := fs.NewFile(t, "prefix", fs.WithContent(strings.Join(content, "\n")))
 	defer file.Remove()

@@ -63,6 +63,7 @@ type S3 struct {
 	endpointURL            urlpkg.URL
 	dryRun                 bool
 	useListObjectsV1       bool
+	enableChecksum         bool
 	noSuchUploadRetryCount int
 	requestPayer           types.RequestPayer
 }
@@ -134,6 +135,7 @@ func newS3Storage(ctx context.Context, opts Options) (*S3, error) {
 		noSuchUploadRetryCount: opts.NoSuchUploadRetryCount,
 		useListObjectsV1:       opts.UseListObjectsV1,
 		dryRun:                 opts.DryRun,
+		enableChecksum:         opts.EnableChecksum,
 	}, nil
 }
 
@@ -194,6 +196,9 @@ func (cc *ClientCache) newClient(ctx context.Context, opts Options) (*aws.Config
 	if opts.LogLevel == log.LevelTrace {
 		awsOpts = append(awsOpts, config.WithClientLogMode(aws.LogResponse|aws.LogRequest))
 		awsOpts = append(awsOpts, config.WithLogger(SdkLogger{}))
+	} else {
+		// use WarnLogger as default logger.
+		awsOpts = append(awsOpts, config.WithLogger(WarnLogger{}))
 	}
 	awsOpts = append(awsOpts, config.WithRetryer(customRetryer(opts.MaxRetries)))
 
@@ -334,11 +339,29 @@ func customRetryer(maxRetries int) func() aws.Retryer {
 type SdkLogger struct{}
 
 func (l SdkLogger) Logf(classification logging.Classification, format string, v ...interface{}) {
-	_ = classification
-	msg := log.TraceMessage{
-		Message: fmt.Sprintf(format, v...),
+
+	if classification == logging.Warn {
+		msg := log.WarnMessage{
+			Message: fmt.Sprintf(format, v...),
+		}
+		log.Warn(msg)
+	} else {
+		msg := log.TraceMessage{
+			Message: fmt.Sprintf(format, v...),
+		}
+		log.Trace(msg)
 	}
-	log.Trace(msg)
+}
+
+type WarnLogger struct{}
+
+func (l WarnLogger) Logf(classification logging.Classification, format string, v ...interface{}) {
+	if classification == logging.Warn {
+		msg := log.WarnMessage{
+			Message: fmt.Sprintf(format, v...),
+		}
+		log.Warn(msg)
+	}
 }
 
 // ClientCache holds client.Client according to s3Opts and it synchronizes
@@ -597,7 +620,7 @@ type ListObjectsPaginator struct {
 	firstPage  bool
 }
 
-// NewListObjectsPaginator returns a new ListObjectsV2Paginator
+// NewListObjectsPaginator returns a new ListObjectsPaginator
 func NewListObjectsPaginator(client ListObjectsAPIClient, params *s3.ListObjectsInput, optFns ...func(*ListObjectsPaginatorOptions)) *ListObjectsPaginator {
 	if params == nil {
 		params = &s3.ListObjectsInput{}
@@ -672,6 +695,10 @@ func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata Metadata) err
 		CopySource: aws.String(copySource),
 	}
 
+	if s.enableChecksum {
+		input.ChecksumAlgorithm = types.ChecksumAlgorithmSha256
+	}
+
 	storageClass := metadata.StorageClass()
 	if storageClass != "" {
 		input.StorageClass = types.StorageClass(storageClass)
@@ -736,11 +763,17 @@ func (s *S3) Get(
 		return 0, nil
 	}
 
-	return s.downloader.Download(ctx, to, &s3.GetObjectInput{
+	input := s3.GetObjectInput{
 		Bucket:       aws.String(from.Bucket),
 		Key:          aws.String(from.Path),
 		RequestPayer: s.RequestPayer(),
-	}, func(u *manager.Downloader) {
+	}
+
+	if s.enableChecksum {
+		input.ChecksumMode = types.ChecksumModeEnabled
+	}
+
+	return s.downloader.Download(ctx, to, &input, func(u *manager.Downloader) {
 		u.PartSize = partSize
 		u.Concurrency = concurrency
 	})
@@ -844,6 +877,10 @@ func (s *S3) Put(
 		ContentType:  aws.String(contentType),
 		Metadata:     make(map[string]string),
 		RequestPayer: s.RequestPayer(),
+	}
+
+	if s.enableChecksum {
+		input.ChecksumAlgorithm = types.ChecksumAlgorithmSha256
 	}
 
 	storageClass := metadata.StorageClass()

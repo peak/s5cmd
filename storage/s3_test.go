@@ -1162,6 +1162,72 @@ func TestAWSLogLevel(t *testing.T) {
 	}
 }
 
+func TestChecksumOnUploadAndDownload(t *testing.T) {
+	testcases := []struct {
+		name         string
+		checksumMode bool
+	}{
+		{
+			name:         "Header must include X-Amz-Checksum-Sha256 when upload and X-Amz-Checksum-Mode when download",
+			checksumMode: true,
+		},
+		{
+			name:         "Header must not include X-Amz-Checksum-Sha256 when upload and X-Amz-Checksum-Mode when download",
+			checksumMode: false,
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := context.Background()
+			mw := middleware.DeserializeMiddlewareFunc("Put and Get", func(
+				ctx context.Context,
+				in middleware.DeserializeInput,
+				next middleware.DeserializeHandler,
+			) (
+				out middleware.DeserializeOutput,
+				metadata middleware.Metadata,
+				err error,
+			) {
+				switch r := in.Request.(type) {
+
+				case *smithyhttp.Request:
+					if r.Method == "PUT" {
+						got := r.Header.Get("X-Amz-Checksum-Sha256")
+						assert.Equal(t, got != "", tc.checksumMode)
+					} else if r.Method == "GET" {
+						got := r.Header.Get("X-Amz-Checksum-Mode")
+						assert.Equal(t, got != "", tc.checksumMode)
+					}
+				}
+
+				return next.HandleDeserialize(ctx, in)
+			})
+			opts := Options{EnableChecksum: tc.checksumMode}
+
+			s3c, err := newS3Storage(context.Background(), opts)
+			if err != nil {
+				t.Fatal(err)
+			}
+			// add middleware check and re-assign uploader and client
+			mocks3c := s3.NewFromConfig(s3c.config, func(o *s3.Options) {
+				o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
+					return stack.Deserialize.Add(mw, middleware.After)
+				})
+			})
+
+			s3c.client = mocks3c
+			s3c.uploader = manager.NewUploader(s3c.client)
+			s3c.downloader = manager.NewDownloader(s3c.client)
+
+			url, err := url.New("s3://bucket/key")
+
+			s3c.Put(ctx, strings.NewReader(""), url, NewMetadata(), manager.DefaultUploadConcurrency, manager.DefaultUploadPartSize)
+			s3c.Get(ctx, url, manager.NewWriteAtBuffer([]byte{}), manager.DefaultDownloadConcurrency, manager.DefaultDownloadPartSize)
+		})
+	}
+}
+
 // tempError is a wrapper error type that implements anonymous
 // interface getting checked in url.Error.Temporary;
 //

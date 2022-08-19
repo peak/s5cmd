@@ -184,6 +184,7 @@ func NewStorageOpts(c *cli.Context) storage.Options {
 		CredentialFile:         c.String("credentials-file"),
 		LogLevel:               log.LevelFromString(c.String("log")),
 		NoSuchUploadRetryCount: c.Int("no-such-upload-retry-count"),
+		EnableChecksum:         !c.Bool("disable-checksum"),
 	}
 }
 

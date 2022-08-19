@@ -3,6 +3,7 @@ package command
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -33,35 +34,44 @@ _cli_zsh_autocomplete() {
 	// NOTE: Broken, WIP. Requires `bash-completion` to be installed/sourced;
 	//	- https://github.com/scop/bash-completion
 	bash = `
-_cli_bash_autocomplete() {
-
-	local cur prev words cword split
-	_init_completion -n : -s || return
-
-	# print cur prev words cword split
-    echo '---------' >> bash.log
-	echo "cur: ${cur}" >> bash.log
-	echo "prev: ${prev}" >> bash.log
-	echo "words: ${words[*]}" >> bash.log
-	echo "cword: ${cword}" >> bash.log
-	echo "split: ${split}" >> bash.log
-    echo "cmd : ${words[@]:0:$cword}" >> bash.log
-    echo '---------' >> bash.log
-    local cmd="${words[@]:0:$cword}"
-
-	if [[ "${COMP_WORDS[0]}" != "source" ]]; then
-		COMPREPLY=()
-		local opts=$(${cmd} ${cur} --generate-bash-completion)
-
-		echo "opts: ${opts}" >>bash.log
-		COMPREPLY=($(compgen -W "${opts}" -- ${cur}))
-        __ltrim_colon_completions "$cur"
-		return 0
-	fi
+_cli_bash_autocomplete() { 
+    if [[ "${COMP_WORDS[0]}" != "source" ]]; then
+        local cur opts base;
+        COMPREPLY=();
+        cur="${COMP_WORDS[COMP_CWORD]}";
+        opts=$(${COMP_WORDS[@]:0:$COMP_CWORD} ${cur} --generate-bash-completion);
+        COMPREPLY=($(compgen -W "${opts}"));
+        return 0;
+    fi
 }
+
 complete -o bashdefault -o default -o nospace -F _cli_bash_autocomplete s5cmd
 `
+	/*
+	   _cli_bash_autocomplete() {
+	   		if [[ "${COMP_WORDS[0]}" != "source" ]]; then
+	   		  local cur opts base
+	   		  COMPREPLY=()
+	   		  cur="${COMP_WORDS[COMP_CWORD]}"
+	   			opts=$(${COMP_LINE} --generate-bash-completion)
+	         # echo  "!
+	         #  cur id $cur
+	         #  opts are ${opts}.
+	         # !"
 
+	       # add each line as an element
+	         while IFS='' read -r line; do COMPREPLY+=("$line"); done < <(compgen -W "${
+
+	   #		  COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+	         # echo  "§
+	         # COMPREPLY =" "${COMPREPLY[@]}" "
+	         # §"
+	   		  return 0
+	   		fi
+	   	  }
+
+	   	  complete -o bashdefault -o default -o nospace -F _cli_bash_autocomplete s5cmd
+	*/
 	powershell = `$fn = $($MyInvocation.MyCommand.Name)
 	  $name = $fn -replace "(.*)\.ps1$", '$1'
 	  Register-ArgumentCompleter -Native -CommandName $name -ScriptBlock {
@@ -79,15 +89,22 @@ func getBashCompleteFn(cmd *cli.Command) func(ctx *cli.Context) {
 	return func(ctx *cli.Context) {
 		var arg string
 		args := ctx.Args()
-		if args.Len() > 0 {
-			arg = args.Get(args.Len() - 1)
+		l := args.Len()
+		f, _ := os.Open("log.txt")
+		defer f.Close()
+		f.WriteString(fmt.Sprint("this//arg=", args, "l=", l))
+
+		if l > 2 && filepath.Base(os.Getenv("SHELL")) == "bash" {
+			arg = args.Get(l-3) + args.Get(l-2) + args.Get(l-1)
+		} else if l > 0 {
+			arg = args.Get(l - 1)
 		}
 		if strings.HasPrefix(arg, "s3://") {
 			printS3Suggestions(ctx, arg)
-
 		} else {
 			cli.DefaultCompleteWithFlags(cmd)(ctx)
 		}
+		f.WriteString(escapeColon(fmt.Sprint("\n//arg=", arg, "l=", l)))
 	}
 }
 
@@ -105,7 +122,7 @@ func printS3Suggestions(ctx *cli.Context, arg string) {
 	if u.Bucket == "" || (u.IsBucket() && !strings.HasSuffix(arg, "/")) {
 		printListBuckets(c, client, u)
 	} else {
-		printListNURLSuggestions(c, client, u, 20)
+		printListNURLSuggestions(c, client, u, 13)
 	}
 }
 
@@ -116,7 +133,11 @@ func printListBuckets(ctx context.Context, client *storage.S3, u *url.URL) {
 	}
 
 	for _, bucket := range buckets {
-		fmt.Println(escapeColon("s3://" + bucket.Name))
+		if filepath.Base(os.Getenv("SHELL")) == "bash" {
+			fmt.Println(escapeColon("//" + bucket.Name))
+		} else {
+			fmt.Println(escapeColon("s3://" + bucket.Name))
+		}
 	}
 }
 
@@ -138,7 +159,11 @@ func printListNURLSuggestions(ctx context.Context, client *storage.S3, u *url.UR
 		if obj.Err != nil {
 			return
 		}
-		fmt.Println(escapeColon(obj.URL.Absolute()))
+		if filepath.Base(os.Getenv("SHELL")) == "bash" {
+			fmt.Println(escapeColon(strings.TrimPrefix(obj.URL.Absolute(), "s3:")))
+		} else {
+			fmt.Println(escapeColon(obj.URL.Absolute()))
+		}
 
 		i++
 	}

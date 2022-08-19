@@ -117,8 +117,8 @@ const (
 	LevelTrace
 	LevelDebug
 	LevelInfo
-	LevelError
 	LevelWarn
+	LevelError
 )
 
 // String returns the string representation of logLevel.

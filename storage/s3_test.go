@@ -1221,7 +1221,9 @@ func TestChecksumOnUploadAndDownload(t *testing.T) {
 			s3c.downloader = manager.NewDownloader(s3c.client)
 
 			url, err := url.New("s3://bucket/key")
-
+			if err != nil {
+				t.Fatal(err)
+			}
 			s3c.Put(ctx, strings.NewReader(""), url, NewMetadata(), manager.DefaultUploadConcurrency, manager.DefaultUploadPartSize)
 			s3c.Get(ctx, url, manager.NewWriteAtBuffer([]byte{}), manager.DefaultDownloadConcurrency, manager.DefaultDownloadPartSize)
 		})

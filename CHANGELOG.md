@@ -8,7 +8,8 @@
 #### Features
 - Added `--content-type` and `--content-encoding` flags to `cp` command. ([#264](https://github.com/peak/s5cmd/issues/264))
 - Added `--profile` flag to allow users to specify a [named profile](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-profiles.html). ([#353](https://github.com/peak/s5cmd/issues/353))
-- Added `--credentials-file` flag to allow users to specify path for the AWS credentials file instead of using the [default location](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html#cli-configure-files-where). 
+- Added `--credentials-file` flag to allow users to specify path for the AWS credentials file instead of using the [default location](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html#cli-configure-files-where).
+- Added `bench.py` script under new `benchmark` folder to compare performances of two different builds of s5cmd. ([#471](https://github.com/peak/s5cmd/pull/471))
 
 #### Improvements
 - Disable AWS SDK logger if log level is not `trace`. ([##460](https://github.com/peak/s5cmd/pull/460))

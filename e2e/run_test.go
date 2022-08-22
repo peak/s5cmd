@@ -95,7 +95,7 @@ func TestRunFromStdinWithErrors(t *testing.T) {
 	result.Assert(t, icmd.Expected{ExitCode: 1})
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals("WARN Response has no supported checksum. Not validating response payload."),
+		0: contains("Response has no supported checksum. Not validating response payload."),
 	})
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{

@@ -89,11 +89,17 @@ func (t TraceMessage) JSON() string {
 }
 
 type WarnMessage struct {
-	Message string `json:"message"`
+	Operation   string `json:"operation"`
+	Source      string `json:"source"`
+	Destination string `json:"destination,omitempty"`
+	Message     string `json:"message"`
 }
 
 func (t WarnMessage) String() string {
-	return t.Message
+	if t.Operation == "" {
+		return t.Message
+	}
+	return fmt.Sprintf("%v %v %v: %v", t.Operation, t.Source, t.Destination, t.Message)
 }
 
 func (t WarnMessage) JSON() string {

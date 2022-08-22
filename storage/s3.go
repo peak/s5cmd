@@ -45,6 +45,11 @@ const (
 
 	// the key of the object metadata which is used to handle retry decision on NoSuchUpload error
 	metadataKeyRetryID = "s5cmd-upload-retry-id"
+
+	// context keys
+	SrcKey  = "src"
+	OpKey   = "op"
+	DestKey = "dest"
 )
 
 // Re-used AWS sessions dramatically improve performance.
@@ -353,14 +358,25 @@ func (l SdkLogger) Logf(classification logging.Classification, format string, v 
 	}
 }
 
-type WarnLogger struct{}
+type WarnLogger struct {
+	SdkLogger
+
+	src  string
+	dest string
+	op   string
+}
 
 func (l WarnLogger) Logf(classification logging.Classification, format string, v ...interface{}) {
 	if classification == logging.Warn {
 		msg := log.WarnMessage{
-			Message: fmt.Sprintf(format, v...),
+			Message:     fmt.Sprintf(format, v...),
+			Source:      l.src,
+			Destination: l.dest,
+			Operation:   l.op,
 		}
 		log.Warn(msg)
+	} else {
+		l.SdkLogger.Logf(classification, format, v...)
 	}
 }
 
@@ -773,10 +789,26 @@ func (s *S3) Get(
 		input.ChecksumMode = types.ChecksumModeEnabled
 	}
 
-	return s.downloader.Download(ctx, to, &input, func(u *manager.Downloader) {
+	src, _ := ctx.Value(SrcKey).(string)
+	dest, _ := ctx.Value(DestKey).(string)
+	op, _ := ctx.Value(OpKey).(string)
+
+	var downloaderOpts []func(*manager.Downloader)
+	downloaderOpts = append(downloaderOpts, manager.WithDownloaderClientOptions(func(options *s3.Options) {
+		options.Logger = WarnLogger{
+			SdkLogger: SdkLogger{},
+			src:       src,
+			dest:      dest,
+			op:        op,
+		}
+	}))
+
+	downloaderOpts = append(downloaderOpts, func(u *manager.Downloader) {
 		u.PartSize = partSize
 		u.Concurrency = concurrency
 	})
+
+	return s.downloader.Download(ctx, to, &input, downloaderOpts...)
 }
 
 type SelectQuery struct {

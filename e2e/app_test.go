@@ -100,6 +100,10 @@ func TestAppDashStat(t *testing.T) {
 			isPrintExpected: true,
 		},
 		{
+			command:         fmt.Sprintf("--stat --log %v cp s3://bucket/%v .", "warn", src),
+			isPrintExpected: true,
+		},
+		{
 			command:         fmt.Sprintf("--stat --log %v cp s3://bucket/%v .", "error", src),
 			isPrintExpected: true,
 		},
@@ -223,7 +227,7 @@ func TestInvalidLoglevel(t *testing.T) {
 	result.Assert(t, icmd.Expected{ExitCode: 1})
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: equals(`Incorrect Usage: invalid value "notexist" for flag -log: allowed values: [trace, debug, info, error]`),
+		0: equals(`Incorrect Usage: invalid value "notexist" for flag -log: allowed values: [trace, debug, info, warn, error]`),
 		1: equals("See 's5cmd --help' for usage"),
 	})
 }

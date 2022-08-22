@@ -50,7 +50,7 @@ func Error(msg Message) {
 
 // Warn prints message in warning mode.
 func Warn(msg Message) {
-	global.printf(LevelWarn, msg, os.Stderr)
+	global.printf(LevelWarn, msg, os.Stdout)
 }
 
 // Close closes logger and its channel.
@@ -151,6 +151,8 @@ func LevelFromString(s string) LogLevel {
 		return LevelError
 	case "trace":
 		return LevelTrace
+	case "warn":
+		return LevelWarn
 	default:
 		return LevelInfo
 	}

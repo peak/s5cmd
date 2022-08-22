@@ -52,10 +52,10 @@ var app = &cli.App{
 		&cli.GenericFlag{
 			Name: "log",
 			Value: &EnumValue{
-				Enum:    []string{"trace", "debug", "info", "error"},
+				Enum:    []string{"trace", "debug", "info", "warn", "error"},
 				Default: "info",
 			},
-			Usage: "log level: (trace, debug, info, error)",
+			Usage: "log level: (trace, debug, info, warn, error)",
 		},
 		&cli.BoolFlag{
 			Name:  "install-completion",

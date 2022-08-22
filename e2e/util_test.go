@@ -368,9 +368,10 @@ func putFile(t *testing.T, client *s3.Client, bucket string, filename string, co
 	t.Helper()
 
 	_, err := client.PutObject(context.Background(), &s3.PutObjectInput{
-		Body:   strings.NewReader(content),
-		Bucket: aws.String(bucket),
-		Key:    aws.String(filename),
+		Body:              strings.NewReader(content),
+		Bucket:            aws.String(bucket),
+		Key:               aws.String(filename),
+		ChecksumAlgorithm: types.ChecksumAlgorithmSha256,
 	})
 	if err != nil {
 		t.Fatal(err)

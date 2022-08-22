@@ -23,6 +23,7 @@
 - Fixed a bug where some part of the destination path is removed by `cp` and `sync` subcommands ([#360](https://github.com/peak/s5cmd/issues/360))
 - Fixed a bug where proxy is not being used when `--no-verify-ssl` flag is used. ([#445](https://github.com/peak/s5cmd/issues/445))
 - Fixed `unknown url format` error when object key also includes `s3://` e.g. `s5cmd ls s3://foo/bar/s3://baz` ([#449](https://github.com/peak/s5cmd/issues/449))
+- Fixed a bug where the local file created for the download operation was not deleted if the download fails in Windows. ([#348](https://github.com/peak/s5cmd/issues/348))
 
 ## v2.0.0 - 4 Jul 2022
 

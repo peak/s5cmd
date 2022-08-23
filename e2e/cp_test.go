@@ -4247,3 +4247,27 @@ func TestVersionedDownload(t *testing.T) {
 
 	assert.Assert(t, fs.Equal(workdir.Path(), fs.ManifestFromDir(t, newDir.Path())))
 }
+
+// Before downloading a file from s3 a local target file is created. If download
+// fails the created file should be deleted.
+func TestDeleteFileWhenDownloadFailed(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	bucket := s3BucketFromTestName(t)
+	filename := "testfile1.txt"
+	createBucket(t, s3client, bucket)
+
+	// It is going try downloading a nonexistent file from the s3 so it will fail.
+	// In this case we don't expect to have a local file with the name `filename`.
+	cmd := s5cmd("cp", "s3://"+bucket+"/"+filename, filename)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Expected{ExitCode: 1})
+
+	// assert local filesystem does not have any (such) file
+	expected := fs.Expected(t)
+	assert.Assert(t, fs.Equal(cmd.Dir, expected))
+}

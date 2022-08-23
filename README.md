@@ -290,9 +290,6 @@ rm s3://bucket/2020/03/19/file2.gz
 
 # rename an S3 object
 mv s3://bucket/2020/03/18/file1.gz s3://bucket/2020/03/18/original/file.gz
-
-# list all buckets
-ls # inline comments are OK too
 ```
 
 #### Sync
@@ -582,6 +579,10 @@ of concurrent systems easy and make full utilization of multi-core processors.
 - *Parallelization.* `s5cmd` starts out with concurrent worker pools and parallelizes
 workloads as much as possible while trying to achieve maximum throughput.
 
+## performance regression tests
+
+[`bench.py`](benchmark/bench.py) script can be used to compare performance of two different s5cmd builds. Refer to this [readme](benchmark/README.md) file for further details.
+
 # Advanced Usage
 
 Some of the advanced usage patterns provided below are inspired by the following [article](https://medium.com/@joshua_robinson/s5cmd-hits-v1-0-and-intro-to-advanced-usage-37ad02f7e895) (thank you! [@joshuarobinson](https://github.com/joshuarobinson))
@@ -645,7 +646,6 @@ with `run` command, it is better to just use
 the latter sends single delete request per thousand objects, whereas using the former approach
 sends a separate delete request for each subcommand provided to `run.` Thus, there can be a
 significant runtime difference between those two approaches.
-
 
 # LICENSE
 

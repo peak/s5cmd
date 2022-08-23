@@ -3,6 +3,7 @@ package command
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -26,9 +27,9 @@ _cli_zsh_autocomplete() {
 	else
 	  _files
 	fi
-  }
+}
   
-  compdef _cli_zsh_autocomplete s5cmd
+compdef _cli_zsh_autocomplete s5cmd
 `
 	// NOTE: Broken, WIP. Requires `bash-completion` to be installed/sourced;
 	//	- https://github.com/scop/bash-completion
@@ -62,17 +63,15 @@ _cli_bash_autocomplete() {
 complete -o bashdefault -o default -o nospace -F _cli_bash_autocomplete s5cmd
 `
 
-	powershell = `$fn = $($MyInvocation.MyCommand.Name)
-	  $name = $fn -replace "(.*)\.ps1$", '$1'
-	  Register-ArgumentCompleter -Native -CommandName $name -ScriptBlock {
-		   param($commandName, $wordToComplete, $cursorPosition)
-		   $other = "$wordToComplete --generate-bash-completion"
-			   Invoke-Expression $other | ForEach-Object {
-				  [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
-			   }
-	   }
-	  Footer
-	  `
+	pwsh = `$fn = $($MyInvocation.MyCommand.Name)
+$name = $fn -replace "(.*)\.ps1$", '$1'
+Register-ArgumentCompleter -Native -CommandName $name -ScriptBlock {
+	param($commandName, $wordToComplete, $cursorPosition)
+	$other = "$wordToComplete --generate-bash-completion"
+	Invoke-Expression $other | ForEach-Object {
+		[System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
+	}
+}`
 )
 
 func getBashCompleteFn(cmd *cli.Command) func(ctx *cli.Context) {
@@ -146,20 +145,40 @@ func printListNURLSuggestions(ctx context.Context, client *storage.S3, u *url.UR
 
 func installCompletionHelp(shell string) {
 	baseShell := filepath.Base(shell)
-	fmt.Println("# To enable autocompletion you should add the following script to startup scripts of your shell.")
-	if baseShell != "" {
-		fmt.Println("# It is probably located at ~/." + baseShell + "rc")
-	}
+
+	instructions := "# To enable autocompletion you should add the following script" +
+		" to startup scripts of your shell.\n" +
+		"# It is probably located at ~/." + baseShell + "rc"
 	var script string
 	if baseShell == "zsh" {
 		script = zsh
 	} else if baseShell == "bash" {
 		script = bash
-	} else if baseShell == "powershell" {
-		script = powershell
+	} else if baseShell == "pwsh" {
+		script = pwsh
+		instructions = "# To enable autocompletion you should save the following" +
+			" script to a file named \"s5cmd.ps1\" and execute it.\n# To persist it" +
+			" you should add a line to profile file (which you can locate with $profile)" +
+			" to execute  \"s5cmd.ps1\"."
 	} else {
-		script = "# Your shell \"" + baseShell + "\" is not recognized. Auto complete is only available with zsh, bash and powershell (?)."
+		instructions = "# We couldn't recognize your SHELL \"" + baseShell + "\".\n" +
+			"# Shell completion is supported only for bash, pwsh and zsh."
 	}
 
+	fmt.Println(instructions)
 	fmt.Println(script)
+}
+
+// replace every colon : with \: if shell is zsh
+// colons are used as a seperator for the autocompletion script
+// so "literal colons in completion must be quoted with a backslash"
+// see also https://zsh.sourceforge.io/Doc/Release/Completion-System.html#:~:text=This%20is%20followed,as%20name1%3B
+func escapeColon(str ...interface{}) string {
+	baseShell := filepath.Base(os.Getenv("SHELL"))
+
+	if baseShell == "zsh" {
+		return strings.ReplaceAll(fmt.Sprint(str...), ":", `\:`)
+	}
+
+	return fmt.Sprint(str...)
 }

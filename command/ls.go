@@ -281,11 +281,3 @@ func validateLSCommand(c *cli.Context) error {
 	}
 	return nil
 }
-
-// replace every colon : with \:
-// colons are used as a seperator for the autocompletion script
-// so "literal colons in completion must be quoted with a backslash"
-// see also https://zsh.sourceforge.io/Doc/Release/Completion-System.html#:~:text=This%20is%20followed,as%20name1%3B
-func escapeColon(str ...interface{}) string {
-	return strings.ReplaceAll(fmt.Sprint(str...), ":", `\:`)
-}

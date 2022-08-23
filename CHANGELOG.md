@@ -16,6 +16,10 @@
 - Allow adjacent slashes to be used as keys when uploading to remote. ([#459](https://github.com/peak/s5cmd/pull/459))
 - Debian packages are provided on [releases page](https://github.com/peak/s5cmd/releases) ([#380](https://github.com/peak/s5cmd/issues/380))
 - Upgraded minimum required Go version to 1.17.
+- The sync function uses `external sort` instead of `in memory` sort. This change
+ reduces RAM usage from ~10 GB to ~1.5 GB for `sync` operation of a directory containing
+ 1,000,000 files at a cost of speed (20% slower for 1,000,000 objects). For smaller
+ directories (~50,000 files) there is no significant speed in speed.  ([#483](https://github.com/peak/s5cmd/pull/483))
 
 
 #### Bugfixes

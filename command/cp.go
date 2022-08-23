@@ -465,9 +465,9 @@ func (c Copy) prepareDownloadTask(
 			return err
 		}
 
-		ctx = context.WithValue(ctx, storage.OpKey, c.op)
-		ctx = context.WithValue(ctx, storage.SrcKey, srcurl.String())
-		ctx = context.WithValue(ctx, storage.DestKey, dsturl.String())
+		ctx = context.WithValue(ctx, storage.ContextKeyOp, c.op)
+		ctx = context.WithValue(ctx, storage.ContextKeySrc, srcurl.String())
+		ctx = context.WithValue(ctx, storage.ContextKeyDest, dsturl.String())
 
 		err = c.doDownload(ctx, srcurl, dsturl)
 		if err != nil {

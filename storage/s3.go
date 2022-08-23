@@ -45,11 +45,14 @@ const (
 
 	// the key of the object metadata which is used to handle retry decision on NoSuchUpload error
 	metadataKeyRetryID = "s5cmd-upload-retry-id"
+)
 
-	// context keys
-	SrcKey  = "src"
-	OpKey   = "op"
-	DestKey = "dest"
+type contextKey int
+
+const (
+	ContextKeySrc contextKey = iota
+	ContextKeyOp
+	ContextKeyDest
 )
 
 // Re-used AWS sessions dramatically improve performance.
@@ -789,9 +792,9 @@ func (s *S3) Get(
 		input.ChecksumMode = types.ChecksumModeEnabled
 	}
 
-	src, _ := ctx.Value(SrcKey).(string)
-	dest, _ := ctx.Value(DestKey).(string)
-	op, _ := ctx.Value(OpKey).(string)
+	src, _ := ctx.Value(ContextKeySrc).(string)
+	dest, _ := ctx.Value(ContextKeyDest).(string)
+	op, _ := ctx.Value(ContextKeyOp).(string)
 
 	var downloaderOpts []func(*manager.Downloader)
 	downloaderOpts = append(downloaderOpts, manager.WithDownloaderClientOptions(func(options *s3.Options) {

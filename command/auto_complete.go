@@ -96,6 +96,23 @@ func getBashCompleteFn(cmd *cli.Command) func(ctx *cli.Context) {
 	}
 }
 
+// it returns a complete function which prints the argument, itself, which is to be completed.
+// If the argument is empty string it uses the defaultCompletions to make suggestions.
+func ineffectiveCompleteFnWithDefault(defaultCompletions ...string) func(ctx *cli.Context) {
+	return func(ctx *cli.Context) {
+		var arg string
+		args := ctx.Args()
+		if args.Len() > 0 {
+			arg = args.Get(args.Len() - 1)
+		}
+		if arg == "" {
+			fmt.Println(escapeColon(strings.Join(defaultCompletions, "\n")))
+		} else {
+			fmt.Println(escapeColon(arg))
+		}
+	}
+}
+
 func printS3Suggestions(ctx *cli.Context, arg string) {
 	c := ctx.Context
 	u, err := url.New(arg)

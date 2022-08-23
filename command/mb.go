@@ -32,6 +32,7 @@ func NewMakeBucketCommand() *cli.Command {
 		HelpName:           "mb",
 		Usage:              "make bucket",
 		CustomHelpTemplate: makeBucketHelpTemplate,
+		BashComplete:       ineffectiveCompleteFnWithDefault("s3://"),
 		Before: func(c *cli.Context) error {
 			err := validateMBCommand(c)
 			if err != nil {

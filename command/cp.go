@@ -517,13 +517,18 @@ func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) 
 	if err != nil {
 		return err
 	}
-	defer file.Close()
 
 	size, err := srcClient.Get(ctx, srcurl, file, c.concurrency, c.partSize)
 	if err != nil {
-		_ = dstClient.Delete(ctx, dsturl)
+		// file must be closed before deletion
+		file.Close()
+		dErr := dstClient.Delete(ctx, dsturl)
+		if dErr != nil {
+			printDebug(c.op, dErr, srcurl, dsturl)
+		}
 		return err
 	}
+	defer file.Close()
 
 	if c.deleteSource {
 		_ = srcClient.Delete(ctx, srcurl)

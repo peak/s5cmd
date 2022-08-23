@@ -31,36 +31,42 @@ _cli_zsh_autocomplete() {
   
 compdef _cli_zsh_autocomplete s5cmd
 `
-	// NOTE: Broken, WIP. Requires `bash-completion` to be installed/sourced;
-	//	- https://github.com/scop/bash-completion
-	bash = `
-_cli_bash_autocomplete() {
 
-	local cur prev words cword split
+	bash = `
+# It assumes that _init_completion and __ltrim_colon_completions functions from
+# the famous bash-completion package are already declared/defined/imported.
+# see also https://github.com/scop/bash-completion and 
+# https://github.com/scop/bash-completion/blob/master/bash_completion
+_s5cmd_cli_bash_autocomplete() {
+
+	# get current word and its index (cur and cword respectively),
+	# and prepare command (cmd)
+	# exclude : from the word breaks
+	local cur words cword
 	_init_completion -n : -s || return
 
-	# print cur prev words cword split
-    echo '---------' >> bash.log
-	echo "cur: ${cur}" >> bash.log
-	echo "prev: ${prev}" >> bash.log
-	echo "words: ${words[*]}" >> bash.log
-	echo "cword: ${cword}" >> bash.log
-	echo "split: ${split}" >> bash.log
-    echo "cmd : ${words[@]:0:$cword}" >> bash.log
-    echo '---------' >> bash.log
-    local cmd="${words[@]:0:$cword}"
+	local cmd="${words[@]:0:$cword}"
 
 	if [[ "${COMP_WORDS[0]}" != "source" ]]; then
 		COMPREPLY=()
+		# execute the command with '--generate-bash-completion' flag to obtain
+		# possible completion values for current word
 		local opts=$(${cmd} ${cur} --generate-bash-completion)
 
-		echo "opts: ${opts}" >>bash.log
+		# prepare completion array with possible values and filter those does not
+		# start with cur
 		COMPREPLY=($(compgen -W "${opts}" -- ${cur}))
-        __ltrim_colon_completions "$cur"
+
+		# if COMP_WORDBREAKS contains colons, then change COMPREPLY array to 
+		# trim "the colon-containing-prefix from COMPREPLY items"
+		__ltrim_colon_completions "$cur"
 		return 0
 	fi
 }
-complete -o bashdefault -o default -o nospace -F _cli_bash_autocomplete s5cmd
+
+# call the _s5cmd_cli_bash_autocomplete to complete s5cmd command. If no completion is found
+# then fallback to default completion of shell. 
+complete -o bashdefault -o default -o nospace -F _s5cmd_cli_bash_autocomplete s5cmd
 `
 
 	pwsh = `$fn = $($MyInvocation.MyCommand.Name)

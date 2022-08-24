@@ -54,8 +54,8 @@ _s5cmd_cli_bash_autocomplete() {
 		local opts=$(${cmd} ${cur} --generate-bash-completion)
 
 		# prepare completion array with possible values and filter those does not
-		# start with cur
-		COMPREPLY=($(compgen -W "${opts}" -- ${cur}))
+		# start with cur if no completion is found then fallback to default completion of shell. 
+		COMPREPLY=($(compgen -o bashdefault -o default -o nospace -W "${opts}" -- ${cur}))
 
 		# if COMP_WORDBREAKS contains colons, then change COMPREPLY array to 
 		# trim "the colon-containing-prefix from COMPREPLY items"
@@ -64,9 +64,9 @@ _s5cmd_cli_bash_autocomplete() {
 	fi
 }
 
-# call the _s5cmd_cli_bash_autocomplete to complete s5cmd command. If no completion is found
-# then fallback to default completion of shell. 
-complete -o bashdefault -o default -o nospace -F _s5cmd_cli_bash_autocomplete s5cmd
+# call the _s5cmd_cli_bash_autocomplete to complete s5cmd command. 
+complete  -F _s5cmd_cli_bash_autocomplete s5cmd
+
 `
 
 	pwsh = `$fn = $($MyInvocation.MyCommand.Name)
@@ -138,7 +138,7 @@ func printListBuckets(ctx context.Context, client *storage.S3, u *url.URL) {
 	}
 
 	for _, bucket := range buckets {
-		fmt.Println(escapeColon("s3://" + bucket.Name))
+		fmt.Println(escapeColon("s3://" + bucket.Name + "/"))
 	}
 }
 
@@ -147,7 +147,7 @@ func printListNURLSuggestions(ctx context.Context, client *storage.S3, u *url.UR
 	if u.IsBucket() {
 		abs = abs + "/"
 	}
-	u, err := url.New(abs + "*")
+	u, err := url.New(abs)
 	if err != nil {
 		return
 	}

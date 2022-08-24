@@ -175,7 +175,13 @@ aws_secret_access_key = p2_profile_access_key`
 			expSecretAccessKey: "p1_profile_access_key",
 		},
 		{
-
+			name:               "use a non-existent profile",
+			fileName:           file.Name(),
+			profileName:        "non-existent-profile",
+			expAccessKeyId:     "",
+			expSecretAccessKey: "",
+		},
+		{
 			name:               "use a non-existent profile",
 			fileName:           file.Name(),
 			profileName:        "non-existent-profile",
@@ -942,7 +948,9 @@ func TestRegionDetectionPriority(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			endpointOpts, isVirtualHostStyle := getEndpointOpts(endpointURL)
+			isVirtualHostStyle := isVirtualHostStyle(endpointURL)
+
+			endpointOpts := getEndpointOpts(endpointURL, isVirtualHostStyle)
 
 			var awsOpts []func(*config.LoadOptions) error
 			awsOpts = append(awsOpts, endpointOpts)
@@ -1043,7 +1051,10 @@ func TestAutoRegionFromHeadBucket(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			endpointOpts, isVirtualHostStyle := getEndpointOpts(endpointURL)
+			isVirtualHostStyle := isVirtualHostStyle(endpointURL)
+
+			endpointOpts := getEndpointOpts(endpointURL, isVirtualHostStyle)
+
 			var awsOpts []func(*config.LoadOptions) error
 			awsOpts = append(awsOpts, endpointOpts)
 			// ignore local profile loading

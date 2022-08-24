@@ -151,8 +151,8 @@ func (cc *ClientCache) newClient(ctx context.Context, opts Options) (*aws.Config
 		// do not sign requests when making service API calls
 		awsOpts = append(awsOpts, config.WithCredentialsProvider(aws.AnonymousCredentials{}))
 	} else if opts.CredentialFile != "" || opts.Profile != "" {
+		awsOpts = append(awsOpts, config.WithSharedCredentialsFiles(append(config.DefaultSharedConfigFiles, opts.CredentialFile)))
 		awsOpts = append(awsOpts, config.WithSharedConfigProfile(opts.Profile))
-		awsOpts = append(awsOpts, config.WithSharedCredentialsFiles([]string{opts.CredentialFile}))
 	}
 
 	loadCfg := os.Getenv("AWS_SDK_LOAD_CONFIG")
@@ -178,8 +178,10 @@ func (cc *ClientCache) newClient(ctx context.Context, opts Options) (*aws.Config
 		endpointURL = sentinelURL
 	}
 
-	endpoint, isVirtualHostStyle := getEndpointOpts(endpointURL)
+	isVirtualHostStyle := isVirtualHostStyle(endpointURL)
+
 	if endpointURL.String() != "" {
+		endpoint := getEndpointOpts(endpointURL, isVirtualHostStyle)
 		awsOpts = append(awsOpts, endpoint)
 	}
 
@@ -226,19 +228,17 @@ func (cc *ClientCache) clear() {
 	cc.configs = map[Options]*aws.Config{}
 }
 
-func getEndpointOpts(endpointURL urlpkg.URL) (config.LoadOptionsFunc, bool) {
-	// use virtual-host-style if the endpoint is known to support it,
-	// otherwise use the path-style approach.
-	isVirtualHostStyle := isVirtualHostStyle(endpointURL)
+func getEndpointOpts(endpointURL urlpkg.URL, isVirtualHostStyle bool) config.LoadOptionsFunc {
 
 	endpoint := config.WithEndpointResolverWithOptions(aws.EndpointResolverWithOptionsFunc(
 		func(service, region string, options ...interface{}) (aws.Endpoint, error) {
 			return aws.Endpoint{
 				URL:               endpointURL.String(),
 				Source:            aws.EndpointSourceCustom,
+				SigningRegion:     region,
 				HostnameImmutable: !isVirtualHostStyle}, nil
 		}))
-	return endpoint, isVirtualHostStyle
+	return endpoint
 }
 
 func getRegionOpts(ctx context.Context, opts Options, isVirtualHostStyle bool, awsOpts ...func(*config.LoadOptions) error) ([]func(*config.LoadOptions) error, error) {

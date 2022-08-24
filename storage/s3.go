@@ -233,7 +233,7 @@ func (s *S3) listObjectsVersion(ctx context.Context, url *url.URL) <-chan *Objec
 
 					newurl := url.Clone()
 					newurl.Path = aws.StringValue(v.Key)
-					newurl.VersionID = *v.VersionId
+					newurl.VersionID = aws.StringValue(v.VersionId)
 					etag := aws.StringValue(v.ETag)
 
 					objCh <- &Object{
@@ -271,7 +271,7 @@ func (s *S3) listObjectsVersion(ctx context.Context, url *url.URL) <-chan *Objec
 
 					newurl := url.Clone()
 					newurl.Path = aws.StringValue(d.Key)
-					newurl.VersionID = *d.VersionId
+					newurl.VersionID = aws.StringValue(d.VersionId)
 
 					objCh <- &Object{
 						URL:     newurl,

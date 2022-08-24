@@ -150,8 +150,13 @@ func (cc *ClientCache) newClient(ctx context.Context, opts Options) (*aws.Config
 	if opts.NoSignRequest {
 		// do not sign requests when making service API calls
 		awsOpts = append(awsOpts, config.WithCredentialsProvider(aws.AnonymousCredentials{}))
-	} else if opts.CredentialFile != "" || opts.Profile != "" {
-		awsOpts = append(awsOpts, config.WithSharedCredentialsFiles(append(config.DefaultSharedConfigFiles, opts.CredentialFile)))
+	}
+
+	if opts.CredentialFile != "" {
+		awsOpts = append(awsOpts, config.WithSharedCredentialsFiles([]string{opts.CredentialFile}))
+	}
+
+	if opts.Profile != "" {
 		awsOpts = append(awsOpts, config.WithSharedConfigProfile(opts.Profile))
 	}
 

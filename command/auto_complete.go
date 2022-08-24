@@ -129,9 +129,9 @@ func printListBuckets(ctx context.Context, client *storage.S3, u *url.URL) {
 
 	for _, bucket := range buckets {
 		if filepath.Base(os.Getenv("SHELL")) == "bash" {
-			fmt.Println(escapeColon("//" + bucket.Name))
+			fmt.Println(escapeColon("//" + bucket.Name + "/"))
 		} else {
-			fmt.Println(escapeColon("s3://" + bucket.Name))
+			fmt.Println(escapeColon("s3://" + bucket.Name + "/"))
 		}
 	}
 }
@@ -141,7 +141,7 @@ func printListNURLSuggestions(ctx context.Context, client *storage.S3, u *url.UR
 	if u.IsBucket() {
 		abs = abs + "/"
 	}
-	u, err := url.New(abs + "*")
+	u, err := url.New(abs)
 	if err != nil {
 		return
 	}

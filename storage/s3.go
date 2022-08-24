@@ -80,11 +80,7 @@ func parseEndpoint(endpoint string) (urlpkg.URL, error) {
 	if endpoint == "" {
 		return sentinelURL, nil
 	}
-	// add a scheme to correctly parse the endpoint. Without a scheme,
-	// url.Parse will put the host information in path"
-	if !strings.HasPrefix(endpoint, "http") {
-		endpoint = "http://" + endpoint
-	}
+
 	u, err := urlpkg.Parse(endpoint)
 	if err != nil {
 		return sentinelURL, fmt.Errorf("parse endpoint %q: %v", endpoint, err)

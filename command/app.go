@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	cmpinstall "github.com/posener/complete/cmd/install"
 	"github.com/urfave/cli/v2"
@@ -96,6 +97,7 @@ var app = &cli.App{
 		printJSON := c.Bool("json")
 		logLevel := c.String("log")
 		isStat := c.Bool("stat")
+		endpointUrl := c.String("endpoint-url")
 
 		log.Init(logLevel, printJSON)
 		parallel.Init(workerCount)
@@ -115,9 +117,15 @@ var app = &cli.App{
 			printError(commandFromContext(c), c.Command.Name, err)
 			return err
 		}
-
 		if isStat {
 			stat.InitStat()
+		}
+		if endpointUrl != "" {
+			if !strings.HasPrefix(endpointUrl, "http") {
+				err := fmt.Errorf(`bad value for --endpoint-url %v: scheme is missing. Must be of the form http://<hostname>/ or https://<hostname>/`, endpointUrl)
+				printError(commandFromContext(c), c.Command.Name, err)
+				return err
+			}
 		}
 
 		return nil

@@ -3,7 +3,6 @@ package command
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/urfave/cli/v2"
@@ -107,19 +106,7 @@ func NewListCommand() *cli.Command {
 		},
 	}
 
-	cmd.BashComplete = func(ctx *cli.Context) {
-		var arg string
-		args := ctx.Args()
-		if args.Len() > 0 {
-			arg = args.Get(args.Len() - 1)
-		}
-		if strings.HasPrefix(arg, "s3://") {
-			printS3Suggestions(ctx, arg)
-
-		} else {
-			cli.DefaultCompleteWithFlags(cmd)(ctx)
-		}
-	}
+	cmd.BashComplete = getBashCompleteFn(cmd)
 	return cmd
 }
 

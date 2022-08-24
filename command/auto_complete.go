@@ -33,45 +33,35 @@ _cli_zsh_autocomplete() {
 `
 	// NOTE: Broken, WIP. Requires `bash-completion` to be installed/sourced;
 	//	- https://github.com/scop/bash-completion
-	bash = `
-_cli_bash_autocomplete() { 
-    if [[ "${COMP_WORDS[0]}" != "source" ]]; then
-        local cur opts base;
-        COMPREPLY=();
-        cur="${COMP_WORDS[COMP_CWORD]}";
-        opts=$(${COMP_WORDS[@]:0:$COMP_CWORD} ${cur} --generate-bash-completion);
-        COMPREPLY=($(compgen -W "${opts}"));
-        return 0;
-    fi
-}
+	bash = `_s5cmd_cli_bash_autocomplete() {
 
-complete -o bashdefault -o default -o nospace -F _cli_bash_autocomplete s5cmd
+# get current word and its index (cur and cword respectively),
+# and prepare command (cmd)
+# exclude : from the word breaks
+local cur
+cur="${COMP_WORDS[COMP_CWORD]}"
+cmd="${COMP_LINE:0:$COMP_POINT}"
+
+echo cmd "$cmd" >> log.txt
+
+if [[ "${COMP_WORDS[0]}" != "source" ]]; then
+	COMPREPLY=()
+	# execute the command with '--generate-bash-completion' flag to obtain
+	# possible completion values for current word
+	local opts=$(${cmd} --generate-bash-completion)
+
+
+	# prepare completion array with possible values and filter those does not
+	# start with cur if no completion is found then fallback to default completion of shell. 
+	COMPREPLY=($(compgen -o bashdefault -o default -o nospace -W "${opts}" -- ${cur}))
+
+	return 0
+fi
+	}
+
+# call the _s5cmd_cli_bash_autocomplete to complete s5cmd command. 
+complete  -F _s5cmd_cli_bash_autocomplete s5cmd
 `
-	/*
-	   _cli_bash_autocomplete() {
-	   		if [[ "${COMP_WORDS[0]}" != "source" ]]; then
-	   		  local cur opts base
-	   		  COMPREPLY=()
-	   		  cur="${COMP_WORDS[COMP_CWORD]}"
-	   			opts=$(${COMP_LINE} --generate-bash-completion)
-	         # echo  "!
-	         #  cur id $cur
-	         #  opts are ${opts}.
-	         # !"
-
-	       # add each line as an element
-	         while IFS='' read -r line; do COMPREPLY+=("$line"); done < <(compgen -W "${
-
-	   #		  COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
-	         # echo  "§
-	         # COMPREPLY =" "${COMPREPLY[@]}" "
-	         # §"
-	   		  return 0
-	   		fi
-	   	  }
-
-	   	  complete -o bashdefault -o default -o nospace -F _cli_bash_autocomplete s5cmd
-	*/
 	powershell = `$fn = $($MyInvocation.MyCommand.Name)
 	  $name = $fn -replace "(.*)\.ps1$", '$1'
 	  Register-ArgumentCompleter -Native -CommandName $name -ScriptBlock {
@@ -122,7 +112,12 @@ func printS3Suggestions(ctx *cli.Context, arg string) {
 	if u.Bucket == "" || (u.IsBucket() && !strings.HasSuffix(arg, "/")) {
 		printListBuckets(c, client, u)
 	} else {
-		printListNURLSuggestions(c, client, u, 13)
+		prefix := ""
+		if i := strings.LastIndex(arg, ":"); i >= 0 { //os.Getenv("COMP_WORDBREAKS"))
+			prefix = arg[0 : i+1]
+		}
+
+		printListNURLSuggestions(c, client, u, 13, prefix)
 	}
 }
 
@@ -141,7 +136,7 @@ func printListBuckets(ctx context.Context, client *storage.S3, u *url.URL) {
 	}
 }
 
-func printListNURLSuggestions(ctx context.Context, client *storage.S3, u *url.URL, count int) {
+func printListNURLSuggestions(ctx context.Context, client *storage.S3, u *url.URL, count int, prefix string) {
 	abs := u.Absolute()
 	if u.IsBucket() {
 		abs = abs + "/"
@@ -160,7 +155,7 @@ func printListNURLSuggestions(ctx context.Context, client *storage.S3, u *url.UR
 			return
 		}
 		if filepath.Base(os.Getenv("SHELL")) == "bash" {
-			fmt.Println(escapeColon(strings.TrimPrefix(obj.URL.Absolute(), "s3:")))
+			fmt.Println(escapeColon(strings.TrimPrefix(obj.URL.Absolute(), prefix)))
 		} else {
 			fmt.Println(escapeColon(obj.URL.Absolute()))
 		}
@@ -187,4 +182,18 @@ func installCompletionHelp(shell string) {
 	}
 
 	fmt.Println(script)
+}
+
+// replace every colon : with \: if shell is zsh
+// colons are used as a seperator for the autocompletion script
+// so "literal colons in completion must be quoted with a backslash"
+// see also https://zsh.sourceforge.io/Doc/Release/Completion-System.html#:~:text=This%20is%20followed,as%20name1%3B
+func escapeColon(str ...interface{}) string {
+	baseShell := filepath.Base(os.Getenv("SHELL"))
+
+	if baseShell == "zsh" {
+		return strings.ReplaceAll(fmt.Sprint(str...), ":", `\:`)
+	}
+
+	return fmt.Sprint(str...)
 }

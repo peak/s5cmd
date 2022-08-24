@@ -216,7 +216,7 @@ func (s *S3) listObjectsVersion(ctx context.Context, url *url.URL) <-chan *Objec
 					if !url.Match(key) {
 						continue
 					}
-					if url.VersionID != "" && url.VersionID != *v.VersionId {
+					if url.VersionID != "" && url.VersionID != aws.StringValue(v.VersionId) {
 						continue
 					}
 
@@ -254,7 +254,7 @@ func (s *S3) listObjectsVersion(ctx context.Context, url *url.URL) <-chan *Objec
 					if !url.Match(key) {
 						continue
 					}
-					if url.VersionID != "" && url.VersionID != *d.VersionId {
+					if url.VersionID != "" && url.VersionID != aws.StringValue(d.VersionId) {
 						continue
 					}
 
@@ -854,9 +854,7 @@ func (s *S3) doDelete(ctx context.Context, chunk chunk, resultch chan *Object) {
 		for _, k := range chunk.Keys {
 			key := fmt.Sprintf("s3://%v/%v", chunk.Bucket, aws.StringValue(k.Key))
 			url, _ := url.New(key)
-			if k.VersionId != nil {
-				url.VersionID = *k.VersionId
-			}
+			url.VersionID = aws.StringValue(k.VersionId)
 			resultch <- &Object{URL: url}
 		}
 		return
@@ -876,18 +874,15 @@ func (s *S3) doDelete(ctx context.Context, chunk chunk, resultch chan *Object) {
 	for _, d := range o.Deleted {
 		key := fmt.Sprintf("s3://%v/%v", bucket, aws.StringValue(d.Key))
 		url, _ := url.New(key)
-		if d.VersionId != nil {
-			url.VersionID = *d.VersionId
-		}
+		url.VersionID = aws.StringValue(d.VersionId)
 		resultch <- &Object{URL: url}
 	}
 
 	for _, e := range o.Errors {
 		key := fmt.Sprintf("s3://%v/%v", bucket, aws.StringValue(e.Key))
 		url, _ := url.New(key)
-		if e.VersionId != nil {
-			url.VersionID = *e.VersionId
-		}
+		url.VersionID = aws.StringValue(e.VersionId)
+
 		resultch <- &Object{
 			URL: url,
 			Err: fmt.Errorf(aws.StringValue(e.Message)),

@@ -121,7 +121,7 @@ var app = &cli.App{
 		if isStat {
 			stat.InitStat()
 		}
-		
+
 		if endpointURL != "" {
 			if !strings.HasPrefix(endpointURL, "http") {
 				err := fmt.Errorf(`bad value for --endpoint-url %v: scheme is missing. Must be of the form http://<hostname>/ or https://<hostname>/`, endpointURL)

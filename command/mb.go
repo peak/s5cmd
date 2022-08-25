@@ -27,7 +27,7 @@ Examples:
 `
 
 func NewMakeBucketCommand() *cli.Command {
-	return &cli.Command{
+	cmd := &cli.Command{
 		Name:               "mb",
 		HelpName:           "mb",
 		Usage:              "make bucket",
@@ -51,6 +51,9 @@ func NewMakeBucketCommand() *cli.Command {
 			}.Run(c.Context)
 		},
 	}
+	cmd.BashComplete = ineffectiveCompleteFnWithDefault(cmd, "s3://")
+
+	return cmd
 }
 
 // MakeBucket holds bucket creation operation flags and states.

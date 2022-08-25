@@ -103,6 +103,46 @@ func getBashCompleteFn(cmd *cli.Command) func(ctx *cli.Context) {
 	}
 }
 
+func getRemoteCompleteFn(cmd *cli.Command) func(ctx *cli.Context) {
+	return func(ctx *cli.Context) {
+		var arg string
+		args := ctx.Args()
+		l := args.Len()
+
+		if l > 0 {
+			arg = args.Get(l - 1)
+		}
+
+		if strings.HasPrefix(arg, "-") {
+			cli.DefaultCompleteWithFlags(cmd)(ctx)
+		} else if !strings.HasPrefix(arg, "s3://") {
+			arg = "s3://"
+		}
+		printS3Suggestions(ctx, arg)
+	}
+}
+
+// it returns a complete function which prints the argument, itself, which is to be completed.
+// If the argument is empty string it uses the defaultCompletions to make suggestions.
+func ineffectiveCompleteFnWithDefault(cmd *cli.Command, defaultCompletions ...string) func(ctx *cli.Context) {
+	return func(ctx *cli.Context) {
+		var arg string
+		args := ctx.Args()
+		if args.Len() > 0 {
+			arg = args.Get(args.Len() - 1)
+		}
+		if arg == "" {
+			for _, str := range defaultCompletions {
+				fmt.Println(formatSuggestionForShell(str, str))
+			}
+		} else if strings.HasPrefix(arg, "-") {
+			cli.DefaultCompleteWithFlags(cmd)(ctx)
+		} else {
+			fmt.Println(formatSuggestionForShell(arg, arg))
+		}
+	}
+}
+
 func printS3Suggestions(ctx *cli.Context, arg string) {
 	c := ctx.Context
 	u, err := url.New(arg)

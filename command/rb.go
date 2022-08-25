@@ -51,7 +51,7 @@ func NewRemoveBucketCommand() *cli.Command {
 		},
 	}
 
-	cmd.BashComplete = getBashCompleteFn(cmd)
+	cmd.BashComplete = getRemoteCompleteFn(cmd)
 	return cmd
 }
 

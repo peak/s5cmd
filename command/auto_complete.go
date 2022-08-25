@@ -12,89 +12,94 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-const (
-	zsh = `autoload -Uz compinit
+const zsh = `autoload -Uz compinit
 compinit
 
 _cli_zsh_autocomplete() {
 	local -a opts
 	local cur
 	cur=${words[-1]}
-	opts=("${(@f)$(${words[@]:0:#words[@]-1} ${cur} --generate-bash-completion)}")
-  
+	opts=("${(@f)$(${words[@]:0:#words[@]-1} "${cur}" --generate-bash-completion)}")
+
 	if [[ "${opts[1]}" != "" ]]; then
 	  _describe 'values' opts
 	else
 	  _files
 	fi
-  }
-  
-  compdef _cli_zsh_autocomplete s5cmd
+}
+
+compdef _cli_zsh_autocomplete s5cmd
 `
-	// NOTE: Broken, WIP. Requires `bash-completion` to be installed/sourced;
-	//	- https://github.com/scop/bash-completion
-	bash = `_s5cmd_cli_bash_autocomplete() {
 
-# get current word and its index (cur and cword respectively),
-# and prepare command (cmd)
-# exclude : from the word breaks
-local cur
-cur="${COMP_WORDS[COMP_CWORD]}"
-cmd="${COMP_LINE:0:$COMP_POINT}"
+const bash = `# prepare autocompletion suggestions for s5cmd and save them to COMPREPLY array
+_s5cmd_cli_bash_autocomplete() {
 
-echo cmd "$cmd" >> log.txt
+	if [[ "${COMP_WORDS[0]}" != "source" ]]; then
+		COMPREPLY=()
+		local opts cur cmd
 
-if [[ "${COMP_WORDS[0]}" != "source" ]]; then
-	COMPREPLY=()
-	# execute the command with '--generate-bash-completion' flag to obtain
-	# possible completion values for current word
-	local opts=$(${cmd} --generate-bash-completion)
+		# get current word (cur) and prepare command (cmd)
+		cur="${COMP_WORDS[COMP_CWORD]}"
+		cmd="${COMP_LINE:0:$COMP_POINT}"
 
+		# if we want to complete the second argurment and we didn't started writing
+		# yet then we should pass an empty string as another argument. Otherwise
+		# the white spaces will be discarded and the program will make suggestions
+		# as if it is completing the first argument.
+		# shellcheck disable=SC2089,SC2090
+		# Beware that the we want to pass empty string so we intentionally write
+		# as it is. Fixes of SC2089 and SC2090 are not what we want.
+		# see also https://www.shellcheck.net/wiki/SC2090
+		[ "${COMP_LINE:COMP_POINT-1:$COMP_POINT}" == " " ] \
+			&& [ "${COMP_LINE:COMP_POINT-2:$COMP_POINT}" != '\ ' ] \
+			&& cmd="${cmd} \"\"" 
 
-	# prepare completion array with possible values and filter those does not
-	# start with cur if no completion is found then fallback to default completion of shell. 
-	COMPREPLY=($(compgen -o bashdefault -o default -o nospace -W "${opts}" -- ${cur}))
+		# execute the command with '--generate-bash-completion' flag to obtain
+		# possible completion values for current word.
+		# shellcheck disable=SC2090
+		# We also want to pass COMP_WORDBREAKS to app. Because the application
+		# will prepare different suggestions depending on whether COMP_WORDBREAKS
+		# contains colons or not.
+		opts=$(COMP_WORDBREAKS=$COMP_WORDBREAKS $cmd --generate-bash-completion)
 
-	return 0
-fi
-	}
+		# prepare completion array with possible values and filter those does not
+		# start with cur. if no completion is found then fallback to default completion of shell. 
+		while IFS='' read -r line; do COMPREPLY+=("$line"); done < <(compgen -o bashdefault -o default -o nospace -W "${opts}" -- "${cur}")
+
+		return 0
+	fi
+}
 
 # call the _s5cmd_cli_bash_autocomplete to complete s5cmd command. 
 complete  -F _s5cmd_cli_bash_autocomplete s5cmd
 `
-	powershell = `$fn = $($MyInvocation.MyCommand.Name)
-	  $name = $fn -replace "(.*)\.ps1$", '$1'
-	  Register-ArgumentCompleter -Native -CommandName $name -ScriptBlock {
-		   param($commandName, $wordToComplete, $cursorPosition)
-		   $other = "$wordToComplete --generate-bash-completion"
-			   Invoke-Expression $other | ForEach-Object {
-				  [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
-			   }
-	   }
-	  Footer
-	  `
-)
+
+const pwsh = `$fn = $($MyInvocation.MyCommand.Name)
+$name = $fn -replace "(.*)\.ps1$", '$1'
+Register-ArgumentCompleter -Native -CommandName $name -ScriptBlock {
+	param($commandName, $wordToComplete, $cursorPosition)
+	$other = "$wordToComplete --generate-bash-completion"
+		Invoke-Expression $other | ForEach-Object {
+			[System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
+		}
+}
+`
 
 func getBashCompleteFn(cmd *cli.Command) func(ctx *cli.Context) {
 	return func(ctx *cli.Context) {
 		var arg string
 		args := ctx.Args()
 		l := args.Len()
-		f, _ := os.Open("log.txt")
-		defer f.Close()
-		f.WriteString(fmt.Sprint("this//arg=", args, "l=", l))
 
-		if l > 2 && filepath.Base(os.Getenv("SHELL")) == "bash" {
-			arg = args.Get(l-3) + args.Get(l-2) + args.Get(l-1)
-		} else if l > 0 {
+		if l > 0 {
 			arg = args.Get(l - 1)
 		}
+
 		if strings.HasPrefix(arg, "s3://") {
 			printS3Suggestions(ctx, arg)
 		} else {
 			cli.DefaultCompleteWithFlags(cmd)(ctx)
 		}
-		f.WriteString(escapeColon(fmt.Sprint("\n//arg=", arg, "l=", l)))
 	}
 }
 
@@ -110,33 +115,25 @@ func printS3Suggestions(ctx *cli.Context, arg string) {
 	}
 
 	if u.Bucket == "" || (u.IsBucket() && !strings.HasSuffix(arg, "/")) {
-		printListBuckets(c, client, u)
+		printListBuckets(c, client, u, arg)
 	} else {
-		prefix := ""
-		if i := strings.LastIndex(arg, ":"); i >= 0 { //os.Getenv("COMP_WORDBREAKS"))
-			prefix = arg[0 : i+1]
-		}
-
-		printListNURLSuggestions(c, client, u, 13, prefix)
+		printListNURLSuggestions(c, client, u, 13, arg)
 	}
 }
 
-func printListBuckets(ctx context.Context, client *storage.S3, u *url.URL) {
+func printListBuckets(ctx context.Context, client *storage.S3, u *url.URL, argToBeCompleted string) {
 	buckets, err := client.ListBuckets(ctx, u.Bucket)
 	if err != nil {
 		return
 	}
 
 	for _, bucket := range buckets {
-		if filepath.Base(os.Getenv("SHELL")) == "bash" {
-			fmt.Println(escapeColon("//" + bucket.Name + "/"))
-		} else {
-			fmt.Println(escapeColon("s3://" + bucket.Name + "/"))
-		}
+		fmt.Println(formatSuggestionForShell("s3://"+bucket.Name+"/", argToBeCompleted))
+
 	}
 }
 
-func printListNURLSuggestions(ctx context.Context, client *storage.S3, u *url.URL, count int, prefix string) {
+func printListNURLSuggestions(ctx context.Context, client *storage.S3, u *url.URL, count int, argToBeCompleted string) {
 	abs := u.Absolute()
 	if u.IsBucket() {
 		abs = abs + "/"
@@ -154,46 +151,65 @@ func printListNURLSuggestions(ctx context.Context, client *storage.S3, u *url.UR
 		if obj.Err != nil {
 			return
 		}
-		if filepath.Base(os.Getenv("SHELL")) == "bash" {
-			fmt.Println(escapeColon(strings.TrimPrefix(obj.URL.Absolute(), prefix)))
-		} else {
-			fmt.Println(escapeColon(obj.URL.Absolute()))
-		}
-
+		fmt.Println(formatSuggestionForShell(obj.URL.Absolute(), argToBeCompleted))
 		i++
 	}
 }
 
 func installCompletionHelp(shell string) {
-	baseShell := filepath.Base(shell)
-	fmt.Println("# To enable autocompletion you should add the following script to startup scripts of your shell.")
-	if baseShell != "" {
-		fmt.Println("# It is probably located at ~/." + baseShell + "rc")
-	}
 	var script string
+	baseShell := filepath.Base(shell)
+	instructions := "# To enable autocompletion you should add the following script" +
+		" to startup scripts of your shell.\n" +
+		"# It is probably located at ~/." + baseShell + "rc"
+
 	if baseShell == "zsh" {
 		script = zsh
 	} else if baseShell == "bash" {
 		script = bash
-	} else if baseShell == "powershell" {
-		script = powershell
+	} else if baseShell == "pwsh" {
+		script = pwsh
+		instructions = "# To enable autocompletion you should save the following" +
+			" script to a file named \"s5cmd.ps1\" and execute it.\n# To persist it" +
+			" you should add the path of \"s5cmd.ps1\" file to profile file " +
+			"(which you can locate with $profile) to automatically execute \"s5cmd.ps1\"" +
+			" on every shell start up."
 	} else {
-		script = "# Your shell \"" + baseShell + "\" is not recognized. Auto complete is only available with zsh, bash and powershell (?)."
+		instructions = "# We couldn't recognize your SHELL \"" + baseShell + "\".\n" +
+			"# Shell completion is supported only for bash, pwsh and zsh." +
+			"# Make sure that your SHELL environment variable is set accurately."
 	}
 
+	fmt.Println(instructions)
 	fmt.Println(script)
 }
 
-// replace every colon : with \: if shell is zsh
-// colons are used as a seperator for the autocompletion script
-// so "literal colons in completion must be quoted with a backslash"
-// see also https://zsh.sourceforge.io/Doc/Release/Completion-System.html#:~:text=This%20is%20followed,as%20name1%3B
-func escapeColon(str ...interface{}) string {
+func formatSuggestionForShell(suggestion, argToBeCompleted string) string {
+	var prefix string
 	baseShell := filepath.Base(os.Getenv("SHELL"))
 
-	if baseShell == "zsh" {
-		return strings.ReplaceAll(fmt.Sprint(str...), ":", `\:`)
+	if i := strings.LastIndex(argToBeCompleted, ":"); i >= 0 && baseShell == "bash" &&
+		strings.Contains(os.Getenv("COMP_WORDBREAKS"), ":") {
+		prefix = argToBeCompleted[0 : i+1]
 	}
+	// fmt.Println("Wb", os.Getenv("COMP_WORDBREAKS"))
+	// fmt.Println("prefix", prefix)
+	//	fmt.Println("org sug", suggestion)
 
-	return fmt.Sprint(str...)
+	suggestion = strings.TrimPrefix(suggestion, prefix)
+
+	//	fmt.Println("new sug", suggestion)
+	// replace every colon : with \:	if shell is zsh
+	// colons are used as a seperator for the autocompletion script
+	// so "literal colons in completion must be quoted with a backslash"
+	// see also https://zsh.sourceforge.io/Doc/Release/Completion-System.html#:~:text=This%20is%20followed,as%20name1%3B
+	if baseShell == "zsh" {
+		suggestion = escapeColon(suggestion)
+	}
+	return suggestion
+}
+
+// replace every colon : with \:
+func escapeColon(str ...interface{}) string {
+	return strings.ReplaceAll(fmt.Sprint(str...), ":", `\:`)
 }

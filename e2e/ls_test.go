@@ -14,8 +14,7 @@ import (
 func TestListBuckets(t *testing.T) {
 	t.Parallel()
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	// alphabetically unordered list of buckets
 	bucketPrefix := s3BucketFromTestName(t)
@@ -42,8 +41,7 @@ func TestListBuckets(t *testing.T) {
 func TestListBucketsJSON(t *testing.T) {
 	t.Parallel()
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	// alphabetically unordered list of buckets
 	bucketPrefix := s3BucketFromTestName(t)
@@ -72,8 +70,7 @@ func TestListSingleS3Object(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -97,8 +94,7 @@ func TestListSingleS3ObjectJSON(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -122,8 +118,7 @@ func TestListSingleWildcardS3Object(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 	putFile(t, s3client, bucket, "testfile1.txt", "this is a file content")
@@ -148,8 +143,7 @@ func TestListS3ObjectsWithDashS(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 	putFile(t, s3client, bucket, "testfile1.txt", "this is a file content")
@@ -168,8 +162,7 @@ func TestListMultipleWildcardS3Object(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 	putFile(t, s3client, bucket, "a/testfile1.txt", "content")
@@ -205,8 +198,7 @@ func TestListMultipleWildcardS3ObjectWithPrefix(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 	putFile(t, s3client, bucket, "a/testfile1.txt", "content")
@@ -239,8 +231,7 @@ func TestListS3ObjectsAndFolders(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 	putFile(t, s3client, bucket, "testfile1.txt", "content")
@@ -277,8 +268,7 @@ func TestListS3ObjectsAndFoldersWithPrefix(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 	putFile(t, s3client, bucket, "testfile1.txt", "content")
@@ -304,8 +294,7 @@ func TestListNonexistingS3ObjectInGivenPrefix(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -328,8 +317,7 @@ func TestListNonexistingS3Object(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -351,8 +339,7 @@ func TestListS3ObjectsWithDashE(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -376,8 +363,7 @@ func TestListS3ObjectsWithDashH(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -417,8 +403,7 @@ func TestListS3ObjectsWithExcludeFilter(t *testing.T) {
 		"file2.txt.extension", // this should not be excluded.
 	}
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -461,8 +446,7 @@ func TestListS3ObjectsWithExcludeFilters(t *testing.T) {
 		"file2.txt",
 	}
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -497,8 +481,7 @@ func TestListS3ObjectsWithEmptyExcludeFilter(t *testing.T) {
 		"file2.txt",
 	}
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -534,8 +517,7 @@ func TestListNestedPrefixedS3ObjectsWithExcludeFilter(t *testing.T) {
 		"some-dir/some-dir/some-dir/file.txt",
 	}
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -585,8 +567,7 @@ func TestListLocalFilesWithExcludeFilter(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			_, s5cmd, cleanup := setup(t)
-			defer cleanup()
+			_, s5cmd := setup(t)
 
 			const excludePattern = "main*"
 			folderLayout := []fs.PathOp{
@@ -625,8 +606,7 @@ func TestListLocalFilesWithExcludeFilter(t *testing.T) {
 func TestListLocalFilesWithExcludeFilters(t *testing.T) {
 	t.Parallel()
 
-	_, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	_, s5cmd := setup(t)
 
 	const (
 		excludePattern1 = "main*"
@@ -666,8 +646,7 @@ func TestListLocalFilesWithExcludeFilters(t *testing.T) {
 func TestListLocalFilesWithPrefixAndExcludeFilter(t *testing.T) {
 	t.Parallel()
 
-	_, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	_, s5cmd := setup(t)
 
 	const (
 		excludePattern1 = "main*"
@@ -706,8 +685,7 @@ func TestListLocalFilesWithPrefixAndExcludeFilter(t *testing.T) {
 func TestListNestedLocalFolders(t *testing.T) {
 	t.Parallel()
 
-	_, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	_, s5cmd := setup(t)
 
 	const (
 		excludePattern1 = "some-dir/some-dir/file.txt"

@@ -15,7 +15,7 @@ import (
 const zsh = `autoload -Uz compinit
 compinit
 
-_cli_zsh_autocomplete() {
+_s5cmd_cli_zsh_autocomplete() {
 	local -a opts
 	local cur
 	cur=${words[-1]}
@@ -28,7 +28,7 @@ _cli_zsh_autocomplete() {
 	fi
 }
 
-compdef _cli_zsh_autocomplete s5cmd
+compdef _s5cmd_cli_zsh_autocomplete s5cmd
 `
 
 const bash = `# prepare autocompletion suggestions for s5cmd and save them to COMPREPLY array
@@ -80,7 +80,7 @@ Register-ArgumentCompleter -Native -CommandName $name -ScriptBlock {
 	param($commandName, $wordToComplete, $cursorPosition)
 	$other = "$wordToComplete --generate-bash-completion"
 		Invoke-Expression $other | ForEach-Object {
-			[System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
+		[System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
 		}
 }
 `
@@ -93,6 +93,16 @@ func getBashCompleteFn(cmd *cli.Command) func(ctx *cli.Context) {
 
 		if l > 0 {
 			arg = args.Get(l - 1)
+		}
+
+		// argument may start with a quotation mark, in this case we want to trim that before
+		// checking if it has prefix s3://
+		// Beware that we only want to trim the first char, not all of the leading
+		// quotation marks, because those quotation marks may be actual charactes.
+		if strings.HasPrefix(arg, "'") {
+			arg = strings.TrimPrefix(arg, "'")
+		} else {
+			arg = strings.TrimPrefix(arg, "\"")
 		}
 
 		if strings.HasPrefix(arg, "s3://") {
@@ -149,6 +159,7 @@ func printS3Suggestions(ctx *cli.Context, arg string) {
 	if err != nil {
 		u = &url.URL{Type: 0, Scheme: "s3"}
 	}
+
 	client, err := storage.NewRemoteClient(c, u, NewStorageOpts(ctx))
 	if err != nil {
 		return
@@ -169,7 +180,6 @@ func printListBuckets(ctx context.Context, client *storage.S3, u *url.URL, argTo
 
 	for _, bucket := range buckets {
 		fmt.Println(formatSuggestionForShell("s3://"+bucket.Name+"/", argToBeCompleted))
-
 	}
 }
 
@@ -228,17 +238,15 @@ func formatSuggestionForShell(suggestion, argToBeCompleted string) string {
 	var prefix string
 	baseShell := filepath.Base(os.Getenv("SHELL"))
 
-	if i := strings.LastIndex(argToBeCompleted, ":"); i >= 0 && baseShell == "bash" &&
-		strings.Contains(os.Getenv("COMP_WORDBREAKS"), ":") {
+	if i := strings.LastIndex(argToBeCompleted, ":"); i >= 0 && baseShell == "bash" {
+		// write the original suggestion in case that the argToBeCompleted was quoted.
+		// Bash doesn't split on : when argument is quoted even if : is in COMP_WORDBREAKS
+		fmt.Println(suggestion)
 		prefix = argToBeCompleted[0 : i+1]
 	}
-	// fmt.Println("Wb", os.Getenv("COMP_WORDBREAKS"))
-	// fmt.Println("prefix", prefix)
-	//	fmt.Println("org sug", suggestion)
 
 	suggestion = strings.TrimPrefix(suggestion, prefix)
 
-	//	fmt.Println("new sug", suggestion)
 	// replace every colon : with \:	if shell is zsh
 	// colons are used as a seperator for the autocompletion script
 	// so "literal colons in completion must be quoted with a backslash"

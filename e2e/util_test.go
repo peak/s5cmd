@@ -314,6 +314,38 @@ func createBucket(t *testing.T, client *s3.S3, bucket string) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() {
+		// cleanup if bucket exists.
+		_, err := client.HeadBucket(&s3.HeadBucketInput{Bucket: aws.String(bucket)})
+		if err == nil {
+
+			listInput := s3.ListObjectsInput{
+				Bucket: aws.String(bucket),
+			}
+
+			//remove objects inside the bucket first.
+			err := client.ListObjectsPages(&listInput, func(p *s3.ListObjectsOutput, lastPage bool) bool {
+				for _, c := range p.Contents {
+					client.DeleteObject(&s3.DeleteObjectInput{
+						Bucket: aws.String(bucket),
+						Key:    c.Key,
+					})
+				}
+				return !lastPage
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			_, err = client.DeleteBucket(&s3.DeleteBucketInput{
+				Bucket: aws.String(bucket),
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+	})
+
 }
 
 var errS3NoSuchKey = fmt.Errorf("s3: no such key")

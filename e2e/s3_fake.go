@@ -57,7 +57,6 @@ func s3ServerEndpoint(t *testing.T, testdir *fs.Dir, loglvl, backend string, tim
 		s3srv.Close()
 		// no need to remove boltdb file since 'testdir' will be cleaned up
 		// after each test.
-
 	})
 
 	if enableProxy {

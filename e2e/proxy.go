@@ -82,6 +82,7 @@ func (p *httpProxy) isSuccessful(totalReqs int64) bool {
 
 func setupProxy(t *testing.T, p *httpProxy) string {
 	proxysrv := httptest.NewServer(p)
+
 	t.Cleanup(func() {
 		proxysrv.Close()
 	})

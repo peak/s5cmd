@@ -159,6 +159,7 @@ func printS3Suggestions(ctx *cli.Context, arg string) {
 
 	client, err := storage.NewRemoteClient(c, u, NewStorageOpts(ctx))
 	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
 		return
 	}
 
@@ -172,6 +173,7 @@ func printS3Suggestions(ctx *cli.Context, arg string) {
 func printListBuckets(ctx context.Context, client *storage.S3, u *url.URL, argToBeCompleted string) {
 	buckets, err := client.ListBuckets(ctx, u.Bucket)
 	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
 		return
 	}
 
@@ -187,6 +189,7 @@ func printListNURLSuggestions(ctx context.Context, client *storage.S3, u *url.UR
 	}
 	u, err := url.New(abs)
 	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
 		return
 	}
 
@@ -196,6 +199,7 @@ func printListNURLSuggestions(ctx context.Context, client *storage.S3, u *url.UR
 			break
 		}
 		if obj.Err != nil {
+			fmt.Fprintln(os.Stderr, obj.Err)
 			return
 		}
 		fmt.Println(formatSuggestionForShell(obj.URL.Absolute(), argToBeCompleted))

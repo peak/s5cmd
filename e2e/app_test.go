@@ -6,8 +6,10 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"gotest.tools/v3/assert"
+	"gotest.tools/v3/fs"
 	"gotest.tools/v3/icmd"
 )
 
@@ -226,4 +228,87 @@ func TestInvalidLoglevel(t *testing.T) {
 		0: equals(`Incorrect Usage: invalid value "notexist" for flag -log: allowed values: [trace, debug, info, error]`),
 		1: equals("See 's5cmd --help' for usage"),
 	})
+}
+
+func TestCompletionFlag(t *testing.T) {
+	t.Parallel()
+
+	flag := "--generate-bash-completion"
+	testcases := []struct {
+		name          string
+		precedingArgs []string
+		arg           string
+		expected      []string
+		env           []string
+	}{
+		{
+			name:          "cp complete empty string",
+			precedingArgs: []string{"cp"},
+			arg:           "s3://",
+			expected:      []string{},
+			env:           []string{"/bin/bash"},
+		},
+	}
+	_, _ = testcases, flag
+
+	workdir := fs.NewDir(t, "completionTest",
+		fs.WithFiles(
+			map[string]string{
+				"dif":   "content",
+				"root1": "content",
+				"root2": "content",
+			},
+		),
+		fs.WithDir("dir", fs.WithFiles(
+			map[string]string{
+				"root1": "content",
+				"root2": "content",
+			},
+		)),
+	)
+	defer workdir.Remove()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd, cleanup := setup(t)
+	defer cleanup()
+
+	// prepare remote bucket content
+	createBucket(t, s3client, bucket)
+
+	remoteFiles := []string{
+		"file0.txt",
+		"file1.txt",
+		"filedir/child.txt",
+		"dir/child.txt",
+		"co:lon:in:key",
+		"as*terisk",
+		"as*oburiks",
+		`back\slash`,
+		`backback`,
+		"qu?estion",
+		"qu?vestion",
+	}
+
+	for _, f := range remoteFiles {
+		putFile(t, s3client, bucket, f, "content")
+	}
+
+	for _, tc := range testcases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			cmd := s5cmd(append(tc.precedingArgs, tc.arg, flag)...)
+			cmd.Dir = workdir.Path()
+			cmd.Env = append(cmd.Env, fmt.Sprintf("SHELL=%v", "/bin/zsh"))
+			result := icmd.RunCmd(cmd)
+			os.Getenv("SHELL")
+			fmt.Println(os.Getenv("SHELL"), result.String(), "§", result.Stdout())
+
+			time.Sleep(40 * time.Second)
+			assert.Assert(t, false)
+
+		})
+	}
 }

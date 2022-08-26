@@ -57,10 +57,7 @@ _s5cmd_cli_bash_autocomplete() {
 		# execute the command with '--generate-bash-completion' flag to obtain
 		# possible completion values for current word.
 		# shellcheck disable=SC2090
-		# We also want to pass COMP_WORDBREAKS to app. Because the application
-		# will prepare different suggestions depending on whether COMP_WORDBREAKS
-		# contains colons or not.
-		opts=$(COMP_WORDBREAKS=$COMP_WORDBREAKS $cmd --generate-bash-completion)
+		opts=$($cmd --generate-bash-completion)
 
 		# prepare completion array with possible values and filter those does not
 		# start with cur. if no completion is found then fallback to default completion of shell. 
@@ -71,7 +68,7 @@ _s5cmd_cli_bash_autocomplete() {
 }
 
 # call the _s5cmd_cli_bash_autocomplete to complete s5cmd command. 
-complete  -F _s5cmd_cli_bash_autocomplete s5cmd
+complete -o nospace -F _s5cmd_cli_bash_autocomplete s5cmd
 `
 
 const pwsh = `$fn = $($MyInvocation.MyCommand.Name)

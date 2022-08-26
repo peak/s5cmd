@@ -41,6 +41,10 @@ const (
 	// Don't use "race" flag in the build arguments.
 	testDisableRaceFlagKey = "S5CMD_BUILD_BINARY_WITHOUT_RACE_FLAG"
 	testDisableRaceFlagVal = "1"
+	s5cmdTestIdEnv         = "S5CMD_ACCESS_KEY_ID"
+	s5cmdTestSecretEnv     = "S5CMD_SECRET_ACCESS_KEY"
+	s5cmdTestEndpointEnv   = "S5CMD_ENDPOINT_URL"
+	s5cmdTestRegionEnv     = "S5CMD_REGION"
 )
 
 var (
@@ -104,8 +108,19 @@ func setup(t *testing.T, options ...option) (*s3.S3, func(...string) icmd.Cmd) {
 	for _, option := range options {
 		option(opts)
 	}
+	testdir, workdir := workdir(t, opts)
 
-	endpoint, workdir := server(t, opts)
+	endpoint := ""
+
+	// don't create a local s3 server if tests will run in another endpoint
+	if !isEndpointFromEnv() {
+		endpoint = server(t, testdir, opts)
+	}
+	// one of the tests check if s5cmd correctly fails when an incorrect endpoint is given.
+	// if test specified an endpoint url, then try to use that url.
+	if opts.endpointURL != "" {
+		endpoint = opts.endpointURL
+	}
 	client := s3client(t, storage.Options{
 		Endpoint:    endpoint,
 		NoVerifySSL: true,
@@ -113,10 +128,7 @@ func setup(t *testing.T, options ...option) (*s3.S3, func(...string) icmd.Cmd) {
 
 	return client, s5cmd(workdir, endpoint)
 }
-
-func server(t *testing.T, opts *setupOpts) (string, string) {
-	t.Helper()
-
+func workdir(t *testing.T, opts *setupOpts) (*fs.Dir, string) {
 	// testdir := fs.NewDir() tries to create a new directory which
 	// has a prefix = [test function name][operation name]
 	// e.g., prefix' = "TestCopySingleS3ObjectToLocal/cp_s3://bucket/object_file"
@@ -129,6 +141,10 @@ func server(t *testing.T, opts *setupOpts) (string, string) {
 
 	testdir := fs.NewDir(t, prefix, fs.WithDir("workdir", fs.WithMode(0700)))
 	workdir := testdir.Join("workdir")
+	return testdir, workdir
+}
+func server(t *testing.T, testdir *fs.Dir, opts *setupOpts) string {
+	t.Helper()
 
 	s3LogLevel := *flagTestLogLevel
 
@@ -137,15 +153,12 @@ func server(t *testing.T, opts *setupOpts) (string, string) {
 	}
 
 	endpoint := s3ServerEndpoint(t, testdir, s3LogLevel, opts.s3backend, opts.timeSource, opts.enableProxy)
-	if opts.endpointURL != "" {
-		endpoint = opts.endpointURL
-	}
+
 	t.Cleanup(func() {
 		testdir.Remove()
-
 	})
 
-	return endpoint, workdir
+	return endpoint
 }
 
 func s3client(t *testing.T, options storage.Options) *s3.S3 {
@@ -155,21 +168,46 @@ func s3client(t *testing.T, options storage.Options) *s3.S3 {
 	if *flagTestLogLevel == "debug" {
 		awsLogLevel = aws.LogDebug
 	}
+	s3Config := aws.NewConfig()
+
+	id := defaultAccessKeyID
+	key := defaultSecretAccessKey
+	endpoint := options.Endpoint
+	region := endpoints.UsEast1RegionID
+
+	// get environment variables and use external endpoint url.
+	// this can be used to test s3 sources such as gcs, amazon, wasabi etc.
+	if isEndpointFromEnv() {
+		id = os.Getenv(s5cmdTestIdEnv)
+		key = os.Getenv(s5cmdTestSecretEnv)
+		endpoint = os.Getenv(s5cmdTestEndpointEnv)
+		region = os.Getenv(s5cmdTestRegionEnv)
+	} else {
+		s3Config = s3Config.
+			WithS3ForcePathStyle(true)
+	}
+
 	// WithDisableRestProtocolURICleaning is added to allow adjacent slashes to be used in s3 object keys.
-	s3Config := aws.NewConfig().
-		WithEndpoint(options.Endpoint).
-		WithRegion(endpoints.UsEast1RegionID).
-		WithCredentials(credentials.NewStaticCredentials(defaultAccessKeyID, defaultSecretAccessKey, "")).
+	s3Config = s3Config.
+		WithCredentials(credentials.NewStaticCredentials(id, key, "")).
+		WithEndpoint(endpoint).
 		WithDisableSSL(options.NoVerifySSL).
 		WithDisableRestProtocolURICleaning(true).
-		WithS3ForcePathStyle(true).
 		WithCredentialsChainVerboseErrors(true).
-		WithLogLevel(awsLogLevel)
+		WithLogLevel(awsLogLevel).
+		WithRegion(region)
 
 	sess, err := session.NewSession(s3Config)
 	assert.NilError(t, err)
 
 	return s3.New(sess)
+}
+
+func isEndpointFromEnv() bool {
+	return os.Getenv(s5cmdTestIdEnv) != "" &&
+		os.Getenv(s5cmdTestSecretEnv) != "" &&
+		os.Getenv(s5cmdTestEndpointEnv) != "" &&
+		os.Getenv(s5cmdTestRegionEnv) != ""
 }
 
 func s5cmd(workdir, endpoint string) func(args ...string) icmd.Cmd {
@@ -179,11 +217,20 @@ func s5cmd(workdir, endpoint string) func(args ...string) icmd.Cmd {
 
 		cmd := icmd.Command(s5cmdPath, args...)
 		env := os.Environ()
+
+		id := defaultAccessKeyID
+		secret := defaultSecretAccessKey
+
+		if isEndpointFromEnv() {
+			id = os.Getenv(s5cmdTestIdEnv)
+			secret = os.Getenv(s5cmdTestSecretEnv)
+		}
+
 		env = append(
 			env,
 			[]string{
-				fmt.Sprintf("AWS_ACCESS_KEY_ID=%v", defaultAccessKeyID),
-				fmt.Sprintf("AWS_SECRET_ACCESS_KEY=%v", defaultSecretAccessKey),
+				fmt.Sprintf("AWS_ACCESS_KEY_ID=%v", id),
+				fmt.Sprintf("AWS_SECRET_ACCESS_KEY=%v", secret),
 			}...,
 		)
 		cmd.Env = env

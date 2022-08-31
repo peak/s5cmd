@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"strings"
 	"testing"
-	"time"
 
 	"gotest.tools/v3/assert"
 	"gotest.tools/v3/fs"
@@ -231,25 +230,98 @@ func TestInvalidLoglevel(t *testing.T) {
 }
 
 func TestCompletionFlag(t *testing.T) {
-	t.Parallel()
-
 	flag := "--generate-bash-completion"
+	bucket := s3BucketFromTestName(t)
+
 	testcases := []struct {
 		name          string
 		precedingArgs []string
 		arg           string
+		remoteFiles   []string
 		expected      []string
-		env           []string
+		shell         string
 	}{
 		{
 			name:          "cp complete empty string",
 			precedingArgs: []string{"cp"},
-			arg:           "s3://",
+			arg:           "",
 			expected:      []string{},
-			env:           []string{"/bin/bash"},
+			shell:         "/bin/bash",
+		},
+		{
+			name:          "cp complete bucket names",
+			precedingArgs: []string{"cp"},
+			arg:           "s3://",
+			expected:      []string{"s3://" + bucket + "/"},
+			shell:         "/bin/pwsh",
+		},
+		{
+			name:          "cp complete bucket keys pwsh",
+			precedingArgs: []string{"cp"},
+			arg:           "s3://" + bucket + "/",
+			remoteFiles: []string{
+				"file0.txt",
+				"file1.txt",
+				"filedir/child.txt",
+				"dir/child.txt",
+			},
+			expected: keysToS3URL("s3://", bucket,
+				"file0.txt",
+				"file1.txt",
+				"filedir/",
+				"dir/",
+			),
+			shell: "/bin/pwsh",
+		}, {
+			name:          "cp complete keys with colon",
+			precedingArgs: []string{"cp"},
+			arg:           "s3://" + bucket + "/co:lo",
+			remoteFiles: []string{
+				"co:lon:in:key",
+				"co:lonized",
+			},
+			expected: append(
+				keysToS3URL("s3://", bucket, "co:lon:in:key", "co:lonized"),
+				"lon:in:key", "lonized"),
+			shell: "/bin/bash",
+		}, {
+			name:          "cp complete keys with asterisk",
+			precedingArgs: []string{"cp"},
+			arg:           "s3://" + bucket + "/as*",
+			remoteFiles: []string{
+				"as*terisk",
+				"as*oburiks",
+			},
+			expected: keysToS3URL("s3://", bucket, "as*terisk", "as*oburiks"),
+			shell:    "/bin/pwsh",
+		},
+		/* Question marks are thought to be wildcard so they cannot be properly handled yet
+		{
+			name:          "cp complete keys with question mark",
+			precedingArgs: []string{"cp", "--raw"},
+			arg:           "s3://" + bucket + "/qu?",
+			remoteFiles: []string{
+				"qu?estion",
+				"qu?vestion",
+			},
+			expected: keysToS3URL("s3://", bucket,
+				"qu?estion", "qu?vestion"),
+			shell: "/bin/pwsh",
+		},
+		*/
+		{
+			name:          "cp complete keys with backslash",
+			precedingArgs: []string{"cp"},
+			arg:           "s3://" + bucket + "/back\\",
+			remoteFiles: []string{
+				`back\slash`,
+				`backback`,
+			},
+			expected: keysToS3URL("s3://", bucket,
+				`back\slash`),
+			shell: "/bin/pwsh",
 		},
 	}
-	_, _ = testcases, flag
 
 	workdir := fs.NewDir(t, "completionTest",
 		fs.WithFiles(
@@ -266,49 +338,28 @@ func TestCompletionFlag(t *testing.T) {
 			},
 		)),
 	)
-	defer workdir.Remove()
-
-	bucket := s3BucketFromTestName(t)
-
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
-
-	// prepare remote bucket content
-	createBucket(t, s3client, bucket)
-
-	remoteFiles := []string{
-		"file0.txt",
-		"file1.txt",
-		"filedir/child.txt",
-		"dir/child.txt",
-		"co:lon:in:key",
-		"as*terisk",
-		"as*oburiks",
-		`back\slash`,
-		`backback`,
-		"qu?estion",
-		"qu?vestion",
-	}
-
-	for _, f := range remoteFiles {
-		putFile(t, s3client, bucket, f, "content")
-	}
 
 	for _, tc := range testcases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
+			os.Setenv("SHELL", tc.shell)
+
+			s3client, s5cmd, cleanup := setup(t)
+			defer cleanup()
+
+			// prepare remote bucket content
+			createBucket(t, s3client, bucket)
+
+			for _, f := range tc.remoteFiles {
+				putFile(t, s3client, bucket, f, "content")
+			}
 
 			cmd := s5cmd(append(tc.precedingArgs, tc.arg, flag)...)
-			cmd.Dir = workdir.Path()
-			cmd.Env = append(cmd.Env, fmt.Sprintf("SHELL=%v", "/bin/zsh"))
-			result := icmd.RunCmd(cmd)
-			os.Getenv("SHELL")
-			fmt.Println(os.Getenv("SHELL"), result.String(), "§", result.Stdout())
+			result := icmd.RunCmd(cmd, withWorkingDir(workdir), withEnv("SHELL", tc.shell))
+			fmt.Println(tc.name, "§", os.Getenv("SHELL"), "$", result.Stdout(), "$")
 
-			time.Sleep(40 * time.Second)
-			assert.Assert(t, false)
-
+			assertLines(t, result.Stdout(), expectedSliceToEqualsMap(tc.expected, true), sortInput(true))
 		})
 	}
 }

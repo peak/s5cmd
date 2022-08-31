@@ -45,8 +45,7 @@ func TestAppRetryCount(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			_, s5cmd, cleanup := setup(t)
-			defer cleanup()
+			_, s5cmd := setup(t)
 
 			cmd := s5cmd("-r", strconv.Itoa(tc.retry))
 			result := icmd.RunCmd(cmd)
@@ -117,8 +116,7 @@ func TestAppDashStat(t *testing.T) {
 		tc := tc
 		t.Run(tc.command, func(t *testing.T) {
 			t.Parallel()
-			s3client, s5cmd, cleanup := setup(t)
-			defer cleanup()
+			s3client, s5cmd := setup(t)
 
 			createBucket(t, s3client, bucket)
 			putFile(t, s3client, bucket, src, fileContent)
@@ -154,13 +152,11 @@ func TestAppProxy(t *testing.T) {
 			const expectedReqs = 1
 
 			proxy := httpProxy{}
-			pxyUrl, cleanup := setupProxy(&proxy)
-			defer cleanup()
+			pxyUrl := setupProxy(t, &proxy)
 
 			os.Setenv("http_proxy", pxyUrl)
 
-			_, s5cmd, cleanup := setup(t, withProxy())
-			defer cleanup()
+			_, s5cmd := setup(t, withProxy())
 
 			var cmd icmd.Cmd
 			if tc.flag != "" {
@@ -180,8 +176,7 @@ func TestAppProxy(t *testing.T) {
 func TestAppUnknownCommand(t *testing.T) {
 	t.Parallel()
 
-	_, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	_, s5cmd := setup(t)
 
 	cmd := s5cmd("unknown-command")
 	result := icmd.RunCmd(cmd)
@@ -196,8 +191,7 @@ func TestAppUnknownCommand(t *testing.T) {
 func TestUsageError(t *testing.T) {
 	t.Parallel()
 
-	_, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	_, s5cmd := setup(t)
 
 	cmd := s5cmd("--recursive", "ls")
 	result := icmd.RunCmd(cmd)
@@ -214,8 +208,7 @@ func TestUsageError(t *testing.T) {
 func TestInvalidLoglevel(t *testing.T) {
 	t.Parallel()
 
-	_, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	_, s5cmd := setup(t)
 
 	cmd := s5cmd("--log", "notexist", "ls")
 	result := icmd.RunCmd(cmd)

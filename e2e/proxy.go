@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
+	"testing"
 )
 
 // Hop-by-hop headers. These are removed when sent to the backend.
@@ -79,7 +80,11 @@ func (p *httpProxy) isSuccessful(totalReqs int64) bool {
 	return totalReqs == atomic.LoadInt64(&p.successReqs) && atomic.LoadInt64(&p.errorReqs) == 0
 }
 
-func setupProxy(p *httpProxy) (string, func()) {
+func setupProxy(t *testing.T, p *httpProxy) string {
 	proxysrv := httptest.NewServer(p)
-	return proxysrv.URL, proxysrv.Close
+
+	t.Cleanup(func() {
+		proxysrv.Close()
+	})
+	return proxysrv.URL
 }

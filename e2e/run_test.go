@@ -16,8 +16,7 @@ func TestRunFromStdin(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 	putFile(t, s3client, bucket, "file1.txt", "content")
@@ -49,8 +48,7 @@ func TestRunFromStdinIssue309(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 	putFile(t, s3client, bucket, "test #3 /bar.jpg", "content")
@@ -78,8 +76,7 @@ func TestRunFromStdinWithErrors(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -107,8 +104,7 @@ func TestRunFromStdinJSON(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 	putFile(t, s3client, bucket, "file1.txt", "content")
@@ -138,8 +134,7 @@ func TestRunFromFile(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 	putFile(t, s3client, bucket, "file1.txt", "content")
@@ -171,8 +166,7 @@ func TestRunFromFileJSON(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 	putFile(t, s3client, bucket, "file1.txt", "content")
@@ -202,8 +196,7 @@ func TestRunFromFileJSON(t *testing.T) {
 func TestRunFromFileThatDoesntExist(t *testing.T) {
 	t.Parallel()
 
-	_, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	_, s5cmd := setup(t)
 
 	cmd := s5cmd("run", "non-existent-file")
 	result := icmd.RunCmd(cmd)
@@ -222,8 +215,7 @@ func TestRunWildcardCountGreaterEqualThanWorkerCount(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 	putFile(t, s3client, bucket, "file.txt", "content")
@@ -258,8 +250,7 @@ func TestRunSpecialCharactersInPrefix(t *testing.T) {
 	sourceFileName := `special-chars_!@#$%^&_()_+{[_%5Cäè| __;'_,_._-中文 =/_!@#$%^&_()_+{[_%5Cäè| __;'_,_._-中文 =image.jpg`
 	targetFilePath := `./image.jpg`
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 	putFile(t, s3client, bucket, sourceFileName, "content")
@@ -287,8 +278,7 @@ func TestRunDryRun(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -336,8 +326,7 @@ func TestRunFixDataRace_Issue301(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 	putFile(t, s3client, bucket, "file1.txt", "content")

@@ -94,7 +94,7 @@ func withProxy() option {
 	}
 }
 
-func setup(t *testing.T, options ...option) (*s3.S3, func(...string) icmd.Cmd, func()) {
+func setup(t *testing.T, options ...option) (*s3.S3, func(...string) icmd.Cmd) {
 	t.Helper()
 
 	opts := &setupOpts{
@@ -105,16 +105,16 @@ func setup(t *testing.T, options ...option) (*s3.S3, func(...string) icmd.Cmd, f
 		option(opts)
 	}
 
-	endpoint, workdir, cleanup := server(t, opts)
+	endpoint, workdir := server(t, opts)
 	client := s3client(t, storage.Options{
 		Endpoint:    endpoint,
 		NoVerifySSL: true,
 	})
 
-	return client, s5cmd(workdir, endpoint), cleanup
+	return client, s5cmd(workdir, endpoint)
 }
 
-func server(t *testing.T, opts *setupOpts) (string, string, func()) {
+func server(t *testing.T, opts *setupOpts) (string, string) {
 	t.Helper()
 
 	// testdir := fs.NewDir() tries to create a new directory which
@@ -136,17 +136,16 @@ func server(t *testing.T, opts *setupOpts) (string, string, func()) {
 		s3LogLevel = "info" // aws has no level other than 'debug'
 	}
 
-	endpoint, dbcleanup := s3ServerEndpoint(t, testdir, s3LogLevel, opts.s3backend, opts.timeSource, opts.enableProxy)
+	endpoint := s3ServerEndpoint(t, testdir, s3LogLevel, opts.s3backend, opts.timeSource, opts.enableProxy)
 	if opts.endpointURL != "" {
 		endpoint = opts.endpointURL
 	}
-
-	cleanup := func() {
+	t.Cleanup(func() {
 		testdir.Remove()
-		dbcleanup()
-	}
 
-	return endpoint, workdir, cleanup
+	})
+
+	return endpoint, workdir
 }
 
 func s3client(t *testing.T, options storage.Options) *s3.S3 {

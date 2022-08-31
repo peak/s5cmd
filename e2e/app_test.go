@@ -255,8 +255,7 @@ func TestAppEndpointShouldHaveScheme(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			_, s5cmd, cleanup := setup(t)
-			defer cleanup()
+			_, s5cmd := setup(t)
 
 			cmd := s5cmd("--endpoint-url", tc.endpointUrl)
 			result := icmd.RunCmd(cmd)

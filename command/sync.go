@@ -6,7 +6,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"sync"
 
@@ -21,7 +20,10 @@ import (
 	"github.com/peak/s5cmd/storage/url"
 )
 
-const extsortChannelBufferSize = 1_000
+const (
+	extsortChannelBufferSize = 1_000
+	extsortChunkSize         = 100_000
+)
 
 var syncHelpTemplate = `Name:
 	{{.HelpName}} - {{.Usage}}
@@ -74,11 +76,6 @@ func NewSyncCommandFlags() []cli.Flag {
 			Name:  "size-only",
 			Usage: "make size of object only criteria to decide whether an object should be synced",
 		},
-		&cli.IntFlag{
-			Name:  "chunk-size",
-			Usage: "number of objects in a chunk of external sort; nonpositive arguments enforces internal sort",
-			Value: 100_000,
-		},
 	}
 	sharedFlags := NewSharedFlags()
 	return append(syncFlags, sharedFlags...)
@@ -119,9 +116,8 @@ type Sync struct {
 	fullCommand string
 
 	// flags
-	delete           bool
-	sizeOnly         bool
-	extsortChunkSize int
+	delete   bool
+	sizeOnly bool
 
 	// s3 options
 	storageOpts storage.Options
@@ -143,9 +139,8 @@ func NewSync(c *cli.Context) Sync {
 		fullCommand: commandFromContext(c),
 
 		// flags
-		delete:           c.Bool("delete"),
-		sizeOnly:         c.Bool("size-only"),
-		extsortChunkSize: c.Int("chunk-size"),
+		delete:   c.Bool("delete"),
+		sizeOnly: c.Bool("size-only"),
 
 		// flags
 		followSymlinks: !c.Bool("no-follow-symlinks"),
@@ -313,7 +308,7 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 
 	extsortDefaultConfig := extsort.DefaultConfig()
 	extsortConfig := &extsort.Config{
-		ChunkSize:          s.extsortChunkSize,
+		ChunkSize:          extsortChunkSize,
 		NumWorkers:         extsortDefaultConfig.NumWorkers,
 		ChanBuffSize:       extsortChannelBufferSize,
 		SortedChanBuffSize: extsortChannelBufferSize,
@@ -342,12 +337,8 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 			srcOutputChan chan extsort.SortType
 		)
 
-		if s.extsortChunkSize > 0 {
-			sorter, srcOutputChan, _ = extsort.New(filteredSrcObjectChannel, storage.FromBytes, storage.Less, extsortConfig)
-			sorter.Sort(context.Background())
-		} else {
-			srcOutputChan = internalSort(filteredSrcObjectChannel, storage.Less)
-		}
+		sorter, srcOutputChan, _ = extsort.New(filteredSrcObjectChannel, storage.FromBytes, storage.Less, extsortConfig)
+		sorter.Sort(ctx)
 
 		for srcObject := range srcOutputChan {
 			o := srcObject.(storage.Object)
@@ -378,12 +369,8 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 			dstOutputChan chan extsort.SortType
 		)
 
-		if s.extsortChunkSize > 0 {
-			dstSorter, dstOutputChan, _ = extsort.New(filteredDstObjectChannel, storage.FromBytes, storage.Less, extsortConfig)
-			dstSorter.Sort(context.Background())
-		} else {
-			dstOutputChan = internalSort(filteredDstObjectChannel, storage.Less)
-		}
+		dstSorter, dstOutputChan, _ = extsort.New(filteredDstObjectChannel, storage.FromBytes, storage.Less, extsortConfig)
+		dstSorter.Sort(ctx)
 
 		for destObject := range dstOutputChan {
 			o := destObject.(storage.Object)
@@ -393,44 +380,6 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 	}()
 
 	return sourceObjects, destObjects, nil
-}
-
-// sort the storage object received according to less function, using in memory sort
-// it assummes that each element of objectChannel is an instance of storage.Objects
-// it starts sort only if the objects are not already sorted.
-func internalSort(objectChannel chan extsort.SortType, less func(a extsort.SortType, b extsort.SortType) bool) chan extsort.SortType {
-	var (
-		arr      = make([]extsort.SortType, 0, 100000)
-		isSorted = true
-		prev     = "" // empty string is Less than any other strings
-	)
-	for obj := range objectChannel {
-		cur := obj.(storage.Object).URL.Relative()
-		if prev > cur {
-			isSorted = false
-		}
-		prev = cur
-		arr = append(arr, obj)
-	}
-
-	if !isSorted {
-		sort.Slice(arr, func(i, j int) bool {
-			return less(arr[i], arr[j])
-		})
-	}
-
-	//	fmt.Println("isSorted", isSorted)
-	ch := make(chan extsort.SortType, extsortChannelBufferSize)
-
-	go func() {
-		defer close(ch)
-
-		for _, obj := range arr {
-			ch <- obj
-		}
-	}()
-
-	return ch
 }
 
 // planRun prepares the commands and writes them to writer 'w'.

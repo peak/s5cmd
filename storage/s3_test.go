@@ -53,22 +53,27 @@ func TestNewSessionPathStyle(t *testing.T) {
 		},
 		{
 			name:            "expect_virtual_host_style_for_transfer_accel",
-			endpoint:        urlpkg.URL{Host: transferAccelEndpoint},
+			endpoint:        urlpkg.URL{Scheme: "https", Host: transferAccelEndpoint},
 			expectPathStyle: false,
 		},
 		{
 			name:            "expect_virtual_host_style_for_google_cloud_storage",
-			endpoint:        urlpkg.URL{Host: gcsEndpoint},
+			endpoint:        urlpkg.URL{Scheme: "https", Host: gcsEndpoint},
 			expectPathStyle: false,
 		},
 		{
 			name:            "expect_path_style_for_localhost",
-			endpoint:        urlpkg.URL{Host: "127.0.0.1"},
+			endpoint:        urlpkg.URL{Scheme: "http", Host: "127.0.0.1"},
+			expectPathStyle: true,
+		},
+		{
+			name:            "expect_path_style_for_secure_localhost",
+			endpoint:        urlpkg.URL{Scheme: "https", Host: "127.0.0.1"},
 			expectPathStyle: true,
 		},
 		{
 			name:            "expect_path_style_for_custom_endpoint",
-			endpoint:        urlpkg.URL{Host: "example.com"},
+			endpoint:        urlpkg.URL{Scheme: "https", Host: "example.com"},
 			expectPathStyle: true,
 		},
 	}
@@ -77,7 +82,7 @@ func TestNewSessionPathStyle(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 
-			opts := Options{Endpoint: tc.endpoint.Hostname()}
+			opts := Options{Endpoint: tc.endpoint.String()}
 			sess, err := globalSessionCache.newSession(context.Background(), opts)
 			if err != nil {
 				t.Fatal(err)

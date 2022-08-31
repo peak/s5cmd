@@ -114,8 +114,7 @@ func TestCopySingleS3ObjectToLocal(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			s3client, s5cmd, cleanup := setup(t)
-			defer cleanup()
+			s3client, s5cmd := setup(t)
 
 			createBucket(t, s3client, bucket)
 
@@ -147,8 +146,7 @@ func TestCopySingleS3ObjectToLocalJSON(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -195,8 +193,7 @@ func TestCopySingleS3ObjectToLocalWithDestinationWildcard(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -231,8 +228,7 @@ func TestCopyS3PrefixToLocalMustReturnError(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -268,8 +264,7 @@ func TestCopyMultipleFlatS3ObjectsToLocal(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -319,8 +314,7 @@ func TestCopyMultipleFlatS3ObjectsToLocalWithPartialMatching(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -365,8 +359,7 @@ func TestCopyMultipleFlatNestedS3ObjectsToLocalWithPartialMatching(t *testing.T)
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -405,8 +398,7 @@ func TestCopyMultipleFlatS3ObjectsToLocalJSON(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -500,8 +492,7 @@ func TestCopyMultipleNestedS3ObjectsToLocal(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -571,8 +562,7 @@ func TestCopyMultipleNestedS3ObjectsToLocalWithPartial(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -631,8 +621,7 @@ func TestCopyMultipleS3ObjectsToGivenLocalDirectory(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -688,8 +677,7 @@ func TestCopySingleFileToS3(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -784,8 +772,7 @@ func TestCopySingleFileToS3WithAdjacentSlashes(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			s3client, s5cmd, cleanup := setup(t)
-			defer cleanup()
+			s3client, s5cmd := setup(t)
 
 			createBucket(t, s3client, bucket)
 
@@ -820,8 +807,7 @@ func TestCopySingleFileToS3JSON(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -871,8 +857,7 @@ func TestCopyDirToS3(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -923,8 +908,7 @@ func TestCopyDirBackslashedToS3(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -966,8 +950,7 @@ func TestCopySingleFileToS3WithStorageClassGlacier(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -1008,8 +991,7 @@ func TestFlattenCopyDirToS3(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -1057,8 +1039,7 @@ func TestCopyMultipleFilesToS3Bucket(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -1115,8 +1096,7 @@ func TestCopyMultipleFilesWithWildcardedDirectoryToS3Bucket(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -1168,8 +1148,7 @@ func TestCopyMultipleFilesEndWildcardedToS3Bucket(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -1221,8 +1200,7 @@ func TestCopyMultipleFilesMiddleWildcardedDirectoryToS3Bucket(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -1267,8 +1245,7 @@ func TestFlattenCopyMultipleFilesToS3Bucket(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -1326,8 +1303,7 @@ func TestCopyMultipleFilesToS3WithPrefixWithoutSlash(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -1375,8 +1351,7 @@ func TestCopyDirectoryWithGlobCharactersToS3Bucket(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -1427,8 +1402,7 @@ func TestCopyMultipleFilesToS3WithPrefixWithSlash(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -1489,8 +1463,7 @@ func TestFlattenCopyMultipleFilesToS3WithPrefixWithSlash(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -1551,8 +1524,7 @@ func TestCopyLocalDirectoryToS3WithPrefixWithSlash(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -1611,8 +1583,7 @@ func TestFlattenCopyLocalDirectoryToS3WithPrefixWithSlash(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -1674,8 +1645,7 @@ func TestCopyLocalDirectoryToS3WithPrefixWithoutSlash(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -1719,8 +1689,7 @@ func TestCopySingleS3ObjectToS3(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -1757,8 +1726,7 @@ func TestCopySingleS3ObjectToS3JSON(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -1809,8 +1777,7 @@ func TestCopySingleS3ObjectIntoAnotherBucket(t *testing.T) {
 	srcbucket := s3BucketFromTestName(t)
 	dstbucket := "copy-" + s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, srcbucket)
 	createBucket(t, s3client, dstbucket)
@@ -1848,8 +1815,7 @@ func TestFlattenCopySingleS3ObjectIntoAnotherBucket(t *testing.T) {
 	srcbucket := s3BucketFromTestName(t)
 	dstbucket := "copy-" + s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, srcbucket)
 	createBucket(t, s3client, dstbucket)
@@ -1889,8 +1855,7 @@ func TestCopySingleS3ObjectIntoAnotherBucketWithObjName(t *testing.T) {
 		dstbucket = "dstbucket"
 	)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, srcbucket)
 	createBucket(t, s3client, dstbucket)
@@ -1927,8 +1892,7 @@ func TestCopySingleS3ObjectIntoAnotherBucketWithPrefix(t *testing.T) {
 
 	const bucket = "bucket"
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -1967,8 +1931,7 @@ func TestCopyAllObjectsIntoAnotherBucketIncludingSpecialCharacter(t *testing.T) 
 		dstbucket = "dstbucket"
 	)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, srcbucket)
 	createBucket(t, s3client, dstbucket)
@@ -2007,8 +1970,7 @@ func TestCopyMultipleS3ObjectsToS3WithPrefix(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -2055,8 +2017,7 @@ func TestFlattenCopyMultipleS3ObjectsToS3WithPrefix(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -2110,8 +2071,7 @@ func TestCopyMultipleS3ObjectsToS3WithPrefixWithoutSlash(t *testing.T) {
 
 	const bucket = "bucket"
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -2151,8 +2111,7 @@ func TestCopyMultipleS3ObjectsToS3JSON(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -2217,8 +2176,7 @@ func TestCopyMultipleS3ObjectsToS3_Issue70(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -2260,8 +2218,7 @@ func TestCopyS3ObjectToLocalWithTheSameFilename(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	const (
 		filename        = "testfile1.txt"
@@ -2295,8 +2252,7 @@ func TestCopyS3ToLocalWithSameFilenameWithNoClobber(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	const (
 		filename = "testfile1.txt"
@@ -2331,8 +2287,7 @@ func TestCopyS3ToLocalWithSameFilenameOverrideIfSizeDiffers(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	const (
 		filename        = "testfile1.txt"
@@ -2368,8 +2323,7 @@ func TestCopyS3ToLocalWithSameFilenameOverrideIfSourceIsNewer(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	const (
 		filename        = "testfile1.txt"
@@ -2411,8 +2365,7 @@ func TestCopyS3ToLocalWithSameFilenameDontOverrideIfS3ObjectIsOlder(t *testing.T
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	const (
 		filename = "testfile1.txt"
@@ -2456,8 +2409,7 @@ func TestCopyS3ToLocal_Issue70(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -2513,8 +2465,7 @@ func TestCopyLocalFileToS3WithTheSameFilename(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	const (
 		filename   = "testfile1.txt"
@@ -2553,8 +2504,7 @@ func TestCopyLocalFileToS3WithSameFilenameWithNoClobber(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	const (
 		filename   = "testfile1.txt"
@@ -2594,8 +2544,7 @@ func TestCopyLocalFileToS3WithNoClobber(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	const (
 		filename   = "testfile1.txt"
@@ -2635,8 +2584,7 @@ func TestCopyLocalFileToS3WithSameFilenameOverrideIfSizeDiffers(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	const (
 		filename        = "testfile1.txt"
@@ -2674,8 +2622,7 @@ func TestCopyLocalFileToS3WithSameFilenameOverrideIfSourceIsNewer(t *testing.T) 
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	const (
 		filename        = "testfile1.txt"
@@ -2719,8 +2666,7 @@ func TestCopyLocalFileToS3WithSameFilenameDontOverrideIfS3ObjectIsOlder(t *testi
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	const (
 		filename        = "testfile1.txt"
@@ -2771,8 +2717,7 @@ func TestCopyLocalFileToS3WithFilePermissions(t *testing.T) {
 	fileModes := []os.FileMode{0400, 0440, 0444, 0600, 0640, 0644, 0700, 0750, 0755}
 
 	for _, fileMode := range fileModes {
-		s3client, s5cmd, cleanup := setup(t)
-		defer cleanup()
+		s3client, s5cmd := setup(t)
 
 		createBucket(t, s3client, bucket)
 
@@ -2805,8 +2750,7 @@ func TestCopyLocalFileToS3WithCustomName(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	const (
 		filename = "testfile1.txt"
@@ -2843,8 +2787,7 @@ func TestCopyLocalFileToS3WithPrefix(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	const (
 		filename = "testfile1.txt"
@@ -2881,8 +2824,7 @@ func TestMultipleLocalFileToS3Bucket(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	const (
 		filename = "testfile1.txt"
@@ -2917,8 +2859,7 @@ func TestMultipleLocalFileToS3Bucket(t *testing.T) {
 func TestCopyMultipleLocalNestedFilesToS3(t *testing.T) {
 	t.Parallel()
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	const bucket = "bucket"
 	createBucket(t, s3client, bucket)
@@ -2987,8 +2928,7 @@ func TestCopyMultipleLocalNestedFilesToS3(t *testing.T) {
 func TestCopyLinkToASingleFileWithFollowSymlinkDisabled(t *testing.T) {
 	t.Parallel()
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	const bucket = "bucket"
 	createBucket(t, s3client, bucket)
@@ -3020,8 +2960,7 @@ func TestCopyLinkToASingleFileWithFollowSymlinkDisabled(t *testing.T) {
 func TestCopyWithFollowSymlink(t *testing.T) {
 	t.Parallel()
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	const bucket = "bucket"
 	createBucket(t, s3client, bucket)
@@ -3063,8 +3002,7 @@ func TestCopyWithFollowSymlink(t *testing.T) {
 func TestCopyErrorWhenGivenObjectIsNotFoundUsingWildcard(t *testing.T) {
 	t.Parallel()
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	const bucket = "bucket"
 	createBucket(t, s3client, bucket)
@@ -3095,8 +3033,7 @@ func TestCopyErrorWhenGivenObjectIsNotFoundUsingWildcard(t *testing.T) {
 func TestCopyWithNoFollowSymlink(t *testing.T) {
 	t.Parallel()
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	const bucket = "bucket"
 	createBucket(t, s3client, bucket)
@@ -3137,8 +3074,7 @@ func TestCopyDirToS3DryRun(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -3184,8 +3120,7 @@ func TestCopyS3ToDirDryRun(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -3293,8 +3228,7 @@ func TestCopyLocalObjectstoS3WithRawFlag(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			s3client, s5cmd, cleanup := setup(t)
-			defer cleanup()
+			s3client, s5cmd := setup(t)
 
 			createBucket(t, s3client, bucket)
 
@@ -3340,8 +3274,7 @@ func TestCopyDirToS3WithRawFlag(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -3463,8 +3396,7 @@ func TestCopyS3ObjectstoLocalWithRawFlag(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			s3client, s5cmd, cleanup := setup(t)
-			defer cleanup()
+			s3client, s5cmd := setup(t)
 
 			createBucket(t, s3client, bucket)
 
@@ -3500,8 +3432,7 @@ func TestCopyMultipleS3ObjectsToS3WithRawMode(t *testing.T) {
 	const bucket = "bucket"
 	const destBucket = "destbucket"
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 	createBucket(t, s3client, destBucket)
@@ -3551,8 +3482,7 @@ func TestCopyMultipleS3ObjectsWithPrefixToS3WithRawMode(t *testing.T) {
 	const bucket = "bucket"
 	const destBucket = "destbucket"
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 	createBucket(t, s3client, destBucket)
@@ -3589,8 +3519,7 @@ func TestCopyRawModeAllowDestinationWithoutPrefix(t *testing.T) {
 
 	const bucket = "bucket"
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -3643,8 +3572,7 @@ func TestCopyS3ObjectsWithExcludeFilter(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -3697,8 +3625,7 @@ func TestCopyS3ObjectsWithExcludeFilters(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -3751,8 +3678,7 @@ func TestCopyS3ObjectsWithPrefixWithExcludeFilters(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -3835,8 +3761,7 @@ func TestCopyLocalDirectoryToS3WithExcludeFilter(t *testing.T) {
 
 			bucket := "testbucket"
 
-			s3client, s5cmd, cleanup := setup(t)
-			defer cleanup()
+			s3client, s5cmd := setup(t)
 
 			createBucket(t, s3client, bucket)
 
@@ -3902,8 +3827,7 @@ func TestCopyLocalDirectoryToS3WithExcludeFilters(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -3976,8 +3900,7 @@ func TestCopySingleS3ObjectsIntoAnotherBucketWithExcludeFilter(t *testing.T) {
 		dstbucket = "dstbucket"
 	)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, srcbucket)
 	createBucket(t, s3client, dstbucket)
@@ -4053,8 +3976,7 @@ func TestCopySingleS3ObjectsIntoAnotherBucketWithExcludeFilters(t *testing.T) {
 		dstbucket = "dstbucket"
 	)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, srcbucket)
 	createBucket(t, s3client, dstbucket)
@@ -4127,8 +4049,7 @@ func TestCopyExpectExitCode1OnUnreachableHost(t *testing.T) {
 
 	const bucket = "bucket"
 
-	_, s5cmd, cleanup := setup(t, withEndpointURL("nonExistingEndpointURL"))
-	defer cleanup()
+	_, s5cmd := setup(t, withEndpointURL("nonExistingEndpointURL"))
 
 	folderLayout := []fs.PathOp{
 		fs.WithFile("testfile.txt", "this is a test file 1"),
@@ -4152,8 +4073,7 @@ func TestCopySingleFileToS3WithNoSuchUploadRetryCount(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -4184,4 +4104,27 @@ func TestCopySingleFileToS3WithNoSuchUploadRetryCount(t *testing.T) {
 
 	// assert S3
 	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content))
+}
+
+// Before downloading a file from s3 a local target file is created. If download
+// fails the created file should be deleted.
+func TestDeleteFileWhenDownloadFailed(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd := setup(t)
+
+	bucket := s3BucketFromTestName(t)
+	filename := "testfile1.txt"
+	createBucket(t, s3client, bucket)
+
+	// It is going try downloading a nonexistent file from the s3 so it will fail.
+	// In this case we don't expect to have a local file with the name `filename`.
+	cmd := s5cmd("cp", "s3://"+bucket+"/"+filename, filename)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Expected{ExitCode: 1})
+
+	// assert local filesystem does not have any (such) file
+	expected := fs.Expected(t)
+	assert.Assert(t, fs.Equal(cmd.Dir, expected))
 }

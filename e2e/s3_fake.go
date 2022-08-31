@@ -12,7 +12,7 @@ import (
 	"gotest.tools/v3/fs"
 )
 
-func s3ServerEndpoint(t *testing.T, testdir *fs.Dir, loglvl, backend string, timeSource gofakes3.TimeSource, enableProxy bool) (string, func()) {
+func s3ServerEndpoint(t *testing.T, testdir *fs.Dir, loglvl, backend string, timeSource gofakes3.TimeSource, enableProxy bool) string {
 	var s3backend gofakes3.Backend
 	switch backend {
 	case "mem":
@@ -53,11 +53,11 @@ func s3ServerEndpoint(t *testing.T, testdir *fs.Dir, loglvl, backend string, tim
 	faker := gofakes3.New(s3backend, opts...)
 	s3srv := httptest.NewServer(faker.Server())
 
-	cleanup := func() {
+	t.Cleanup(func() {
 		s3srv.Close()
 		// no need to remove boltdb file since 'testdir' will be cleaned up
 		// after each test.
-	}
+	})
 
 	if enableProxy {
 		parsedUrl, err := url.Parse(s3srv.URL)
@@ -65,7 +65,7 @@ func s3ServerEndpoint(t *testing.T, testdir *fs.Dir, loglvl, backend string, tim
 			t.Fatal(err)
 		}
 		proxyEnabledURL := "http://localhost.:" + parsedUrl.Port()
-		return proxyEnabledURL, cleanup
+		return proxyEnabledURL
 	}
-	return s3srv.URL, cleanup
+	return s3srv.URL
 }

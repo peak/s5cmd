@@ -473,8 +473,46 @@ func addRandomSuffixTo(bucket string) string {
 	if len(bucket) > 63 {
 		bucket = fmt.Sprintf("%v-%v", bucket[:55], randomString(7))
 	}
+		bucketName = fmt.Sprintf("%v-%v", bucketName[:55], randomString(7))
+	}
+}
 
-	return bucket
+func TestAddRandomSuffixTo(t *testing.T) {
+	t.Parallel()
+	testcases := []struct {
+		name          string
+		bucketName    string
+		expectedRegex string
+	}{
+		{
+			name:          "shorter-than-63-chars",
+			bucketName:    "TestName",
+			expectedRegex: "TestName-.{7}$",
+		},
+		{
+			name:          "between-55-and-63-chars",
+			bucketName:    "ThisTestStringIsSupposedToBeInBetween55And63CharactersAndItIs",
+			expectedRegex: "ThisTestStringIsSupposedToBeInBetween55And63CharactersA-.{7}$",
+		},
+		{
+			name:          "longer-than-63-chars",
+			bucketName:    "ThisTestStringIsSupposedToBeMuchMuchLongerThanSixtyThreeCharacters",
+			expectedRegex: "ThisTestStringIsSupposedToBeMuchMuchLongerThanSixtyThre-.{7}$",
+		},
+	}
+	for _, tc := range testcases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			result := addRandomSuffixTo(tc.bucketName)
+
+			assert.Assert(t, len(result) <= 63)
+
+			assertLines(t, result, map[int]compareFunc{
+				0: match(tc.expectedRegex),
+			})
+		})
+
+	}
 }
 
 func randomString(n int) string {

@@ -51,11 +51,11 @@ func TestDiskUsageSingleS3ObjectJSON(t *testing.T) {
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: json(`
 			{
-				"source": "s3://test-disk-usage-single-s-3-object-json/testfile1.txt",
+				"source": "s3://%v/testfile1.txt",
 				"count":1,
 				"size":22
 			}
-		`),
+		`, bucket),
 	})
 }
 

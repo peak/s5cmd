@@ -65,7 +65,7 @@ func TestRunFromStdinIssue309(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: suffix("mv s3://test-run-from-stdin-issue-309/test #3 /bar.jpg s3://test-run-from-stdin-issue-309/test #3/bar.jpg"),
+		0: suffix("mv s3://%v/test #3 /bar.jpg s3://%v/test #3/bar.jpg", bucket, bucket),
 	})
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{})

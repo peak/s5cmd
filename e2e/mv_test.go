@@ -224,7 +224,7 @@ func TestMoveSingleS3ObjectIntoAnotherBucket(t *testing.T) {
 	t.Parallel()
 
 	srcbucket := s3BucketFromTestName(t)
-	dstbucket := "copy-" + s3BucketFromTestName(t)
+	dstbucket := s3BucketFromTestNameWithPrefix(t, "copy")
 
 	s3client, s5cmd := setup(t)
 

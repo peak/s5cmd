@@ -447,10 +447,29 @@ func replaceMatchWithSpace(input string, match ...string) string {
 	return input
 }
 
+func s3BucketFromTestNameWithPrefix(t *testing.T, prefix string) string {
+	t.Helper()
+	bucket := strcase.ToKebab(t.Name())
+
+	if prefix != "" {
+		bucket = fmt.Sprintf("%v-%v", prefix, bucket)
+	}
+
+	return addRandomSuffixTo(bucket)
+}
+
 func s3BucketFromTestName(t *testing.T) string {
 	t.Helper()
 	bucket := strcase.ToKebab(t.Name())
 
+	return addRandomSuffixTo(bucket)
+}
+
+func addRandomSuffixTo(bucket string) string {
+
+	bucket = fmt.Sprintf("%v-%v", bucket, randomString(7))
+
+	// trim if longer than 63 chars.
 	if len(bucket) > 63 {
 		bucket = fmt.Sprintf("%v-%v", bucket[:55], randomString(7))
 	}

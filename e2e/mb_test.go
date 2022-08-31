@@ -12,8 +12,7 @@ import (
 func TestMakeBucket_success(t *testing.T) {
 	t.Parallel()
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	bucketName := "test-bucket"
 	src := fmt.Sprintf("s3://%s", bucketName)
@@ -36,8 +35,7 @@ func TestMakeBucket_success(t *testing.T) {
 func TestMakeBucket_success_json(t *testing.T) {
 	t.Parallel()
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	bucketName := "test-bucket"
 	src := fmt.Sprintf("s3://%s", bucketName)
@@ -68,8 +66,7 @@ func TestMakeBucket_success_json(t *testing.T) {
 func TestMakeBucket_failure(t *testing.T) {
 	t.Parallel()
 
-	_, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	_, s5cmd := setup(t)
 
 	bucketName := "invalid/bucket/name"
 	src := fmt.Sprintf("s3://%s", bucketName)
@@ -87,8 +84,7 @@ func TestMakeBucket_failure(t *testing.T) {
 func TestMakeBucket_failure_json(t *testing.T) {
 	t.Parallel()
 
-	_, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	_, s5cmd := setup(t)
 
 	bucketName := "invalid/bucket/name"
 	src := fmt.Sprintf("s3://%s", bucketName)

@@ -220,3 +220,56 @@ func TestInvalidLoglevel(t *testing.T) {
 		1: equals("See 's5cmd --help' for usage"),
 	})
 }
+
+func TestAppEndpointShouldHaveScheme(t *testing.T) {
+	t.Parallel()
+
+	testcases := []struct {
+		name             string
+		endpointUrl      string
+		expectedError    error
+		expectedExitCode int
+	}{
+		{
+			name:             "endpoint_with_http_scheme",
+			endpointUrl:      "http://storage.googleapis.com",
+			expectedError:    nil,
+			expectedExitCode: 0,
+		},
+		{
+			name:             "endpoint_with_https_scheme",
+			endpointUrl:      "https://storage.googleapis.com",
+			expectedError:    nil,
+			expectedExitCode: 0,
+		},
+		{
+			name:             "endpoint_with_no_scheme",
+			endpointUrl:      "storage.googleapis.com",
+			expectedError:    fmt.Errorf(`ERROR bad value for --endpoint-url storage.googleapis.com: scheme is missing. Must be of the form http://<hostname>/ or https://<hostname>/`),
+			expectedExitCode: 1,
+		},
+	}
+
+	for _, tc := range testcases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			_, s5cmd := setup(t)
+
+			cmd := s5cmd("--endpoint-url", tc.endpointUrl)
+			result := icmd.RunCmd(cmd)
+
+			result.Assert(t, icmd.Expected{ExitCode: tc.expectedExitCode})
+
+			if tc.expectedError == nil && result.Stderr() == "" {
+				return
+			}
+
+			assertLines(t, result.Stderr(), map[int]compareFunc{
+				0: equals("%v", tc.expectedError),
+			})
+
+		})
+	}
+}

@@ -465,16 +465,16 @@ func s3BucketFromTestName(t *testing.T) string {
 	return addRandomSuffixTo(bucket)
 }
 
-func addRandomSuffixTo(bucket string) string {
+func addRandomSuffixTo(bucketName string) string {
 
-	bucket = fmt.Sprintf("%v-%v", bucket, randomString(7))
+	bucketName = fmt.Sprintf("%v-%v", bucketName, randomString(7))
 
 	// trim if longer than 63 chars.
-	if len(bucket) > 63 {
-		bucket = fmt.Sprintf("%v-%v", bucket[:55], randomString(7))
-	}
+	if len(bucketName) > 63 {
 		bucketName = fmt.Sprintf("%v-%v", bucketName[:55], randomString(7))
 	}
+
+	return bucketName
 }
 
 func TestAddRandomSuffixTo(t *testing.T) {

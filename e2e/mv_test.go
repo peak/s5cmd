@@ -17,8 +17,7 @@ func TestMoveSingleS3ObjectToLocal(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -53,8 +52,7 @@ func TestMoveMultipleS3ObjectsToLocal(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -103,8 +101,7 @@ func TestMoveSingleFileToS3(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -140,8 +137,7 @@ func TestMoveMultipleFilesToS3(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -192,8 +188,7 @@ func TestMoveSingleS3ObjectToS3(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -231,8 +226,7 @@ func TestMoveSingleS3ObjectIntoAnotherBucket(t *testing.T) {
 	srcbucket := s3BucketFromTestName(t)
 	dstbucket := "copy-" + s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, srcbucket)
 	createBucket(t, s3client, dstbucket)
@@ -270,8 +264,7 @@ func TestMoveMultipleS3ObjectsToS3(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -319,8 +312,7 @@ func TestMoveMultipleS3ObjectsToS3DryRun(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -372,8 +364,7 @@ func TestMoveLocalObjectToS3WithRawFlag(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 

@@ -53,8 +53,7 @@ func TestCatS3Object(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			s3client, s5cmd, cleanup := setup(t)
-			defer cleanup()
+			s3client, s5cmd := setup(t)
 
 			createBucket(t, s3client, bucket)
 			putFile(t, s3client, bucket, filename, contents)
@@ -142,8 +141,7 @@ func TestCatS3ObjectFail(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			s3client, s5cmd, cleanup := setup(t)
-			defer cleanup()
+			s3client, s5cmd := setup(t)
 
 			createBucket(t, s3client, bucket)
 
@@ -195,8 +193,7 @@ func TestCatLocalFileFail(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			_, s5cmd, cleanup := setup(t)
-			defer cleanup()
+			_, s5cmd := setup(t)
 
 			cmd := s5cmd(tc.cmd...)
 			result := icmd.RunCmd(cmd)
@@ -230,8 +227,7 @@ func TestCatByVersionID(t *testing.T) {
 	bucket := s3BucketFromTestName(t)
 
 	// versioninng is only supported with in memory backend!
-	s3client, s5cmd, cleanup := setup(t, withS3Backend("mem"))
-	defer cleanup()
+	s3client, s5cmd := setup(t, withS3Backend("mem"))
 
 	const filename = "testfile.txt"
 

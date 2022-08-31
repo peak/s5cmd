@@ -18,8 +18,7 @@ func TestRemoveSingleS3Object(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -52,8 +51,7 @@ func TestRemoveSingleS3ObjectJSON(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -92,8 +90,7 @@ func TestRemoveMultipleS3Objects(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -135,8 +132,7 @@ func TestRemoveMultipleS3ObjectsJSON(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -208,8 +204,7 @@ func TestRemoveTenThousandS3Objects(t *testing.T) {
 
 	// ten thousand s3 objects are created for this test. by default, s3 backend is
 	// bolt but we need speed for this test, hence use in-memory storage.
-	s3client, s5cmd, cleanup := setup(t, withS3Backend("mem"))
-	defer cleanup()
+	s3client, s5cmd := setup(t, withS3Backend("mem"))
 
 	createBucket(t, s3client, bucket)
 
@@ -254,8 +249,7 @@ func TestRemoveS3PrefixWithoutSlash(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -278,8 +272,7 @@ func TestRemoveS3PrefixWithoutSlash(t *testing.T) {
 func TestRemoveSingleLocalFile(t *testing.T) {
 	t.Parallel()
 
-	_, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	_, s5cmd := setup(t)
 
 	const (
 		filename = "testfile1.txt"
@@ -309,8 +302,7 @@ func TestRemoveSingleLocalFile(t *testing.T) {
 func TestRemoveMultipleLocalFilesShouldNotFail(t *testing.T) {
 	t.Parallel()
 
-	_, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	_, s5cmd := setup(t)
 
 	filesToContent := map[string]string{
 		"testfile1.txt":          "this is a test file 1",
@@ -353,8 +345,7 @@ func TestRemoveMultipleLocalFilesShouldNotFail(t *testing.T) {
 func TestRemoveLocalDirectory(t *testing.T) {
 	t.Parallel()
 
-	_, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	_, s5cmd := setup(t)
 
 	folderLayout := []fs.PathOp{
 		fs.WithDir(
@@ -394,8 +385,7 @@ func TestRemoveLocalDirectoryWithGlob(t *testing.T) {
 		t.Skip("Files in Windows cannot contain glob(*) characters")
 	}
 
-	_, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	_, s5cmd := setup(t)
 
 	folderLayout := []fs.PathOp{
 		fs.WithDir(
@@ -446,8 +436,7 @@ func TestRemoveLocalDirectoryWithGlob(t *testing.T) {
 func TestVariadicMultipleLocalFilesWithDirectory(t *testing.T) {
 	t.Parallel()
 
-	_, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	_, s5cmd := setup(t)
 
 	folderLayout := []fs.PathOp{
 		fs.WithDir(
@@ -483,8 +472,7 @@ func TestVariadicMultipleLocalFilesWithDirectory(t *testing.T) {
 func TestVariadicRemoveS3Objects(t *testing.T) {
 	t.Parallel()
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
@@ -533,8 +521,7 @@ func TestVariadicRemoveS3Objects(t *testing.T) {
 func TestVariadicRemoveS3ObjectsWithWildcard(t *testing.T) {
 	t.Parallel()
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
@@ -584,8 +571,7 @@ func TestVariadicRemoveS3ObjectsWithWildcard(t *testing.T) {
 func TestRemoveMultipleMixedObjects(t *testing.T) {
 	t.Parallel()
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	const bucket = "bucket"
 	createBucket(t, s3client, bucket)
@@ -627,8 +613,7 @@ func TestRemoveMultipleS3ObjectsDryRun(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -668,8 +653,7 @@ func TestRemoveS3ObjectRawFlag(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -722,8 +706,7 @@ func TestRemoveS3ObjectsPrefixRawFlag(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -768,8 +751,7 @@ func TestRemoveS3PrefixRawFlag(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -808,8 +790,7 @@ func TestRemoveMultipleS3ObjectsWithExcludeFilter(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 	const excludePattern = "*.txt"
@@ -872,8 +853,7 @@ func TestRemoveMultipleS3ObjectsWithExcludeFilters(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -937,8 +917,7 @@ func TestRemoveMultipleS3ObjectsWithExcludeFilters(t *testing.T) {
 func TestRemoveS3ObjectsWithEmptyExcludeFilter(t *testing.T) {
 	t.Parallel()
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
@@ -1010,8 +989,7 @@ func TestRemoveLocalDirectoryWithExcludeFilter(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			_, s5cmd, cleanup := setup(t)
-			defer cleanup()
+			_, s5cmd := setup(t)
 
 			folderLayout := []fs.PathOp{
 				fs.WithDir(
@@ -1060,8 +1038,7 @@ func TestRemoveLocalDirectoryWithExcludeFilter(t *testing.T) {
 func TestRemoveLocalFilesWithExcludeFilters(t *testing.T) {
 	t.Parallel()
 
-	_, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	_, s5cmd := setup(t)
 
 	folderLayout := []fs.PathOp{
 		fs.WithDir(
@@ -1117,8 +1094,7 @@ func TestRemoveLocalFilesWithExcludeFilters(t *testing.T) {
 func TestRemoveLocalFilesWithPrefixandExcludeFilters(t *testing.T) {
 	t.Parallel()
 
-	_, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	_, s5cmd := setup(t)
 
 	folderLayout := []fs.PathOp{
 		fs.WithDir(
@@ -1176,8 +1152,7 @@ func TestRemoveLocalFilesWithPrefixandExcludeFilters(t *testing.T) {
 func TestRemovetNonexistingLocalFile(t *testing.T) {
 	t.Parallel()
 
-	_, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	_, s5cmd := setup(t)
 
 	cmd := s5cmd("rm", "nonexistentfile")
 	result := icmd.RunCmd(cmd)
@@ -1197,8 +1172,7 @@ func TestVersionedListAndRemove(t *testing.T) {
 	bucket := s3BucketFromTestName(t)
 
 	// versioninng is only supported with in memory backend!
-	s3client, s5cmd, cleanup := setup(t, withS3Backend("mem"))
-	defer cleanup()
+	s3client, s5cmd := setup(t, withS3Backend("mem"))
 
 	const (
 		filename              = "testfile.txt"
@@ -1265,8 +1239,7 @@ func TestRemoveByVersionID(t *testing.T) {
 	bucket := s3BucketFromTestName(t)
 
 	// versioninng is only supported with in memory backend!
-	s3client, s5cmd, cleanup := setup(t, withS3Backend("mem"))
-	defer cleanup()
+	s3client, s5cmd := setup(t, withS3Backend("mem"))
 
 	const filename = "testfile.txt"
 

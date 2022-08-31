@@ -9,8 +9,7 @@ import (
 func TestVersion(t *testing.T) {
 	t.Parallel()
 
-	_, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	_, s5cmd := setup(t)
 
 	cmd := s5cmd("version")
 	result := icmd.RunCmd(cmd)

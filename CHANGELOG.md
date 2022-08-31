@@ -4,6 +4,7 @@
 
 #### Breaking changes
 - Adjacent slashes in key are no longer removed when uploading to remote. Before `s5cmd cp file.txt s3://bucket/a//b///c/` would copy to `s3://bucket/a/b/c/file.txt` but now to `s3://bucket/a//b///c/file.txt`.([#459](https://github.com/peak/s5cmd/pull/459))
+- `--endpoint-url` will not accept URLs without scheme such as `example.com`. Instead, it will give an error and ask for an url with a scheme; either `http://example.com` or `https://example.com` ([#496](https://github.com/peak/s5cmd/pull/496)).
 
 #### Features
 - Added `--content-type` and `--content-encoding` flags to `cp` command. ([#264](https://github.com/peak/s5cmd/issues/264))

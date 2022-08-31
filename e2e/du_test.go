@@ -13,8 +13,7 @@ func TestDiskUsageSingleS3Object(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -37,8 +36,7 @@ func TestDiskUsageSingleS3ObjectJSON(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -67,8 +65,7 @@ func TestDiskUsageMultipleS3Objects(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -91,8 +88,7 @@ func TestDiskUsageWildcard(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 	putFile(t, s3client, bucket, "testfile1.txt", "this is a file content")
@@ -115,8 +111,7 @@ func TestDiskUsageS3ObjectsAndFolders(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 	putFile(t, s3client, bucket, "testfile1.txt", "content")
@@ -145,8 +140,7 @@ func TestDiskUsageWildcardS3ObjectsWithDashH(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -169,8 +163,7 @@ func TestDiskUsageMissingObject(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	createBucket(t, s3client, bucket)
 
@@ -191,8 +184,7 @@ func TestDiskUsageWildcardWithExcludeFilter(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	const excludePattern = "main*"
 
@@ -221,8 +213,7 @@ func TestDiskUsageWildcardWithExcludeFilters(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 
-	s3client, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	s3client, s5cmd := setup(t)
 
 	const (
 		excludePattern1 = "main*"
@@ -254,8 +245,7 @@ func TestDiskUsageByVersionIDAndAllVersions(t *testing.T) {
 	bucket := s3BucketFromTestName(t)
 
 	// versioninng is only supported with in memory backend!
-	s3client, s5cmd, cleanup := setup(t, withS3Backend("mem"))
-	defer cleanup()
+	s3client, s5cmd := setup(t, withS3Backend("mem"))
 
 	const filename = "testfile.txt"
 

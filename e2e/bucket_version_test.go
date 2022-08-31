@@ -10,8 +10,7 @@ func TestBucketVersioning(t *testing.T) {
 	t.Parallel()
 
 	bucket := s3BucketFromTestName(t)
-	s3client, s5cmd, cleanup := setup(t, withS3Backend("mem"))
-	defer cleanup()
+	s3client, s5cmd := setup(t, withS3Backend("mem"))
 
 	createBucket(t, s3client, bucket)
 

@@ -45,8 +45,7 @@ func TestAppRetryCount(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			_, s5cmd, cleanup := setup(t)
-			defer cleanup()
+			_, s5cmd := setup(t)
 
 			cmd := s5cmd("-r", strconv.Itoa(tc.retry))
 			result := icmd.RunCmd(cmd)
@@ -117,8 +116,7 @@ func TestAppDashStat(t *testing.T) {
 		tc := tc
 		t.Run(tc.command, func(t *testing.T) {
 			t.Parallel()
-			s3client, s5cmd, cleanup := setup(t)
-			defer cleanup()
+			s3client, s5cmd := setup(t)
 
 			createBucket(t, s3client, bucket)
 			putFile(t, s3client, bucket, src, fileContent)
@@ -154,13 +152,11 @@ func TestAppProxy(t *testing.T) {
 			const expectedReqs = 1
 
 			proxy := httpProxy{}
-			pxyUrl, cleanup := setupProxy(&proxy)
-			defer cleanup()
+			pxyUrl := setupProxy(t, &proxy)
 
 			os.Setenv("http_proxy", pxyUrl)
 
-			_, s5cmd, cleanup := setup(t, withProxy())
-			defer cleanup()
+			_, s5cmd := setup(t, withProxy())
 
 			var cmd icmd.Cmd
 			if tc.flag != "" {
@@ -180,8 +176,7 @@ func TestAppProxy(t *testing.T) {
 func TestAppUnknownCommand(t *testing.T) {
 	t.Parallel()
 
-	_, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	_, s5cmd := setup(t)
 
 	cmd := s5cmd("unknown-command")
 	result := icmd.RunCmd(cmd)
@@ -196,8 +191,7 @@ func TestAppUnknownCommand(t *testing.T) {
 func TestUsageError(t *testing.T) {
 	t.Parallel()
 
-	_, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	_, s5cmd := setup(t)
 
 	cmd := s5cmd("--recursive", "ls")
 	result := icmd.RunCmd(cmd)
@@ -214,8 +208,7 @@ func TestUsageError(t *testing.T) {
 func TestInvalidLoglevel(t *testing.T) {
 	t.Parallel()
 
-	_, s5cmd, cleanup := setup(t)
-	defer cleanup()
+	_, s5cmd := setup(t)
 
 	cmd := s5cmd("--log", "notexist", "ls")
 	result := icmd.RunCmd(cmd)
@@ -226,4 +219,57 @@ func TestInvalidLoglevel(t *testing.T) {
 		0: equals(`Incorrect Usage: invalid value "notexist" for flag -log: allowed values: [trace, debug, info, error]`),
 		1: equals("See 's5cmd --help' for usage"),
 	})
+}
+
+func TestAppEndpointShouldHaveScheme(t *testing.T) {
+	t.Parallel()
+
+	testcases := []struct {
+		name             string
+		endpointUrl      string
+		expectedError    error
+		expectedExitCode int
+	}{
+		{
+			name:             "endpoint_with_http_scheme",
+			endpointUrl:      "http://storage.googleapis.com",
+			expectedError:    nil,
+			expectedExitCode: 0,
+		},
+		{
+			name:             "endpoint_with_https_scheme",
+			endpointUrl:      "https://storage.googleapis.com",
+			expectedError:    nil,
+			expectedExitCode: 0,
+		},
+		{
+			name:             "endpoint_with_no_scheme",
+			endpointUrl:      "storage.googleapis.com",
+			expectedError:    fmt.Errorf(`ERROR bad value for --endpoint-url storage.googleapis.com: scheme is missing. Must be of the form http://<hostname>/ or https://<hostname>/`),
+			expectedExitCode: 1,
+		},
+	}
+
+	for _, tc := range testcases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			_, s5cmd := setup(t)
+
+			cmd := s5cmd("--endpoint-url", tc.endpointUrl)
+			result := icmd.RunCmd(cmd)
+
+			result.Assert(t, icmd.Expected{ExitCode: tc.expectedExitCode})
+
+			if tc.expectedError == nil && result.Stderr() == "" {
+				return
+			}
+
+			assertLines(t, result.Stderr(), map[int]compareFunc{
+				0: equals("%v", tc.expectedError),
+			})
+
+		})
+	}
 }

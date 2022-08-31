@@ -318,6 +318,23 @@ func TestCompletionFlag(t *testing.T) {
 			),
 			shell: "/bin/pwsh",
 		}, {
+			name:          "cp complete bucket keys zsh",
+			precedingArgs: []string{"cp"},
+			arg:           "s3://" + bucket + "/",
+			remoteFiles: []string{
+				"file0.txt",
+				"file1.txt",
+				"filedir/child.txt",
+				"dir/child.txt",
+			},
+			expected: keysToS3URL("s3\\://", bucket,
+				"file0.txt",
+				"file1.txt",
+				"filedir/",
+				"dir/",
+			),
+			shell: "/bin/zsh",
+		}, {
 			name:          "cp complete keys with colon",
 			precedingArgs: []string{"cp"},
 			arg:           "s3://" + bucket + "/co:lo",
@@ -401,7 +418,6 @@ func TestCompletionFlag(t *testing.T) {
 
 			cmd := s5cmd(append(tc.precedingArgs, tc.arg, flag)...)
 			result := icmd.RunCmd(cmd, withWorkingDir(workdir), withEnv("SHELL", tc.shell))
-			fmt.Println(tc.name, "§", os.Getenv("SHELL"), "$", result.Stdout(), "$")
 
 			assertLines(t, result.Stdout(), expectedSliceToEqualsMap(tc.expected, true), sortInput(true))
 

@@ -82,7 +82,8 @@ Register-ArgumentCompleter -Native -CommandName $name -ScriptBlock {
 }
 `
 
-func getBashCompleteFn(cmd *cli.Command) func(ctx *cli.Context) {
+func getBashCompleteFn(cmd *cli.Command, isOnlyRemote, isOnlyBucket bool) func(ctx *cli.Context) {
+	isOnlyRemote = isOnlyRemote || isOnlyBucket
 	return func(ctx *cli.Context) {
 		var arg string
 		args := ctx.Args()
@@ -102,30 +103,18 @@ func getBashCompleteFn(cmd *cli.Command) func(ctx *cli.Context) {
 			arg = strings.TrimPrefix(arg, "\"")
 		}
 
-		if strings.HasPrefix(arg, "s3://") {
-			printS3Suggestions(ctx, arg)
-		} else {
-			cli.DefaultCompleteWithFlags(cmd)(ctx)
-		}
-	}
-}
-
-func getRemoteCompleteFn(cmd *cli.Command) func(ctx *cli.Context) {
-	return func(ctx *cli.Context) {
-		var arg string
-		args := ctx.Args()
-		l := args.Len()
-
-		if l > 0 {
-			arg = args.Get(l - 1)
+		if isOnlyRemote || strings.HasPrefix(arg, "s3://") {
+			if strings.HasPrefix(arg, "-") {
+				cli.DefaultCompleteWithFlags(cmd)(ctx)
+				return
+			} else if !strings.HasPrefix(arg, "s3://") {
+				arg = "s3://"
+			}
+			printS3Suggestions(ctx, arg, isOnlyBucket)
+			return
 		}
 
-		if strings.HasPrefix(arg, "-") {
-			cli.DefaultCompleteWithFlags(cmd)(ctx)
-		} else if !strings.HasPrefix(arg, "s3://") {
-			arg = "s3://"
-		}
-		printS3Suggestions(ctx, arg)
+		cli.DefaultCompleteWithFlags(cmd)(ctx)
 	}
 }
 
@@ -150,7 +139,7 @@ func ineffectiveCompleteFnWithDefault(cmd *cli.Command, defaultCompletions ...st
 	}
 }
 
-func printS3Suggestions(ctx *cli.Context, arg string) {
+func printS3Suggestions(ctx *cli.Context, arg string, isOnlyBucket bool) {
 	c := ctx.Context
 	u, err := url.New(arg)
 	if err != nil {
@@ -163,10 +152,10 @@ func printS3Suggestions(ctx *cli.Context, arg string) {
 		return
 	}
 
-	if u.Bucket == "" || (u.IsBucket() && !strings.HasSuffix(arg, "/")) {
+	if u.Bucket == "" || (u.IsBucket() && !strings.HasSuffix(arg, "/")) || isOnlyBucket {
 		printListBuckets(c, client, u, arg)
 	} else {
-		printListNURLSuggestions(c, client, u, 13, arg)
+		printListNURLSuggestions(c, client, u, 20, arg)
 	}
 }
 

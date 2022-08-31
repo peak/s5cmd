@@ -95,7 +95,7 @@ func NewSelectCommand() *cli.Command {
 		},
 	}
 
-	cmd.BashComplete = getBashCompleteFn(cmd)
+	cmd.BashComplete = getBashCompleteFn(cmd, true, false)
 	return cmd
 }
 

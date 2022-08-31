@@ -79,7 +79,7 @@ func NewDeleteCommand() *cli.Command {
 		},
 	}
 
-	cmd.BashComplete = getBashCompleteFn(cmd)
+	cmd.BashComplete = getBashCompleteFn(cmd, false, false)
 	return cmd
 }
 

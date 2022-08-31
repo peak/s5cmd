@@ -34,7 +34,7 @@ Examples:
 `
 
 func NewRunCommand() *cli.Command {
-	cmd := &cli.Command{
+	return &cli.Command{
 		Name:               "run",
 		HelpName:           "run",
 		Usage:              "run commands in batch",
@@ -62,9 +62,6 @@ func NewRunCommand() *cli.Command {
 			return NewRun(c, reader).Run(c.Context)
 		},
 	}
-
-	cmd.BashComplete = getBashCompleteFn(cmd)
-	return cmd
 }
 
 type Run struct {

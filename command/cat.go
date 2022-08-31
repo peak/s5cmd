@@ -60,7 +60,7 @@ func NewCatCommand() *cli.Command {
 			}.Run(c.Context)
 		},
 	}
-	cmd.BashComplete = getRemoteCompleteFn(cmd)
+	cmd.BashComplete = getBashCompleteFn(cmd, true, false)
 	return cmd
 }
 

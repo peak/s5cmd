@@ -58,8 +58,8 @@ _s5cmd_cli_bash_autocomplete() {
 	`
 		opts=$($cmd --generate-bash-completion)` +
 
-	// prepare completion array with possible values and filter those does not
-	// start with cur. if no completion is found then fallback to default completion of shell.
+	// prepare completion array with possible values and filter those do not start with cur.
+	// if no completion is found then fallback to default completion of shell.
 	`
 
 		while IFS='' read -r line; do COMPREPLY+=("$line"); done < <(compgen -o bashdefault -o default -o nospace -W "${opts}" -- "${cur}")
@@ -108,8 +108,6 @@ func getBashCompleteFn(cmd *cli.Command, isOnlyRemote, isOnlyBucket bool) func(c
 			if strings.HasPrefix(arg, "-") {
 				cli.DefaultCompleteWithFlags(cmd)(ctx)
 				return
-			} else if !strings.HasPrefix(arg, "s3://") {
-				arg = "s3://"
 			}
 			printS3Suggestions(ctx, arg, isOnlyBucket)
 			return
@@ -173,14 +171,13 @@ func printListBuckets(ctx context.Context, client *storage.S3, u *url.URL, argTo
 }
 
 func printListNURLSuggestions(ctx context.Context, client *storage.S3, u *url.URL, count int, argToBeCompleted string) {
-	abs := u.Absolute()
 	if u.IsBucket() {
-		abs = abs + "/"
-	}
-	u, err := url.New(abs)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		return
+		var err error
+		u, err = url.New(u.Absolute() + "/")
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return
+		}
 	}
 
 	i := 0
@@ -230,12 +227,12 @@ func formatSuggestionForShell(suggestion, argToBeCompleted string) string {
 	baseShell := filepath.Base(os.Getenv("SHELL"))
 
 	if i := strings.LastIndex(argToBeCompleted, ":"); i >= 0 && baseShell == "bash" {
-		// write the original suggestion in case that the argToBeCompleted was quoted.
+		// write the original suggestion in case that COMP_WORDBREAKS does not contain :
+		// or that the argToBeCompleted was quoted.
 		// Bash doesn't split on : when argument is quoted even if : is in COMP_WORDBREAKS
 		fmt.Println(suggestion)
 		prefix = argToBeCompleted[0 : i+1]
 	}
-
 	suggestion = strings.TrimPrefix(suggestion, prefix)
 
 	// replace every colon : with \:	if shell is zsh

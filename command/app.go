@@ -60,7 +60,7 @@ var app = &cli.App{
 		},
 		&cli.BoolFlag{
 			Name:  "install-completion",
-			Usage: "install completion for your shell (only avialble for bash, zsh, and fish)",
+			Usage: "get completion installation instructions for your shell (only available for bash, pwsh, and zsh)",
 		},
 		&cli.BoolFlag{
 			Name:  "dry-run",

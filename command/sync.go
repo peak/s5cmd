@@ -401,8 +401,8 @@ func (s Sync) planRun(
 		"raw": true,
 	}
 
-	// it should wait until both of onlySource and onlyDest channels are closed
-	// before closing the WriteCloser w to ensure that all URLs are processed.
+	// it should wait until both of the child goroutines for onlySource and common channels
+	// are completed before closing the WriteCloser w to ensure that all URLs are processed.
 	var wg sync.WaitGroup
 
 	// only in source

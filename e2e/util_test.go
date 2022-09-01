@@ -113,9 +113,12 @@ func setup(t *testing.T, options ...option) (*s3.S3, func(...string) icmd.Cmd) {
 	endpoint := ""
 
 	// don't create a local s3 server if tests will run in another endpoint
-	if !isEndpointFromEnv() {
+	if isEndpointFromEnv() {
+		endpoint = os.Getenv(s5cmdTestEndpointEnv)
+	} else {
 		endpoint = server(t, testdir, opts)
 	}
+
 	// one of the tests check if s5cmd correctly fails when an incorrect endpoint is given.
 	// if test specified an endpoint url, then try to use that url.
 	if opts.endpointURL != "" {
@@ -224,6 +227,12 @@ func s5cmd(workdir, endpoint string) func(args ...string) icmd.Cmd {
 		if isEndpointFromEnv() {
 			id = os.Getenv(s5cmdTestIdEnv)
 			secret = os.Getenv(s5cmdTestSecretEnv)
+			env = append(
+				env,
+				[]string{
+					fmt.Sprintf("AWS_REGION=%v", os.Getenv(s5cmdTestRegionEnv)),
+				}...,
+			)
 		}
 
 		env = append(

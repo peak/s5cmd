@@ -446,7 +446,7 @@ func (s Sync) planRun(
 	if s.delete {
 		// unfortunately we need to read them all!
 		// or rewrite generateCommand function?
-		dstURLs := make([]*url.URL, 0)
+		dstURLs := make([]*url.URL, 0, extsortChunkSize)
 
 		for d := range onlyDest {
 			dstURLs = append(dstURLs, d)
@@ -457,7 +457,14 @@ func (s Sync) planRun(
 			return
 		}
 		fmt.Fprintln(w, command)
+	} else {
+		// we only need  to consume them from the channel so that rest of the objects
+		// can be sent to channel.
+		for d := range onlyDest {
+			_ = d
+		}
 	}
+
 	wg.Wait()
 }
 

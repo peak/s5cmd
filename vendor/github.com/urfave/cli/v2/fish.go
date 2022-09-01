@@ -95,7 +95,7 @@ func (a *App) prepareFishCommands(commands []*Command, allCommands *[]string, pr
 		completions = append(completions, completion.String())
 		completions = append(
 			completions,
-			a.prepareFishFlags(command.Flags, command.Names())...,
+			a.prepareFishFlags(command.VisibleFlags(), command.Names())...,
 		)
 
 		// recursevly iterate subcommands
@@ -168,6 +168,10 @@ func fishAddFileFlag(flag Flag, completion *strings.Builder) {
 			return
 		}
 	case *StringSliceFlag:
+		if f.TakesFile {
+			return
+		}
+	case *PathFlag:
 		if f.TakesFile {
 			return
 		}

@@ -337,13 +337,20 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 			srcOutputChan chan extsort.SortType
 		)
 
-		sorter, srcOutputChan, _ = extsort.New(filteredSrcObjectChannel, storage.FromBytes, storage.Less, extsortConfig)
+		sorter, srcOutputChan, srcErrCh := extsort.New(filteredSrcObjectChannel, storage.FromBytes, storage.Less, extsortConfig)
 		sorter.Sort(ctx)
 
 		for srcObject := range srcOutputChan {
 			o := srcObject.(storage.Object)
 			sourceObjects <- &o
 		}
+
+		// read and print the external sort errors
+		go func() {
+			for err := range srcErrCh {
+				printError(s.fullCommand, s.op, err)
+			}
+		}()
 	}()
 
 	// get destination objects.
@@ -369,13 +376,20 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 			dstOutputChan chan extsort.SortType
 		)
 
-		dstSorter, dstOutputChan, _ = extsort.New(filteredDstObjectChannel, storage.FromBytes, storage.Less, extsortConfig)
+		dstSorter, dstOutputChan, dstErrCh := extsort.New(filteredDstObjectChannel, storage.FromBytes, storage.Less, extsortConfig)
 		dstSorter.Sort(ctx)
 
 		for destObject := range dstOutputChan {
 			o := destObject.(storage.Object)
 			destObjects <- &o
 		}
+
+		// read and print the external sort errors
+		go func() {
+			for err := range dstErrCh {
+				printError(s.fullCommand, s.op, err)
+			}
+		}()
 
 	}()
 

@@ -459,6 +459,7 @@ func replaceMatchWithSpace(input string, match ...string) string {
 func s3BucketFromTestNameWithPrefix(t *testing.T, prefix string) string {
 	t.Helper()
 	bucket := strcase.ToKebab(t.Name())
+	bucket = strings.Replace(bucket, "/", "-", -1)
 
 	if prefix != "" {
 		bucket = fmt.Sprintf("%v-%v", prefix, bucket)
@@ -470,6 +471,9 @@ func s3BucketFromTestNameWithPrefix(t *testing.T, prefix string) string {
 func s3BucketFromTestName(t *testing.T) string {
 	t.Helper()
 	bucket := strcase.ToKebab(t.Name())
+
+	reg, _ := regexp.Compile("[^a-z0-9]+")
+	bucket = reg.ReplaceAllString(bucket, "-")
 
 	return addRandomSuffixTo(bucket)
 }

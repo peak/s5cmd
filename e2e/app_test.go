@@ -76,7 +76,6 @@ func TestAppDashStat(t *testing.T) {
 	t.Parallel()
 
 	const (
-		bucket                  = "bucket"
 		fileContent             = "this is a file content"
 		src                     = "file1.txt"
 		expectedOutputIfPrinted = "Operation\tTotal\tError\tSuccess\t"
@@ -87,19 +86,19 @@ func TestAppDashStat(t *testing.T) {
 		isPrintExpected bool
 	}{
 		{
-			command:         fmt.Sprintf("--stat --log %v cp s3://bucket/%v .", "trace", src),
+			command:         fmt.Sprintf("--stat --log %v ls", "trace"),
 			isPrintExpected: true,
 		},
 		{
-			command:         fmt.Sprintf("--stat --log %v cp s3://bucket/%v .", "debug", src),
+			command:         fmt.Sprintf("--stat --log %v ls", "debug"),
 			isPrintExpected: true,
 		},
 		{
-			command:         fmt.Sprintf("--stat --log %v cp s3://bucket/%v .", "info", src),
+			command:         fmt.Sprintf("--stat --log %v ls", "info"),
 			isPrintExpected: true,
 		},
 		{
-			command:         fmt.Sprintf("--stat --log %v cp s3://bucket/%v .", "error", src),
+			command:         fmt.Sprintf("--stat --log %v ls", "error"),
 			isPrintExpected: true,
 		},
 		// if level is an empty string, it ignores log levels and uses default.
@@ -118,8 +117,11 @@ func TestAppDashStat(t *testing.T) {
 			t.Parallel()
 			s3client, s5cmd := setup(t)
 
+			bucket := s3BucketFromTestName(t)
+
 			createBucket(t, s3client, bucket)
 			putFile(t, s3client, bucket, src, fileContent)
+
 			cmd := s5cmd(strings.Fields(tc.command)...)
 
 			result := icmd.RunCmd(cmd)

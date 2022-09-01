@@ -269,6 +269,7 @@ func TestAppEndpointShouldHaveScheme(t *testing.T) {
 			assertLines(t, result.Stderr(), map[int]compareFunc{
 				0: equals("%v", tc.expectedError),
 			})
+
 		})
 	}
 }

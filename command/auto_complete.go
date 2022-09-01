@@ -33,34 +33,35 @@ compdef _s5cmd_cli_zsh_autocomplete s5cmd
 
 const bash = `# prepare autocompletion suggestions for s5cmd and save them to COMPREPLY array
 _s5cmd_cli_bash_autocomplete() {
-
 	if [[ "${COMP_WORDS[0]}" != "source" ]]; then
 		COMPREPLY=()
-		local opts cur cmd
-
-		# get current word (cur) and prepare command (cmd)
+		local opts cur cmd` +
+	// get current word (cur) and prepare command (cmd)
+	`
 		cur="${COMP_WORDS[COMP_CWORD]}"
-		cmd="${COMP_LINE:0:$COMP_POINT}"
+		cmd="${COMP_LINE:0:$COMP_POINT}"` +
 
-		# if we want to complete the second argurment and we didn't started writing
-		# yet then we should pass an empty string as another argument. Otherwise
-		# the white spaces will be discarded and the program will make suggestions
-		# as if it is completing the first argument.
-		# shellcheck disable=SC2089,SC2090
-		# Beware that the we want to pass empty string so we intentionally write
-		# as it is. Fixes of SC2089 and SC2090 are not what we want.
-		# see also https://www.shellcheck.net/wiki/SC2090
+	// if we want to complete the second argurment and we didn't started writing
+	// yet then we should pass an empty string as another argument. Otherwise
+	// the white spaces will be discarded and the program will make suggestions
+	// as if it is completing the first argument.
+	// Beware that the we want to pass empty string so we intentionally write
+	// as it is. Fixes of SC2089 and SC2090 are not what we want.
+	// see also https://www.shellcheck.net/wiki/SC2090
+	`
 		[ "${COMP_LINE:COMP_POINT-1:$COMP_POINT}" == " " ] \
-			&& [ "${COMP_LINE:COMP_POINT-2:$COMP_POINT}" != '\ ' ] \
-			&& cmd="${cmd} \"\"" 
+			&& cmd="${cmd} \"\"" ` +
 
-		# execute the command with '--generate-bash-completion' flag to obtain
-		# possible completion values for current word.
-		# shellcheck disable=SC2090
-		opts=$($cmd --generate-bash-completion)
+	// execute the command with '--generate-bash-completion' flag to obtain
+	// possible completion values for current word.
+	// ps. SC2090 is not wanted.
+	`
+		opts=$($cmd --generate-bash-completion)` +
 
-		# prepare completion array with possible values and filter those does not
-		# start with cur. if no completion is found then fallback to default completion of shell. 
+	// prepare completion array with possible values and filter those does not
+	// start with cur. if no completion is found then fallback to default completion of shell.
+	`
+
 		while IFS='' read -r line; do COMPREPLY+=("$line"); done < <(compgen -o bashdefault -o default -o nospace -W "${opts}" -- "${cur}")
 
 		return 0

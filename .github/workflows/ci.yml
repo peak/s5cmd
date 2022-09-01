@@ -42,6 +42,11 @@ jobs:
     - uses: actions/setup-go@v2
       with:
         go-version: ${{ matrix.go-version }}
+      env:
+        S5CMD_ACCESS_KEY_ID: ${{ secrets.S5CMD_ACCESS_KEY_ID }}
+        S5CMD_SECRET_ACCESS_KEY: ${{ secrets.S5CMD_SECRET_ACCESS_KEY }}
+        S5CMD_ENDPOINT_URL: ${{ secrets.S5CMD_ENDPOINT_URL }}
+        S5CMD_REGION: ${{ secrets.S5CMD_REGION }}
 
     - run: make test
 

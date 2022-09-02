@@ -8,6 +8,8 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/aws/aws-sdk-go/aws/client"
+	"github.com/aws/aws-sdk-go/aws/request"
 	"io"
 	"math/rand"
 	"os"
@@ -45,6 +47,7 @@ const (
 	s5cmdTestSecretEnv     = "S5CMD_SECRET_ACCESS_KEY"
 	s5cmdTestEndpointEnv   = "S5CMD_ENDPOINT_URL"
 	s5cmdTestRegionEnv     = "S5CMD_REGION"
+	maxRetries             = 5
 )
 
 var (
@@ -185,6 +188,7 @@ func s3client(t *testing.T, options storage.Options) *s3.S3 {
 		key = os.Getenv(s5cmdTestSecretEnv)
 		endpoint = os.Getenv(s5cmdTestEndpointEnv)
 		region = os.Getenv(s5cmdTestRegionEnv)
+		s3Config.Retryer = newSlowDownRetryer(maxRetries)
 	} else {
 		s3Config = s3Config.
 			WithS3ForcePathStyle(true)
@@ -204,6 +208,31 @@ func s3client(t *testing.T, options storage.Options) *s3.S3 {
 	assert.NilError(t, err)
 
 	return s3.New(sess)
+}
+
+// slowDownRetryer wraps the SDK's built in DefaultRetryer adding additional
+// retry for SlowDown code.
+type slowDownRetryer struct {
+	client.DefaultRetryer
+}
+
+func newSlowDownRetryer(maxRetries int) *slowDownRetryer {
+	return &slowDownRetryer{
+		DefaultRetryer: client.DefaultRetryer{
+			NumMaxRetries: maxRetries,
+		},
+	}
+}
+
+func (c *slowDownRetryer) ShouldRetry(req *request.Request) bool {
+	var awsErr awserr.Error
+	if errors.As(req.Error, &awsErr) {
+		if awsErr.Code() == "SlowDown" {
+			return true
+		}
+	}
+
+	return c.DefaultRetryer.ShouldRetry(req)
 }
 
 func isEndpointFromEnv() bool {

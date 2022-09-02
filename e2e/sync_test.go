@@ -20,9 +20,9 @@ func TestSyncFailForNonsharedFlagsFromCopyCommand(t *testing.T) {
 
 	const (
 		filename = "source.go"
-		bucket   = "bucket"
 	)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 	putFile(t, s3client, bucket, filename, "content")
 
@@ -69,9 +69,9 @@ func TestSyncSingleS3ObjectToLocalTwice(t *testing.T) {
 
 	const (
 		filename = "source.go"
-		bucket   = "bucket"
 	)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 	putFile(t, s3client, bucket, filename, "content")
 
@@ -95,14 +95,14 @@ func TestSyncSingleS3ObjectToLocalTwice(t *testing.T) {
 func TestSyncLocalFileToS3Twice(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
 	const (
 		filename = "testfile1.txt"
 		content  = "this is the content"
 	)
+
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	// the file to be uploaded is modified
@@ -135,10 +135,9 @@ func TestCopyLocalFilestoS3WithRawFlag(t *testing.T) {
 
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	files := []fs.PathOp{
@@ -244,10 +243,9 @@ func TestSyncLocalFolderToS3EmptyBucket(t *testing.T) {
 func TestSyncMultipleFilesWithWildcardedDirectoryToS3Bucket(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	folderLayout := []fs.PathOp{
@@ -360,12 +358,13 @@ func TestSyncS3BucketToEmptyS3Bucket(t *testing.T) {
 	s3client, s5cmd := setup(t)
 
 	bucket := s3BucketFromTestName(t)
+	dstbucket := s3BucketFromTestNameWithPrefix(t, "dst")
+
 	const (
-		destbucket = "destbucket"
-		prefix     = "prefix"
+		prefix = "prefix"
 	)
 	createBucket(t, s3client, bucket)
-	createBucket(t, s3client, destbucket)
+	createBucket(t, s3client, dstbucket)
 
 	S3Content := map[string]string{
 		"testfile.txt":            "S: this is a test file",
@@ -380,7 +379,7 @@ func TestSyncS3BucketToEmptyS3Bucket(t *testing.T) {
 
 	bucketPath := fmt.Sprintf("s3://%v", bucket)
 	src := fmt.Sprintf("%v/*", bucketPath)
-	dst := fmt.Sprintf("s3://%v/%v/", destbucket, prefix)
+	dst := fmt.Sprintf("s3://%v/%v/", dstbucket, prefix)
 
 	cmd := s5cmd("sync", src, dst)
 	result := icmd.RunCmd(cmd)
@@ -402,7 +401,7 @@ func TestSyncS3BucketToEmptyS3Bucket(t *testing.T) {
 	// assert s3 objects in dest bucket
 	for key, content := range S3Content {
 		key = fmt.Sprintf("%s/%s", prefix, key) // add the prefix
-		assert.Assert(t, ensureS3Object(s3client, destbucket, key, content))
+		assert.Assert(t, ensureS3Object(s3client, dstbucket, key, content))
 	}
 }
 
@@ -726,10 +725,10 @@ func TestSyncS3BucketToS3BucketSameSizesSourceNewer(t *testing.T) {
 	s3client, s5cmd := setup(t, withTimeSource(timeSource))
 
 	bucket := s3BucketFromTestName(t)
-	destbucket := "destbucket"
+	dstbucket := s3BucketFromTestNameWithPrefix(t, "dst")
 
 	createBucket(t, s3client, bucket)
-	createBucket(t, s3client, destbucket)
+	createBucket(t, s3client, dstbucket)
 
 	sourceS3Content := map[string]string{
 		"main.py":                 "S: this is a python file",
@@ -753,13 +752,13 @@ func TestSyncS3BucketToS3BucketSameSizesSourceNewer(t *testing.T) {
 	// make destination files 1 minute older
 	timeSource.Advance(-time.Minute)
 	for filename, content := range destS3Content {
-		putFile(t, s3client, destbucket, filename, content)
+		putFile(t, s3client, dstbucket, filename, content)
 	}
 	timeSource.Advance(time.Minute)
 
 	bucketPath := fmt.Sprintf("s3://%v", bucket)
 	src := fmt.Sprintf("%s/*", bucketPath)
-	dst := fmt.Sprintf("s3://%v/", destbucket)
+	dst := fmt.Sprintf("s3://%v/", dstbucket)
 
 	// log debug
 	cmd := s5cmd("--log", "debug", "sync", src, dst)
@@ -781,7 +780,7 @@ func TestSyncS3BucketToS3BucketSameSizesSourceNewer(t *testing.T) {
 
 	// assert s3 objects in destination (should be same as source)
 	for key, content := range sourceS3Content {
-		assert.Assert(t, ensureS3Object(s3client, destbucket, key, content))
+		assert.Assert(t, ensureS3Object(s3client, dstbucket, key, content))
 	}
 }
 
@@ -794,10 +793,10 @@ func TestSyncS3BucketToS3BucketSameSizesSourceOlder(t *testing.T) {
 	s3client, s5cmd := setup(t, withTimeSource(timeSource))
 
 	bucket := s3BucketFromTestName(t)
-	destbucket := "destbucket"
+	dstbucket := s3BucketFromTestNameWithPrefix(t, "dst")
 
 	createBucket(t, s3client, bucket)
-	createBucket(t, s3client, destbucket)
+	createBucket(t, s3client, dstbucket)
 
 	sourceS3Content := map[string]string{
 		"main.py":                 "S: this is a python file",
@@ -822,12 +821,12 @@ func TestSyncS3BucketToS3BucketSameSizesSourceOlder(t *testing.T) {
 	timeSource.Advance(time.Minute)
 
 	for filename, content := range destS3Content {
-		putFile(t, s3client, destbucket, filename, content)
+		putFile(t, s3client, dstbucket, filename, content)
 	}
 
 	bucketPath := fmt.Sprintf("s3://%v", bucket)
 	src := fmt.Sprintf("%s/*", bucketPath)
-	dst := fmt.Sprintf("s3://%v/", destbucket)
+	dst := fmt.Sprintf("s3://%v/", dstbucket)
 
 	// log debug
 	cmd := s5cmd("--log", "debug", "sync", src, dst)
@@ -849,7 +848,7 @@ func TestSyncS3BucketToS3BucketSameSizesSourceOlder(t *testing.T) {
 
 	// assert s3 objects in destination (should not change).
 	for key, content := range destS3Content {
-		assert.Assert(t, ensureS3Object(s3client, destbucket, key, content))
+		assert.Assert(t, ensureS3Object(s3client, dstbucket, key, content))
 	}
 }
 
@@ -1010,9 +1009,9 @@ func TestSyncS3BucketToS3BucketSizeOnly(t *testing.T) {
 	s3client, s5cmd := setup(t, withTimeSource(timeSource))
 
 	bucket := s3BucketFromTestName(t)
-	destbucket := "destbucket"
+	dstbucket := s3BucketFromTestNameWithPrefix(t, "dst")
 	createBucket(t, s3client, bucket)
-	createBucket(t, s3client, destbucket)
+	createBucket(t, s3client, dstbucket)
 
 	sourceS3Content := map[string]string{
 		"main.py":                 "S: this is an updated python file",
@@ -1032,7 +1031,7 @@ func TestSyncS3BucketToS3BucketSizeOnly(t *testing.T) {
 	// timestamps should be ignored with --size-only flag
 	timeSource.Advance(-time.Minute)
 	for filename, content := range destS3Content {
-		putFile(t, s3client, destbucket, filename, content)
+		putFile(t, s3client, dstbucket, filename, content)
 	}
 	timeSource.Advance(time.Minute)
 
@@ -1042,7 +1041,7 @@ func TestSyncS3BucketToS3BucketSizeOnly(t *testing.T) {
 
 	bucketPath := fmt.Sprintf("s3://%v", bucket)
 	src := fmt.Sprintf("%s/*", bucketPath)
-	dst := fmt.Sprintf("s3://%v/", destbucket)
+	dst := fmt.Sprintf("s3://%v/", dstbucket)
 
 	// log debug
 	cmd := s5cmd("--log", "debug", "sync", "--size-only", src, dst)
@@ -1071,7 +1070,7 @@ func TestSyncS3BucketToS3BucketSizeOnly(t *testing.T) {
 
 	// assert s3 objects in destination
 	for key, content := range expectedDestS3Content {
-		assert.Assert(t, ensureS3Object(s3client, destbucket, key, content))
+		assert.Assert(t, ensureS3Object(s3client, dstbucket, key, content))
 	}
 }
 
@@ -1209,9 +1208,9 @@ func TestSyncS3BucketToS3BucketWithDelete(t *testing.T) {
 	s3client, s5cmd := setup(t)
 
 	bucket := s3BucketFromTestName(t)
-	destbucket := "destbucket"
+	dstbucket := s3BucketFromTestNameWithPrefix(t, "dst")
 	createBucket(t, s3client, bucket)
-	createBucket(t, s3client, destbucket)
+	createBucket(t, s3client, dstbucket)
 
 	sourceS3Content := map[string]string{
 		"readme.md":    "S: this is a readme file",
@@ -1231,11 +1230,11 @@ func TestSyncS3BucketToS3BucketWithDelete(t *testing.T) {
 	}
 
 	for filename, content := range destS3Content {
-		putFile(t, s3client, destbucket, filename, content)
+		putFile(t, s3client, dstbucket, filename, content)
 	}
 
 	src := fmt.Sprintf("s3://%v/", bucket)
-	dst := fmt.Sprintf("s3://%v/", destbucket)
+	dst := fmt.Sprintf("s3://%v/", dstbucket)
 
 	cmd := s5cmd("sync", "--delete", "--size-only", src+"*", dst)
 	result := icmd.RunCmd(cmd)
@@ -1270,12 +1269,12 @@ func TestSyncS3BucketToS3BucketWithDelete(t *testing.T) {
 
 	// assert s3 objects in destination. (should be)
 	for key, content := range expectedDestS3Content {
-		assert.Assert(t, ensureS3Object(s3client, destbucket, key, content))
+		assert.Assert(t, ensureS3Object(s3client, dstbucket, key, content))
 	}
 
 	// assert s3 objects should be deleted.
 	for key, content := range nonExpectedDestS3Content {
-		err := ensureS3Object(s3client, destbucket, key, content)
+		err := ensureS3Object(s3client, dstbucket, key, content)
 		if err == nil {
 			t.Errorf("File %v is not deleted in remote : %v\n", key, err)
 		}
@@ -1477,10 +1476,8 @@ func TestSyncLocalFilesWithNoFollowSymlinksToS3Bucket(t *testing.T) {
 func TestSyncS3ObjectsIntoAnotherBucketWithExcludeFilters(t *testing.T) {
 	t.Parallel()
 
-	const (
-		srcbucket = "bucket"
-		dstbucket = "dstbucket"
-	)
+	srcbucket := s3BucketFromTestNameWithPrefix(t, "src")
+	dstbucket := s3BucketFromTestNameWithPrefix(t, "dst")
 
 	s3client, s5cmd := setup(t)
 
@@ -1586,7 +1583,7 @@ func TestSyncLocalDirectoryToS3WithExcludeFilter(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			bucket := "testbucket"
+			bucket := s3BucketFromTestName(t)
 
 			s3client, s5cmd := setup(t)
 

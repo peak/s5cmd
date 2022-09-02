@@ -28,13 +28,17 @@ func TestListBuckets(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
+	// find the first created bucket
+	startIdx := strings.Index(result.Stdout(), fmt.Sprintf("s3://%v-1", bucketPrefix))
+	got := result.Stdout()[startIdx:]
+
 	// expect ordered list
-	assertLines(t, result.Stdout(), map[int]compareFunc{
+	assertLines(t, got, map[int]compareFunc{
 		0: suffix("s3://%v-1", bucketPrefix),
 		1: suffix("s3://%v-2", bucketPrefix),
 		2: suffix("s3://%v-3", bucketPrefix),
 		3: suffix("s3://%v-4", bucketPrefix),
-	})
+	}, strictLineCheck(false))
 }
 
 // -json ls bucket
@@ -52,26 +56,29 @@ func TestListBucketsJSON(t *testing.T) {
 
 	cmd := s5cmd("--json", "ls")
 	result := icmd.RunCmd(cmd)
-
 	result.Assert(t, icmd.Success)
 
+	// find the first created bucket
+	startIdx := strings.Index(result.Stdout(), fmt.Sprintf(`"name":"%v-1"`, bucketPrefix))
+	startOfLine := strings.LastIndex(result.Stdout()[:startIdx], "{")
+	got := result.Stdout()[startOfLine:]
+
 	// expect ordered list
-	assertLines(t, result.Stdout(), map[int]compareFunc{
+	assertLines(t, got, map[int]compareFunc{
 		0: suffix(`"name":"%v-1"}`, bucketPrefix),
 		1: suffix(`"name":"%v-2"}`, bucketPrefix),
 		2: suffix(`"name":"%v-3"}`, bucketPrefix),
 		3: suffix(`"name":"%v-4"}`, bucketPrefix),
-	}, jsonCheck(true))
+	}, jsonCheck(true), strictLineCheck(false))
 }
 
 // ls bucket/object
 func TestListSingleS3Object(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	// create 2 files, expect 1.
@@ -92,10 +99,9 @@ func TestListSingleS3Object(t *testing.T) {
 func TestListSingleS3ObjectJSON(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	// create 2 files, expect 1.
@@ -116,10 +122,9 @@ func TestListSingleS3ObjectJSON(t *testing.T) {
 func TestListSingleWildcardS3Object(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 	putFile(t, s3client, bucket, "testfile1.txt", "this is a file content")
 	putFile(t, s3client, bucket, "testfile2.txt", "this is also a file content")
@@ -141,10 +146,9 @@ func TestListSingleWildcardS3Object(t *testing.T) {
 func TestListS3ObjectsWithDashS(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 	putFile(t, s3client, bucket, "testfile1.txt", "this is a file content")
 
@@ -160,10 +164,9 @@ func TestListS3ObjectsWithDashS(t *testing.T) {
 func TestListMultipleWildcardS3Object(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 	putFile(t, s3client, bucket, "a/testfile1.txt", "content")
 	putFile(t, s3client, bucket, "a/testfile2.txt", "content")
@@ -196,10 +199,9 @@ func TestListMultipleWildcardS3Object(t *testing.T) {
 func TestListMultipleWildcardS3ObjectWithPrefix(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 	putFile(t, s3client, bucket, "a/testfile1.txt", "content")
 	putFile(t, s3client, bucket, "a/testfile2.txt", "content")
@@ -229,10 +231,9 @@ func TestListMultipleWildcardS3ObjectWithPrefix(t *testing.T) {
 func TestListS3ObjectsAndFolders(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 	putFile(t, s3client, bucket, "testfile1.txt", "content")
 	putFile(t, s3client, bucket, "report.gz", "content")
@@ -266,10 +267,9 @@ func TestListS3ObjectsAndFolders(t *testing.T) {
 func TestListS3ObjectsAndFoldersWithPrefix(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 	putFile(t, s3client, bucket, "testfile1.txt", "content")
 	putFile(t, s3client, bucket, "report.gz", "content")
@@ -292,10 +292,9 @@ func TestListS3ObjectsAndFoldersWithPrefix(t *testing.T) {
 func TestListNonexistingS3ObjectInGivenPrefix(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	const pattern = "/*/testfile*.txt"
@@ -315,10 +314,9 @@ func TestListNonexistingS3ObjectInGivenPrefix(t *testing.T) {
 func TestListNonexistingS3Object(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	cmd := s5cmd("ls", "s3://"+bucket+"/nosuchobject")
@@ -337,10 +335,9 @@ func TestListNonexistingS3Object(t *testing.T) {
 func TestListS3ObjectsWithDashE(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	putFile(t, s3client, bucket, "testfile1.txt", strings.Repeat("this is a file content", 10000))
@@ -361,10 +358,9 @@ func TestListS3ObjectsWithDashE(t *testing.T) {
 func TestListS3ObjectsWithDashH(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	putFile(t, s3client, bucket, "testfile1.txt", strings.Repeat("this is a file content", 10000))

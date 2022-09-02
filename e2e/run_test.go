@@ -14,11 +14,11 @@ import (
 func TestRunFromStdin(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
+
 	putFile(t, s3client, bucket, "file1.txt", "content")
 	putFile(t, s3client, bucket, "file2.txt", "content")
 
@@ -46,10 +46,9 @@ func TestRunFromStdin(t *testing.T) {
 func TestRunFromStdinIssue309(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 	putFile(t, s3client, bucket, "test #3 /bar.jpg", "content")
 
@@ -74,10 +73,9 @@ func TestRunFromStdinIssue309(t *testing.T) {
 func TestRunFromStdinWithErrors(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	input := strings.NewReader(
@@ -102,10 +100,9 @@ func TestRunFromStdinWithErrors(t *testing.T) {
 func TestRunFromStdinJSON(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 	putFile(t, s3client, bucket, "file1.txt", "content")
 	putFile(t, s3client, bucket, "file2.txt", "content")
@@ -132,10 +129,9 @@ func TestRunFromStdinJSON(t *testing.T) {
 func TestRunFromFile(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 	putFile(t, s3client, bucket, "file1.txt", "content")
 	putFile(t, s3client, bucket, "file2.txt", "content")
@@ -164,10 +160,9 @@ func TestRunFromFile(t *testing.T) {
 func TestRunFromFileJSON(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 	putFile(t, s3client, bucket, "file1.txt", "content")
 	putFile(t, s3client, bucket, "file2.txt", "content")
@@ -213,10 +208,9 @@ func TestRunFromFileThatDoesntExist(t *testing.T) {
 func TestRunWildcardCountGreaterEqualThanWorkerCount(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 	putFile(t, s3client, bucket, "file.txt", "content")
 
@@ -276,10 +270,9 @@ func TestRunSpecialCharactersInPrefix(t *testing.T) {
 func TestRunDryRun(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	files := [...]string{"cpfile.txt", "mvfile.txt", "rmfile.txt"}
@@ -324,10 +317,9 @@ func TestRunDryRun(t *testing.T) {
 func TestRunFixDataRace_Issue301(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 	putFile(t, s3client, bucket, "file1.txt", "content")
 

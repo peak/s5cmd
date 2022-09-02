@@ -53,6 +53,9 @@ func TestCatS3Object(t *testing.T) {
 			createBucket(t, s3client, bucket)
 			putFile(t, s3client, bucket, filename, contents)
 
+			src := fmt.Sprintf("s3://%v/%v", bucket, filename)
+			tc.cmd = append(tc.cmd, src)
+
 			cmd := s5cmd(tc.cmd...)
 			result := icmd.RunCmd(cmd)
 
@@ -68,66 +71,77 @@ func TestCatS3ObjectFail(t *testing.T) {
 	t.Parallel()
 
 	const (
-		bucket   = "bucket"
 		filename = "file.txt"
 	)
-	//todo(bora): set unique name to bucket
-	bucketSrc := fmt.Sprintf("s3://%v", bucket)
-	prefixSrc := fmt.Sprintf("%v/prefix", bucketSrc)
-	src := fmt.Sprintf("%s/%v", prefixSrc, filename)
+
+	// create 4 different bucket names for each test case
+	bucket1 := s3BucketFromTestNameWithPrefix(t, "1")
+	bucket2 := s3BucketFromTestNameWithPrefix(t, "2")
+	bucket3 := s3BucketFromTestNameWithPrefix(t, "3")
+	bucket4 := s3BucketFromTestNameWithPrefix(t, "4")
+
+	src1 := fmt.Sprintf("s3://%v/prefix/%v", bucket1, filename)
+	src2 := fmt.Sprintf("s3://%v/prefix/%v", bucket2, filename)
+	src3 := fmt.Sprintf("s3://%v/prefix/%v", bucket3, filename)
+	src4 := fmt.Sprintf("s3://%v", bucket4)
 
 	testcases := []struct {
+		bucket    string
 		name      string
 		cmd       []string
 		expected  map[int]compareFunc
 		assertOps []assertOp
 	}{
 		{
-			name: "cat non existent remote object",
+			bucket: bucket1,
+			name:   "cat non existent remote object",
 			cmd: []string{
 				"cat",
-				src,
+				src1,
 			},
 			expected: map[int]compareFunc{
-				0: contains(`ERROR "cat s3://%v/prefix/file.txt": NoSuchKey: status code: 404`, bucket),
+				0: contains(`ERROR "cat s3://%v/prefix/file.txt": NoSuchKey: status code: 404`, bucket1),
 			},
 		},
 		{
-			name: "cat non existent remote object with json flag",
+			bucket: bucket2,
+			name:   "cat non existent remote object with json flag",
 			cmd: []string{
 				"--json",
 				"cat",
-				src,
+				src2,
 			},
 			expected: map[int]compareFunc{
-				0: contains(`{"operation":"cat","command":"cat s3://%v/prefix/file.txt","error":"NoSuchKey: status code: 404,`, bucket),
+				0: contains(`{"operation":"cat","command":"cat s3://%v/prefix/file.txt","error":"NoSuchKey: status code: 404,`, bucket2),
 			},
 			assertOps: []assertOp{
 				jsonCheck(true),
 			},
 		},
 		{
-			name: "cat remote object with glob",
+			bucket: bucket3,
+			name:   "cat remote object with glob",
 			cmd: []string{
 				"--json",
 				"cat",
-				src + "/*",
+				src3 + "/*",
 			},
 			expected: map[int]compareFunc{
-				0: equals(`{"operation":"cat","command":"cat s3://%v/prefix/file.txt/*","error":"remote source \"s3://%v/prefix/file.txt/*\" can not contain glob characters"}`, bucket, bucket),
+				0: equals(`{"operation":"cat","command":"cat s3://%v/prefix/file.txt/*","error":"remote source \"s3://%v/prefix/file.txt/*\" can not contain glob characters"}`, bucket3, bucket3),
 			},
 			assertOps: []assertOp{
 				jsonCheck(true),
 			},
 		},
 		{
-			name: "cat bucket",
+			bucket: bucket4,
+			name:   "cat bucket",
 			cmd: []string{
 				"cat",
-				bucketSrc,
+				src4,
 			},
 			expected: map[int]compareFunc{
-				0: contains(`ERROR "cat s3://%v": remote source must be an object`, bucket),
+				0: contains(`ERROR "cat s3://%v": remote source must be an object`, bucket4),
 			},
 		},
 	}
@@ -138,7 +152,7 @@ func TestCatS3ObjectFail(t *testing.T) {
 			t.Parallel()
 			s3client, s5cmd := setup(t)
 
-			createBucket(t, s3client, bucket)
+			createBucket(t, s3client, tc.bucket)
 
 			cmd := s5cmd(tc.cmd...)
 			result := icmd.RunCmd(cmd)

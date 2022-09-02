@@ -10,10 +10,9 @@ import (
 func TestDiskUsageSingleS3Object(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	// create 2 files, expect 1.
@@ -33,10 +32,8 @@ func TestDiskUsageSingleS3Object(t *testing.T) {
 func TestDiskUsageSingleS3ObjectJSON(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
-
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	// create 2 files, expect 1.
@@ -62,10 +59,8 @@ func TestDiskUsageSingleS3ObjectJSON(t *testing.T) {
 func TestDiskUsageMultipleS3Objects(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
-
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	putFile(t, s3client, bucket, "testfile1.txt", "this is a file content")
@@ -85,10 +80,9 @@ func TestDiskUsageMultipleS3Objects(t *testing.T) {
 func TestDiskUsageWildcard(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 	putFile(t, s3client, bucket, "testfile1.txt", "this is a file content")
 	putFile(t, s3client, bucket, "testfile2.txt", "this is also a file content")
@@ -108,10 +102,9 @@ func TestDiskUsageWildcard(t *testing.T) {
 func TestDiskUsageS3ObjectsAndFolders(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 	putFile(t, s3client, bucket, "testfile1.txt", "content")
 	putFile(t, s3client, bucket, "report.gz", "content")
@@ -137,10 +130,9 @@ func TestDiskUsageS3ObjectsAndFolders(t *testing.T) {
 func TestDiskUsageWildcardS3ObjectsWithDashH(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	putFile(t, s3client, bucket, "testfile1.txt", strings.Repeat("this is a file content", 10000))
@@ -160,10 +152,9 @@ func TestDiskUsageWildcardS3ObjectsWithDashH(t *testing.T) {
 func TestDiskUsageMissingObject(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	cmd := s5cmd("du", "s3://"+bucket+"/non-existent-file")

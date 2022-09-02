@@ -116,7 +116,6 @@ func TestCopySingleS3ObjectToLocal(t *testing.T) {
 			bucket := s3BucketFromTestName(t)
 
 			s3client, s5cmd := setup(t)
-			//todo(bora): set unique name to bucket
 			createBucket(t, s3client, bucket)
 
 			putFile(t, s3client, bucket, tc.src, fileContent)
@@ -145,10 +144,9 @@ func TestCopySingleS3ObjectToLocal(t *testing.T) {
 func TestCopySingleS3ObjectToLocalJSON(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	const (
@@ -192,10 +190,9 @@ func TestCopySingleS3ObjectToLocalJSON(t *testing.T) {
 func TestCopySingleS3ObjectToLocalWithDestinationWildcard(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	const (
@@ -227,10 +224,9 @@ func TestCopySingleS3ObjectToLocalWithDestinationWildcard(t *testing.T) {
 func TestCopyS3PrefixToLocalMustReturnError(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	const (
@@ -263,10 +259,9 @@ func TestCopyS3PrefixToLocalMustReturnError(t *testing.T) {
 func TestCopyMultipleFlatS3ObjectsToLocal(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	filesToContent := map[string]string{
@@ -313,10 +308,9 @@ func TestCopyMultipleFlatS3ObjectsToLocal(t *testing.T) {
 func TestCopyMultipleFlatS3ObjectsToLocalWithPartialMatching(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	filesToContent := map[string]string{
@@ -358,10 +352,9 @@ func TestCopyMultipleFlatS3ObjectsToLocalWithPartialMatching(t *testing.T) {
 func TestCopyMultipleFlatNestedS3ObjectsToLocalWithPartialMatching(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	filesToContent := map[string]string{
@@ -397,10 +390,9 @@ func TestCopyMultipleFlatNestedS3ObjectsToLocalWithPartialMatching(t *testing.T)
 func TestCopyMultipleFlatS3ObjectsToLocalJSON(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	filesToContent := map[string]string{
@@ -491,10 +483,9 @@ func TestCopyMultipleFlatS3ObjectsToLocalJSON(t *testing.T) {
 func TestCopyMultipleNestedS3ObjectsToLocal(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	filesToContent := map[string]string{
@@ -561,10 +552,9 @@ func TestCopyMultipleNestedS3ObjectsToLocal(t *testing.T) {
 func TestCopyMultipleNestedS3ObjectsToLocalWithPartial(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	filesToContent := map[string]string{
@@ -620,10 +610,9 @@ func TestCopyMultipleNestedS3ObjectsToLocalWithPartial(t *testing.T) {
 func TestCopyMultipleS3ObjectsToGivenLocalDirectory(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	filesToContent := map[string]string{
@@ -676,10 +665,9 @@ func TestCopyMultipleS3ObjectsToGivenLocalDirectory(t *testing.T) {
 func TestCopySingleFileToS3(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	const (
@@ -807,10 +795,9 @@ func TestCopySingleFileToS3WithAdjacentSlashes(t *testing.T) {
 func TestCopySingleFileToS3JSON(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	const (
@@ -857,10 +844,9 @@ func TestCopySingleFileToS3JSON(t *testing.T) {
 func TestCopyDirToS3(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	folderLayout := []fs.PathOp{
@@ -908,10 +894,9 @@ func TestCopyDirBackslashedToS3(t *testing.T) {
 	}
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	folderLayout := []fs.PathOp{
@@ -950,10 +935,9 @@ func TestCopyDirBackslashedToS3(t *testing.T) {
 func TestCopySingleFileToS3WithStorageClassGlacier(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	const (
@@ -991,10 +975,9 @@ func TestCopySingleFileToS3WithStorageClassGlacier(t *testing.T) {
 func TestFlattenCopyDirToS3(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	folderLayout := []fs.PathOp{
@@ -1039,10 +1022,9 @@ func TestFlattenCopyDirToS3(t *testing.T) {
 func TestCopyMultipleFilesToS3Bucket(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	folderLayout := []fs.PathOp{
@@ -1096,10 +1078,9 @@ func TestCopyMultipleFilesToS3Bucket(t *testing.T) {
 func TestCopyMultipleFilesWithWildcardedDirectoryToS3Bucket(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	folderLayout := []fs.PathOp{
@@ -1148,10 +1129,9 @@ func TestCopyMultipleFilesWithWildcardedDirectoryToS3Bucket(t *testing.T) {
 func TestCopyMultipleFilesEndWildcardedToS3Bucket(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	folderLayout := []fs.PathOp{
@@ -1200,10 +1180,9 @@ func TestCopyMultipleFilesEndWildcardedToS3Bucket(t *testing.T) {
 func TestCopyMultipleFilesMiddleWildcardedDirectoryToS3Bucket(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	folderLayout := []fs.PathOp{
@@ -1245,10 +1224,9 @@ func TestCopyMultipleFilesMiddleWildcardedDirectoryToS3Bucket(t *testing.T) {
 func TestFlattenCopyMultipleFilesToS3Bucket(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	folderLayout := []fs.PathOp{
@@ -1303,10 +1281,9 @@ func TestFlattenCopyMultipleFilesToS3Bucket(t *testing.T) {
 func TestCopyMultipleFilesToS3WithPrefixWithoutSlash(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	folderLayout := []fs.PathOp{
@@ -1351,10 +1328,9 @@ func TestCopyDirectoryWithGlobCharactersToS3Bucket(t *testing.T) {
 		t.Skip("Files in Windows cannot contain glob(*) characters")
 	}
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	folderLayout := []fs.PathOp{
@@ -1402,10 +1378,9 @@ func TestCopyDirectoryWithGlobCharactersToS3Bucket(t *testing.T) {
 func TestCopyMultipleFilesToS3WithPrefixWithSlash(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	folderLayout := []fs.PathOp{
@@ -1463,10 +1438,9 @@ func TestCopyMultipleFilesToS3WithPrefixWithSlash(t *testing.T) {
 func TestFlattenCopyMultipleFilesToS3WithPrefixWithSlash(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	folderLayout := []fs.PathOp{
@@ -1524,10 +1498,9 @@ func TestFlattenCopyMultipleFilesToS3WithPrefixWithSlash(t *testing.T) {
 func TestCopyLocalDirectoryToS3WithPrefixWithSlash(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	folderLayout := []fs.PathOp{
@@ -1583,10 +1556,9 @@ func TestCopyLocalDirectoryToS3WithPrefixWithSlash(t *testing.T) {
 func TestFlattenCopyLocalDirectoryToS3WithPrefixWithSlash(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	folderLayout := []fs.PathOp{
@@ -1645,10 +1617,9 @@ func TestFlattenCopyLocalDirectoryToS3WithPrefixWithSlash(t *testing.T) {
 func TestCopyLocalDirectoryToS3WithPrefixWithoutSlash(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	filesToContent := map[string]string{
@@ -1689,10 +1660,9 @@ func TestCopyLocalDirectoryToS3WithPrefixWithoutSlash(t *testing.T) {
 func TestCopySingleS3ObjectToS3(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	const (
@@ -1726,10 +1696,9 @@ func TestCopySingleS3ObjectToS3(t *testing.T) {
 func TestCopySingleS3ObjectToS3JSON(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	const (
@@ -1890,10 +1859,9 @@ func TestCopySingleS3ObjectIntoAnotherBucketWithObjName(t *testing.T) {
 func TestCopySingleS3ObjectIntoAnotherBucketWithPrefix(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	const (
@@ -1950,7 +1918,7 @@ func TestCopyAllObjectsIntoAnotherBucketIncludingSpecialCharacter(t *testing.T) 
 	src := fmt.Sprintf("s3://%v/*", srcbucket)
 	dst := fmt.Sprintf("s3://%v/", dstbucket)
 
-	cmd := s5cmd("--log", "trace", "cp", src, dst)
+	cmd := s5cmd("cp", src, dst)
 	result := icmd.RunCmd(cmd)
 	fmt.Println(result.Stdout())
 
@@ -1968,10 +1936,9 @@ func TestCopyAllObjectsIntoAnotherBucketIncludingSpecialCharacter(t *testing.T) 
 func TestCopyMultipleS3ObjectsToS3WithPrefix(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	filesToContent := map[string]string{
@@ -2015,10 +1982,9 @@ func TestCopyMultipleS3ObjectsToS3WithPrefix(t *testing.T) {
 func TestFlattenCopyMultipleS3ObjectsToS3WithPrefix(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	filesToContent := map[string]string{
@@ -2108,10 +2074,9 @@ func TestCopyMultipleS3ObjectsToS3WithPrefixWithoutSlash(t *testing.T) {
 func TestCopyMultipleS3ObjectsToS3JSON(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	filesToContent := map[string]string{
@@ -2173,10 +2138,9 @@ func TestCopyMultipleS3ObjectsToS3JSON(t *testing.T) {
 func TestCopyMultipleS3ObjectsToS3_Issue70(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	filesToContent := map[string]string{
@@ -2406,10 +2370,9 @@ func TestCopyS3ToLocalWithSameFilenameDontOverrideIfS3ObjectIsOlder(t *testing.T
 func TestCopyS3ToLocal_Issue70(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	filesToContent := map[string]string{
@@ -3071,10 +3034,9 @@ func TestCopyWithNoFollowSymlink(t *testing.T) {
 func TestCopyDirToS3DryRun(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	folderLayout := []fs.PathOp{
@@ -3117,10 +3079,9 @@ func TestCopyDirToS3DryRun(t *testing.T) {
 func TestCopyS3ToDirDryRun(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	files := [...]string{"c/file2.txt", "file1.txt"}
@@ -3266,10 +3227,9 @@ func TestCopyDirToS3WithRawFlag(t *testing.T) {
 
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	folderLayout := []fs.PathOp{
@@ -3512,10 +3472,9 @@ func TestCopyMultipleS3ObjectsWithPrefixToS3WithRawMode(t *testing.T) {
 func TestCopyRawModeAllowDestinationWithoutPrefix(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	filesToContent := map[string]string{
@@ -3565,10 +3524,9 @@ func TestCopyRawModeAllowDestinationWithoutPrefix(t *testing.T) {
 func TestCopyS3ObjectsWithExcludeFilter(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	const (
@@ -3618,10 +3576,9 @@ func TestCopyS3ObjectsWithExcludeFilter(t *testing.T) {
 func TestCopyS3ObjectsWithExcludeFilters(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	const (
@@ -3671,10 +3628,9 @@ func TestCopyS3ObjectsWithExcludeFilters(t *testing.T) {
 func TestCopyS3ObjectsWithPrefixWithExcludeFilters(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	const (
@@ -3820,10 +3776,9 @@ func TestCopyLocalDirectoryToS3WithExcludeFilter(t *testing.T) {
 func TestCopyLocalDirectoryToS3WithExcludeFilters(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	folderLayout := []fs.PathOp{
@@ -4062,10 +4017,9 @@ func TestCopyExpectExitCode1OnUnreachableHost(t *testing.T) {
 func TestCopySingleFileToS3WithNoSuchUploadRetryCount(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	const (

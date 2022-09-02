@@ -15,10 +15,9 @@ import (
 func TestRemoveSingleS3Object(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	const (
@@ -48,10 +47,9 @@ func TestRemoveSingleS3Object(t *testing.T) {
 func TestRemoveSingleS3ObjectJSON(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	const (
@@ -87,10 +85,9 @@ func TestRemoveSingleS3ObjectJSON(t *testing.T) {
 func TestRemoveMultipleS3Objects(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	filesToContent := map[string]string{
@@ -129,10 +126,9 @@ func TestRemoveMultipleS3Objects(t *testing.T) {
 func TestRemoveMultipleS3ObjectsJSON(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	filesToContent := map[string]string{
@@ -199,12 +195,11 @@ func TestRemoveTenThousandS3Objects(t *testing.T) {
 	// flaky test, skip it
 	t.Skip()
 
-	bucket := s3BucketFromTestName(t)
-
 	// ten thousand s3 objects are created for this test. by default, s3 backend is
 	// bolt but we need speed for this test, hence use in-memory storage.
 	s3client, s5cmd := setup(t, withS3Backend("mem"))
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	const filecount = 10000
@@ -246,10 +241,9 @@ func TestRemoveTenThousandS3Objects(t *testing.T) {
 func TestRemoveS3PrefixWithoutSlash(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	const prefix = "prefix"
@@ -572,7 +566,7 @@ func TestRemoveMultipleMixedObjects(t *testing.T) {
 
 	s3client, s5cmd := setup(t)
 
-	const bucket = "bucket"
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	const (
@@ -610,10 +604,9 @@ func TestRemoveMultipleMixedObjects(t *testing.T) {
 func TestRemoveMultipleS3ObjectsDryRun(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	filesToContent := map[string]string{
@@ -650,10 +643,9 @@ func TestRemoveMultipleS3ObjectsDryRun(t *testing.T) {
 func TestRemoveS3ObjectRawFlag(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	filesToContent := map[string]string{
@@ -703,10 +695,9 @@ func TestRemoveS3ObjectRawFlag(t *testing.T) {
 func TestRemoveS3ObjectsPrefixRawFlag(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	filesToContent := map[string]string{
@@ -748,10 +739,9 @@ func TestRemoveS3ObjectsPrefixRawFlag(t *testing.T) {
 func TestRemoveS3PrefixRawFlag(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	filesToContent := map[string]string{
@@ -787,10 +777,9 @@ func TestRemoveS3PrefixRawFlag(t *testing.T) {
 func TestRemoveMultipleS3ObjectsWithExcludeFilter(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 	const excludePattern = "*.txt"
 
@@ -850,10 +839,9 @@ func TestRemoveMultipleS3ObjectsWithExcludeFilter(t *testing.T) {
 func TestRemoveMultipleS3ObjectsWithExcludeFilters(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	const (

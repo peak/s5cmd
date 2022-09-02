@@ -459,25 +459,69 @@ func replaceMatchWithSpace(input string, match ...string) string {
 func s3BucketFromTestNameWithPrefix(t *testing.T, prefix string) string {
 	t.Helper()
 	bucket := strcase.ToKebab(t.Name())
-	bucket = strings.Replace(bucket, "/", "-", -1)
+
+	reg, _ := regexp.Compile("[^-a-z0-9]+")
+	prefix = reg.ReplaceAllString(prefix, "")
 
 	if prefix != "" {
 		bucket = fmt.Sprintf("%v-%v", prefix, bucket)
+
 	}
 
+	bucket = reg.ReplaceAllString(bucket, "")
+
 	return addRandomSuffixTo(bucket)
+}
+
+func TestS3BucketFromTestNameWithPrefix(t *testing.T) {
+	t.Parallel()
+	testcases := []struct {
+		name          string
+		prefix        string
+		expectedRegex string
+	}{
+		{
+			name:          "./*?",
+			prefix:        "",
+			expectedRegex: "test-s-3-bucket-from-test-name-with-prefix-.{7}$",
+		},
+		{
+			name:          "don't_use_",
+			prefix:        "",
+			expectedRegex: "test-s-3-bucket-from-test-name-with-prefixdont-use--.{7}$",
+		},
+		{
+			name:          "pref",
+			prefix:        "pref",
+			expectedRegex: "pref-test-s-3-bucket-from-test-name-with-prefixpref-.{7}$",
+		},
+		{
+			name:          "chars",
+			prefix:        "./*?",
+			expectedRegex: "test-s-3-bucket-from-test-name-with-prefixchars-.{7}$",
+		},
+	}
+	for _, tc := range testcases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			// adds tc.name as suffix to "TestS3BucketFromTestNameWithPrefix" and then modifies it.
+			result := s3BucketFromTestNameWithPrefix(t, tc.prefix)
+
+			assertLines(t, result, map[int]compareFunc{
+				0: match(tc.expectedRegex),
+			})
+		})
+
+	}
 }
 
 func s3BucketFromTestName(t *testing.T) string {
 	t.Helper()
-	bucket := strcase.ToKebab(t.Name())
-
-	reg, _ := regexp.Compile("[^a-z0-9]+")
-	bucket = reg.ReplaceAllString(bucket, "-")
-
-	return addRandomSuffixTo(bucket)
+	return s3BucketFromTestNameWithPrefix(t, "")
 }
 
+// adds random suffix of length 7 to bucketName.
+// If longer than 63 chars, trim it down to 63 chars.
 func addRandomSuffixTo(bucketName string) string {
 
 	bucketName = fmt.Sprintf("%v-%v", bucketName, randomString(7))

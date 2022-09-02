@@ -1901,7 +1901,7 @@ func TestCopyAllObjectsIntoAnotherBucketIncludingSpecialCharacter(t *testing.T) 
 
 	createBucket(t, s3client, srcbucket)
 	createBucket(t, s3client, dstbucket)
-	//todo(bora): this test fails with gcs
+	// TODO(bora): this test fails with gcs
 
 	filesToContent := map[string]string{
 		"sub&@$/test+1.txt":           "this is a test file 1",

@@ -266,7 +266,7 @@ func (u *URL) setPrefixAndFilter() error {
 		filterRegex = strings.Replace(filterRegex, "\\*", ".*?", -1)
 	}
 	filterRegex = regexp.QuoteMeta(u.Prefix) + filterRegex
-	r, err := regexp.Compile("^" + filterRegex + "$")
+	r, err := regexp.Compile("(?s)" + "^" + filterRegex + "$")
 	if err != nil {
 		return err
 	}

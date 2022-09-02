@@ -20,7 +20,7 @@ func createExcludesFromWildcard(inputExcludes []string) ([]*regexp.Regexp, error
 	for _, input := range inputExcludes {
 		if input != "" {
 			regexVersion := wildCardToRegexp(input)
-			regexpCompiled, err := regexp.Compile(regexVersion)
+			regexpCompiled, err := regexp.Compile("(?s)" + regexVersion)
 			if err != nil {
 				return nil, err
 			}

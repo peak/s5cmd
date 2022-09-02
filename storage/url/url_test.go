@@ -70,7 +70,7 @@ func TestNew(t *testing.T) {
 				Prefix:    "key",
 				Delimiter: "/",
 			},
-			wantFilterRe: regexp.MustCompile(`^key.*$`).String(),
+			wantFilterRe: regexp.MustCompile("(?s)" + `^key.*$`).String(),
 		},
 		{
 			name:   "url_with_no_wildcard_end_with_slash",
@@ -82,7 +82,7 @@ func TestNew(t *testing.T) {
 				Prefix:    "key/",
 				Delimiter: "/",
 			},
-			wantFilterRe: regexp.MustCompile(`^key/.*$`).String(),
+			wantFilterRe: regexp.MustCompile("(?s)" + `^key/.*$`).String(),
 		},
 		{
 			name:   "url_with_wildcard",
@@ -92,10 +92,10 @@ func TestNew(t *testing.T) {
 				Bucket:      "bucket",
 				Path:        "key/a/?/test/*",
 				Prefix:      "key/a/",
-				filterRegex: regexp.MustCompile(`^key/a/./test/.*?$`),
+				filterRegex: regexp.MustCompile("(?s)" + `^key/a/./test/.*?$`),
 				Delimiter:   "",
 			},
-			wantFilterRe: regexp.MustCompile(`^key/a/./test/.*?$`).String(),
+			wantFilterRe: regexp.MustCompile("(?s)" + `^key/a/./test/.*?$`).String(),
 		},
 	}
 	for _, tc := range tests {
@@ -228,7 +228,7 @@ func TestURLSetPrefixAndFilter(t *testing.T) {
 				Prefix:      "a/b_c/",
 				Delimiter:   "",
 				filter:      "*/de/*/test",
-				filterRegex: regexp.MustCompile("^a/b_c/.*?/de/.*?/test$"),
+				filterRegex: regexp.MustCompile("(?s)" + "^a/b_c/.*?/de/.*?/test$"),
 			},
 		},
 		{
@@ -241,7 +241,7 @@ func TestURLSetPrefixAndFilter(t *testing.T) {
 				Prefix:      "a/b_c/d/e",
 				Delimiter:   "/",
 				filter:      "",
-				filterRegex: regexp.MustCompile("^a/b_c/d/e.*$"),
+				filterRegex: regexp.MustCompile("(?s)" + "^a/b_c/d/e.*$"),
 			},
 		},
 	}

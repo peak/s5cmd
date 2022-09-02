@@ -447,6 +447,11 @@ func TestS3Retry(t *testing.T) {
 			err:           awserr.New("RequestTimeTooSkewed", "The difference between the request time and the server's time is too large.", nil),
 			expectedRetry: 5,
 		},
+		{
+			name:          "SlowDown",
+			err:           awserr.New("SlowDown", "Please reduce your request rate.", nil),
+			expectedRetry: 5,
+		},
 
 		// Throttling errors
 		{

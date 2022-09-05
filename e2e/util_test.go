@@ -47,7 +47,7 @@ const (
 	s5cmdTestSecretEnv     = "S5CMD_SECRET_ACCESS_KEY"
 	s5cmdTestEndpointEnv   = "S5CMD_ENDPOINT_URL"
 	s5cmdTestRegionEnv     = "S5CMD_REGION"
-	maxRetries             = 5
+	maxRetries             = 10
 )
 
 var (

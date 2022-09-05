@@ -693,6 +693,24 @@ func (s *S3) doDelete(ctx context.Context, chunk chunk, resultch chan *Object) {
 		}
 		return
 	}
+	// gcs does not support multi delete.
+	if isGoogleEndpoint(s.endpointURL) {
+		for _, k := range chunk.Keys {
+			_, err := s.api.DeleteObjectWithContext(ctx, &s3.DeleteObjectInput{
+				Bucket:       aws.String(chunk.Bucket),
+				Key:          k.Key,
+				RequestPayer: s.RequestPayer(),
+			})
+			if err != nil {
+				resultch <- &Object{Err: err}
+				return
+			}
+			key := fmt.Sprintf("s3://%v/%v", chunk.Bucket, aws.StringValue(k.Key))
+			url, _ := url.New(key)
+			resultch <- &Object{URL: url}
+		}
+		return
+	}
 
 	bucket := chunk.Bucket
 	o, err := s.api.DeleteObjectsWithContext(ctx, &s3.DeleteObjectsInput{

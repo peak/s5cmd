@@ -266,5 +266,9 @@ func validateSelectCommand(c *cli.Context) error {
 		return fmt.Errorf("only json supported")
 	}
 
+	if err := checkVersioningWithGoogleEndpoint(c); err != nil {
+		return err
+	}
+
 	return nil
 }

@@ -132,5 +132,10 @@ func validateCatCommand(c *cli.Context) error {
 	if src.IsWildcard() {
 		return fmt.Errorf("remote source %q can not contain glob characters", src)
 	}
+
+	if err := checkVersioningWithGoogleEndpoint(c); err != nil {
+		return err
+	}
+
 	return nil
 }

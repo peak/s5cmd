@@ -888,6 +888,10 @@ func validateCopyCommand(c *cli.Context) error {
 		return fmt.Errorf("version-id flag can only be used with remote source objects")
 	}
 
+	if err := checkVersioningWithGoogleEndpoint(c); err != nil {
+		return err
+	}
+
 	switch {
 	case srcurl.Type == dsturl.Type:
 		return validateCopy(srcurl, dsturl)

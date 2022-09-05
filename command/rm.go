@@ -229,6 +229,10 @@ func validateRMCommand(c *cli.Context) error {
 		return err
 	}
 
+	if err := checkVersioningWithGoogleEndpoint(c); err != nil {
+		return err
+	}
+
 	var (
 		firstBucket         string
 		hasRemote, hasLocal bool

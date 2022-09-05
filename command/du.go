@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	urlpkg "net/url"
+
 	"github.com/hashicorp/go-multierror"
 	"github.com/urfave/cli/v2"
 
@@ -257,5 +259,13 @@ func validateDUCommand(c *cli.Context) error {
 	if !srcurl.IsRemote() && (c.Bool("all-versions") || c.String("version-id") != "") {
 		return fmt.Errorf("all-versions and version-id flags can only be used with remote objects")
 	}
+
+	// the "all-versions" flag of du command works with GCS, because it does not
+	// depend on the generation numbers.
+	endpoint, err := urlpkg.Parse(c.String("endpoint-url"))
+	if err == nil && c.String("version-id") != "" && storage.IsGoogleEndpoint(*endpoint) {
+		return fmt.Errorf(versioningNotSupportedWarning, endpoint)
+	}
+
 	return nil
 }

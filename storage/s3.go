@@ -158,7 +158,7 @@ func (s *S3) List(ctx context.Context, url *url.URL, _ bool) <-chan *Object {
 	if url.VersionID != "" || url.AllVersions {
 		return s.listObjectsVersion(ctx, url)
 	}
-	if isGoogleEndpoint(s.endpointURL) || s.useListObjectsV1 {
+	if IsGoogleEndpoint(s.endpointURL) || s.useListObjectsV1 {
 		return s.listObjects(ctx, url)
 	}
 
@@ -1202,7 +1202,7 @@ func supportsTransferAcceleration(endpoint urlpkg.URL) bool {
 	return endpoint.Hostname() == transferAccelEndpoint
 }
 
-func isGoogleEndpoint(endpoint urlpkg.URL) bool {
+func IsGoogleEndpoint(endpoint urlpkg.URL) bool {
 	return endpoint.Hostname() == gcsEndpoint
 }
 
@@ -1210,7 +1210,7 @@ func isGoogleEndpoint(endpoint urlpkg.URL) bool {
 // host style bucket name resolving. If a custom S3 API compatible endpoint is
 // given, resolve the bucketname from the URL path.
 func isVirtualHostStyle(endpoint urlpkg.URL) bool {
-	return endpoint == sentinelURL || supportsTransferAcceleration(endpoint) || isGoogleEndpoint(endpoint)
+	return endpoint == sentinelURL || supportsTransferAcceleration(endpoint) || IsGoogleEndpoint(endpoint)
 }
 
 func errHasCode(err error, code string) bool {

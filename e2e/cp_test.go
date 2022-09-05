@@ -665,6 +665,8 @@ func TestCopyMultipleS3ObjectsToGivenLocalDirectory(t *testing.T) {
 func TestCopySingleFileToS3(t *testing.T) {
 	t.Parallel()
 
+	// todo(bora): this test fails with gcs
+
 	s3client, s5cmd := setup(t)
 
 	bucket := s3BucketFromTestName(t)
@@ -934,6 +936,9 @@ func TestCopyDirBackslashedToS3(t *testing.T) {
 // cp --storage-class=GLACIER file s3://bucket/
 func TestCopySingleFileToS3WithStorageClassGlacier(t *testing.T) {
 	t.Parallel()
+
+	// storage class GLACIER does not exist in gcs.
+	skipThisIfGoogleEndpoint(t)
 
 	s3client, s5cmd := setup(t)
 
@@ -1893,6 +1898,8 @@ func TestCopySingleS3ObjectIntoAnotherBucketWithPrefix(t *testing.T) {
 // cp s3://bucket/* s3://dstbucket/
 func TestCopyAllObjectsIntoAnotherBucketIncludingSpecialCharacter(t *testing.T) {
 	t.Parallel()
+
+	// todo(bora): this test fails with gcs
 
 	srcbucket := s3BucketFromTestNameWithPrefix(t, "src")
 	dstbucket := s3BucketFromTestNameWithPrefix(t, "dst")

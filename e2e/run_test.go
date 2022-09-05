@@ -46,6 +46,8 @@ func TestRunFromStdin(t *testing.T) {
 func TestRunFromStdinIssue309(t *testing.T) {
 	t.Parallel()
 
+	// todo(bora): this test fails with gcs
+
 	s3client, s5cmd := setup(t)
 
 	bucket := s3BucketFromTestName(t)
@@ -224,7 +226,9 @@ func TestRunWildcardCountGreaterEqualThanWorkerCount(t *testing.T) {
 
 	// worker count < len(wildcards)
 	cmd := s5cmd("--numworkers", "2", "run", file.Path())
-	cmd.Timeout = time.Second
+
+	// increased timeout to be able to test with other endpoints.
+	cmd.Timeout = time.Second * 30
 	result := icmd.RunCmd(cmd)
 	result.Assert(t, icmd.Success)
 

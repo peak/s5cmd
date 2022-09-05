@@ -150,7 +150,7 @@ func (s *S3) Stat(ctx context.Context, url *url.URL) (*Object, error) {
 // keys. If no object found or an error is encountered during this period,
 // it sends these errors to object channel.
 func (s *S3) List(ctx context.Context, url *url.URL, _ bool) <-chan *Object {
-	if isGoogleEndpoint(s.endpointURL) || s.useListObjectsV1 {
+	if IsGoogleEndpoint(s.endpointURL) || s.useListObjectsV1 {
 		return s.listObjects(ctx, url)
 	}
 
@@ -694,7 +694,7 @@ func (s *S3) doDelete(ctx context.Context, chunk chunk, resultch chan *Object) {
 		return
 	}
 	// gcs does not support multi delete.
-	if isGoogleEndpoint(s.endpointURL) {
+	if IsGoogleEndpoint(s.endpointURL) {
 		for _, k := range chunk.Keys {
 			_, err := s.api.DeleteObjectWithContext(ctx, &s3.DeleteObjectInput{
 				Bucket:       aws.String(chunk.Bucket),
@@ -1026,7 +1026,7 @@ func supportsTransferAcceleration(endpoint urlpkg.URL) bool {
 	return endpoint.Hostname() == transferAccelEndpoint
 }
 
-func isGoogleEndpoint(endpoint urlpkg.URL) bool {
+func IsGoogleEndpoint(endpoint urlpkg.URL) bool {
 	return endpoint.Hostname() == gcsEndpoint
 }
 
@@ -1034,7 +1034,7 @@ func isGoogleEndpoint(endpoint urlpkg.URL) bool {
 // host style bucket name resolving. If a custom S3 API compatible endpoint is
 // given, resolve the bucketname from the URL path.
 func isVirtualHostStyle(endpoint urlpkg.URL) bool {
-	return endpoint == sentinelURL || supportsTransferAcceleration(endpoint) || isGoogleEndpoint(endpoint)
+	return endpoint == sentinelURL || supportsTransferAcceleration(endpoint) || IsGoogleEndpoint(endpoint)
 }
 
 func errHasCode(err error, code string) bool {

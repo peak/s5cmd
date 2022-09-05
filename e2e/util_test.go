@@ -12,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/request"
 	"io"
 	"math/rand"
+	urlpkg "net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -240,6 +241,18 @@ func isEndpointFromEnv() bool {
 		os.Getenv(s5cmdTestSecretEnv) != "" &&
 		os.Getenv(s5cmdTestEndpointEnv) != "" &&
 		os.Getenv(s5cmdTestRegionEnv) != ""
+}
+
+// skip the test if testing with google endpoint.
+func skipThisIfGoogleEndpoint(t *testing.T) {
+	endpoint, err := urlpkg.Parse(os.Getenv(s5cmdTestEndpointEnv))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if storage.IsGoogleEndpoint(*endpoint) {
+		t.Skip()
+	}
 }
 
 func s5cmd(workdir, endpoint string) func(args ...string) icmd.Cmd {

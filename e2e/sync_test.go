@@ -559,21 +559,21 @@ func TestSyncLocalFolderToS3BucketSourceNewer(t *testing.T) {
 	}
 }
 
-// sync s3://bucket/* folder/ (same objects, source older)
+// sync s3://bucket/* folder/ (same objects, source older, destination newer)
 func TestSyncS3BucketToLocalFolderSameObjectsSourceOlder(t *testing.T) {
 	t.Parallel()
 
-	now := time.Now()
-	timeSource := newFixedTimeSource(now)
-	s3client, s5cmd := setup(t, withTimeSource(timeSource))
+	newer := time.Now().Add(time.Minute)
+
+	s3client, s5cmd := setup(t)
 
 	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
-	// local files are 1 minute older than the remote ones
+	// local files are 1 minute newer than the remote ones
 	timestamp := fs.WithTimestamps(
-		now,
-		now,
+		newer,
+		newer,
 	)
 
 	folderLayout := []fs.PathOp{
@@ -596,12 +596,9 @@ func TestSyncS3BucketToLocalFolderSameObjectsSourceOlder(t *testing.T) {
 		"a/another_test_file.txt": "S: yet another txt file",  // content different from local
 	}
 
-	// remote files are 1 minute older
-	timeSource.Advance(-time.Minute)
 	for filename, content := range S3Content {
 		putFile(t, s3client, bucket, filename, content)
 	}
-	timeSource.Advance(time.Minute)
 
 	bucketPath := fmt.Sprintf("s3://%v", bucket)
 	src := fmt.Sprintf("%s/*", bucketPath)
@@ -745,16 +742,16 @@ func TestSyncS3BucketToS3BucketSameSizesSourceNewer(t *testing.T) {
 		"a/another_test_file.txt": "D: yet another txt file",
 	}
 
-	for filename, content := range sourceS3Content {
-		putFile(t, s3client, bucket, filename, content)
-	}
-
 	// make destination files 1 minute older
 	timeSource.Advance(-time.Minute)
 	for filename, content := range destS3Content {
 		putFile(t, s3client, dstbucket, filename, content)
 	}
+
 	timeSource.Advance(time.Minute)
+	for filename, content := range sourceS3Content {
+		putFile(t, s3client, bucket, filename, content)
+	}
 
 	bucketPath := fmt.Sprintf("s3://%v", bucket)
 	src := fmt.Sprintf("%s/*", bucketPath)
@@ -1648,6 +1645,9 @@ func TestSyncLocalDirectoryToS3WithExcludeFilter(t *testing.T) {
 // sync --delete somedir s3://bucket/ (removes 10k objects)
 func TestIssue435(t *testing.T) {
 	t.Parallel()
+
+	// skip this as it takes too long to complete with gcs.
+	skipThisIfGoogleEndpoint(t)
 
 	bucket := s3BucketFromTestName(t)
 

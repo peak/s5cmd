@@ -135,6 +135,8 @@ func TestAppDashStat(t *testing.T) {
 
 func TestAppProxy(t *testing.T) {
 
+	// todo(bora): this test fails with gcs
+
 	testcases := []struct {
 		name string
 		flag string

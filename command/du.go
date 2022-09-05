@@ -246,8 +246,9 @@ func validateDUCommand(c *cli.Context) error {
 	if c.Args().Len() != 1 {
 		return fmt.Errorf("expected only 1 argument")
 	}
-	if c.Bool("all-versions") && c.String("version-id") != "" {
-		return fmt.Errorf(`it is not allowed to combine "all-versions" and "version-id" flags`)
+
+	if err := checkVersioningFlagCompatibility(c); err != nil {
+		return err
 	}
 
 	srcurl, err := url.New(c.Args().First(),

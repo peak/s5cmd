@@ -10,6 +10,13 @@ import (
 
 const versioningNotSupportedWarning string = "versioning related features are not supported with the given endpoint %q"
 
+func checkVersioningFlagCompatibility(ctx *cli.Context) error {
+	if ctx.Bool("all-versions") && ctx.String("version-id") != "" {
+		return fmt.Errorf(`it is not allowed to combine "all-versions" and "version-id" flags`)
+	}
+	return nil
+}
+
 func checkVersioningWithGoogleEndpoint(ctx *cli.Context) error {
 	endpoint := ctx.String("endpoint-url")
 	if endpoint == "" {

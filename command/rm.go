@@ -211,15 +211,16 @@ func validateRMCommand(c *cli.Context) error {
 		return fmt.Errorf("expected at least 1 object to remove")
 	}
 
-	if c.Bool("all-versions") && c.String("version-id") != "" {
-		// It might be a reasonable request too. Consider that user wants to delete
-		// all-versions of "a" and "b", but want to delete only a single
-		// version of "c" "someversion". User might want to express this as
-		// `s5cmd rm --all-versions a --all-versions b version-id someversion c`
-		// but, current implementation does not take repetitive flags into account,
-		// anyway, this is not supported in the current implementation.
-		return fmt.Errorf(`it is not allowed to combine "all-versions" and "version-id" flags`)
+	// It might be a reasonable request too. Consider that user wants to delete
+	// all-versions of "a" and "b", but want to delete only a single
+	// version of "c" "someversion". User might want to express this as
+	// `s5cmd rm --all-versions a --all-versions b version-id someversion c`
+	// but, current implementation does not take repetitive flags into account,
+	// anyway, this is not supported in the current implementation.
+	if err := checkVersioningFlagCompatibility(c); err != nil {
+		return err
 	}
+
 	if len(c.Args().Slice()) > 1 && c.String("version-id") != "" {
 		return fmt.Errorf("version-id flag can only be used with single source object")
 	}

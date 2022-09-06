@@ -884,8 +884,8 @@ func validateCopyCommand(c *cli.Context) error {
 		return fmt.Errorf("target %q must be a bucket or a prefix", dsturl)
 	}
 
-	if c.Bool("version-id") && !srcurl.IsRemote() {
-		return fmt.Errorf("version-id flag can only be used with remote source objects")
+	if err := checkVersinoningURLRemote(srcurl); err != nil {
+		return err
 	}
 
 	if err := checkVersioningWithGoogleEndpoint(c); err != nil {

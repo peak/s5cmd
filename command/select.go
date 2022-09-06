@@ -248,8 +248,12 @@ func validateSelectCommand(c *cli.Context) error {
 		return fmt.Errorf("expected source argument")
 	}
 
-	if c.Bool("all-versions") && c.String("version-id") != "" {
-		return fmt.Errorf(`it is not allowed to combine "all-versions" and "version-id" flags`)
+	if err := checkVersioningFlagCompatibility(c); err != nil {
+		return err
+	}
+
+	if err := checkVersioningWithGoogleEndpoint(c); err != nil {
+		return err
 	}
 
 	srcurl, err := url.New(c.Args().Get(0), url.WithVersion(c.String("version-id")),
@@ -264,10 +268,6 @@ func validateSelectCommand(c *cli.Context) error {
 
 	if !strings.EqualFold(c.String("format"), "JSON") {
 		return fmt.Errorf("only json supported")
-	}
-
-	if err := checkVersioningWithGoogleEndpoint(c); err != nil {
-		return err
 	}
 
 	return nil

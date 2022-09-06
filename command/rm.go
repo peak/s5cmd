@@ -201,6 +201,10 @@ func newURLs(isRaw bool, versionID string, isAllVersions bool, sources ...string
 		if err != nil {
 			return nil, err
 		}
+
+		if err := checkVersinoningURLRemote(srcurl); err != nil {
+			return nil, err
+		}
 		urls = append(urls, srcurl)
 	}
 	return urls, nil
@@ -260,10 +264,6 @@ func validateRMCommand(c *cli.Context) error {
 		if srcurl.Bucket != firstBucket {
 			return fmt.Errorf("removal of objects with different buckets in a single command is not allowed")
 		}
-	}
-
-	if hasLocal && (c.Bool("all-versions") || c.String("version-id") != "") {
-		return fmt.Errorf("all-versions and version-id flags can only be used with remote objects")
 	}
 
 	return nil

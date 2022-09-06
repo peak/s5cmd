@@ -159,6 +159,11 @@ func (u *URL) IsBucket() bool {
 	return u.IsRemote() && u.Path == ""
 }
 
+// IsVersioned returns true if the URL has versioning related values
+func (u *URL) IsVersioned() bool {
+	return u.AllVersions || u.VersionID != ""
+}
+
 // Absolute returns the absolute URL format of the object.
 func (u *URL) Absolute() string {
 	if !u.IsRemote() {

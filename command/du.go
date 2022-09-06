@@ -257,8 +257,8 @@ func validateDUCommand(c *cli.Context) error {
 		return err
 	}
 
-	if !srcurl.IsRemote() && (c.Bool("all-versions") || c.String("version-id") != "") {
-		return fmt.Errorf("all-versions and version-id flags can only be used with remote objects")
+	if err := checkVersinoningURLRemote(srcurl); err != nil {
+		return err
 	}
 
 	// the "all-versions" flag of du command works with GCS, because it does not

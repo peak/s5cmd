@@ -305,8 +305,8 @@ func validateLSCommand(c *cli.Context) error {
 		return err
 	}
 
-	if c.Bool("all-versions") && !srcurl.IsRemote() {
-		return fmt.Errorf("all-versions flag can only be used with remote objects")
+	if err := checkVersinoningURLRemote(srcurl); err != nil {
+		return err
 	}
 
 	if err := checkVersioningWithGoogleEndpoint(c); err != nil {

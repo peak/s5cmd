@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -134,9 +135,6 @@ func TestAppDashStat(t *testing.T) {
 }
 
 func TestAppProxy(t *testing.T) {
-
-	// todo(bora): this test fails with gcs
-
 	testcases := []struct {
 		name string
 		flag string
@@ -157,6 +155,21 @@ func TestAppProxy(t *testing.T) {
 
 			proxy := httpProxy{}
 			pxyUrl := setupProxy(t, &proxy)
+
+			// set endpoint scheme to 'http'
+			if os.Getenv(s5cmdTestEndpointEnv) != "" {
+				origEndpoint := os.Getenv(s5cmdTestEndpointEnv)
+				endpoint, err := url.Parse(origEndpoint)
+				if err != nil {
+					t.Fatal(err)
+				}
+				endpoint.Scheme = "http"
+				os.Setenv(s5cmdTestEndpointEnv, endpoint.String())
+
+				defer func() {
+					os.Setenv(s5cmdTestEndpointEnv, origEndpoint)
+				}()
+			}
 
 			os.Setenv("http_proxy", pxyUrl)
 

@@ -665,16 +665,14 @@ func TestCopyMultipleS3ObjectsToGivenLocalDirectory(t *testing.T) {
 func TestCopySingleFileToS3(t *testing.T) {
 	t.Parallel()
 
-	// todo(bora): this test fails with gcs
-
 	s3client, s5cmd := setup(t)
 
 	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	const (
-		// make sure that Put reads the file header, not the extension
-		filename = "index.txt"
+		// make sure that Put reads the file header and guess Content-Type correctly.
+		filename = "index"
 		content  = `
 <html lang="en">
 	<head>

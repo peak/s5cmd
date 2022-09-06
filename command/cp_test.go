@@ -40,6 +40,22 @@ func TestGuessContentType(t *testing.T) {
 					`,
 			expectedContentType: "text/html; charset=utf-8",
 		},
+		// check file extension first without checking the content
+		{
+			filename: "index*.txt",
+			content: `
+					<!DOCTYPE html>
+					<html>
+						<head>
+							<title>Hello World</title>
+						</head>
+						<body>
+							<p>Hello, World! I am s5cmd :)</p>
+						</body>
+					</html>
+					`,
+			expectedContentType: "text/plain; charset=utf-8",
+		},
 	}
 
 	for _, tc := range testcases {

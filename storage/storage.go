@@ -2,11 +2,12 @@
 package storage
 
 import (
+	"bytes"
 	"context"
+	"encoding/gob"
 	"encoding/json"
 	"fmt"
 	"os"
-	"strconv"
 	"time"
 
 	"github.com/lanrat/extsort"
@@ -284,37 +285,29 @@ func (m Metadata) SetContentEncoding(contentEncoding string) Metadata {
 }
 
 func (o Object) ToBytes() []byte {
-	mp := make(map[string]string)
-	mp["url"] = string(o.URL.ToBytes())
-	mp["mod-time"] = o.ModTime.Format(time.RFC3339Nano)
-	mp["type"] = strutil.JSON(o.Type.mode)
-	mp["size"] = strconv.FormatInt(o.Size, 10)
+	buf := bytes.NewBuffer(make([]byte, 0, 200))
+	enc := gob.NewEncoder(buf)
+	enc.Encode(o.URL.ToBytes())
+	enc.Encode(o.ModTime)
+	enc.Encode(o.Type.mode)
+	enc.Encode(o.Size)
 
-	data, err := json.Marshal(mp)
-	if err != nil {
-		return make([]byte, 0)
-	}
-	return data
+	return buf.Bytes()
 }
 
 func FromBytes(data []byte) extsort.SortType {
-	var (
-		mp      = make(map[string]string)
-		objType os.FileMode
-	)
-
-	json.Unmarshal(data, &mp)
-	json.Unmarshal([]byte(mp["type"]), &objType)
-
-	modTime, _ := time.Parse(time.RFC3339Nano, mp["mod-time"])
-	size, _ := strconv.ParseInt(mp["size"], 10, 64)
-
-	return Object{
-		URL:     url.FromBytes([]byte(mp["url"])).(*url.URL),
-		ModTime: &modTime,
-		Type:    ObjectType{mode: objType},
-		Size:    size,
+	dec := gob.NewDecoder(bytes.NewBuffer(data))
+	var gobUrl []byte
+	dec.Decode(&gobUrl)
+	u := url.FromBytes(gobUrl).(*url.URL)
+	o := Object{
+		URL: u,
 	}
+
+	dec.Decode(&o.ModTime)
+	dec.Decode(&o.Type.mode)
+	dec.Decode(&o.Size)
+	return o
 }
 
 // Less returns if relative path of storage.Object a's URL comes before the one

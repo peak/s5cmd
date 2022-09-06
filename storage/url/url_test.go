@@ -92,10 +92,10 @@ func TestNew(t *testing.T) {
 				Bucket:      "bucket",
 				Path:        "key/a/?/test/*",
 				Prefix:      "key/a/",
-				filterRegex: regexp.MustCompile("(?s)" + `^key/a/./test/.*?$`),
+				filterRegex: regexp.MustCompile("(?s)" + `^key/a/./test/.*$`),
 				Delimiter:   "",
 			},
-			wantFilterRe: regexp.MustCompile("(?s)" + `^key/a/./test/.*?$`).String(),
+			wantFilterRe: regexp.MustCompile("(?s)" + `^key/a/./test/.*$`).String(),
 		},
 	}
 	for _, tc := range tests {
@@ -112,7 +112,6 @@ func TestNew(t *testing.T) {
 			if tc.wantFilterRe != "" {
 				if diff := cmp.Diff(tc.wantFilterRe, got.filterRegex.String()); diff != "" {
 					t.Errorf("test case %q: URL.filterRegex mismatch (-want +got):\n%v", tc.name, diff)
-
 				}
 			}
 		})
@@ -228,7 +227,7 @@ func TestURLSetPrefixAndFilter(t *testing.T) {
 				Prefix:      "a/b_c/",
 				Delimiter:   "",
 				filter:      "*/de/*/test",
-				filterRegex: regexp.MustCompile("(?s)" + "^a/b_c/.*?/de/.*?/test$"),
+				filterRegex: regexp.MustCompile("(?s)" + "^a/b_c/.*/de/.*/test$"),
 			},
 		},
 		{

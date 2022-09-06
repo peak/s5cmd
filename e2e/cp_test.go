@@ -1899,7 +1899,10 @@ func TestCopySingleS3ObjectIntoAnotherBucketWithPrefix(t *testing.T) {
 func TestCopyAllObjectsIntoAnotherBucketIncludingSpecialCharacter(t *testing.T) {
 	t.Parallel()
 
-	// todo(bora): this test fails with gcs
+	// This test fails with gcs as it accepts percent encoding
+	// for `X-Amz-Copy-Source` and does not respect `+` as `space character`.
+	// skip it as it is not planned to write a workaround for gcs.
+	skipThisIfGoogleEndpoint(t)
 
 	srcbucket := s3BucketFromTestNameWithPrefix(t, "src")
 	dstbucket := s3BucketFromTestNameWithPrefix(t, "dst")

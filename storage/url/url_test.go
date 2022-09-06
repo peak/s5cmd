@@ -600,3 +600,47 @@ func TestURLSetRelative(t *testing.T) {
 		})
 	}
 }
+
+func TestToFromBytes(t *testing.T) {
+	testcases := []struct {
+		name     string
+		key      string
+		relative string
+	}{
+		{
+			name:     "plain remote",
+			key:      "s3://bucket/file",
+			relative: "file",
+		},
+		{
+			name:     "space char remote",
+			key:      "s3://bucket/s ace/file",
+			relative: "s ace/file",
+		},
+		{
+			name:     "space char remote",
+			key:      "s3://bucket/li\ne/file",
+			relative: "li\ne/file",
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			url, err := New(tc.key)
+			if err != nil {
+				t.Errorf("URL cannot be instantiated: \nPath: %v, Error: %v", tc.key, err)
+			}
+
+			url.relativePath = tc.relative
+
+			newURL := FromBytes(url.ToBytes()).(*URL)
+
+			if !reflect.DeepEqual(url, newURL) {
+				t.Errorf("got = %q, want %q", url, newURL)
+			}
+			if !url.deepEqual(newURL) {
+				t.Errorf("Not equal")
+			}
+		})
+	}
+}

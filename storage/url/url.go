@@ -2,6 +2,8 @@
 package url
 
 import (
+	"bytes"
+	"encoding/gob"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -355,22 +357,27 @@ func (u *URL) MarshalJSON() ([]byte, error) {
 }
 
 func (u URL) ToBytes() []byte {
-	mp := make(map[string]string)
-	mp["absolute"] = u.Absolute()
-	mp["relative"] = u.relativePath
-
-	data, err := json.Marshal(mp)
-	if err != nil {
-		return make([]byte, 0)
-	}
-	return data
+	buf := bytes.NewBuffer(make([]byte, 0))
+	enc := gob.NewEncoder(buf)
+	enc.Encode(u.Absolute())
+	enc.Encode(u.relativePath)
+	enc.Encode(u.raw)
+	return buf.Bytes()
 }
 
 func FromBytes(data []byte) extsort.SortType {
-	mp := make(map[string]string)
-	json.Unmarshal(data, &mp)
-	url, _ := New(mp["absolute"], WithRaw(true))
-	url.relativePath = mp["relative"]
+	buf := bytes.NewBuffer(data)
+	dec := gob.NewDecoder(buf)
+	var (
+		abs, rel string
+		raw      bool
+	)
+	dec.Decode(&abs)
+	dec.Decode(&rel)
+	dec.Decode(&raw)
+
+	url, _ := New(abs, WithRaw(raw))
+	url.relativePath = rel
 	return url
 }
 
@@ -441,4 +448,20 @@ func (u *URL) EscapedPath() string {
 		sourceKeyElements[i] = url.QueryEscape(element)
 	}
 	return strings.Join(sourceKeyElements, "/")
+}
+
+// check if all fields of URL equal
+func (u *URL) deepEqual(url *URL) bool {
+	if url.Absolute() != u.Absolute() ||
+		url.Type != u.Type ||
+		url.Scheme != u.Scheme ||
+		url.Bucket != u.Bucket ||
+		url.Delimiter != u.Delimiter ||
+		url.Path != u.Path ||
+		url.Prefix != u.Prefix ||
+		url.relativePath != u.relativePath ||
+		url.filter != u.filter {
+		return false
+	}
+	return true
 }

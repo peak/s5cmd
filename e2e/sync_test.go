@@ -15,9 +15,7 @@ import (
 // sync -n s3://bucket/object file
 func TestSyncFailForNonsharedFlagsFromCopyCommand(t *testing.T) {
 	t.Parallel()
-
 	s3client, s5cmd := setup(t)
-
 	const (
 		filename = "source.go"
 		bucket   = "bucket"

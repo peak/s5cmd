@@ -288,7 +288,7 @@ func (o Object) ToBytes() []byte {
 	buf := bytes.NewBuffer(make([]byte, 0, 200))
 	enc := gob.NewEncoder(buf)
 	enc.Encode(o.URL.ToBytes())
-	enc.Encode(o.ModTime)
+	enc.Encode(o.ModTime.Format(time.RFC3339Nano))
 	enc.Encode(o.Type.mode)
 	enc.Encode(o.Size)
 
@@ -303,8 +303,10 @@ func FromBytes(data []byte) extsort.SortType {
 	o := Object{
 		URL: u,
 	}
-
-	dec.Decode(&o.ModTime)
+	str := ""
+	dec.Decode(&str)
+	tmp, _ := time.Parse(time.RFC3339Nano, str)
+	o.ModTime = &tmp
 	dec.Decode(&o.Type.mode)
 	dec.Decode(&o.Size)
 	return o

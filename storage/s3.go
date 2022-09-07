@@ -631,6 +631,12 @@ type chunk struct {
 func (s *S3) calculateChunks(ch <-chan *url.URL) <-chan chunk {
 	chunkch := make(chan chunk)
 
+	chunkSize := deleteObjectsMax
+	// delete each object individually if using gcs.
+	if IsGoogleEndpoint(s.endpointURL) {
+		chunkSize = 1
+	}
+
 	go func() {
 		defer close(chunkch)
 
@@ -645,7 +651,7 @@ func (s *S3) calculateChunks(ch <-chan *url.URL) <-chan chunk {
 
 			objid := &s3.ObjectIdentifier{Key: aws.String(url.Path)}
 			keys = append(keys, objid)
-			if len(keys) == deleteObjectsMax {
+			if len(keys) == chunkSize {
 				chunkch <- chunk{
 					Bucket: bucket,
 					Keys:   keys,
@@ -693,6 +699,7 @@ func (s *S3) doDelete(ctx context.Context, chunk chunk, resultch chan *Object) {
 		}
 		return
 	}
+
 	// gcs does not support multi delete.
 	if IsGoogleEndpoint(s.endpointURL) {
 		for _, k := range chunk.Keys {

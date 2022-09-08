@@ -28,3 +28,7 @@ func (e EnumValue) String() string {
 	}
 	return e.selected
 }
+
+func (e EnumValue) Get() interface{} {
+	return e
+}

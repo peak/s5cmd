@@ -39,25 +39,19 @@ func NewBucketVersionCommand() *cli.Command {
 		HelpName:           "bucket-version",
 		Usage:              "configure bucket versioning",
 		Flags: []cli.Flag{
-			&cli.StringFlag{
+			&cli.GenericFlag{
 				Name: "set",
-				// todo use generic flag when https://github.com/urfave/cli/issues/1441
-				// solved. Unlike "global flags" this structure does not work here.
-				// Value: &EnumValue{
-				// 	Enum:    []string{"Suspended", "Enabled"},
-				// 	Default: "",
-				// },
+				Value: &EnumValue{
+					Enum:    []string{"Suspended", "Enabled"},
+					Default: "",
+				},
 				Usage: "set versioning status of bucket: (Suspended, Enabled)",
 			},
 		},
-		Before: func(c *cli.Context) error {
-			// check if the status  argument is valid
-			// to be handled by using GenericFlags & Enum values
-			status := c.String("set")
-			if c.IsSet("set") && status != "Suspended" && status != "Enabled" {
-				errMessage := "Incorrect Usage: invalid value \"" + status + "\" for flag --set: allowed values: [Suspended, Enabled]"
-				fmt.Println(errMessage)
-				return fmt.Errorf(errMessage)
+		Before: func(ctx *cli.Context) error {
+			if err := checkNumberOfArguments(ctx, 1, 1); err != nil {
+				printError(commandFromContext(ctx), ctx.Command.Name, err)
+				return err
 			}
 			return nil
 		},

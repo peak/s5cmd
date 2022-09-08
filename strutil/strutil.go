@@ -53,9 +53,7 @@ func AddNewLineFlag(pattern string) string {
 func WildCardToRegexp(pattern string) string {
 	patternRegex := regexp.QuoteMeta(pattern)
 	patternRegex = strings.Replace(patternRegex, "\\?", ".", -1)
-	patternRegex = strings.Replace(patternRegex, "\\*", ".*", -1)
-	//patternRegex = "^" + patternRegex + "$"
-	return patternRegex
+	return strings.Replace(patternRegex, "\\*", ".*", -1)
 }
 
 // MatchFromStartToEnd enforces that the regex will match the full string

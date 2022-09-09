@@ -936,7 +936,7 @@ func TestCopySingleFileToS3WithStorageClassGlacier(t *testing.T) {
 	t.Parallel()
 
 	// storage class GLACIER does not exist in gcs.
-	skipThisIfGoogleEndpoint(t)
+	skipTestIfGCS(t, "storage class GLACIER does not exist in gcs.")
 
 	s3client, s5cmd := setup(t)
 
@@ -1900,7 +1900,7 @@ func TestCopyAllObjectsIntoAnotherBucketIncludingSpecialCharacter(t *testing.T) 
 	// This test fails with gcs as it accepts percent encoding
 	// for `X-Amz-Copy-Source` and does not respect `+` as `space character`.
 	// skip it as it is not planned to write a workaround for gcs.
-	skipThisIfGoogleEndpoint(t)
+	skipTestIfGCS(t, "gcs does not respect `+` as `space character` in `X-Amz-Copy-Source`")
 
 	srcbucket := s3BucketFromTestNameWithPrefix(t, "src")
 	dstbucket := s3BucketFromTestNameWithPrefix(t, "dst")
@@ -1927,7 +1927,6 @@ func TestCopyAllObjectsIntoAnotherBucketIncludingSpecialCharacter(t *testing.T) 
 
 	cmd := s5cmd("cp", src, dst)
 	result := icmd.RunCmd(cmd)
-	fmt.Println(result.Stdout())
 
 	result.Assert(t, icmd.Success)
 	assertLines(t, result.Stdout(), map[int]compareFunc{

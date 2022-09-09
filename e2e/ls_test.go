@@ -58,13 +58,15 @@ func TestListBucketsJSON(t *testing.T) {
 	result := icmd.RunCmd(cmd)
 	result.Assert(t, icmd.Success)
 
+	stdout := result.Stdout()
 	// find the first created bucket
-	startIdx := strings.Index(result.Stdout(), fmt.Sprintf(`"name":"%v-1"`, bucketPrefix))
-	startOfLine := strings.LastIndex(result.Stdout()[:startIdx], "{")
-	got := result.Stdout()[startOfLine:]
+	startIdx := strings.Index(stdout, fmt.Sprintf(`"name":"%v-1"`, bucketPrefix))
+	// find the start of the line
+	startOfLine := strings.LastIndex(stdout[:startIdx], "{")
+	beginningOfOutput := stdout[startOfLine:]
 
 	// expect ordered list
-	assertLines(t, got, map[int]compareFunc{
+	assertLines(t, beginningOfOutput, map[int]compareFunc{
 		0: suffix(`"name":"%v-1"}`, bucketPrefix),
 		1: suffix(`"name":"%v-2"}`, bucketPrefix),
 		2: suffix(`"name":"%v-3"}`, bucketPrefix),

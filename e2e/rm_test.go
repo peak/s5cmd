@@ -241,10 +241,10 @@ func TestRemoveTenThousandS3Objects(t *testing.T) {
 func TestRemoveS3PrefixWithoutSlash(t *testing.T) {
 	t.Parallel()
 
-	// gcs gives key does not exist error, if an object can't be found
+	// gcs throws key does not exist error, if an object can't be found
 	// as it does not use multi-delete. This behavior is different from
 	// amazon s3, thus skip this test when used with gcs.
-	skipThisIfGoogleEndpoint(t)
+	skipTestIfGCS(t, "gcs throws key does not exist error, which is a different output then aws")
 
 	s3client, s5cmd := setup(t)
 
@@ -470,10 +470,10 @@ func TestVariadicMultipleLocalFilesWithDirectory(t *testing.T) {
 func TestVariadicRemoveS3Objects(t *testing.T) {
 	t.Parallel()
 
-	// gcs gives key does not exist error, if an object can't be found
+	// gcs throws key does not exist error, if an object can't be found
 	// as it does not use multi-delete. This behavior is different from
 	// amazon s3, thus skip this test when used with gcs.
-	skipThisIfGoogleEndpoint(t)
+	skipTestIfGCS(t, "gcs throws key does not exist error, which is a different output then aws")
 
 	s3client, s5cmd := setup(t)
 
@@ -752,7 +752,7 @@ func TestRemoveS3PrefixRawFlag(t *testing.T) {
 	// gcs gives key does not exist error, if an object can't be found
 	// as it does not use multi-delete. This behavior is different from
 	// amazon s3, thus skip this test when used with gcs.
-	skipThisIfGoogleEndpoint(t)
+	skipTestIfGCS(t, "gcs throws key does not exist error, which is a different output then aws")
 
 	s3client, s5cmd := setup(t)
 

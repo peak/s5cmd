@@ -1647,7 +1647,7 @@ func TestIssue435(t *testing.T) {
 	t.Parallel()
 
 	// skip this as it takes too long to complete with gcs.
-	skipThisIfGoogleEndpoint(t)
+	skipTestIfGCS(t, "takes too long to complete")
 
 	bucket := s3BucketFromTestName(t)
 

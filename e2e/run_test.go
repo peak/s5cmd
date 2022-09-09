@@ -49,7 +49,7 @@ func TestRunFromStdinIssue309(t *testing.T) {
 	// This test fails with gcs as it accepts percent encoding
 	// for `X-Amz-Copy-Source` and does not respect `+` as `space character`.
 	// skip it as it is not planned to write a workaround for gcs.
-	skipThisIfGoogleEndpoint(t)
+	skipTestIfGCS(t, "gcs does not respect `+` as `space character` in `X-Amz-Copy-Source`")
 
 	s3client, s5cmd := setup(t)
 

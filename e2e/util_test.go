@@ -8,8 +8,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/aws/aws-sdk-go/aws/client"
-	"github.com/aws/aws-sdk-go/aws/request"
 	"io"
 	"math/rand"
 	urlpkg "net/url"
@@ -27,8 +25,10 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/aws/client"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/endpoints"
+	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/google/go-cmp/cmp"
@@ -42,14 +42,16 @@ import (
 
 const (
 	// Don't use "race" flag in the build arguments.
-	testDisableRaceFlagKey = "S5CMD_BUILD_BINARY_WITHOUT_RACE_FLAG"
-	testDisableRaceFlagVal = "1"
-	s5cmdTestIdEnv         = "S5CMD_ACCESS_KEY_ID"
-	s5cmdTestSecretEnv     = "S5CMD_SECRET_ACCESS_KEY"
-	s5cmdTestEndpointEnv   = "S5CMD_ENDPOINT_URL"
-	s5cmdTestIsVirtualHost = "S5CMD_IS_VIRTUAL_HOST"
-	s5cmdTestRegionEnv     = "S5CMD_REGION"
-	maxRetries             = 10
+	testDisableRaceFlagKey       = "S5CMD_BUILD_BINARY_WITHOUT_RACE_FLAG"
+	testDisableRaceFlagVal       = "1"
+	s5cmdTestIdEnv               = "S5CMD_ACCESS_KEY_ID"
+	s5cmdTestSecretEnv           = "S5CMD_SECRET_ACCESS_KEY"
+	s5cmdTestEndpointEnv         = "S5CMD_ENDPOINT_URL"
+	s5cmdTestIsVirtualHost       = "S5CMD_IS_VIRTUAL_HOST"
+	s5cmdTestRegionEnv           = "S5CMD_REGION"
+	s5cmdTestIKnowWhatImDoingEnv = "S5CMD_I_KNOW_WHAT_IM_DOING"
+	maxRetries                   = 10
+	deleteObjectsMax             = 1000
 )
 
 var (
@@ -249,18 +251,20 @@ func isEndpointFromEnv() bool {
 	return os.Getenv(s5cmdTestIdEnv) != "" &&
 		os.Getenv(s5cmdTestSecretEnv) != "" &&
 		os.Getenv(s5cmdTestEndpointEnv) != "" &&
-		os.Getenv(s5cmdTestRegionEnv) != ""
+		os.Getenv(s5cmdTestRegionEnv) != "" &&
+		os.Getenv(s5cmdTestIsVirtualHost) != "" &&
+		os.Getenv(s5cmdTestIKnowWhatImDoingEnv) == "1"
 }
 
 // skip the test if testing with google endpoint.
-func skipThisIfGoogleEndpoint(t *testing.T) {
+func skipTestIfGCS(t *testing.T, format string) {
 	endpoint, err := urlpkg.Parse(os.Getenv(s5cmdTestEndpointEnv))
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	if storage.IsGoogleEndpoint(*endpoint) {
-		t.Skip()
+		t.Skip(format)
 	}
 }
 
@@ -374,6 +378,7 @@ func createBucket(t *testing.T, client *s3.S3, bucket string) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	t.Cleanup(func() {
 		// cleanup if bucket exists.
 		_, err := client.HeadBucket(&s3.HeadBucketInput{Bucket: aws.String(bucket)})
@@ -383,13 +388,45 @@ func createBucket(t *testing.T, client *s3.S3, bucket string) {
 				Bucket: aws.String(bucket),
 			}
 
-			//remove objects inside the bucket first.
-			err := client.ListObjectsPages(&listInput, func(p *s3.ListObjectsOutput, lastPage bool) bool {
+			//remove objects first.
+			// delete each object individually if using gcs.
+			if isGoogleEndpointFromEnv(t) {
+				err = client.ListObjectsPages(&listInput, func(p *s3.ListObjectsOutput, lastPage bool) bool {
+					for _, c := range p.Contents {
+						client.DeleteObject(&s3.DeleteObjectInput{
+							Bucket: aws.String(bucket),
+							Key:    c.Key,
+						})
+					}
+					return !lastPage
+				})
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			chunkSize := deleteObjectsMax
+
+			var keys []*s3.ObjectIdentifier
+			initKeys := func() {
+				keys = make([]*s3.ObjectIdentifier, 0)
+			}
+
+			err = client.ListObjectsPages(&listInput, func(p *s3.ListObjectsOutput, lastPage bool) bool {
 				for _, c := range p.Contents {
-					client.DeleteObject(&s3.DeleteObjectInput{
-						Bucket: aws.String(bucket),
-						Key:    c.Key,
-					})
+					objid := &s3.ObjectIdentifier{Key: c.Key}
+					keys = append(keys, objid)
+
+					if len(keys) == chunkSize {
+						_, err := client.DeleteObjects(&s3.DeleteObjectsInput{
+							Bucket: aws.String(bucket),
+							Delete: &s3.Delete{Objects: keys},
+						})
+						if err != nil {
+							t.Fatal(err)
+						}
+						initKeys()
+					}
 				}
 				return !lastPage
 			})
@@ -397,6 +434,16 @@ func createBucket(t *testing.T, client *s3.S3, bucket string) {
 				t.Fatal(err)
 			}
 
+			if len(keys) > 0 {
+				_, err := client.DeleteObjects(&s3.DeleteObjectsInput{
+					Delete: &s3.Delete{Objects: keys},
+					Bucket: aws.String(bucket),
+				})
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			// delete bucket after.
 			_, err = client.DeleteBucket(&s3.DeleteBucketInput{
 				Bucket: aws.String(bucket),
 			})
@@ -406,6 +453,14 @@ func createBucket(t *testing.T, client *s3.S3, bucket string) {
 		}
 	})
 
+}
+
+func isGoogleEndpointFromEnv(t *testing.T) bool {
+	endpoint, err := urlpkg.Parse(os.Getenv(s5cmdTestEndpointEnv))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return storage.IsGoogleEndpoint(*endpoint)
 }
 
 var errS3NoSuchKey = fmt.Errorf("s3: no such key")
@@ -512,11 +567,9 @@ func s3BucketFromTestNameWithPrefix(t *testing.T, prefix string) string {
 	bucket := strcase.ToKebab(t.Name())
 
 	reg, _ := regexp.Compile("[^-a-z0-9]+")
-	prefix = reg.ReplaceAllString(prefix, "")
 
 	if prefix != "" {
 		bucket = fmt.Sprintf("%v-%v", prefix, bucket)
-
 	}
 
 	bucket = reg.ReplaceAllString(bucket, "")
@@ -539,17 +592,17 @@ func TestS3BucketFromTestNameWithPrefix(t *testing.T) {
 		{
 			name:          "don't_use_",
 			prefix:        "",
-			expectedRegex: "test-s-3-bucket-from-test-name-with-prefixdont-use--.{7}$",
+			expectedRegex: "test-s-3-bucket-from-test-name-with-prefix-.{7}$",
 		},
 		{
 			name:          "pref",
 			prefix:        "pref",
-			expectedRegex: "pref-test-s-3-bucket-from-test-name-with-prefixpref-.{7}$",
+			expectedRegex: "pref-test-s-3-bucket-from-test-name-with-p-.{7}$",
 		},
 		{
 			name:          "chars",
 			prefix:        "./*?",
-			expectedRegex: "test-s-3-bucket-from-test-name-with-prefixchars-.{7}$",
+			expectedRegex: "test-s-3-bucket-from-test-name-with-prefi-.{7}$",
 		},
 	}
 	for _, tc := range testcases {
@@ -571,15 +624,13 @@ func s3BucketFromTestName(t *testing.T) string {
 	return s3BucketFromTestNameWithPrefix(t, "")
 }
 
-// adds random suffix of length 7 to bucketName.
-// If longer than 63 chars, trim it down to 63 chars.
+// addRandomSuffixTo appends random 7 characters to given bucket name.
+// If bucket name is longer than 50 chars, trims it down to 50 chars.
 func addRandomSuffixTo(bucketName string) string {
-
 	bucketName = fmt.Sprintf("%v-%v", bucketName, randomString(7))
 
-	// trim if longer than 63 chars.
-	if len(bucketName) > 63 {
-		bucketName = fmt.Sprintf("%v-%v", bucketName[:55], randomString(7))
+	if len(bucketName) > 50 {
+		bucketName = fmt.Sprintf("%v-%v", bucketName[:42], randomString(7))
 	}
 
 	return bucketName
@@ -593,19 +644,19 @@ func TestAddRandomSuffixTo(t *testing.T) {
 		expectedRegex string
 	}{
 		{
-			name:          "shorter-than-63-chars",
+			name:          "shorter-than-50-chars",
 			bucketName:    "TestName",
 			expectedRegex: "TestName-.{7}$",
 		},
 		{
-			name:          "between-55-and-63-chars",
-			bucketName:    "ThisTestStringIsSupposedToBeInBetween55And63CharactersAndItIs",
-			expectedRegex: "ThisTestStringIsSupposedToBeInBetween55And63CharactersA-.{7}$",
+			name:          "between-42-and-50-chars",
+			bucketName:    "ThisTestStringIsSupposedToBeInBetween42And50Chars",
+			expectedRegex: "ThisTestStringIsSupposedToBeInBetween42And-.{7}$",
 		},
 		{
-			name:          "longer-than-63-chars",
-			bucketName:    "ThisTestStringIsSupposedToBeMuchMuchLongerThanSixtyThreeCharacters",
-			expectedRegex: "ThisTestStringIsSupposedToBeMuchMuchLongerThanSixtyThre-.{7}$",
+			name:          "longer-than-50-chars",
+			bucketName:    "ThisTestStringIsSupposedToBeMuchMuchLongerThanFiftyCharacters",
+			expectedRegex: "ThisTestStringIsSupposedToBeMuchMuchLonger-.{7}$",
 		},
 	}
 	for _, tc := range testcases {

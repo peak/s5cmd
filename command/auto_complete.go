@@ -41,11 +41,11 @@ _s5cmd_cli_bash_autocomplete() {
 		cur="${COMP_WORDS[COMP_CWORD]}"
 		cmd="${COMP_LINE:0:$COMP_POINT}"` +
 
-	// if we want to complete the second argurment and we didn't started writing
+	// if we want to complete the second argument and we didn't start writing
 	// yet then we should pass an empty string as another argument. Otherwise
 	// the white spaces will be discarded and the program will make suggestions
 	// as if it is completing the first argument.
-	// Beware that the we want to pass empty string so we intentionally write
+	// Beware that we want to pass an empty string so we intentionally write
 	// as it is. Fixes of SC2089 and SC2090 are not what we want.
 	// see also https://www.shellcheck.net/wiki/SC2090
 	`
@@ -77,9 +77,9 @@ $name = $fn -replace "(.*)\.ps1$", '$1'
 Register-ArgumentCompleter -Native -CommandName $name -ScriptBlock {
 	param($commandName, $wordToComplete, $cursorPosition)
 	$other = "$wordToComplete --generate-bash-completion"
-		Invoke-Expression $other | ForEach-Object {
+	Invoke-Expression $other | ForEach-Object {
 		[System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
-		}
+	}
 }
 `
 

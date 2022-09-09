@@ -188,6 +188,27 @@ func TestAppUnknownCommand(t *testing.T) {
 	})
 }
 
+func TestAppHelp(t *testing.T) {
+	t.Parallel()
+
+	_, s5cmd := setup(t)
+
+	// without any specific command
+	cmd := s5cmd("--help")
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	// with specific commands
+	cmdList := []string{"ls", "cp", "rm", "mv", "mb", "rb", "select", "du", "cat", "run", "sync"}
+	for _, command := range cmdList {
+		cmd := s5cmd(command, "--help")
+		result = icmd.RunCmd(cmd)
+
+		result.Assert(t, icmd.Success)
+	}
+}
+
 func TestUsageError(t *testing.T) {
 	t.Parallel()
 

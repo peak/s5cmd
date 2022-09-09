@@ -19,12 +19,11 @@ import (
 	"regexp"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
 	"time"
-
-	"github.com/peak/s5cmd/storage"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -35,6 +34,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/iancoleman/strcase"
 	"github.com/igungor/gofakes3"
+	"github.com/peak/s5cmd/storage"
 	"gotest.tools/v3/assert"
 	"gotest.tools/v3/fs"
 	"gotest.tools/v3/icmd"
@@ -47,6 +47,7 @@ const (
 	s5cmdTestIdEnv         = "S5CMD_ACCESS_KEY_ID"
 	s5cmdTestSecretEnv     = "S5CMD_SECRET_ACCESS_KEY"
 	s5cmdTestEndpointEnv   = "S5CMD_ENDPOINT_URL"
+	s5cmdTestIsVirtualHost = "S5CMD_IS_VIRTUAL_HOST"
 	s5cmdTestRegionEnv     = "S5CMD_REGION"
 	maxRetries             = 10
 )
@@ -181,6 +182,7 @@ func s3client(t *testing.T, options storage.Options) *s3.S3 {
 	key := defaultSecretAccessKey
 	endpoint := options.Endpoint
 	region := endpoints.UsEast1RegionID
+	isVirtualHost := false
 
 	// get environment variables and use external endpoint url.
 	// this can be used to test s3 sources such as gcs, amazon, wasabi etc.
@@ -190,9 +192,7 @@ func s3client(t *testing.T, options storage.Options) *s3.S3 {
 		endpoint = os.Getenv(s5cmdTestEndpointEnv)
 		region = os.Getenv(s5cmdTestRegionEnv)
 		s3Config.Retryer = newSlowDownRetryer(maxRetries)
-	} else {
-		s3Config = s3Config.
-			WithS3ForcePathStyle(true)
+		isVirtualHost = isVirtualHostFromEnv(t)
 	}
 
 	// WithDisableRestProtocolURICleaning is added to allow adjacent slashes to be used in s3 object keys.
@@ -203,12 +203,21 @@ func s3client(t *testing.T, options storage.Options) *s3.S3 {
 		WithDisableRestProtocolURICleaning(true).
 		WithCredentialsChainVerboseErrors(true).
 		WithLogLevel(awsLogLevel).
-		WithRegion(region)
+		WithRegion(region).
+		WithS3ForcePathStyle(!isVirtualHost)
 
 	sess, err := session.NewSession(s3Config)
 	assert.NilError(t, err)
 
 	return s3.New(sess)
+}
+
+func isVirtualHostFromEnv(t *testing.T) bool {
+	isVirtual, err := strconv.ParseBool(os.Getenv(s5cmdTestIsVirtualHost))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return isVirtual
 }
 
 // slowDownRetryer wraps the SDK's built in DefaultRetryer adding additional

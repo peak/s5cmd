@@ -62,7 +62,11 @@ _s5cmd_cli_bash_autocomplete() {
 	// if no completion is found then fallback to default completion of shell.
 	`
 
-		while IFS='' read -r line; do COMPREPLY+=("$line"); done < <(compgen -o bashdefault -o default -o nospace -W "${opts}" -- "${cur}")
+		while IFS='' read -r line;
+		do
+			COMPREPLY+=("$line");
+		done \
+		< <(compgen -o bashdefault -o default -o nospace -W "${opts}" -- "${cur}")
 
 		return 0
 	fi
@@ -190,25 +194,26 @@ func printListNURLSuggestions(ctx context.Context, client *storage.S3, u *url.UR
 	}
 }
 
-func installCompletionHelp(shell string) {
+func printAutocompletionInstructions(shell string) {
 	var script string
 	baseShell := filepath.Base(shell)
 	instructions := "# To enable autocompletion you should add the following script" +
 		" to startup scripts of your shell.\n" +
 		"# It is probably located at ~/." + baseShell + "rc"
 
-	if baseShell == "zsh" {
+	switch baseShell {
+	case "zsh":
 		script = zsh
-	} else if baseShell == "bash" {
+	case "bash":
 		script = bash
-	} else if baseShell == "pwsh" {
+	case "pwsh":
 		script = pwsh
 		instructions = "# To enable autocompletion you should save the following" +
 			" script to a file named \"s5cmd.ps1\" and execute it.\n# To persist it" +
 			" you should add the path of \"s5cmd.ps1\" file to profile file " +
 			"(which you can locate with $profile) to automatically execute \"s5cmd.ps1\"" +
 			" on every shell start up."
-	} else {
+	default:
 		instructions = "# We couldn't recognize your SHELL \"" + baseShell + "\".\n" +
 			"# Shell completion is supported only for bash, pwsh and zsh." +
 			"# Make sure that your SHELL environment variable is set accurately."

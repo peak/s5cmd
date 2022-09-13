@@ -117,19 +117,14 @@ func getBashCompleteFn(cmd *cli.Command, isOnlyRemote, isOnlyBucket bool) func(c
 
 // it returns a complete function which prints the argument, itself, which is to be completed.
 // If the argument is empty string it uses the defaultCompletions to make suggestions.
-func constantCompleteFnWithDefault(cmd *cli.Command, defaultCompletions ...string) func(ctx *cli.Context) {
-	return func(ctx *cli.Context) {
-		arg := parseArgumentToComplete(ctx)
-		baseShell := filepath.Base(os.Getenv("SHELL"))
-		if arg == "" {
-			for _, str := range defaultCompletions {
-				fmt.Println(formatSuggestionForShell(baseShell, str, str))
-			}
-		} else if strings.HasPrefix(arg, "-") {
-			cli.DefaultCompleteWithFlags(cmd)(ctx)
-		} else {
-			fmt.Println(formatSuggestionForShell(baseShell, arg, arg))
+func constantCompleteWithDefault(arg string, defaultCompletions ...string) {
+	baseShell := filepath.Base(os.Getenv("SHELL"))
+	if arg == "" {
+		for _, str := range defaultCompletions {
+			fmt.Println(formatSuggestionForShell(baseShell, str, arg))
 		}
+	} else {
+		fmt.Println(formatSuggestionForShell(baseShell, arg, arg))
 	}
 }
 

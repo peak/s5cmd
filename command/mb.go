@@ -3,6 +3,7 @@ package command
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/urfave/cli/v2"
 
@@ -51,7 +52,14 @@ func NewMakeBucketCommand() *cli.Command {
 			}.Run(c.Context)
 		},
 	}
-	cmd.BashComplete = constantCompleteFnWithDefault(cmd, "s3://")
+	cmd.BashComplete = func(ctx *cli.Context) {
+		arg := parseArgumentToComplete(ctx)
+		if strings.HasPrefix(arg, "-") {
+			cli.DefaultCompleteWithFlags(cmd)(ctx)
+		} else {
+			constantCompleteWithDefault(arg, "s3://")
+		}
+	}
 
 	return cmd
 }

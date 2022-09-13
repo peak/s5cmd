@@ -117,11 +117,11 @@ func setup(t *testing.T, options ...option) (*s3.S3, func(...string) icmd.Cmd) {
 func server(t *testing.T, opts *setupOpts) (string, string) {
 	t.Helper()
 
-	// testdir := fs.NewDir() tries to create a new directory which
-	// has a prefix = [test function name][operation name]
+	// testdir := fs.NewDir() tries to create a new directory which has a
+	// prefix = [test function name][operation name]
 	// e.g., prefix' = "TestCopySingleS3ObjectToLocal/cp_s3://bucket/object_file"
-	// but on windows, directories cannot contain a colon
-	// so we replace them with hyphen
+	// but on windows, directories cannot contain a colon so we replace them
+	// with hyphen.
 	prefix := t.Name()
 	if runtime.GOOS == "windows" {
 		prefix = strings.ReplaceAll(prefix, ":", "-")
@@ -140,10 +140,6 @@ func server(t *testing.T, opts *setupOpts) (string, string) {
 	if opts.endpointURL != "" {
 		endpoint = opts.endpointURL
 	}
-	t.Cleanup(func() {
-		testdir.Remove()
-
-	})
 
 	return endpoint, workdir
 }
@@ -155,12 +151,12 @@ func s3client(t *testing.T, options storage.Options) *s3.S3 {
 	if *flagTestLogLevel == "debug" {
 		awsLogLevel = aws.LogDebug
 	}
-	// WithDisableRestProtocolURICleaning is added to allow adjacent slashes to be used in s3 object keys.
 	s3Config := aws.NewConfig().
 		WithEndpoint(options.Endpoint).
 		WithRegion(endpoints.UsEast1RegionID).
 		WithCredentials(credentials.NewStaticCredentials(defaultAccessKeyID, defaultSecretAccessKey, "")).
 		WithDisableSSL(options.NoVerifySSL).
+		// allow adjacent slashes to be used in s3 object keys
 		WithDisableRestProtocolURICleaning(true).
 		WithS3ForcePathStyle(true).
 		WithCredentialsChainVerboseErrors(true).

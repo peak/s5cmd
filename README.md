@@ -63,7 +63,7 @@ For macOS, a [homebrew](https://brew.sh) tap is provided:
 
 ### Unofficial Releases (by Community)
 [![Packaging status](https://repology.org/badge/tiny-repos/s5cmd.svg)](https://repology.org/project/s5cmd/versions)
-> **Warning**  
+> **Warning**
 > These releases are maintained by the community. They might be out of date compared to the official releases.
 
 #### MacPorts

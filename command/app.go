@@ -154,8 +154,7 @@ var app = &cli.App{
 	},
 	Action: func(c *cli.Context) error {
 		if c.Bool("install-completion") {
-			shell := os.Getenv("SHELL")
-			printAutocompletionInstructions(shell)
+			printAutocompletionInstructions(os.Getenv("SHELL"))
 			return nil
 		}
 		args := c.Args()

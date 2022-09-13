@@ -92,12 +92,12 @@ func getBashCompleteFn(cmd *cli.Command, isOnlyRemote, isOnlyBucket bool) func(c
 	return func(ctx *cli.Context) {
 		arg := parseArgumentToComplete(ctx)
 
-		if isOnlyRemote || strings.HasPrefix(arg, "s3://") {
-			if strings.HasPrefix(arg, "-") {
-				cli.DefaultCompleteWithFlags(cmd)(ctx)
-				return
-			}
+		if strings.HasPrefix(arg, "-") {
+			cli.DefaultCompleteWithFlags(cmd)(ctx)
+			return
+		}
 
+		if isOnlyRemote || strings.HasPrefix(arg, "s3://") {
 			u, err := url.New(arg)
 			if err != nil {
 				u = &url.URL{Type: 0, Scheme: "s3"}

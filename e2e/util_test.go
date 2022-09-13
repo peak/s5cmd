@@ -682,30 +682,6 @@ func (l *fixedTimeSource) Advance(by time.Duration) {
 	l.time = l.time.Add(by)
 }
 
-func keysToS3URL(scheme, bucket string, keys ...string) []string {
-	l := len(keys)
-	res := make([]string, 0, l)
-
-	for _, k := range keys {
-		res = append(res, scheme+bucket+"/"+k)
-	}
-
-	return res
-}
-
-func expectedSliceToEqualsMap(expected []string, shouldSort bool) map[int]compareFunc {
-	m := make(map[int]compareFunc)
-
-	if shouldSort {
-		sort.Strings(expected)
-	}
-
-	for i, e := range expected {
-		m[i] = equals(e)
-	}
-	return m
-}
-
 func indexSlice(slice []string, target string, fn func(str, target string) bool) int {
 	for i, str := range slice {
 		if fn(str, target) {

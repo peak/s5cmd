@@ -15,7 +15,7 @@ func TestCompletionFlag(t *testing.T) {
 		precedingArgs []string
 		arg           string
 		remoteFiles   []string
-		expected      []string
+		expected      map[int]compareFunc
 		shell         string
 	}{
 		{
@@ -23,42 +23,52 @@ func TestCompletionFlag(t *testing.T) {
 			precedingArgs: []string{"cp"},
 			arg:           "",
 			// local file completions are prepared by the shell
-			expected: []string{},
+			expected: map[int]compareFunc{},
 			shell:    "/bin/bash",
 		},
 		{
 			name:          "cat complete empty string",
 			precedingArgs: []string{"cat"},
 			arg:           "",
-			expected:      []string{"s3://" + bucket + "/"},
-			shell:         "/bin/pwsh",
+			expected: map[int]compareFunc{
+				0: equals("s3://test-completion-flag/"),
+			},
+			shell: "/bin/pwsh",
 		},
 		{
 			name:          "mb complete empty string",
 			precedingArgs: []string{"mb"},
 			arg:           "",
-			expected:      []string{"s3://"},
-			shell:         "/bin/pwsh",
+			expected: map[int]compareFunc{
+				0: equals("s3://"),
+			},
+			shell: "/bin/pwsh",
 		},
 		{
 			name:          "mb complete bucket",
 			precedingArgs: []string{"mb"},
 			arg:           "s3://bu",
-			expected:      []string{"s3://bu"},
-			shell:         "/bin/pwsh",
+			expected: map[int]compareFunc{
+				0: equals("s3://bu"),
+			},
+			shell: "/bin/pwsh",
 		},
 		{
 			name:          "rb complete empty string",
 			precedingArgs: []string{"rb"},
 			arg:           "",
-			expected:      []string{"s3://" + bucket + "/"},
-			shell:         "/bin/pwsh",
+			expected: map[int]compareFunc{
+				0: equals("s3://test-completion-flag/"),
+			},
+			shell: "/bin/pwsh",
 		},
 		{
 			name:          "rb should not complete keys string",
 			precedingArgs: []string{"rb"},
 			arg:           "s3://" + bucket + "/f",
-			expected:      []string{"s3://" + bucket + "/"},
+			expected: map[int]compareFunc{
+				0: equals("s3://test-completion-flag/"),
+			},
 			remoteFiles: []string{
 				"file.txt",
 				"fdir/child.txt",
@@ -69,29 +79,38 @@ func TestCompletionFlag(t *testing.T) {
 			name:          "select complete empty string",
 			precedingArgs: []string{"select"},
 			arg:           "",
-			expected:      []string{"s3://" + bucket + "/"},
-			shell:         "/bin/pwsh",
+			expected: map[int]compareFunc{
+				0: equals("s3://test-completion-flag/"),
+			},
+			shell: "/bin/pwsh",
 		},
 		{
 			name:          "cp complete bucket names in pwsh",
 			precedingArgs: []string{"cp"},
 			arg:           "s3://",
-			expected:      []string{"s3://" + bucket + "/"},
-			shell:         "/bin/pwsh",
+			expected: map[int]compareFunc{
+				0: equals("s3://test-completion-flag/"),
+			},
+			shell: "/bin/pwsh",
 		},
 		{
 			name:          "cp complete bucket names in zsh",
 			precedingArgs: []string{"cp"},
 			arg:           "s3://",
-			expected:      []string{"s3\\://" + bucket + "/"},
-			shell:         "/bin/zsh",
+			expected: map[int]compareFunc{
+				0: equals("s3\\://test-completion-flag/"),
+			},
+			shell: "/bin/zsh",
 		},
 		{
 			name:          "cp complete bucket names in bash",
 			precedingArgs: []string{"cp"},
 			arg:           "s3://",
-			expected:      []string{"s3://" + bucket + "/", "//" + bucket + "/"},
-			shell:         "/bin/bash",
+			expected: map[int]compareFunc{
+				0: equals("//test-completion-flag/"),
+				1: equals("s3://test-completion-flag/"),
+			},
+			shell: "/bin/bash",
 		},
 		{
 			name:          "cp complete bucket keys pwsh",
@@ -103,12 +122,12 @@ func TestCompletionFlag(t *testing.T) {
 				"filedir/child.txt",
 				"dir/child.txt",
 			},
-			expected: keysToS3URL("s3://", bucket,
-				"file0.txt",
-				"file1.txt",
-				"filedir/",
-				"dir/",
-			),
+			expected: map[int]compareFunc{
+				0: equals("s3://test-completion-flag/dir/"),
+				1: equals("s3://test-completion-flag/file0.txt"),
+				2: equals("s3://test-completion-flag/file1.txt"),
+				3: equals("s3://test-completion-flag/filedir/"),
+			},
 			shell: "/bin/pwsh",
 		},
 		{
@@ -121,17 +140,16 @@ func TestCompletionFlag(t *testing.T) {
 				"filedir/child.txt",
 				"dir/child.txt",
 			},
-			expected: append(
-				keysToS3URL("s3://", bucket,
-					"file0.txt",
-					"file1.txt",
-					"filedir/",
-					"dir/"),
-				keysToS3URL("//", bucket,
-					"file0.txt",
-					"file1.txt",
-					"filedir/",
-					"dir/")...),
+			expected: map[int]compareFunc{
+				0: equals("//test-completion-flag/dir/"),
+				1: equals("//test-completion-flag/file0.txt"),
+				2: equals("//test-completion-flag/file1.txt"),
+				3: equals("//test-completion-flag/filedir/"),
+				4: equals("s3://test-completion-flag/dir/"),
+				5: equals("s3://test-completion-flag/file0.txt"),
+				6: equals("s3://test-completion-flag/file1.txt"),
+				7: equals("s3://test-completion-flag/filedir/"),
+			},
 			shell: "/bin/bash",
 		},
 		{
@@ -144,12 +162,12 @@ func TestCompletionFlag(t *testing.T) {
 				"filedir/child.txt",
 				"dir/child.txt",
 			},
-			expected: keysToS3URL("s3\\://", bucket,
-				"file0.txt",
-				"file1.txt",
-				"filedir/",
-				"dir/",
-			),
+			expected: map[int]compareFunc{
+				0: equals("s3\\://test-completion-flag/dir/"),
+				1: equals("s3\\://test-completion-flag/file0.txt"),
+				2: equals("s3\\://test-completion-flag/file1.txt"),
+				3: equals("s3\\://test-completion-flag/filedir/"),
+			},
 			shell: "/bin/zsh",
 		},
 		{
@@ -160,9 +178,12 @@ func TestCompletionFlag(t *testing.T) {
 				"co:lon:in:key",
 				"co:lonized",
 			},
-			expected: append(
-				keysToS3URL("s3://", bucket, "co:lon:in:key", "co:lonized"),
-				"lon:in:key", "lonized"),
+			expected: map[int]compareFunc{
+				0: equals("lon:in:key"),
+				1: equals("lonized"),
+				2: equals("s3://test-completion-flag/co:lon:in:key"),
+				3: equals("s3://test-completion-flag/co:lonized"),
+			},
 			shell: "/bin/bash",
 		},
 		{
@@ -173,8 +194,11 @@ func TestCompletionFlag(t *testing.T) {
 				"co:lon:in:key",
 				"co:lonized",
 			},
-			expected: keysToS3URL("s3\\://", bucket, "co\\:lon\\:in\\:key", "co\\:lonized"),
-			shell:    "/bin/zsh",
+			expected: map[int]compareFunc{
+				0: equals("s3\\://test-completion-flag/co\\:lon\\:in\\:key"),
+				1: equals("s3\\://test-completion-flag/co\\:lonized"),
+			},
+			shell: "/bin/zsh",
 		},
 		{
 			name:          "cp complete keys with backslash",
@@ -184,8 +208,9 @@ func TestCompletionFlag(t *testing.T) {
 				`back\slash`,
 				`backback`,
 			},
-			expected: keysToS3URL("s3://", bucket,
-				`back\slash`),
+			expected: map[int]compareFunc{
+				0: equals("s3://test-completion-flag/back\\slash"),
+			},
 			shell: "/bin/pwsh",
 		},
 		{
@@ -195,21 +220,12 @@ func TestCompletionFlag(t *testing.T) {
 			remoteFiles: []string{
 				"as*terisk",
 				"as*oburiks",
-				// "asNotTerisk",
 			},
-			expected: keysToS3URL("s3://", bucket, "as*terisk", "as*oburiks"),
-			shell:    "/bin/pwsh",
-		},
-		{
-			name:          "cp complete keys with asterisk",
-			precedingArgs: []string{"cp"},
-			arg:           "s3://" + bucket + "/as*",
-			remoteFiles: []string{
-				"as*terisk",
-				"as*oburiks",
+			expected: map[int]compareFunc{
+				0: equals("s3://test-completion-flag/as*oburiks"),
+				1: equals("s3://test-completion-flag/as*terisk"),
 			},
-			expected: keysToS3URL("s3://", bucket, "as*terisk", "as*oburiks"),
-			shell:    "/bin/pwsh",
+			shell: "/bin/pwsh",
 		},
 		/*
 			Question marks and asterisk are thought to be wildcard (special charactes)
@@ -240,9 +256,9 @@ func TestCompletionFlag(t *testing.T) {
 			}
 
 			cmd := s5cmd(append(tc.precedingArgs, tc.arg, flag)...)
-			result := icmd.RunCmd(cmd, withEnv("SHELL", tc.shell))
+			res := icmd.RunCmd(cmd, withEnv("SHELL", tc.shell))
 
-			assertLines(t, result.Stdout(), expectedSliceToEqualsMap(tc.expected, true), sortInput(true))
+			assertLines(t, res.Stdout(), tc.expected, sortInput(true))
 		})
 	}
 }

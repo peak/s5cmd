@@ -51,7 +51,7 @@ func NewMakeBucketCommand() *cli.Command {
 			}.Run(c.Context)
 		},
 	}
-	cmd.BashComplete = ineffectiveCompleteFnWithDefault(cmd, "s3://")
+	cmd.BashComplete = constantCompleteFnWithDefault(cmd, "s3://")
 
 	return cmd
 }

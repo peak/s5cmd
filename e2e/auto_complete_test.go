@@ -177,31 +177,6 @@ func TestCompletionFlag(t *testing.T) {
 			shell:    "/bin/zsh",
 		},
 		{
-			name:          "cp complete keys with asterisk",
-			precedingArgs: []string{"cp"},
-			arg:           "s3://" + bucket + "/as*",
-			remoteFiles: []string{
-				"as*terisk",
-				"as*oburiks",
-			},
-			expected: keysToS3URL("s3://", bucket, "as*terisk", "as*oburiks"),
-			shell:    "/bin/pwsh",
-		},
-		/* Question marks are thought to be wildcard by the s5cmd so they cannot be properly handled yet
-		{
-			name:          "cp complete keys with question mark",
-			precedingArgs: []string{"cp", "--raw"},
-			arg:           "s3://" + bucket + "/qu?",
-			remoteFiles: []string{
-				"qu?estion",
-				"qu?vestion",
-			},
-			expected: keysToS3URL("s3://", bucket,
-				"qu?estion", "qu?vestion"),
-			shell: "/bin/pwsh",
-		},
-		*/
-		{
 			name:          "cp complete keys with backslash",
 			precedingArgs: []string{"cp"},
 			arg:           "s3://" + bucket + "/back\\",
@@ -213,6 +188,41 @@ func TestCompletionFlag(t *testing.T) {
 				`back\slash`),
 			shell: "/bin/pwsh",
 		},
+		{
+			name:          "cp complete keys with asterisk",
+			precedingArgs: []string{"cp"},
+			arg:           "s3://" + bucket + "/as*",
+			remoteFiles: []string{
+				"as*terisk",
+				"as*oburiks",
+				// "asNotTerisk",
+			},
+			expected: keysToS3URL("s3://", bucket, "as*terisk", "as*oburiks"),
+			shell:    "/bin/pwsh",
+		},
+		{
+			name:          "cp complete keys with asterisk",
+			precedingArgs: []string{"cp"},
+			arg:           "s3://" + bucket + "/as*",
+			remoteFiles: []string{
+				"as*terisk",
+				"as*oburiks",
+			},
+			expected: keysToS3URL("s3://", bucket, "as*terisk", "as*oburiks"),
+			shell:    "/bin/pwsh",
+		},
+		/*
+			Question marks and asterisk are thought to be wildcard (special charactes)
+			by the s5cmd so when they're given s5cmd's behaviour changes.
+
+			When asterisk is given s5cmd also matches the keys with literal '*' as well as
+			all keys that match the URL'S regexp. So the completions with '*' accidentally include the
+			keys that contains '*' while the shell scripts filter out those that does not have '*'s.
+
+			On the other hand when the question mark is given then s5cmd do not list keys
+			if it is the last character. Because the ? represent a single character and
+			it is not expanded to complete remaining of the key.
+		*/
 	}
 
 	for _, tc := range testcases {

@@ -50,7 +50,7 @@ _s5cmd_cli_bash_autocomplete() {
 	// see also https://www.shellcheck.net/wiki/SC2090
 	`
 		[ "${COMP_LINE:COMP_POINT-1:$COMP_POINT}" == " " ] \
-			&& cmd="${cmd} \"\"" ` +
+			&& cmd="${cmd} ''" ` +
 
 	// execute the command with '--generate-bash-completion' flag to obtain
 	// possible completion values for current word.
@@ -90,70 +90,50 @@ Register-ArgumentCompleter -Native -CommandName $name -ScriptBlock {
 func getBashCompleteFn(cmd *cli.Command, isOnlyRemote, isOnlyBucket bool) func(ctx *cli.Context) {
 	isOnlyRemote = isOnlyRemote || isOnlyBucket
 	return func(ctx *cli.Context) {
-		var arg string
-		args := ctx.Args()
-		l := args.Len()
-
-		if l > 0 {
-			arg = args.Get(l - 1)
-		}
-
-		// argument may start with a quotation mark, in this case we want to trim that before
-		// checking if it has prefix s3://
-		// Beware that we only want to trim the first char, not all of the leading
-		// quotation marks, because those quotation marks may be actual charactes.
-		if strings.HasPrefix(arg, "'") {
-			arg = strings.TrimPrefix(arg, "'")
-		} else {
-			arg = strings.TrimPrefix(arg, "\"")
-		}
+		arg := parseArgumentToComplete(ctx)
 
 		if isOnlyRemote || strings.HasPrefix(arg, "s3://") {
 			if strings.HasPrefix(arg, "-") {
 				cli.DefaultCompleteWithFlags(cmd)(ctx)
 				return
 			}
-			printS3Suggestions(ctx, arg, isOnlyBucket)
+
+			u, err := url.New(arg)
+			if err != nil {
+				u = &url.URL{Type: 0, Scheme: "s3"}
+			}
+
+			c := ctx.Context
+			client, err := storage.NewRemoteClient(c, u, NewStorageOpts(ctx))
+			if err != nil {
+				return
+			}
+
+			printS3Suggestions(c, client, u, arg, isOnlyBucket)
 			return
 		}
-
-		cli.DefaultCompleteWithFlags(cmd)(ctx)
 	}
 }
 
 // it returns a complete function which prints the argument, itself, which is to be completed.
 // If the argument is empty string it uses the defaultCompletions to make suggestions.
-func ineffectiveCompleteFnWithDefault(cmd *cli.Command, defaultCompletions ...string) func(ctx *cli.Context) {
+func constantCompleteFnWithDefault(cmd *cli.Command, defaultCompletions ...string) func(ctx *cli.Context) {
 	return func(ctx *cli.Context) {
-		var arg string
-		args := ctx.Args()
-		if args.Len() > 0 {
-			arg = args.Get(args.Len() - 1)
-		}
+		arg := parseArgumentToComplete(ctx)
+		baseShell := filepath.Base(os.Getenv("SHELL"))
 		if arg == "" {
 			for _, str := range defaultCompletions {
-				fmt.Println(formatSuggestionForShell(str, str))
+				fmt.Println(formatSuggestionForShell(baseShell, str, str))
 			}
 		} else if strings.HasPrefix(arg, "-") {
 			cli.DefaultCompleteWithFlags(cmd)(ctx)
 		} else {
-			fmt.Println(formatSuggestionForShell(arg, arg))
+			fmt.Println(formatSuggestionForShell(baseShell, arg, arg))
 		}
 	}
 }
 
-func printS3Suggestions(ctx *cli.Context, arg string, isOnlyBucket bool) {
-	c := ctx.Context
-	u, err := url.New(arg)
-	if err != nil {
-		u = &url.URL{Type: 0, Scheme: "s3"}
-	}
-
-	client, err := storage.NewRemoteClient(c, u, NewStorageOpts(ctx))
-	if err != nil {
-		return
-	}
-
+func printS3Suggestions(c context.Context, client *storage.S3, u *url.URL, arg string, isOnlyBucket bool) {
 	if u.Bucket == "" || (u.IsBucket() && !strings.HasSuffix(arg, "/")) || isOnlyBucket {
 		printListBuckets(c, client, u, arg)
 	} else {
@@ -167,8 +147,9 @@ func printListBuckets(ctx context.Context, client *storage.S3, u *url.URL, argTo
 		return
 	}
 
+	baseShell := filepath.Base(os.Getenv("SHELL"))
 	for _, bucket := range buckets {
-		fmt.Println(formatSuggestionForShell("s3://"+bucket.Name+"/", argToBeCompleted))
+		fmt.Println(formatSuggestionForShell(baseShell, "s3://"+bucket.Name+"/", argToBeCompleted))
 	}
 }
 
@@ -181,6 +162,7 @@ func printListNURLSuggestions(ctx context.Context, client *storage.S3, u *url.UR
 		}
 	}
 
+	baseShell := filepath.Base(os.Getenv("SHELL"))
 	i := 0
 	for obj := range (*client).List(ctx, u, false) {
 		if i > count {
@@ -189,7 +171,7 @@ func printListNURLSuggestions(ctx context.Context, client *storage.S3, u *url.UR
 		if obj.Err != nil {
 			return
 		}
-		fmt.Println(formatSuggestionForShell(obj.URL.Absolute(), argToBeCompleted))
+		fmt.Println(formatSuggestionForShell(baseShell, obj.URL.Absolute(), argToBeCompleted))
 		i++
 	}
 }
@@ -223,30 +205,53 @@ func printAutocompletionInstructions(shell string) {
 	fmt.Println(script)
 }
 
-func formatSuggestionForShell(suggestion, argToBeCompleted string) string {
-	var prefix string
-	baseShell := filepath.Base(os.Getenv("SHELL"))
-
-	if i := strings.LastIndex(argToBeCompleted, ":"); i >= 0 && baseShell == "bash" {
-		// write the original suggestion in case that COMP_WORDBREAKS does not contain :
-		// or that the argToBeCompleted was quoted.
-		// Bash doesn't split on : when argument is quoted even if : is in COMP_WORDBREAKS
-		fmt.Println(suggestion)
-		prefix = argToBeCompleted[0 : i+1]
+func formatSuggestionForShell(baseShell, suggestion, argToBeCompleted string) string {
+	switch baseShell {
+	case "bash":
+		var prefix string
+		suggestions := make([]string, 0, 2)
+		if i := strings.LastIndex(argToBeCompleted, ":"); i >= 0 && baseShell == "bash" {
+			// include the original suggestion in case that COMP_WORDBREAKS does not contain :
+			// or that the argToBeCompleted was quoted.
+			// Bash doesn't split on : when argument is quoted even if : is in COMP_WORDBREAKS
+			suggestions = append(suggestions, suggestion)
+			prefix = argToBeCompleted[0 : i+1]
+		}
+		suggestions = append(suggestions, strings.TrimPrefix(suggestion, prefix))
+		return strings.Join(suggestions, "\n")
+	case "zsh":
+		// replace every colon : with \:	if shell is zsh
+		// colons are used as a seperator for the autocompletion script
+		// so "literal colons in completion must be quoted with a backslash"
+		// see also https://zsh.sourceforge.io/Doc/Release/Completion-System.html#:~:text=This%20is%20followed,as%20name1%3B
+		return escapeColon(suggestion)
+	default:
+		return suggestion
 	}
-	suggestion = strings.TrimPrefix(suggestion, prefix)
-
-	// replace every colon : with \:	if shell is zsh
-	// colons are used as a seperator for the autocompletion script
-	// so "literal colons in completion must be quoted with a backslash"
-	// see also https://zsh.sourceforge.io/Doc/Release/Completion-System.html#:~:text=This%20is%20followed,as%20name1%3B
-	if baseShell == "zsh" {
-		suggestion = escapeColon(suggestion)
-	}
-	return suggestion
 }
 
 // replace every colon : with \:
 func escapeColon(str ...interface{}) string {
 	return strings.ReplaceAll(fmt.Sprint(str...), ":", `\:`)
+}
+
+func parseArgumentToComplete(ctx *cli.Context) string {
+	var arg string
+	args := ctx.Args()
+	l := args.Len()
+
+	if l > 0 {
+		arg = args.Get(l - 1)
+	}
+
+	// argument may start with a quotation mark, in this case we want to trim that before
+	// checking if it has prefix s3://
+	// Beware that we only want to trim the first char, not all of the leading
+	// quotation marks, because those quotation marks may be actual charactes.
+	if strings.HasPrefix(arg, "'") {
+		arg = strings.TrimPrefix(arg, "'")
+	} else {
+		arg = strings.TrimPrefix(arg, "\"")
+	}
+	return arg
 }

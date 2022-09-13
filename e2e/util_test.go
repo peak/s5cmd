@@ -187,7 +187,7 @@ func s3client(t *testing.T, options storage.Options) *s3.S3 {
 	isVirtualHost := false
 
 	// get environment variables and use external endpoint url.
-	// this can be used to test s3 sources such as gcs, amazon, wasabi etc.
+	// this can be used to test s3 sources such as GCS, amazon, wasabi etc.
 	if isEndpointFromEnv() {
 		id = os.Getenv(s5cmdTestIdEnv)
 		key = os.Getenv(s5cmdTestSecretEnv)
@@ -389,7 +389,7 @@ func createBucket(t *testing.T, client *s3.S3, bucket string) {
 			}
 
 			//remove objects first.
-			// delete each object individually if using gcs.
+			// delete each object individually if using GCS.
 			if isGoogleEndpointFromEnv(t) {
 				err = client.ListObjectsPages(&listInput, func(p *s3.ListObjectsOutput, lastPage bool) bool {
 					for _, c := range p.Contents {

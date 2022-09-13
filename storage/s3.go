@@ -700,7 +700,7 @@ func (s *S3) doDelete(ctx context.Context, chunk chunk, resultch chan *Object) {
 		return
 	}
 
-	// gcs does not support multi delete.
+	// GCS does not support multi delete.
 	if IsGoogleEndpoint(s.endpointURL) {
 		for _, k := range chunk.Keys {
 			_, err := s.api.DeleteObjectWithContext(ctx, &s3.DeleteObjectInput{

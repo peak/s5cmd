@@ -109,7 +109,7 @@ func TestCatS3ObjectFail(t *testing.T) {
 				"cat",
 			},
 			expected: map[int]compareFunc{
-				0: match(`{"operation":"cat","command":"cat s3:\/\/(.*)\/prefix\/file\.txt\/\*","error":"remote source \\"s3:\/\/(.*)\/prefix\/file\.txt\/\*\\" can not contain glob characters"}`),
+				0: match(`{"operation":"cat","command":"cat s3:\/\/(.+)?\/prefix\/file\.txt\/\*","error":"remote source \\"s3:\/\/(.*)\/prefix\/file\.txt\/\*\\" can not contain glob characters"}`),
 			},
 			assertOps: []assertOp{
 				jsonCheck(true),
@@ -122,7 +122,7 @@ func TestCatS3ObjectFail(t *testing.T) {
 				"cat",
 			},
 			expected: map[int]compareFunc{
-				0: match(`ERROR "cat s3://(.*)": remote source must be an object`),
+				0: match(`ERROR "cat s3://(.+)?": remote source must be an object`),
 			},
 		},
 	}

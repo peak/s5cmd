@@ -1646,7 +1646,7 @@ func TestSyncLocalDirectoryToS3WithExcludeFilter(t *testing.T) {
 func TestIssue435(t *testing.T) {
 	t.Parallel()
 
-	// skip this as it takes too long to complete with gcs.
+	// Skip this as it takes too long to complete with GCS.
 	skipTestIfGCS(t, "takes too long to complete")
 
 	bucket := s3BucketFromTestName(t)

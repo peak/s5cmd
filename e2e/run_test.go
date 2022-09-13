@@ -46,10 +46,10 @@ func TestRunFromStdin(t *testing.T) {
 func TestRunFromStdinIssue309(t *testing.T) {
 	t.Parallel()
 
-	// This test fails with gcs as it accepts percent encoding
+	// This test fails with GCS as it accepts percent encoding
 	// for `X-Amz-Copy-Source` and does not respect `+` as `space character`.
-	// skip it as it is not planned to write a workaround for gcs.
-	skipTestIfGCS(t, "gcs does not respect `+` as `space character` in `X-Amz-Copy-Source`")
+	// skip it as it is not planned to write a workaround for GCS.
+	skipTestIfGCS(t, "GCS does not respect `+` as `space character` in `X-Amz-Copy-Source`")
 
 	s3client, s5cmd := setup(t)
 

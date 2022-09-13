@@ -935,8 +935,8 @@ func TestCopyDirBackslashedToS3(t *testing.T) {
 func TestCopySingleFileToS3WithStorageClassGlacier(t *testing.T) {
 	t.Parallel()
 
-	// storage class GLACIER does not exist in gcs.
-	skipTestIfGCS(t, "storage class GLACIER does not exist in gcs.")
+	// storage class GLACIER does not exist in GCS.
+	skipTestIfGCS(t, "storage class GLACIER does not exist in GCS.")
 
 	s3client, s5cmd := setup(t)
 
@@ -1897,10 +1897,10 @@ func TestCopySingleS3ObjectIntoAnotherBucketWithPrefix(t *testing.T) {
 func TestCopyAllObjectsIntoAnotherBucketIncludingSpecialCharacter(t *testing.T) {
 	t.Parallel()
 
-	// This test fails with gcs as it accepts percent encoding
+	// This test fails with GCS as it accepts percent encoding
 	// for `X-Amz-Copy-Source` and does not respect `+` as `space character`.
-	// skip it as it is not planned to write a workaround for gcs.
-	skipTestIfGCS(t, "gcs does not respect `+` as `space character` in `X-Amz-Copy-Source`")
+	// skip it as it is not planned to write a workaround for GCS.
+	skipTestIfGCS(t, "GCS does not respect `+` as `space character` in `X-Amz-Copy-Source`")
 
 	srcbucket := s3BucketFromTestNameWithPrefix(t, "src")
 	dstbucket := s3BucketFromTestNameWithPrefix(t, "dst")

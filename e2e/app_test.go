@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/peak/s5cmd/command"
+
 	"gotest.tools/v3/assert"
 	"gotest.tools/v3/icmd"
 )
@@ -199,10 +201,9 @@ func TestAppHelp(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	// with specific commands
-	cmdList := []string{"ls", "cp", "rm", "mv", "mb", "rb", "select", "du", "cat", "run", "sync"}
-	for _, command := range cmdList {
-		cmd := s5cmd(command, "--help")
+	// with commands
+	for _, command := range command.Commands() {
+		cmd := s5cmd(command.Name, "--help")
 		result = icmd.RunCmd(cmd)
 
 		result.Assert(t, icmd.Success)

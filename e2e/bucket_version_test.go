@@ -25,16 +25,29 @@ func TestBucketVersioning(t *testing.T) {
 	})
 
 	testcases := []struct {
-		name             string
-		versioningStatus string
+		name                     string
+		versioningStatus         string
+		expectedVersioningStatus string
 	}{
 		{
-			name:             "Enable Bucket Versioning",
-			versioningStatus: "Enabled",
+			name:                     "Enable Bucket Versioning",
+			versioningStatus:         "Enabled",
+			expectedVersioningStatus: "Enabled",
 		},
 		{
-			name:             "Suspend Bucket Versioning",
-			versioningStatus: "Suspended",
+			name:                     "Suspend Bucket Versioning",
+			versioningStatus:         "Suspended",
+			expectedVersioningStatus: "Suspended",
+		},
+		{
+			name:                     "Enable Bucket Versioning Case Insensitive",
+			versioningStatus:         "eNaBlEd",
+			expectedVersioningStatus: "Enabled",
+		},
+		{
+			name:                     "Suspend Bucket Versioning Case Insensitive",
+			versioningStatus:         "sUsPenDeD",
+			expectedVersioningStatus: "Suspended",
 		},
 	}
 	for _, tc := range testcases {
@@ -47,7 +60,7 @@ func TestBucketVersioning(t *testing.T) {
 			result.Assert(t, icmd.Success)
 
 			assertLines(t, result.Stdout(), map[int]compareFunc{
-				0: equals("Bucket versioning for %q is set to %q", bucket, tc.versioningStatus),
+				0: equals("Bucket versioning for %q is set to %q", bucket, tc.expectedVersioningStatus),
 			})
 
 			cmd = s5cmd("bucket-version", "s3://"+bucket)
@@ -56,7 +69,7 @@ func TestBucketVersioning(t *testing.T) {
 			result.Assert(t, icmd.Success)
 
 			assertLines(t, result.Stdout(), map[int]compareFunc{
-				0: equals("Bucket versioning for %q is %q", bucket, tc.versioningStatus),
+				0: equals("Bucket versioning for %q is %q", bucket, tc.expectedVersioningStatus),
 			})
 
 		})

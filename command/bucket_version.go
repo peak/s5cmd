@@ -3,8 +3,11 @@ package command
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/urfave/cli/v2"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 
 	"github.com/peak/s5cmd/log"
 	"github.com/peak/s5cmd/storage"
@@ -42,8 +45,9 @@ func NewBucketVersionCommand() *cli.Command {
 			&cli.GenericFlag{
 				Name: "set",
 				Value: &EnumValue{
-					Enum:    []string{"Suspended", "Enabled"},
-					Default: "",
+					Enum:              []string{"Suspended", "Enabled"},
+					Default:           "",
+					ConditionFunction: strings.EqualFold,
 				},
 				Usage: "set versioning status of bucket: (Suspended, Enabled)",
 			},
@@ -95,6 +99,8 @@ func (v BucketVersion) Run(ctx context.Context) error {
 	}
 
 	if v.status != "" {
+		caser := cases.Title(language.English)
+		v.status = caser.String(v.status)
 		err := client.SetBucketVersioning(ctx, v.status, v.src.Bucket)
 		if err != nil {
 			printError(v.fullCommand, v.op, err)

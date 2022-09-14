@@ -14,6 +14,7 @@ require (
 	github.com/stretchr/testify v1.4.0
 	github.com/termie/go-shutil v0.0.0-20140729215957-bcacb06fecae
 	github.com/urfave/cli/v2 v2.11.2
+	golang.org/x/text v0.3.7
 	gotest.tools/v3 v3.0.2
 )
 

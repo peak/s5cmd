@@ -3,6 +3,8 @@ package command
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/urfave/cli/v2"
@@ -57,7 +59,8 @@ func NewMakeBucketCommand() *cli.Command {
 		if strings.HasPrefix(arg, "-") {
 			cli.DefaultCompleteWithFlags(cmd)(ctx)
 		} else {
-			constantCompleteWithDefault(arg, "s3://")
+			shell := filepath.Base(os.Getenv("SHELL"))
+			constantCompleteWithDefault(shell, arg, "s3://")
 		}
 	}
 

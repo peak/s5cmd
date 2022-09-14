@@ -451,6 +451,13 @@ Finally, restart your shell to activate the changes.
 > **Note**
 The environment variable `SHELL` must be accurate for the autocompletion to function properly. That is it should point to `bash` binary in bash, to `zsh` binary in zsh and to `pwsh` binary in PowerShell.
 
+
+> **Note**
+The autocompletion is tested with following versions of the shells: \
+***zsh*** 5.8.1 (x86_64-apple-darwin21.0) \
+GNU ***bash***, version 5.1.16(1)-release (x86_64-apple-darwin21.1.0) \
+***PowerShell*** 7.2.6 
+
 ### Google Cloud Storage support
 
 `s5cmd` supports S3 API compatible services, such as GCS, Minio or your favorite

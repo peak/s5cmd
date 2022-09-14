@@ -109,7 +109,8 @@ func getBashCompleteFn(cmd *cli.Command, isOnlyRemote, isOnlyBucket bool) func(c
 				return
 			}
 
-			printS3Suggestions(c, client, u, arg, isOnlyBucket)
+			shell := filepath.Base(os.Getenv("SHELL"))
+			printS3Suggestions(c, shell, client, u, arg, isOnlyBucket)
 			return
 		}
 	}
@@ -117,38 +118,36 @@ func getBashCompleteFn(cmd *cli.Command, isOnlyRemote, isOnlyBucket bool) func(c
 
 // it returns a complete function which prints the argument, itself, which is to be completed.
 // If the argument is empty string it uses the defaultCompletions to make suggestions.
-func constantCompleteWithDefault(arg string, defaultCompletions ...string) {
-	baseShell := filepath.Base(os.Getenv("SHELL"))
+func constantCompleteWithDefault(shell, arg string, defaultCompletions ...string) {
 	if arg == "" {
 		for _, str := range defaultCompletions {
-			fmt.Println(formatSuggestionForShell(baseShell, str, arg))
+			fmt.Println(formatSuggestionForShell(shell, str, arg))
 		}
 	} else {
-		fmt.Println(formatSuggestionForShell(baseShell, arg, arg))
+		fmt.Println(formatSuggestionForShell(shell, arg, arg))
 	}
 }
 
-func printS3Suggestions(c context.Context, client *storage.S3, u *url.URL, arg string, isOnlyBucket bool) {
+func printS3Suggestions(c context.Context, shell string, client *storage.S3, u *url.URL, arg string, isOnlyBucket bool) {
 	if u.Bucket == "" || (u.IsBucket() && !strings.HasSuffix(arg, "/")) || isOnlyBucket {
-		printListBuckets(c, client, u, arg)
+		printListBuckets(c, shell, client, u, arg)
 	} else {
-		printListNURLSuggestions(c, client, u, 20, arg)
+		printListNURLSuggestions(c, shell, client, u, 20, arg)
 	}
 }
 
-func printListBuckets(ctx context.Context, client *storage.S3, u *url.URL, argToBeCompleted string) {
+func printListBuckets(ctx context.Context, shell string, client *storage.S3, u *url.URL, argToBeCompleted string) {
 	buckets, err := client.ListBuckets(ctx, u.Bucket)
 	if err != nil {
 		return
 	}
 
-	baseShell := filepath.Base(os.Getenv("SHELL"))
 	for _, bucket := range buckets {
-		fmt.Println(formatSuggestionForShell(baseShell, "s3://"+bucket.Name+"/", argToBeCompleted))
+		fmt.Println(formatSuggestionForShell(shell, "s3://"+bucket.Name+"/", argToBeCompleted))
 	}
 }
 
-func printListNURLSuggestions(ctx context.Context, client *storage.S3, u *url.URL, count int, argToBeCompleted string) {
+func printListNURLSuggestions(ctx context.Context, shell string, client *storage.S3, u *url.URL, count int, argToBeCompleted string) {
 	if u.IsBucket() {
 		var err error
 		u, err = url.New(u.Absolute() + "/")
@@ -157,7 +156,6 @@ func printListNURLSuggestions(ctx context.Context, client *storage.S3, u *url.UR
 		}
 	}
 
-	baseShell := filepath.Base(os.Getenv("SHELL"))
 	i := 0
 	for obj := range (*client).List(ctx, u, false) {
 		if i > count {
@@ -166,7 +164,7 @@ func printListNURLSuggestions(ctx context.Context, client *storage.S3, u *url.UR
 		if obj.Err != nil {
 			return
 		}
-		fmt.Println(formatSuggestionForShell(baseShell, obj.URL.Absolute(), argToBeCompleted))
+		fmt.Println(formatSuggestionForShell(shell, obj.URL.Absolute(), argToBeCompleted))
 		i++
 	}
 }
@@ -174,9 +172,8 @@ func printListNURLSuggestions(ctx context.Context, client *storage.S3, u *url.UR
 func printAutocompletionInstructions(shell string) {
 	var script string
 	baseShell := filepath.Base(shell)
-	instructions := "# To enable autocompletion you should add the following script" +
-		" to startup scripts of your shell.\n" +
-		"# It is probably located at ~/." + baseShell + "rc"
+	instructions := `# To enable autocompletion you should add the following script to startup scripts of your shell.
+# It is probably located at ~/.` + baseShell + "rc"
 
 	switch baseShell {
 	case "zsh":
@@ -185,15 +182,12 @@ func printAutocompletionInstructions(shell string) {
 		script = bash
 	case "pwsh":
 		script = pwsh
-		instructions = "# To enable autocompletion you should save the following" +
-			" script to a file named \"s5cmd.ps1\" and execute it.\n# To persist it" +
-			" you should add the path of \"s5cmd.ps1\" file to profile file " +
-			"(which you can locate with $profile) to automatically execute \"s5cmd.ps1\"" +
-			" on every shell start up."
+		instructions = `# To enable autocompletion you should save the following script to a file named "s5cmd.ps1" and execute it.
+# To persist it you should add the path of "s5cmd.ps1" file to profile file (which you can locate with $profile) to automatically execute "s5cmd.ps1" on every shell start up.`
 	default:
-		instructions = "# We couldn't recognize your SHELL \"" + baseShell + "\".\n" +
-			"# Shell completion is supported only for bash, pwsh and zsh." +
-			"# Make sure that your SHELL environment variable is set accurately."
+		instructions = `# We couldn't recognize your SHELL "` + baseShell + `".
+# Shell completion is supported only for bash, pwsh and zsh.
+# Make sure that your SHELL environment variable is set accurately.`
 	}
 
 	fmt.Println(instructions)

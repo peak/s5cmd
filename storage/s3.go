@@ -983,7 +983,6 @@ func (s *S3) SetBucketVersioning(ctx context.Context, versioningStatus, bucket s
 
 // GetBucketVersioning returnsversioning property of the bucket
 func (s *S3) GetBucketVersioning(ctx context.Context, bucket string) (string, error) {
-
 	output, err := s.api.GetBucketVersioningWithContext(ctx, &s3.GetBucketVersioningInput{
 		Bucket: aws.String(bucket),
 	})

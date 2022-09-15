@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/peak/s5cmd/command"
+
 	"gotest.tools/v3/assert"
 	"gotest.tools/v3/icmd"
 )
@@ -203,6 +205,26 @@ func TestAppUnknownCommand(t *testing.T) {
 	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: equals(`ERROR "unknown-command": command not found`),
 	})
+}
+
+func TestAppHelp(t *testing.T) {
+	t.Parallel()
+
+	_, s5cmd := setup(t)
+
+	// without any specific command
+	cmd := s5cmd("--help")
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	// with commands
+	for _, command := range command.Commands() {
+		cmd := s5cmd(command.Name, "--help")
+		result = icmd.RunCmd(cmd)
+
+		result.Assert(t, icmd.Success)
+	}
 }
 
 func TestUsageError(t *testing.T) {

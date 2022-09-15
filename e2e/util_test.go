@@ -138,12 +138,13 @@ func setup(t *testing.T, options ...option) (*s3.S3, func(...string) icmd.Cmd) {
 
 	return client, s5cmd(workdir, endpoint)
 }
+
 func workdir(t *testing.T, opts *setupOpts) (*fs.Dir, string) {
-	// testdir := fs.NewDir() tries to create a new directory which
-	// has a prefix = [test function name][operation name]
+	// testdir := fs.NewDir() tries to create a new directory which has a
+	// prefix = [test function name][operation name]
 	// e.g., prefix' = "TestCopySingleS3ObjectToLocal/cp_s3://bucket/object_file"
-	// but on windows, directories cannot contain a colon
-	// so we replace them with hyphen
+	// but on windows, directories cannot contain a colon so we replace them
+	// with hyphen.
 	prefix := t.Name()
 	if runtime.GOOS == "windows" {
 		prefix = strings.ReplaceAll(prefix, ":", "-")
@@ -153,6 +154,7 @@ func workdir(t *testing.T, opts *setupOpts) (*fs.Dir, string) {
 	workdir := testdir.Join("workdir")
 	return testdir, workdir
 }
+
 func server(t *testing.T, testdir *fs.Dir, opts *setupOpts) string {
 	t.Helper()
 
@@ -163,10 +165,6 @@ func server(t *testing.T, testdir *fs.Dir, opts *setupOpts) string {
 	}
 
 	endpoint := s3ServerEndpoint(t, testdir, s3LogLevel, opts.s3backend, opts.timeSource, opts.enableProxy)
-
-	t.Cleanup(func() {
-		testdir.Remove()
-	})
 
 	return endpoint
 }
@@ -202,6 +200,7 @@ func s3client(t *testing.T, options storage.Options) *s3.S3 {
 		WithCredentials(credentials.NewStaticCredentials(id, key, "")).
 		WithEndpoint(endpoint).
 		WithDisableSSL(options.NoVerifySSL).
+		// allow adjacent slashes to be used in s3 object keys
 		WithDisableRestProtocolURICleaning(true).
 		WithCredentialsChainVerboseErrors(true).
 		WithLogLevel(awsLogLevel).

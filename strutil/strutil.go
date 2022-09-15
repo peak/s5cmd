@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 )
 
 var humanDivisors = [...]struct {
@@ -39,4 +40,15 @@ func HumanizeBytes(b int64) string {
 func JSON(v interface{}) string {
 	bytes, _ := json.Marshal(v)
 	return string(bytes)
+}
+
+// CapitalizeFirstRune converts first rune to uppercase, and converts rest of
+// the string to lower case.
+func CapitalizeFirstRune(str string) string {
+	if str == "" {
+		return str
+	}
+	runes := []rune(str)
+	first, rest := runes[0], runes[1:]
+	return strings.ToUpper(string(first)) + strings.ToLower(string(rest))
 }

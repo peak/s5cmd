@@ -6,8 +6,6 @@ import (
 	"strings"
 
 	"github.com/urfave/cli/v2"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
 
 	"github.com/peak/s5cmd/log"
 	"github.com/peak/s5cmd/storage"
@@ -99,8 +97,8 @@ func (v BucketVersion) Run(ctx context.Context) error {
 	}
 
 	if v.status != "" {
-		caser := cases.Title(language.English)
-		v.status = caser.String(v.status)
+		v.status = strutil.CapitalizeFirstRune(v.status)
+
 		err := client.SetBucketVersioning(ctx, v.status, v.src.Bucket)
 		if err != nil {
 			printError(v.fullCommand, v.op, err)

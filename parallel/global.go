@@ -13,7 +13,11 @@ func Init(workercount int) {
 
 // Close waits all jobs to finish and
 // closes the semaphore of global ParallelManager.
-func Close() { global.Close() }
+func Close() {
+	if global != nil {
+		global.Close()
+	}
+}
 
 // Run runs global ParallelManager.
 func Run(task Task, waiter *Waiter) { global.Run(task, waiter) }

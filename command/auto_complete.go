@@ -116,7 +116,7 @@ func getBashCompleteFn(cmd *cli.Command, isOnlyRemote, isOnlyBucket bool) func(c
 	}
 }
 
-// it returns a complete function which prints the argument, itself, which is to be completed.
+// constantCompleteWithDefault returns a complete function which prints the argument, itself, which is to be completed.
 // If the argument is empty string it uses the defaultCompletions to make suggestions.
 func constantCompleteWithDefault(shell, arg string, defaultCompletions ...string) {
 	if arg == "" {
@@ -233,10 +233,10 @@ func parseArgumentToComplete(ctx *cli.Context) string {
 		arg = args.Get(l - 1)
 	}
 
-	// argument may start with a quotation mark, in this case we want to trim that before
-	// checking if it has prefix s3://
+	// argument may start with a quotation mark, in this case we want to trim
+	// that before checking if it has prefix 's3://'.
 	// Beware that we only want to trim the first char, not all of the leading
-	// quotation marks, because those quotation marks may be actual charactes.
+	// quotation marks, because those quotation marks may be actual characters.
 	if strings.HasPrefix(arg, "'") {
 		arg = strings.TrimPrefix(arg, "'")
 	} else {

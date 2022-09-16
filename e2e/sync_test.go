@@ -221,6 +221,9 @@ func TestSyncLocalFolderToS3EmptyBucket(t *testing.T) {
 		3: equals(`cp %vtestfile.txt %vtestfile.txt`, src, dst),
 	}, sortInput(true))
 
+	// there should be no error, since "no object found" error for destination is ignored
+	assertLines(t, result.Stderr(), map[int]compareFunc{})
+
 	// assert local filesystem
 	expected := fs.Expected(t, folderLayout...)
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))

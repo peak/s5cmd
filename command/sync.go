@@ -364,7 +364,7 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 
 			// filter and redirect objects
 			for dt := range unfilteredDestObjectsChannel {
-				if s.shouldSkipObject(dt, true) {
+				if s.shouldSkipObject(dt, false) {
 					continue
 				}
 				filteredDstObjectChannel <- *dt

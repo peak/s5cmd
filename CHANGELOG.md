@@ -22,6 +22,7 @@
  1,000,000 files at a cost of speed (20% slower for 1,000,000 objects). For smaller
  directories (~50,000 files) there is no significant change in speed.  ([#483](https://github.com/peak/s5cmd/pull/483))
 
+- Improve auto-completion support of s5cmd for `zsh` and `bash`, start supporting `pwsh` and stop the support for `fish`. Now s5cmd can complete bucket names, s3 keys in a bucket and the local files. However, `install-completion` flag no longer _installs_ the completion script to `*rc` files instead it merely gives instructions to install autocompletion and provides the autocompletion script ([#500](https://github.com/peak/s5cmd/pull/500)).
 
 #### Bugfixes
 - Fixed a bug where (`--stat`) prints unnecessarily when used with help and version commands ([#452](https://github.com/peak/s5cmd/issues/452))

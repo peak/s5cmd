@@ -82,7 +82,7 @@ func NewSyncCommandFlags() []cli.Flag {
 }
 
 func NewSyncCommand() *cli.Command {
-	return &cli.Command{
+	cmd := &cli.Command{
 		Name:               "sync",
 		HelpName:           "sync",
 		Usage:              "sync objects",
@@ -102,6 +102,9 @@ func NewSyncCommand() *cli.Command {
 			return NewSync(c).Run(c)
 		},
 	}
+
+	cmd.BashComplete = getBashCompleteFn(cmd, false, false)
+	return cmd
 }
 
 type ObjectPair struct {

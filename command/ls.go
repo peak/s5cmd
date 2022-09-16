@@ -48,7 +48,7 @@ Examples:
 `
 
 func NewListCommand() *cli.Command {
-	return &cli.Command{
+	cmd := &cli.Command{
 		Name:               "ls",
 		HelpName:           "ls",
 		Usage:              "list buckets and objects",
@@ -105,6 +105,9 @@ func NewListCommand() *cli.Command {
 			}.Run(c.Context)
 		},
 	}
+
+	cmd.BashComplete = getBashCompleteFn(cmd, false, false)
+	return cmd
 }
 
 // List holds list operation flags and states.

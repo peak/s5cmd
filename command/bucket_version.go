@@ -34,7 +34,7 @@ Examples:
 `
 
 func NewBucketVersionCommand() *cli.Command {
-	return &cli.Command{
+	cmd := &cli.Command{
 		Name:               "bucket-version",
 		CustomHelpTemplate: bucketVersionHelpTemplate,
 		HelpName:           "bucket-version",
@@ -78,6 +78,8 @@ func NewBucketVersionCommand() *cli.Command {
 			}.Run(c.Context)
 		},
 	}
+	cmd.BashComplete = getBashCompleteFn(cmd, true, true)
+	return cmd
 }
 
 type BucketVersion struct {

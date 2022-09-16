@@ -50,8 +50,10 @@ func Error(msg Message) {
 
 // Close closes logger and its channel.
 func Close() {
-	close(outputCh)
-	<-global.donech
+	if global != nil {
+		close(outputCh)
+		<-global.donech
+	}
 }
 
 // Logger is a structure for logging messages.

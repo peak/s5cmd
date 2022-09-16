@@ -150,7 +150,7 @@ func (s *S3) Stat(ctx context.Context, url *url.URL) (*Object, error) {
 // keys. If no object found or an error is encountered during this period,
 // it sends these errors to object channel.
 func (s *S3) List(ctx context.Context, url *url.URL, _ bool) <-chan *Object {
-	if isGoogleEndpoint(s.endpointURL) || s.useListObjectsV1 {
+	if IsGoogleEndpoint(s.endpointURL) || s.useListObjectsV1 {
 		return s.listObjects(ctx, url)
 	}
 
@@ -631,6 +631,12 @@ type chunk struct {
 func (s *S3) calculateChunks(ch <-chan *url.URL) <-chan chunk {
 	chunkch := make(chan chunk)
 
+	chunkSize := deleteObjectsMax
+	// delete each object individually if using gcs.
+	if IsGoogleEndpoint(s.endpointURL) {
+		chunkSize = 1
+	}
+
 	go func() {
 		defer close(chunkch)
 
@@ -645,7 +651,7 @@ func (s *S3) calculateChunks(ch <-chan *url.URL) <-chan chunk {
 
 			objid := &s3.ObjectIdentifier{Key: aws.String(url.Path)}
 			keys = append(keys, objid)
-			if len(keys) == deleteObjectsMax {
+			if len(keys) == chunkSize {
 				chunkch <- chunk{
 					Bucket: bucket,
 					Keys:   keys,
@@ -687,6 +693,25 @@ func (s *S3) Delete(ctx context.Context, url *url.URL) error {
 func (s *S3) doDelete(ctx context.Context, chunk chunk, resultch chan *Object) {
 	if s.dryRun {
 		for _, k := range chunk.Keys {
+			key := fmt.Sprintf("s3://%v/%v", chunk.Bucket, aws.StringValue(k.Key))
+			url, _ := url.New(key)
+			resultch <- &Object{URL: url}
+		}
+		return
+	}
+
+	// GCS does not support multi delete.
+	if IsGoogleEndpoint(s.endpointURL) {
+		for _, k := range chunk.Keys {
+			_, err := s.api.DeleteObjectWithContext(ctx, &s3.DeleteObjectInput{
+				Bucket:       aws.String(chunk.Bucket),
+				Key:          k.Key,
+				RequestPayer: s.RequestPayer(),
+			})
+			if err != nil {
+				resultch <- &Object{Err: err}
+				return
+			}
 			key := fmt.Sprintf("s3://%v/%v", chunk.Bucket, aws.StringValue(k.Key))
 			url, _ := url.New(key)
 			resultch <- &Object{URL: url}
@@ -978,7 +1003,7 @@ func newCustomRetryer(maxRetries int) *customRetryer {
 // ShouldRetry overrides SDK's built in DefaultRetryer, adding custom retry
 // logics that are not included in the SDK.
 func (c *customRetryer) ShouldRetry(req *request.Request) bool {
-	shouldRetry := errHasCode(req.Error, "InternalError") || errHasCode(req.Error, "RequestTimeTooSkewed") || strings.Contains(req.Error.Error(), "connection reset") || strings.Contains(req.Error.Error(), "connection timed out")
+	shouldRetry := errHasCode(req.Error, "InternalError") || errHasCode(req.Error, "RequestTimeTooSkewed") || errHasCode(req.Error, "SlowDown") || strings.Contains(req.Error.Error(), "connection reset") || strings.Contains(req.Error.Error(), "connection timed out")
 	if !shouldRetry {
 		shouldRetry = c.DefaultRetryer.ShouldRetry(req)
 	}
@@ -1008,7 +1033,7 @@ func supportsTransferAcceleration(endpoint urlpkg.URL) bool {
 	return endpoint.Hostname() == transferAccelEndpoint
 }
 
-func isGoogleEndpoint(endpoint urlpkg.URL) bool {
+func IsGoogleEndpoint(endpoint urlpkg.URL) bool {
 	return endpoint.Hostname() == gcsEndpoint
 }
 
@@ -1016,7 +1041,7 @@ func isGoogleEndpoint(endpoint urlpkg.URL) bool {
 // host style bucket name resolving. If a custom S3 API compatible endpoint is
 // given, resolve the bucketname from the URL path.
 func isVirtualHostStyle(endpoint urlpkg.URL) bool {
-	return endpoint == sentinelURL || supportsTransferAcceleration(endpoint) || isGoogleEndpoint(endpoint)
+	return endpoint == sentinelURL || supportsTransferAcceleration(endpoint) || IsGoogleEndpoint(endpoint)
 }
 
 func errHasCode(err error, code string) bool {

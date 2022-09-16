@@ -63,7 +63,7 @@ For macOS, a [homebrew](https://brew.sh) tap is provided:
 
 ### Unofficial Releases (by Community)
 [![Packaging status](https://repology.org/badge/tiny-repos/s5cmd.svg)](https://repology.org/project/s5cmd/versions)
-> **Warning**  
+> **Warning**
 > These releases are maintained by the community. They might be out of date compared to the official releases.
 
 #### MacPorts
@@ -435,14 +435,28 @@ While executing the commands, `s5cmd` detects the region according to the follow
 
 ### Shell auto-completion
 
-Shell completion is supported for bash, zsh and fish.
+Shell completion is supported for bash, pwsh (PowerShell) and zsh.
 
-To enable auto-completion, run:
+Run `s5cmd --install-completion` to obtain the appropriate auto-completion script for your shell, note that `install-completion` does not install the auto-completion but merely gives the instructions to install. The name is kept as it is for backward compatibility.
 
-    s5cmd --install-completion
+To actually enable auto-completion:
+####  in bash and zsh:
+ you should add auto-completion script to `.bashrc` and `.zshrc` file.
+#### in pwsh:
+you should save the autocompletion script to a file named `s5cmd.ps1` and add the full path of "s5cmd.ps1" file to profile file (which you can locate with `$profile`)
 
-This will add a few lines to your shell configuration file. After installation,
-restart your shell to activate the changes.
+
+Finally, restart your shell to activate the changes.
+
+> **Note**
+The environment variable `SHELL` must be accurate for the autocompletion to function properly. That is it should point to `bash` binary in bash, to `zsh` binary in zsh and to `pwsh` binary in PowerShell.
+
+
+> **Note**
+The autocompletion is tested with following versions of the shells: \
+***zsh*** 5.8.1 (x86_64-apple-darwin21.0) \
+GNU ***bash***, version 5.1.16(1)-release (x86_64-apple-darwin21.1.0) \
+***PowerShell*** 7.2.6 
 
 ### Google Cloud Storage support
 

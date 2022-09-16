@@ -41,7 +41,7 @@ Examples:
 `
 
 func NewDeleteCommand() *cli.Command {
-	return &cli.Command{
+	cmd := &cli.Command{
 		Name:     "rm",
 		HelpName: "rm",
 		Usage:    "remove objects",
@@ -78,6 +78,9 @@ func NewDeleteCommand() *cli.Command {
 			}.Run(c.Context)
 		},
 	}
+
+	cmd.BashComplete = getBashCompleteFn(cmd, false, false)
+	return cmd
 }
 
 // Delete holds delete operation flags and states.

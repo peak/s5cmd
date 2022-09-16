@@ -326,6 +326,10 @@ func (u *URL) SetRelative(base *URL) {
 
 // Match reports whether if given key matches with the object.
 func (u *URL) Match(key string) bool {
+	if u.filterRegex == nil {
+		return false
+	}
+
 	if !u.filterRegex.MatchString(key) {
 		return false
 	}

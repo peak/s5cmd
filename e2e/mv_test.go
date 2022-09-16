@@ -15,10 +15,9 @@ import (
 func TestMoveSingleS3ObjectToLocal(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	const (
@@ -50,10 +49,9 @@ func TestMoveSingleS3ObjectToLocal(t *testing.T) {
 func TestMoveMultipleS3ObjectsToLocal(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	filesToContent := map[string]string{
@@ -99,10 +97,9 @@ func TestMoveMultipleS3ObjectsToLocal(t *testing.T) {
 func TestMoveSingleFileToS3(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	const content = "this is a test file"
@@ -135,10 +132,9 @@ func TestMoveSingleFileToS3(t *testing.T) {
 func TestMoveMultipleFilesToS3(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	filesToContent := map[string]string{
@@ -186,10 +182,9 @@ func TestMoveMultipleFilesToS3(t *testing.T) {
 func TestMoveSingleS3ObjectToS3(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	const (
@@ -224,7 +219,7 @@ func TestMoveSingleS3ObjectIntoAnotherBucket(t *testing.T) {
 	t.Parallel()
 
 	srcbucket := s3BucketFromTestName(t)
-	dstbucket := "copy-" + s3BucketFromTestName(t)
+	dstbucket := s3BucketFromTestNameWithPrefix(t, "copy")
 
 	s3client, s5cmd := setup(t)
 
@@ -262,10 +257,9 @@ func TestMoveSingleS3ObjectIntoAnotherBucket(t *testing.T) {
 func TestMoveMultipleS3ObjectsToS3(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	filesToContent := map[string]string{
@@ -310,10 +304,9 @@ func TestMoveMultipleS3ObjectsToS3(t *testing.T) {
 func TestMoveMultipleS3ObjectsToS3DryRun(t *testing.T) {
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	filesToContent := map[string]string{
@@ -362,10 +355,9 @@ func TestMoveLocalObjectToS3WithRawFlag(t *testing.T) {
 
 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-
 	s3client, s5cmd := setup(t)
 
+	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
 	objectsToMove := []fs.PathOp{

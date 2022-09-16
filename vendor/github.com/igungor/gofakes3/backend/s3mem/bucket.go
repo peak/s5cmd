@@ -179,6 +179,13 @@ func (b *bucket) object(objectName string) (obj *bucketObject) {
 
 func (b *bucket) objectVersion(objectName string, versionID gofakes3.VersionID) (*bucketData, error) {
 	obj := b.object(objectName)
+	if versionID == "" {
+		if obj.data.deleteMarker {
+			return nil, gofakes3.KeyNotFound(objectName)
+		}
+		return obj.data, nil
+	}
+
 	if obj == nil {
 		return nil, gofakes3.KeyNotFound(objectName)
 	}

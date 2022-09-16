@@ -737,12 +737,19 @@ func (g *GoFakeS3) deleteMulti(bucket string, w http.ResponseWriter, r *http.Req
 		return ErrorMessage(ErrMalformedXML, err.Error())
 	}
 
-	keys := make([]string, len(in.Objects))
-	for i, o := range in.Objects {
-		keys[i] = o.Key
+	var err error
+	var out MultiDeleteResult
+	if g.versioned == nil {
+		keys := make([]string, len(in.Objects))
+		for i, o := range in.Objects {
+			keys[i] = o.Key
+		}
+
+		out, err = g.storage.DeleteMulti(bucket, keys...)
+	} else {
+		out, err = g.versioned.DeleteMultiVersions(bucket, in.Objects...)
 	}
 
-	out, err := g.storage.DeleteMulti(bucket, keys...)
 	if err != nil {
 		return err
 	}
@@ -1013,7 +1020,7 @@ func metadataSize(meta map[string]string) int {
 func metadataHeaders(headers map[string][]string, at time.Time, sizeLimit int) (map[string]string, error) {
 	meta := make(map[string]string)
 	for hk, hv := range headers {
-		if strings.HasPrefix(hk, "X-Amz-") {
+		if strings.HasPrefix(hk, "X-Amz-") || hk == "Content-Type" {
 			meta[hk] = hv[0]
 		}
 	}

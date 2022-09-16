@@ -104,7 +104,8 @@ func (db *Backend) ListBucket(name string, prefix *gofakes3.Prefix, page gofakes
 
 		if !prefix.Match(item.data.name, &match) {
 			continue
-
+		} else if item.data.deleteMarker {
+			continue
 		} else if match.CommonPrefix {
 			if match.MatchedPart == lastMatchedPart {
 				continue // Should not count towards keys
@@ -298,6 +299,43 @@ func (db *Backend) DeleteMulti(bucketName string, objects ...string) (result gof
 	return result, nil
 }
 
+func (db *Backend) DeleteMultiVersions(bucketName string, objects ...gofakes3.ObjectID) (result gofakes3.MultiDeleteResult, err error) {
+	db.lock.Lock()
+	defer db.lock.Unlock()
+
+	bucket := db.buckets[bucketName]
+	if bucket == nil {
+		return result, gofakes3.BucketNotFound(bucketName)
+	}
+
+	now := db.timeSource.Now()
+
+	for _, object := range objects {
+		var dresult gofakes3.ObjectDeleteResult
+		var err error
+		if object.VersionID != "" {
+			_, err = bucket.rmVersion(object.Key, gofakes3.VersionID(object.VersionID), now)
+		} else {
+			dresult, err = bucket.rm(object.Key, now)
+			_ = dresult // FIXME: what to do with rm result in multi delete?
+		}
+
+		if err != nil {
+			errres := gofakes3.ErrorResultFromError(err)
+			if errres.Code == gofakes3.ErrInternal {
+				// FIXME: log
+			}
+
+			result.Error = append(result.Error, errres)
+
+		} else {
+			result.Deleted = append(result.Deleted, object)
+		}
+	}
+
+	return result, nil
+}
+
 func (db *Backend) VersioningConfiguration(bucketName string) (versioning gofakes3.VersioningConfiguration, rerr error) {
 	db.lock.RLock()
 	defer db.lock.RUnlock()
@@ -334,6 +372,9 @@ func (db *Backend) GetObjectVersion(
 	bucketName, objectName string,
 	versionID gofakes3.VersionID,
 	rangeRequest *gofakes3.ObjectRangeRequest) (*gofakes3.Object, error) {
+	if versionID == "" {
+		return db.GetObject(bucketName, objectName, rangeRequest)
+	}
 
 	db.lock.RLock()
 	defer db.lock.RUnlock()
@@ -352,6 +393,10 @@ func (db *Backend) GetObjectVersion(
 }
 
 func (db *Backend) HeadObjectVersion(bucketName, objectName string, versionID gofakes3.VersionID) (*gofakes3.Object, error) {
+	if versionID == "" {
+		return db.HeadObject(bucketName, objectName)
+	}
+
 	db.lock.RLock()
 	defer db.lock.RUnlock()
 

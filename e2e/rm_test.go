@@ -1170,6 +1170,8 @@ func TestRemovetNonexistingLocalFile(t *testing.T) {
 }
 
 func TestVersionedListAndRemove(t *testing.T) {
+	skipTestIfGCS(t, "versioning is not supported in GCS")
+
 	t.Parallel()
 
 	bucket := s3BucketFromTestName(t)
@@ -1237,6 +1239,8 @@ func TestVersionedListAndRemove(t *testing.T) {
 }
 
 func TestRemoveByVersionID(t *testing.T) {
+	skipTestIfGCS(t, "versioning is not supported in GCS")
+
 	t.Parallel()
 
 	bucket := s3BucketFromTestName(t)

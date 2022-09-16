@@ -231,6 +231,8 @@ func TestDiskUsageWildcardWithExcludeFilters(t *testing.T) {
 }
 
 func TestDiskUsageByVersionIDAndAllVersions(t *testing.T) {
+	skipTestIfGCS(t, "versioning is not supported in GCS")
+
 	t.Parallel()
 
 	bucket := s3BucketFromTestName(t)

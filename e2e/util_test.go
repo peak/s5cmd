@@ -378,6 +378,10 @@ func createBucket(t *testing.T, client *s3.S3, bucket string) {
 		t.Fatal(err)
 	}
 
+	if !isEndpointFromEnv() {
+		return
+	}
+
 	t.Cleanup(func() {
 		// cleanup if bucket exists.
 		_, err := client.HeadBucket(&s3.HeadBucketInput{Bucket: aws.String(bucket)})

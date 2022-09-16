@@ -26,7 +26,7 @@ Examples:
 `
 
 func NewRemoveBucketCommand() *cli.Command {
-	return &cli.Command{
+	cmd := &cli.Command{
 		Name:               "rb",
 		HelpName:           "rb",
 		Usage:              "remove bucket",
@@ -50,6 +50,9 @@ func NewRemoveBucketCommand() *cli.Command {
 			}.Run(c.Context)
 		},
 	}
+
+	cmd.BashComplete = getBashCompleteFn(cmd, true, true)
+	return cmd
 }
 
 // RemoveBucket holds bucket deletion operation flags and states.

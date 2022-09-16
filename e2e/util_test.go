@@ -688,6 +688,16 @@ func withWorkingDir(dir *fs.Dir) func(*icmd.Cmd) {
 	}
 }
 
+func withEnv(key, value string) func(*icmd.Cmd) {
+	return func(cmd *icmd.Cmd) {
+		if i := indexSlice(cmd.Env, key+"=", strings.HasPrefix); i > 0 {
+			cmd.Env[i] = key + "=" + value
+		} else {
+			cmd.Env = append(cmd.Env, key+"="+value)
+		}
+	}
+}
+
 type compareFunc func(string) error
 
 type assertOpts struct {
@@ -964,4 +974,13 @@ func (l *fixedTimeSource) Advance(by time.Duration) {
 	defer l.mu.Unlock()
 
 	l.time = l.time.Add(by)
+}
+
+func indexSlice(slice []string, target string, fn func(str, target string) bool) int {
+	for i, str := range slice {
+		if fn(str, target) {
+			return i
+		}
+	}
+	return -1
 }

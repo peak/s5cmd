@@ -36,7 +36,7 @@ Examples:
 `
 
 func NewSizeCommand() *cli.Command {
-	return &cli.Command{
+	cmd := &cli.Command{
 		Name:               "du",
 		HelpName:           "du",
 		Usage:              "show object size usage",
@@ -80,6 +80,9 @@ func NewSizeCommand() *cli.Command {
 			}.Run(c.Context)
 		},
 	}
+
+	cmd.BashComplete = getBashCompleteFn(cmd, false, false)
+	return cmd
 }
 
 // Size holds disk usage (du) operation flags and states.

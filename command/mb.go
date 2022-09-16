@@ -3,6 +3,9 @@ package command
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/urfave/cli/v2"
 
@@ -27,7 +30,7 @@ Examples:
 `
 
 func NewMakeBucketCommand() *cli.Command {
-	return &cli.Command{
+	cmd := &cli.Command{
 		Name:               "mb",
 		HelpName:           "mb",
 		Usage:              "make bucket",
@@ -51,6 +54,17 @@ func NewMakeBucketCommand() *cli.Command {
 			}.Run(c.Context)
 		},
 	}
+	cmd.BashComplete = func(ctx *cli.Context) {
+		arg := parseArgumentToComplete(ctx)
+		if strings.HasPrefix(arg, "-") {
+			cli.DefaultCompleteWithFlags(cmd)(ctx)
+		} else {
+			shell := filepath.Base(os.Getenv("SHELL"))
+			constantCompleteWithDefault(shell, arg, "s3://")
+		}
+	}
+
+	return cmd
 }
 
 // MakeBucket holds bucket creation operation flags and states.

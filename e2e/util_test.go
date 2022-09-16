@@ -10,28 +10,31 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
+	urlpkg "net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
-	"github.com/peak/s5cmd/storage"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/aws/client"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/endpoints"
+	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/google/go-cmp/cmp"
 	"github.com/iancoleman/strcase"
 	"github.com/igungor/gofakes3"
+	"github.com/peak/s5cmd/storage"
 	"gotest.tools/v3/assert"
 	"gotest.tools/v3/fs"
 	"gotest.tools/v3/icmd"
@@ -39,8 +42,16 @@ import (
 
 const (
 	// Don't use "race" flag in the build arguments.
-	testDisableRaceFlagKey = "S5CMD_BUILD_BINARY_WITHOUT_RACE_FLAG"
-	testDisableRaceFlagVal = "1"
+	testDisableRaceFlagKey       = "S5CMD_BUILD_BINARY_WITHOUT_RACE_FLAG"
+	testDisableRaceFlagVal       = "1"
+	s5cmdTestIdEnv               = "S5CMD_ACCESS_KEY_ID"
+	s5cmdTestSecretEnv           = "S5CMD_SECRET_ACCESS_KEY"
+	s5cmdTestEndpointEnv         = "S5CMD_ENDPOINT_URL"
+	s5cmdTestIsVirtualHost       = "S5CMD_IS_VIRTUAL_HOST"
+	s5cmdTestRegionEnv           = "S5CMD_REGION"
+	s5cmdTestIKnowWhatImDoingEnv = "S5CMD_I_KNOW_WHAT_IM_DOING"
+	maxRetries                   = 10
+	deleteObjectsMax             = 1000
 )
 
 var (
@@ -104,8 +115,22 @@ func setup(t *testing.T, options ...option) (*s3.S3, func(...string) icmd.Cmd) {
 	for _, option := range options {
 		option(opts)
 	}
+	testdir, workdir := workdir(t, opts)
 
-	endpoint, workdir := server(t, opts)
+	endpoint := ""
+
+	// don't create a local s3 server if tests will run in another endpoint
+	if isEndpointFromEnv() {
+		endpoint = os.Getenv(s5cmdTestEndpointEnv)
+	} else {
+		endpoint = server(t, testdir, opts)
+	}
+
+	// one of the tests check if s5cmd correctly fails when an incorrect endpoint is given.
+	// if test specified an endpoint url, then try to use that url.
+	if opts.endpointURL != "" {
+		endpoint = opts.endpointURL
+	}
 	client := s3client(t, storage.Options{
 		Endpoint:    endpoint,
 		NoVerifySSL: true,
@@ -114,9 +139,7 @@ func setup(t *testing.T, options ...option) (*s3.S3, func(...string) icmd.Cmd) {
 	return client, s5cmd(workdir, endpoint)
 }
 
-func server(t *testing.T, opts *setupOpts) (string, string) {
-	t.Helper()
-
+func workdir(t *testing.T, opts *setupOpts) (*fs.Dir, string) {
 	// testdir := fs.NewDir() tries to create a new directory which has a
 	// prefix = [test function name][operation name]
 	// e.g., prefix' = "TestCopySingleS3ObjectToLocal/cp_s3://bucket/object_file"
@@ -129,6 +152,11 @@ func server(t *testing.T, opts *setupOpts) (string, string) {
 
 	testdir := fs.NewDir(t, prefix, fs.WithDir("workdir", fs.WithMode(0700)))
 	workdir := testdir.Join("workdir")
+	return testdir, workdir
+}
+
+func server(t *testing.T, testdir *fs.Dir, opts *setupOpts) string {
+	t.Helper()
 
 	s3LogLevel := *flagTestLogLevel
 
@@ -137,11 +165,8 @@ func server(t *testing.T, opts *setupOpts) (string, string) {
 	}
 
 	endpoint := s3ServerEndpoint(t, testdir, s3LogLevel, opts.s3backend, opts.timeSource, opts.enableProxy)
-	if opts.endpointURL != "" {
-		endpoint = opts.endpointURL
-	}
 
-	return endpoint, workdir
+	return endpoint
 }
 
 func s3client(t *testing.T, options storage.Options) *s3.S3 {
@@ -151,21 +176,95 @@ func s3client(t *testing.T, options storage.Options) *s3.S3 {
 	if *flagTestLogLevel == "debug" {
 		awsLogLevel = aws.LogDebug
 	}
-	s3Config := aws.NewConfig().
-		WithEndpoint(options.Endpoint).
-		WithRegion(endpoints.UsEast1RegionID).
-		WithCredentials(credentials.NewStaticCredentials(defaultAccessKeyID, defaultSecretAccessKey, "")).
+	s3Config := aws.NewConfig()
+
+	id := defaultAccessKeyID
+	key := defaultSecretAccessKey
+	endpoint := options.Endpoint
+	region := endpoints.UsEast1RegionID
+	isVirtualHost := false
+
+	// get environment variables and use external endpoint url.
+	// this can be used to test s3 sources such as GCS, amazon, wasabi etc.
+	if isEndpointFromEnv() {
+		id = os.Getenv(s5cmdTestIdEnv)
+		key = os.Getenv(s5cmdTestSecretEnv)
+		endpoint = os.Getenv(s5cmdTestEndpointEnv)
+		region = os.Getenv(s5cmdTestRegionEnv)
+		s3Config.Retryer = newSlowDownRetryer(maxRetries)
+		isVirtualHost = isVirtualHostFromEnv(t)
+	}
+
+	// WithDisableRestProtocolURICleaning is added to allow adjacent slashes to be used in s3 object keys.
+	s3Config = s3Config.
+		WithCredentials(credentials.NewStaticCredentials(id, key, "")).
+		WithEndpoint(endpoint).
 		WithDisableSSL(options.NoVerifySSL).
 		// allow adjacent slashes to be used in s3 object keys
 		WithDisableRestProtocolURICleaning(true).
-		WithS3ForcePathStyle(true).
 		WithCredentialsChainVerboseErrors(true).
-		WithLogLevel(awsLogLevel)
+		WithLogLevel(awsLogLevel).
+		WithRegion(region).
+		WithS3ForcePathStyle(!isVirtualHost)
 
 	sess, err := session.NewSession(s3Config)
 	assert.NilError(t, err)
 
 	return s3.New(sess)
+}
+
+func isVirtualHostFromEnv(t *testing.T) bool {
+	isVirtual, err := strconv.ParseBool(os.Getenv(s5cmdTestIsVirtualHost))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return isVirtual
+}
+
+// slowDownRetryer wraps the SDK's built in DefaultRetryer adding additional
+// retry for SlowDown code.
+type slowDownRetryer struct {
+	client.DefaultRetryer
+}
+
+func newSlowDownRetryer(maxRetries int) *slowDownRetryer {
+	return &slowDownRetryer{
+		DefaultRetryer: client.DefaultRetryer{
+			NumMaxRetries: maxRetries,
+		},
+	}
+}
+
+func (c *slowDownRetryer) ShouldRetry(req *request.Request) bool {
+	var awsErr awserr.Error
+	if errors.As(req.Error, &awsErr) {
+		if awsErr.Code() == "SlowDown" {
+			return true
+		}
+	}
+
+	return c.DefaultRetryer.ShouldRetry(req)
+}
+
+func isEndpointFromEnv() bool {
+	return os.Getenv(s5cmdTestIdEnv) != "" &&
+		os.Getenv(s5cmdTestSecretEnv) != "" &&
+		os.Getenv(s5cmdTestEndpointEnv) != "" &&
+		os.Getenv(s5cmdTestRegionEnv) != "" &&
+		os.Getenv(s5cmdTestIsVirtualHost) != "" &&
+		os.Getenv(s5cmdTestIKnowWhatImDoingEnv) == "1"
+}
+
+// skip the test if testing with google endpoint.
+func skipTestIfGCS(t *testing.T, format string) {
+	endpoint, err := urlpkg.Parse(os.Getenv(s5cmdTestEndpointEnv))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if storage.IsGoogleEndpoint(*endpoint) {
+		t.Skip(format)
+	}
 }
 
 func s5cmd(workdir, endpoint string) func(args ...string) icmd.Cmd {
@@ -175,11 +274,26 @@ func s5cmd(workdir, endpoint string) func(args ...string) icmd.Cmd {
 
 		cmd := icmd.Command(s5cmdPath, args...)
 		env := os.Environ()
+
+		id := defaultAccessKeyID
+		secret := defaultSecretAccessKey
+
+		if isEndpointFromEnv() {
+			id = os.Getenv(s5cmdTestIdEnv)
+			secret = os.Getenv(s5cmdTestSecretEnv)
+			env = append(
+				env,
+				[]string{
+					fmt.Sprintf("AWS_REGION=%v", os.Getenv(s5cmdTestRegionEnv)),
+				}...,
+			)
+		}
+
 		env = append(
 			env,
 			[]string{
-				fmt.Sprintf("AWS_ACCESS_KEY_ID=%v", defaultAccessKeyID),
-				fmt.Sprintf("AWS_SECRET_ACCESS_KEY=%v", defaultSecretAccessKey),
+				fmt.Sprintf("AWS_ACCESS_KEY_ID=%v", id),
+				fmt.Sprintf("AWS_SECRET_ACCESS_KEY=%v", secret),
 			}...,
 		)
 		cmd.Env = env
@@ -263,6 +377,89 @@ func createBucket(t *testing.T, client *s3.S3, bucket string) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	t.Cleanup(func() {
+		// cleanup if bucket exists.
+		_, err := client.HeadBucket(&s3.HeadBucketInput{Bucket: aws.String(bucket)})
+		if err == nil {
+
+			listInput := s3.ListObjectsInput{
+				Bucket: aws.String(bucket),
+			}
+
+			//remove objects first.
+			// delete each object individually if using GCS.
+			if isGoogleEndpointFromEnv(t) {
+				err = client.ListObjectsPages(&listInput, func(p *s3.ListObjectsOutput, lastPage bool) bool {
+					for _, c := range p.Contents {
+						client.DeleteObject(&s3.DeleteObjectInput{
+							Bucket: aws.String(bucket),
+							Key:    c.Key,
+						})
+					}
+					return !lastPage
+				})
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			chunkSize := deleteObjectsMax
+
+			var keys []*s3.ObjectIdentifier
+			initKeys := func() {
+				keys = make([]*s3.ObjectIdentifier, 0)
+			}
+
+			err = client.ListObjectsPages(&listInput, func(p *s3.ListObjectsOutput, lastPage bool) bool {
+				for _, c := range p.Contents {
+					objid := &s3.ObjectIdentifier{Key: c.Key}
+					keys = append(keys, objid)
+
+					if len(keys) == chunkSize {
+						_, err := client.DeleteObjects(&s3.DeleteObjectsInput{
+							Bucket: aws.String(bucket),
+							Delete: &s3.Delete{Objects: keys},
+						})
+						if err != nil {
+							t.Fatal(err)
+						}
+						initKeys()
+					}
+				}
+				return !lastPage
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if len(keys) > 0 {
+				_, err := client.DeleteObjects(&s3.DeleteObjectsInput{
+					Delete: &s3.Delete{Objects: keys},
+					Bucket: aws.String(bucket),
+				})
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			// delete bucket after.
+			_, err = client.DeleteBucket(&s3.DeleteBucketInput{
+				Bucket: aws.String(bucket),
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+	})
+
+}
+
+func isGoogleEndpointFromEnv(t *testing.T) bool {
+	endpoint, err := urlpkg.Parse(os.Getenv(s5cmdTestEndpointEnv))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return storage.IsGoogleEndpoint(*endpoint)
 }
 
 func setBucketVersioning(t *testing.T, s3client *s3.S3, bucket string, versioning string) {
@@ -377,15 +574,116 @@ func replaceMatchWithSpace(input string, match ...string) string {
 	return input
 }
 
-func s3BucketFromTestName(t *testing.T) string {
+func s3BucketFromTestNameWithPrefix(t *testing.T, prefix string) string {
 	t.Helper()
 	bucket := strcase.ToKebab(t.Name())
 
-	if len(bucket) > 63 {
-		bucket = fmt.Sprintf("%v-%v", bucket[:55], randomString(7))
+	reg, _ := regexp.Compile("[^-a-z0-9]+")
+
+	if prefix != "" {
+		bucket = fmt.Sprintf("%v-%v", prefix, bucket)
 	}
 
-	return bucket
+	bucket = reg.ReplaceAllString(bucket, "")
+
+	return addRandomSuffixTo(bucket)
+}
+
+func TestS3BucketFromTestNameWithPrefix(t *testing.T) {
+	t.Parallel()
+	testcases := []struct {
+		name          string
+		prefix        string
+		expectedRegex string
+	}{
+		{
+			name:          "./*?",
+			prefix:        "",
+			expectedRegex: "test-s-3-bucket-from-test-name-with-prefix-.{7}$",
+		},
+		{
+			name:          "don't_use_",
+			prefix:        "",
+			expectedRegex: "test-s-3-bucket-from-test-name-with-prefix-.{7}$",
+		},
+		{
+			name:          "pref",
+			prefix:        "pref",
+			expectedRegex: "pref-test-s-3-bucket-from-test-name-with-p-.{7}$",
+		},
+		{
+			name:          "chars",
+			prefix:        "./*?",
+			expectedRegex: "test-s-3-bucket-from-test-name-with-prefi-.{7}$",
+		},
+	}
+	for _, tc := range testcases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			// adds tc.name as suffix to "TestS3BucketFromTestNameWithPrefix" and then modifies it.
+			result := s3BucketFromTestNameWithPrefix(t, tc.prefix)
+
+			assertLines(t, result, map[int]compareFunc{
+				0: match(tc.expectedRegex),
+			})
+		})
+
+	}
+}
+
+func s3BucketFromTestName(t *testing.T) string {
+	t.Helper()
+	return s3BucketFromTestNameWithPrefix(t, "")
+}
+
+// addRandomSuffixTo appends random 7 characters to given bucket name.
+// If bucket name is longer than 50 chars, trims it down to 50 chars.
+func addRandomSuffixTo(bucketName string) string {
+	bucketName = fmt.Sprintf("%v-%v", bucketName, randomString(7))
+
+	if len(bucketName) > 50 {
+		bucketName = fmt.Sprintf("%v-%v", bucketName[:42], randomString(7))
+	}
+
+	return bucketName
+}
+
+func TestAddRandomSuffixTo(t *testing.T) {
+	t.Parallel()
+	testcases := []struct {
+		name          string
+		bucketName    string
+		expectedRegex string
+	}{
+		{
+			name:          "shorter-than-50-chars",
+			bucketName:    "TestName",
+			expectedRegex: "TestName-.{7}$",
+		},
+		{
+			name:          "between-42-and-50-chars",
+			bucketName:    "ThisTestStringIsSupposedToBeInBetween42And50Chars",
+			expectedRegex: "ThisTestStringIsSupposedToBeInBetween42And-.{7}$",
+		},
+		{
+			name:          "longer-than-50-chars",
+			bucketName:    "ThisTestStringIsSupposedToBeMuchMuchLongerThanFiftyCharacters",
+			expectedRegex: "ThisTestStringIsSupposedToBeMuchMuchLonger-.{7}$",
+		},
+	}
+	for _, tc := range testcases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			result := addRandomSuffixTo(tc.bucketName)
+
+			assert.Assert(t, len(result) <= 63)
+
+			assertLines(t, result, map[int]compareFunc{
+				0: match(tc.expectedRegex),
+			})
+		})
+
+	}
 }
 
 func randomString(n int) string {
@@ -400,6 +698,16 @@ func randomString(n int) string {
 func withWorkingDir(dir *fs.Dir) func(*icmd.Cmd) {
 	return func(cmd *icmd.Cmd) {
 		cmd.Dir = dir.Path()
+	}
+}
+
+func withEnv(key, value string) func(*icmd.Cmd) {
+	return func(cmd *icmd.Cmd) {
+		if i := indexSlice(cmd.Env, key+"=", strings.HasPrefix); i > 0 {
+			cmd.Env[i] = key + "=" + value
+		} else {
+			cmd.Env = append(cmd.Env, key+"="+value)
+		}
 	}
 }
 
@@ -679,4 +987,13 @@ func (l *fixedTimeSource) Advance(by time.Duration) {
 	defer l.mu.Unlock()
 
 	l.time = l.time.Add(by)
+}
+
+func indexSlice(slice []string, target string, fn func(str, target string) bool) int {
+	for i, str := range slice {
+		if fn(str, target) {
+			return i
+		}
+	}
+	return -1
 }

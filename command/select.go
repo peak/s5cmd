@@ -32,7 +32,7 @@ Examples:
 `
 
 func NewSelectCommand() *cli.Command {
-	return &cli.Command{
+	cmd := &cli.Command{
 		Name:     "select",
 		HelpName: "select",
 		Usage:    "run SQL queries on objects",
@@ -114,6 +114,9 @@ func NewSelectCommand() *cli.Command {
 			}.Run(c.Context)
 		},
 	}
+
+	cmd.BashComplete = getBashCompleteFn(cmd, true, false)
+	return cmd
 }
 
 // Select holds select operation flags and states.

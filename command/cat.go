@@ -31,7 +31,7 @@ Examples:
 `
 
 func NewCatCommand() *cli.Command {
-	return &cli.Command{
+	cmd := &cli.Command{
 		Name:     "cat",
 		HelpName: "cat",
 		Usage:    "print remote object content",
@@ -75,6 +75,8 @@ func NewCatCommand() *cli.Command {
 			}.Run(c.Context)
 		},
 	}
+	cmd.BashComplete = getBashCompleteFn(cmd, true, false)
+	return cmd
 }
 
 // Cat holds cat operation flags and states.

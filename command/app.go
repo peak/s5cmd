@@ -6,7 +6,6 @@ import (
 	"os"
 	"strings"
 
-	cmpinstall "github.com/posener/complete/cmd/install"
 	"github.com/urfave/cli/v2"
 
 	"github.com/peak/s5cmd/log"
@@ -23,8 +22,9 @@ const (
 )
 
 var app = &cli.App{
-	Name:  appName,
-	Usage: "Blazing fast S3 and local filesystem execution tool",
+	Name:                 appName,
+	Usage:                "Blazing fast S3 and local filesystem execution tool",
+	EnableBashCompletion: true,
 	Flags: []cli.Flag{
 		&cli.BoolFlag{
 			Name:  "json",
@@ -60,7 +60,7 @@ var app = &cli.App{
 		},
 		&cli.BoolFlag{
 			Name:  "install-completion",
-			Usage: "install completion for your shell",
+			Usage: "get completion installation instructions for your shell (only available for bash, pwsh, and zsh)",
 		},
 		&cli.BoolFlag{
 			Name:  "dry-run",
@@ -154,13 +154,9 @@ var app = &cli.App{
 	},
 	Action: func(c *cli.Context) error {
 		if c.Bool("install-completion") {
-			if cmpinstall.IsInstalled(appName) {
-				return nil
-			}
-
-			return cmpinstall.Install(appName)
+			printAutocompletionInstructions(os.Getenv("SHELL"))
+			return nil
 		}
-
 		args := c.Args()
 		if args.Present() {
 			cli.ShowCommandHelp(c, args.First())
@@ -228,10 +224,6 @@ func AppCommand(name string) *cli.Command {
 // Main is the entrypoint function to run given commands.
 func Main(ctx context.Context, args []string) error {
 	app.Commands = Commands()
-
-	if maybeAutoComplete() {
-		return nil
-	}
 
 	return app.RunContext(ctx, args)
 }

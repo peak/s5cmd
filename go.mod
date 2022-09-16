@@ -7,10 +7,9 @@ require (
 	github.com/google/go-cmp v0.4.0
 	github.com/hashicorp/go-multierror v1.0.0
 	github.com/iancoleman/strcase v0.0.0-20191112232945-16388991a334
-	github.com/igungor/gofakes3 v0.0.12
+	github.com/igungor/gofakes3 v0.0.13
 	github.com/karrick/godirwalk v1.15.3
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
-	github.com/posener/complete v1.2.3
 	github.com/stretchr/testify v1.4.0
 	github.com/termie/go-shutil v0.0.0-20140729215957-bcacb06fecae
 	github.com/urfave/cli/v2 v2.11.2

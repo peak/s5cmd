@@ -220,7 +220,7 @@ func NewCopyCommandFlags() []cli.Flag {
 }
 
 func NewCopyCommand() *cli.Command {
-	return &cli.Command{
+	cmd := &cli.Command{
 		Name:               "cp",
 		HelpName:           "cp",
 		Usage:              "copy objects",
@@ -244,6 +244,9 @@ func NewCopyCommand() *cli.Command {
 			return copy.Run(c.Context)
 		},
 	}
+
+	cmd.BashComplete = getBashCompleteFn(cmd, false, false)
+	return cmd
 }
 
 // Copy holds copy operation flags and states.

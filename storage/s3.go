@@ -156,7 +156,7 @@ func (s *S3) Stat(ctx context.Context, url *url.URL) (*Object, error) {
 // it sends these errors to object channel.
 func (s *S3) List(ctx context.Context, url *url.URL, _ bool) <-chan *Object {
 	if url.VersionID != "" || url.AllVersions {
-		return s.listObjectsVersion(ctx, url)
+		return s.listObjectVersions(ctx, url)
 	}
 	if IsGoogleEndpoint(s.endpointURL) || s.useListObjectsV1 {
 		return s.listObjects(ctx, url)
@@ -165,7 +165,7 @@ func (s *S3) List(ctx context.Context, url *url.URL, _ bool) <-chan *Object {
 	return s.listObjectsV2(ctx, url)
 }
 
-func (s *S3) listObjectsVersion(ctx context.Context, url *url.URL) <-chan *Object {
+func (s *S3) listObjectVersions(ctx context.Context, url *url.URL) <-chan *Object {
 	listInput := s3.ListObjectVersionsInput{
 		Bucket: aws.String(url.Bucket),
 		Prefix: aws.String(url.Prefix),

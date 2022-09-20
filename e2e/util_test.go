@@ -23,6 +23,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/peak/s5cmd/storage"
+	"github.com/peak/s5cmd/strutil"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/client"
@@ -34,7 +37,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/iancoleman/strcase"
 	"github.com/igungor/gofakes3"
-	"github.com/peak/s5cmd/storage"
 	"gotest.tools/v3/assert"
 	"gotest.tools/v3/fs"
 	"gotest.tools/v3/icmd"
@@ -598,7 +600,7 @@ func replaceMatchWithSpace(input string, match ...string) string {
 		if m == "" {
 			continue
 		}
-		re := regexp.MustCompile(m)
+		re := regexp.MustCompile(strutil.AddNewLineFlag(m))
 		input = re.ReplaceAllString(input, " ")
 	}
 
@@ -779,7 +781,7 @@ func alignment(v bool) func(*assertOpts) {
 }
 
 func trimMatch(match string) func(*assertOpts) {
-	re := regexp.MustCompile(match)
+	re := regexp.MustCompile(strutil.AddNewLineFlag(match))
 	return func(opts *assertOpts) {
 		opts.trimRegexes = append(opts.trimRegexes, re)
 	}
@@ -907,7 +909,7 @@ func checkLineAlignments(actual string) error {
 }
 
 func match(expected string) compareFunc {
-	re := regexp.MustCompile(expected)
+	re := regexp.MustCompile(strutil.AddNewLineFlag(expected))
 	return func(actual string) error {
 		if re.MatchString(actual) {
 			return nil

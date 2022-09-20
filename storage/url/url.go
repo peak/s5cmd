@@ -10,6 +10,8 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+
+	"github.com/peak/s5cmd/strutil"
 )
 
 const (
@@ -268,9 +270,7 @@ func (u *URL) setPrefixAndFilter() error {
 		return nil
 	}
 
-	loc := strings.IndexAny(u.Path, globCharacters)
-	wildOperation := loc > -1
-	if !wildOperation {
+	if loc := strings.IndexAny(u.Path, globCharacters); loc < 0 {
 		u.Delimiter = s3Separator
 		u.Prefix = u.Path
 	} else {
@@ -280,12 +280,12 @@ func (u *URL) setPrefixAndFilter() error {
 
 	filterRegex := matchAllRe
 	if u.filter != "" {
-		filterRegex = regexp.QuoteMeta(u.filter)
-		filterRegex = strings.Replace(filterRegex, "\\?", ".", -1)
-		filterRegex = strings.Replace(filterRegex, "\\*", ".*?", -1)
+		filterRegex = strutil.WildCardToRegexp(u.filter)
 	}
 	filterRegex = regexp.QuoteMeta(u.Prefix) + filterRegex
-	r, err := regexp.Compile("^" + filterRegex + "$")
+	filterRegex = strutil.MatchFromStartToEnd(filterRegex)
+	filterRegex = strutil.AddNewLineFlag(filterRegex)
+	r, err := regexp.Compile(filterRegex)
 	if err != nil {
 		return err
 	}

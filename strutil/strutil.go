@@ -3,6 +3,7 @@ package strutil
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -51,4 +52,22 @@ func CapitalizeFirstRune(str string) string {
 	runes := []rune(str)
 	first, rest := runes[0], runes[1:]
 	return strings.ToUpper(string(first)) + strings.ToLower(string(rest))
+}
+
+// AddNewLineFlag adds a flag that allows . to match new line character "\n".
+// It assumes that the pattern does not have any flags.
+func AddNewLineFlag(pattern string) string {
+	return "(?s)" + pattern
+}
+
+// WildCardToRegexp converts a wildcarded expresiion to equivalent regular expression
+func WildCardToRegexp(pattern string) string {
+	patternRegex := regexp.QuoteMeta(pattern)
+	patternRegex = strings.Replace(patternRegex, "\\?", ".", -1)
+	return strings.Replace(patternRegex, "\\*", ".*", -1)
+}
+
+// MatchFromStartToEnd enforces that the regex will match the full string
+func MatchFromStartToEnd(pattern string) string {
+	return "^" + pattern + "$"
 }

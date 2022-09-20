@@ -144,6 +144,32 @@ func TestListSingleWildcardS3Object(t *testing.T) {
 	}, alignment(true))
 }
 
+func TestListWildcardS3ObjectWithNewLineInName(t *testing.T) {
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	s3client, s5cmd := setup(t)
+
+	createBucket(t, s3client, bucket)
+	putFile(t, s3client, bucket, "normal.txt", "this is a file content")
+	putFile(t, s3client, bucket, "another.txt", "this is another file content")
+	putFile(t, s3client, bucket, "newli\ne.txt", "this is yet another file content")
+	putFile(t, s3client, bucket, "nap.txt", "this, too, is a file content")
+
+	cmd := s5cmd("ls", "s3://"+bucket+"/n*.txt")
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: suffix("28 nap.txt"),
+		1: suffix("32 newli"),
+		2: equals("e.txt"),
+		3: suffix("22 normal.txt"),
+	})
+}
+
 // ls -s bucket/object
 func TestListS3ObjectsWithDashS(t *testing.T) {
 	t.Parallel()
@@ -399,6 +425,8 @@ func TestListS3ObjectsWithExcludeFilter(t *testing.T) {
 		"a/file.c",
 		"file2.txt",
 		"file2.txt.extension", // this should not be excluded.
+		"newli\ne",
+		"newli\ne.txt",
 	}
 
 	s3client, s5cmd := setup(t)
@@ -419,7 +447,9 @@ func TestListS3ObjectsWithExcludeFilter(t *testing.T) {
 		1: match(`a/try.py`),
 		2: match(`file.py`),
 		3: match(`file2.txt.extension`),
-	}, trimMatch(dateRe), alignment(true))
+		4: match("newli"),
+		5: match("e"),
+	}, trimMatch(dateRe), alignment(false))
 }
 
 // ls --exclude ".txt" --exclude ".py" s3://bucket

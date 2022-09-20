@@ -4,23 +4,19 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-)
 
-func wildCardToRegexp(pattern string) string {
-	patternRegex := regexp.QuoteMeta(pattern)
-	patternRegex = strings.Replace(patternRegex, "\\?", ".", -1)
-	patternRegex = strings.Replace(patternRegex, "\\*", ".*", -1)
-	patternRegex = "^" + patternRegex + "$"
-	return patternRegex
-}
+	"github.com/peak/s5cmd/strutil"
+)
 
 // createExcludesFromWildcard creates regex strings from wildcard.
 func createExcludesFromWildcard(inputExcludes []string) ([]*regexp.Regexp, error) {
 	var result []*regexp.Regexp
 	for _, input := range inputExcludes {
 		if input != "" {
-			regexVersion := wildCardToRegexp(input)
-			regexpCompiled, err := regexp.Compile(regexVersion)
+			regex := strutil.WildCardToRegexp(input)
+			regex = strutil.MatchFromStartToEnd(regex)
+			regex = strutil.AddNewLineFlag(regex)
+			regexpCompiled, err := regexp.Compile(regex)
 			if err != nil {
 				return nil, err
 			}

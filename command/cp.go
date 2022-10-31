@@ -100,6 +100,12 @@ Examples:
 
 	21. Upload a file to S3 with a content-type and content-encoding header
 		 > s5cmd --content-type "text/css" --content-encoding "br" myfile.css.br s3://bucket/
+
+	22. Upload a file to S3 preserving the timestamp on disk
+		 > s5cmd --preserve-timestamp myfile.css.br s3://bucket/
+
+	22. Download a file from S3 preserving the timestamp it was originally uplaoded with
+		 > s5cmd --preserve-timestamp s3://bucket/myfile.css.br myfile.css.br
 `
 
 func NewSharedFlags() []cli.Flag {
@@ -181,6 +187,10 @@ func NewSharedFlags() []cli.Flag {
 			Usage:       "number of times that a request will be retried on NoSuchUpload error; you should not use this unless you really know what you're doing",
 			DefaultText: "0",
 			Hidden:      true,
+		},
+		&cli.BoolFlag{
+			Name:  "preserve-timestamp",
+			Usage: "preserve the timestamp on disk while uploading and set the timestamp from s3 while downloading.",
 		},
 	}
 }
@@ -265,6 +275,7 @@ type Copy struct {
 	expires               string
 	contentType           string
 	contentEncoding       string
+	preserveTimestamp     bool
 
 	// region settings
 	srcRegion string
@@ -304,6 +315,7 @@ func NewCopy(c *cli.Context, deleteSource bool) Copy {
 		expires:               c.String("expires"),
 		contentType:           c.String("content-type"),
 		contentEncoding:       c.String("content-encoding"),
+		preserveTimestamp:     c.Bool("preserve-timestamp"),
 		// region settings
 		srcRegion: c.String("source-region"),
 		dstRegion: c.String("destination-region"),
@@ -537,6 +549,17 @@ func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) 
 		_ = srcClient.Delete(ctx, srcurl)
 	}
 
+	if c.preserveTimestamp {
+		obj, err := srcClient.Stat(ctx, srcurl)
+		if err != nil {
+			return err
+		}
+		err = storage.SetFileTime(dsturl.Absolute(), *obj.AccessTime, *obj.ModTime, *obj.CreateTime)
+		if err != nil {
+			return err
+		}
+	}
+
 	msg := log.InfoMessage{
 		Operation:   c.op,
 		Source:      srcurl,
@@ -584,6 +607,14 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 		SetACL(c.acl).
 		SetCacheControl(c.cacheControl).
 		SetExpires(c.expires)
+
+	if c.preserveTimestamp {
+		aTime, mTime, cTime, err := storage.GetFileTime(srcurl.Absolute())
+		if err != nil {
+			return err
+		}
+		metadata.SetPreserveTimestamp(aTime, mTime, cTime)
+	}
 
 	if c.contentType != "" {
 		metadata.SetContentType(c.contentType)

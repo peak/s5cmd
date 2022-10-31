@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/peak/s5cmd/log"
@@ -105,7 +106,9 @@ func (o *Options) SetRegion(region string) {
 type Object struct {
 	URL          *url.URL     `json:"key,omitempty"`
 	Etag         string       `json:"etag,omitempty"`
+	AccessTime   *time.Time   `json:"accessed,omitempty"`
 	ModTime      *time.Time   `json:"last_modified,omitempty"`
+	CreateTime   *time.Time   `json:"created,omitempty"`
 	Type         ObjectType   `json:"type,omitempty"`
 	Size         int64        `json:"size,omitempty"`
 	StorageClass StorageClass `json:"storage_class,omitempty"`
@@ -233,6 +236,25 @@ func (m Metadata) Expires() string {
 
 func (m Metadata) SetExpires(expires string) Metadata {
 	m["Expires"] = expires
+	return m
+}
+
+func (m Metadata) cTime() string {
+	return m["file-ctime"]
+}
+
+func (m Metadata) mTime() string {
+	return m["file-mtime"]
+}
+
+func (m Metadata) aTime() string {
+	return m["file-atime"]
+}
+
+func (m Metadata) SetPreserveTimestamp(aTime, mTime, cTime time.Time) Metadata {
+	m["file-ctime"] = strconv.Itoa(int(cTime.UnixNano()))
+	m["file-mtime"] = strconv.Itoa(int(mTime.UnixNano()))
+	m["file-atime"] = strconv.Itoa(int(aTime.UnixNano()))
 	return m
 }
 

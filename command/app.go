@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"runtime/pprof"
 	"strings"
 
 	"github.com/urfave/cli/v2"
@@ -90,6 +91,10 @@ var app = &cli.App{
 			Name:  "credentials-file",
 			Usage: "use the specified credentials file instead of the default credentials file",
 		},
+		&cli.StringFlag{
+			Name:  "cpuprofile",
+			Usage: "Write a CPU profile to the specified file",
+		},
 	},
 	Before: func(c *cli.Context) error {
 		retryCount := c.Int("retry-count")
@@ -98,6 +103,7 @@ var app = &cli.App{
 		logLevel := c.String("log")
 		isStat := c.Bool("stat")
 		endpointURL := c.String("endpoint-url")
+		cpuProfile := c.String("cpuprofile")
 
 		log.Init(logLevel, printJSON)
 		parallel.Init(workerCount)
@@ -127,6 +133,16 @@ var app = &cli.App{
 				err := fmt.Errorf(`bad value for --endpoint-url %v: scheme is missing. Must be of the form http://<hostname>/ or https://<hostname>/`, endpointURL)
 				printError(commandFromContext(c), c.Command.Name, err)
 				return err
+			}
+		}
+
+		if cpuProfile != "" {
+			f, err := os.Create(cpuProfile)
+			if err != nil {
+				return fmt.Errorf("could not create CPU profile: %w", err)
+			}
+			if err := pprof.StartCPUProfile(f); err != nil {
+				return fmt.Errorf("could not start CPU profile: %w", err)
 			}
 		}
 
@@ -168,6 +184,10 @@ var app = &cli.App{
 	After: func(c *cli.Context) error {
 		if c.Bool("stat") && len(stat.Statistics()) > 0 {
 			log.Stat(stat.Statistics())
+		}
+
+		if c.String("cpuprofile") != "" {
+			pprof.StopCPUProfile()
 		}
 
 		parallel.Close()

@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/peak/s5cmd/strutil"
+	"github.com/peak/s5cmd/v2/strutil"
 )
 
 func TestHasWild(t *testing.T) {

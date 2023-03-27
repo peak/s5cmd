@@ -13,11 +13,11 @@ import (
 	"github.com/lanrat/extsort"
 	"github.com/urfave/cli/v2"
 
-	errorpkg "github.com/peak/s5cmd/error"
-	"github.com/peak/s5cmd/log/stat"
-	"github.com/peak/s5cmd/parallel"
-	"github.com/peak/s5cmd/storage"
-	"github.com/peak/s5cmd/storage/url"
+	errorpkg "github.com/peak/s5cmd/v2/error"
+	"github.com/peak/s5cmd/v2/log/stat"
+	"github.com/peak/s5cmd/v2/parallel"
+	"github.com/peak/s5cmd/v2/storage"
+	"github.com/peak/s5cmd/v2/storage/url"
 )
 
 const (

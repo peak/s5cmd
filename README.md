@@ -235,7 +235,10 @@ more details and examples on `s5cmd run` are presented in a [later section](./RE
     s5cmd cp 's3://bucket/logs/2020/*' s3://bucket/logs/backup/
 
 Will copy all the matching objects to the given S3 prefix, respecting the source
-folder hierarchy.
+folder hierarchy. Here's how you copy data with a credentials profile: 
+
+    s5cmd --profile s3-profile-prd cp 's3://bucket/logs/2020/*' s3://bucket/logs/backup/
+
 
 ⚠️ Copying objects (from S3 to S3) larger than 5GB is not supported yet. We have
 an [open ticket](https://github.com/peak/s5cmd/issues/29) to track the issue.

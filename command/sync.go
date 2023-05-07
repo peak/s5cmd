@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/hashicorp/go-multierror"
 	"github.com/urfave/cli/v2"
 
@@ -176,7 +177,6 @@ func (s Sync) Run(c *cli.Context) error {
 		if err != nil {
 			return err
 		}
-
 		obj, _ := sourceClient.Stat(c.Context, srcurl)
 		isBatch = obj != nil && obj.Type.IsDir()
 	}
@@ -337,6 +337,13 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 	}()
 
 	wg.Wait()
+
+	if objectsContainAWSError(sourceObjects) {
+		return sourceObjects, destObjects, sourceObjects[0].Err
+	} else if objectsContainAWSError(destObjects) {
+		return sourceObjects, destObjects, destObjects[0].Err
+	}
+
 	return sourceObjects, destObjects, nil
 }
 
@@ -428,6 +435,11 @@ func (s Sync) shouldSkipObject(object *storage.Object, verbose bool) bool {
 		if verbose {
 			printError(s.fullCommand, s.op, err)
 		}
+		// We don't want to ignore AWS Error Conditions.
+		if _, ok := object.Err.(awserr.Error); ok {
+			return false
+		}
+
 		return true
 	}
 
@@ -438,5 +450,22 @@ func (s Sync) shouldSkipObject(object *storage.Object, verbose bool) bool {
 		}
 		return true
 	}
+	return false
+}
+
+// objectsContainAWSError checks for failure case where underlying ListObjects API
+// call has failed for some reason
+func objectsContainAWSError(objects []*storage.Object) bool {
+	// If there is AWS error during ListObjects call(s) we only expect single error object.
+	// There are some very rare edge cases not covered here, for example a ListObject iteration
+	// where policy is changed during the iteration.
+	if len(objects) != 1 {
+		return false
+	}
+
+	if _, ok := objects[0].Err.(awserr.Error); ok {
+		return true
+	}
+
 	return false
 }

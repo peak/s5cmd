@@ -1699,3 +1699,30 @@ func TestIssue435(t *testing.T) {
 		assertError(t, err, errS3NoSuchKey)
 	}
 }
+
+// sync s3://bucket/* s3://DestBucketDoesNotExist/ (destbucket doesn't exist)
+func TestSyncS3BucketToS3BucketThatDoesNotExist(t *testing.T) {
+	t.Parallel()
+
+	now := time.Now()
+	timeSource := newFixedTimeSource(now)
+	s3client, s5cmd := setup(t, withTimeSource(timeSource))
+
+	bucket := s3BucketFromTestName(t)
+	destbucket := "DestBucketDoesNotExist"
+
+	createBucket(t, s3client, bucket)
+
+	src := fmt.Sprintf("s3://%v/*", bucket)
+	dst := fmt.Sprintf("s3://%v/", destbucket)
+
+	cmd := s5cmd("--log", "debug", "sync", src, dst)
+	result := icmd.RunCmd(cmd)
+	fmt.Printf("%v", result)
+
+	result.Assert(t, icmd.Expected{ExitCode: 1})
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: prefix(`ERROR "sync %s %s": NotFound: Not Found status code: 404`, src, dst),
+	})
+}

@@ -193,6 +193,8 @@ func (s *S3) listObjectsV2(ctx context.Context, url *url.URL) <-chan *Object {
 				objectFound = true
 			}
 
+			// track the instant object iteration began,
+			// so it can be used to bypass objects created after this instant
 			if now.IsZero() {
 				if serverDate != "" {
 					n, err := http.ParseTime(serverDate)

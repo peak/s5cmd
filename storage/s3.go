@@ -242,7 +242,7 @@ func (s *S3) listObjectsV2(ctx context.Context, url *url.URL) <-chan *Object {
 			}
 
 			return !lastPage
-		}, request.WithGetResponseHeader("Date", &serverDate))
+		}, request.WithGetResponseHeader("date", &serverDate))
 
 		if err != nil {
 			objCh <- &Object{Err: err}

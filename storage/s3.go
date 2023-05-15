@@ -173,8 +173,8 @@ func (s *S3) listObjectsV2(ctx context.Context, url *url.URL) <-chan *Object {
 	go func() {
 		defer close(objCh)
 		objectFound := false
-
 		var now time.Time
+		var serverDate string
 
 		err := s.api.ListObjectsV2PagesWithContext(ctx, &listInput, func(p *s3.ListObjectsV2Output, lastPage bool) bool {
 			for _, c := range p.CommonPrefixes {
@@ -192,10 +192,18 @@ func (s *S3) listObjectsV2(ctx context.Context, url *url.URL) <-chan *Object {
 
 				objectFound = true
 			}
-			// track the instant object iteration began,
-			// so it can be used to bypass objects created after this instant
+
 			if now.IsZero() {
-				now = time.Now().UTC()
+				if serverDate != "" {
+					n, err := http.ParseTime(serverDate)
+					if err != nil {
+						now = time.Now().UTC()
+					} else {
+						now = n
+					}
+				} else {
+					now = time.Now().UTC()
+				}
 			}
 
 			for _, c := range p.Contents {
@@ -232,7 +240,7 @@ func (s *S3) listObjectsV2(ctx context.Context, url *url.URL) <-chan *Object {
 			}
 
 			return !lastPage
-		})
+		}, request.WithGetResponseHeader("Date", &serverDate))
 
 		if err != nil {
 			objCh <- &Object{Err: err}

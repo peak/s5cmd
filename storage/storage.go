@@ -60,6 +60,7 @@ func NewLocalClient(opts Options) *Filesystem {
 func NewRemoteClient(ctx context.Context, url *url.URL, opts Options) (*S3, error) {
 	newOpts := Options{
 		MaxRetries:             opts.MaxRetries,
+		NoSuchUploadRetryCount: opts.NoSuchUploadRetryCount,
 		Endpoint:               opts.Endpoint,
 		NoVerifySSL:            opts.NoVerifySSL,
 		DryRun:                 opts.DryRun,
@@ -71,7 +72,6 @@ func NewRemoteClient(ctx context.Context, url *url.URL, opts Options) (*S3, erro
 		LogLevel:               opts.LogLevel,
 		bucket:                 url.Bucket,
 		region:                 opts.region,
-		NoSuchUploadRetryCount: opts.NoSuchUploadRetryCount,
 	}
 	return newS3Storage(ctx, newOpts)
 }
@@ -114,6 +114,10 @@ type Object struct {
 	StorageClass StorageClass `json:"storage_class,omitempty"`
 	Err          error        `json:"error,omitempty"`
 	retryID      string
+
+	// the VersionID field exist only for JSON Marshall, it must not be used for
+	// any other purpose. URL.VersionID must be used instead.
+	VersionID string `json:"version_id,omitempty"`
 }
 
 // String returns the string representation of Object.
@@ -123,6 +127,9 @@ func (o *Object) String() string {
 
 // JSON returns the JSON representation of Object.
 func (o *Object) JSON() string {
+	if o.URL != nil {
+		o.VersionID = o.URL.VersionID
+	}
 	return strutil.JSON(o)
 }
 

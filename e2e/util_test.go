@@ -380,6 +380,10 @@ func createBucket(t *testing.T, client *s3.S3, bucket string) {
 		t.Fatal(err)
 	}
 
+	if !isEndpointFromEnv() {
+		return
+	}
+
 	t.Cleanup(func() {
 		// cleanup if bucket exists.
 		_, err := client.HeadBucket(&s3.HeadBucketInput{Bucket: aws.String(bucket)})
@@ -413,24 +417,51 @@ func createBucket(t *testing.T, client *s3.S3, bucket string) {
 				keys = make([]*s3.ObjectIdentifier, 0)
 			}
 
-			err = client.ListObjectsPages(&listInput, func(p *s3.ListObjectsOutput, lastPage bool) bool {
-				for _, c := range p.Contents {
-					objid := &s3.ObjectIdentifier{Key: c.Key}
-					keys = append(keys, objid)
+			listVersionsInput := s3.ListObjectVersionsInput{
+				Bucket: aws.String(bucket),
+			}
 
-					if len(keys) == chunkSize {
-						_, err := client.DeleteObjects(&s3.DeleteObjectsInput{
-							Bucket: aws.String(bucket),
-							Delete: &s3.Delete{Objects: keys},
-						})
-						if err != nil {
-							t.Fatal(err)
+			err = client.ListObjectVersionsPages(&listVersionsInput,
+				func(p *s3.ListObjectVersionsOutput, lastPage bool) bool {
+					for _, v := range p.Versions {
+						objid := &s3.ObjectIdentifier{
+							Key:       v.Key,
+							VersionId: v.VersionId,
 						}
-						initKeys()
+						keys = append(keys, objid)
+
+						if len(keys) == chunkSize {
+							_, err := client.DeleteObjects(&s3.DeleteObjectsInput{
+								Bucket: aws.String(bucket),
+								Delete: &s3.Delete{Objects: keys},
+							})
+							if err != nil {
+								t.Fatal(err)
+							}
+							initKeys()
+						}
 					}
-				}
-				return !lastPage
-			})
+
+					for _, d := range p.DeleteMarkers {
+						objid := &s3.ObjectIdentifier{
+							Key:       d.Key,
+							VersionId: d.VersionId,
+						}
+						keys = append(keys, objid)
+
+						if len(keys) == chunkSize {
+							_, err := client.DeleteObjects(&s3.DeleteObjectsInput{
+								Bucket: aws.String(bucket),
+								Delete: &s3.Delete{Objects: keys},
+							})
+							if err != nil {
+								t.Fatal(err)
+							}
+							initKeys()
+						}
+					}
+					return !lastPage
+				})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -462,6 +493,19 @@ func isGoogleEndpointFromEnv(t *testing.T) bool {
 		t.Fatal(err)
 	}
 	return storage.IsGoogleEndpoint(*endpoint)
+}
+
+func setBucketVersioning(t *testing.T, s3client *s3.S3, bucket string, versioning string) {
+	t.Helper()
+	_, err := s3client.PutBucketVersioning(&s3.PutBucketVersioningInput{
+		Bucket: aws.String(bucket),
+		VersioningConfiguration: &s3.VersioningConfiguration{
+			Status: aws.String(versioning),
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
 }
 
 var errS3NoSuchKey = fmt.Errorf("s3: no such key")

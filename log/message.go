@@ -20,6 +20,10 @@ type InfoMessage struct {
 	Source      *url.URL `json:"source"`
 	Destination *url.URL `json:"destination,omitempty"`
 	Object      Message  `json:"object,omitempty"`
+
+	// the VersionID field exist only for JSON Marshall, it must not be used for
+	// any other purpose.
+	VersionId string `json:"version_id,omitempty"`
 }
 
 // String is the string representation of InfoMessage.
@@ -27,11 +31,17 @@ func (i InfoMessage) String() string {
 	if i.Destination != nil {
 		return fmt.Sprintf("%v %v %v", i.Operation, i.Source, i.Destination)
 	}
+	if i.Source != nil && i.Source.VersionID != "" {
+		return fmt.Sprintf("%v %-50v %v", i.Operation, i.Source, i.Source.VersionID)
+	}
 	return fmt.Sprintf("%v %v", i.Operation, i.Source)
 }
 
 // JSON is the JSON representation of InfoMessage.
 func (i InfoMessage) JSON() string {
+	if i.Destination == nil && i.Source != nil {
+		i.VersionId = i.Source.VersionID
+	}
 	i.Success = true
 	return strutil.JSON(i)
 }

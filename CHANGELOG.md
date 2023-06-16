@@ -11,6 +11,12 @@
 - Added `--profile` flag to allow users to specify a [named profile](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-profiles.html). ([#353](https://github.com/peak/s5cmd/issues/353))
 - Added `--credentials-file` flag to allow users to specify path for the AWS credentials file instead of using the [default location](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html#cli-configure-files-where).
 - Added `bench.py` script under new `benchmark` folder to compare performances of two different builds of s5cmd. ([#471](https://github.com/peak/s5cmd/pull/471))
+- Added `--all-versions` flag to `ls`, `rm`, `du` and `select` subcommands to apply operation on(/over) all versions of the objects. ([#475](https://github.com/peak/s5cmd/pull/475))
+- Added `--version-id` flag to `cat`, `cp`/`mv`, `rm`, `du`  and `select` subcommands to apply operation on(/over) a specific versions of the object. ([#475](https://github.com/peak/s5cmd/pull/475))
+- Added `bucket-version` command to configure bucket versioning. Bucket name
+ alone returns the bucket versioning status of the bucket. Bucket versioning can 
+ be configured with `set` flag. ([#475](https://github.com/peak/s5cmd/pull/475)) 
+- Added `--raw` flag to `cat` and `select` subcommands. It disables the wildcard operations. ([#475](https://github.com/peak/s5cmd/pull/475)) 
 
 #### Improvements
 - Disable AWS SDK logger if log level is not `trace`. ([##460](https://github.com/peak/s5cmd/pull/460))

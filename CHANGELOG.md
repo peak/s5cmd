@@ -23,6 +23,11 @@
 - Allow adjacent slashes to be used as keys when uploading to remote. ([#459](https://github.com/peak/s5cmd/pull/459))
 - Debian packages are provided on [releases page](https://github.com/peak/s5cmd/releases) ([#380](https://github.com/peak/s5cmd/issues/380))
 - Upgraded minimum required Go version to 1.17.
+- The sync command uses `external sort` instead of `internal` sort. This change
+ reduces RAM usage from ~10 GB to ~1.5 GB for `sync` operation of a directory containing
+ 1,000,000 files at a cost of speed (20% slower for 1,000,000 objects). For smaller
+ directories (~50,000 files) there is no significant change in speed.  ([#483](https://github.com/peak/s5cmd/pull/483))
+
 - Improve auto-completion support of s5cmd for `zsh` and `bash`, start supporting `pwsh` and stop the support for `fish`. Now s5cmd can complete bucket names, s3 keys in a bucket and the local files. However, `install-completion` flag no longer _installs_ the completion script to `*rc` files instead it merely gives instructions to install autocompletion and provides the autocompletion script ([#500](https://github.com/peak/s5cmd/pull/500)).
 
 #### Bugfixes

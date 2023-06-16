@@ -15,9 +15,7 @@ import (
 // sync -n s3://bucket/object file
 func TestSyncFailForNonsharedFlagsFromCopyCommand(t *testing.T) {
 	t.Parallel()
-
 	s3client, s5cmd := setup(t)
-
 	const (
 		filename = "source.go"
 	)
@@ -221,6 +219,9 @@ func TestSyncLocalFolderToS3EmptyBucket(t *testing.T) {
 		2: equals(`cp %vreadme.md %vreadme.md`, src, dst),
 		3: equals(`cp %vtestfile.txt %vtestfile.txt`, src, dst),
 	}, sortInput(true))
+
+	// there should be no error, since "no object found" error for destination is ignored
+	assertLines(t, result.Stderr(), map[int]compareFunc{})
 
 	// assert local filesystem
 	expected := fs.Expected(t, folderLayout...)

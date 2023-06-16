@@ -2,6 +2,8 @@
 package url
 
 import (
+	"bytes"
+	"encoding/gob"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -11,6 +13,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/lanrat/extsort"
 	"github.com/peak/s5cmd/strutil"
 )
 
@@ -378,6 +381,31 @@ func (u *URL) MarshalJSON() ([]byte, error) {
 	return json.Marshal(u.String())
 }
 
+func (u URL) ToBytes() []byte {
+	buf := bytes.NewBuffer(make([]byte, 0))
+	enc := gob.NewEncoder(buf)
+	enc.Encode(u.Absolute())
+	enc.Encode(u.relativePath)
+	enc.Encode(u.raw)
+	return buf.Bytes()
+}
+
+func FromBytes(data []byte) extsort.SortType {
+	buf := bytes.NewBuffer(data)
+	dec := gob.NewDecoder(buf)
+	var (
+		abs, rel string
+		raw      bool
+	)
+	dec.Decode(&abs)
+	dec.Decode(&rel)
+	dec.Decode(&raw)
+
+	url, _ := New(abs, WithRaw(raw))
+	url.relativePath = rel
+	return url
+}
+
 // IsWildcard reports whether if a string contains any wildcard chars.
 func (u *URL) IsWildcard() bool {
 	return !u.raw && hasGlobCharacter(u.Path)
@@ -445,4 +473,20 @@ func (u *URL) EscapedPath() string {
 		sourceKeyElements[i] = url.QueryEscape(element)
 	}
 	return strings.Join(sourceKeyElements, "/")
+}
+
+// check if all fields of URL equal
+func (u *URL) deepEqual(url *URL) bool {
+	if url.Absolute() != u.Absolute() ||
+		url.Type != u.Type ||
+		url.Scheme != u.Scheme ||
+		url.Bucket != u.Bucket ||
+		url.Delimiter != u.Delimiter ||
+		url.Path != u.Path ||
+		url.Prefix != u.Prefix ||
+		url.relativePath != u.relativePath ||
+		url.filter != u.filter {
+		return false
+	}
+	return true
 }

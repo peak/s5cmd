@@ -2,12 +2,15 @@
 package storage
 
 import (
+	"bytes"
 	"context"
+	"encoding/gob"
 	"encoding/json"
 	"fmt"
 	"os"
 	"time"
 
+	"github.com/lanrat/extsort"
 	"github.com/peak/s5cmd/log"
 	"github.com/peak/s5cmd/storage/url"
 	"github.com/peak/s5cmd/strutil"
@@ -286,4 +289,39 @@ func (m Metadata) ContentEncoding() string {
 func (m Metadata) SetContentEncoding(contentEncoding string) Metadata {
 	m["ContentEncoding"] = contentEncoding
 	return m
+}
+
+func (o Object) ToBytes() []byte {
+	buf := bytes.NewBuffer(make([]byte, 0, 200))
+	enc := gob.NewEncoder(buf)
+	enc.Encode(o.URL.ToBytes())
+	enc.Encode(o.ModTime.Format(time.RFC3339Nano))
+	enc.Encode(o.Type.mode)
+	enc.Encode(o.Size)
+
+	return buf.Bytes()
+}
+
+func FromBytes(data []byte) extsort.SortType {
+	dec := gob.NewDecoder(bytes.NewBuffer(data))
+	var gobUrl []byte
+	dec.Decode(&gobUrl)
+	u := url.FromBytes(gobUrl).(*url.URL)
+	o := Object{
+		URL: u,
+	}
+	str := ""
+	dec.Decode(&str)
+	tmp, _ := time.Parse(time.RFC3339Nano, str)
+	o.ModTime = &tmp
+	dec.Decode(&o.Type.mode)
+	dec.Decode(&o.Size)
+	return o
+}
+
+// Less returns if relative path of storage.Object a's URL comes before the one
+// of b's in the lexicographic order.
+// It assumes that both a, and b are the instances of Object
+func Less(a, b extsort.SortType) bool {
+	return a.(Object).URL.Relative() < b.(Object).URL.Relative()
 }

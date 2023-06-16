@@ -32,7 +32,7 @@ func expandSource(
 	}
 
 	// call storage.List for only walking operations.
-	if srcurl.IsWildcard() || isDir {
+	if srcurl.IsWildcard() || srcurl.AllVersions || isDir {
 		return client.List(ctx, srcurl, followSymlinks), nil
 	}
 

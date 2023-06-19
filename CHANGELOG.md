@@ -3,6 +3,13 @@
 ## not released yet
 
 #### Breaking changes
+#### Features
+#### Improvements
+#### Bugfixes
+
+## v2.1.0 - 19 Jun 2023
+
+#### Breaking changes
 - Adjacent slashes in key are no longer removed when uploading to remote. Before `s5cmd cp file.txt s3://bucket/a//b///c/` would copy to `s3://bucket/a/b/c/file.txt` but now to `s3://bucket/a//b///c/file.txt`.([#459](https://github.com/peak/s5cmd/pull/459))
 - `--endpoint-url` will not accept URLs without scheme such as `example.com`. Instead, it will give an error and ask for an url with a scheme; either `http://example.com` or `https://example.com` ([#496](https://github.com/peak/s5cmd/pull/496)).
 
@@ -10,16 +17,14 @@
 - Added `--content-type` and `--content-encoding` flags to `cp` command. ([#264](https://github.com/peak/s5cmd/issues/264))
 - Added `--profile` flag to allow users to specify a [named profile](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-profiles.html). ([#353](https://github.com/peak/s5cmd/issues/353))
 - Added `--credentials-file` flag to allow users to specify path for the AWS credentials file instead of using the [default location](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html#cli-configure-files-where).
-- Added `bench.py` script under new `benchmark` folder to compare performances of two different builds of s5cmd. ([#471](https://github.com/peak/s5cmd/pull/471))
 - Added `--all-versions` flag to `ls`, `rm`, `du` and `select` subcommands to apply operation on(/over) all versions of the objects. ([#475](https://github.com/peak/s5cmd/pull/475))
 - Added `--version-id` flag to `cat`, `cp`/`mv`, `rm`, `du`  and `select` subcommands to apply operation on(/over) a specific versions of the object. ([#475](https://github.com/peak/s5cmd/pull/475))
-- Added `bucket-version` command to configure bucket versioning. Bucket name
- alone returns the bucket versioning status of the bucket. Bucket versioning can 
- be configured with `set` flag. ([#475](https://github.com/peak/s5cmd/pull/475)) 
+- Added `bucket-version` command to configure bucket versioning. Bucket name alone returns the bucket versioning status of the bucket. Bucket versioning can be configured with `set` flag. ([#475](https://github.com/peak/s5cmd/pull/475)) 
 - Added `--raw` flag to `cat` and `select` subcommands. It disables the wildcard operations. ([#475](https://github.com/peak/s5cmd/pull/475)) 
+- Added `bench.py` script under new `benchmark` folder to compare performances of two different builds of s5cmd. ([#471](https://github.com/peak/s5cmd/pull/471))
 
 #### Improvements
-- Disable AWS SDK logger if log level is not `trace`. ([##460](https://github.com/peak/s5cmd/pull/460))
+- Disable AWS SDK logger if log level is not `trace`. ([#460](https://github.com/peak/s5cmd/pull/460))
 - Allow adjacent slashes to be used as keys when uploading to remote. ([#459](https://github.com/peak/s5cmd/pull/459))
 - Debian packages are provided on [releases page](https://github.com/peak/s5cmd/releases) ([#380](https://github.com/peak/s5cmd/issues/380))
 - Upgraded minimum required Go version to 1.17.

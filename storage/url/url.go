@@ -14,7 +14,7 @@ import (
 	"strings"
 
 	"github.com/lanrat/extsort"
-	"github.com/peak/s5cmd/strutil"
+	"github.com/peak/s5cmd/v2/strutil"
 )
 
 const (

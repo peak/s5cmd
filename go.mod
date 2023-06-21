@@ -1,4 +1,4 @@
-module github.com/peak/s5cmd
+module github.com/peak/s5cmd/v2
 
 go 1.17
 

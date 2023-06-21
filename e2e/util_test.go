@@ -46,7 +46,7 @@ const (
 	// Don't use "race" flag in the build arguments.
 	testDisableRaceFlagKey       = "S5CMD_BUILD_BINARY_WITHOUT_RACE_FLAG"
 	testDisableRaceFlagVal       = "1"
-	s5cmdTestIdEnv               = "S5CMD_ACCESS_KEY_ID"
+	s5cmdTestIDEnv               = "S5CMD_ACCESS_KEY_ID"
 	s5cmdTestSecretEnv           = "S5CMD_SECRET_ACCESS_KEY"
 	s5cmdTestEndpointEnv         = "S5CMD_ENDPOINT_URL"
 	s5cmdTestIsVirtualHost       = "S5CMD_IS_VIRTUAL_HOST"
@@ -189,7 +189,7 @@ func s3client(t *testing.T, options storage.Options) *s3.S3 {
 	// get environment variables and use external endpoint url.
 	// this can be used to test s3 sources such as GCS, amazon, wasabi etc.
 	if isEndpointFromEnv() {
-		id = os.Getenv(s5cmdTestIdEnv)
+		id = os.Getenv(s5cmdTestIDEnv)
 		key = os.Getenv(s5cmdTestSecretEnv)
 		endpoint = os.Getenv(s5cmdTestEndpointEnv)
 		region = os.Getenv(s5cmdTestRegionEnv)
@@ -249,7 +249,7 @@ func (c *slowDownRetryer) ShouldRetry(req *request.Request) bool {
 }
 
 func isEndpointFromEnv() bool {
-	return os.Getenv(s5cmdTestIdEnv) != "" &&
+	return os.Getenv(s5cmdTestIDEnv) != "" &&
 		os.Getenv(s5cmdTestSecretEnv) != "" &&
 		os.Getenv(s5cmdTestEndpointEnv) != "" &&
 		os.Getenv(s5cmdTestRegionEnv) != "" &&
@@ -281,7 +281,7 @@ func s5cmd(workdir, endpoint string) func(args ...string) icmd.Cmd {
 		secret := defaultSecretAccessKey
 
 		if isEndpointFromEnv() {
-			id = os.Getenv(s5cmdTestIdEnv)
+			id = os.Getenv(s5cmdTestIDEnv)
 			secret = os.Getenv(s5cmdTestSecretEnv)
 			env = append(
 				env,

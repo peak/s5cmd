@@ -393,7 +393,6 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 				printError(s.fullCommand, s.op, err)
 			}
 		}()
-
 	}()
 
 	return sourceObjects, destObjects, nil
@@ -468,6 +467,11 @@ func (s Sync) planRun(
 		for d := range onlyDest {
 			dstURLs = append(dstURLs, d)
 		}
+
+		if len(dstURLs) == 0 {
+			return
+		}
+
 		command, err := generateCommand(c, "rm", defaultFlags, dstURLs...)
 		if err != nil {
 			printDebug(s.op, err, dstURLs...)

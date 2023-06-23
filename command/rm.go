@@ -74,6 +74,11 @@ func NewDeleteCommand() *cli.Command {
 				Name:  "version-id",
 				Usage: "use the specified version of an object",
 			},
+			&cli.IntFlag{
+				Name:  "max-batch",
+				Value: storage.DeleteObjectsMax,
+				Usage: "max number of objects in a single DeleteObjects request",
+			},
 		},
 		CustomHelpTemplate: deleteHelpTemplate,
 		Before: func(c *cli.Context) error {
@@ -101,6 +106,7 @@ func NewDeleteCommand() *cli.Command {
 
 				// flags
 				exclude: c.StringSlice("exclude"),
+				maxBatch: c.Int("max-batch"),
 
 				storageOpts: NewStorageOpts(c),
 			}.Run(c.Context)
@@ -119,6 +125,7 @@ type Delete struct {
 
 	// flag options
 	exclude []string
+	maxBatch int
 
 	// storage options
 	storageOpts storage.Options
@@ -172,7 +179,7 @@ func (d Delete) Run(ctx context.Context) error {
 		}
 	}()
 
-	resultch := client.MultiDelete(ctx, urlch)
+	resultch := client.MultiDelete(ctx, urlch, d.maxBatch)
 
 	for obj := range resultch {
 		if err := obj.Err; err != nil {
@@ -267,6 +274,14 @@ func validateRMCommand(c *cli.Context) error {
 		if srcurl.Bucket != firstBucket {
 			return fmt.Errorf("removal of objects with different buckets in a single command is not allowed")
 		}
+	}
+
+	max := c.Int("max-batch")
+	if max < 1 {
+		return fmt.Errorf("--max-batch value cannot be less than 1")
+	}
+	if max > storage.DeleteObjectsMax {
+		return fmt.Errorf("--max-batch value cannot be bigger than %v", storage.DeleteObjectsMax)
 	}
 
 	return nil

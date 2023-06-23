@@ -39,7 +39,7 @@ var sentinelURL = urlpkg.URL{}
 const (
 	// deleteObjectsMax is the max allowed objects to be deleted on single HTTP
 	// request.
-	deleteObjectsMax = 1000
+	DeleteObjectsMax = 1000
 
 	// Amazon Accelerated Transfer endpoint
 	transferAccelEndpoint = "s3-accelerate.amazonaws.com"
@@ -785,10 +785,13 @@ type chunk struct {
 
 // calculateChunks calculates chunks for given URL channel and returns
 // read-only chunk channel.
-func (s *S3) calculateChunks(ch <-chan *url.URL) <-chan chunk {
+func (s *S3) calculateChunks(ch <-chan *url.URL, max int) <-chan chunk {
 	chunkch := make(chan chunk)
 
-	chunkSize := deleteObjectsMax
+	chunkSize := DeleteObjectsMax
+	if max != 0 {
+		chunkSize = max
+	}
 	// delete each object individually if using gcs.
 	if IsGoogleEndpoint(s.endpointURL) {
 		chunkSize = 1
@@ -916,7 +919,7 @@ func (s *S3) doDelete(ctx context.Context, chunk chunk, resultch chan *Object) {
 // chunks in parallel. Each chunk may have at most 1000 objects since DeleteObjects
 // API has a limitation.
 // See: https://docs.aws.amazon.com/AmazonS3/latest/API/API_DeleteObjects.html.
-func (s *S3) MultiDelete(ctx context.Context, urlch <-chan *url.URL) <-chan *Object {
+func (s *S3) MultiDelete(ctx context.Context, urlch <-chan *url.URL, max int) <-chan *Object {
 	resultch := make(chan *Object)
 
 	go func() {
@@ -924,7 +927,7 @@ func (s *S3) MultiDelete(ctx context.Context, urlch <-chan *url.URL) <-chan *Obj
 		defer close(sem)
 		defer close(resultch)
 
-		chunks := s.calculateChunks(urlch)
+		chunks := s.calculateChunks(urlch, max)
 
 		var wg sync.WaitGroup
 		for chunk := range chunks {

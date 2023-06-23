@@ -179,7 +179,7 @@ func (f *Filesystem) Delete(ctx context.Context, url *url.URL) error {
 }
 
 // MultiDelete deletes all files returned from given channel.
-func (f *Filesystem) MultiDelete(ctx context.Context, urlch <-chan *url.URL) <-chan *Object {
+func (f *Filesystem) MultiDelete(ctx context.Context, urlch <-chan *url.URL, max int) <-chan *Object {
 	resultch := make(chan *Object)
 	go func() {
 		defer close(resultch)

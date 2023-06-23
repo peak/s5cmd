@@ -45,7 +45,7 @@ type Storage interface {
 	Delete(ctx context.Context, src *url.URL) error
 
 	// MultiDelete deletes all items returned from given urls in batches.
-	MultiDelete(ctx context.Context, urls <-chan *url.URL) <-chan *Object
+	MultiDelete(ctx context.Context, urls <-chan *url.URL, max int) <-chan *Object
 
 	// Copy src to dst, optionally setting the given metadata. Src and dst
 	// arguments are of the same type. If src is a remote type, server side

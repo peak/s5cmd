@@ -1162,8 +1162,6 @@ func TestSyncS3BucketToEmptyLocalWithDelete(t *testing.T) {
 		0: equals(`cp %vcontributing.md %vcontributing.md`, src, dst),
 	}, sortInput(true))
 
-	fmt.Println("stdout", "--", stdout, "--")
-
 	expectedFolderLayout := []fs.PathOp{
 		fs.WithFile("contributing.md", "S: this is a readme file"),
 	}

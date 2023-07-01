@@ -1,7 +1,7 @@
 package command
 
 import (
-	"github.com/peak/s5cmd/log/stat"
+	"github.com/peak/s5cmd/v2/log/stat"
 
 	"github.com/urfave/cli/v2"
 )
@@ -52,7 +52,11 @@ func NewMoveCommand() *cli.Command {
 			defer stat.Collect(c.Command.FullName(), &err)()
 
 			// delete source
-			return NewCopy(c, true).Run(c.Context)
+			copy, err := NewCopy(c, true)
+			if err != nil {
+				return err
+			}
+			return copy.Run(c.Context)
 		},
 	}
 

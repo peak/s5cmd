@@ -2,6 +2,8 @@
 package url
 
 import (
+	"bytes"
+	"encoding/gob"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -11,7 +13,8 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/peak/s5cmd/strutil"
+	"github.com/lanrat/extsort"
+	"github.com/peak/s5cmd/v2/strutil"
 )
 
 const (
@@ -37,12 +40,14 @@ const (
 // URL is the canonical representation of an object, either on local or remote
 // storage.
 type URL struct {
-	Type      urlType
-	Scheme    string
-	Bucket    string
-	Path      string
-	Delimiter string
-	Prefix    string
+	Type        urlType
+	Scheme      string
+	Bucket      string
+	Path        string
+	Delimiter   string
+	Prefix      string
+	VersionID   string
+	AllVersions bool
 
 	relativePath string
 	filter       string
@@ -55,6 +60,18 @@ type Option func(u *URL)
 func WithRaw(mode bool) Option {
 	return func(u *URL) {
 		u.raw = mode
+	}
+}
+
+func WithVersion(versionId string) Option {
+	return func(u *URL) {
+		u.VersionID = versionId
+	}
+}
+
+func WithAllVersions(isAllVersions bool) Option {
+	return func(u *URL) {
+		u.AllVersions = isAllVersions
 	}
 }
 
@@ -145,6 +162,11 @@ func (u *URL) IsPrefix() bool {
 // IsBucket returns true if the object url contains only bucket name
 func (u *URL) IsBucket() bool {
 	return u.IsRemote() && u.Path == ""
+}
+
+// IsVersioned returns true if the URL has versioning related values
+func (u *URL) IsVersioned() bool {
+	return u.AllVersions || u.VersionID != ""
 }
 
 // Absolute returns the absolute URL format of the object.
@@ -277,16 +299,19 @@ func (u *URL) setPrefixAndFilter() error {
 // Clone creates a copy of the receiver.
 func (u *URL) Clone() *URL {
 	return &URL{
-		Type:      u.Type,
-		Scheme:    u.Scheme,
-		Bucket:    u.Bucket,
-		Delimiter: u.Delimiter,
-		Path:      u.Path,
-		Prefix:    u.Prefix,
+		Type:        u.Type,
+		Scheme:      u.Scheme,
+		Bucket:      u.Bucket,
+		Path:        u.Path,
+		Delimiter:   u.Delimiter,
+		Prefix:      u.Prefix,
+		VersionID:   u.VersionID,
+		AllVersions: u.AllVersions,
 
 		relativePath: u.relativePath,
 		filter:       u.filter,
 		filterRegex:  u.filterRegex,
+		raw:          u.raw,
 	}
 }
 
@@ -356,6 +381,31 @@ func (u *URL) MarshalJSON() ([]byte, error) {
 	return json.Marshal(u.String())
 }
 
+func (u URL) ToBytes() []byte {
+	buf := bytes.NewBuffer(make([]byte, 0))
+	enc := gob.NewEncoder(buf)
+	enc.Encode(u.Absolute())
+	enc.Encode(u.relativePath)
+	enc.Encode(u.raw)
+	return buf.Bytes()
+}
+
+func FromBytes(data []byte) extsort.SortType {
+	buf := bytes.NewBuffer(data)
+	dec := gob.NewDecoder(buf)
+	var (
+		abs, rel string
+		raw      bool
+	)
+	dec.Decode(&abs)
+	dec.Decode(&rel)
+	dec.Decode(&raw)
+
+	url, _ := New(abs, WithRaw(raw))
+	url.relativePath = rel
+	return url
+}
+
 // IsWildcard reports whether if a string contains any wildcard chars.
 func (u *URL) IsWildcard() bool {
 	return !u.raw && hasGlobCharacter(u.Path)
@@ -423,4 +473,20 @@ func (u *URL) EscapedPath() string {
 		sourceKeyElements[i] = url.QueryEscape(element)
 	}
 	return strings.Join(sourceKeyElements, "/")
+}
+
+// check if all fields of URL equal
+func (u *URL) deepEqual(url *URL) bool {
+	if url.Absolute() != u.Absolute() ||
+		url.Type != u.Type ||
+		url.Scheme != u.Scheme ||
+		url.Bucket != u.Bucket ||
+		url.Delimiter != u.Delimiter ||
+		url.Path != u.Path ||
+		url.Prefix != u.Prefix ||
+		url.relativePath != u.relativePath ||
+		url.filter != u.filter {
+		return false
+	}
+	return true
 }

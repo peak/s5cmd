@@ -30,8 +30,8 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager/s3manageriface"
 
-	"github.com/peak/s5cmd/log"
-	"github.com/peak/s5cmd/storage/url"
+	"github.com/peak/s5cmd/v2/log"
+	"github.com/peak/s5cmd/v2/storage/url"
 )
 
 var sentinelURL = urlpkg.URL{}
@@ -115,11 +115,16 @@ func newS3Storage(ctx context.Context, opts Options) (*S3, error) {
 
 // Stat retrieves metadata from S3 object without returning the object itself.
 func (s *S3) Stat(ctx context.Context, url *url.URL) (*Object, error) {
-	output, err := s.api.HeadObjectWithContext(ctx, &s3.HeadObjectInput{
+	input := &s3.HeadObjectInput{
 		Bucket:       aws.String(url.Bucket),
 		Key:          aws.String(url.Path),
 		RequestPayer: s.RequestPayer(),
-	})
+	}
+	if url.VersionID != "" {
+		input.SetVersionId(url.VersionID)
+	}
+
+	output, err := s.api.HeadObjectWithContext(ctx, input)
 	if err != nil {
 		if errHasCode(err, "NotFound") {
 			return nil, &ErrGivenObjectNotFound{ObjectAbsPath: url.Absolute()}
@@ -150,11 +155,144 @@ func (s *S3) Stat(ctx context.Context, url *url.URL) (*Object, error) {
 // keys. If no object found or an error is encountered during this period,
 // it sends these errors to object channel.
 func (s *S3) List(ctx context.Context, url *url.URL, _ bool) <-chan *Object {
+	if url.VersionID != "" || url.AllVersions {
+		return s.listObjectVersions(ctx, url)
+	}
 	if IsGoogleEndpoint(s.endpointURL) || s.useListObjectsV1 {
 		return s.listObjects(ctx, url)
 	}
 
 	return s.listObjectsV2(ctx, url)
+}
+
+func (s *S3) listObjectVersions(ctx context.Context, url *url.URL) <-chan *Object {
+	listInput := s3.ListObjectVersionsInput{
+		Bucket: aws.String(url.Bucket),
+		Prefix: aws.String(url.Prefix),
+	}
+
+	if url.Delimiter != "" {
+		listInput.SetDelimiter(url.Delimiter)
+	}
+
+	objCh := make(chan *Object)
+
+	go func() {
+		defer close(objCh)
+		objectFound := false
+
+		var now time.Time
+
+		err := s.api.ListObjectVersionsPagesWithContext(ctx, &listInput,
+			func(p *s3.ListObjectVersionsOutput, lastPage bool) bool {
+				for _, c := range p.CommonPrefixes {
+					prefix := aws.StringValue(c.Prefix)
+					if !url.Match(prefix) {
+						continue
+					}
+
+					newurl := url.Clone()
+					newurl.Path = prefix
+					objCh <- &Object{
+						URL:  newurl,
+						Type: ObjectType{os.ModeDir},
+					}
+
+					objectFound = true
+				}
+				// track the instant object iteration began,
+				// so it can be used to bypass objects created after this instant
+				if now.IsZero() {
+					now = time.Now().UTC()
+				}
+
+				// iterate over all versions of the objects (except the delete markers)
+				for _, v := range p.Versions {
+					key := aws.StringValue(v.Key)
+					if !url.Match(key) {
+						continue
+					}
+					if url.VersionID != "" && url.VersionID != aws.StringValue(v.VersionId) {
+						continue
+					}
+
+					mod := aws.TimeValue(v.LastModified).UTC()
+					if mod.After(now) {
+						objectFound = true
+						continue
+					}
+
+					var objtype os.FileMode
+					if strings.HasSuffix(key, "/") {
+						objtype = os.ModeDir
+					}
+
+					newurl := url.Clone()
+					newurl.Path = aws.StringValue(v.Key)
+					newurl.VersionID = aws.StringValue(v.VersionId)
+					etag := aws.StringValue(v.ETag)
+
+					objCh <- &Object{
+						URL:          newurl,
+						Etag:         strings.Trim(etag, `"`),
+						ModTime:      &mod,
+						Type:         ObjectType{objtype},
+						Size:         aws.Int64Value(v.Size),
+						StorageClass: StorageClass(aws.StringValue(v.StorageClass)),
+					}
+
+					objectFound = true
+				}
+
+				// iterate over all delete marker versions of the objects
+				for _, d := range p.DeleteMarkers {
+					key := aws.StringValue(d.Key)
+					if !url.Match(key) {
+						continue
+					}
+					if url.VersionID != "" && url.VersionID != aws.StringValue(d.VersionId) {
+						continue
+					}
+
+					mod := aws.TimeValue(d.LastModified).UTC()
+					if mod.After(now) {
+						objectFound = true
+						continue
+					}
+
+					var objtype os.FileMode
+					if strings.HasSuffix(key, "/") {
+						objtype = os.ModeDir
+					}
+
+					newurl := url.Clone()
+					newurl.Path = aws.StringValue(d.Key)
+					newurl.VersionID = aws.StringValue(d.VersionId)
+
+					objCh <- &Object{
+						URL:     newurl,
+						ModTime: &mod,
+						Type:    ObjectType{objtype},
+						Size:    0,
+					}
+
+					objectFound = true
+				}
+
+				return !lastPage
+			})
+
+		if err != nil {
+			objCh <- &Object{Err: err}
+			return
+		}
+
+		if !objectFound {
+			objCh <- &Object{Err: ErrNoObjectFound}
+		}
+	}()
+
+	return objCh
 }
 
 func (s *S3) listObjectsV2(ctx context.Context, url *url.URL) <-chan *Object {
@@ -365,6 +503,14 @@ func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata Metadata) err
 		CopySource:   aws.String(copySource),
 		RequestPayer: s.RequestPayer(),
 	}
+	if from.VersionID != "" {
+		// Unlike many other *Input and *Output types version ID is not a field,
+		// but rather something that must be appended to CopySource string.
+		// This is same in both v1 and v2 SDKs:
+		// https://pkg.go.dev/github.com/aws/aws-sdk-go/service/s3#CopyObjectInput
+		// https://pkg.go.dev/github.com/aws/aws-sdk-go-v2/service/s3#CopyObjectInput
+		input.CopySource = aws.String(copySource + "?versionId=" + from.VersionID)
+	}
 
 	storageClass := metadata.StorageClass()
 	if storageClass != "" {
@@ -405,11 +551,17 @@ func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata Metadata) err
 
 // Read fetches the remote object and returns its contents as an io.ReadCloser.
 func (s *S3) Read(ctx context.Context, src *url.URL) (io.ReadCloser, error) {
-	resp, err := s.api.GetObjectWithContext(ctx, &s3.GetObjectInput{
+	input := &s3.GetObjectInput{
 		Bucket:       aws.String(src.Bucket),
 		Key:          aws.String(src.Path),
 		RequestPayer: s.RequestPayer(),
-	})
+	}
+	if src.VersionID != "" {
+		input.SetVersionId(src.VersionID)
+	}
+
+	resp, err := s.api.GetObjectWithContext(ctx, input)
+
 	if err != nil {
 		return nil, err
 	}
@@ -430,11 +582,16 @@ func (s *S3) Get(
 		return 0, nil
 	}
 
-	return s.downloader.DownloadWithContext(ctx, to, &s3.GetObjectInput{
+	input := &s3.GetObjectInput{
 		Bucket:       aws.String(from.Bucket),
 		Key:          aws.String(from.Path),
 		RequestPayer: s.RequestPayer(),
-	}, func(u *s3manager.Downloader) {
+	}
+	if from.VersionID != "" {
+		input.VersionId = aws.String(from.VersionID)
+	}
+
+	return s.downloader.DownloadWithContext(ctx, to, input, func(u *s3manager.Downloader) {
 		u.PartSize = partSize
 		u.Concurrency = concurrency
 	})
@@ -660,6 +817,10 @@ func (s *S3) calculateChunks(ch <-chan *url.URL) <-chan chunk {
 			bucket = url.Bucket
 
 			objid := &s3.ObjectIdentifier{Key: aws.String(url.Path)}
+			if url.VersionID != "" {
+				objid.VersionId = &url.VersionID
+			}
+
 			keys = append(keys, objid)
 			if len(keys) == chunkSize {
 				chunkch <- chunk{
@@ -705,6 +866,7 @@ func (s *S3) doDelete(ctx context.Context, chunk chunk, resultch chan *Object) {
 		for _, k := range chunk.Keys {
 			key := fmt.Sprintf("s3://%v/%v", chunk.Bucket, aws.StringValue(k.Key))
 			url, _ := url.New(key)
+			url.VersionID = aws.StringValue(k.VersionId)
 			resultch <- &Object{URL: url}
 		}
 		return
@@ -743,12 +905,15 @@ func (s *S3) doDelete(ctx context.Context, chunk chunk, resultch chan *Object) {
 	for _, d := range o.Deleted {
 		key := fmt.Sprintf("s3://%v/%v", bucket, aws.StringValue(d.Key))
 		url, _ := url.New(key)
+		url.VersionID = aws.StringValue(d.VersionId)
 		resultch <- &Object{URL: url}
 	}
 
 	for _, e := range o.Errors {
 		key := fmt.Sprintf("s3://%v/%v", bucket, aws.StringValue(e.Key))
 		url, _ := url.New(key)
+		url.VersionID = aws.StringValue(e.VersionId)
+
 		resultch <- &Object{
 			URL: url,
 			Err: fmt.Errorf(aws.StringValue(e.Message)),
@@ -834,6 +999,34 @@ func (s *S3) RemoveBucket(ctx context.Context, name string) error {
 		Bucket: aws.String(name),
 	})
 	return err
+}
+
+// SetBucketVersioning sets the versioning property of the bucket
+func (s *S3) SetBucketVersioning(ctx context.Context, versioningStatus, bucket string) error {
+	if s.dryRun {
+		return nil
+	}
+
+	_, err := s.api.PutBucketVersioningWithContext(ctx, &s3.PutBucketVersioningInput{
+		Bucket: aws.String(bucket),
+		VersioningConfiguration: &s3.VersioningConfiguration{
+			Status: aws.String(versioningStatus),
+		},
+	})
+	return err
+}
+
+// GetBucketVersioning returnsversioning property of the bucket
+func (s *S3) GetBucketVersioning(ctx context.Context, bucket string) (string, error) {
+	output, err := s.api.GetBucketVersioningWithContext(ctx, &s3.GetBucketVersioningInput{
+		Bucket: aws.String(bucket),
+	})
+	if err != nil || output.Status == nil {
+		return "", err
+	}
+
+	return *output.Status, nil
+
 }
 
 type sdkLogger struct{}

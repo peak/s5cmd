@@ -12,8 +12,8 @@ import (
 
 	"github.com/stretchr/testify/mock"
 
-	"github.com/peak/s5cmd/storage"
-	"github.com/peak/s5cmd/storage/url"
+	"github.com/peak/s5cmd/v2/storage"
+	"github.com/peak/s5cmd/v2/storage/url"
 )
 
 func TestExpandSources(t *testing.T) {
@@ -132,7 +132,7 @@ func TestExpandSources(t *testing.T) {
 	for _, tc := range tests {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			srcurls, err := newURLs(false, keys(tc.src)...)
+			srcurls, err := newURLs(false, "", false, keys(tc.src)...)
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
 				return

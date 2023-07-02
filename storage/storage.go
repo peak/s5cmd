@@ -1,3 +1,5 @@
+//go:generate mockgen -source=$GOFILE -destination=mock_$GOFILE -package=$GOPACKAGE Storage
+
 // Package storage implements operations for s3 and fs.
 package storage
 
@@ -166,10 +168,10 @@ func (o ObjectType) IsSymlink() bool {
 	return o.mode&os.ModeSymlink != 0
 }
 
-// ShouldProcessUrl returns true if follow symlinks is enabled.
+// ShouldProcessURL returns true if follow symlinks is enabled.
 // If follow symlinks is disabled we should not process the url.
 // (this check is needed only for local files)
-func ShouldProcessUrl(url *url.URL, followSymlinks bool) bool {
+func ShouldProcessURL(url *url.URL, followSymlinks bool) bool {
 	if followSymlinks {
 		return true
 	}
@@ -304,9 +306,9 @@ func (o Object) ToBytes() []byte {
 
 func FromBytes(data []byte) extsort.SortType {
 	dec := gob.NewDecoder(bytes.NewBuffer(data))
-	var gobUrl []byte
-	dec.Decode(&gobUrl)
-	u := url.FromBytes(gobUrl).(*url.URL)
+	var gobURL []byte
+	dec.Decode(&gobURL)
+	u := url.FromBytes(gobURL).(*url.URL)
 	o := Object{
 		URL: u,
 	}

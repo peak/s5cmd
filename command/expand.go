@@ -37,7 +37,7 @@ func expandSource(
 	}
 
 	ch := make(chan *storage.Object, 1)
-	if storage.ShouldProcessUrl(srcurl, followSymlinks) {
+	if storage.ShouldProcessURL(srcurl, followSymlinks) {
 		ch <- &storage.Object{URL: srcurl}
 	}
 	close(ch)

@@ -587,14 +587,14 @@ func TestURLSetRelative(t *testing.T) {
 			if err != nil {
 				t.Errorf("URL cannot be instantiated: \nPath: %v, Error: %v", tt.base, err)
 			}
-			targUrl, err := New(tt.target)
+			targURL, err := New(tt.target)
 			if err != nil {
 				t.Errorf("URL cannot be instantiated:\nPath: %v, Error: %v", tt.base, err)
 			}
 
-			targUrl.SetRelative(baseURL)
+			targURL.SetRelative(baseURL)
 
-			if diff := cmp.Diff(tt.expect, targUrl.Relative()); diff != "" {
+			if diff := cmp.Diff(tt.expect, targURL.Relative()); diff != "" {
 				t.Errorf("SetRelative() with %s did not produce expected path (-want +got):\n%s", tt.name, diff)
 			}
 		})

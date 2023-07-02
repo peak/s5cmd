@@ -162,21 +162,21 @@ aws_secret_access_key = p2_profile_access_key`
 		name               string
 		fileName           string
 		profileName        string
-		expAccessKeyId     string
+		expAccessKeyID     string
 		expSecretAccessKey string
 	}{
 		{
 			name:               "use default profile",
 			fileName:           file.Name(),
 			profileName:        "",
-			expAccessKeyId:     "default_profile_key_id",
+			expAccessKeyID:     "default_profile_key_id",
 			expSecretAccessKey: "default_profile_access_key",
 		},
 		{
 			name:               "use a non-default profile",
 			fileName:           file.Name(),
 			profileName:        "p1",
-			expAccessKeyId:     "p1_profile_key_id",
+			expAccessKeyID:     "p1_profile_key_id",
 			expSecretAccessKey: "p1_profile_access_key",
 		},
 		{
@@ -184,7 +184,7 @@ aws_secret_access_key = p2_profile_access_key`
 			name:               "use a non-existent profile",
 			fileName:           file.Name(),
 			profileName:        "non-existent-profile",
-			expAccessKeyId:     "",
+			expAccessKeyID:     "",
 			expSecretAccessKey: "",
 		},
 	}
@@ -203,13 +203,13 @@ aws_secret_access_key = p2_profile_access_key`
 			if err != nil {
 				// if there should be such a profile but received an error fail,
 				// ignore the error otherwise.
-				if tc.expAccessKeyId != "" || tc.expSecretAccessKey != "" {
+				if tc.expAccessKeyID != "" || tc.expSecretAccessKey != "" {
 					t.Fatal(err)
 				}
 			}
 
-			if got.AccessKeyID != tc.expAccessKeyId || got.SecretAccessKey != tc.expSecretAccessKey {
-				t.Errorf("Expected credentials does not match the credential we got!\nExpected: Access Key ID: %v, Secret Access Key: %v\nGot    : Access Key ID: %v, Secret Access Key: %v\n", tc.expAccessKeyId, tc.expSecretAccessKey, got.AccessKeyID, got.SecretAccessKey)
+			if got.AccessKeyID != tc.expAccessKeyID || got.SecretAccessKey != tc.expSecretAccessKey {
+				t.Errorf("Expected credentials does not match the credential we got!\nExpected: Access Key ID: %v, Secret Access Key: %v\nGot    : Access Key ID: %v, Secret Access Key: %v\n", tc.expAccessKeyID, tc.expSecretAccessKey, got.AccessKeyID, got.SecretAccessKey)
 			}
 		})
 	}
@@ -221,16 +221,16 @@ func TestS3ListURL(t *testing.T) {
 		t.Errorf("unexpected error: %v", err)
 	}
 
-	mockApi := s3.New(unit.Session)
+	mockAPI := s3.New(unit.Session)
 	mockS3 := &S3{
-		api: mockApi,
+		api: mockAPI,
 	}
 
-	mockApi.Handlers.Send.Clear()
-	mockApi.Handlers.Unmarshal.Clear()
-	mockApi.Handlers.UnmarshalMeta.Clear()
-	mockApi.Handlers.ValidateResponse.Clear()
-	mockApi.Handlers.Unmarshal.PushBack(func(r *request.Request) {
+	mockAPI.Handlers.Send.Clear()
+	mockAPI.Handlers.Unmarshal.Clear()
+	mockAPI.Handlers.UnmarshalMeta.Clear()
+	mockAPI.Handlers.ValidateResponse.Clear()
+	mockAPI.Handlers.Unmarshal.PushBack(func(r *request.Request) {
 		r.Data = &s3.ListObjectsV2Output{
 			CommonPrefixes: []*s3.CommonPrefix{
 				{Prefix: aws.String("key/a/")},
@@ -297,16 +297,16 @@ func TestS3ListError(t *testing.T) {
 		t.Errorf("unexpected error: %v", err)
 	}
 
-	mockApi := s3.New(unit.Session)
+	mockAPI := s3.New(unit.Session)
 	mockS3 := &S3{
-		api: mockApi,
+		api: mockAPI,
 	}
 	mockErr := fmt.Errorf("mock error")
 
-	mockApi.Handlers.Unmarshal.Clear()
-	mockApi.Handlers.UnmarshalMeta.Clear()
-	mockApi.Handlers.ValidateResponse.Clear()
-	mockApi.Handlers.Send.PushBack(func(r *request.Request) {
+	mockAPI.Handlers.Unmarshal.Clear()
+	mockAPI.Handlers.UnmarshalMeta.Clear()
+	mockAPI.Handlers.ValidateResponse.Clear()
+	mockAPI.Handlers.Send.PushBack(func(r *request.Request) {
 		r.Error = mockErr
 	})
 
@@ -323,16 +323,16 @@ func TestS3ListNoItemFound(t *testing.T) {
 		t.Errorf("unexpected error: %v", err)
 	}
 
-	mockApi := s3.New(unit.Session)
+	mockAPI := s3.New(unit.Session)
 	mockS3 := &S3{
-		api: mockApi,
+		api: mockAPI,
 	}
 
-	mockApi.Handlers.Send.Clear()
-	mockApi.Handlers.Unmarshal.Clear()
-	mockApi.Handlers.UnmarshalMeta.Clear()
-	mockApi.Handlers.ValidateResponse.Clear()
-	mockApi.Handlers.Unmarshal.PushBack(func(r *request.Request) {
+	mockAPI.Handlers.Send.Clear()
+	mockAPI.Handlers.Unmarshal.Clear()
+	mockAPI.Handlers.UnmarshalMeta.Clear()
+	mockAPI.Handlers.ValidateResponse.Clear()
+	mockAPI.Handlers.Unmarshal.PushBack(func(r *request.Request) {
 		// output does not include keys that match with given key
 		r.Data = &s3.ListObjectsV2Output{
 			CommonPrefixes: []*s3.CommonPrefix{
@@ -359,18 +359,18 @@ func TestS3ListContextCancelled(t *testing.T) {
 		t.Errorf("unexpected error: %v", err)
 	}
 
-	mockApi := s3.New(unit.Session)
+	mockAPI := s3.New(unit.Session)
 	mockS3 := &S3{
-		api: mockApi,
+		api: mockAPI,
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	mockApi.Handlers.Unmarshal.Clear()
-	mockApi.Handlers.UnmarshalMeta.Clear()
-	mockApi.Handlers.ValidateResponse.Clear()
-	mockApi.Handlers.Unmarshal.PushBack(func(r *request.Request) {
+	mockAPI.Handlers.Unmarshal.Clear()
+	mockAPI.Handlers.UnmarshalMeta.Clear()
+	mockAPI.Handlers.ValidateResponse.Clear()
+	mockAPI.Handlers.Unmarshal.PushBack(func(r *request.Request) {
 		r.Data = &s3.ListObjectsV2Output{
 			CommonPrefixes: []*s3.CommonPrefix{
 				{Prefix: aws.String("key/a/")},
@@ -541,19 +541,19 @@ func TestS3Retry(t *testing.T) {
 			sess := unit.Session
 			sess.Config.Retryer = newCustomRetryer(expectedRetry)
 
-			mockApi := s3.New(sess)
+			mockAPI := s3.New(sess)
 			mockS3 := &S3{
-				api: mockApi,
+				api: mockAPI,
 			}
 
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			mockApi.Handlers.Send.Clear()
-			mockApi.Handlers.Unmarshal.Clear()
-			mockApi.Handlers.UnmarshalMeta.Clear()
-			mockApi.Handlers.ValidateResponse.Clear()
-			mockApi.Handlers.Unmarshal.PushBack(func(r *request.Request) {
+			mockAPI.Handlers.Send.Clear()
+			mockAPI.Handlers.Unmarshal.Clear()
+			mockAPI.Handlers.UnmarshalMeta.Clear()
+			mockAPI.Handlers.ValidateResponse.Clear()
+			mockAPI.Handlers.Unmarshal.PushBack(func(r *request.Request) {
 				r.Error = tc.err
 				r.HTTPResponse = &http.Response{}
 			})
@@ -561,7 +561,7 @@ func TestS3Retry(t *testing.T) {
 			retried := -1
 			// Add a request handler to the AfterRetry handler stack that is used by the
 			// SDK to be executed after the SDK has determined if it will retry.
-			mockApi.Handlers.AfterRetry.PushBack(func(_ *request.Request) {
+			mockAPI.Handlers.AfterRetry.PushBack(func(_ *request.Request) {
 				retried++
 			})
 
@@ -607,11 +607,11 @@ func TestS3RetryOnNoSuchUpload(t *testing.T) {
 	for _, tc := range testcases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			mockApi := s3.New(unit.Session)
+			mockAPI := s3.New(unit.Session)
 			mockS3 := &S3{
-				api: mockApi,
+				api: mockAPI,
 				uploader: &s3manager.Uploader{
-					S3:                mockApi,
+					S3:                mockAPI,
 					PartSize:          s3manager.DefaultUploadPartSize,
 					Concurrency:       s3manager.DefaultUploadConcurrency,
 					LeavePartsOnError: false,
@@ -626,15 +626,15 @@ func TestS3RetryOnNoSuchUpload(t *testing.T) {
 			atomicCounter := new(int32)
 			atomic.StoreInt32(atomicCounter, 0)
 
-			mockApi.Handlers.Send.Clear()
-			mockApi.Handlers.Unmarshal.Clear()
-			mockApi.Handlers.UnmarshalMeta.Clear()
-			mockApi.Handlers.ValidateResponse.Clear()
-			mockApi.Handlers.Unmarshal.PushBack(func(r *request.Request) {
+			mockAPI.Handlers.Send.Clear()
+			mockAPI.Handlers.Unmarshal.Clear()
+			mockAPI.Handlers.UnmarshalMeta.Clear()
+			mockAPI.Handlers.ValidateResponse.Clear()
+			mockAPI.Handlers.Unmarshal.PushBack(func(r *request.Request) {
 				r.Error = tc.err
 				r.HTTPResponse = &http.Response{}
 			})
-			mockApi.Handlers.Unmarshal.PushBack(func(r *request.Request) {
+			mockAPI.Handlers.Unmarshal.PushBack(func(r *request.Request) {
 				atomic.AddInt32(atomicCounter, 1)
 			})
 
@@ -661,7 +661,7 @@ func TestS3CopyEncryptionRequest(t *testing.T) {
 
 		expectedSSE      string
 		expectedSSEKeyID string
-		expectedAcl      string
+		expectedACL      string
 	}{
 		{
 			name: "no encryption/no acl, by default",
@@ -687,7 +687,7 @@ func TestS3CopyEncryptionRequest(t *testing.T) {
 		{
 			name:        "acl flag with a value",
 			acl:         "bucket-owner-full-control",
-			expectedAcl: "bucket-owner-full-control",
+			expectedACL: "bucket-owner-full-control",
 		},
 	}
 
@@ -699,14 +699,14 @@ func TestS3CopyEncryptionRequest(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 
-			mockApi := s3.New(unit.Session)
+			mockAPI := s3.New(unit.Session)
 
-			mockApi.Handlers.Unmarshal.Clear()
-			mockApi.Handlers.UnmarshalMeta.Clear()
-			mockApi.Handlers.UnmarshalError.Clear()
-			mockApi.Handlers.Send.Clear()
+			mockAPI.Handlers.Unmarshal.Clear()
+			mockAPI.Handlers.UnmarshalMeta.Clear()
+			mockAPI.Handlers.UnmarshalError.Clear()
+			mockAPI.Handlers.Send.Clear()
 
-			mockApi.Handlers.Send.PushBack(func(r *request.Request) {
+			mockAPI.Handlers.Send.PushBack(func(r *request.Request) {
 
 				r.HTTPResponse = &http.Response{
 					StatusCode: http.StatusOK,
@@ -726,12 +726,12 @@ func TestS3CopyEncryptionRequest(t *testing.T) {
 
 				aclVal := valueAtPath(r.Params, "ACL")
 
-				if aclVal == nil && tc.expectedAcl == "" {
+				if aclVal == nil && tc.expectedACL == "" {
 					return
 				}
-				assert.Equal(t, aclVal, tc.expectedAcl)
+				assert.Equal(t, aclVal, tc.expectedACL)
 			})
-			mockApi.Handlers.Unmarshal.PushBack(func(r *request.Request) {
+			mockAPI.Handlers.Unmarshal.PushBack(func(r *request.Request) {
 				if r.Error != nil {
 					if awsErr, ok := r.Error.(awserr.Error); ok {
 						if awsErr.Code() == request.ErrCodeSerialization {
@@ -742,7 +742,7 @@ func TestS3CopyEncryptionRequest(t *testing.T) {
 			})
 
 			mockS3 := &S3{
-				api: mockApi,
+				api: mockAPI,
 			}
 
 			metadata := NewMetadata().SetSSE(tc.sse).SetSSEKeyID(tc.sseKeyID).SetACL(tc.acl)
@@ -765,7 +765,7 @@ func TestS3PutEncryptionRequest(t *testing.T) {
 
 		expectedSSE      string
 		expectedSSEKeyID string
-		expectedAcl      string
+		expectedACL      string
 	}{
 		{
 			name: "no encryption, no acl flag",
@@ -790,7 +790,7 @@ func TestS3PutEncryptionRequest(t *testing.T) {
 		{
 			name:        "acl flag with a value",
 			acl:         "bucket-owner-full-control",
-			expectedAcl: "bucket-owner-full-control",
+			expectedACL: "bucket-owner-full-control",
 		},
 	}
 	u, err := url.New("s3://bucket/key")
@@ -801,14 +801,14 @@ func TestS3PutEncryptionRequest(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 
-			mockApi := s3.New(unit.Session)
+			mockAPI := s3.New(unit.Session)
 
-			mockApi.Handlers.Unmarshal.Clear()
-			mockApi.Handlers.UnmarshalMeta.Clear()
-			mockApi.Handlers.UnmarshalError.Clear()
-			mockApi.Handlers.Send.Clear()
+			mockAPI.Handlers.Unmarshal.Clear()
+			mockAPI.Handlers.UnmarshalMeta.Clear()
+			mockAPI.Handlers.UnmarshalError.Clear()
+			mockAPI.Handlers.Send.Clear()
 
-			mockApi.Handlers.Send.PushBack(func(r *request.Request) {
+			mockAPI.Handlers.Send.PushBack(func(r *request.Request) {
 
 				r.HTTPResponse = &http.Response{
 					StatusCode: http.StatusOK,
@@ -828,14 +828,14 @@ func TestS3PutEncryptionRequest(t *testing.T) {
 
 				aclVal := valueAtPath(r.Params, "ACL")
 
-				if aclVal == nil && tc.expectedAcl == "" {
+				if aclVal == nil && tc.expectedACL == "" {
 					return
 				}
-				assert.Equal(t, aclVal, tc.expectedAcl)
+				assert.Equal(t, aclVal, tc.expectedACL)
 			})
 
 			mockS3 := &S3{
-				uploader: s3manager.NewUploaderWithClient(mockApi),
+				uploader: s3manager.NewUploaderWithClient(mockAPI),
 			}
 
 			metadata := NewMetadata().SetSSE(tc.sse).SetSSEKeyID(tc.sseKeyID).SetACL(tc.acl)
@@ -895,14 +895,14 @@ func TestS3listObjectsV2(t *testing.T) {
 		s3objs[i], s3objs[j] = s3objs[j], s3objs[i]
 	})
 
-	mockApi := s3.New(unit.Session)
+	mockAPI := s3.New(unit.Session)
 
-	mockApi.Handlers.Unmarshal.Clear()
-	mockApi.Handlers.UnmarshalMeta.Clear()
-	mockApi.Handlers.UnmarshalError.Clear()
-	mockApi.Handlers.Send.Clear()
+	mockAPI.Handlers.Unmarshal.Clear()
+	mockAPI.Handlers.UnmarshalMeta.Clear()
+	mockAPI.Handlers.UnmarshalError.Clear()
+	mockAPI.Handlers.Send.Clear()
 
-	mockApi.Handlers.Send.PushBack(func(r *request.Request) {
+	mockAPI.Handlers.Send.PushBack(func(r *request.Request) {
 		r.HTTPResponse = &http.Response{
 			StatusCode: http.StatusOK,
 			Body:       io.NopCloser(strings.NewReader("")),
@@ -914,7 +914,7 @@ func TestS3listObjectsV2(t *testing.T) {
 	})
 
 	mockS3 := &S3{
-		api: mockApi,
+		api: mockAPI,
 	}
 
 	ouputCh := mockS3.listObjectsV2(context.Background(), u)
@@ -1160,17 +1160,17 @@ func TestS3ListObjectsAPIVersions(t *testing.T) {
 		t.Errorf("unexpected error: %v", err)
 	}
 
-	mockApi := s3.New(unit.Session)
-	mockS3 := &S3{api: mockApi}
+	mockAPI := s3.New(unit.Session)
+	mockS3 := &S3{api: mockAPI}
 
-	mockApi.Handlers.Send.Clear()
-	mockApi.Handlers.Unmarshal.Clear()
-	mockApi.Handlers.UnmarshalMeta.Clear()
-	mockApi.Handlers.ValidateResponse.Clear()
+	mockAPI.Handlers.Send.Clear()
+	mockAPI.Handlers.Unmarshal.Clear()
+	mockAPI.Handlers.UnmarshalMeta.Clear()
+	mockAPI.Handlers.ValidateResponse.Clear()
 
 	t.Run("list-objects-v2", func(t *testing.T) {
 		var got interface{}
-		mockApi.Handlers.ValidateResponse.PushBack(func(r *request.Request) {
+		mockAPI.Handlers.ValidateResponse.PushBack(func(r *request.Request) {
 			got = r.Data
 		})
 
@@ -1188,7 +1188,7 @@ func TestS3ListObjectsAPIVersions(t *testing.T) {
 
 	t.Run("list-objects-v1", func(t *testing.T) {
 		var got interface{}
-		mockApi.Handlers.ValidateResponse.PushBack(func(r *request.Request) {
+		mockAPI.Handlers.ValidateResponse.PushBack(func(r *request.Request) {
 			got = r.Data
 		})
 

@@ -227,6 +227,13 @@ func TestS3ListURL(t *testing.T) {
 	}
 
 	mockApi.Handlers.Send.Clear()
+	mockApi.Handlers.Send.PushBack(func(r *request.Request) {
+		header := http.Header{}
+		r.HTTPResponse = &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     header,
+		}
+	})
 	mockApi.Handlers.Unmarshal.Clear()
 	mockApi.Handlers.UnmarshalMeta.Clear()
 	mockApi.Handlers.ValidateResponse.Clear()
@@ -329,6 +336,13 @@ func TestS3ListNoItemFound(t *testing.T) {
 	}
 
 	mockApi.Handlers.Send.Clear()
+	mockApi.Handlers.Send.PushBack(func(r *request.Request) {
+		header := http.Header{}
+		r.HTTPResponse = &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     header,
+		}
+	})
 	mockApi.Handlers.Unmarshal.Clear()
 	mockApi.Handlers.UnmarshalMeta.Clear()
 	mockApi.Handlers.ValidateResponse.Clear()
@@ -367,6 +381,14 @@ func TestS3ListContextCancelled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
+	mockApi.Handlers.Complete.Clear()
+	mockApi.Handlers.Complete.PushBack(func(r *request.Request) {
+		header := http.Header{}
+		r.HTTPResponse = &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     header,
+		}
+	})
 	mockApi.Handlers.Unmarshal.Clear()
 	mockApi.Handlers.UnmarshalMeta.Clear()
 	mockApi.Handlers.ValidateResponse.Clear()
@@ -1164,6 +1186,14 @@ func TestS3ListObjectsAPIVersions(t *testing.T) {
 	mockS3 := &S3{api: mockApi}
 
 	mockApi.Handlers.Send.Clear()
+	mockApi.Handlers.Send.PushBack(func(r *request.Request) {
+		header := http.Header{}
+		header.Set("Date", "Fri, 12 May 2023 20:36:22 GMT")
+		r.HTTPResponse = &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     header,
+		}
+	})
 	mockApi.Handlers.Unmarshal.Clear()
 	mockApi.Handlers.UnmarshalMeta.Clear()
 	mockApi.Handlers.ValidateResponse.Clear()

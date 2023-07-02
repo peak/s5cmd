@@ -63,9 +63,9 @@ func WithRaw(mode bool) Option {
 	}
 }
 
-func WithVersion(versionId string) Option {
+func WithVersion(versionID string) Option {
 	return func(u *URL) {
-		u.VersionID = versionId
+		u.VersionID = versionID
 	}
 }
 

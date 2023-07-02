@@ -60,11 +60,11 @@ func s3ServerEndpoint(t *testing.T, testdir *fs.Dir, loglvl, backend string, tim
 	})
 
 	if enableProxy {
-		parsedUrl, err := url.Parse(s3srv.URL)
+		parsedURL, err := url.Parse(s3srv.URL)
 		if err != nil {
 			t.Fatal(err)
 		}
-		proxyEnabledURL := "http://localhost.:" + parsedUrl.Port()
+		proxyEnabledURL := "http://localhost.:" + parsedURL.Port()
 		return proxyEnabledURL
 	}
 	return s3srv.URL

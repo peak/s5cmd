@@ -7,10 +7,9 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/golang/mock/gomock"
+	"gotest.tools/v3/assert"
 	"gotest.tools/v3/fs"
-
-	"github.com/stretchr/testify/mock"
 
 	"github.com/peak/s5cmd/v2/storage"
 	"github.com/peak/s5cmd/v2/storage/url"
@@ -138,7 +137,8 @@ func TestExpandSources(t *testing.T) {
 				return
 			}
 
-			client := &storage.MockStorage{}
+			ctrl := gomock.NewController(t)
+			client := storage.NewMockStorage(ctrl)
 
 			for src, objects := range tc.src {
 				srcurl, err := url.New(src)
@@ -150,7 +150,7 @@ func TestExpandSources(t *testing.T) {
 				ch := generateObjects(objects)
 
 				if src != "s3://bucket/key" {
-					client.On("List", mock.Anything, srcurl, mock.Anything).Once().Return(ch)
+					client.EXPECT().List(gomock.Any(), srcurl, gomock.Any()).Times(1).Return(ch)
 				}
 			}
 
@@ -171,8 +171,6 @@ func TestExpandSources(t *testing.T) {
 			if !reflect.DeepEqual(objects, tc.wantObjects) {
 				t.Errorf("got = %v, want %v", objects, tc.wantObjects)
 			}
-
-			client.AssertExpectations(t)
 		})
 	}
 }
@@ -193,16 +191,17 @@ func TestExpandSource_Follow_Link_To_Single_File(t *testing.T) {
 	defer workdir.Remove()
 
 	ctx := context.Background()
-	workdirUrl, _ := url.New(workdir.Join("b/my_link"))
+	workdirURL, _ := url.New(workdir.Join("b/my_link"))
 
 	//follow symbolic links
-	ch, _ := expandSource(ctx, storage.NewLocalClient(storage.Options{}), true, workdirUrl)
+	ch, _ := expandSource(ctx, storage.NewLocalClient(storage.Options{}), true, workdirURL)
 	var expected []string
 	for obj := range ch {
 		expected = append(expected, obj.URL.Absolute())
 	}
 	workdirJoin := filepath.ToSlash(workdir.Join("b/my_link"))
-	assert.Equal(t, []string{workdirJoin}, expected)
+
+	assert.DeepEqual(t, []string{workdirJoin}, expected)
 }
 
 func TestExpandSource_Do_Not_Follow_Link_To_Single_File(t *testing.T) {
@@ -221,15 +220,15 @@ func TestExpandSource_Do_Not_Follow_Link_To_Single_File(t *testing.T) {
 	defer workdir.Remove()
 
 	ctx := context.Background()
-	workdirUrl, _ := url.New(workdir.Join("b/my_link"))
+	workdirURL, _ := url.New(workdir.Join("b/my_link"))
 
 	//do not follow symbolic links
-	ch, _ := expandSource(ctx, storage.NewLocalClient(storage.Options{}), false, workdirUrl)
+	ch, _ := expandSource(ctx, storage.NewLocalClient(storage.Options{}), false, workdirURL)
 	var expected []string
 	for obj := range ch {
 		expected = append(expected, obj.URL.Absolute())
 	}
-	assert.Empty(t, expected)
+	assert.Assert(t, len(expected) == 0)
 }
 
 func TestExpandSource_Follow_Link_To_Directory(t *testing.T) {
@@ -251,16 +250,16 @@ func TestExpandSource_Follow_Link_To_Directory(t *testing.T) {
 	defer workdir.Remove()
 
 	ctx := context.Background()
-	workdirUrl, _ := url.New(workdir.Join("c/my_link"))
+	workdirURL, _ := url.New(workdir.Join("c/my_link"))
 
 	//follow symbolic links
-	ch, _ := expandSource(ctx, storage.NewLocalClient(storage.Options{}), true, workdirUrl)
+	ch, _ := expandSource(ctx, storage.NewLocalClient(storage.Options{}), true, workdirURL)
 	var expected []string
 	for obj := range ch {
 		expected = append(expected, obj.URL.Absolute())
 	}
 	sort.Strings(expected)
-	assert.Equal(t, []string{
+	assert.DeepEqual(t, []string{
 		filepath.ToSlash(workdir.Join("c/my_link/b/f3.txt")),
 		filepath.ToSlash(workdir.Join("c/my_link/f1.txt")),
 		filepath.ToSlash(workdir.Join("c/my_link/f2.txt")),
@@ -286,15 +285,16 @@ func TestExpandSource_Do_Not_Follow_Link_To_Directory(t *testing.T) {
 	defer workdir.Remove()
 
 	ctx := context.Background()
-	workdirUrl, _ := url.New(workdir.Join("c/my_link"))
+	workdirURL, _ := url.New(workdir.Join("c/my_link"))
 
 	//do not follow symbolic links
-	ch, _ := expandSource(ctx, storage.NewLocalClient(storage.Options{}), false, workdirUrl)
+	ch, _ := expandSource(ctx, storage.NewLocalClient(storage.Options{}), false, workdirURL)
 	var expected []string
 	for obj := range ch {
 		expected = append(expected, obj.URL.Absolute())
 	}
-	assert.Empty(t, expected)
+
+	assert.Assert(t, len(expected) == 0)
 }
 
 func TestExpandSource_Do_Not_Follow_Symlinks(t *testing.T) {
@@ -314,16 +314,16 @@ func TestExpandSource_Do_Not_Follow_Symlinks(t *testing.T) {
 	workdir := fs.NewDir(t, t.Name(), folderLayout...)
 	defer workdir.Remove()
 
-	workdirUrl, _ := url.New(workdir.Path())
+	workdirURL, _ := url.New(workdir.Path())
 
 	//do not follow symbolic links
-	ch, _ := expandSource(ctx, storage.NewLocalClient(storage.Options{}), false, workdirUrl)
+	ch, _ := expandSource(ctx, storage.NewLocalClient(storage.Options{}), false, workdirURL)
 	var expected []string
 	for obj := range ch {
 		expected = append(expected, obj.URL.Absolute())
 	}
 	workdirJoin := filepath.ToSlash(workdir.Join("a/f1.txt"))
-	assert.Equal(t, []string{workdirJoin}, expected)
+	assert.DeepEqual(t, []string{workdirJoin}, expected)
 }
 
 func keys(urls map[string][]*storage.Object) []string {

@@ -528,7 +528,9 @@ func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) 
 		return err
 	}
 
-	file, err := dstClient.Create(dsturl.Absolute())
+	var tempurl = *dsturl
+	tempurl.Path = tempurl.Path + ".tmp"
+	file, err := dstClient.Create(tempurl.Absolute())
 	if err != nil {
 		return err
 	}
@@ -537,9 +539,9 @@ func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) 
 	if err != nil {
 		// file must be closed before deletion
 		file.Close()
-		dErr := dstClient.Delete(ctx, dsturl)
+		dErr := dstClient.Delete(ctx, &tempurl)
 		if dErr != nil {
-			printDebug(c.op, dErr, srcurl, dsturl)
+			printDebug(c.op, dErr, srcurl, &tempurl)
 		}
 		return err
 	}
@@ -548,6 +550,8 @@ func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) 
 	if c.deleteSource {
 		_ = srcClient.Delete(ctx, srcurl)
 	}
+
+	os.Rename(tempurl.Absolute(), dsturl.Absolute())
 
 	msg := log.InfoMessage{
 		Operation:   c.op,

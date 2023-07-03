@@ -4140,3 +4140,32 @@ func TestDeleteFileWhenDownloadFailed(t *testing.T) {
 	expected := fs.Expected(t)
 	assert.Assert(t, fs.Equal(cmd.Dir, expected))
 }
+
+// Target local file should be overriden only if download completed successfully
+func TestLocalFileOverridenWhenDownloadFailed(t *testing.T){
+	t.Parallel()
+
+	s3client, s5cmd := setup(t)
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	const (
+		filename   = "testfile1.txt"
+		content    = "preserved content"
+		expectedContent = "preserved content"
+	)
+
+	workdir := fs.NewDir(t, t.Name(), fs.WithFile(filename, content))
+	defer workdir.Remove()
+
+	// It is going try downloading a nonexistent file from the s3 so it will fail.
+	// In this case we don't expect to have a local file will be overwritten.
+	cmd := s5cmd("cp", "s3://"+bucket+"/"+filename, filename)
+	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
+
+	result.Assert(t, icmd.Expected{ExitCode: 1})
+
+	// assert local filesystem does not have the inital file
+	expected := fs.Expected(t, fs.WithFile(filename, content))
+	assert.Assert(t, fs.Equal(workdir.Path(), expected))
+}

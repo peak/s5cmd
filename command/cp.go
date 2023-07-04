@@ -545,12 +545,12 @@ func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) 
 		}
 		return err
 	}
-	defer file.Close()
 
 	if c.deleteSource {
 		_ = srcClient.Delete(ctx, srcurl)
 	}
 
+	file.Close()
 	os.Rename(tempurl.Absolute(), dsturl.Absolute())
 
 	msg := log.InfoMessage{

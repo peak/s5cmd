@@ -4142,7 +4142,7 @@ func TestDeleteFileWhenDownloadFailed(t *testing.T) {
 }
 
 // Target local file should be overriden only if download completed successfully
-func TestLocalFileOverridenWhenDownloadFailed(t *testing.T){
+func TestLocalFileOverridenWhenDownloadFailed(t *testing.T) {
 	t.Parallel()
 
 	s3client, s5cmd := setup(t)
@@ -4150,8 +4150,8 @@ func TestLocalFileOverridenWhenDownloadFailed(t *testing.T){
 	createBucket(t, s3client, bucket)
 
 	const (
-		filename   = "testfile1.txt"
-		content    = "preserved content"
+		filename        = "testfile1.txt"
+		content         = "preserved content"
 		expectedContent = "preserved content"
 	)
 

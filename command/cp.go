@@ -5,10 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand"
 	"mime"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
@@ -529,7 +531,7 @@ func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) 
 	}
 
 	var tempurl = *dsturl
-	tempurl.Path = tempurl.Path + ".tmp"
+	tempurl.Path = tempurl.Path + strconv.Itoa(rand.Int())
 	file, err := dstClient.Create(tempurl.Absolute())
 	if err != nil {
 		return err

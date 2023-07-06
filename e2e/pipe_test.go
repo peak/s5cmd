@@ -3,6 +3,7 @@ package e2e
 import (
 	"bytes"
 	"fmt"
+	"runtime"
 	"testing"
 
 	"gotest.tools/v3/assert"
@@ -16,8 +17,13 @@ func TestUploadStdinToS3(t *testing.T) {
 	const (
 		filename            = "verylargefile.zip"
 		content             = "Lorem ipsum dolor sit amet"
-		expectedContentType = "application/zip"
 	)
+
+	expectedContentType := "application/zip"
+
+	if runtime.GOOS == "windows" {
+		expectedContentType = "application/x-zip-compressed"
+	}
 
 	bucket := s3BucketFromTestName(t)
 

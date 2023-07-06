@@ -3,7 +3,6 @@ package command
 import (
 	"context"
 	"fmt"
-	"io"
 	"mime"
 	"path/filepath"
 
@@ -270,7 +269,7 @@ func (c Pipe) doUpload(ctx context.Context, dsturl *url.URL) error {
 	if c.contentType != "" {
 		metadata.SetContentType(c.contentType)
 	} else {
-		metadata.SetContentType(guessStdinContentType(stdinReader, dsturl))
+		metadata.SetContentType(guessStdinContentType(dsturl))
 	}
 
 	if c.contentEncoding != "" {
@@ -352,7 +351,7 @@ func validatePipeCommand(c *cli.Context) error {
 	return nil
 }
 
-func guessStdinContentType(stdinReader io.Reader, dsturl *url.URL) string {
+func guessStdinContentType(dsturl *url.URL) string {
 	contentType := mime.TypeByExtension(filepath.Ext(dsturl.Absolute()))
 	if contentType == "" {
 		return "application/octet-stream"

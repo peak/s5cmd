@@ -15,8 +15,8 @@ func TestUploadStdinToS3(t *testing.T) {
 	t.Parallel()
 
 	const (
-		filename            = "verylargefile.zip"
-		content             = "Lorem ipsum dolor sit amet"
+		filename = "verylargefile.zip"
+		content  = "Lorem ipsum dolor sit amet"
 	)
 
 	expectedContentType := "application/zip"

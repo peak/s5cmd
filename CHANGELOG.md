@@ -6,6 +6,7 @@
 #### Features
 #### Improvements
 #### Bugfixes
+- Fixed a bug introduced with `external sort` support in `sync` command which prevents `sync` to an empty destination with `--delete` option. ([#576](https://github.com/peak/s5cmd/issues/576))
 
 ## v2.1.0 - 19 Jun 2023
 

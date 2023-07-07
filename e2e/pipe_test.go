@@ -42,7 +42,7 @@ func TestUploadStdinToS3(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(`pipe %v %v`, nil, dstpath),
+		0: equals(`pipe %v`, dstpath),
 	})
 
 	// assert that all was read from the fake stdin
@@ -91,7 +91,7 @@ func TestUploadStdinToS3WithoutFileExtension(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: suffix(`pipe %v %v`, nil, dstpath),
+		0: suffix(`pipe %v`, dstpath),
 	})
 
 	// assert S3
@@ -120,7 +120,7 @@ func TestUploadStdinToS3WithNoSuchUploadRetryCount(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: suffix(`pipe %v %v`, nil, dstpath),
+		0: suffix(`pipe %v`, dstpath),
 	})
 
 	// assert S3
@@ -150,7 +150,7 @@ func TestUploadStdinToS3WithRawMode(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: suffix(`pipe %v %v`, nil, dstpath),
+		0: suffix(`pipe %v`, dstpath),
 	})
 
 	// assert S3
@@ -182,7 +182,7 @@ func TestUploadStdinToS3WithPrefix(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(`pipe %v %v`, nil, dstpath),
+		0: equals(`pipe %v`, dstpath),
 	})
 
 	// assert s3 object
@@ -213,7 +213,7 @@ func TestUploadStdinToS3WithCustomName(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(`pipe %v %v`, nil, dstpath),
+		0: equals(`pipe %v`, dstpath),
 	})
 
 	// assert s3 object
@@ -244,7 +244,7 @@ func TestUploadStdinToS3WithNoClobber(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(`pipe %v %v`, nil, dst),
+		0: equals(`pipe %v`, dst),
 	})
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{})
@@ -279,7 +279,7 @@ func TestUploadStdinToS3WithSameFilenameWithNoClobber(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(`DEBUG "pipe %v s3://%v/%v": object already exists`, nil, bucket, filename),
+		0: equals(`DEBUG "pipe s3://%v/%v": object already exists`, bucket, filename),
 	})
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{})
@@ -315,7 +315,7 @@ func TestUploadStdinToS3WithTheSameFilename(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(`pipe %v %v`, nil, dst),
+		0: equals(`pipe %v`, dst),
 	})
 
 	// expect s3 object to be updated with new content
@@ -382,7 +382,7 @@ func TestUploadStdinToS3WithAdjacentSlashes(t *testing.T) {
 			result.Assert(t, icmd.Success)
 
 			assertLines(t, result.Stdout(), map[int]compareFunc{
-				0: suffix(`pipe %v %v`, nil, dstpath),
+				0: suffix(`pipe %v`, dstpath),
 			})
 
 			// assert S3
@@ -416,15 +416,13 @@ func TestUploadStdinToS3JSON(t *testing.T) {
 		{
 			"operation": "pipe",
 			"success": true,
-			"source": null,
 			"destination": "s3://%v/testfile1.txt",
 			"object": {
 				"type": "file"
 			}
 		}
 	`
-	fmt.Println("hello")
-	fmt.Println(json(jsonText, bucket))
+	
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
@@ -464,7 +462,7 @@ func TestUploadStdinToS3WithStorageClassGlacier(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: suffix(`pipe %v %v`, nil, dstpath),
+		0: suffix(`pipe %v`, dstpath),
 	})
 
 	// assert S3

@@ -14,7 +14,9 @@ import (
 func printDebug(op string, err error, urls ...*url.URL) {
 	command := op
 	for _, url := range urls {
-		command += fmt.Sprintf(" %s", url)
+		if url != nil {
+			command += fmt.Sprintf(" %s", url)
+		}
 	}
 
 	msg := log.DebugMessage{

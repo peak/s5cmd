@@ -137,15 +137,15 @@ type Pipe struct {
 	deleteSource bool
 
 	// flags
-	noClobber             bool
-	storageClass          storage.StorageClass
-	encryptionMethod      string
-	encryptionKeyID       string
-	acl                   string
-	cacheControl          string
-	expires               string
-	contentType           string
-	contentEncoding       string
+	noClobber        bool
+	storageClass     storage.StorageClass
+	encryptionMethod string
+	encryptionKeyID  string
+	acl              string
+	cacheControl     string
+	expires          string
+	contentType      string
+	contentEncoding  string
 
 	// region settings
 	dstRegion string
@@ -173,18 +173,18 @@ func NewPipe(c *cli.Context, deleteSource bool) (*Pipe, error) {
 		fullCommand:  fullCommand,
 		deleteSource: deleteSource,
 		// flags
-		noClobber:             c.Bool("no-clobber"),
-		storageClass:          storage.StorageClass(c.String("storage-class")),
-		concurrency:           c.Int("concurrency"),
-		partSize:              c.Int64("part-size") * megabytes,
-		encryptionMethod:      c.String("sse"),
-		encryptionKeyID:       c.String("sse-kms-key-id"),
-		acl:                   c.String("acl"),
-		cacheControl:          c.String("cache-control"),
-		expires:               c.String("expires"),
-		contentType:           c.String("content-type"),
-		contentEncoding:       c.String("content-encoding"),
-		dstRegion:             c.String("destination-region"),
+		noClobber:        c.Bool("no-clobber"),
+		storageClass:     storage.StorageClass(c.String("storage-class")),
+		concurrency:      c.Int("concurrency"),
+		partSize:         c.Int64("part-size") * megabytes,
+		encryptionMethod: c.String("sse"),
+		encryptionKeyID:  c.String("sse-kms-key-id"),
+		acl:              c.String("acl"),
+		cacheControl:     c.String("cache-control"),
+		expires:          c.String("expires"),
+		contentType:      c.String("content-type"),
+		contentEncoding:  c.String("content-encoding"),
+		dstRegion:        c.String("destination-region"),
 
 		// s3 options
 		storageOpts: NewStorageOpts(c),

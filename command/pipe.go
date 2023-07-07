@@ -68,14 +68,6 @@ func NewPipeCommandFlags() []cli.Flag {
 			Name:  "expires",
 			Usage: "set expires for target (uses RFC3339 format): defines expires header for object, e.g. pipe  --expires '2024-10-01T20:30:00Z'",
 		},
-		&cli.BoolFlag{
-			Name:  "force-glacier-transfer",
-			Usage: "force transfer of glacier objects whether they are restored or not",
-		},
-		&cli.BoolFlag{
-			Name:  "ignore-glacier-warnings",
-			Usage: "turns off glacier warnings: ignore errors encountered during copying, downloading and moving glacier objects",
-		},
 		&cli.StringFlag{
 			Name:  "destination-region",
 			Usage: "set the region of destination bucket: the region of the destination bucket will be automatically discovered if --destination-region is not specified",
@@ -150,8 +142,6 @@ type Pipe struct {
 	encryptionMethod      string
 	encryptionKeyID       string
 	acl                   string
-	forceGlacierTransfer  bool
-	ignoreGlacierWarnings bool
 	cacheControl          string
 	expires               string
 	contentType           string
@@ -190,8 +180,6 @@ func NewPipe(c *cli.Context, deleteSource bool) (*Pipe, error) {
 		encryptionMethod:      c.String("sse"),
 		encryptionKeyID:       c.String("sse-kms-key-id"),
 		acl:                   c.String("acl"),
-		forceGlacierTransfer:  c.Bool("force-glacier-transfer"),
-		ignoreGlacierWarnings: c.Bool("ignore-glacier-warnings"),
 		cacheControl:          c.String("cache-control"),
 		expires:               c.String("expires"),
 		contentType:           c.String("content-type"),

@@ -5,12 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math/rand"
 	"mime"
 	"net/http"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
@@ -530,9 +528,9 @@ func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) 
 		return err
 	}
 
-	var tempurl = *dsturl
-	tempurl.Path = tempurl.Path + strconv.Itoa(rand.Int())
-	file, err := dstClient.Create(tempurl.Absolute())
+	dstPath := filepath.Dir(dsturl.Absolute())
+	dstFile := filepath.Base(dsturl.Absolute())
+	file, err := dstClient.CreateTemp(dstPath, dstFile)
 	if err != nil {
 		return err
 	}
@@ -541,9 +539,9 @@ func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) 
 	if err != nil {
 		// file must be closed before deletion
 		file.Close()
-		dErr := dstClient.Delete(ctx, &tempurl)
+		dErr := dstClient.Delete(ctx, &url.URL{Path: file.Name(), Type: dsturl.Type})
 		if dErr != nil {
-			printDebug(c.op, dErr, srcurl, &tempurl)
+			printDebug(c.op, dErr, srcurl, dsturl)
 		}
 		return err
 	}
@@ -553,7 +551,7 @@ func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) 
 	}
 
 	file.Close()
-	os.Rename(tempurl.Absolute(), dsturl.Absolute())
+	dstClient.Rename(file, dsturl.Absolute())
 
 	msg := log.InfoMessage{
 		Operation:   c.op,

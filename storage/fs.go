@@ -223,7 +223,7 @@ func (f *Filesystem) Open(path string) (*os.File, error) {
 	return file, nil
 }
 
-// Create a new temporary file
+// CreateTemp creates a new temporary file
 func (f *Filesystem) CreateTemp(dir, pattern string) (*os.File, error) {
 	if f.dryRun {
 		return &os.File{}, nil

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"mime"
+	"os"
 	"path/filepath"
 
 	"github.com/urfave/cli/v2"
@@ -233,14 +234,7 @@ func (c Pipe) prepareUploadTask(
 }
 
 func (c Pipe) doUpload(ctx context.Context, dsturl *url.URL) error {
-	srcClient := storage.NewLocalClient(c.storageOpts)
-
-	stdinReader, err := srcClient.ReadStdin()
-	if err != nil {
-		return err
-	}
-
-	err = c.shouldOverride(ctx, dsturl)
+	err := c.shouldOverride(ctx, dsturl)
 	if err != nil {
 		if errorpkg.IsWarning(err) {
 			printDebug(c.op, err, nil, dsturl)
@@ -276,7 +270,8 @@ func (c Pipe) doUpload(ctx context.Context, dsturl *url.URL) error {
 		metadata.SetContentEncoding(c.contentEncoding)
 	}
 
-	err = dstClient.Put(ctx, stdinReader, dsturl, metadata, c.concurrency, c.partSize)
+	err = dstClient.Put(ctx, &stdin{file: os.Stdin}, dsturl, metadata, c.concurrency, c.partSize)
+
 	if err != nil {
 		return err
 	}
@@ -357,4 +352,15 @@ func guessStdinContentType(dsturl *url.URL) string {
 		return "application/octet-stream"
 	}
 	return contentType
+}
+
+// if we pass os.Stdin directly to Put function AWS SDK throws an error
+// ReadRequestBody: unable to initialize upload caused by: seek /dev/stdin: illegal seek
+// due to that stdin struct has only file without seek
+type stdin struct {
+	file *os.File
+}
+
+func (s *stdin) Read(p []byte) (n int, err error) {
+	return s.file.Read(p)
 }

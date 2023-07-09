@@ -393,7 +393,6 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 				printError(s.fullCommand, s.op, err)
 			}
 		}()
-
 	}()
 
 	return sourceObjects, destObjects, nil
@@ -460,27 +459,36 @@ func (s Sync) planRun(
 	}()
 
 	// only in destination
-	if s.delete {
-		// unfortunately we need to read them all!
-		// or rewrite generateCommand function?
-		dstURLs := make([]*url.URL, 0, extsortChunkSize)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if s.delete {
+			// unfortunately we need to read them all!
+			// or rewrite generateCommand function?
+			dstURLs := make([]*url.URL, 0, extsortChunkSize)
 
-		for d := range onlyDest {
-			dstURLs = append(dstURLs, d)
+			for d := range onlyDest {
+				dstURLs = append(dstURLs, d)
+			}
+
+			if len(dstURLs) == 0 {
+				return
+			}
+
+			command, err := generateCommand(c, "rm", defaultFlags, dstURLs...)
+			if err != nil {
+				printDebug(s.op, err, dstURLs...)
+				return
+			}
+			fmt.Fprintln(w, command)
+		} else {
+			// we only need  to consume them from the channel so that rest of the objects
+			// can be sent to channel.
+			for d := range onlyDest {
+				_ = d
+			}
 		}
-		command, err := generateCommand(c, "rm", defaultFlags, dstURLs...)
-		if err != nil {
-			printDebug(s.op, err, dstURLs...)
-			return
-		}
-		fmt.Fprintln(w, command)
-	} else {
-		// we only need  to consume them from the channel so that rest of the objects
-		// can be sent to channel.
-		for d := range onlyDest {
-			_ = d
-		}
-	}
+	}()
 
 	wg.Wait()
 }

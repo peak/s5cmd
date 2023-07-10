@@ -279,7 +279,7 @@ type Copy struct {
 	expires               string
 	contentType           string
 	contentEncoding       string
-	contentDispositon     string
+	contentDisposition    string
 	// region settings
 	srcRegion string
 	dstRegion string
@@ -332,7 +332,7 @@ func NewCopy(c *cli.Context, deleteSource bool) (*Copy, error) {
 		expires:               c.String("expires"),
 		contentType:           c.String("content-type"),
 		contentEncoding:       c.String("content-encoding"),
-		contentDispositon:     c.String("content-disposition"),
+		contentDisposition:    c.String("content-disposition"),
 		// region settings
 		srcRegion: c.String("source-region"),
 		dstRegion: c.String("destination-region"),
@@ -611,8 +611,8 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 	if c.contentEncoding != "" {
 		metadata.SetContentEncoding(c.contentEncoding)
 	}
-	if c.contentDispositon != "" {
-		metadata.SetContentDisposition(c.contentDispositon)
+	if c.contentDisposition != "" {
+		metadata.SetContentDisposition(c.contentDisposition)
 	}
 	err = dstClient.Put(ctx, file, dsturl, metadata, c.concurrency, c.partSize)
 	if err != nil {
@@ -668,8 +668,8 @@ func (c Copy) doCopy(ctx context.Context, srcurl, dsturl *url.URL) error {
 	if c.contentEncoding != "" {
 		metadata.SetContentEncoding(c.contentEncoding)
 	}
-	if c.contentDispositon != "" {
-		metadata.SetContentEncoding(c.contentDispositon)
+	if c.contentDisposition != "" {
+		metadata.SetContentDisposition(c.contentDisposition)
 	}
 
 	err = c.shouldOverride(ctx, srcurl, dsturl)

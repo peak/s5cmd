@@ -1130,6 +1130,52 @@ func TestSyncS3BucketToLocalWithDelete(t *testing.T) {
 	}
 }
 
+// sync --delete s3://bucket/* .
+func TestSyncS3BucketToEmptyLocalWithDelete(t *testing.T) {
+	t.Parallel()
+	s3client, s5cmd := setup(t)
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	S3Content := map[string]string{
+		"contributing.md": "S: this is a readme file",
+	}
+
+	for filename, content := range S3Content {
+		putFile(t, s3client, bucket, filename, content)
+	}
+
+	workdir := fs.NewDir(t, "somedir")
+	defer workdir.Remove()
+
+	src := fmt.Sprintf("s3://%v/", bucket)
+	dst := fmt.Sprintf("%v/", workdir.Path())
+	dst = filepath.ToSlash(dst)
+
+	cmd := s5cmd("sync", "--delete", src+"*", dst)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+	stdout := result.Stdout()
+	assertLines(t, stdout, map[int]compareFunc{
+		0: equals(`cp %vcontributing.md %vcontributing.md`, src, dst),
+	}, sortInput(true))
+
+	expectedFolderLayout := []fs.PathOp{
+		fs.WithFile("contributing.md", "S: this is a readme file"),
+	}
+
+	// assert local filesystem
+	expected := fs.Expected(t, expectedFolderLayout...)
+	assert.Assert(t, fs.Equal(workdir.Path(), expected))
+
+	// assert s3
+	for key, content := range S3Content {
+		assert.Assert(t, ensureS3Object(s3client, bucket, key, content))
+	}
+}
+
 // sync --delete folder/ s3://bucket/*
 func TestSyncLocalToS3BucketWithDelete(t *testing.T) {
 	t.Parallel()
@@ -1196,6 +1242,53 @@ func TestSyncLocalToS3BucketWithDelete(t *testing.T) {
 		if err == nil {
 			t.Errorf("File %v is not deleted from remote : %v\n", key, err)
 		}
+	}
+}
+
+// sync --delete folder/ s3://bucket/*
+func TestSyncLocalToEmptyS3BucketWithDelete(t *testing.T) {
+	t.Parallel()
+
+	now := time.Now()
+	s3client, s5cmd := setup(t)
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	folderLayout := []fs.PathOp{
+		fs.WithFile("contributing.md", "S: this is a readme file", fs.WithTimestamps(now, now)),
+	}
+
+	workdir := fs.NewDir(t, "somedir", folderLayout...)
+	defer workdir.Remove()
+
+	src := fmt.Sprintf("%v/", workdir.Path())
+	src = filepath.ToSlash(src)
+	dst := fmt.Sprintf("s3://%v/", bucket)
+
+	cmd := s5cmd("sync", "--delete", src, dst)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`cp %vcontributing.md %vcontributing.md`, src, dst),
+	}, sortInput(true))
+
+	// assert local filesystem
+	expectedFiles := []fs.PathOp{
+		fs.WithFile("contributing.md", "S: this is a readme file"),
+	}
+	expected := fs.Expected(t, expectedFiles...)
+	assert.Assert(t, fs.Equal(workdir.Path(), expected))
+
+	expectedS3Content := map[string]string{
+		"contributing.md": "S: this is a readme file",
+	}
+
+	// assert s3 objects
+	for key, content := range expectedS3Content {
+		assert.Assert(t, ensureS3Object(s3client, bucket, key, content))
 	}
 }
 
@@ -1634,7 +1727,7 @@ func TestSyncLocalDirectoryToS3WithExcludeFilter(t *testing.T) {
 				assert.Assert(t, ensureS3Object(s3client, bucket, key, content))
 			}
 
-			//assert objects should not be in S3.
+			// assert objects should not be in S3.
 			for key, content := range nonExpectedS3Content {
 				err := ensureS3Object(s3client, bucket, key, content)
 				assertError(t, err, errS3NoSuchKey)

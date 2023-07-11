@@ -34,7 +34,7 @@ func Debug(msg Message) {
 
 // Info prints message in info mode.
 func Info(msg Message) {
-	global.printf(LevelInfo, msg, os.Stdout)
+	//global.printf(LevelInfo, msg, os.Stdout)
 }
 
 // Stat prints stat message regardless of the log level with info print formatting.

@@ -10,8 +10,12 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
+	"time"
 
 	"github.com/hashicorp/go-multierror"
+	"github.com/k0kubun/go-ansi"
+	"github.com/schollz/progressbar/v3"
 	"github.com/urfave/cli/v2"
 
 	errorpkg "github.com/peak/s5cmd/v2/error"
@@ -20,6 +24,7 @@ import (
 	"github.com/peak/s5cmd/v2/parallel"
 	"github.com/peak/s5cmd/v2/storage"
 	"github.com/peak/s5cmd/v2/storage/url"
+	//"github.com/peak/s5cmd/v2/utils"
 )
 
 const (
@@ -342,6 +347,44 @@ increase the open file limit or try to decrease the number of workers with
 '-numworkers' parameter.
 `
 
+type copyStatus struct {
+	totalSize        int64
+	completedSize    int64
+	totalObjects     int
+	completedObjects int
+}
+
+var taskStatus = &copyStatus{totalSize: 0, completedSize: 0, totalObjects: 0, completedObjects: 0}
+
+var bar = progressbar.NewOptions(100,
+	progressbar.OptionSetWriter(ansi.NewAnsiStdout()),
+	progressbar.OptionEnableColorCodes(true),
+	progressbar.OptionSetWidth(15),
+	progressbar.OptionShowBytes(true),
+	progressbar.OptionSetTheme(progressbar.Theme{
+		Saucer:        "[green]=[reset]",
+		SaucerHead:    "[green]>[reset]",
+		SaucerPadding: " ",
+		BarStart:      "[",
+		BarEnd:        "]",
+	}),
+	progressbar.OptionSetPredictTime(true),
+	progressbar.OptionShowCount(),
+	progressbar.OptionShowElapsedTimeOnFinish(),
+	progressbar.OptionThrottle(500*time.Millisecond),
+	//progressbar.OptionShowDescriptionAtLineEnd(),
+)
+
+func incrementCompletedObjects() {
+	taskStatus.completedObjects += 1
+	bar.Describe(fmt.Sprintf("\r%d/%d items are completed.", taskStatus.completedObjects, taskStatus.totalObjects))
+}
+
+func incrementTotalObjects() {
+	taskStatus.totalObjects += 1
+	bar.Describe(fmt.Sprintf("\r%d/%d items are completed.", taskStatus.completedObjects, taskStatus.totalObjects))
+}
+
 // Run starts copying given source objects to destination.
 func (c Copy) Run(ctx context.Context) error {
 	// override source region if set
@@ -395,6 +438,7 @@ func (c Copy) Run(ctx context.Context) error {
 		printError(c.fullCommand, c.op, err)
 		return err
 	}
+	bar.Set(0)
 
 	for object := range objch {
 		if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) {
@@ -422,6 +466,9 @@ func (c Copy) Run(ctx context.Context) error {
 
 		srcurl := object.URL
 		var task parallel.Task
+		taskStatus.totalSize += object.Size
+		incrementTotalObjects()
+		bar.ChangeMax64(taskStatus.totalSize)
 
 		switch {
 		case srcurl.Type == c.dst.Type: // local->local or remote->remote
@@ -433,13 +480,11 @@ func (c Copy) Run(ctx context.Context) error {
 		default:
 			panic("unexpected src-dst pair")
 		}
-
 		parallel.Run(task, waiter)
 	}
-
 	waiter.Wait()
 	<-errDoneCh
-
+	bar.Finish()
 	return multierror.Append(merrorWaiter, merrorObjects).ErrorOrNil()
 }
 
@@ -460,6 +505,7 @@ func (c Copy) prepareCopyTask(
 				Err: err,
 			}
 		}
+		incrementCompletedObjects()
 		return nil
 	}
 }
@@ -484,6 +530,7 @@ func (c Copy) prepareDownloadTask(
 				Err: err,
 			}
 		}
+		incrementCompletedObjects()
 		return nil
 	}
 }
@@ -505,6 +552,7 @@ func (c Copy) prepareUploadTask(
 				Err: err,
 			}
 		}
+		incrementCompletedObjects()
 		return nil
 	}
 }
@@ -562,6 +610,46 @@ func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) 
 	return nil
 }
 
+var reader = &CustomReader{
+	fp:   nil,
+	size: 0,
+}
+
+type CustomReader struct {
+	fp   *os.File
+	size int64
+	read int64
+}
+
+func (r *CustomReader) Read(p []byte) (int, error) {
+	return r.fp.Read(p)
+}
+
+func (r *CustomReader) ReadAt(p []byte, off int64) (int, error) {
+	n, err := r.fp.ReadAt(p, off)
+	if err != nil {
+		return n, err
+	}
+
+	// Got the length have read( or means has uploaded), and you can construct your message
+	atomic.AddInt64(&r.read, int64(n))
+	bar.Add(n / 2)
+
+	//bar.Add64(int64(n))
+	//fmt.Printf("total read:%d    progress:%d%%\n", r.read/2, int(float32(r.read*100/2)/float32(r.size)))
+
+	// I have no idea why the read length need to be div 2,
+	// maybe the request read once when Sign and actually send call ReadAt again
+	// It works for me
+	// log.Printf("total read:%d    progress:%d%%\n", r.read/2, int(float32(r.read*100/2)/float32(r.size)))
+
+	return n, err
+}
+
+func (r *CustomReader) Seek(offset int64, whence int) (int64, error) {
+	return r.fp.Seek(offset, whence)
+}
+
 func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) error {
 	srcClient := storage.NewLocalClient(c.storageOpts)
 
@@ -606,8 +694,13 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 	if c.contentEncoding != "" {
 		metadata.SetContentEncoding(c.contentEncoding)
 	}
-
-	err = dstClient.Put(ctx, file, dsturl, metadata, c.concurrency, c.partSize)
+	// TODO: Handle the error
+	stat, _ := file.Stat()
+	reader = &CustomReader{
+		fp:   file,
+		size: stat.Size(),
+	}
+	err = dstClient.Put(ctx, reader, dsturl, metadata, c.concurrency, c.partSize)
 	if err != nil {
 		return err
 	}
@@ -950,4 +1043,18 @@ func guessContentType(file *os.File) string {
 		return http.DetectContentType(buf)
 	}
 	return contentType
+}
+
+// ProgressReader can be used to update the progress of
+// an on-going transfer progress.
+type ProgressReader interface {
+	io.Reader
+	Progress
+}
+
+// Progress - an interface which describes current amount
+// of data written.
+type Progress interface {
+	Get() int64
+	SetTotal(int64)
 }

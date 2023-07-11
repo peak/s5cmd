@@ -342,9 +342,10 @@ func guessStdinContentType(dsturl *url.URL) string {
 	return contentType
 }
 
-// if we pass os.Stdin directly to Put function AWS SDK throws an error
-// ReadRequestBody: unable to initialize upload caused by: seek /dev/stdin: illegal seek
-// due to that stdin struct has only file without seek
+// stdin is an io.Reader adapter for os.File, enabling it to function solely as
+// an io.Reader. The AWS SDK, which accepts an io.Reader for multipart uploads,
+// will attempt to use io.Seek if the reader supports it. However, os.Stdin is
+// a specific type of file that can not seekable.
 type stdin struct {
 	file *os.File
 }

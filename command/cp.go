@@ -21,7 +21,6 @@ import (
 	"github.com/peak/s5cmd/v2/parallel"
 	"github.com/peak/s5cmd/v2/storage"
 	"github.com/peak/s5cmd/v2/storage/url"
-	//"github.com/peak/s5cmd/v2/utils"
 )
 
 const (

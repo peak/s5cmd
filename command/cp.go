@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/cheggaaa/pb/v3"
 	"github.com/hashicorp/go-multierror"
@@ -370,12 +371,21 @@ func initializeProgressBar() {
 	bar.Set("taskStatus", fmt.Sprintf("%d/%d items are completed.", taskStatus.completedObjects, taskStatus.totalObjects))
 }
 
+var taskStatusMutex sync.Mutex
+var progressbarMutex sync.Mutex
+var ioWriterMutex sync.Mutex
+var ioReaderMutex sync.Mutex
+
 func incrementCompletedObjects() {
+	taskStatusMutex.Lock()
+	defer taskStatusMutex.Unlock()
 	taskStatus.completedObjects += 1
 	bar.Set("taskStatus", fmt.Sprintf("%d/%d items are completed.", taskStatus.completedObjects, taskStatus.totalObjects))
 }
 
 func incrementTotalObjects() {
+	taskStatusMutex.Lock()
+	defer taskStatusMutex.Unlock()
 	taskStatus.totalObjects += 1
 	bar.Set("taskStatus", fmt.Sprintf("%d/%d items are completed.", taskStatus.completedObjects, taskStatus.totalObjects))
 }
@@ -571,10 +581,7 @@ var writer = &CustomWriter{
 
 type CustomWriter struct {
 	fp *os.File
-}
-
-func (r *CustomWriter) Write(p []byte) (int, error) {
-	return r.fp.Write(p)
+	copyStatus copyStatus
 }
 
 func (r *CustomWriter) WriteAt(p []byte, off int64) (int, error) {
@@ -654,10 +661,14 @@ type CustomReader struct {
 }
 
 func (r *CustomReader) Read(p []byte) (int, error) {
+	ioReaderMutex.Lock()
+	defer ioReaderMutex.Unlock()
 	return r.fp.Read(p)
 }
 
 func (r *CustomReader) ReadAt(p []byte, off int64) (int, error) {
+	ioReaderMutex.Lock()
+	defer ioReaderMutex.Unlock()
 	n, err := r.fp.ReadAt(p, off)
 	if err != nil {
 		return n, err
@@ -667,6 +678,8 @@ func (r *CustomReader) ReadAt(p []byte, off int64) (int, error) {
 }
 
 func (r *CustomReader) Seek(offset int64, whence int) (int64, error) {
+	ioReaderMutex.Lock()
+	defer ioReaderMutex.Unlock()
 	return r.fp.Seek(offset, whence)
 }
 

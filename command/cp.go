@@ -368,6 +368,9 @@ var bar = progressbar.NewOptions(100,
 		BarStart:      "[",
 		BarEnd:        "]",
 	}),
+	progressbar.OptionOnCompletion(func() {
+		fmt.Fprint(os.Stdout, "\n")
+	}),
 	progressbar.OptionSetPredictTime(true),
 	progressbar.OptionShowCount(),
 	progressbar.OptionShowElapsedTimeOnFinish(),
@@ -377,15 +380,6 @@ var bar = progressbar.NewOptions(100,
 func incrementCompletedObjects() {
 	taskStatus.completedObjects += 1
 	bar.Describe(fmt.Sprintf("%d/%d items are completed.", taskStatus.completedObjects, taskStatus.totalObjects))
-	//fmt.Println(bar)
-	fmt.Printf("completed objects: %v", taskStatus.completedObjects)
-	fmt.Println("")
-	fmt.Printf("here")
-	fmt.Printf("%d/%d items are completed.", taskStatus.completedObjects, taskStatus.totalObjects)
-	//bar.Describe(fmt.Sprintf("%d/%d items are completed.", taskStatus.completedObjects, taskStatus.totalObjects))
-	//fmt.Println(bar)
-	//bar.RenderBlank()
-
 }
 
 func incrementTotalObjects() {
@@ -498,7 +492,6 @@ func (c Copy) Run(ctx context.Context) error {
 	}
 	waiter.Wait()
 	<-errDoneCh
-	fmt.Println("finish")
 	bar.Finish()
 	return multierror.Append(merrorWaiter, merrorObjects).ErrorOrNil()
 }
@@ -594,16 +587,7 @@ func (r *CustomWriter) WriteAt(p []byte, off int64) (int, error) {
 		return n, err
 	}
 	atomic.AddInt64(&r.written, int64(n))
-	//fmt.Printf("bar max: %v, bar current bytes: %v, n:%v, sum: %v\n", bar.GetMax64(), int64(bar.State().CurrentBytes), n, int64(bar.State().CurrentBytes)+int64(n))
-	if int(bar.State().CurrentBytes)+n >= bar.GetMax() {
-		//fmt.Println(bar.State().CurrentBytes)
-		bar.Add(n)
-		fmt.Println("")
-		//fmt.Printf("bar max: %v, bar current bytes: %v, n:%v, sum: %v\n", bar.GetMax64(), int64(bar.State().CurrentBytes), n, int64(bar.State().CurrentBytes)+int64(n))
-	} else {
-		bar.Add(n)
-	}
-
+	bar.Add(n)
 	//fmt.Printf("total read:%d    progress:%d%% size:%v\n", r.written, float64(r.written*100)/float64(r.size), r.size)
 	return n, err
 }

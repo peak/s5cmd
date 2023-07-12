@@ -371,18 +371,26 @@ var bar = progressbar.NewOptions(100,
 	progressbar.OptionSetPredictTime(true),
 	progressbar.OptionShowCount(),
 	progressbar.OptionShowElapsedTimeOnFinish(),
-	progressbar.OptionThrottle(500*time.Millisecond),
-	//progressbar.OptionShowDescriptionAtLineEnd(),
+	progressbar.OptionThrottle(100*time.Millisecond),
 )
 
 func incrementCompletedObjects() {
 	taskStatus.completedObjects += 1
-	bar.Describe(fmt.Sprintf("\r%d/%d items are completed.", taskStatus.completedObjects, taskStatus.totalObjects))
+	bar.Describe(fmt.Sprintf("%d/%d items are completed.", taskStatus.completedObjects, taskStatus.totalObjects))
+	//fmt.Println(bar)
+	fmt.Printf("completed objects: %v", taskStatus.completedObjects)
+	fmt.Println("")
+	fmt.Printf("here")
+	fmt.Printf("%d/%d items are completed.", taskStatus.completedObjects, taskStatus.totalObjects)
+	//bar.Describe(fmt.Sprintf("%d/%d items are completed.", taskStatus.completedObjects, taskStatus.totalObjects))
+	//fmt.Println(bar)
+	//bar.RenderBlank()
+
 }
 
 func incrementTotalObjects() {
 	taskStatus.totalObjects += 1
-	bar.Describe(fmt.Sprintf("\r%d/%d items are completed.", taskStatus.completedObjects, taskStatus.totalObjects))
+	bar.Describe(fmt.Sprintf("%d/%d items are completed.", taskStatus.completedObjects, taskStatus.totalObjects))
 }
 
 // Run starts copying given source objects to destination.
@@ -466,9 +474,15 @@ func (c Copy) Run(ctx context.Context) error {
 
 		srcurl := object.URL
 		var task parallel.Task
+
+		if object.Size == 0 {
+			obj, _ := client.Stat(ctx, c.src)
+			object.Size = obj.Size
+		}
 		taskStatus.totalSize += object.Size
-		incrementTotalObjects()
 		bar.ChangeMax64(taskStatus.totalSize)
+		//fmt.Println(object.Size)
+		incrementTotalObjects()
 
 		switch {
 		case srcurl.Type == c.dst.Type: // local->local or remote->remote
@@ -484,6 +498,7 @@ func (c Copy) Run(ctx context.Context) error {
 	}
 	waiter.Wait()
 	<-errDoneCh
+	fmt.Println("finish")
 	bar.Finish()
 	return multierror.Append(merrorWaiter, merrorObjects).ErrorOrNil()
 }
@@ -557,6 +572,42 @@ func (c Copy) prepareUploadTask(
 	}
 }
 
+var writer = &CustomWriter{
+	fp:      nil,
+	size:    0,
+	written: 0,
+}
+
+type CustomWriter struct {
+	fp      *os.File
+	size    int64
+	written int64
+}
+
+func (r *CustomWriter) Write(p []byte) (int, error) {
+	return r.fp.Write(p)
+}
+
+func (r *CustomWriter) WriteAt(p []byte, off int64) (int, error) {
+	n, err := r.fp.Write(p)
+	if err != nil {
+		return n, err
+	}
+	atomic.AddInt64(&r.written, int64(n))
+	//fmt.Printf("bar max: %v, bar current bytes: %v, n:%v, sum: %v\n", bar.GetMax64(), int64(bar.State().CurrentBytes), n, int64(bar.State().CurrentBytes)+int64(n))
+	if int(bar.State().CurrentBytes)+n >= bar.GetMax() {
+		//fmt.Println(bar.State().CurrentBytes)
+		bar.Add(n)
+		fmt.Println("")
+		//fmt.Printf("bar max: %v, bar current bytes: %v, n:%v, sum: %v\n", bar.GetMax64(), int64(bar.State().CurrentBytes), n, int64(bar.State().CurrentBytes)+int64(n))
+	} else {
+		bar.Add(n)
+	}
+
+	//fmt.Printf("total read:%d    progress:%d%% size:%v\n", r.written, float64(r.written*100)/float64(r.size), r.size)
+	return n, err
+}
+
 // doDownload is used to fetch a remote object and save as a local object.
 func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) error {
 	srcClient, err := storage.NewRemoteClient(ctx, srcurl, c.storageOpts)
@@ -580,8 +631,15 @@ func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) 
 	if err != nil {
 		return err
 	}
-
-	size, err := srcClient.Get(ctx, srcurl, file, c.concurrency, c.partSize)
+	// TODO: Handle the error
+	//stat, _ := file.Stat()
+	writer = &CustomWriter{
+		fp:   file,
+		size: 0,
+	}
+	size, err := srcClient.Get(ctx, srcurl, writer, c.concurrency, c.partSize)
+	writer.size = size
+	//fmt.Println(writer.size)
 	if err != nil {
 		// file must be closed before deletion
 		file.Close()
@@ -613,6 +671,7 @@ func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) 
 var reader = &CustomReader{
 	fp:   nil,
 	size: 0,
+	read: 0,
 }
 
 type CustomReader struct {
@@ -695,10 +754,10 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 		metadata.SetContentEncoding(c.contentEncoding)
 	}
 	// TODO: Handle the error
-	stat, _ := file.Stat()
+	//stat, _ := file.Stat()
 	reader = &CustomReader{
 		fp:   file,
-		size: stat.Size(),
+		size: 0,
 	}
 	err = dstClient.Put(ctx, reader, dsturl, metadata, c.concurrency, c.partSize)
 	if err != nil {
@@ -707,6 +766,7 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 
 	obj, _ := srcClient.Stat(ctx, srcurl)
 	size := obj.Size
+	reader.size = obj.Size
 
 	if c.deleteSource {
 		// close the file before deleting
@@ -1043,18 +1103,4 @@ func guessContentType(file *os.File) string {
 		return http.DetectContentType(buf)
 	}
 	return contentType
-}
-
-// ProgressReader can be used to update the progress of
-// an on-going transfer progress.
-type ProgressReader interface {
-	io.Reader
-	Progress
-}
-
-// Progress - an interface which describes current amount
-// of data written.
-type Progress interface {
-	Get() int64
-	SetTotal(int64)
 }

@@ -56,9 +56,6 @@ github.com/aws/aws-sdk-go/service/sso
 github.com/aws/aws-sdk-go/service/sso/ssoiface
 github.com/aws/aws-sdk-go/service/sts
 github.com/aws/aws-sdk-go/service/sts/stsiface
-# github.com/cheggaaa/pb v1.0.29
-## explicit; go 1.12
-github.com/cheggaaa/pb
 # github.com/cheggaaa/pb/v3 v3.1.4
 ## explicit; go 1.17
 github.com/cheggaaa/pb/v3
@@ -108,6 +105,8 @@ github.com/karrick/godirwalk
 # github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 ## explicit
 github.com/kballard/go-shellquote
+# github.com/kr/pretty v0.3.0
+## explicit; go 1.12
 # github.com/lanrat/extsort v1.0.0
 ## explicit; go 1.13
 github.com/lanrat/extsort
@@ -122,17 +121,14 @@ github.com/mattn/go-isatty
 # github.com/mattn/go-runewidth v0.0.14
 ## explicit; go 1.9
 github.com/mattn/go-runewidth
-# github.com/minio/pkg v1.7.5
-## explicit; go 1.19
-github.com/minio/pkg/console
 # github.com/mitchellh/colorstring v0.0.0-20190213212951-d06e56a500db
 ## explicit
 github.com/mitchellh/colorstring
 # github.com/pkg/errors v0.9.1
 ## explicit
 github.com/pkg/errors
-# github.com/rivo/uniseg v0.4.4
-## explicit; go 1.18
+# github.com/rivo/uniseg v0.2.0
+## explicit; go 1.12
 github.com/rivo/uniseg
 # github.com/russross/blackfriday/v2 v2.1.0
 ## explicit
@@ -158,16 +154,16 @@ github.com/xrash/smetrics
 # go.etcd.io/bbolt v1.3.6
 ## explicit; go 1.12
 go.etcd.io/bbolt
-# golang.org/x/sync v0.1.0
+# golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 ## explicit
 golang.org/x/sync/errgroup
-# golang.org/x/sys v0.10.0
+# golang.org/x/sys v0.6.0
 ## explicit; go 1.17
 golang.org/x/sys/internal/unsafeheader
 golang.org/x/sys/plan9
 golang.org/x/sys/unix
 golang.org/x/sys/windows
-# golang.org/x/term v0.10.0
+# golang.org/x/term v0.6.0
 ## explicit; go 1.17
 golang.org/x/term
 # golang.org/x/tools v0.1.1
@@ -177,6 +173,8 @@ golang.org/x/tools/cover
 ## explicit; go 1.11
 golang.org/x/xerrors
 golang.org/x/xerrors/internal
+# gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127
+## explicit
 # gopkg.in/mgo.v2 v2.0.0-20180705113604-9856a29383ce
 ## explicit
 gopkg.in/mgo.v2/bson

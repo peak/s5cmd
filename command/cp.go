@@ -10,12 +10,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync/atomic"
-	"time"
 
+	"github.com/cheggaaa/pb/v3"
 	"github.com/hashicorp/go-multierror"
-	"github.com/k0kubun/go-ansi"
-	"github.com/schollz/progressbar/v3"
 	"github.com/urfave/cli/v2"
 
 	errorpkg "github.com/peak/s5cmd/v2/error"
@@ -356,39 +353,31 @@ type copyStatus struct {
 
 var taskStatus = &copyStatus{totalSize: 0, completedSize: 0, totalObjects: 0, completedObjects: 0}
 
-var bar = progressbar.NewOptions(100,
-	progressbar.OptionSetWriter(ansi.NewAnsiStdout()),
-	progressbar.OptionEnableColorCodes(true),
-	progressbar.OptionSetWidth(15),
-	progressbar.OptionShowBytes(true),
-	progressbar.OptionSetTheme(progressbar.Theme{
-		Saucer:        "[green]=[reset]",
-		SaucerHead:    "[green]>[reset]",
-		SaucerPadding: " ",
-		BarStart:      "[",
-		BarEnd:        "]",
-	}),
-	progressbar.OptionOnCompletion(func() {
-		fmt.Fprint(os.Stdout, "\n")
-	}),
-	progressbar.OptionSetPredictTime(true),
-	progressbar.OptionShowCount(),
-	progressbar.OptionShowElapsedTimeOnFinish(),
-	progressbar.OptionThrottle(100*time.Millisecond),
-)
+var bar = pb.New64(0)
+
+func initializeProgressBar() {
+	bar.Set(pb.Bytes, true)
+	bar.Set(pb.SIBytesPrefix, true)
+	bar.SetWidth(100)
+	barTemplate := `{{ string . "taskStatus" }} {{percent .}} {{ bar . " " "█"  (cycle . " " " " " " " " ) "." " " }} {{counters .}} {{speed . "(%s/s)" }} {{rtime . "%s left"}} `
+	bar.SetTemplateString(barTemplate)
+	bar.Set("taskStatus", fmt.Sprintf("%d/%d items are completed.", taskStatus.completedObjects, taskStatus.totalObjects))
+}
 
 func incrementCompletedObjects() {
 	taskStatus.completedObjects += 1
-	bar.Describe(fmt.Sprintf("%d/%d items are completed.", taskStatus.completedObjects, taskStatus.totalObjects))
+	bar.Set("taskStatus", fmt.Sprintf("%d/%d items are completed.", taskStatus.completedObjects, taskStatus.totalObjects))
 }
 
 func incrementTotalObjects() {
 	taskStatus.totalObjects += 1
-	bar.Describe(fmt.Sprintf("%d/%d items are completed.", taskStatus.completedObjects, taskStatus.totalObjects))
+	bar.Set("taskStatus", fmt.Sprintf("%d/%d items are completed.", taskStatus.completedObjects, taskStatus.totalObjects))
 }
 
 // Run starts copying given source objects to destination.
 func (c Copy) Run(ctx context.Context) error {
+	initializeProgressBar()
+	bar.Start()
 	// override source region if set
 	if c.srcRegion != "" {
 		c.storageOpts.SetRegion(c.srcRegion)
@@ -440,7 +429,6 @@ func (c Copy) Run(ctx context.Context) error {
 		printError(c.fullCommand, c.op, err)
 		return err
 	}
-	bar.Set(0)
 
 	for object := range objch {
 		if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) {
@@ -474,8 +462,7 @@ func (c Copy) Run(ctx context.Context) error {
 			object.Size = obj.Size
 		}
 		taskStatus.totalSize += object.Size
-		bar.ChangeMax64(taskStatus.totalSize)
-		//fmt.Println(object.Size)
+		bar.SetTotal(taskStatus.totalSize)
 		incrementTotalObjects()
 
 		switch {
@@ -566,15 +553,11 @@ func (c Copy) prepareUploadTask(
 }
 
 var writer = &CustomWriter{
-	fp:      nil,
-	size:    0,
-	written: 0,
+	fp: nil,
 }
 
 type CustomWriter struct {
-	fp      *os.File
-	size    int64
-	written int64
+	fp *os.File
 }
 
 func (r *CustomWriter) Write(p []byte) (int, error) {
@@ -586,9 +569,7 @@ func (r *CustomWriter) WriteAt(p []byte, off int64) (int, error) {
 	if err != nil {
 		return n, err
 	}
-	atomic.AddInt64(&r.written, int64(n))
 	bar.Add(n)
-	//fmt.Printf("total read:%d    progress:%d%% size:%v\n", r.written, float64(r.written*100)/float64(r.size), r.size)
 	return n, err
 }
 
@@ -615,15 +596,12 @@ func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) 
 	if err != nil {
 		return err
 	}
-	// TODO: Handle the error
-	//stat, _ := file.Stat()
+
 	writer = &CustomWriter{
-		fp:   file,
-		size: 0,
+		fp: file,
 	}
 	size, err := srcClient.Get(ctx, srcurl, writer, c.concurrency, c.partSize)
-	writer.size = size
-	//fmt.Println(writer.size)
+
 	if err != nil {
 		// file must be closed before deletion
 		file.Close()
@@ -653,15 +631,11 @@ func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) 
 }
 
 var reader = &CustomReader{
-	fp:   nil,
-	size: 0,
-	read: 0,
+	fp: nil,
 }
 
 type CustomReader struct {
-	fp   *os.File
-	size int64
-	read int64
+	fp *os.File
 }
 
 func (r *CustomReader) Read(p []byte) (int, error) {
@@ -673,19 +647,7 @@ func (r *CustomReader) ReadAt(p []byte, off int64) (int, error) {
 	if err != nil {
 		return n, err
 	}
-
-	// Got the length have read( or means has uploaded), and you can construct your message
-	atomic.AddInt64(&r.read, int64(n))
 	bar.Add(n / 2)
-
-	//bar.Add64(int64(n))
-	//fmt.Printf("total read:%d    progress:%d%%\n", r.read/2, int(float32(r.read*100/2)/float32(r.size)))
-
-	// I have no idea why the read length need to be div 2,
-	// maybe the request read once when Sign and actually send call ReadAt again
-	// It works for me
-	// log.Printf("total read:%d    progress:%d%%\n", r.read/2, int(float32(r.read*100/2)/float32(r.size)))
-
 	return n, err
 }
 
@@ -737,11 +699,9 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 	if c.contentEncoding != "" {
 		metadata.SetContentEncoding(c.contentEncoding)
 	}
-	// TODO: Handle the error
-	//stat, _ := file.Stat()
+
 	reader = &CustomReader{
-		fp:   file,
-		size: 0,
+		fp: file,
 	}
 	err = dstClient.Put(ctx, reader, dsturl, metadata, c.concurrency, c.partSize)
 	if err != nil {
@@ -750,7 +710,6 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 
 	obj, _ := srcClient.Stat(ctx, srcurl)
 	size := obj.Size
-	reader.size = obj.Size
 
 	if c.deleteSource {
 		// close the file before deleting

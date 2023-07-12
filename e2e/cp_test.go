@@ -4165,7 +4165,7 @@ func TestLocalFileOverridenWhenDownloadFailed(t *testing.T) {
 
 	result.Assert(t, icmd.Expected{ExitCode: 1})
 
-	// assert local filesystem does not have the inital file
+	// assert initial file is untouched
 	expected := fs.Expected(t, fs.WithFile(filename, content))
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 }

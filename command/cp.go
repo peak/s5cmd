@@ -372,9 +372,6 @@ func initializeProgressBar() {
 }
 
 var taskStatusMutex sync.Mutex
-var progressbarMutex sync.Mutex
-var ioWriterMutex sync.Mutex
-var ioReaderMutex sync.Mutex
 
 func incrementCompletedObjects() {
 	taskStatusMutex.Lock()
@@ -575,13 +572,8 @@ func (c Copy) prepareUploadTask(
 	}
 }
 
-var writer = &CustomWriter{
-	fp: nil,
-}
-
 type CustomWriter struct {
 	fp *os.File
-	copyStatus copyStatus
 }
 
 func (r *CustomWriter) WriteAt(p []byte, off int64) (int, error) {
@@ -617,7 +609,7 @@ func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) 
 		return err
 	}
 
-	writer = &CustomWriter{
+	writer := &CustomWriter{
 		fp: file,
 	}
 	size, err := srcClient.Get(ctx, srcurl, writer, c.concurrency, c.partSize)
@@ -652,23 +644,15 @@ func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) 
 	return nil
 }
 
-var reader = &CustomReader{
-	fp: nil,
-}
-
 type CustomReader struct {
 	fp *os.File
 }
 
 func (r *CustomReader) Read(p []byte) (int, error) {
-	ioReaderMutex.Lock()
-	defer ioReaderMutex.Unlock()
 	return r.fp.Read(p)
 }
 
 func (r *CustomReader) ReadAt(p []byte, off int64) (int, error) {
-	ioReaderMutex.Lock()
-	defer ioReaderMutex.Unlock()
 	n, err := r.fp.ReadAt(p, off)
 	if err != nil {
 		return n, err
@@ -678,8 +662,6 @@ func (r *CustomReader) ReadAt(p []byte, off int64) (int, error) {
 }
 
 func (r *CustomReader) Seek(offset int64, whence int) (int64, error) {
-	ioReaderMutex.Lock()
-	defer ioReaderMutex.Unlock()
 	return r.fp.Seek(offset, whence)
 }
 
@@ -728,13 +710,16 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 		metadata.SetContentEncoding(c.contentEncoding)
 	}
 
-	reader = &CustomReader{
+	reader := &CustomReader{
 		fp: file,
 	}
 	err = dstClient.Put(ctx, reader, dsturl, metadata, c.concurrency, c.partSize)
 	if err != nil {
 		return err
 	}
+
+	obj, _ := srcClient.Stat(ctx, srcurl)
+	size := obj.Size
 
 	if c.deleteSource {
 		// close the file before deleting
@@ -745,9 +730,6 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 	}
 
 	if !c.showProgress {
-		obj, _ := srcClient.Stat(ctx, srcurl)
-		size := obj.Size
-
 		msg := log.InfoMessage{
 			Operation:   c.op,
 			Source:      srcurl,

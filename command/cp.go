@@ -216,6 +216,11 @@ func NewCopyCommandFlags() []cli.Flag {
 			Name:  "version-id",
 			Usage: "use the specified version of an object",
 		},
+		&cli.BoolFlag{
+			Name:    "show-progress",
+			Aliases: []string{"sp"},
+			Usage:   "show a progress bar",
+		},
 	}
 	sharedFlags := NewSharedFlags()
 	return append(copyFlags, sharedFlags...)
@@ -277,6 +282,7 @@ type Copy struct {
 	expires               string
 	contentType           string
 	contentEncoding       string
+	showProgress          bool
 
 	// region settings
 	srcRegion string
@@ -330,6 +336,7 @@ func NewCopy(c *cli.Context, deleteSource bool) (*Copy, error) {
 		expires:               c.String("expires"),
 		contentType:           c.String("content-type"),
 		contentEncoding:       c.String("content-encoding"),
+		showProgress:          c.Bool("show-progress"),
 		// region settings
 		srcRegion: c.String("source-region"),
 		dstRegion: c.String("destination-region"),
@@ -376,8 +383,11 @@ func incrementTotalObjects() {
 
 // Run starts copying given source objects to destination.
 func (c Copy) Run(ctx context.Context) error {
-	initializeProgressBar()
-	bar.Start()
+	if c.showProgress {
+		initializeProgressBar()
+		bar.Start()
+	}
+
 	// override source region if set
 	if c.srcRegion != "" {
 		c.storageOpts.SetRegion(c.srcRegion)
@@ -457,13 +467,15 @@ func (c Copy) Run(ctx context.Context) error {
 		srcurl := object.URL
 		var task parallel.Task
 
-		if object.Size == 0 {
-			obj, _ := client.Stat(ctx, c.src)
-			object.Size = obj.Size
+		if c.showProgress {
+			if object.Size == 0 {
+				obj, _ := client.Stat(ctx, c.src)
+				object.Size = obj.Size
+			}
+			taskStatus.totalSize += object.Size
+			bar.SetTotal(taskStatus.totalSize)
+			incrementTotalObjects()
 		}
-		taskStatus.totalSize += object.Size
-		bar.SetTotal(taskStatus.totalSize)
-		incrementTotalObjects()
 
 		switch {
 		case srcurl.Type == c.dst.Type: // local->local or remote->remote
@@ -479,7 +491,9 @@ func (c Copy) Run(ctx context.Context) error {
 	}
 	waiter.Wait()
 	<-errDoneCh
-	bar.Finish()
+	if c.showProgress {
+		bar.Finish()
+	}
 	return multierror.Append(merrorWaiter, merrorObjects).ErrorOrNil()
 }
 
@@ -617,15 +631,17 @@ func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) 
 		_ = srcClient.Delete(ctx, srcurl)
 	}
 
-	msg := log.InfoMessage{
-		Operation:   c.op,
-		Source:      srcurl,
-		Destination: dsturl,
-		Object: &storage.Object{
-			Size: size,
-		},
+	if !c.showProgress {
+		msg := log.InfoMessage{
+			Operation:   c.op,
+			Source:      srcurl,
+			Destination: dsturl,
+			Object: &storage.Object{
+				Size: size,
+			},
+		}
+		log.Info(msg)
 	}
-	log.Info(msg)
 
 	return nil
 }
@@ -708,9 +724,6 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 		return err
 	}
 
-	obj, _ := srcClient.Stat(ctx, srcurl)
-	size := obj.Size
-
 	if c.deleteSource {
 		// close the file before deleting
 		file.Close()
@@ -719,16 +732,21 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 		}
 	}
 
-	msg := log.InfoMessage{
-		Operation:   c.op,
-		Source:      srcurl,
-		Destination: dsturl,
-		Object: &storage.Object{
-			Size:         size,
-			StorageClass: c.storageClass,
-		},
+	if !c.showProgress {
+		obj, _ := srcClient.Stat(ctx, srcurl)
+		size := obj.Size
+
+		msg := log.InfoMessage{
+			Operation:   c.op,
+			Source:      srcurl,
+			Destination: dsturl,
+			Object: &storage.Object{
+				Size:         size,
+				StorageClass: c.storageClass,
+			},
+		}
+		log.Info(msg)
 	}
-	log.Info(msg)
 
 	return nil
 }

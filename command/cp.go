@@ -366,7 +366,7 @@ func initializeProgressBar() {
 	bar.Set(pb.Bytes, true)
 	bar.Set(pb.SIBytesPrefix, true)
 	bar.SetWidth(100)
-	barTemplate := `{{ string . "taskStatus" }} {{percent .}} {{ bar . " " "█"  (cycle . " " " " " " " " ) "." " " }} {{counters .}} {{speed . "(%s/s)" }} {{rtime . "%s left"}} `
+	barTemplate := `{{ string . "taskStatus" }} {{percent .}} {{ bar . "[" "="  (cycle . " " " " " " " " ) "." "]" | green}} {{counters .}} {{speed . "(%s/s)" }} {{rtime . "%s left"}} `
 	bar.SetTemplateString(barTemplate)
 	bar.Set("taskStatus", fmt.Sprintf("%d/%d items are completed.", taskStatus.completedObjects, taskStatus.totalObjects))
 }

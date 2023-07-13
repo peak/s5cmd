@@ -31,7 +31,7 @@ func TestSequentialWrite(t *testing.T) {
 	gbs := (workerCount * (workerCount + 1) / 2) + workerCount
 	var result bytes.Buffer
 	expected := make([]byte, 0)
-	rb := buffer.NewOrderedBuffer(workerCount*offset, gbs, &result)
+	rb := buffer.NewOrderedBuffer(int64(workerCount*offset), gbs, &result)
 
 	// nolap
 	for i := 0; i < workerCount; i++ {
@@ -48,7 +48,7 @@ func TestSequentialWrite(t *testing.T) {
 	// fill buffer at worst case
 	chunks := workerCount * (workerCount + 1) / 2
 	result.Reset()
-	rb = buffer.NewOrderedBuffer(chunks*offset, gbs, &result)
+	rb = buffer.NewOrderedBuffer(int64(chunks*offset), gbs, &result)
 	expected = make([]byte, 0)
 	// nolap
 	for i := 0; i < chunks; i++ {
@@ -70,7 +70,7 @@ func TestRandomWrite(t *testing.T) {
 	gbs := (workerCount * (workerCount + 1) / 2) + workerCount
 	var result bytes.Buffer
 	expected := make([]byte, 0)
-	rb := buffer.NewOrderedBuffer(workerCount*offset, gbs, &result)
+	rb := buffer.NewOrderedBuffer(int64(workerCount*offset), gbs, &result)
 
 	// make a shuffled array - nolap
 	j := 0
@@ -87,7 +87,7 @@ func TestRandomWrite(t *testing.T) {
 	// fill buffer at worst case
 	chunks := workerCount*(workerCount+1)/2 + workerCount
 	result.Reset()
-	rb = buffer.NewOrderedBuffer(chunks*offset, gbs, &result)
+	rb = buffer.NewOrderedBuffer(int64(chunks*offset), gbs, &result)
 	expected = make([]byte, 0)
 	// make a shuffled array - nolap
 	j = 0
@@ -111,7 +111,7 @@ func TestBlockingHeadSequentialWrite(t *testing.T) {
 	gbs := (workerCount * (workerCount + 1) / 2) + workerCount
 	var result bytes.Buffer
 	expected := make([]byte, 0)
-	rb := buffer.NewOrderedBuffer(workerCount*offset, gbs, &result)
+	rb := buffer.NewOrderedBuffer(int64(workerCount*offset), gbs, &result)
 
 	// all except first chunk
 	for i := 1; i < workerCount; i++ {
@@ -136,7 +136,7 @@ func TestBlockingHeadSequentialWrite(t *testing.T) {
 	// fill the buffer
 	chunks := workerCount * (workerCount + 1) / 2
 	result.Reset()
-	rb = buffer.NewOrderedBuffer(chunks*offset, gbs, &result)
+	rb = buffer.NewOrderedBuffer(int64(chunks*offset), gbs, &result)
 	expected = make([]byte, 0)
 
 	// nolap
@@ -166,7 +166,7 @@ func TestBlockingHeadRandomWrite(t *testing.T) {
 	gbs := (workerCount * (workerCount + 1) / 2) + workerCount
 	var result bytes.Buffer
 	expected := make([]byte, 0)
-	rb := buffer.NewOrderedBuffer(workerCount*offset, gbs, &result)
+	rb := buffer.NewOrderedBuffer(int64(workerCount*offset), gbs, &result)
 
 	// all except first chunk
 
@@ -197,7 +197,7 @@ func TestBlockingHeadRandomWrite(t *testing.T) {
 	// fill the buffer
 	chunks := workerCount * (workerCount + 1) / 2
 	result.Reset()
-	rb = buffer.NewOrderedBuffer(chunks*offset, gbs, &result)
+	rb = buffer.NewOrderedBuffer(int64(chunks*offset), gbs, &result)
 	expected = make([]byte, 0)
 
 	j = 1
@@ -230,7 +230,7 @@ func TestBlockingGapsSequentially(t *testing.T) {
 	gbs := (workerCount * (workerCount + 1) / 2) + workerCount
 	var result bytes.Buffer
 	expected := make([]byte, 0)
-	rb := buffer.NewOrderedBuffer(workerCount*offset, gbs, &result)
+	rb := buffer.NewOrderedBuffer(int64(workerCount*offset), gbs, &result)
 
 	// build expected value
 	for i := 0; i < workerCount; i++ {
@@ -266,7 +266,7 @@ func TestBlockingGapsSequentially(t *testing.T) {
 
 	chunks := workerCount*(workerCount+1)/2 + workerCount
 	result.Reset()
-	rb = buffer.NewOrderedBuffer(chunks*offset, gbs, &result)
+	rb = buffer.NewOrderedBuffer(int64(chunks*offset), gbs, &result)
 	expected = make([]byte, 0)
 	// you have chunks number of workers, so the expected chunks will fill the buffer
 	// in worst case.
@@ -319,7 +319,7 @@ func TestBlockingGapsAtRandom(t *testing.T) {
 	gbs := (workerCount * (workerCount + 1) / 2) + workerCount
 	var result bytes.Buffer
 	expected := make([]byte, 0)
-	rb := buffer.NewOrderedBuffer(workerCount*offset, gbs, &result)
+	rb := buffer.NewOrderedBuffer(int64(workerCount*offset), gbs, &result)
 
 	// build expected value
 	for i := 0; i < workerCount; i++ {
@@ -359,7 +359,7 @@ func TestBlockingGapsAtRandom(t *testing.T) {
 
 	chunks := workerCount*(workerCount+1)/2 + workerCount
 	result.Reset()
-	rb = buffer.NewOrderedBuffer(chunks*offset, gbs, &result)
+	rb = buffer.NewOrderedBuffer(int64(chunks*offset), gbs, &result)
 	expected = make([]byte, 0)
 	// you have chunks number of workers, so the expected chunks will fill the buffer
 	// in worst case.
@@ -423,7 +423,7 @@ func TestConcurrentWrite(t *testing.T) {
 	var result bytes.Buffer
 	expected := make([]byte, 0)
 	chunks := 1024
-	rb := buffer.NewRingBuffer(gbs, chunks, offset, &result)
+	rb := buffer.NewOrderedBuffer(int64(int64(chunks*offset)), gbs, &result)
 
 	// first create chunks number of tasks
 	tasks := make(chan WriteTask, workerCount)
@@ -490,7 +490,7 @@ func TestTinyChunk(t *testing.T) {
 	gbs := (workerCount * (workerCount + 1) / 2) + workerCount
 	var result bytes.Buffer
 	expected := make([]byte, 0)
-	rb := buffer.NewOrderedBuffer(workerCount*offset, gbs, &result)
+	rb := buffer.NewOrderedBuffer(int64((workerCount-1)*offset)+int64(offset/2), gbs, &result)
 
 	// nolap
 	for i := 0; i < workerCount-1; i++ {
@@ -514,7 +514,7 @@ func TestTinyChunk(t *testing.T) {
 	// fill buffer at worst case
 	chunks := workerCount*(workerCount+1)/2 + workerCount
 	result.Reset()
-	rb = buffer.NewOrderedBuffer(chunks*offset, gbs, &result)
+	rb = buffer.NewOrderedBuffer(int64((chunks-1)*offset)+int64(offset/2), gbs, &result)
 	expected = make([]byte, 0)
 	// nolap
 	for i := 0; i < chunks-1; i++ {
@@ -541,8 +541,7 @@ func TestHalfFillWithTinyChunk(t *testing.T) {
 	gbs := (workerCount * (workerCount + 1) / 2) + workerCount
 	var result bytes.Buffer
 	expected := make([]byte, 0)
-	rb := buffer.NewRingBuffer(gbs, workerCount*2, offset, &result)
-
+	rb := buffer.NewOrderedBuffer(int64(workerCount*2*offset), gbs, &result)
 	// nolap
 	for i := 0; i < (workerCount*2)-1; i++ {
 		off := int64(i * offset)

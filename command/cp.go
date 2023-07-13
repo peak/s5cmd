@@ -10,10 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
-	"time"
 
-	"github.com/cheggaaa/pb/v3"
 	"github.com/hashicorp/go-multierror"
 	"github.com/urfave/cli/v2"
 
@@ -21,6 +18,7 @@ import (
 	"github.com/peak/s5cmd/v2/log"
 	"github.com/peak/s5cmd/v2/log/stat"
 	"github.com/peak/s5cmd/v2/parallel"
+	"github.com/peak/s5cmd/v2/progress"
 	"github.com/peak/s5cmd/v2/storage"
 	"github.com/peak/s5cmd/v2/storage/url"
 )
@@ -284,13 +282,7 @@ type Copy struct {
 	contentType           string
 	contentEncoding       string
 	showProgress          bool
-
-	// task status
-	totalObjects     int64
-	completedObjects int64
-	totalBytes       int64
-	completedBytes   int64
-	mutex            sync.RWMutex
+	progress              *progress.CommandProgress
 
 	// region settings
 	srcRegion string
@@ -319,6 +311,14 @@ func NewCopy(c *cli.Context, deleteSource bool) (*Copy, error) {
 		return nil, err
 	}
 
+	var commandProgress *progress.CommandProgress
+
+	if c.Bool("show-progress") {
+		commandProgress = &progress.CommandProgress{}
+	} else {
+		commandProgress = nil
+	}
+
 	return &Copy{
 		src:          src,
 		dst:          dst,
@@ -345,13 +345,7 @@ func NewCopy(c *cli.Context, deleteSource bool) (*Copy, error) {
 		contentType:           c.String("content-type"),
 		contentEncoding:       c.String("content-encoding"),
 		showProgress:          c.Bool("show-progress"),
-
-		// task status
-		totalObjects:     0,
-		completedObjects: 0,
-		totalBytes:       0,
-		completedBytes:   0,
-		mutex:            sync.RWMutex{},
+		progress:              commandProgress,
 
 		// region settings
 		srcRegion: c.String("source-region"),
@@ -367,38 +361,10 @@ increase the open file limit or try to decrease the number of workers with
 '-numworkers' parameter.
 `
 
-const progressbarTemplate = `{{ string . "taskStatus" }} {{percent .}} {{ bar . "[" "="  (cycle . " " " " " " " " ) "." "]" | green}} {{counters .}} {{speed . "(%s/s)" }} {{rtime . "%s left"}}`
-
-var progressbar = pb.New64(0)
-
-func initializeProgressBar() {
-	progressbar.Set(pb.Bytes, true)
-	progressbar.Set(pb.SIBytesPrefix, true)
-	progressbar.SetRefreshRate(5 * time.Millisecond)
-	progressbar.SetWidth(100)
-	progressbar.SetTemplateString(progressbarTemplate)
-	progressbar.Set("taskStatus", fmt.Sprintf("%d/%d items are completed.", 0, 0))
-}
-
-func (c *Copy) incrementCompletedObjects() {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-	c.completedObjects += 1
-	progressbar.Set("taskStatus", fmt.Sprintf("%d/%d items are completed.", c.completedObjects, c.totalObjects))
-}
-
-func (c *Copy) incrementTotalObjects() {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-	c.totalObjects += 1
-	progressbar.Set("taskStatus", fmt.Sprintf("%d/%d items are completed.", c.completedObjects, c.totalObjects))
-}
-
 // Run starts copying given source objects to destination.
 func (c Copy) Run(ctx context.Context) error {
 	if c.showProgress {
-		initializeProgressBar()
-		progressbar.Start()
+		c.progress.InitializeProgressBar()
 	}
 
 	// override source region if set
@@ -485,9 +451,8 @@ func (c Copy) Run(ctx context.Context) error {
 				obj, _ := client.Stat(ctx, c.src)
 				object.Size = obj.Size
 			}
-			c.totalBytes += object.Size
-			progressbar.SetTotal(c.totalBytes)
-			c.incrementTotalObjects()
+			c.progress.AddTotalBytes(object.Size)
+			c.progress.IncrementTotalObjects()
 		}
 
 		switch {
@@ -505,12 +470,12 @@ func (c Copy) Run(ctx context.Context) error {
 	waiter.Wait()
 	<-errDoneCh
 	if c.showProgress {
-		progressbar.Finish()
+		c.progress.Finish()
 	}
 	return multierror.Append(merrorWaiter, merrorObjects).ErrorOrNil()
 }
 
-func (c *Copy) prepareCopyTask(
+func (c Copy) prepareCopyTask(
 	ctx context.Context,
 	srcurl *url.URL,
 	dsturl *url.URL,
@@ -527,14 +492,14 @@ func (c *Copy) prepareCopyTask(
 				Err: err,
 			}
 		}
-
-		c.incrementCompletedObjects()
-
+		if c.showProgress {
+			c.progress.IncrementCompletedObjects()
+		}
 		return nil
 	}
 }
 
-func (c *Copy) prepareDownloadTask(
+func (c Copy) prepareDownloadTask(
 	ctx context.Context,
 	srcurl *url.URL,
 	dsturl *url.URL,
@@ -554,12 +519,14 @@ func (c *Copy) prepareDownloadTask(
 				Err: err,
 			}
 		}
-		c.incrementCompletedObjects()
+		if c.showProgress {
+			c.progress.IncrementCompletedObjects()
+		}
 		return nil
 	}
 }
 
-func (c *Copy) prepareUploadTask(
+func (c Copy) prepareUploadTask(
 	ctx context.Context,
 	srcurl *url.URL,
 	dsturl *url.URL,
@@ -576,24 +543,11 @@ func (c *Copy) prepareUploadTask(
 				Err: err,
 			}
 		}
-
-		c.incrementCompletedObjects()
-
+		if c.showProgress {
+			c.progress.IncrementCompletedObjects()
+		}
 		return nil
 	}
-}
-
-type CustomWriter struct {
-	fp *os.File
-}
-
-func (r *CustomWriter) WriteAt(p []byte, off int64) (int, error) {
-	n, err := r.fp.Write(p)
-	if err != nil {
-		return n, err
-	}
-	progressbar.Add(n)
-	return n, err
 }
 
 // doDownload is used to fetch a remote object and save as a local object.
@@ -621,6 +575,7 @@ func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) 
 	}
 
 	writer := &CustomWriter{
+		c:  c,
 		fp: file,
 	}
 	size, err := srcClient.Get(ctx, srcurl, writer, c.concurrency, c.partSize)
@@ -653,27 +608,6 @@ func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) 
 	}
 
 	return nil
-}
-
-type CustomReader struct {
-	fp *os.File
-}
-
-func (r *CustomReader) Read(p []byte) (int, error) {
-	return r.fp.Read(p)
-}
-
-func (r *CustomReader) ReadAt(p []byte, off int64) (int, error) {
-	n, err := r.fp.ReadAt(p, off)
-	if err != nil {
-		return n, err
-	}
-	progressbar.Add(n / 2)
-	return n, err
-}
-
-func (r *CustomReader) Seek(offset int64, whence int) (int64, error) {
-	return r.fp.Seek(offset, whence)
 }
 
 func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) error {
@@ -722,6 +656,7 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 	}
 
 	reader := &CustomReader{
+		c:  c,
 		fp: file,
 	}
 	err = dstClient.Put(ctx, reader, dsturl, metadata, c.concurrency, c.partSize)
@@ -1069,4 +1004,51 @@ func guessContentType(file *os.File) string {
 		return http.DetectContentType(buf)
 	}
 	return contentType
+}
+
+type CustomWriter struct {
+	c  Copy
+	fp *os.File
+}
+
+func (r *CustomWriter) WriteAt(p []byte, off int64) (int, error) {
+	n, err := r.fp.Write(p)
+	if err != nil {
+		return n, err
+	}
+	if r.c.showProgress {
+		r.c.progress.AddCompletedBytes(n)
+	}
+	return n, err
+}
+
+type CustomReader struct {
+	c  Copy
+	fp *os.File
+}
+
+func (r *CustomReader) Read(p []byte) (int, error) {
+	n, err := r.fp.Read(p)
+	if err != nil {
+		return n, err
+	}
+	if r.c.showProgress {
+		r.c.progress.AddCompletedBytes(n / 2)
+	}
+	return n, err
+}
+
+func (r *CustomReader) ReadAt(p []byte, off int64) (int, error) {
+	n, err := r.fp.ReadAt(p, off)
+	if err != nil {
+		return n, err
+	}
+	if r.c.showProgress {
+		r.c.progress.AddCompletedBytes(n / 2)
+	}
+	return n, err
+}
+
+func (r *CustomReader) Seek(offset int64, whence int) (int64, error) {
+	return r.fp.Seek(offset, whence)
 }

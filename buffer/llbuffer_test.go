@@ -2,7 +2,6 @@ package buffer_test
 
 import (
 	"bytes"
-	"math"
 	"math/rand"
 	"sync"
 	"testing"
@@ -18,10 +17,6 @@ func makeChunk(n, size int) []byte {
 		chunk[i] = byte(n)
 	}
 	return chunk
-}
-
-func calculateChunkCount(filesize, width int) int64 {
-	return int64(math.Ceil(float64(filesize / width)))
 }
 
 // Allocate gbs, fill whole, write seq, expect ordered seq

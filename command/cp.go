@@ -286,10 +286,11 @@ type Copy struct {
 	showProgress          bool
 
 	// task status
-	totalObjects     int
-	completedObjects int
+	totalObjects     int64
+	completedObjects int64
 	totalBytes       int64
 	completedBytes   int64
+	mutex            sync.RWMutex
 
 	// region settings
 	srcRegion string
@@ -350,6 +351,7 @@ func NewCopy(c *cli.Context, deleteSource bool) (*Copy, error) {
 		completedObjects: 0,
 		totalBytes:       0,
 		completedBytes:   0,
+		mutex:            sync.RWMutex{},
 
 		// region settings
 		srcRegion: c.String("source-region"),
@@ -367,47 +369,29 @@ increase the open file limit or try to decrease the number of workers with
 
 const progressbarTemplate = `{{ string . "taskStatus" }} {{percent .}} {{ bar . "[" "="  (cycle . " " " " " " " " ) "." "]" | green}} {{counters .}} {{speed . "(%s/s)" }} {{rtime . "%s left"}}`
 
-type copyStatus struct {
-	totalSize        int64
-	completedSize    int64
-	totalObjects     int
-	completedObjects int
-}
-
-var taskStatus = &copyStatus{totalSize: 0, completedSize: 0, totalObjects: 0, completedObjects: 0}
-
-/*
-var bar = pb.New64(0)
-*/
-
 var progressbar = pb.New64(0)
 
 func initializeProgressBar() {
 	progressbar.Set(pb.Bytes, true)
 	progressbar.Set(pb.SIBytesPrefix, true)
-	progressbar.SetRefreshRate(50 * time.Millisecond)
+	progressbar.SetRefreshRate(5 * time.Millisecond)
 	progressbar.SetWidth(100)
-	//barTemplate := `{{ string . "taskStatus" }} {{percent .}} {{ bar . "[" "="  (cycle . " " " " " " " " ) "." "]" | green}} {{counters .}} {{speed . "(%s/s)" }} {{rtime . "%s left"}} `
 	progressbar.SetTemplateString(progressbarTemplate)
 	progressbar.Set("taskStatus", fmt.Sprintf("%d/%d items are completed.", 0, 0))
 }
 
-var taskStatusMutex sync.Mutex
-
-func incrementCompletedObjects(completedObjects int, totalObjects int) int {
-	taskStatusMutex.Lock()
-	defer taskStatusMutex.Unlock()
-	completedObjects += 1
-	progressbar.Set("taskStatus", fmt.Sprintf("%d/%d items are completed.", completedObjects, totalObjects))
-	return completedObjects
+func (c *Copy) incrementCompletedObjects() {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	c.completedObjects += 1
+	progressbar.Set("taskStatus", fmt.Sprintf("%d/%d items are completed.", c.completedObjects, c.totalObjects))
 }
 
-func incrementTotalObjects(completedObjects int, totalObjects int) int {
-	taskStatusMutex.Lock()
-	defer taskStatusMutex.Unlock()
-	totalObjects += 1
-	progressbar.Set("taskStatus", fmt.Sprintf("%d/%d items are completed.", completedObjects, totalObjects))
-	return totalObjects
+func (c *Copy) incrementTotalObjects() {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	c.totalObjects += 1
+	progressbar.Set("taskStatus", fmt.Sprintf("%d/%d items are completed.", c.completedObjects, c.totalObjects))
 }
 
 // Run starts copying given source objects to destination.
@@ -503,7 +487,7 @@ func (c Copy) Run(ctx context.Context) error {
 			}
 			c.totalBytes += object.Size
 			progressbar.SetTotal(c.totalBytes)
-			c.totalObjects = incrementTotalObjects(c.completedObjects, c.totalObjects)
+			c.incrementTotalObjects()
 		}
 
 		switch {
@@ -526,7 +510,7 @@ func (c Copy) Run(ctx context.Context) error {
 	return multierror.Append(merrorWaiter, merrorObjects).ErrorOrNil()
 }
 
-func (c Copy) prepareCopyTask(
+func (c *Copy) prepareCopyTask(
 	ctx context.Context,
 	srcurl *url.URL,
 	dsturl *url.URL,
@@ -543,12 +527,14 @@ func (c Copy) prepareCopyTask(
 				Err: err,
 			}
 		}
-		c.completedObjects = incrementCompletedObjects(c.completedObjects, c.totalObjects)
+
+		c.incrementCompletedObjects()
+
 		return nil
 	}
 }
 
-func (c Copy) prepareDownloadTask(
+func (c *Copy) prepareDownloadTask(
 	ctx context.Context,
 	srcurl *url.URL,
 	dsturl *url.URL,
@@ -568,12 +554,12 @@ func (c Copy) prepareDownloadTask(
 				Err: err,
 			}
 		}
-		c.completedObjects = incrementCompletedObjects(c.completedObjects, c.totalObjects)
+		c.incrementCompletedObjects()
 		return nil
 	}
 }
 
-func (c Copy) prepareUploadTask(
+func (c *Copy) prepareUploadTask(
 	ctx context.Context,
 	srcurl *url.URL,
 	dsturl *url.URL,
@@ -590,7 +576,9 @@ func (c Copy) prepareUploadTask(
 				Err: err,
 			}
 		}
-		c.completedObjects = incrementCompletedObjects(c.completedObjects, c.totalObjects)
+
+		c.incrementCompletedObjects()
+
 		return nil
 	}
 }

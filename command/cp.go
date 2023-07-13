@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/cheggaaa/pb/v3"
 	"github.com/hashicorp/go-multierror"
@@ -284,6 +285,12 @@ type Copy struct {
 	contentEncoding       string
 	showProgress          bool
 
+	// task status
+	totalObjects     int
+	completedObjects int
+	totalBytes       int64
+	completedBytes   int64
+
 	// region settings
 	srcRegion string
 	dstRegion string
@@ -337,6 +344,13 @@ func NewCopy(c *cli.Context, deleteSource bool) (*Copy, error) {
 		contentType:           c.String("content-type"),
 		contentEncoding:       c.String("content-encoding"),
 		showProgress:          c.Bool("show-progress"),
+
+		// task status
+		totalObjects:     0,
+		completedObjects: 0,
+		totalBytes:       0,
+		completedBytes:   0,
+
 		// region settings
 		srcRegion: c.String("source-region"),
 		dstRegion: c.String("destination-region"),
@@ -351,6 +365,8 @@ increase the open file limit or try to decrease the number of workers with
 '-numworkers' parameter.
 `
 
+const progressbarTemplate = `{{ string . "taskStatus" }} {{percent .}} {{ bar . "[" "="  (cycle . " " " " " " " " ) "." "]" | green}} {{counters .}} {{speed . "(%s/s)" }} {{rtime . "%s left"}}`
+
 type copyStatus struct {
 	totalSize        int64
 	completedSize    int64
@@ -360,38 +376,45 @@ type copyStatus struct {
 
 var taskStatus = &copyStatus{totalSize: 0, completedSize: 0, totalObjects: 0, completedObjects: 0}
 
+/*
 var bar = pb.New64(0)
+*/
+
+var progressbar = pb.New64(0)
 
 func initializeProgressBar() {
-	bar.Set(pb.Bytes, true)
-	bar.Set(pb.SIBytesPrefix, true)
-	bar.SetWidth(100)
-	barTemplate := `{{ string . "taskStatus" }} {{percent .}} {{ bar . "[" "="  (cycle . " " " " " " " " ) "." "]" | green}} {{counters .}} {{speed . "(%s/s)" }} {{rtime . "%s left"}} `
-	bar.SetTemplateString(barTemplate)
-	bar.Set("taskStatus", fmt.Sprintf("%d/%d items are completed.", taskStatus.completedObjects, taskStatus.totalObjects))
+	progressbar.Set(pb.Bytes, true)
+	progressbar.Set(pb.SIBytesPrefix, true)
+	progressbar.SetRefreshRate(50 * time.Millisecond)
+	progressbar.SetWidth(100)
+	//barTemplate := `{{ string . "taskStatus" }} {{percent .}} {{ bar . "[" "="  (cycle . " " " " " " " " ) "." "]" | green}} {{counters .}} {{speed . "(%s/s)" }} {{rtime . "%s left"}} `
+	progressbar.SetTemplateString(progressbarTemplate)
+	progressbar.Set("taskStatus", fmt.Sprintf("%d/%d items are completed.", 0, 0))
 }
 
 var taskStatusMutex sync.Mutex
 
-func incrementCompletedObjects() {
+func incrementCompletedObjects(completedObjects int, totalObjects int) int {
 	taskStatusMutex.Lock()
 	defer taskStatusMutex.Unlock()
-	taskStatus.completedObjects += 1
-	bar.Set("taskStatus", fmt.Sprintf("%d/%d items are completed.", taskStatus.completedObjects, taskStatus.totalObjects))
+	completedObjects += 1
+	progressbar.Set("taskStatus", fmt.Sprintf("%d/%d items are completed.", completedObjects, totalObjects))
+	return completedObjects
 }
 
-func incrementTotalObjects() {
+func incrementTotalObjects(completedObjects int, totalObjects int) int {
 	taskStatusMutex.Lock()
 	defer taskStatusMutex.Unlock()
-	taskStatus.totalObjects += 1
-	bar.Set("taskStatus", fmt.Sprintf("%d/%d items are completed.", taskStatus.completedObjects, taskStatus.totalObjects))
+	totalObjects += 1
+	progressbar.Set("taskStatus", fmt.Sprintf("%d/%d items are completed.", completedObjects, totalObjects))
+	return totalObjects
 }
 
 // Run starts copying given source objects to destination.
 func (c Copy) Run(ctx context.Context) error {
 	if c.showProgress {
 		initializeProgressBar()
-		bar.Start()
+		progressbar.Start()
 	}
 
 	// override source region if set
@@ -478,9 +501,9 @@ func (c Copy) Run(ctx context.Context) error {
 				obj, _ := client.Stat(ctx, c.src)
 				object.Size = obj.Size
 			}
-			taskStatus.totalSize += object.Size
-			bar.SetTotal(taskStatus.totalSize)
-			incrementTotalObjects()
+			c.totalBytes += object.Size
+			progressbar.SetTotal(c.totalBytes)
+			c.totalObjects = incrementTotalObjects(c.completedObjects, c.totalObjects)
 		}
 
 		switch {
@@ -498,7 +521,7 @@ func (c Copy) Run(ctx context.Context) error {
 	waiter.Wait()
 	<-errDoneCh
 	if c.showProgress {
-		bar.Finish()
+		progressbar.Finish()
 	}
 	return multierror.Append(merrorWaiter, merrorObjects).ErrorOrNil()
 }
@@ -520,7 +543,7 @@ func (c Copy) prepareCopyTask(
 				Err: err,
 			}
 		}
-		incrementCompletedObjects()
+		c.completedObjects = incrementCompletedObjects(c.completedObjects, c.totalObjects)
 		return nil
 	}
 }
@@ -545,7 +568,7 @@ func (c Copy) prepareDownloadTask(
 				Err: err,
 			}
 		}
-		incrementCompletedObjects()
+		c.completedObjects = incrementCompletedObjects(c.completedObjects, c.totalObjects)
 		return nil
 	}
 }
@@ -567,7 +590,7 @@ func (c Copy) prepareUploadTask(
 				Err: err,
 			}
 		}
-		incrementCompletedObjects()
+		c.completedObjects = incrementCompletedObjects(c.completedObjects, c.totalObjects)
 		return nil
 	}
 }
@@ -581,7 +604,7 @@ func (r *CustomWriter) WriteAt(p []byte, off int64) (int, error) {
 	if err != nil {
 		return n, err
 	}
-	bar.Add(n)
+	progressbar.Add(n)
 	return n, err
 }
 
@@ -657,7 +680,7 @@ func (r *CustomReader) ReadAt(p []byte, off int64) (int, error) {
 	if err != nil {
 		return n, err
 	}
-	bar.Add(n / 2)
+	progressbar.Add(n / 2)
 	return n, err
 }
 

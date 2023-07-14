@@ -223,7 +223,7 @@ func TestNewSessionWithProfileFromFileAndEndpointInAwsProfile(t *testing.T) {
 	}
 	defer os.Remove(configFile.Name())
 
-	profiles := `[p1]
+	profiles := `[profile p1]
 endpoint_url = https://some-custom-s3-endpoint/`
 
 	_, err = configFile.Write([]byte(profiles))

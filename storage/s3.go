@@ -1073,8 +1073,9 @@ func (sc *SessionCache) newSession(ctx context.Context, opts Options) (*session.
 				return nil, err
 			}
 
-			if awsProfileConfig.HasSection(opts.Profile) && awsProfileConfig.Section(opts.Profile).HasKey(endpointURLKey) {
-				opts.Endpoint = awsProfileConfig.Section(opts.Profile).Key(endpointURLKey).String()
+			awsProfileName := "profile " + opts.Profile
+			if awsProfileConfig.HasSection(awsProfileName) && awsProfileConfig.Section(awsProfileName).HasKey(endpointURLKey) {
+				opts.Endpoint = awsProfileConfig.Section(awsProfileName).Key(endpointURLKey).String()
 			}
 		}
 	}

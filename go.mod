@@ -14,6 +14,7 @@ require (
 	github.com/lanrat/extsort v1.0.0
 	github.com/termie/go-shutil v0.0.0-20140729215957-bcacb06fecae
 	github.com/urfave/cli/v2 v2.11.2
+	gopkg.in/ini.v1 v1.67.0
 	gotest.tools/v3 v3.0.2
 )
 

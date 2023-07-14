@@ -215,6 +215,65 @@ aws_secret_access_key = p2_profile_access_key`
 	}
 }
 
+func TestNewSessionWithProfileFromFileAndEndpointInAwsProfile(t *testing.T) {
+	// create a temporary config file
+	configFile, err := os.CreateTemp("", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(configFile.Name())
+
+	profiles := `[p1]
+endpoint_url = https://some-custom-s3-endpoint/`
+
+	_, err = configFile.Write([]byte(profiles))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Set the AWS_CONFIG_FILE location to temporary created config file
+	t.Setenv("AWS_CONFIG_FILE", configFile.Name())
+
+	testcases := []struct {
+		name               string
+		fileName           string
+		profileName        string
+		expAccessKeyID     string
+		expSecretAccessKey string
+	}{
+		{
+			name:        "use a non-default profile with endpoint configured",
+			profileName: "p1",
+		},
+		{
+			name:        "use a non-default profile without endpoint configured",
+			profileName: "p2",
+		},
+	}
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			globalSessionCache.clear()
+			sess, err := globalSessionCache.newSession(context.Background(), Options{
+				Profile:        tc.profileName,
+				CredentialFile: tc.fileName,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if tc.profileName == "p1" {
+				if *sess.Config.Endpoint != "https://some-custom-s3-endpoint/" {
+					t.Errorf("Expected endpoint to match endpoint configured in AWS config file")
+				}
+			} else if tc.profileName == "p2" {
+				if *sess.Config.Endpoint != "" {
+					t.Errorf("Expected endpoint to be empty (Wrong: '%s')", *sess.Config.Endpoint)
+				}
+			}
+		})
+	}
+}
+
 func TestS3ListURL(t *testing.T) {
 	url, err := url.New("s3://bucket/key")
 	if err != nil {

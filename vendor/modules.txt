@@ -141,6 +141,9 @@ golang.org/x/xerrors
 golang.org/x/xerrors/internal
 # gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127
 ## explicit
+# gopkg.in/ini.v1 v1.67.0
+## explicit
+gopkg.in/ini.v1
 # gopkg.in/mgo.v2 v2.0.0-20180705113604-9856a29383ce
 ## explicit
 gopkg.in/mgo.v2/bson

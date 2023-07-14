@@ -2,7 +2,6 @@ package command
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 
@@ -98,7 +97,7 @@ func (c Cat) Run(ctx context.Context) error {
 	}
 
 	workerCount := defaultCopyConcurrency
-	chunkSize := int64(64) // by default 64 mb chunks
+	chunkSize := int64(64) // by default 64 byte chunks
 	// stat the object to correcty setup the buffer.
 	obj, err := client.Stat(ctx, c.src)
 
@@ -109,22 +108,12 @@ func (c Cat) Run(ctx context.Context) error {
 
 	buff := buffer.NewOrderedBuffer(obj.Size, workerCount, os.Stdout)
 
-	n, err := client.Get(ctx, c.src, buff, workerCount, chunkSize)
+	_, err = client.Get(ctx, c.src, buff, workerCount, chunkSize)
 	if err != nil {
 		printError(c.fullCommand, c.op, err)
 		return err
 	}
-
-	if n != obj.Size {
-		missingBytesError := errors.New("conccurency error, data is corrupt")
-		printError(c.fullCommand, c.op, missingBytesError)
-		return missingBytesError
-	}
-	if err != nil {
-		printError(c.fullCommand, c.op, err)
-		return err
-	}
-
+	
 	return nil
 }
 

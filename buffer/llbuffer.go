@@ -42,7 +42,7 @@ func (ob *OrderedBuffer) WriteAt(p []byte, offset int64) (int, error) {
 			Content: p,
 		})
 		// flush the remaining items
-		if offset+int64(len(p)) == ob.totalExpected && ob.written + int64(len(p)) == ob.totalExpected {
+		if offset+int64(len(p)) == ob.totalExpected && ob.written+int64(len(p)) == ob.totalExpected {
 			ob.w.Write(p)
 			ob.list.Init()
 		}

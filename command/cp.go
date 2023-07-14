@@ -1037,7 +1037,7 @@ func (r *CustomReader) Read(p []byte) (int, error) {
 		return n, err
 	}
 	if r.c.showProgress {
-		r.c.progress.AddCompletedBytes(n / 2)
+		r.c.progress.AddCompletedBytes(n)
 	}
 	return n, err
 }

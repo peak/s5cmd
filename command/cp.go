@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/urfave/cli/v2"
@@ -656,8 +657,9 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 	}
 
 	reader := &CustomReader{
-		c:  c,
-		fp: file,
+		c:       c,
+		fp:      file,
+		signMap: map[int64]struct{}{},
 	}
 	err = dstClient.Put(ctx, reader, dsturl, metadata, c.concurrency, c.partSize)
 	if err != nil {
@@ -1023,8 +1025,10 @@ func (r *CustomWriter) WriteAt(p []byte, off int64) (int, error) {
 }
 
 type CustomReader struct {
-	c  Copy
-	fp *os.File
+	c       Copy
+	fp      *os.File
+	signMap map[int64]struct{}
+	mux     sync.Mutex
 }
 
 func (r *CustomReader) Read(p []byte) (int, error) {
@@ -1043,9 +1047,17 @@ func (r *CustomReader) ReadAt(p []byte, off int64) (int, error) {
 	if err != nil {
 		return n, err
 	}
-	if r.c.showProgress {
-		r.c.progress.AddCompletedBytes(n / 2)
+	r.mux.Lock()
+	// Ignore the first signature call
+	if _, ok := r.signMap[off]; ok {
+		// Got the length have read (or means has uploaded)
+		if r.c.showProgress {
+			r.c.progress.AddCompletedBytes(n)
+		}
+	} else {
+		r.signMap[off] = struct{}{}
 	}
+	r.mux.Unlock()
 	return n, err
 }
 

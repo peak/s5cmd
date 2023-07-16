@@ -44,6 +44,18 @@ func NewCatCommand() *cli.Command {
 				Name:  "version-id",
 				Usage: "use the specified version of an object",
 			},
+			&cli.IntFlag{
+				Name:    "concurrency",
+				Aliases: []string{"c"},
+				Value:   defaultCopyConcurrency,
+				Usage:   "number of concurrent parts transferred between host and remote server",
+			},
+			&cli.IntFlag{
+				Name:    "part-size",
+				Aliases: []string{"p"},
+				Value:   defaultPartSize,
+				Usage:   "size of each part transferred between host and remote server, in MiB",
+			},
 		},
 		CustomHelpTemplate: catHelpTemplate,
 		Before: func(c *cli.Context) error {
@@ -72,6 +84,8 @@ func NewCatCommand() *cli.Command {
 				fullCommand: fullCommand,
 
 				storageOpts: NewStorageOpts(c),
+				concurrency: c.Int("concurrency"),
+				partSize:    c.Int64("part-size"),
 			}.Run(c.Context)
 		},
 	}
@@ -86,6 +100,8 @@ type Cat struct {
 	fullCommand string
 
 	storageOpts storage.Options
+	concurrency int
+	partSize    int64
 }
 
 // Run prints content of given source to standard output.
@@ -96,9 +112,6 @@ func (c Cat) Run(ctx context.Context) error {
 		return err
 	}
 
-	workerCount := defaultCopyConcurrency
-	chunkSize := int64(64) // by default 64 byte chunks
-	// stat the object to correcty setup the buffer.
 	obj, err := client.Stat(ctx, c.src)
 
 	if err != nil {
@@ -106,14 +119,14 @@ func (c Cat) Run(ctx context.Context) error {
 		return err
 	}
 
-	buff := buffer.NewOrderedBuffer(obj.Size, workerCount, os.Stdout)
+	buff := buffer.NewOrderedBuffer(obj.Size, c.concurrency, os.Stdout)
 
-	_, err = client.Get(ctx, c.src, buff, workerCount, chunkSize)
+	_, err = client.Get(ctx, c.src, buff, c.concurrency, c.partSize)
 	if err != nil {
 		printError(c.fullCommand, c.op, err)
 		return err
 	}
-	
+
 	return nil
 }
 

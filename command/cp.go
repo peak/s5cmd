@@ -1028,7 +1028,7 @@ type CustomReader struct {
 	c       Copy
 	fp      *os.File
 	signMap map[int64]struct{}
-	mux     sync.Mutex
+	mu      sync.Mutex
 }
 
 func (r *CustomReader) Read(p []byte) (int, error) {
@@ -1047,7 +1047,7 @@ func (r *CustomReader) ReadAt(p []byte, off int64) (int, error) {
 	if err != nil {
 		return n, err
 	}
-	r.mux.Lock()
+	r.mu.Lock()
 	// Ignore the first signature call
 	if _, ok := r.signMap[off]; ok {
 		// Got the length have read (or means has uploaded)
@@ -1057,7 +1057,7 @@ func (r *CustomReader) ReadAt(p []byte, off int64) (int, error) {
 	} else {
 		r.signMap[off] = struct{}{}
 	}
-	r.mux.Unlock()
+	r.mu.Unlock()
 	return n, err
 }
 

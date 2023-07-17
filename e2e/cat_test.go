@@ -10,13 +10,78 @@ import (
 	"gotest.tools/v3/icmd"
 )
 
+var (
+	kb int64 = 1024
+	mb       = kb * kb
+	gb       = mb * mb
+)
+
 func TestCatS3Object(t *testing.T) {
 	t.Parallel()
 
 	const (
 		filename = "file.txt"
 	)
-	contents, expected := getSequentialFileContent()
+	contents, expected := getSequentialFileContent(64 * mb)
+
+	testcases := []struct {
+		name      string
+		cmd       []string
+		expected  map[int]compareFunc
+		assertOps []assertOp
+	}{
+		{
+			name: "cat remote object",
+			cmd: []string{
+				"cat",
+			},
+			expected: expected,
+		},
+		{
+			name: "cat remote object with json flag",
+			cmd: []string{
+				"--json",
+				"cat",
+			},
+			expected: expected,
+			assertOps: []assertOp{
+				jsonCheck(true),
+			},
+		},
+	}
+	for _, tc := range testcases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			s3client, s5cmd := setup(t)
+
+			bucket := s3BucketFromTestName(t)
+
+			createBucket(t, s3client, bucket)
+			putFile(t, s3client, bucket, filename, contents)
+
+			src := fmt.Sprintf("s3://%v/%v", bucket, filename)
+			tc.cmd = append(tc.cmd, src)
+
+			cmd := s5cmd(tc.cmd...)
+			result := icmd.RunCmd(cmd)
+
+			result.Assert(t, icmd.Success)
+
+			assertLines(t, result.Stdout(), tc.expected)
+		})
+	}
+
+}
+
+func TestCatS3BigObject(t *testing.T) {
+	t.Parallel()
+
+	const (
+		filename = "file.txt"
+	)
+	contents, expected := getSequentialFileContent(1000 * mb)
 
 	testcases := []struct {
 		name      string
@@ -200,16 +265,16 @@ func TestCatLocalFileFail(t *testing.T) {
 	}
 }
 
-// getSequentialFileContent creates a string with 64666688 in size (~61.670 MB)
-func getSequentialFileContent() (string, map[int]compareFunc) {
+// getSequentialFileContent creates a string with size bytes in size.
+func getSequentialFileContent(size int64) (string, map[int]compareFunc) {
 	sb := strings.Builder{}
 	expectedLines := make(map[int]compareFunc)
-
-	for i := 0; i < 50000; i++ {
+	totalBytesWritten := int64(0)
+	for i := 0; totalBytesWritten < size; i++ {
 		line := fmt.Sprintf(`{ "line": "%d", "id": "i%d", data: "some event %d" }`, i, i, i)
 		sb.WriteString(line)
 		sb.WriteString("\n")
-
+		totalBytesWritten += int64(len(line))
 		expectedLines[i] = equals(line)
 	}
 
@@ -272,7 +337,6 @@ func TestCatByVersionID(t *testing.T) {
 		cmd = s5cmd("cat", "--version-id", version,
 			fmt.Sprintf("s3://%v/%v", bucket, filename))
 		result = icmd.RunCmd(cmd)
-
 		if diff := cmp.Diff(contents[i], result.Stdout()); diff != "" {
 			t.Errorf("(-want +got):\n%v", diff)
 		}

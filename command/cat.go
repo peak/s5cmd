@@ -85,7 +85,7 @@ func NewCatCommand() *cli.Command {
 
 				storageOpts: NewStorageOpts(c),
 				concurrency: c.Int("concurrency"),
-				partSize:    c.Int64("part-size"),
+				partSize:    c.Int64("part-size") * megabytes,
 			}.Run(c.Context)
 		},
 	}
@@ -118,15 +118,12 @@ func (c Cat) Run(ctx context.Context) error {
 		printError(c.fullCommand, c.op, err)
 		return err
 	}
-
 	buff := buffer.NewOrderedBuffer(obj.Size, c.concurrency, os.Stdout)
-
 	_, err = client.Get(ctx, c.src, buff, c.concurrency, c.partSize)
 	if err != nil {
 		printError(c.fullCommand, c.op, err)
 		return err
 	}
-
 	return nil
 }
 

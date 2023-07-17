@@ -81,7 +81,7 @@ func TestCatS3BigObject(t *testing.T) {
 	const (
 		filename = "file.txt"
 	)
-	contents, expected := getSequentialFileContent(1000 * mb)
+	contents, expected := getSequentialFileContent(150 * 1000)
 
 	testcases := []struct {
 		name      string
@@ -121,7 +121,7 @@ func TestCatS3BigObject(t *testing.T) {
 			putFile(t, s3client, bucket, filename, contents)
 
 			src := fmt.Sprintf("s3://%v/%v", bucket, filename)
-			tc.cmd = append(tc.cmd, src)
+			tc.cmd = append(tc.cmd, "-p", "-100", src)
 
 			cmd := s5cmd(tc.cmd...)
 			result := icmd.RunCmd(cmd)

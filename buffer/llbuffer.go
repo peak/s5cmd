@@ -22,7 +22,7 @@ type OrderedBuffer struct {
 	maxSize       int
 	list          *list.List
 	mu            *sync.Mutex
-	queued        int
+	Queued        int
 }
 
 func NewOrderedBuffer(expectedBytes int64, maxSize int, w io.Writer) *OrderedBuffer {
@@ -33,13 +33,13 @@ func NewOrderedBuffer(expectedBytes int64, maxSize int, w io.Writer) *OrderedBuf
 		maxSize:       maxSize,
 		mu:            &sync.Mutex{},
 		w:             w,
-		queued:        0,
+		Queued:        0,
 	}
 }
 
 func debugMessage(s string) {
 	return
-	log.Debug(log.DebugMessage{
+	fmt.Printf("%v\n", log.DebugMessage{
 		Operation: "Get",
 		Command:   "cat",
 		Err:       s,
@@ -49,11 +49,11 @@ func debugMessage(s string) {
 func (ob *OrderedBuffer) WriteAt(p []byte, offset int64) (int, error) {
 	ob.mu.Lock()
 	defer ob.mu.Unlock()
-
 	debugMessage(fmt.Sprintf("WriteAt with offset: %d, len:%d", offset, len(p)))
 	if ob.list.Front() == nil {
 		// if the queue is empty and the chunk is writeable, push it without queueing
 		if ob.written == offset {
+			debugMessage(fmt.Sprintf("WriteAt bypass-write with offset: %d, len:%d", offset, len(p)))
 			ob.w.Write(p)
 			ob.written += int64(len(p))
 
@@ -63,7 +63,7 @@ func (ob *OrderedBuffer) WriteAt(p []byte, offset int64) (int, error) {
 			Start:   offset,
 			Content: p,
 		})
-		ob.queued++
+		ob.Queued++
 		return len(p), nil
 	}
 	inserted := false
@@ -89,8 +89,8 @@ func (ob *OrderedBuffer) WriteAt(p []byte, offset int64) (int, error) {
 		})
 		debugMessage(fmt.Sprintf("\tWriteAt push back offset: %d, len:%d", offset, len(p)))
 	}
-	ob.queued++
-	debugMessage(fmt.Sprintf("\tWriteAt Total queued after writes: %d", ob.queued))
+	ob.Queued++
+	debugMessage(fmt.Sprintf("\tWriteAt Total Queued after writes: %d", ob.Queued))
 	removeList := make([]*list.Element, 0)
 	for e := ob.list.Front(); e != nil; e = e.Next() {
 		v, ok := e.Value.(*FileChunk)
@@ -106,12 +106,12 @@ func (ob *OrderedBuffer) WriteAt(p []byte, offset int64) (int, error) {
 			}
 			removeList = append(removeList, e)
 			ob.written += int64(n)
-			ob.queued--
+			ob.Queued--
 		} else {
 			break
 		}
 	}
-	debugMessage(fmt.Sprintf("\tWriteAt Total queued after reads: %d", ob.queued))
+	debugMessage(fmt.Sprintf("\tWriteAt Total Queued after reads: %d", ob.Queued))
 	for _, e := range removeList {
 		ob.list.Remove(e)
 	}

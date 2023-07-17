@@ -417,7 +417,7 @@ func TestConcurrentWrite(t *testing.T) {
 	gbs := (workerCount * (workerCount + 1) / 2) + workerCount
 	var result bytes.Buffer
 	expected := make([]byte, 0)
-	chunks := 1024
+	chunks := 1024 * 512
 	rb := buffer.NewOrderedBuffer(int64(int64(chunks*offset)), gbs, &result)
 
 	// first create chunks number of tasks
@@ -433,7 +433,6 @@ func TestConcurrentWrite(t *testing.T) {
 			for task := range ch {
 				t.Logf("Task started, index: %d timeout: %v\n", task.i, task.sleep)
 				chunk := makeChunk(task.i, offset)
-				time.Sleep(task.sleep)
 				rb.WriteAt(chunk, task.offset)
 				t.Logf("Task completed, index: %d timeout: %v\n", task.i, task.sleep)
 			}

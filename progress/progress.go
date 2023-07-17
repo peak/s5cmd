@@ -16,7 +16,7 @@ type CommandProgress struct {
 	progressbar      *pb.ProgressBar
 }
 
-const progressbarTemplate = `{{percent . | green}} {{bar . " " "━" "─" "─" " " | green}} {{counters . | green}} {{speed . "(%s/s)" | red}} {{rtime . "%s left" | blue}} {{ string . "objects" | yellow}}`
+const progressbarTemplate = `{{percent . | green}} {{bar . " " "━" "━" "─" " " | green}} {{counters . | green}} {{speed . "(%s/s)" | red}} {{rtime . "%s left" | blue}} {{ string . "objects" | yellow}}`
 
 func (cp *CommandProgress) InitializeProgressBar() {
 	cp.progressbar = pb.New64(0)

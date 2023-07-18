@@ -81,7 +81,7 @@ func TestCatS3BigObject(t *testing.T) {
 	const (
 		filename = "file.txt"
 	)
-	contents, expected := getSequentialFileContent(150 * 1000)
+	contents, expected := getSequentialFileContent(256 * mb)
 
 	testcases := []struct {
 		name      string
@@ -121,7 +121,7 @@ func TestCatS3BigObject(t *testing.T) {
 			putFile(t, s3client, bucket, filename, contents)
 
 			src := fmt.Sprintf("s3://%v/%v", bucket, filename)
-			tc.cmd = append(tc.cmd, "-p", "-100", src)
+			tc.cmd = append(tc.cmd, src)
 
 			cmd := s5cmd(tc.cmd...)
 			result := icmd.RunCmd(cmd)
@@ -151,7 +151,7 @@ func TestCatS3ObjectFail(t *testing.T) {
 				"cat",
 			},
 			expected: map[int]compareFunc{
-				0: match(`ERROR "cat s3://(.*)/prefix/file\.txt": NoSuchKey:`),
+				0: match(`ERROR "cat s3://(.*)/prefix/file\.txt":(.*) not found`),
 			},
 		},
 		{
@@ -162,7 +162,7 @@ func TestCatS3ObjectFail(t *testing.T) {
 				"cat",
 			},
 			expected: map[int]compareFunc{
-				0: match(`{"operation":"cat","command":"cat s3:\/\/(.*)\/prefix\/file\.txt","error":"NoSuchKey:`),
+				0: match(`{"operation":"cat","command":"cat s3:\/\/(.*)\/prefix\/file\.txt","error":"(.*) not found`),
 			},
 			assertOps: []assertOp{
 				jsonCheck(true),

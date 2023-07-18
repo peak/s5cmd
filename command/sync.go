@@ -79,10 +79,8 @@ func NewSyncCommandFlags() []cli.Flag {
 			Usage: "make size of object only criteria to decide whether an object should be synced",
 		},
 		&cli.BoolFlag{
-			Name:        "continue-on-error",
-			Value:       true,
-			DefaultText: "true",
-			Usage:       "continues to the sync process even if an error is received but does not ignore access denied errors",
+			Name:  "exit-on-error",
+			Usage: "stops the sync process if an error is received",
 		},
 	}
 	sharedFlags := NewSharedFlags()
@@ -127,9 +125,9 @@ type Sync struct {
 	fullCommand string
 
 	// flags
-	delete          bool
-	sizeOnly        bool
-	continueOnError bool
+	delete      bool
+	sizeOnly    bool
+	exitOnError bool
 
 	// s3 options
 	storageOpts storage.Options
@@ -151,9 +149,9 @@ func NewSync(c *cli.Context) Sync {
 		fullCommand: commandFromContext(c),
 
 		// flags
-		delete:          c.Bool("delete"),
-		sizeOnly:        c.Bool("size-only"),
-		continueOnError: c.Bool("continue-on-error"),
+		delete:      c.Bool("delete"),
+		sizeOnly:    c.Bool("size-only"),
+		exitOnError: c.Bool("exit-on-error"),
 
 		// flags
 		followSymlinks: !c.Bool("no-follow-symlinks"),
@@ -340,7 +338,7 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 			defer close(filteredSrcObjectChannel)
 			// filter and redirect objects
 			for st := range unfilteredSrcObjectChannel {
-				if st.Err != nil && (!s.continueOnError || !shouldIgnoreError(st.Err)) {
+				if st.Err != nil && (s.exitOnError || !shouldIgnoreError(st.Err)) {
 					msg := log.ErrorMessage{
 						Err:       cleanupError(st.Err),
 						Command:   s.fullCommand,
@@ -387,7 +385,7 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 			defer close(filteredDstObjectChannel)
 			// filter and redirect objects
 			for dt := range unfilteredDestObjectsChannel {
-				if dt.Err != nil && (!s.continueOnError || !shouldIgnoreError(dt.Err)) {
+				if dt.Err != nil && (s.exitOnError || !shouldIgnoreError(dt.Err)) {
 					msg := log.ErrorMessage{
 						Err:       cleanupError(dt.Err),
 						Command:   s.fullCommand,

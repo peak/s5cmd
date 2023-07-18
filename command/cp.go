@@ -181,7 +181,7 @@ func NewSharedFlags() []cli.Flag {
 		},
 		&cli.StringFlag{
 			Name:  "content-disposition",
-			Usage: "set content disposition for target: defines content disposition header for object, e.g. --content-disposition 'attachment; filename=\"filename.jpg\"",
+			Usage: "set content disposition for target: defines content disposition header for object, e.g. --content-disposition 'attachment; filename=\"filename.jpg\"'",
 		},
 		&cli.IntFlag{
 			Name:        "no-such-upload-retry-count",

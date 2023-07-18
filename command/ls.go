@@ -251,7 +251,7 @@ const (
 // String returns the string representation of ListMessage.
 func (l ListMessage) String() string {
 	if l.showFullPath {
-		return fmt.Sprintf(l.Object.URL.String())
+		return l.Object.URL.String()
 	}
 	var etag string
 	// date and storage fiels

@@ -2,7 +2,9 @@ package buffer
 
 import (
 	"container/list"
+	"fmt"
 	"io"
+	"os"
 	"sync"
 )
 
@@ -37,12 +39,16 @@ func NewOrderedBuffer(expectedBytes int64, maxSize int, w io.Writer) *OrderedBuf
 func (ob *OrderedBuffer) WriteAt(p []byte, offset int64) (int, error) {
 	ob.mu.Lock()
 	defer ob.mu.Unlock()
+	fmt.Fprintf(os.Stderr, "***** call: offset:%d, len(p):%d\n", offset, len(p))
 	if ob.list.Front() == nil {
 		// if the queue is empty and the chunk is writeable, push it without queueing
 		if ob.written == offset {
-			ob.w.Write(p)
+			n, err := ob.w.Write(p)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "***** error: while writing to stdout. err: %v, n:%d lenContent:%d\n", err, n, len(p))
+			}
 			ob.written += int64(len(p))
-
+			fmt.Fprintf(os.Stderr, "***** stdout: offset:%d, len(p):%d\n", offset, len(p))
 			return len(p), nil
 		}
 		ob.list.PushBack(&FileChunk{
@@ -77,12 +83,15 @@ func (ob *OrderedBuffer) WriteAt(p []byte, offset int64) (int, error) {
 	for e := ob.list.Front(); e != nil; e = e.Next() {
 		v, ok := e.Value.(*FileChunk)
 		if !ok {
+			fmt.Fprintf(os.Stderr, "***** error: can't cast\n")
 			// NOTE: should we handle this ?
 			continue
 		}
 		if v.Start == ob.written {
 			n, err := ob.w.Write(v.Content)
+			fmt.Fprintf(os.Stderr, "***** stdout: offset:%d, len(p):%d\n", v.Start, len(v.Content))
 			if err != nil {
+				fmt.Fprintf(os.Stderr, "***** error: while writing to stdout. err: %v n:%d, lenContent:%d\n", err, n, len(v.Content))
 				return n, err
 			}
 			removeList = append(removeList, e)

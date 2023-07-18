@@ -700,19 +700,12 @@ func TestCopySingleFileToS3(t *testing.T) {
 
 	srcpath := workdir.Join(filename)
 	dstpath := fmt.Sprintf("s3://%v/", bucket)
-	contentDisposition := "'inline'"
+	contentDisposition := "inline"
 
 	srcpath = filepath.ToSlash(srcpath)
-	cmd := s5cmd("--log", "trace", "--json", "cp", "--content-disposition", contentDisposition, srcpath, dstpath)
+	cmd := s5cmd("cp", "--content-disposition", contentDisposition, srcpath, dstpath)
 	result := icmd.RunCmd(cmd)
 
-	c := s5cmd("--log", "trace", "--json", "cat", dstpath+filename)
-	r := icmd.RunCmd(c)
-	fmt.Println(result.Stdout())
-	fmt.Println(" ------------ ")
-	fmt.Println(r.Stdout())
-
-	return
 	result.Assert(t, icmd.Success)
 
 	output, _ := s3client.GetObject(&s3.GetObjectInput{

@@ -9,11 +9,13 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/hashicorp/go-multierror"
 	"github.com/lanrat/extsort"
 	"github.com/urfave/cli/v2"
 
 	errorpkg "github.com/peak/s5cmd/v2/error"
+	"github.com/peak/s5cmd/v2/log"
 	"github.com/peak/s5cmd/v2/log/stat"
 	"github.com/peak/s5cmd/v2/parallel"
 	"github.com/peak/s5cmd/v2/storage"
@@ -76,6 +78,12 @@ func NewSyncCommandFlags() []cli.Flag {
 			Name:  "size-only",
 			Usage: "make size of object only criteria to decide whether an object should be synced",
 		},
+		&cli.BoolFlag{
+			Name:        "continue-on-error",
+			Value:       true,
+			DefaultText: "true",
+			Usage:       "continues to the sync process even if an error is received but does not ignore access denied errors",
+		},
 	}
 	sharedFlags := NewSharedFlags()
 	return append(syncFlags, sharedFlags...)
@@ -119,8 +127,9 @@ type Sync struct {
 	fullCommand string
 
 	// flags
-	delete   bool
-	sizeOnly bool
+	delete          bool
+	sizeOnly        bool
+	continueOnError bool
 
 	// s3 options
 	storageOpts storage.Options
@@ -142,8 +151,9 @@ func NewSync(c *cli.Context) Sync {
 		fullCommand: commandFromContext(c),
 
 		// flags
-		delete:   c.Bool("delete"),
-		sizeOnly: c.Bool("size-only"),
+		delete:          c.Bool("delete"),
+		sizeOnly:        c.Bool("size-only"),
+		continueOnError: c.Bool("continue-on-error"),
 
 		// flags
 		followSymlinks: !c.Bool("no-follow-symlinks"),
@@ -318,6 +328,8 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 	}
 	extsortDefaultConfig = nil
 
+	ctx, cancel := context.WithCancel(ctx)
+
 	// get source objects.
 	go func() {
 		defer close(sourceObjects)
@@ -328,6 +340,15 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 			defer close(filteredSrcObjectChannel)
 			// filter and redirect objects
 			for st := range unfilteredSrcObjectChannel {
+				if st.Err != nil && (!s.continueOnError || !shouldIgnoreError(st.Err)) {
+					msg := log.ErrorMessage{
+						Err:       cleanupError(st.Err),
+						Command:   s.fullCommand,
+						Operation: s.op,
+					}
+					log.Error(msg)
+					cancel()
+				}
 				if s.shouldSkipObject(st, true) {
 					continue
 				}
@@ -364,9 +385,17 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 
 		go func() {
 			defer close(filteredDstObjectChannel)
-
 			// filter and redirect objects
 			for dt := range unfilteredDestObjectsChannel {
+				if dt.Err != nil && (!s.continueOnError || !shouldIgnoreError(dt.Err)) {
+					msg := log.ErrorMessage{
+						Err:       cleanupError(dt.Err),
+						Command:   s.fullCommand,
+						Operation: s.op,
+					}
+					log.Error(msg)
+					cancel()
+				}
 				if s.shouldSkipObject(dt, false) {
 					continue
 				}
@@ -533,4 +562,13 @@ func (s Sync) shouldSkipObject(object *storage.Object, verbose bool) bool {
 		return true
 	}
 	return false
+}
+
+// shouldIgnoreError determines an error should be ignored or not
+// by default it ignores any error (no object found etc.) rather than access denied error
+func shouldIgnoreError(err error) bool {
+	if awsErr, ok := err.(awserr.Error); ok {
+		return !(awsErr.Code() == "AccessDenied")
+	}
+	return true
 }

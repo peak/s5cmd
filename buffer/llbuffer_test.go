@@ -537,7 +537,7 @@ func TestShuffleWriteWithStaticChunkSize(t *testing.T) {
 
 func TestShuffleWriteWithRandomChunkSize(t *testing.T) {
 	t.Parallel()
-	maxFileSize := 1024
+	maxFileSize := 1024 * 100
 	testRuns := 64
 	minChunkSize, maxChunkSize := 5, 1000
 	for b := 0; b < testRuns; b++ {
@@ -590,6 +590,71 @@ func TestShuffleWriteWithRandomChunkSize(t *testing.T) {
 		})
 	}
 
+}
+
+func TestShuffleConcurrentWriteWithRandomChunkSize(t *testing.T) {
+	maxFileSize := 1024
+	testRuns := 64
+	minChunkSize, maxChunkSize := 5, 100
+	for b := 0; b < testRuns; b++ {
+		var result bytes.Buffer
+		var expectedFileSize int64
+		expected := []byte{}
+		chunks := []FileChunk{}
+		// generate chunks
+		for i := 0; i <= maxFileSize; {
+			chunkSize := minChunkSize + rand.Intn(maxChunkSize-minChunkSize)
+			chunk := make([]byte, chunkSize)
+			for j := 0; j < chunkSize; j++ {
+				chunk[j] = uint8(rand.Intn(256))
+			}
+			chunks = append(chunks, FileChunk{
+				start:   int(expectedFileSize),
+				content: chunk,
+			})
+			expected = append(expected, chunk...)
+			expectedFileSize += int64(chunkSize)
+			i += chunkSize
+		}
+		// shuffle the chunks
+		for i := range chunks {
+			j := rand.Intn(i + 1)
+			chunks[i], chunks[j] = chunks[j], chunks[i]
+		}
+
+		rb := buffer.NewOrderedBuffer(expectedFileSize, -1, &result)
+
+		chunkChan := make(chan FileChunk, 1)
+
+		var wg sync.WaitGroup
+		workerCount := 5 + rand.Intn(20) // 5-25 workers
+		for i := 0; i < workerCount; i++ {
+			wg.Add(1)
+			go func(ch chan FileChunk) {
+				defer wg.Done()
+				for task := range ch {
+					rb.WriteAt(task.content, int64(task.start))
+				}
+			}(chunkChan)
+		}
+
+		for _, chunk := range chunks {
+			chunkChan <- chunk
+		}
+		close(chunkChan)
+		wg.Wait()
+
+		if !bytes.Equal(result.Bytes(), expected) {
+			t.Errorf("Length comparison: Got: %d bytes, expected: %d bytes\n", len(result.Bytes()), len(expected))
+			t.Errorf("Got: %v, expected: %v\n", result.Bytes(), expected)
+		}
+
+		// Check if there are any leftover chunks in the OrderedBuffer
+		remainingChunks := rb.Queued
+		if remainingChunks != 0 {
+			t.Errorf("OrderedBuffer contains %d leftover chunks", remainingChunks)
+		}
+	}
 }
 
 // allocate gbs, test the last chunk with size

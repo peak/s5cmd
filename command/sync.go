@@ -338,7 +338,7 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 			defer close(filteredSrcObjectChannel)
 			// filter and redirect objects
 			for st := range unfilteredSrcObjectChannel {
-				if st.Err != nil && (s.exitOnError || !shouldIgnoreError(st.Err)) {
+				if st.Err != nil && s.shouldStopSync(st.Err) {
 					msg := log.ErrorMessage{
 						Err:       cleanupError(st.Err),
 						Command:   s.fullCommand,
@@ -385,7 +385,7 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 			defer close(filteredDstObjectChannel)
 			// filter and redirect objects
 			for dt := range unfilteredDestObjectsChannel {
-				if dt.Err != nil && (s.exitOnError || !shouldIgnoreError(dt.Err)) {
+				if dt.Err != nil && s.shouldStopSync(dt.Err) {
 					msg := log.ErrorMessage{
 						Err:       cleanupError(dt.Err),
 						Command:   s.fullCommand,
@@ -562,11 +562,17 @@ func (s Sync) shouldSkipObject(object *storage.Object, verbose bool) bool {
 	return false
 }
 
-// shouldIgnoreError determines whether an error should be ignored or not.
-// by default it ignores any error (no object found etc.) except access denied error.
-func shouldIgnoreError(err error) bool {
-	if awsErr, ok := err.(awserr.Error); ok {
-		return !(awsErr.Code() == "AccessDenied")
+// shouldStopSync determines whether a sync process should be stopped or not.
+func (s Sync) shouldStopSync(err error) bool {
+	if err == storage.ErrNoObjectFound {
+		return false
 	}
-	return true
+	if awsErr, ok := err.(awserr.Error); ok {
+		switch awsErr.Code() {
+		case "AccessDenied":
+		case "NoSuchBucket":
+			return true
+		}
+	}
+	return s.exitOnError
 }

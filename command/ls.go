@@ -55,6 +55,9 @@ Examples:
 	10. List all versions of all objects in the bucket
 		 > s5cmd {{.HelpName}} --all-versions "s3://bucket/*"
 
+	11. List all files only with their fullpaths 
+		 > s5cmd {{.HelpName}} --show-fullpath "s3://bucket/*"
+
 `
 
 func NewListCommand() *cli.Command {
@@ -86,6 +89,10 @@ func NewListCommand() *cli.Command {
 			&cli.BoolFlag{
 				Name:  "all-versions",
 				Usage: "list all versions of object(s)",
+			},
+			&cli.BoolFlag{
+				Name:  "show-fullpath",
+				Usage: "shows only the fullpath names of the object(s)",
 			},
 		},
 		Before: func(c *cli.Context) error {
@@ -122,6 +129,7 @@ func NewListCommand() *cli.Command {
 				humanize:         c.Bool("humanize"),
 				showStorageClass: c.Bool("storage-class"),
 				exclude:          c.StringSlice("exclude"),
+				showFullPath:     c.Bool("show-fullpath"),
 
 				storageOpts: NewStorageOpts(c),
 			}.Run(c.Context)
@@ -142,6 +150,7 @@ type List struct {
 	showEtag         bool
 	humanize         bool
 	showStorageClass bool
+	showFullPath     bool
 	exclude          []string
 
 	storageOpts storage.Options
@@ -205,6 +214,7 @@ func (l List) Run(ctx context.Context) error {
 			showEtag:         l.showEtag,
 			showHumanized:    l.humanize,
 			showStorageClass: l.showStorageClass,
+			showFullPath:     l.showFullPath,
 		}
 
 		log.Info(msg)
@@ -220,6 +230,7 @@ type ListMessage struct {
 	showEtag         bool
 	showHumanized    bool
 	showStorageClass bool
+	showFullPath     bool
 }
 
 // humanize is a helper function to humanize bytes.
@@ -239,6 +250,9 @@ const (
 
 // String returns the string representation of ListMessage.
 func (l ListMessage) String() string {
+	if l.showFullPath {
+		return fmt.Sprintf(l.Object.URL.String())
+	}
 	var etag string
 	// date and storage fiels
 	var listFormat = "%19s %2s"
@@ -278,7 +292,6 @@ func (l ListMessage) String() string {
 	if l.showStorageClass {
 		stclass = fmt.Sprintf("%v", l.Object.StorageClass)
 	}
-
 	s = fmt.Sprintf(
 		listFormat,
 		l.Object.ModTime.Format(dateFormat),

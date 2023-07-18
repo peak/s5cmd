@@ -291,6 +291,44 @@ func TestListS3ObjectsAndFolders(t *testing.T) {
 	}, alignment(true))
 }
 
+func TestListS3ObjectsAndFoldersWithTheirFullpath(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd := setup(t)
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+	putFile(t, s3client, bucket, "testfile1.txt", "content")
+	putFile(t, s3client, bucket, "report.gz", "content")
+	putFile(t, s3client, bucket, "a/testfile2.txt", "content")
+	putFile(t, s3client, bucket, "b/testfile3.txt", "content")
+	putFile(t, s3client, bucket, "b/testfile4.txt", "content")
+	putFile(t, s3client, bucket, "c/testfile5.gz", "content")
+	putFile(t, s3client, bucket, "d/foo/bar/file7.txt", "content")
+	putFile(t, s3client, bucket, "d/foo/bar/testfile8.txt", "content")
+	putFile(t, s3client, bucket, "e/txt/testfile9.txt.gz", "content")
+	putFile(t, s3client, bucket, "f/txt/testfile10.txt", "content")
+
+	cmd := s5cmd("ls", "--show-fullpath", "s3://"+bucket+"/*")
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	// assert lexical order
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(fmt.Sprintf("s3://%v/a/testfile2.txt", bucket)),
+		1: equals(fmt.Sprintf("s3://%v/b/testfile3.txt", bucket)),
+		2: equals(fmt.Sprintf("s3://%v/b/testfile4.txt", bucket)),
+		3: equals(fmt.Sprintf("s3://%v/c/testfile5.gz", bucket)),
+		4: equals(fmt.Sprintf("s3://%v/d/foo/bar/file7.txt", bucket)),
+		5: equals(fmt.Sprintf("s3://%v/d/foo/bar/testfile8.txt", bucket)),
+		6: equals(fmt.Sprintf("s3://%v/e/txt/testfile9.txt.gz", bucket)),
+		7: equals(fmt.Sprintf("s3://%v/f/txt/testfile10.txt", bucket)),
+		8: equals(fmt.Sprintf("s3://%v/report.gz", bucket)),
+		9: equals(fmt.Sprintf("s3://%v/testfile1.txt", bucket)),
+	}, alignment(true))
+}
+
 // ls bucket/prefix
 func TestListS3ObjectsAndFoldersWithPrefix(t *testing.T) {
 	t.Parallel()

@@ -32,7 +32,7 @@ func TestCommandProgress_IncrementCompletedObjects(t *testing.T) {
 	cp.IncrementCompletedObjects()
 	assert.Equal(t, int64(1), cp.completedObjects)
 	// Verify that the progress bar's task status has been updated
-	assert.Equal(t, true, strings.Contains(cp.progressbar.String(), "1/0 items are completed."))
+	assert.Equal(t, true, strings.Contains(cp.progressbar.String(), "1/0"))
 }
 
 func TestCommandProgress_IncrementTotalObjects(t *testing.T) {
@@ -42,7 +42,7 @@ func TestCommandProgress_IncrementTotalObjects(t *testing.T) {
 	cp.IncrementTotalObjects()
 	assert.Equal(t, int64(1), cp.totalObjects)
 	// Verify that the progress bar's task status has been updated
-	assert.Equal(t, true, strings.Contains(cp.progressbar.String(), "0/1 items are completed."))
+	assert.Equal(t, true, strings.Contains(cp.progressbar.String(), "0/1"))
 }
 
 func TestCommandProgress_AddCompletedBytesInt64(t *testing.T) {

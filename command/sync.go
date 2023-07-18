@@ -565,7 +565,7 @@ func (s Sync) shouldSkipObject(object *storage.Object, verbose bool) bool {
 }
 
 // shouldIgnoreError determines whether an error should be ignored or not.
-// by default it ignores any error (no object found etc.) rather than access denied error.
+// by default it ignores any error (no object found etc.) except access denied error.
 func shouldIgnoreError(err error) bool {
 	if awsErr, ok := err.(awserr.Error); ok {
 		return !(awsErr.Code() == "AccessDenied")

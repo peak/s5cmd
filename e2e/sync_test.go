@@ -1874,7 +1874,7 @@ func TestSyncS3BucketToS3BucketThatDoesNotExist(t *testing.T) {
 	src := fmt.Sprintf("s3://%v/*", bucket)
 	dst := fmt.Sprintf("s3://%v/", destbucket)
 
-	cmd := s5cmd("sync", src, dst)
+	cmd := s5cmd("sync", "--exit-on-error", src, dst)
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Success)

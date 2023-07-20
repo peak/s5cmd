@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
@@ -167,6 +168,10 @@ func NewSharedFlags() []cli.Flag {
 			Name:  "exclude",
 			Usage: "exclude objects with given pattern",
 		},
+		&cli.StringSliceFlag{
+			Name:  "include",
+			Usage: "include objects with given pattern",
+		},
 		&cli.BoolFlag{
 			Name:  "raw",
 			Usage: "disable the wildcard operations, useful with filenames that contains glob characters",
@@ -271,10 +276,15 @@ type Copy struct {
 	forceGlacierTransfer  bool
 	ignoreGlacierWarnings bool
 	exclude               []string
+	include               []string
 	cacheControl          string
 	expires               string
 	contentType           string
 	contentEncoding       string
+
+	// patterns
+	excludePatterns []*regexp.Regexp
+	includePatterns []*regexp.Regexp
 
 	// region settings
 	srcRegion string
@@ -324,6 +334,7 @@ func NewCopy(c *cli.Context, deleteSource bool) (*Copy, error) {
 		forceGlacierTransfer:  c.Bool("force-glacier-transfer"),
 		ignoreGlacierWarnings: c.Bool("ignore-glacier-warnings"),
 		exclude:               c.StringSlice("exclude"),
+		include:               c.StringSlice("include"),
 		cacheControl:          c.String("cache-control"),
 		expires:               c.String("expires"),
 		contentType:           c.String("content-type"),
@@ -390,7 +401,13 @@ func (c Copy) Run(ctx context.Context) error {
 		isBatch = obj != nil && obj.Type.IsDir()
 	}
 
-	excludePatterns, err := createExcludesFromWildcard(c.exclude)
+	c.excludePatterns, err = createExcludesFromWildcard(c.exclude)
+	if err != nil {
+		printError(c.fullCommand, c.op, err)
+		return err
+	}
+
+	c.includePatterns, err = createIncludesFromWildcard(c.include)
 	if err != nil {
 		printError(c.fullCommand, c.op, err)
 		return err
@@ -416,7 +433,7 @@ func (c Copy) Run(ctx context.Context) error {
 			continue
 		}
 
-		if isURLExcluded(excludePatterns, object.URL.Path, c.src.Prefix) {
+		if !c.shouldCopyObject(object, true) {
 			continue
 		}
 
@@ -765,6 +782,31 @@ func (c Copy) shouldOverride(ctx context.Context, srcurl *url.URL, dsturl *url.U
 	}
 
 	return stickyErr
+}
+
+// shouldCopyObject checks is object should be skipped.
+func (c Copy) shouldCopyObject(object *storage.Object, verbose bool) bool {
+	if err := object.Err; err != nil {
+		if verbose {
+			printError(c.fullCommand, c.op, err)
+		}
+		return false
+	}
+
+	switch {
+	case len(c.excludePatterns) == 0 && len(c.includePatterns) == 0:
+		return true
+	case len(c.excludePatterns) == 0 && len(c.includePatterns) > 0:
+		return isURLIncluded(c.includePatterns, object.URL.Path, c.src.Prefix)
+	case len(c.excludePatterns) > 0 && len(c.includePatterns) == 0:
+		return !isURLExcluded(c.excludePatterns, object.URL.Path, c.src.Prefix)
+	case len(c.excludePatterns) > 0 && len(c.includePatterns) > 0:
+		if isURLExcluded(c.excludePatterns, object.URL.Path, c.src.Prefix) {
+			return false
+		}
+		return isURLIncluded(c.includePatterns, object.URL.Path, c.src.Prefix)
+	}
+	return true
 }
 
 // prepareRemoteDestination will return a new destination URL for

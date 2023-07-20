@@ -794,17 +794,11 @@ func (c Copy) shouldCopyObject(object *storage.Object, verbose bool) bool {
 	}
 
 	switch {
-	case len(c.excludePatterns) == 0 && len(c.includePatterns) == 0:
-		return true
 	case len(c.excludePatterns) == 0 && len(c.includePatterns) > 0:
+	case len(c.excludePatterns) > 0 && len(c.includePatterns) > 0:
 		return isURLIncluded(c.includePatterns, object.URL.Path, c.src.Prefix)
 	case len(c.excludePatterns) > 0 && len(c.includePatterns) == 0:
 		return !isURLExcluded(c.excludePatterns, object.URL.Path, c.src.Prefix)
-	case len(c.excludePatterns) > 0 && len(c.includePatterns) > 0:
-		if isURLExcluded(c.excludePatterns, object.URL.Path, c.src.Prefix) {
-			return false
-		}
-		return isURLIncluded(c.includePatterns, object.URL.Path, c.src.Prefix)
 	}
 	return true
 }

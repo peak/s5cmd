@@ -7,6 +7,32 @@ import (
 	"github.com/cheggaaa/pb/v3"
 )
 
+type ProgressBar interface {
+	InitializeProgressBar()
+	Finish()
+	IncrementCompletedObjects()
+	IncrementTotalObjects()
+	AddCompletedBytesInt64(bytes int64)
+	AddCompletedBytes(bytes int)
+	AddTotalBytes(bytes int64)
+}
+
+type DummyProgress struct{}
+
+func (dp *DummyProgress) InitializeProgressBar() {}
+
+func (dp *DummyProgress) Finish() {}
+
+func (dp *DummyProgress) IncrementCompletedObjects() {}
+
+func (dp *DummyProgress) IncrementTotalObjects() {}
+
+func (dp *DummyProgress) AddCompletedBytesInt64(bytes int64) {}
+
+func (dp *DummyProgress) AddCompletedBytes(bytes int) {}
+
+func (dp *DummyProgress) AddTotalBytes(bytes int64) {}
+
 type CommandProgress struct {
 	totalObjects     int64
 	completedObjects int64

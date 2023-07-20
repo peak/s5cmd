@@ -1877,7 +1877,7 @@ func TestSyncS3BucketToS3BucketThatDoesNotExist(t *testing.T) {
 	cmd := s5cmd("sync", "--exit-on-error", src, dst)
 	result := icmd.RunCmd(cmd)
 
-	result.Assert(t, icmd.Success)
+	result.Assert(t, icmd.Expected{ExitCode: 1})
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: contains(`status code: 404`),

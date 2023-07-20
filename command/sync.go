@@ -15,7 +15,6 @@ import (
 	"github.com/urfave/cli/v2"
 
 	errorpkg "github.com/peak/s5cmd/v2/error"
-	"github.com/peak/s5cmd/v2/log"
 	"github.com/peak/s5cmd/v2/log/stat"
 	"github.com/peak/s5cmd/v2/parallel"
 	"github.com/peak/s5cmd/v2/storage"
@@ -289,15 +288,116 @@ func compareObjects(sourceObjects, destObjects chan *storage.Object) (chan *url.
 // given URLs. The returned channels gives objects sorted in ascending order
 // with respect to their url.Relative path. See also storage.Less.
 func (s Sync) getSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl *url.URL) (chan *storage.Object, chan *storage.Object, error) {
-	sourceClient, err := storage.NewClient(ctx, srcurl, s.storageOpts)
-	if err != nil {
-		return nil, nil, err
+	extsortDefaultConfig := extsort.DefaultConfig()
+	extsortConfig := &extsort.Config{
+		ChunkSize:          extsortChunkSize,
+		NumWorkers:         extsortDefaultConfig.NumWorkers,
+		ChanBuffSize:       extsortChannelBufferSize,
+		SortedChanBuffSize: extsortChannelBufferSize,
+	}
+	extsortDefaultConfig = nil
+
+	var (
+		wg            sync.WaitGroup
+		sourceObjects chan *storage.Object
+		destObjects   chan *storage.Object
+		sourceErr     error
+		destErr       error
+	)
+
+	// Run getSourceObjects concurrently
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		sourceObjects, sourceErr = s.getSourceObjects(ctx, srcurl, extsortConfig)
+	}()
+
+	// Run getDestinationObjects concurrently
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		destObjects, destErr = s.getDestinationObjects(ctx, dsturl, extsortConfig)
+	}()
+
+	// Wait for both functions to finish
+	wg.Wait()
+
+	// Check for errors
+	if sourceErr != nil {
+		return nil, nil, sourceErr
+	}
+	if destErr != nil {
+		return nil, nil, destErr
 	}
 
+	return sourceObjects, destObjects, nil
+}
+
+func (s Sync) getSourceObjects(ctx context.Context, srcurl *url.URL, extsortConfig *extsort.Config) (chan *storage.Object, error) {
+	sourceClient, err := storage.NewClient(ctx, srcurl, s.storageOpts)
+	if err != nil {
+		return nil, err
+	}
+
+	sourceObjects := make(chan *storage.Object, extsortChannelBufferSize)
+	defer close(sourceObjects)
+
+	unfilteredSrcObjectChannel := sourceClient.List(ctx, srcurl, s.followSymlinks)
+	filteredSrcObjectChannel := make(chan extsort.SortType, extsortChannelBufferSize)
+	errCh := make(chan error, 1)
+	defer close(errCh)
+
+	go func() {
+		defer close(filteredSrcObjectChannel)
+		// filter and redirect objects
+		for st := range unfilteredSrcObjectChannel {
+			if st.Err != nil && s.shouldStopSync(st.Err) {
+				errCh <- st.Err
+				return
+			}
+			if s.shouldSkipObject(st, true) {
+				continue
+			}
+			filteredSrcObjectChannel <- *st
+		}
+	}()
+
+	var (
+		sorter        *extsort.SortTypeSorter
+		srcOutputChan chan extsort.SortType
+	)
+
+	sorter, srcOutputChan, srcErrCh := extsort.New(filteredSrcObjectChannel, storage.FromBytes, storage.Less, extsortConfig)
+	sorter.Sort(ctx)
+
+	for srcObject := range srcOutputChan {
+		o := srcObject.(storage.Object)
+		sourceObjects <- &o
+	}
+
+	// read and print the external sort errors
+	go func() {
+		for err := range srcErrCh {
+			printError(s.fullCommand, s.op, err)
+		}
+	}()
+
+	select {
+	case err := <-errCh:
+		return nil, err
+	default:
+		return sourceObjects, nil
+	}
+}
+
+func (s Sync) getDestinationObjects(ctx context.Context, dsturl *url.URL, extsortConfig *extsort.Config) (chan *storage.Object, error) {
 	destClient, err := storage.NewClient(ctx, dsturl, s.storageOpts)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
+
+	destObjects := make(chan *storage.Object, extsortChannelBufferSize)
+	defer close(destObjects)
 
 	// add * to end of destination string, to get all objects recursively.
 	var destinationURLPath string
@@ -309,120 +409,55 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 
 	destObjectsURL, err := url.New(destinationURLPath)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
+
+	unfilteredDestObjectsChannel := destClient.List(ctx, destObjectsURL, false)
+	filteredDstObjectChannel := make(chan extsort.SortType, extsortChannelBufferSize)
+	errCh := make(chan error, 1)
+	defer close(errCh)
+
+	go func() {
+		defer close(filteredDstObjectChannel)
+		// filter and redirect objects
+		for dt := range unfilteredDestObjectsChannel {
+			if dt.Err != nil && s.shouldStopSync(dt.Err) {
+				errCh <- dt.Err
+				return
+			}
+			if s.shouldSkipObject(dt, false) {
+				continue
+			}
+			filteredDstObjectChannel <- *dt
+		}
+	}()
 
 	var (
-		sourceObjects = make(chan *storage.Object, extsortChannelBufferSize)
-		destObjects   = make(chan *storage.Object, extsortChannelBufferSize)
+		dstSorter     *extsort.SortTypeSorter
+		dstOutputChan chan extsort.SortType
 	)
 
-	extsortDefaultConfig := extsort.DefaultConfig()
-	extsortConfig := &extsort.Config{
-		ChunkSize:          extsortChunkSize,
-		NumWorkers:         extsortDefaultConfig.NumWorkers,
-		ChanBuffSize:       extsortChannelBufferSize,
-		SortedChanBuffSize: extsortChannelBufferSize,
+	dstSorter, dstOutputChan, dstErrCh := extsort.New(filteredDstObjectChannel, storage.FromBytes, storage.Less, extsortConfig)
+	dstSorter.Sort(ctx)
+
+	for destObject := range dstOutputChan {
+		o := destObject.(storage.Object)
+		destObjects <- &o
 	}
-	extsortDefaultConfig = nil
 
-	ctx, cancel := context.WithCancel(ctx)
-
-	// get source objects.
+	// read and print the external sort errors
 	go func() {
-		defer close(sourceObjects)
-		unfilteredSrcObjectChannel := sourceClient.List(ctx, srcurl, s.followSymlinks)
-		filteredSrcObjectChannel := make(chan extsort.SortType, extsortChannelBufferSize)
-
-		go func() {
-			defer close(filteredSrcObjectChannel)
-			// filter and redirect objects
-			for st := range unfilteredSrcObjectChannel {
-				if st.Err != nil && s.shouldStopSync(st.Err) {
-					msg := log.ErrorMessage{
-						Err:       cleanupError(st.Err),
-						Command:   s.fullCommand,
-						Operation: s.op,
-					}
-					log.Error(msg)
-					cancel()
-				}
-				if s.shouldSkipObject(st, true) {
-					continue
-				}
-				filteredSrcObjectChannel <- *st
-			}
-		}()
-
-		var (
-			sorter        *extsort.SortTypeSorter
-			srcOutputChan chan extsort.SortType
-		)
-
-		sorter, srcOutputChan, srcErrCh := extsort.New(filteredSrcObjectChannel, storage.FromBytes, storage.Less, extsortConfig)
-		sorter.Sort(ctx)
-
-		for srcObject := range srcOutputChan {
-			o := srcObject.(storage.Object)
-			sourceObjects <- &o
+		for err := range dstErrCh {
+			printError(s.fullCommand, s.op, err)
 		}
-
-		// read and print the external sort errors
-		go func() {
-			for err := range srcErrCh {
-				printError(s.fullCommand, s.op, err)
-			}
-		}()
 	}()
 
-	// get destination objects.
-	go func() {
-		defer close(destObjects)
-		unfilteredDestObjectsChannel := destClient.List(ctx, destObjectsURL, false)
-		filteredDstObjectChannel := make(chan extsort.SortType, extsortChannelBufferSize)
-
-		go func() {
-			defer close(filteredDstObjectChannel)
-			// filter and redirect objects
-			for dt := range unfilteredDestObjectsChannel {
-				if dt.Err != nil && s.shouldStopSync(dt.Err) {
-					msg := log.ErrorMessage{
-						Err:       cleanupError(dt.Err),
-						Command:   s.fullCommand,
-						Operation: s.op,
-					}
-					log.Error(msg)
-					cancel()
-				}
-				if s.shouldSkipObject(dt, false) {
-					continue
-				}
-				filteredDstObjectChannel <- *dt
-			}
-		}()
-
-		var (
-			dstSorter     *extsort.SortTypeSorter
-			dstOutputChan chan extsort.SortType
-		)
-
-		dstSorter, dstOutputChan, dstErrCh := extsort.New(filteredDstObjectChannel, storage.FromBytes, storage.Less, extsortConfig)
-		dstSorter.Sort(ctx)
-
-		for destObject := range dstOutputChan {
-			o := destObject.(storage.Object)
-			destObjects <- &o
-		}
-
-		// read and print the external sort errors
-		go func() {
-			for err := range dstErrCh {
-				printError(s.fullCommand, s.op, err)
-			}
-		}()
-	}()
-
-	return sourceObjects, destObjects, nil
+	select {
+	case err := <-errCh:
+		return nil, err
+	default:
+		return destObjects, nil
+	}
 }
 
 // planRun prepares the commands and writes them to writer 'w'.
@@ -568,6 +603,7 @@ func (s Sync) shouldStopSync(err error) bool {
 		return false
 	}
 	if awsErr, ok := err.(awserr.Error); ok {
+		fmt.Printf("%#v, %v", awsErr, awsErr.Code())
 		switch awsErr.Code() {
 		case "AccessDenied":
 		case "NoSuchBucket":

@@ -283,7 +283,7 @@ type Copy struct {
 	contentType           string
 	contentEncoding       string
 	showProgress          bool
-	progress              *progress.CommandProgress
+	progress              progress.ProgressBar
 
 	// region settings
 	srcRegion string
@@ -312,12 +312,12 @@ func NewCopy(c *cli.Context, deleteSource bool) (*Copy, error) {
 		return nil, err
 	}
 
-	var commandProgress *progress.CommandProgress
+	var commandProgress progress.ProgressBar
 
 	if c.Bool("show-progress") {
 		commandProgress = &progress.CommandProgress{}
 	} else {
-		commandProgress = nil
+		commandProgress = &progress.DummyProgress{}
 	}
 
 	return &Copy{
@@ -364,9 +364,7 @@ increase the open file limit or try to decrease the number of workers with
 
 // Run starts copying given source objects to destination.
 func (c Copy) Run(ctx context.Context) error {
-	if c.showProgress {
-		c.progress.InitializeProgressBar()
-	}
+	c.progress.InitializeProgressBar()
 
 	// override source region if set
 	if c.srcRegion != "" {
@@ -447,14 +445,8 @@ func (c Copy) Run(ctx context.Context) error {
 		srcurl := object.URL
 		var task parallel.Task
 
-		if c.showProgress {
-			if object.Size == 0 {
-				obj, _ := client.Stat(ctx, c.src)
-				object.Size = obj.Size
-			}
-			c.progress.AddTotalBytes(object.Size)
-			c.progress.IncrementTotalObjects()
-		}
+		c.progress.AddTotalBytes(object.Size)
+		c.progress.IncrementTotalObjects()
 
 		switch {
 		case srcurl.Type == c.dst.Type: // local->local or remote->remote
@@ -470,9 +462,8 @@ func (c Copy) Run(ctx context.Context) error {
 	}
 	waiter.Wait()
 	<-errDoneCh
-	if c.showProgress {
-		c.progress.Finish()
-	}
+	c.progress.Finish()
+
 	return multierror.Append(merrorWaiter, merrorObjects).ErrorOrNil()
 }
 
@@ -493,9 +484,9 @@ func (c Copy) prepareCopyTask(
 				Err: err,
 			}
 		}
-		if c.showProgress {
-			c.progress.IncrementCompletedObjects()
-		}
+
+		c.progress.IncrementCompletedObjects()
+
 		return nil
 	}
 }
@@ -520,9 +511,7 @@ func (c Copy) prepareDownloadTask(
 				Err: err,
 			}
 		}
-		if c.showProgress {
-			c.progress.IncrementCompletedObjects()
-		}
+		c.progress.IncrementCompletedObjects()
 		return nil
 	}
 }
@@ -544,9 +533,7 @@ func (c Copy) prepareUploadTask(
 				Err: err,
 			}
 		}
-		if c.showProgress {
-			c.progress.IncrementCompletedObjects()
-		}
+		c.progress.IncrementCompletedObjects()
 		return nil
 	}
 }
@@ -1023,9 +1010,9 @@ func (r *CustomWriter) WriteAt(p []byte, off int64) (int, error) {
 	if err != nil {
 		return n, err
 	}
-	if r.c.showProgress {
-		r.c.progress.AddCompletedBytes(n)
-	}
+
+	r.c.progress.AddCompletedBytes(n)
+
 	return n, err
 }
 
@@ -1041,9 +1028,9 @@ func (r *CustomReader) Read(p []byte) (int, error) {
 	if err != nil {
 		return n, err
 	}
-	if r.c.showProgress {
-		r.c.progress.AddCompletedBytes(n)
-	}
+
+	r.c.progress.AddCompletedBytes(n)
+
 	return n, err
 }
 
@@ -1056,9 +1043,9 @@ func (r *CustomReader) ReadAt(p []byte, off int64) (int, error) {
 	// Ignore the first signature call
 	if _, ok := r.signMap[off]; ok {
 		// Got the length have read (or means has uploaded)
-		if r.c.showProgress {
-			r.c.progress.AddCompletedBytes(n)
-		}
+
+		r.c.progress.AddCompletedBytes(n)
+
 	} else {
 		r.signMap[off] = struct{}{}
 	}

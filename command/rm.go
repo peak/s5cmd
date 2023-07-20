@@ -99,6 +99,18 @@ func NewDeleteCommand() *cli.Command {
 				return err
 			}
 
+			excludePatterns, err := createExcludesFromWildcard(c.StringSlice("exclude"))
+			if err != nil {
+				printError(fullCommand, c.Command.Name, err)
+				return err
+			}
+
+			includePatterns, err := createIncludesFromWildcard(c.StringSlice("include"))
+			if err != nil {
+				printError(fullCommand, c.Command.Name, err)
+				return err
+			}
+
 			return Delete{
 				src:         srcUrls,
 				op:          c.Command.Name,
@@ -107,6 +119,10 @@ func NewDeleteCommand() *cli.Command {
 				// flags
 				exclude: c.StringSlice("exclude"),
 				include: c.StringSlice("include"),
+
+				// patterns
+				excludePatterns: excludePatterns,
+				includePatterns: includePatterns,
 
 				storageOpts: NewStorageOpts(c),
 			}.Run(c.Context)
@@ -141,12 +157,6 @@ func (d Delete) Run(ctx context.Context) error {
 	srcurl := d.src[0]
 
 	client, err := storage.NewClient(ctx, srcurl, d.storageOpts)
-	if err != nil {
-		printError(d.fullCommand, d.op, err)
-		return err
-	}
-
-	d.excludePatterns, err = createExcludesFromWildcard(d.exclude)
 	if err != nil {
 		printError(d.fullCommand, d.op, err)
 		return err
@@ -214,12 +224,10 @@ func (d Delete) shouldDeleteObject(object *storage.Object, verbose bool, prefix 
 		}
 		return false
 	}
-
-	switch {
-	case len(d.excludePatterns) == 0 && len(d.includePatterns) > 0:
-	case len(d.excludePatterns) > 0 && len(d.includePatterns) > 0:
+	if len(d.includePatterns) > 0 {
 		return isURLIncluded(d.includePatterns, object.URL.Path, prefix)
-	case len(d.excludePatterns) > 0 && len(d.includePatterns) == 0:
+	}
+	if len(d.excludePatterns) > 0 {
 		return !isURLExcluded(d.excludePatterns, object.URL.Path, prefix)
 	}
 	return true

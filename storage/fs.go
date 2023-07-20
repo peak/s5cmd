@@ -244,7 +244,26 @@ func (f *Filesystem) Rename(file *os.File, newpath string) error {
 		return nil
 	}
 
-	return os.Rename(file.Name(), newpath)
+	err := os.Rename(file.Name(), newpath)
+	if err != nil {
+		// Read the content from the source file
+		data, err := os.ReadFile(file.Name())
+		if err != nil {
+			return err
+		}
+
+		// Write the content to the destination file
+		err = os.WriteFile(newpath, data, 0644)
+		if err != nil {
+			return err
+		}
+
+		// Remove the source file after successfully copying its content
+		if err := os.Remove(file.Name()); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func sendObject(ctx context.Context, obj *Object, ch chan *Object) {

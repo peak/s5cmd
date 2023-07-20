@@ -6,7 +6,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"sync"
 
@@ -65,8 +64,8 @@ Examples:
 
 	10. Sync all files to S3 bucket but exclude the ones with txt and gz extension
 		 > s5cmd {{.HelpName}} --exclude "*.txt" --exclude "*.gz" dir/ s3://bucket
-
-	10. Sync all files to S3 bucket but include the only ones with txt and gz extension
+	
+	11. Sync all files to S3 bucket but include the only ones with txt and gz extension
 		 > s5cmd {{.HelpName}} --include "*.txt" --include "*.gz" dir/ s3://bucket
 `
 
@@ -103,11 +102,7 @@ func NewSyncCommand() *cli.Command {
 		Action: func(c *cli.Context) (err error) {
 			defer stat.Collect(c.Command.FullName(), &err)()
 
-			sync, err := NewSync(c)
-			if err != nil {
-				return err
-			}
-			return sync.Run(c)
+			return NewSync(c).Run(c)
 		},
 	}
 
@@ -121,20 +116,14 @@ type ObjectPair struct {
 
 // Sync holds sync operation flags and states.
 type Sync struct {
-	src         *url.URL
-	dst         *url.URL
+	src         string
+	dst         string
 	op          string
 	fullCommand string
 
 	// flags
 	delete   bool
 	sizeOnly bool
-	exclude  []string
-	include  []string
-
-	// patterns
-	excludePatterns []*regexp.Regexp
-	includePatterns []*regexp.Regexp
 
 	// s3 options
 	storageOpts storage.Options
@@ -148,37 +137,16 @@ type Sync struct {
 }
 
 // NewSync creates Sync from cli.Context
-func NewSync(c *cli.Context) (*Sync, error) {
-	fullCommand := commandFromContext(c)
-
-	src, err := url.New(c.Args().Get(0), url.WithVersion(c.String("version-id")),
-		url.WithRaw(c.Bool("raw")))
-	if err != nil {
-		printError(fullCommand, c.Command.Name, err)
-		return nil, err
-	}
-
-	dst, err := url.New(c.Args().Get(1), url.WithRaw(c.Bool("raw")))
-	if err != nil {
-		printError(fullCommand, c.Command.Name, err)
-		return nil, err
-	}
-
-	return &Sync{
-		src:         src,
-		dst:         dst,
+func NewSync(c *cli.Context) Sync {
+	return Sync{
+		src:         c.Args().Get(0),
+		dst:         c.Args().Get(1),
 		op:          c.Command.Name,
 		fullCommand: commandFromContext(c),
 
 		// flags
 		delete:   c.Bool("delete"),
 		sizeOnly: c.Bool("size-only"),
-		exclude:  c.StringSlice("exclude"),
-		include:  c.StringSlice("include"),
-
-		// patterns
-		excludePatterns: nil,
-		includePatterns: nil,
 
 		// flags
 		followSymlinks: !c.Bool("no-follow-symlinks"),
@@ -188,40 +156,36 @@ func NewSync(c *cli.Context) (*Sync, error) {
 		srcRegion:   c.String("source-region"),
 		dstRegion:   c.String("destination-region"),
 		storageOpts: NewStorageOpts(c),
-	}, nil
+	}
 }
 
 // Run compares files, plans necessary s5cmd commands to execute
 // and executes them in order to sync source to destination.
 func (s Sync) Run(c *cli.Context) error {
-	var err error
+	srcurl, err := url.New(s.src, url.WithRaw(s.raw))
+	if err != nil {
+		return err
+	}
 
-	s.excludePatterns, err = createExcludesFromWildcard(s.exclude)
+	dsturl, err := url.New(s.dst, url.WithRaw(s.raw))
+	if err != nil {
+		return err
+	}
+
+	sourceObjects, destObjects, err := s.getSourceAndDestinationObjects(c.Context, srcurl, dsturl)
 	if err != nil {
 		printError(s.fullCommand, s.op, err)
 		return err
 	}
 
-	s.includePatterns, err = createIncludesFromWildcard(s.include)
-	if err != nil {
-		printError(s.fullCommand, s.op, err)
-		return err
-	}
-
-	sourceObjects, destObjects, err := s.getSourceAndDestinationObjects(c.Context, s.src, s.dst)
-	if err != nil {
-		printError(s.fullCommand, s.op, err)
-		return err
-	}
-
-	isBatch := s.src.IsWildcard()
-	if !isBatch && !s.src.IsRemote() {
-		sourceClient, err := storage.NewClient(c.Context, s.src, s.storageOpts)
+	isBatch := srcurl.IsWildcard()
+	if !isBatch && !srcurl.IsRemote() {
+		sourceClient, err := storage.NewClient(c.Context, srcurl, s.storageOpts)
 		if err != nil {
 			return err
 		}
 
-		obj, _ := sourceClient.Stat(c.Context, s.src)
+		obj, _ := sourceClient.Stat(c.Context, srcurl)
 		isBatch = obj != nil && obj.Type.IsDir()
 	}
 
@@ -254,7 +218,7 @@ func (s Sync) Run(c *cli.Context) error {
 	pipeReader, pipeWriter := io.Pipe() // create a reader, writer pipe to pass commands to run
 
 	// Create commands in background.
-	go s.planRun(c, onlySource, onlyDest, commonObjects, s.dst, strategy, pipeWriter, isBatch)
+	go s.planRun(c, onlySource, onlyDest, commonObjects, dsturl, strategy, pipeWriter, isBatch)
 
 	err = NewRun(c, pipeReader).Run(c.Context)
 	return multierror.Append(err, merrorWaiter).ErrorOrNil()
@@ -330,7 +294,15 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 		return nil, nil, err
 	}
 
-	destObjectsURL, err := url.New(s.dst.Path)
+	// add * to end of destination string, to get all objects recursively.
+	var destinationURLPath string
+	if strings.HasSuffix(s.dst, "/") {
+		destinationURLPath = s.dst + "*"
+	} else {
+		destinationURLPath = s.dst + "/*"
+	}
+
+	destObjectsURL, err := url.New(destinationURLPath)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -401,10 +373,6 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 				if s.shouldSkipObject(dt, false) {
 					continue
 				}
-				/*
-					if !s.shouldSyncObject(dt, true) {
-						continue
-					}*/
 				filteredDstObjectChannel <- *dt
 			}
 		}()

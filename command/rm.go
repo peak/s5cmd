@@ -216,17 +216,11 @@ func (d Delete) shouldDeleteObject(object *storage.Object, verbose bool, prefix 
 	}
 
 	switch {
-	case len(d.excludePatterns) == 0 && len(d.includePatterns) == 0:
-		return true
 	case len(d.excludePatterns) == 0 && len(d.includePatterns) > 0:
+	case len(d.excludePatterns) > 0 && len(d.includePatterns) > 0:
 		return isURLIncluded(d.includePatterns, object.URL.Path, prefix)
 	case len(d.excludePatterns) > 0 && len(d.includePatterns) == 0:
 		return !isURLExcluded(d.excludePatterns, object.URL.Path, prefix)
-	case len(d.excludePatterns) > 0 && len(d.includePatterns) > 0:
-		if isURLExcluded(d.excludePatterns, object.URL.Path, prefix) {
-			return false
-		}
-		return isURLIncluded(d.includePatterns, object.URL.Path, prefix)
 	}
 	return true
 }

@@ -255,7 +255,7 @@ func (f *Filesystem) Rename(file *os.File, newpath string) error {
 		if err != nil {
 			return err
 		}
-		
+
 		if err := os.Remove(file.Name()); err != nil {
 			return err
 		}

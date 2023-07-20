@@ -47,62 +47,27 @@ func TestCatS3Object(t *testing.T) {
 			assertOps: []assertOp{
 				jsonCheck(true),
 			},
-		},
-	}
-	for _, tc := range testcases {
-		tc := tc
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			s3client, s5cmd := setup(t)
-
-			bucket := s3BucketFromTestName(t)
-
-			createBucket(t, s3client, bucket)
-			putFile(t, s3client, bucket, filename, contents)
-
-			src := fmt.Sprintf("s3://%v/%v", bucket, filename)
-			tc.cmd = append(tc.cmd, src)
-
-			cmd := s5cmd(tc.cmd...)
-			result := icmd.RunCmd(cmd)
-
-			result.Assert(t, icmd.Success)
-
-			assertLines(t, result.Stdout(), tc.expected)
-		})
-	}
-
-}
-
-func TestCatS3BigObject(t *testing.T) {
-	t.Parallel()
-
-	const (
-		filename = "file.txt"
-	)
-	contents, expected := getSequentialFileContent(256 * mb)
-
-	testcases := []struct {
-		name      string
-		cmd       []string
-		expected  map[int]compareFunc
-		assertOps []assertOp
-	}{
-		{
-			name: "cat remote object",
+		}, {
+			name: "cat remote object with lower part size and higher concurrency",
 			cmd: []string{
 				"cat",
+				"-p",
+				"1",
+				"-c",
+				"20",
 			},
 			expected: expected,
 		},
 		{
-			name: "cat remote object with json flag",
+			name: "cat remote object with json flag lower part size and higher concurrency",
 			cmd: []string{
 				"--json",
 				"cat",
-			},
-			expected: expected,
+				"-p",
+				"1",
+				"-c",
+				"20",
+			}, expected: expected,
 			assertOps: []assertOp{
 				jsonCheck(true),
 			},

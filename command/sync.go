@@ -80,10 +80,6 @@ func NewSyncCommandFlags() []cli.Flag {
 			Name:  "size-only",
 			Usage: "make size of object only criteria to decide whether an object should be synced",
 		},
-		&cli.StringSliceFlag{
-			Name:  "include",
-			Usage: "include objects with given pattern",
-		},
 	}
 	sharedFlags := NewSharedFlags()
 	return append(syncFlags, sharedFlags...)
@@ -366,9 +362,6 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 				if s.shouldSkipObject(st, true) {
 					continue
 				}
-				if !s.shouldSyncObject(st, true) {
-					continue
-				}
 				filteredSrcObjectChannel <- *st
 			}
 		}()
@@ -408,9 +401,10 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 				if s.shouldSkipObject(dt, false) {
 					continue
 				}
-				if !s.shouldSyncObject(dt, true) {
-					continue
-				}
+				/*
+					if !s.shouldSyncObject(dt, true) {
+						continue
+					}*/
 				filteredDstObjectChannel <- *dt
 			}
 		}()
@@ -574,33 +568,4 @@ func (s Sync) shouldSkipObject(object *storage.Object, verbose bool) bool {
 		return true
 	}
 	return false
-}
-
-// shouldSkipObject checks is object should be skipped.
-func (s Sync) shouldSyncObject(object *storage.Object, verbose bool) bool {
-	if err := object.Err; err != nil {
-		if verbose {
-			printError(s.fullCommand, s.op, err)
-		}
-		return false
-	}
-
-	switch {
-	case len(s.excludePatterns) == 0 && len(s.includePatterns) == 0:
-		fmt.Println("case 1")
-		return true
-	case len(s.excludePatterns) == 0 && len(s.includePatterns) > 0:
-		fmt.Println("case 3")
-		return isURLIncluded(s.includePatterns, object.URL.Path, s.src.Prefix)
-	case len(s.excludePatterns) > 0 && len(s.includePatterns) == 0:
-		fmt.Println("case 2")
-		return !isURLExcluded(s.excludePatterns, object.URL.Path, s.src.Prefix)
-	case len(s.excludePatterns) > 0 && len(s.includePatterns) > 0:
-		if isURLExcluded(s.excludePatterns, object.URL.Path, s.src.Prefix) {
-			return false
-		}
-		return isURLIncluded(s.includePatterns, object.URL.Path, s.src.Prefix)
-	}
-	fmt.Println("case 6")
-	return true
 }

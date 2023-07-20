@@ -787,7 +787,7 @@ func (c Copy) shouldOverride(ctx context.Context, srcurl *url.URL, dsturl *url.U
 	return stickyErr
 }
 
-// shouldCopyObject checks is object should be skipped.
+// shouldCopyObject checks is object should be copied.
 func (c Copy) shouldCopyObject(object *storage.Object, verbose bool) bool {
 	if err := object.Err; err != nil {
 		if verbose {

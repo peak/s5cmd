@@ -250,6 +250,9 @@ const (
 
 // String returns the string representation of ListMessage.
 func (l ListMessage) String() string {
+	if l.showFullPath {
+		return l.Object.URL.String()
+	}
 	var etag string
 	// date and storage fiels
 	var listFormat = "%19s %2s"
@@ -289,6 +292,7 @@ func (l ListMessage) String() string {
 	if l.showStorageClass {
 		stclass = fmt.Sprintf("%v", l.Object.StorageClass)
 	}
+
 	var path string
 	if l.showFullPath {
 		path = l.Object.URL.String()

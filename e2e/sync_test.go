@@ -1793,3 +1793,88 @@ func TestIssue435(t *testing.T) {
 		assertError(t, err, errS3NoSuchKey)
 	}
 }
+
+// sync --include pattern s3://bucket/* s3://anotherbucket/prefix/
+func TestSyncS3ObjectsIntoAnotherBucketWithIncludeFilters(t *testing.T) {
+	t.Parallel()
+
+	srcbucket := s3BucketFromTestNameWithPrefix(t, "src")
+	dstbucket := s3BucketFromTestNameWithPrefix(t, "dst")
+
+	s3client, s5cmd := setup(t)
+
+	createBucket(t, s3client, srcbucket)
+	createBucket(t, s3client, dstbucket)
+
+	srcFiles := []string{
+		"file_already_exists_in_destination.txt",
+		"file_not_exists_in_destination.txt",
+		"main.py",
+		"main.js",
+		"readme.md",
+		"main.pdf",
+		"main/file.txt",
+	}
+
+	dstFiles := []string{
+		"prefix/file_already_exists_in_destination.txt",
+	}
+
+	excludedFiles := []string{
+		"prefix/file_not_exists_in_destination.txt",
+	}
+
+	includedFiles := []string{
+		"main.js",
+		"main.pdf",
+		"main.py",
+		"main/file.txt",
+		"readme.md",
+	}
+
+	const (
+		content         = "this is a file content"
+		includePattern1 = "main*"
+		includePattern2 = "*.md"
+	)
+
+	for _, filename := range srcFiles {
+		putFile(t, s3client, srcbucket, filename, content)
+	}
+
+	for _, filename := range dstFiles {
+		putFile(t, s3client, dstbucket, filename, content)
+	}
+
+	src := fmt.Sprintf("s3://%v/*", srcbucket)
+	dst := fmt.Sprintf("s3://%v/prefix/", dstbucket)
+
+	cmd := s5cmd("sync", "--include", includePattern1, "--include", includePattern2, src, dst)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`cp s3://%s/%s s3://%s/prefix/%s`, srcbucket, includedFiles[0], dstbucket, includedFiles[0]),
+		1: equals(`cp s3://%s/%s s3://%s/prefix/%s`, srcbucket, includedFiles[1], dstbucket, includedFiles[1]),
+		2: equals(`cp s3://%s/%s s3://%s/prefix/%s`, srcbucket, includedFiles[2], dstbucket, includedFiles[2]),
+		3: equals(`cp s3://%s/%s s3://%s/prefix/%s`, srcbucket, includedFiles[3], dstbucket, includedFiles[3]),
+		4: equals(`cp s3://%s/%s s3://%s/prefix/%s`, srcbucket, includedFiles[4], dstbucket, includedFiles[4]),
+	}, sortInput(true))
+
+	// assert s3 source objects
+	for _, filename := range srcFiles {
+		assert.Assert(t, ensureS3Object(s3client, srcbucket, filename, content))
+	}
+
+	// assert s3 destination objects
+	for _, filename := range includedFiles {
+		assert.Assert(t, ensureS3Object(s3client, dstbucket, "prefix/"+filename, content))
+	}
+
+	// assert s3 destination objects which should not be in bucket.
+	for _, filename := range excludedFiles {
+		err := ensureS3Object(s3client, dstbucket, filename, content)
+		assertError(t, err, errS3NoSuchKey)
+	}
+}

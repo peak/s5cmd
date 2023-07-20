@@ -1301,3 +1301,154 @@ func TestRemoveByVersionID(t *testing.T) {
 	result = icmd.RunCmd(cmd)
 	assert.Assert(t, result.Stdout() == "")
 }
+
+// rm --include "*.py" s3://bucket/
+func TestRemoveS3ObjectsWithIncludeFilter(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd := setup(t)
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	const (
+		includePattern = "*.py"
+		fileContent    = "content"
+	)
+
+	files := [...]string{
+		"file1.py",
+		"file2.py",
+		"file.txt",
+		"data.txt",
+		"src/app.py",
+	}
+	filesKept := [...]string{
+		"file.txt",
+		"data.txt",
+	}
+
+	for _, filename := range files {
+		putFile(t, s3client, bucket, filename, fileContent)
+	}
+
+	srcpath := fmt.Sprintf("s3://%s", bucket)
+
+	cmd := s5cmd("rm", "--include", includePattern, srcpath+"/*")
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	fmt.Println(result.Stdout())
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals("rm %v/%s", srcpath, files[0]),
+		1: equals("rm %v/%s", srcpath, files[1]),
+		2: equals("rm %v/%s", srcpath, files[4]),
+	}, sortInput(true))
+
+	// assert s3
+	for _, f := range filesKept {
+		assert.Assert(t, ensureS3Object(s3client, bucket, f, fileContent))
+	}
+}
+
+// rm --include "file*" --exclude "*.py" s3://bucket/
+func TestRemoveS3ObjectsWithIncludeExcludeFilter(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd := setup(t)
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	const (
+		includePattern = "file*"
+		excludePattern = "*.py"
+		fileContent    = "content"
+	)
+
+	files := [...]string{
+		"file1.py",
+		"file2.py",
+		"test.py",
+		"app.py",
+		"docs/readme.md",
+	}
+	filesKept := [...]string{
+		"test.py",
+		"app.py",
+		"docs/readme.md",
+	}
+
+	for _, filename := range files {
+		putFile(t, s3client, bucket, filename, fileContent)
+	}
+
+	srcpath := fmt.Sprintf("s3://%s", bucket)
+
+	cmd := s5cmd("rm", "--include", includePattern, "--exclude", excludePattern, srcpath+"/*")
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals("rm %v/%s", srcpath, files[0]),
+		1: equals("rm %v/%s", srcpath, files[1]),
+	}, sortInput(true))
+
+	// assert s3
+	for _, f := range filesKept {
+		assert.Assert(t, ensureS3Object(s3client, bucket, f, fileContent))
+	}
+}
+
+// rm --exclude "file*" --include "*.py" s3://bucket/
+func TestRemoveS3ObjectsWithIncludeExcludeFilter2(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd := setup(t)
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	const (
+		includePattern = "*.py"
+		excludePattern = "file*"
+		fileContent    = "content"
+	)
+
+	files := [...]string{
+		"file1.py",
+		"file2.py",
+		"test.py",
+		"app.py",
+		"docs/readme.md",
+	}
+	filesKept := [...]string{
+		"docs/readme.md",
+	}
+
+	for _, filename := range files {
+		putFile(t, s3client, bucket, filename, fileContent)
+	}
+
+	srcpath := fmt.Sprintf("s3://%s", bucket)
+
+	cmd := s5cmd("rm", "--exclude", excludePattern, "--include", includePattern, srcpath+"/*")
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals("rm %v/%s", srcpath, files[3]),
+		1: equals("rm %v/%s", srcpath, files[0]),
+		2: equals("rm %v/%s", srcpath, files[1]),
+		3: equals("rm %v/%s", srcpath, files[2]),
+	}, sortInput(true))
+
+	// assert s3
+	for _, f := range filesKept {
+		assert.Assert(t, ensureS3Object(s3client, bucket, f, fileContent))
+	}
+}

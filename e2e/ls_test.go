@@ -316,16 +316,16 @@ func TestListS3ObjectsAndFoldersWithTheirFullpath(t *testing.T) {
 
 	// assert lexical order
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(fmt.Sprintf("s3://%v/a/testfile2.txt", bucket)),
-		1: equals(fmt.Sprintf("s3://%v/b/testfile3.txt", bucket)),
-		2: equals(fmt.Sprintf("s3://%v/b/testfile4.txt", bucket)),
-		3: equals(fmt.Sprintf("s3://%v/c/testfile5.gz", bucket)),
-		4: equals(fmt.Sprintf("s3://%v/d/foo/bar/file7.txt", bucket)),
-		5: equals(fmt.Sprintf("s3://%v/d/foo/bar/testfile8.txt", bucket)),
-		6: equals(fmt.Sprintf("s3://%v/e/txt/testfile9.txt.gz", bucket)),
-		7: equals(fmt.Sprintf("s3://%v/f/txt/testfile10.txt", bucket)),
-		8: equals(fmt.Sprintf("s3://%v/report.gz", bucket)),
-		9: equals(fmt.Sprintf("s3://%v/testfile1.txt", bucket)),
+		0: equals("s3://%v/a/testfile2.txt", bucket),
+		1: equals("s3://%v/b/testfile3.txt", bucket),
+		2: equals("s3://%v/b/testfile4.txt", bucket),
+		3: equals("s3://%v/c/testfile5.gz", bucket),
+		4: equals("s3://%v/d/foo/bar/file7.txt", bucket),
+		5: equals("s3://%v/d/foo/bar/testfile8.txt", bucket),
+		6: equals("s3://%v/e/txt/testfile9.txt.gz", bucket),
+		7: equals("s3://%v/f/txt/testfile10.txt", bucket),
+		8: equals("s3://%v/report.gz", bucket),
+		9: equals("s3://%v/testfile1.txt", bucket),
 	}, alignment(true))
 }
 

@@ -95,14 +95,17 @@ Examples:
 
 	19. Copy all files from S3 bucket to another S3 bucket but exclude the ones starts with log
 		 > s5cmd {{.HelpName}} --exclude "log*" "s3://bucket/*" s3://destbucket
+	
+	20. Copy all files from S3 bucket to another S3 bucket but only the ones starts with log
+		 > s5cmd {{.HelpName}} --include "log*" "s3://bucket/*" s3://destbucket
 
-	20. Download an S3 object from a requester pays bucket
+	21. Download an S3 object from a requester pays bucket
 		 > s5cmd --request-payer=requester {{.HelpName}} s3://bucket/prefix/object.gz .
 
-	21. Upload a file to S3 with a content-type and content-encoding header
+	22. Upload a file to S3 with a content-type and content-encoding header
 		 > s5cmd --content-type "text/css" --content-encoding "br" myfile.css.br s3://bucket/
 		 
-	22. Download the specific version of a remote object to working directory
+	23. Download the specific version of a remote object to working directory
 		 > s5cmd {{.HelpName}} --version-id VERSION_ID s3://bucket/prefix/object .
 `
 

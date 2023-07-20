@@ -3,6 +3,7 @@ package command
 import (
 	"context"
 	"fmt"
+	"regexp"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/urfave/cli/v2"
@@ -66,6 +67,10 @@ func NewDeleteCommand() *cli.Command {
 				Name:  "exclude",
 				Usage: "exclude objects with given pattern",
 			},
+			&cli.StringSliceFlag{
+				Name:  "include",
+				Usage: "include objects with given pattern",
+			},
 			&cli.BoolFlag{
 				Name:  "all-versions",
 				Usage: "list all versions of object(s)",
@@ -101,6 +106,7 @@ func NewDeleteCommand() *cli.Command {
 
 				// flags
 				exclude: c.StringSlice("exclude"),
+				include: c.StringSlice("include"),
 
 				storageOpts: NewStorageOpts(c),
 			}.Run(c.Context)
@@ -119,6 +125,11 @@ type Delete struct {
 
 	// flag options
 	exclude []string
+	include []string
+
+	// patterns
+	excludePatterns []*regexp.Regexp
+	includePatterns []*regexp.Regexp
 
 	// storage options
 	storageOpts storage.Options
@@ -135,7 +146,7 @@ func (d Delete) Run(ctx context.Context) error {
 		return err
 	}
 
-	excludePatterns, err := createExcludesFromWildcard(d.exclude)
+	d.excludePatterns, err = createExcludesFromWildcard(d.exclude)
 	if err != nil {
 		printError(d.fullCommand, d.op, err)
 		return err
@@ -164,7 +175,7 @@ func (d Delete) Run(ctx context.Context) error {
 				continue
 			}
 
-			if isURLExcluded(excludePatterns, object.URL.Path, srcurl.Prefix) {
+			if !d.shouldDeleteObject(object, true, srcurl.Prefix) {
 				continue
 			}
 
@@ -193,6 +204,31 @@ func (d Delete) Run(ctx context.Context) error {
 	}
 
 	return multierror.Append(merrorResult, merrorObjects).ErrorOrNil()
+}
+
+// shouldDeleteObject checks is object should be deleted.
+func (d Delete) shouldDeleteObject(object *storage.Object, verbose bool, prefix string) bool {
+	if err := object.Err; err != nil {
+		if verbose {
+			printError(d.fullCommand, d.op, err)
+		}
+		return false
+	}
+
+	switch {
+	case len(d.excludePatterns) == 0 && len(d.includePatterns) == 0:
+		return true
+	case len(d.excludePatterns) == 0 && len(d.includePatterns) > 0:
+		return isURLIncluded(d.includePatterns, object.URL.Path, prefix)
+	case len(d.excludePatterns) > 0 && len(d.includePatterns) == 0:
+		return !isURLExcluded(d.excludePatterns, object.URL.Path, prefix)
+	case len(d.excludePatterns) > 0 && len(d.includePatterns) > 0:
+		if isURLExcluded(d.excludePatterns, object.URL.Path, prefix) {
+			return false
+		}
+		return isURLIncluded(d.includePatterns, object.URL.Path, prefix)
+	}
+	return true
 }
 
 // newSources creates object URL list from given sources.

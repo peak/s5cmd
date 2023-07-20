@@ -4169,3 +4169,165 @@ func TestLocalFileOverridenWhenDownloadFailed(t *testing.T) {
 	expected := fs.Expected(t, fs.WithFile(filename, content))
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 }
+
+// cp --include "*.py" s3://bucket/* .
+func TestCopyS3ObjectsWithIncludeFilter(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd := setup(t)
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	const (
+		includePattern = "*.py"
+		fileContent    = "content"
+	)
+
+	files := [...]string{
+		"file1.py",
+		"file2.py",
+		"file.txt",
+		"a.txt",
+		"src/file.txt",
+	}
+
+	for _, filename := range files {
+		putFile(t, s3client, bucket, filename, fileContent)
+	}
+
+	srcpath := fmt.Sprintf("s3://%s", bucket)
+
+	cmd := s5cmd("cp", "--include", includePattern, srcpath+"/*", ".")
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals("cp %v/file1.py %s", srcpath, files[0]),
+		1: equals("cp %v/file2.py %s", srcpath, files[1]),
+	}, sortInput(true))
+
+	// assert s3
+	for _, f := range files {
+		assert.Assert(t, ensureS3Object(s3client, bucket, f, fileContent))
+	}
+
+	expectedFileSystem := []fs.PathOp{
+		fs.WithFile("file1.py", fileContent),
+		fs.WithFile("file2.py", fileContent),
+	}
+	// assert local filesystem
+	expected := fs.Expected(t, expectedFileSystem...)
+	assert.Assert(t, fs.Equal(cmd.Dir, expected))
+}
+
+// cp --include "file*" --exclude "*.py" s3://bucket/* .
+func TestCopyS3ObjectsWithIncludeExcludeFilter(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd := setup(t)
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	const (
+		includePattern = "file*"
+		excludePattern = "*.py"
+		fileContent    = "content"
+	)
+
+	files := [...]string{
+		"file1.py",
+		"file2.py",
+		"test.py",
+		"app.py",
+		"docs/readme.md",
+	}
+
+	for _, filename := range files {
+		putFile(t, s3client, bucket, filename, fileContent)
+	}
+
+	srcpath := fmt.Sprintf("s3://%s", bucket)
+
+	cmd := s5cmd("cp", "--include", includePattern, "--exclude", excludePattern, srcpath+"/*", ".")
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals("cp %v/file1.py %s", srcpath, files[0]),
+		1: equals("cp %v/file2.py %s", srcpath, files[1]),
+	}, sortInput(true))
+
+	// assert s3
+	for _, f := range files {
+		assert.Assert(t, ensureS3Object(s3client, bucket, f, fileContent))
+	}
+
+	expectedFileSystem := []fs.PathOp{
+		fs.WithFile("file1.py", fileContent),
+		fs.WithFile("file2.py", fileContent),
+	}
+	// assert local filesystem
+	expected := fs.Expected(t, expectedFileSystem...)
+	assert.Assert(t, fs.Equal(cmd.Dir, expected))
+}
+
+// cp --exclude "file*" --include "*.py" s3://bucket/* .
+func TestCopyS3ObjectsWithIncludeExcludeFilter2(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd := setup(t)
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	const (
+		includePattern = "*.py"
+		excludePattern = "file*"
+		fileContent    = "content"
+	)
+
+	files := [...]string{
+		"file1.py",
+		"file2.py",
+		"test.py",
+		"app.py",
+		"docs/readme.md",
+	}
+
+	for _, filename := range files {
+		putFile(t, s3client, bucket, filename, fileContent)
+	}
+
+	srcpath := fmt.Sprintf("s3://%s", bucket)
+
+	cmd := s5cmd("cp", "--exclude", excludePattern, "--include", includePattern, srcpath+"/*", ".")
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals("cp %v/app.py %s", srcpath, files[3]),
+		1: equals("cp %v/file1.py %s", srcpath, files[0]),
+		2: equals("cp %v/file2.py %s", srcpath, files[1]),
+		3: equals("cp %v/test.py %s", srcpath, files[2]),
+	}, sortInput(true))
+
+	// assert s3
+	for _, f := range files {
+		assert.Assert(t, ensureS3Object(s3client, bucket, f, fileContent))
+	}
+
+	expectedFileSystem := []fs.PathOp{
+		fs.WithFile("file1.py", fileContent),
+		fs.WithFile("file2.py", fileContent),
+		fs.WithFile("test.py", fileContent),
+		fs.WithFile("app.py", fileContent),
+	}
+	// assert local filesystem
+	expected := fs.Expected(t, expectedFileSystem...)
+	assert.Assert(t, fs.Equal(cmd.Dir, expected))
+}

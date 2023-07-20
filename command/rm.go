@@ -39,17 +39,20 @@ Examples:
 
 	5. Delete all matching objects but exclude the ones with .txt extension or starts with "main"
 		 > s5cmd {{.HelpName}} --exclude "*.txt" --exclude "main*" "s3://bucketname/prefix/*"
+
+	6. Delete all matching objects but only the ones with .txt extension or starts with "main"
+		 > s5cmd {{.HelpName}} --include "*.txt" --include "main*" "s3://bucketname/prefix/*"
 	
-	6. Delete the specific version of a remote object's content to stdout
+	7. Delete the specific version of a remote object's content to stdout
 		 > s5cmd {{.HelpName}} --version-id VERSION_ID s3://bucket/prefix/object
 
-	7. Delete all versions of an object in the bucket
+	8. Delete all versions of an object in the bucket
 		 > s5cmd {{.HelpName}} --all-versions s3://bucket/object
 
-	8. Delete all versions of all objects that starts with a prefix in the bucket
+	9. Delete all versions of all objects that starts with a prefix in the bucket
 		 > s5cmd {{.HelpName}} --all-versions "s3://bucket/prefix*"
    
-	9. Delete all versions of all objects in the bucket
+	10. Delete all versions of all objects in the bucket
 		 > s5cmd {{.HelpName}} --all-versions "s3://bucket/*"
 `
 

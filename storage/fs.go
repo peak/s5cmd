@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 
@@ -246,13 +247,23 @@ func (f *Filesystem) Rename(file *os.File, newpath string) error {
 
 	err := os.Rename(file.Name(), newpath)
 	if err != nil {
-		data, err := os.ReadFile(file.Name())
+		srcFile, err := os.Open(file.Name())
 		if err != nil {
 			return err
 		}
 
-		err = os.WriteFile(newpath, data, 0644)
+		dstFile, err := os.Create(newpath)
 		if err != nil {
+			return err
+		}
+
+		_, err = io.Copy(dstFile, srcFile)
+
+		srcFile.Close()
+		dstFile.Close()
+
+		if err != nil {
+			os.Remove(newpath)
 			return err
 		}
 

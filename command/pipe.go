@@ -251,7 +251,7 @@ func (c Pipe) doUpload(ctx context.Context, dsturl *url.URL) error {
 	if c.contentType != "" {
 		metadata.SetContentType(c.contentType)
 	} else {
-		metadata.SetContentType(guessStdinContentType(dsturl))
+		metadata.SetContentType(guessContentTypeByExtension(dsturl))
 	}
 
 	if c.contentEncoding != "" {

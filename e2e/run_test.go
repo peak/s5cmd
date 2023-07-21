@@ -235,8 +235,6 @@ func TestRunWildcardCountGreaterEqualThanWorkerCount(t *testing.T) {
 	result := icmd.RunCmd(cmd)
 	result.Assert(t, icmd.Success)
 
-	fmt.Println(result.Stdout())
-
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(`cp s3://%v/file.txt folder1/file.txt`, bucket),
 		1: equals(`cp s3://%v/file.txt folder2/file.txt`, bucket),

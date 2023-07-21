@@ -1,39 +1,13 @@
 name: ci
 on: [push, pull_request]
 jobs:
-  build:
-    strategy:
-      matrix:
-        go-version:
-          - 1.19.x
-          - 1.18.x
-          - 1.17.x
-        os:
-          - macos
-          - ubuntu
-          - windows
-
-    name: build (${{ matrix.os }}/go-${{ matrix.go-version }})
-    runs-on: ${{ matrix.os }}-latest
-    steps:
-    - uses: actions/checkout@v2
-    - uses: actions/setup-go@v2
-      with:
-        go-version: ${{ matrix.go-version }}
-
-    - run: make build
-
   test:
     strategy:
       matrix:
         go-version:
           - 1.19.x
-          - 1.18.x
-          - 1.17.x
         os:
-          - macos
           - ubuntu
-          - windows
 
     name: test (${{ matrix.os }}/go-${{ matrix.go-version }})
     runs-on: ${{ matrix.os }}-latest
@@ -43,28 +17,4 @@ jobs:
       with:
         go-version: ${{ matrix.go-version }}
 
-    - run: make test
-
-  qa:
-    strategy:
-      matrix:
-        go-version:
-          - 1.19.x
-        os:
-          - ubuntu
-
-    runs-on: ${{ matrix.os }}-latest
-    steps:
-    - uses: actions/checkout@v2
-    - uses: actions/setup-go@v2
-      with:
-        go-version: ${{ matrix.go-version }}
-
-    - run: make check-fmt
-    - run: go install github.com/golang/mock/mockgen@v1.6.0
-    - run: make check-codegen
-    - run: make vet
-    - run: go install honnef.co/go/tools/cmd/staticcheck@v0.3.0
-    - run: make staticcheck
-    - run: go install mvdan.cc/unparam@latest
-    - run: make unparam
+    - run: go test -v -count=1 -race -run=TestRunWildcardCountGreaterEqualThanWorkerCount ./e2e

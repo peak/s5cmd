@@ -22,6 +22,7 @@ func TestShuffleWriteWithStaticChunkSize(t *testing.T) {
 	testRuns := 64
 	for b := 0; b < testRuns; b++ {
 		t.Run(fmt.Sprintf("Run%d", b), func(t *testing.T) {
+			t.Parallel()
 			var result bytes.Buffer
 			chunkSize := 5
 			fileSize := 1000
@@ -80,6 +81,7 @@ func TestShuffleWriteWithRandomChunkSize(t *testing.T) {
 	for b := 0; b < testRuns; b++ {
 		b := b
 		t.Run(fmt.Sprintf("TR%d", b), func(t *testing.T) {
+			t.Parallel()
 			var result bytes.Buffer
 			var expectedFileSize int64
 			expected := []byte{}
@@ -137,6 +139,7 @@ func TestShuffleConcurrentWriteWithRandomChunkSize(t *testing.T) {
 	for b := 0; b < testRuns; b++ {
 		b := b
 		t.Run(fmt.Sprintf("Run%d", b), func(t *testing.T) {
+			t.Parallel()
 			var result bytes.Buffer
 			var expectedFileSize int64
 			expected := []byte{}
@@ -241,6 +244,7 @@ func TestBufferWithChangingSlice(t *testing.T) {
 	for b := 0; b < testRuns; b++ {
 		b := b
 		t.Run(fmt.Sprintf("Run%d", b), func(t *testing.T) {
+			t.Parallel()
 			var expectedFileSize int64
 			expected := []byte{}
 			chunks := []dlchunk{}

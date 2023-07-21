@@ -21,7 +21,7 @@ test: $(TEST_TYPE)
 
 .PHONY: test_with_race
 test_with_race:
-	@S5CMD_BUILD_BINARY_WITHOUT_RACE_FLAG=0 go test -v -mod=vendor -count=1 -race ./buffer
+	@S5CMD_BUILD_BINARY_WITHOUT_RACE_FLAG=0 go test -mod=vendor -count=1 -race ./...
 
 .PHONY: test_without_race
 test_without_race:

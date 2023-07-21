@@ -233,7 +233,6 @@ func (c *dlchunk) Write(p []byte) (n int, err error) {
 
 	return
 }
-
 func TestBufferWithChangingSlice(t *testing.T) {
 	t.Parallel()
 	maxFileSize := 1024 * 1024
@@ -242,7 +241,6 @@ func TestBufferWithChangingSlice(t *testing.T) {
 	for b := 0; b < testRuns; b++ {
 		b := b
 		t.Run(fmt.Sprintf("Run%d", b), func(t *testing.T) {
-			var result bytes.Buffer
 			var expectedFileSize int64
 			expected := []byte{}
 			chunks := []dlchunk{}
@@ -269,7 +267,8 @@ func TestBufferWithChangingSlice(t *testing.T) {
 				chunks[i], chunks[j] = chunks[j], chunks[i]
 			}
 
-			rb := buffer.NewOrderedBuffer(expectedFileSize, &result)
+			result := bytes.NewBuffer(make([]byte, 0, expectedFileSize))
+			rb := buffer.NewOrderedBuffer(expectedFileSize, result)
 
 			// we set the writerAt after we initialize the buffer, since
 			// the buffer can't be initialized until the expectedFileSize
@@ -316,5 +315,83 @@ func TestBufferWithChangingSlice(t *testing.T) {
 				t.Errorf("OrderedBuffer contains %d leftover chunks", remainingChunks)
 			}
 		})
+	}
+}
+func BenchmarkBufferWithChangingSlice(bench *testing.B) {
+	maxFileSize := 1024 * 1024
+	minChunkSize, maxChunkSize := 5, 100
+	for b := 0; b < bench.N; b++ {
+		var expectedFileSize int64
+		expected := []byte{}
+		chunks := []dlchunk{}
+
+		// generate chunks
+		for i := 0; i <= maxFileSize; {
+			chunkSize := minChunkSize + rand.Intn(maxChunkSize-minChunkSize)
+			chunk := make([]byte, chunkSize)
+			for j := 0; j < chunkSize; j++ {
+				chunk[j] = uint8(rand.Intn(256))
+			}
+			chunks = append(chunks, dlchunk{
+				start:   int64(expectedFileSize),
+				size:    int64(chunkSize),
+				content: chunk,
+			})
+			expected = append(expected, chunk...)
+			expectedFileSize += int64(chunkSize)
+			i += chunkSize
+		}
+		// shuffle the chunks
+		for i := range chunks {
+			j := rand.Intn(i + 1)
+			chunks[i], chunks[j] = chunks[j], chunks[i]
+		}
+		result := bytes.NewBuffer(make([]byte, 0, expectedFileSize))
+		rb := buffer.NewOrderedBuffer(expectedFileSize, result)
+
+		// we set the writerAt after we initialize the buffer, since
+		// the buffer can't be initialized until the expectedFileSize
+		// is known.
+		for i := 0; i < len(chunks); i++ {
+			chunks[i].w = rb
+		}
+		chunkChan := make(chan dlchunk, 1)
+
+		var wg sync.WaitGroup
+		var blockingTask dlchunk
+		workerCount := 5 + rand.Intn(20) // 5-25 workers
+		for i := 0; i < workerCount; i++ {
+			wg.Add(1)
+			go func(ch chan dlchunk) {
+				defer wg.Done()
+				for task := range ch {
+					if task.start == 0 {
+						blockingTask = task
+						continue
+					}
+					r := bytes.NewReader(task.content)
+					io.Copy(&task, r)
+				}
+			}(chunkChan)
+		}
+
+		for _, chunk := range chunks {
+			chunkChan <- chunk
+		}
+		close(chunkChan)
+		wg.Wait()
+		// block all chunks except the first one
+		r := bytes.NewReader(blockingTask.content)
+		io.Copy(&blockingTask, r)
+		if !bytes.Equal(result.Bytes(), expected) {
+			bench.Errorf("Length comparison: Got: %d bytes, expected: %d bytes\n", len(result.Bytes()), len(expected))
+			bench.Errorf("Got: %v, expected: %v\n", result.Bytes(), expected)
+		}
+
+		// Check if there are any leftover chunks in the OrderedBuffer
+		remainingChunks := rb.Queued
+		if remainingChunks != 0 {
+			bench.Errorf("OrderedBuffer contains %d leftover chunks", remainingChunks)
+		}
 	}
 }

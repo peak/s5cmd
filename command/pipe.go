@@ -334,7 +334,7 @@ func validatePipeCommand(c *cli.Context) error {
 	return nil
 }
 
-func guessStdinContentType(dsturl *url.URL) string {
+func guessContentTypeByExtension(dsturl *url.URL) string {
 	contentType := mime.TypeByExtension(filepath.Ext(dsturl.Absolute()))
 	if contentType == "" {
 		return "application/octet-stream"

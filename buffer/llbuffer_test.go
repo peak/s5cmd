@@ -19,8 +19,6 @@ type FileChunk struct {
 
 func TestShuffleWriteWithStaticChunkSize(t *testing.T) {
 	t.Parallel()
-	// static chunk size
-	gbs := 1000
 	testRuns := 64
 	for b := 0; b < testRuns; b++ {
 		t.Run(fmt.Sprintf("Run%d", b), func(t *testing.T) {
@@ -53,7 +51,7 @@ func TestShuffleWriteWithStaticChunkSize(t *testing.T) {
 				tasks[i], tasks[j] = tasks[j], tasks[i]
 			}
 
-			rb := buffer.NewOrderedBuffer(expectedFileSize, gbs, &result)
+			rb := buffer.NewOrderedBuffer(expectedFileSize, &result)
 
 			for _, task := range tasks {
 				rb.WriteAt(task.content, int64(task.start))
@@ -108,7 +106,7 @@ func TestShuffleWriteWithRandomChunkSize(t *testing.T) {
 			}
 
 			// currently the max buffer size is disabled
-			rb := buffer.NewOrderedBuffer(expectedFileSize, -1, &result)
+			rb := buffer.NewOrderedBuffer(expectedFileSize, &result)
 
 			for _, task := range chunks {
 				rb.WriteAt(task.content, int64(task.start))
@@ -164,7 +162,7 @@ func TestShuffleConcurrentWriteWithRandomChunkSize(t *testing.T) {
 				chunks[i], chunks[j] = chunks[j], chunks[i]
 			}
 
-			rb := buffer.NewOrderedBuffer(expectedFileSize, -1, &result)
+			rb := buffer.NewOrderedBuffer(expectedFileSize, &result)
 
 			chunkChan := make(chan FileChunk, 1)
 
@@ -271,7 +269,7 @@ func TestBufferWithChangingSlice(t *testing.T) {
 				chunks[i], chunks[j] = chunks[j], chunks[i]
 			}
 
-			rb := buffer.NewOrderedBuffer(expectedFileSize, -1, &result)
+			rb := buffer.NewOrderedBuffer(expectedFileSize, &result)
 
 			// we set the writerAt after we initialize the buffer, since
 			// the buffer can't be initialized until the expectedFileSize

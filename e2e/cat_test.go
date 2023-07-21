@@ -13,7 +13,6 @@ import (
 var (
 	kb int64 = 1024
 	mb       = kb * kb
-	gb       = mb * mb
 )
 
 func TestCatS3Object(t *testing.T) {

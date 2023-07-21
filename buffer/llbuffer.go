@@ -8,7 +8,6 @@ import (
 
 type FileChunk struct {
 	Start   int64
-	End     int64
 	Content []byte
 }
 
@@ -16,18 +15,16 @@ type OrderedBuffer struct {
 	w             io.Writer
 	totalExpected int64
 	written       int64
-	maxSize       int
 	list          *list.List
 	mu            *sync.Mutex
 	Queued        int
 }
 
-func NewOrderedBuffer(expectedBytes int64, maxSize int, w io.Writer) *OrderedBuffer {
+func NewOrderedBuffer(expectedBytes int64, w io.Writer) *OrderedBuffer {
 	return &OrderedBuffer{
 		totalExpected: expectedBytes,
 		written:       0,
 		list:          list.New(),
-		maxSize:       maxSize,
 		mu:            &sync.Mutex{},
 		w:             w,
 		Queued:        0,
@@ -37,6 +34,7 @@ func NewOrderedBuffer(expectedBytes int64, maxSize int, w io.Writer) *OrderedBuf
 func (ob *OrderedBuffer) WriteAt(p []byte, offset int64) (int, error) {
 	ob.mu.Lock()
 	defer ob.mu.Unlock()
+
 	if ob.list.Front() == nil {
 		// if the queue is empty and the chunk is writeable, push it without queueing
 		if ob.written == offset {

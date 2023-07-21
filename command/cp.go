@@ -19,7 +19,7 @@ import (
 	"github.com/peak/s5cmd/v2/log"
 	"github.com/peak/s5cmd/v2/log/stat"
 	"github.com/peak/s5cmd/v2/parallel"
-	progress "github.com/peak/s5cmd/v2/progressbar"
+	"github.com/peak/s5cmd/v2/progressbar"
 	"github.com/peak/s5cmd/v2/storage"
 	"github.com/peak/s5cmd/v2/storage/url"
 )
@@ -283,7 +283,7 @@ type Copy struct {
 	contentType           string
 	contentEncoding       string
 	showProgress          bool
-	progress              progress.ProgressBar
+	progressbar           progressbar.ProgressBar
 
 	// region settings
 	srcRegion string
@@ -312,12 +312,12 @@ func NewCopy(c *cli.Context, deleteSource bool) (*Copy, error) {
 		return nil, err
 	}
 
-	var commandProgress progress.ProgressBar
+	var commandProgress progressbar.ProgressBar
 
 	if c.Bool("show-progress") {
-		commandProgress = &progress.CommandProgressBar{}
+		commandProgress = &progressbar.CommandProgressBar{}
 	} else {
-		commandProgress = &progress.MockProgressBar{}
+		commandProgress = &progressbar.MockProgressBar{}
 	}
 
 	return &Copy{
@@ -346,7 +346,7 @@ func NewCopy(c *cli.Context, deleteSource bool) (*Copy, error) {
 		contentType:           c.String("content-type"),
 		contentEncoding:       c.String("content-encoding"),
 		showProgress:          c.Bool("show-progress"),
-		progress:              commandProgress,
+		progressbar:           commandProgress,
 
 		// region settings
 		srcRegion: c.String("source-region"),
@@ -364,7 +364,7 @@ increase the open file limit or try to decrease the number of workers with
 
 // Run starts copying given source objects to destination.
 func (c Copy) Run(ctx context.Context) error {
-	c.progress.InitializeProgressBar()
+	c.progressbar.InitializeProgressBar()
 
 	// override source region if set
 	if c.srcRegion != "" {
@@ -378,7 +378,6 @@ func (c Copy) Run(ctx context.Context) error {
 	}
 
 	objch, err := expandSource(ctx, client, c.followSymlinks, c.src)
-
 	if err != nil {
 		printError(c.fullCommand, c.op, err)
 		return err
@@ -445,8 +444,8 @@ func (c Copy) Run(ctx context.Context) error {
 		srcurl := object.URL
 		var task parallel.Task
 
-		c.progress.AddTotalBytes(object.Size)
-		c.progress.IncrementTotalObjects()
+		c.progressbar.AddTotalBytes(object.Size)
+		c.progressbar.IncrementTotalObjects()
 
 		switch {
 		case srcurl.Type == c.dst.Type: // local->local or remote->remote
@@ -462,7 +461,7 @@ func (c Copy) Run(ctx context.Context) error {
 	}
 	waiter.Wait()
 	<-errDoneCh
-	c.progress.Finish()
+	c.progressbar.Finish()
 
 	return multierror.Append(merrorWaiter, merrorObjects).ErrorOrNil()
 }
@@ -485,7 +484,7 @@ func (c Copy) prepareCopyTask(
 			}
 		}
 
-		c.progress.IncrementCompletedObjects()
+		c.progressbar.IncrementCompletedObjects()
 
 		return nil
 	}
@@ -511,7 +510,7 @@ func (c Copy) prepareDownloadTask(
 				Err: err,
 			}
 		}
-		c.progress.IncrementCompletedObjects()
+		c.progressbar.IncrementCompletedObjects()
 		return nil
 	}
 }
@@ -533,7 +532,7 @@ func (c Copy) prepareUploadTask(
 				Err: err,
 			}
 		}
-		c.progress.IncrementCompletedObjects()
+		c.progressbar.IncrementCompletedObjects()
 		return nil
 	}
 }
@@ -1011,7 +1010,7 @@ func (r *CustomWriter) WriteAt(p []byte, off int64) (int, error) {
 		return n, err
 	}
 
-	r.c.progress.AddCompletedBytes(n)
+	r.c.progressbar.AddCompletedBytes(n)
 
 	return n, err
 }
@@ -1028,9 +1027,7 @@ func (r *CustomReader) Read(p []byte) (int, error) {
 	if err != nil {
 		return n, err
 	}
-
-	r.c.progress.AddCompletedBytes(n)
-
+	r.c.progressbar.AddCompletedBytes(n)
 	return n, err
 }
 
@@ -1043,8 +1040,7 @@ func (r *CustomReader) ReadAt(p []byte, off int64) (int, error) {
 	// Ignore the first signature call
 	if _, ok := r.signMap[off]; ok {
 		// Got the length have read (or means has uploaded)
-
-		r.c.progress.AddCompletedBytes(n)
+		r.c.progressbar.AddCompletedBytes(n)
 
 	} else {
 		r.signMap[off] = struct{}{}

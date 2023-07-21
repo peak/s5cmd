@@ -17,23 +17,23 @@ type ProgressBar interface {
 	AddTotalBytes(bytes int64)
 }
 
-type DummyProgress struct{}
+type MockProgressBar struct{}
 
-func (dp *DummyProgress) InitializeProgressBar() {}
+func (pb *MockProgressBar) InitializeProgressBar() {}
 
-func (dp *DummyProgress) Finish() {}
+func (pb *MockProgressBar) Finish() {}
 
-func (dp *DummyProgress) IncrementCompletedObjects() {}
+func (pb *MockProgressBar) IncrementCompletedObjects() {}
 
-func (dp *DummyProgress) IncrementTotalObjects() {}
+func (pb *MockProgressBar) IncrementTotalObjects() {}
 
-func (dp *DummyProgress) AddCompletedBytesInt64(bytes int64) {}
+func (pb *MockProgressBar) AddCompletedBytesInt64(bytes int64) {}
 
-func (dp *DummyProgress) AddCompletedBytes(bytes int) {}
+func (pb *MockProgressBar) AddCompletedBytes(bytes int) {}
 
-func (dp *DummyProgress) AddTotalBytes(bytes int64) {}
+func (pb *MockProgressBar) AddTotalBytes(bytes int64) {}
 
-type CommandProgress struct {
+type CommandProgressBar struct {
 	totalObjects     int64
 	completedObjects int64
 	totalBytes       int64
@@ -44,7 +44,7 @@ type CommandProgress struct {
 
 const progressbarTemplate = `{{percent . | green}} {{bar . " " "━" "━" "─" " " | green}} {{counters . | green}} {{speed . "(%s/s)" | red}} {{rtime . "%s left" | blue}} {{ string . "objects" | yellow}}`
 
-func (cp *CommandProgress) InitializeProgressBar() {
+func (cp *CommandProgressBar) InitializeProgressBar() {
 	cp.progressbar = pb.New64(0)
 	cp.progressbar.Set(pb.Bytes, true)
 	cp.progressbar.Set(pb.SIBytesPrefix, true)
@@ -54,39 +54,39 @@ func (cp *CommandProgress) InitializeProgressBar() {
 	cp.progressbar.Start()
 }
 
-func (cp *CommandProgress) Finish() {
+func (cp *CommandProgressBar) Finish() {
 	cp.progressbar.Finish()
 }
 
-func (cp *CommandProgress) IncrementCompletedObjects() {
+func (cp *CommandProgressBar) IncrementCompletedObjects() {
 	cp.mu.Lock()
 	defer cp.mu.Unlock()
 	cp.completedObjects += 1
 	cp.progressbar.Set("objects", fmt.Sprintf("(%d/%d)", cp.completedObjects, cp.totalObjects))
 }
 
-func (cp *CommandProgress) IncrementTotalObjects() {
+func (cp *CommandProgressBar) IncrementTotalObjects() {
 	cp.mu.Lock()
 	defer cp.mu.Unlock()
 	cp.totalObjects += 1
 	cp.progressbar.Set("objects", fmt.Sprintf("(%d/%d)", cp.completedObjects, cp.totalObjects))
 }
 
-func (cp *CommandProgress) AddCompletedBytesInt64(bytes int64) {
+func (cp *CommandProgressBar) AddCompletedBytesInt64(bytes int64) {
 	cp.mu.Lock()
 	defer cp.mu.Unlock()
 	cp.completedBytes += bytes
 	cp.progressbar.Add64(bytes)
 }
 
-func (cp *CommandProgress) AddCompletedBytes(bytes int) {
+func (cp *CommandProgressBar) AddCompletedBytes(bytes int) {
 	cp.mu.Lock()
 	defer cp.mu.Unlock()
 	cp.completedBytes += int64(bytes)
 	cp.progressbar.Add(bytes)
 }
 
-func (cp *CommandProgress) AddTotalBytes(bytes int64) {
+func (cp *CommandProgressBar) AddTotalBytes(bytes int64) {
 	cp.mu.Lock()
 	defer cp.mu.Unlock()
 	cp.totalBytes += bytes

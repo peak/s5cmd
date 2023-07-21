@@ -19,7 +19,7 @@ import (
 	"github.com/peak/s5cmd/v2/log"
 	"github.com/peak/s5cmd/v2/log/stat"
 	"github.com/peak/s5cmd/v2/parallel"
-	"github.com/peak/s5cmd/v2/progress"
+	progress "github.com/peak/s5cmd/v2/progressbar"
 	"github.com/peak/s5cmd/v2/storage"
 	"github.com/peak/s5cmd/v2/storage/url"
 )
@@ -315,9 +315,9 @@ func NewCopy(c *cli.Context, deleteSource bool) (*Copy, error) {
 	var commandProgress progress.ProgressBar
 
 	if c.Bool("show-progress") {
-		commandProgress = &progress.CommandProgress{}
+		commandProgress = &progress.CommandProgressBar{}
 	} else {
-		commandProgress = &progress.DummyProgress{}
+		commandProgress = &progress.MockProgressBar{}
 	}
 
 	return &Copy{

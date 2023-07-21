@@ -10,14 +10,14 @@ import (
 
 func TestCommandProgress_InitializeProgressBar(t *testing.T) {
 	t.Parallel()
-	cp := &CommandProgress{}
+	cp := &CommandProgressBar{}
 	cp.InitializeProgressBar()
 	assert.Equal(t, "*pb.ProgressBar", reflect.TypeOf(cp.progressbar).String())
 }
 
 func TestCommandProgress_Finish(t *testing.T) {
 	t.Parallel()
-	cp := &CommandProgress{}
+	cp := &CommandProgressBar{}
 	cp.InitializeProgressBar()
 
 	cp.Finish()
@@ -27,7 +27,7 @@ func TestCommandProgress_Finish(t *testing.T) {
 
 func TestCommandProgress_IncrementCompletedObjects(t *testing.T) {
 	t.Parallel()
-	cp := &CommandProgress{}
+	cp := &CommandProgressBar{}
 	cp.InitializeProgressBar()
 	cp.IncrementCompletedObjects()
 	assert.Equal(t, int64(1), cp.completedObjects)
@@ -37,7 +37,7 @@ func TestCommandProgress_IncrementCompletedObjects(t *testing.T) {
 
 func TestCommandProgress_IncrementTotalObjects(t *testing.T) {
 	t.Parallel()
-	cp := &CommandProgress{}
+	cp := &CommandProgressBar{}
 	cp.InitializeProgressBar()
 	cp.IncrementTotalObjects()
 	assert.Equal(t, int64(1), cp.totalObjects)
@@ -47,7 +47,7 @@ func TestCommandProgress_IncrementTotalObjects(t *testing.T) {
 
 func TestCommandProgress_AddCompletedBytesInt64(t *testing.T) {
 	t.Parallel()
-	cp := &CommandProgress{}
+	cp := &CommandProgressBar{}
 	cp.InitializeProgressBar()
 
 	bytes := int64(100)
@@ -62,7 +62,7 @@ func TestCommandProgress_AddCompletedBytesInt64(t *testing.T) {
 
 func TestCommandProgress_AddCompletedBytes(t *testing.T) {
 	t.Parallel()
-	cp := &CommandProgress{}
+	cp := &CommandProgressBar{}
 	cp.InitializeProgressBar()
 
 	bytes := 101
@@ -76,7 +76,7 @@ func TestCommandProgress_AddCompletedBytes(t *testing.T) {
 
 func TestCommandProgress_AddTotalBytes(t *testing.T) {
 	t.Parallel()
-	cp := &CommandProgress{}
+	cp := &CommandProgressBar{}
 	cp.InitializeProgressBar()
 
 	bytes := int64(102)

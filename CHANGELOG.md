@@ -6,6 +6,7 @@
 #### Features
 -- Added `--show-fullpath` flag to `ls`. (#[596](https://github.com/peak/s5cmd/issues/596))
 #### Improvements
+--- Implemented concurrent multipart download support for `cat`. ([#593](https://github.com/peak/s5cmd/pull/593)) 
 #### Bugfixes
 - Fixed a bug introduced with `external sort` support in `sync` command which prevents `sync` to an empty destination with `--delete` option. ([#576](https://github.com/peak/s5cmd/issues/576))
 

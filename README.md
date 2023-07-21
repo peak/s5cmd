@@ -3,7 +3,6 @@
 ![](./doc/s5cmd_header.jpg)
 
 
-
 ## Overview
 `s5cmd` is a very fast S3 and local filesystem execution tool. It comes with support
 for a multitude of operations including tab completion and wildcard support

@@ -297,7 +297,6 @@ func (l ListMessage) String() string {
 	if l.showFullPath {
 		path = l.Object.URL.String()
 	} else {
-
 		path = l.Object.URL.Relative()
 	}
 

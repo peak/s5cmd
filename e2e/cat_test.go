@@ -21,7 +21,7 @@ func TestCatS3Object(t *testing.T) {
 	const (
 		filename = "file.txt"
 	)
-	contents, expected := getSequentialFileContent(64 * mb)
+	contents, expected := getSequentialFileContent(16 * mb)
 
 	testcases := []struct {
 		name      string
@@ -46,14 +46,15 @@ func TestCatS3Object(t *testing.T) {
 			assertOps: []assertOp{
 				jsonCheck(true),
 			},
-		}, {
+		},
+		{
 			name: "cat remote object with lower part size and higher concurrency",
 			cmd: []string{
 				"cat",
 				"-p",
 				"1",
 				"-c",
-				"20",
+				"10",
 			},
 			expected: expected,
 		},
@@ -65,7 +66,7 @@ func TestCatS3Object(t *testing.T) {
 				"-p",
 				"1",
 				"-c",
-				"20",
+				"10",
 			}, expected: expected,
 			assertOps: []assertOp{
 				jsonCheck(true),

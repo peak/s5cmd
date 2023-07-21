@@ -312,12 +312,12 @@ func NewCopy(c *cli.Context, deleteSource bool) (*Copy, error) {
 		return nil, err
 	}
 
-	var commandProgress progressbar.ProgressBar
+	var commandProgressBar progressbar.ProgressBar
 
 	if c.Bool("show-progress") {
-		commandProgress = &progressbar.CommandProgressBar{}
+		commandProgressBar = &progressbar.CommandProgressBar{}
 	} else {
-		commandProgress = &progressbar.MockProgressBar{}
+		commandProgressBar = &progressbar.MockProgressBar{}
 	}
 
 	return &Copy{
@@ -346,7 +346,7 @@ func NewCopy(c *cli.Context, deleteSource bool) (*Copy, error) {
 		contentType:           c.String("content-type"),
 		contentEncoding:       c.String("content-encoding"),
 		showProgress:          c.Bool("show-progress"),
-		progressbar:           commandProgress,
+		progressbar:           commandProgressBar,
 
 		// region settings
 		srcRegion: c.String("source-region"),

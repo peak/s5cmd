@@ -244,6 +244,7 @@ func (f *Filesystem) Rename(file *os.File, newpath string) error {
 		return nil
 	}
 
+	fmt.Printf("**** in rename. file.Name: %q, newpath: %q\n", file.Name(), newpath)
 	return os.Rename(file.Name(), newpath)
 }
 

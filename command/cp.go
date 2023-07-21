@@ -552,7 +552,7 @@ func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) 
 		_ = srcClient.Delete(ctx, srcurl)
 	}
 
-	err = dstClient.Rename(file, dsturl.Absolute())
+	err = dstClient.Rename(file, dsturl.Base())
 	if err != nil {
 		return err
 	}

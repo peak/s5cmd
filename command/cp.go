@@ -528,25 +528,30 @@ func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) 
 		return err
 	}
 
-	file, err := dstClient.Create(dsturl.Absolute())
+	dstPath := filepath.Dir(dsturl.Absolute())
+	dstFile := filepath.Base(dsturl.Absolute())
+	file, err := dstClient.CreateTemp(dstPath, dstFile)
 	if err != nil {
 		return err
 	}
 
 	size, err := srcClient.Get(ctx, srcurl, file, c.concurrency, c.partSize)
+	file.Close()
 	if err != nil {
-		// file must be closed before deletion
-		file.Close()
-		dErr := dstClient.Delete(ctx, dsturl)
+		dErr := dstClient.Delete(ctx, &url.URL{Path: file.Name(), Type: dsturl.Type})
 		if dErr != nil {
 			printDebug(c.op, dErr, srcurl, dsturl)
 		}
 		return err
 	}
-	defer file.Close()
 
 	if c.deleteSource {
 		_ = srcClient.Delete(ctx, srcurl)
+	}
+
+	err = dstClient.Rename(file, dsturl.Absolute())
+	if err != nil {
+		return err
 	}
 
 	msg := log.InfoMessage{

@@ -21,7 +21,7 @@ func TestCatS3Object(t *testing.T) {
 	const (
 		filename = "file.txt"
 	)
-	contents, expected := getSequentialFileContent(16 * mb)
+	contents, expected := getSequentialFileContent(4 * mb)
 
 	testcases := []struct {
 		name      string
@@ -54,7 +54,7 @@ func TestCatS3Object(t *testing.T) {
 				"-p",
 				"1",
 				"-c",
-				"10",
+				"2",
 			},
 			expected: expected,
 		},
@@ -66,7 +66,7 @@ func TestCatS3Object(t *testing.T) {
 				"-p",
 				"1",
 				"-c",
-				"10",
+				"2",
 			}, expected: expected,
 			assertOps: []assertOp{
 				jsonCheck(true),

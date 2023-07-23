@@ -27,7 +27,7 @@ Options:
 	{{range .VisibleFlags}}{{.}}
 	{{end}}
 Examples:
-	01. Search for all JSON objects with the foo property set to 'bar' and spit them into stdout
+	01. Search for all json objects with the foo property set to 'bar' and spit them into stdout
 		 > s5cmd {{.HelpName}} --compression gzip --query "SELECT * FROM S3Object s WHERE s.foo='bar'" "s3://bucket/*"
 `
 
@@ -42,17 +42,48 @@ func NewSelectCommand() *cli.Command {
 				Aliases: []string{"e"},
 				Usage:   "SQL expression to use to select from the objects",
 			},
-			&cli.StringFlag{
+			&cli.GenericFlag{
 				Name:  "compression",
 				Usage: "input compression format",
-				Value: "NONE",
+				Value: &EnumValue{
+					Enum:    []string{"none", "gzip", "bzip2"},
+					Default: "none",
+					ConditionFunction: func(str, target string) bool {
+						return strings.ToUpper(target) == str
+					},
+				},
 			},
 			&cli.GenericFlag{
 				Name:  "format",
-				Usage: "input data format (only JSON supported for the moment)",
+				Usage: "input data format",
 				Value: &EnumValue{
-					Enum:    []string{"JSON"},
-					Default: "JSON",
+					Enum:    []string{"json", "csv"},
+					Default: "json",
+					ConditionFunction: func(str, target string) bool {
+						return strings.ToUpper(target) == str
+					},
+				},
+			},
+			&cli.GenericFlag{
+				Name:  "input-structure",
+				Usage: "structure of the data",
+				Value: &EnumValue{
+					Enum:    []string{"lines", "document", "comma", "tab"},
+					Default: "lines",
+					ConditionFunction: func(str, target string) bool {
+						return strings.ToLower(target) == str
+					},
+				},
+			},
+			&cli.GenericFlag{
+				Name:  "output-format",
+				Usage: "output data format",
+				Value: &EnumValue{
+					Enum:    []string{"json", "csv"},
+					Default: "json",
+					ConditionFunction: func(str, target string) bool {
+						return strings.ToUpper(target) == str
+					},
 				},
 			},
 			&cli.StringSliceFlag{
@@ -104,8 +135,10 @@ func NewSelectCommand() *cli.Command {
 				op:          c.Command.Name,
 				fullCommand: fullCommand,
 				// flags
+				inputFormat:           c.String("format"),
+				inputStructure:        c.String("input-structure"),
+				outputFormat:          c.String("output-format"),
 				query:                 c.String("query"),
-				compressionType:       c.String("compression"),
 				exclude:               c.StringSlice("exclude"),
 				forceGlacierTransfer:  c.Bool("force-glacier-transfer"),
 				ignoreGlacierWarnings: c.Bool("ignore-glacier-warnings"),
@@ -126,7 +159,10 @@ type Select struct {
 	fullCommand string
 
 	query                 string
+	inputFormat           string
 	compressionType       string
+	inputStructure        string
+	outputFormat          string
 	exclude               []string
 	forceGlacierTransfer  bool
 	ignoreGlacierWarnings bool
@@ -237,9 +273,12 @@ func (s Select) Run(ctx context.Context) error {
 func (s Select) prepareTask(ctx context.Context, client *storage.S3, url *url.URL, resultCh chan<- json.RawMessage) func() error {
 	return func() error {
 		query := &storage.SelectQuery{
-			ExpressionType:  "SQL",
-			Expression:      s.query,
-			CompressionType: s.compressionType,
+			ExpressionType:        "SQL",
+			Expression:            s.query,
+			InputFormat:           s.inputFormat,
+			InputContentStructure: s.inputStructure,
+			OutputFormat:          s.outputFormat,
+			CompressionType:       s.compressionType,
 		}
 
 		return client.Select(ctx, url, query, resultCh)
@@ -267,10 +306,6 @@ func validateSelectCommand(c *cli.Context) error {
 
 	if !srcurl.IsRemote() {
 		return fmt.Errorf("source must be remote")
-	}
-
-	if !strings.EqualFold(c.String("format"), "JSON") {
-		return fmt.Errorf("only json supported")
 	}
 
 	return nil

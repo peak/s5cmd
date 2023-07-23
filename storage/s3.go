@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/tls"
+	"encoding/csv"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -587,39 +588,112 @@ func (s *S3) Get(
 	})
 }
 
+type EventStreamDecoder interface {
+	Decode() ([]byte, error)
+}
+
+type JsonDecoder struct {
+	decoder *json.Decoder
+}
+
+func NewJsonDecoder(reader io.Reader) EventStreamDecoder {
+	return &JsonDecoder{
+		decoder: json.NewDecoder(reader),
+	}
+}
+
+func (jd *JsonDecoder) Decode() ([]byte, error) {
+	var val json.RawMessage
+	err := jd.decoder.Decode(&val)
+	if err != nil {
+		return nil, err
+	}
+	return val, nil
+}
+
+type CsvDecoder struct {
+	decoder *csv.Reader
+}
+
+func NewCsvDecoder(reader io.Reader) EventStreamDecoder {
+	csvDecoder := &CsvDecoder{
+		decoder: csv.NewReader(reader),
+	}
+	// returned values from AWS has double quotes in it
+	// so we enable lazy quotes
+	csvDecoder.decoder.LazyQuotes = true
+	return csvDecoder
+}
+
+func (cd *CsvDecoder) Decode() ([]byte, error) {
+	res, err := cd.decoder.Read()
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]byte, len(res))
+	for _, str := range res {
+		result = append(result, []byte(str)...)
+	}
+	return result, nil
+}
+
 type SelectQuery struct {
-	ExpressionType  string
-	Expression      string
-	CompressionType string
+	InputFormat           string
+	InputContentStructure string
+	OutputFormat          string
+	ExpressionType        string
+	Expression            string
+	CompressionType       string
 }
 
 func (s *S3) Select(ctx context.Context, url *url.URL, query *SelectQuery, resultCh chan<- json.RawMessage) error {
 	if s.dryRun {
 		return nil
 	}
+	var inputSerialization *s3.InputSerialization
+	var outputSerialization *s3.OutputSerialization
+	var decoder EventStreamDecoder
+	reader, writer := io.Pipe()
 
-	input := &s3.SelectObjectContentInput{
-		Bucket:         aws.String(url.Bucket),
-		Key:            aws.String(url.Path),
-		ExpressionType: aws.String(query.ExpressionType),
-		Expression:     aws.String(query.Expression),
-		InputSerialization: &s3.InputSerialization{
-			CompressionType: aws.String(query.CompressionType),
+	if query.InputFormat == "json" {
+		inputSerialization = &s3.InputSerialization{
 			JSON: &s3.JSONInput{
-				Type: aws.String("Lines"),
+				Type: aws.String(query.InputContentStructure),
 			},
-		},
-		OutputSerialization: &s3.OutputSerialization{
+		}
+		decoder = NewJsonDecoder(reader)
+	} else if query.InputFormat == "csv" {
+		inputSerialization = &s3.InputSerialization{
+			CSV: &s3.CSVInput{
+				FieldDelimiter: aws.String(","),
+			},
+		}
+		decoder = NewCsvDecoder(reader)
+	}
+
+	if query.OutputFormat == "json" {
+		outputSerialization = &s3.OutputSerialization{
 			JSON: &s3.JSONOutput{},
-		},
+		}
+	} else if query.OutputFormat == "csv" {
+		outputSerialization = &s3.OutputSerialization{
+			CSV: &s3.CSVOutput{},
+		}
+	}
+	input := &s3.SelectObjectContentInput{
+		Bucket:              aws.String(url.Bucket),
+		Key:                 aws.String(url.Path),
+		ExpressionType:      aws.String(query.ExpressionType),
+		Expression:          aws.String(query.Expression),
+		InputSerialization:  inputSerialization,
+		OutputSerialization: outputSerialization,
 	}
 
 	resp, err := s.api.SelectObjectContentWithContext(ctx, input)
 	if err != nil {
 		return err
 	}
-
-	reader, writer := io.Pipe()
 
 	go func() {
 		defer writer.Close()
@@ -643,18 +717,15 @@ func (s *S3) Select(ctx context.Context, url *url.URL, query *SelectQuery, resul
 			}
 		}
 	}()
-
-	decoder := json.NewDecoder(reader)
 	for {
-		var record json.RawMessage
-		err := decoder.Decode(&record)
+		val, err := decoder.Decode()
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
 			return err
 		}
-		resultCh <- record
+		resultCh <- val
 	}
 
 	return resp.EventStream.Reader.Err()

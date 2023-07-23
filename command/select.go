@@ -49,7 +49,7 @@ func NewSelectCommand() *cli.Command {
 					Enum:    []string{"none", "gzip", "bzip2"},
 					Default: "none",
 					ConditionFunction: func(str, target string) bool {
-						return strings.ToUpper(target) == str
+						return strings.ToLower(target) == str
 					},
 				},
 			},
@@ -82,7 +82,7 @@ func NewSelectCommand() *cli.Command {
 					Enum:    []string{"json", "csv"},
 					Default: "json",
 					ConditionFunction: func(str, target string) bool {
-						return strings.ToUpper(target) == str
+						return strings.ToLower(target) == str
 					},
 				},
 			},

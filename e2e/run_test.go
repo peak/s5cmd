@@ -220,9 +220,9 @@ func TestRunWildcardCountGreaterEqualThanWorkerCount(t *testing.T) {
 	putFile(t, s3client, bucket, "file.txt", "content")
 
 	content := []string{
-		"cp s3://" + bucket + "/f*.txt .",
-		"cp s3://" + bucket + "/f*.txt .",
-		"cp s3://" + bucket + "/f*.txt .",
+		"cp s3://" + bucket + "/f*.txt folder1",
+		"cp s3://" + bucket + "/f*.txt folder2",
+		"cp s3://" + bucket + "/f*.txt folder3",
 	}
 	file := fs.NewFile(t, "prefix", fs.WithContent(strings.Join(content, "\n")))
 	defer file.Remove()
@@ -236,9 +236,9 @@ func TestRunWildcardCountGreaterEqualThanWorkerCount(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(`cp s3://%v/file.txt file.txt`, bucket),
-		1: equals(`cp s3://%v/file.txt file.txt`, bucket),
-		2: equals(`cp s3://%v/file.txt file.txt`, bucket),
+		0: equals(`cp s3://%v/file.txt folder1/file.txt`, bucket),
+		1: equals(`cp s3://%v/file.txt folder2/file.txt`, bucket),
+		2: equals(`cp s3://%v/file.txt folder3/file.txt`, bucket),
 	}, sortInput(true))
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{})

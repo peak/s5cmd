@@ -43,7 +43,7 @@ jobs:
       with:
         go-version: ${{ matrix.go-version }}
 
-    - run: go test -v -run 'TestCompletionFlag/cp_complete_bucket_keys_zsh' -race -count=10 ./...
+    - run: go test -v -race -count=2 ./...
 
   # qa:
   #   strategy:

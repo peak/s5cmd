@@ -10,11 +10,11 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/urfave/cli/v2"
 
-	errorpkg "github.com/peak/s5cmd/error"
-	"github.com/peak/s5cmd/log/stat"
-	"github.com/peak/s5cmd/parallel"
-	"github.com/peak/s5cmd/storage"
-	"github.com/peak/s5cmd/storage/url"
+	errorpkg "github.com/peak/s5cmd/v2/error"
+	"github.com/peak/s5cmd/v2/log/stat"
+	"github.com/peak/s5cmd/v2/parallel"
+	"github.com/peak/s5cmd/v2/storage"
+	"github.com/peak/s5cmd/v2/storage/url"
 )
 
 var selectHelpTemplate = `Name:
@@ -28,7 +28,7 @@ Options:
 	{{end}}
 Examples:
 	01. Search for all JSON objects with the foo property set to 'bar' and spit them into stdout
-		 > s5cmd {{.HelpName}} --compression gzip --query "SELECT * FROM S3Object s WHERE s.foo='bar'" s3://bucket/*
+		 > s5cmd {{.HelpName}} --compression gzip --query "SELECT * FROM S3Object s WHERE s.foo='bar'" "s3://bucket/*"
 `
 
 func NewSelectCommand() *cli.Command {

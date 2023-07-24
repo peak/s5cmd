@@ -108,7 +108,7 @@ make install clean
 You can build `s5cmd` from source if you have [Go](https://golang.org/dl/) 1.17+
 installed.
 
-    go get github.com/peak/s5cmd
+    go install github.com/peak/s5cmd/v2@master
 
 ⚠️ Please note that building from `master` is not guaranteed to be stable since
 development happens on `master` branch.

@@ -14,7 +14,7 @@ import (
 	"strings"
 
 	"github.com/lanrat/extsort"
-	"github.com/peak/s5cmd/strutil"
+	"github.com/peak/s5cmd/v2/strutil"
 )
 
 const (
@@ -63,9 +63,9 @@ func WithRaw(mode bool) Option {
 	}
 }
 
-func WithVersion(versionId string) Option {
+func WithVersion(versionID string) Option {
 	return func(u *URL) {
-		u.VersionID = versionId
+		u.VersionID = versionID
 	}
 }
 

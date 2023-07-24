@@ -8,17 +8,17 @@ import (
 )
 
 type ProgressBar interface {
-	InitializeProgressBar()
+	Start()
 	Finish()
 	IncrementCompletedObjects()
 	IncrementTotalObjects()
-	AddCompletedBytes(bytes int)
+	AddCompletedBytes(bytes int64)
 	AddTotalBytes(bytes int64)
 }
 
 type NoOpProgressBar struct{}
 
-func (pb *NoOpProgressBar) InitializeProgressBar() {}
+func (pb *NoOpProgressBar) Start() {}
 
 func (pb *NoOpProgressBar) Finish() {}
 
@@ -26,7 +26,7 @@ func (pb *NoOpProgressBar) IncrementCompletedObjects() {}
 
 func (pb *NoOpProgressBar) IncrementTotalObjects() {}
 
-func (pb *NoOpProgressBar) AddCompletedBytes(bytes int) {}
+func (pb *NoOpProgressBar) AddCompletedBytes(bytes int64) {}
 
 func (pb *NoOpProgressBar) AddTotalBytes(bytes int64) {}
 
@@ -43,13 +43,18 @@ var _ ProgressBar = (*CommandProgressBar)(nil)
 
 const progressbarTemplate = `{{percent . | green}} {{bar . " " "━" "━" "─" " " | green}} {{counters . | green}} {{speed . "(%s/s)" | red}} {{rtime . "%s left" | blue}} {{ string . "objects" | yellow}}`
 
-func (cp *CommandProgressBar) InitializeProgressBar() {
+func NewCommandProgressBar() *CommandProgressBar {
+	cp := &CommandProgressBar{}
 	cp.progressbar = pb.New64(0)
 	cp.progressbar.Set(pb.Bytes, true)
 	cp.progressbar.Set(pb.SIBytesPrefix, true)
 	cp.progressbar.SetWidth(128)
 	cp.progressbar.SetTemplateString(progressbarTemplate)
 	cp.progressbar.Set("objects", fmt.Sprintf("(%d/%d)", 0, 0))
+	return cp
+}
+
+func (cp *CommandProgressBar) Start() {
 	cp.progressbar.Start()
 }
 
@@ -71,11 +76,11 @@ func (cp *CommandProgressBar) IncrementTotalObjects() {
 	cp.progressbar.Set("objects", fmt.Sprintf("(%d/%d)", cp.completedObjects, cp.totalObjects))
 }
 
-func (cp *CommandProgressBar) AddCompletedBytes(bytes int) {
+func (cp *CommandProgressBar) AddCompletedBytes(bytes int64) {
 	cp.mu.Lock()
 	defer cp.mu.Unlock()
-	cp.completedBytes += int64(bytes)
-	cp.progressbar.Add(bytes)
+	cp.completedBytes += bytes
+	cp.progressbar.Add64(bytes)
 }
 
 func (cp *CommandProgressBar) AddTotalBytes(bytes int64) {

@@ -315,7 +315,7 @@ func NewCopy(c *cli.Context, deleteSource bool) (*Copy, error) {
 	var commandProgressBar progressbar.ProgressBar
 
 	if c.Bool("show-progress") {
-		commandProgressBar = &progressbar.CommandProgressBar{}
+		commandProgressBar = progressbar.NewCommandProgressBar()
 	} else {
 		commandProgressBar = &progressbar.NoOpProgressBar{}
 	}
@@ -364,7 +364,7 @@ increase the open file limit or try to decrease the number of workers with
 
 // Run starts copying given source objects to destination.
 func (c Copy) Run(ctx context.Context) error {
-	c.progressbar.InitializeProgressBar()
+	c.progressbar.Start()
 
 	// override source region if set
 	if c.srcRegion != "" {
@@ -1015,7 +1015,7 @@ func (r *CountingWriter) WriteAt(p []byte, off int64) (int, error) {
 		return n, err
 	}
 
-	r.pb.AddCompletedBytes(n)
+	r.pb.AddCompletedBytes(int64(n))
 
 	return n, err
 }
@@ -1032,7 +1032,7 @@ func (r *CountingReader) Read(p []byte) (int, error) {
 	if err != nil {
 		return n, err
 	}
-	r.pb.AddCompletedBytes(n)
+	r.pb.AddCompletedBytes(int64(n))
 	return n, err
 }
 
@@ -1045,7 +1045,7 @@ func (r *CountingReader) ReadAt(p []byte, off int64) (int, error) {
 	// Ignore the first signature call
 	if _, ok := r.signMap[off]; ok {
 		// Got the length have read (or means has uploaded)
-		r.pb.AddCompletedBytes(n)
+		r.pb.AddCompletedBytes(int64(n))
 
 	} else {
 		r.signMap[off] = struct{}{}

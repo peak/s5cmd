@@ -412,7 +412,9 @@ func (c Copy) Run(ctx context.Context) error {
 			printError(c.fullCommand, c.op, err)
 			return err
 		}
-		c.progressbar.AddTotalBytes(obj.Size)
+		if obj.Size > 0 {
+			c.progressbar.AddTotalBytes(obj.Size)
+		}
 		isBatch = obj != nil && obj.Type.IsDir()
 	}
 

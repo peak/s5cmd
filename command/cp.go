@@ -795,11 +795,11 @@ func (c Copy) shouldCopyObject(object *storage.Object, verbose bool) bool {
 		}
 		return false
 	}
+	if len(c.excludePatterns) > 0 && isURLExcluded(c.excludePatterns, object.URL.Path, c.src.Prefix) {
+		return false
+	}
 	if len(c.includePatterns) > 0 {
 		return isURLIncluded(c.includePatterns, object.URL.Path, c.src.Prefix)
-	}
-	if len(c.excludePatterns) > 0 {
-		return !isURLExcluded(c.excludePatterns, object.URL.Path, c.src.Prefix)
 	}
 	return true
 }

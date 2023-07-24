@@ -587,8 +587,6 @@ func emptyIovecs(iov []Iovec) bool {
 	}
 	return true
 }
-<<<<<<< HEAD
-=======
 
 // Setrlimit sets a resource limit.
 func Setrlimit(resource int, rlim *Rlimit) error {
@@ -596,4 +594,3 @@ func Setrlimit(resource int, rlim *Rlimit) error {
 	// it will affect starting a new process.
 	return syscall.Setrlimit(resource, (*syscall.Rlimit)(rlim))
 }
->>>>>>> master

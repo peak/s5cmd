@@ -126,14 +126,6 @@ func Getrlimit(resource int, rlim *Rlimit) (err error) {
 	return
 }
 
-<<<<<<< HEAD
-func Setrlimit(resource int, rlim *Rlimit) (err error) {
-	err = Prlimit(0, resource, rlim, nil)
-	return
-}
-
-=======
->>>>>>> master
 func futimesat(dirfd int, path string, tv *[2]Timeval) (err error) {
 	if tv == nil {
 		return utimensat(dirfd, path, nil, 0)

@@ -187,6 +187,10 @@ func NewSharedFlags() []cli.Flag {
 			Name:  "content-encoding",
 			Usage: "set content encoding for target: defines content encoding header for object, e.g. --content-encoding gzip",
 		},
+		&cli.StringFlag{
+			Name:  "content-disposition",
+			Usage: "set content disposition for target: defines content disposition header for object, e.g. --content-disposition 'attachment; filename=\"filename.jpg\"'",
+		},
 		&cli.IntFlag{
 			Name:        "no-such-upload-retry-count",
 			Usage:       "number of times that a request will be retried on NoSuchUpload error; you should not use this unless you really know what you're doing",
@@ -284,8 +288,9 @@ type Copy struct {
 	expires               string
 	contentType           string
 	contentEncoding       string
-
-	// patterns
+	contentDisposition    string
+	
+  // patterns
 	excludePatterns []*regexp.Regexp
 	includePatterns []*regexp.Regexp
 
@@ -342,6 +347,7 @@ func NewCopy(c *cli.Context, deleteSource bool) (*Copy, error) {
 		expires:               c.String("expires"),
 		contentType:           c.String("content-type"),
 		contentEncoding:       c.String("content-encoding"),
+		contentDisposition:    c.String("content-disposition"),
 		// region settings
 		srcRegion: c.String("source-region"),
 		dstRegion: c.String("destination-region"),
@@ -631,7 +637,9 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 	if c.contentEncoding != "" {
 		metadata.SetContentEncoding(c.contentEncoding)
 	}
-
+	if c.contentDisposition != "" {
+		metadata.SetContentDisposition(c.contentDisposition)
+	}
 	err = dstClient.Put(ctx, file, dsturl, metadata, c.concurrency, c.partSize)
 	if err != nil {
 		return err
@@ -685,6 +693,9 @@ func (c Copy) doCopy(ctx context.Context, srcurl, dsturl *url.URL) error {
 	}
 	if c.contentEncoding != "" {
 		metadata.SetContentEncoding(c.contentEncoding)
+	}
+	if c.contentDisposition != "" {
+		metadata.SetContentDisposition(c.contentDisposition)
 	}
 
 	err = c.shouldOverride(ctx, srcurl, dsturl)

@@ -3,10 +3,14 @@
 ## not released yet
 
 #### Breaking changes
+
 #### Features
--- Added `--show-fullpath` flag to `ls`. (#[596](https://github.com/peak/s5cmd/issues/596))
+- Added `--content-disposition` flag to `cp` command. ([#569](https://github.com/peak/s5cmd/issues/569))
+- Added `--show-fullpath` flag to `ls`. (#[596](https://github.com/peak/s5cmd/issues/596))
 - Added `--include` flag to `cp`, `rm` and `sync` commands. ([#516](https://github.com/peak/s5cmd/issues/516))
+
 #### Improvements
+
 #### Bugfixes
 - Fixed a bug introduced with `external sort` support in `sync` command which prevents `sync` to an empty destination with `--delete` option. ([#576](https://github.com/peak/s5cmd/issues/576))
 

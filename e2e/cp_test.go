@@ -32,6 +32,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/s3"
 	"gotest.tools/v3/assert"
 	"gotest.tools/v3/fs"
 	"gotest.tools/v3/icmd"
@@ -689,7 +691,8 @@ func TestCopySingleFileToS3(t *testing.T) {
 	</body>
 </html>
 `
-		expectedContentType = "text/html; charset=utf-8"
+		expectedContentType        = "text/html; charset=utf-8"
+		expectedContentDisposition = "inline"
 	)
 
 	workdir := fs.NewDir(t, bucket, fs.WithFile(filename, content))
@@ -697,13 +700,19 @@ func TestCopySingleFileToS3(t *testing.T) {
 
 	srcpath := workdir.Join(filename)
 	dstpath := fmt.Sprintf("s3://%v/", bucket)
+	contentDisposition := "inline"
 
 	srcpath = filepath.ToSlash(srcpath)
-	cmd := s5cmd("cp", srcpath, dstpath)
+	cmd := s5cmd("cp", "--content-disposition", contentDisposition, srcpath, dstpath)
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Success)
 
+	output, _ := s3client.GetObject(&s3.GetObjectInput{
+		Bucket: aws.String(bucket),
+		Key:    aws.String(filename),
+	})
+	fmt.Printf("%v\n", output)
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: suffix(`cp %v %v%v`, srcpath, dstpath, filename),
 	})
@@ -713,7 +722,7 @@ func TestCopySingleFileToS3(t *testing.T) {
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 
 	// assert S3
-	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content, ensureContentType(expectedContentType)))
+	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content, ensureContentType(expectedContentType), ensureContentDisposition(expectedContentDisposition)))
 }
 
 func TestCopySingleFileToS3WithAdjacentSlashes(t *testing.T) {

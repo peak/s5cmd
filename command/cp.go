@@ -286,9 +286,10 @@ type Copy struct {
 	expires               string
 	contentType           string
 	contentEncoding       string
+	contentDisposition    string
 	showProgress          bool
 	progressbar           progressbar.ProgressBar
-	contentDisposition    string
+
 	// region settings
 	srcRegion string
 	dstRegion string
@@ -349,10 +350,10 @@ func NewCopy(c *cli.Context, deleteSource bool) (*Copy, error) {
 		expires:               c.String("expires"),
 		contentType:           c.String("content-type"),
 		contentEncoding:       c.String("content-encoding"),
+		contentDisposition:    c.String("content-disposition"),
 		showProgress:          c.Bool("show-progress"),
 		progressbar:           commandProgressBar,
 
-		contentDisposition:    c.String("content-disposition"),
 		// region settings
 		srcRegion: c.String("source-region"),
 		dstRegion: c.String("destination-region"),

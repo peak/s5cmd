@@ -4,6 +4,7 @@
 
 #### Breaking changes
 #### Features
+-- Added `--show-fullpath` flag to `ls`. (#[596](https://github.com/peak/s5cmd/issues/596))
 - Added `--include` flag to `cp`, `rm` and `sync` commands. ([#516](https://github.com/peak/s5cmd/issues/516))
 #### Improvements
 #### Bugfixes

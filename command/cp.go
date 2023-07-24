@@ -1000,7 +1000,7 @@ func guessContentType(file *os.File) string {
 }
 
 type CountingWriter struct {
-	c  Copy
+	pb progressbar.ProgressBar
 	fp *os.File
 }
 
@@ -1010,13 +1010,13 @@ func (r *CountingWriter) WriteAt(p []byte, off int64) (int, error) {
 		return n, err
 	}
 
-	r.c.progressbar.AddCompletedBytes(n)
+	r.pb.AddCompletedBytes(n)
 
 	return n, err
 }
 
 type CountingReader struct {
-	c       Copy
+	pb      progressbar.ProgressBar
 	fp      *os.File
 	signMap map[int64]struct{}
 	mu      sync.Mutex
@@ -1027,7 +1027,7 @@ func (r *CountingReader) Read(p []byte) (int, error) {
 	if err != nil {
 		return n, err
 	}
-	r.c.progressbar.AddCompletedBytes(n)
+	r.pb.AddCompletedBytes(n)
 	return n, err
 }
 
@@ -1040,7 +1040,7 @@ func (r *CountingReader) ReadAt(p []byte, off int64) (int, error) {
 	// Ignore the first signature call
 	if _, ok := r.signMap[off]; ok {
 		// Got the length have read (or means has uploaded)
-		r.c.progressbar.AddCompletedBytes(n)
+		r.pb.AddCompletedBytes(n)
 
 	} else {
 		r.signMap[off] = struct{}{}

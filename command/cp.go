@@ -407,7 +407,12 @@ func (c Copy) Run(ctx context.Context) error {
 
 	isBatch := c.src.IsWildcard()
 	if !isBatch && !c.src.IsRemote() {
-		obj, _ := client.Stat(ctx, c.src)
+		obj, err := client.Stat(ctx, c.src)
+		if err != nil {
+			printError(c.fullCommand, c.op, err)
+			return err
+		}
+		c.progressbar.AddTotalBytes(obj.Size)
 		isBatch = obj != nil && obj.Type.IsDir()
 	}
 

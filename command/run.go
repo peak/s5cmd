@@ -3,7 +3,6 @@ package command
 import (
 	"bufio"
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -198,10 +197,6 @@ func (r *Reader) read() {
 			}
 			if err != nil {
 				if err == io.EOF {
-					if errors.Is(r.ctx.Err(), context.Canceled) {
-						r.err = r.ctx.Err()
-						return
-					}
 					return
 				}
 				r.err = multierror.Append(r.err, err)

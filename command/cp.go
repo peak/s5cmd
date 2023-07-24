@@ -563,8 +563,8 @@ func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) 
 		return err
 	}
 
-	writer := &CustomWriter{
-		c:  c,
+	writer := &CountingWriter{
+		pb: c.progressbar,
 		fp: file,
 	}
 	size, err := srcClient.Get(ctx, srcurl, writer, c.concurrency, c.partSize)
@@ -647,8 +647,8 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 		metadata.SetContentEncoding(c.contentEncoding)
 	}
 
-	reader := &CustomReader{
-		c:       c,
+	reader := &CountingReader{
+		pb:      c.progressbar,
 		fp:      file,
 		signMap: map[int64]struct{}{},
 	}

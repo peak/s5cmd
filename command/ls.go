@@ -55,7 +55,7 @@ Examples:
 	10. List all versions of all objects in the bucket
 		 > s5cmd {{.HelpName}} --all-versions "s3://bucket/*"
 
-	11. List all files only with their fullpaths 
+	11. List all files with their fullpaths 
 		 > s5cmd {{.HelpName}} --show-fullpath "s3://bucket/*"
 
 `
@@ -292,13 +292,21 @@ func (l ListMessage) String() string {
 	if l.showStorageClass {
 		stclass = fmt.Sprintf("%v", l.Object.StorageClass)
 	}
+
+	var path string
+	if l.showFullPath {
+		path = l.Object.URL.String()
+	} else {
+		path = l.Object.URL.Relative()
+	}
+
 	s = fmt.Sprintf(
 		listFormat,
 		l.Object.ModTime.Format(dateFormat),
 		stclass,
 		etag,
 		l.humanize(),
-		l.Object.URL.Relative(),
+		path,
 		l.Object.URL.VersionID,
 	)
 

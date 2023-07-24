@@ -279,7 +279,6 @@ func NewSelectCommand() *cli.Command {
 
 				storageOpts: NewStorageOpts(c),
 			}.Run(c.Context)
-			return nil
 		},
 		CustomHelpTemplate: defaultSelectHelpTemplate,
 	}

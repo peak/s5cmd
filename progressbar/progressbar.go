@@ -12,7 +12,6 @@ type ProgressBar interface {
 	Finish()
 	IncrementCompletedObjects()
 	IncrementTotalObjects()
-	AddCompletedBytesInt64(bytes int64)
 	AddCompletedBytes(bytes int)
 	AddTotalBytes(bytes int64)
 }
@@ -26,8 +25,6 @@ func (pb *MockProgressBar) Finish() {}
 func (pb *MockProgressBar) IncrementCompletedObjects() {}
 
 func (pb *MockProgressBar) IncrementTotalObjects() {}
-
-func (pb *MockProgressBar) AddCompletedBytesInt64(bytes int64) {}
 
 func (pb *MockProgressBar) AddCompletedBytes(bytes int) {}
 
@@ -70,13 +67,6 @@ func (cp *CommandProgressBar) IncrementTotalObjects() {
 	defer cp.mu.Unlock()
 	cp.totalObjects += 1
 	cp.progressbar.Set("objects", fmt.Sprintf("(%d/%d)", cp.completedObjects, cp.totalObjects))
-}
-
-func (cp *CommandProgressBar) AddCompletedBytesInt64(bytes int64) {
-	cp.mu.Lock()
-	defer cp.mu.Unlock()
-	cp.completedBytes += bytes
-	cp.progressbar.Add64(bytes)
 }
 
 func (cp *CommandProgressBar) AddCompletedBytes(bytes int) {

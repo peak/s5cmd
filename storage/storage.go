@@ -266,6 +266,15 @@ func (m Metadata) SetContentType(contentType string) Metadata {
 	return m
 }
 
+func (m Metadata) SetContentDisposition(contentDisposition string) Metadata {
+	m["ContentDisposition"] = contentDisposition
+	return m
+}
+
+func (m Metadata) ContentDisposition() string {
+	return m["ContentDisposition"]
+}
+
 func (m Metadata) SSE() string {
 	return m["EncryptionMethod"]
 }

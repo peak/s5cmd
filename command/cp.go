@@ -999,12 +999,12 @@ func guessContentType(file *os.File) string {
 	return contentType
 }
 
-type CustomWriter struct {
+type CountingWriter struct {
 	c  Copy
 	fp *os.File
 }
 
-func (r *CustomWriter) WriteAt(p []byte, off int64) (int, error) {
+func (r *CountingWriter) WriteAt(p []byte, off int64) (int, error) {
 	n, err := r.fp.Write(p)
 	if err != nil {
 		return n, err
@@ -1015,14 +1015,14 @@ func (r *CustomWriter) WriteAt(p []byte, off int64) (int, error) {
 	return n, err
 }
 
-type CustomReader struct {
+type CountingReader struct {
 	c       Copy
 	fp      *os.File
 	signMap map[int64]struct{}
 	mu      sync.Mutex
 }
 
-func (r *CustomReader) Read(p []byte) (int, error) {
+func (r *CountingReader) Read(p []byte) (int, error) {
 	n, err := r.fp.Read(p)
 	if err != nil {
 		return n, err
@@ -1031,7 +1031,7 @@ func (r *CustomReader) Read(p []byte) (int, error) {
 	return n, err
 }
 
-func (r *CustomReader) ReadAt(p []byte, off int64) (int, error) {
+func (r *CountingReader) ReadAt(p []byte, off int64) (int, error) {
 	n, err := r.fp.ReadAt(p, off)
 	if err != nil {
 		return n, err
@@ -1049,6 +1049,6 @@ func (r *CustomReader) ReadAt(p []byte, off int64) (int, error) {
 	return n, err
 }
 
-func (r *CustomReader) Seek(offset int64, whence int) (int64, error) {
+func (r *CountingReader) Seek(offset int64, whence int) (int64, error) {
 	return r.fp.Seek(offset, whence)
 }

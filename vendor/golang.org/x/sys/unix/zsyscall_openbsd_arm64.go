@@ -1889,6 +1889,7 @@ func Setresuid(ruid int, euid int, suid int) (err error) {
 }
 
 var libc_setresuid_trampoline_addr uintptr
+<<<<<<< HEAD
 
 //go:cgo_import_dynamic libc_setresuid setresuid "libc.so"
 
@@ -1901,6 +1902,10 @@ func Setrlimit(which int, lim *Rlimit) (err error) {
 	}
 	return
 }
+=======
+
+//go:cgo_import_dynamic libc_setresuid setresuid "libc.so"
+>>>>>>> master
 
 var libc_setrlimit_trampoline_addr uintptr
 

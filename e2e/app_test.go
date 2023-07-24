@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/peak/s5cmd/command"
+	"github.com/peak/s5cmd/v2/command"
 
 	"gotest.tools/v3/assert"
 	"gotest.tools/v3/icmd"
@@ -156,7 +156,7 @@ func TestAppProxy(t *testing.T) {
 			const expectedReqs = 1
 
 			proxy := httpProxy{}
-			pxyUrl := setupProxy(t, &proxy)
+			pxyURL := setupProxy(t, &proxy)
 
 			// set endpoint scheme to 'http'
 			if os.Getenv(s5cmdTestEndpointEnv) != "" {
@@ -173,7 +173,7 @@ func TestAppProxy(t *testing.T) {
 				}()
 			}
 
-			os.Setenv("http_proxy", pxyUrl)
+			os.Setenv("http_proxy", pxyURL)
 
 			_, s5cmd := setup(t, withProxy())
 
@@ -265,25 +265,25 @@ func TestAppEndpointShouldHaveScheme(t *testing.T) {
 
 	testcases := []struct {
 		name             string
-		endpointUrl      string
+		endpointURL      string
 		expectedError    error
 		expectedExitCode int
 	}{
 		{
 			name:             "endpoint_with_http_scheme",
-			endpointUrl:      "http://storage.googleapis.com",
+			endpointURL:      "http://storage.googleapis.com",
 			expectedError:    nil,
 			expectedExitCode: 0,
 		},
 		{
 			name:             "endpoint_with_https_scheme",
-			endpointUrl:      "https://storage.googleapis.com",
+			endpointURL:      "https://storage.googleapis.com",
 			expectedError:    nil,
 			expectedExitCode: 0,
 		},
 		{
 			name:             "endpoint_with_no_scheme",
-			endpointUrl:      "storage.googleapis.com",
+			endpointURL:      "storage.googleapis.com",
 			expectedError:    fmt.Errorf(`ERROR bad value for --endpoint-url storage.googleapis.com: scheme is missing. Must be of the form http://<hostname>/ or https://<hostname>/`),
 			expectedExitCode: 1,
 		},
@@ -296,7 +296,7 @@ func TestAppEndpointShouldHaveScheme(t *testing.T) {
 
 			_, s5cmd := setup(t)
 
-			cmd := s5cmd("--endpoint-url", tc.endpointUrl)
+			cmd := s5cmd("--endpoint-url", tc.endpointURL)
 			result := icmd.RunCmd(cmd)
 
 			result.Assert(t, icmd.Expected{ExitCode: tc.expectedExitCode})

@@ -23,8 +23,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/peak/s5cmd/storage"
-	"github.com/peak/s5cmd/strutil"
+	"github.com/peak/s5cmd/v2/storage"
+	"github.com/peak/s5cmd/v2/strutil"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -46,7 +46,7 @@ const (
 	// Don't use "race" flag in the build arguments.
 	testDisableRaceFlagKey       = "S5CMD_BUILD_BINARY_WITHOUT_RACE_FLAG"
 	testDisableRaceFlagVal       = "1"
-	s5cmdTestIdEnv               = "S5CMD_ACCESS_KEY_ID"
+	s5cmdTestIDEnv               = "S5CMD_ACCESS_KEY_ID"
 	s5cmdTestSecretEnv           = "S5CMD_SECRET_ACCESS_KEY"
 	s5cmdTestEndpointEnv         = "S5CMD_ENDPOINT_URL"
 	s5cmdTestIsVirtualHost       = "S5CMD_IS_VIRTUAL_HOST"
@@ -189,7 +189,7 @@ func s3client(t *testing.T, options storage.Options) *s3.S3 {
 	// get environment variables and use external endpoint url.
 	// this can be used to test s3 sources such as GCS, amazon, wasabi etc.
 	if isEndpointFromEnv() {
-		id = os.Getenv(s5cmdTestIdEnv)
+		id = os.Getenv(s5cmdTestIDEnv)
 		key = os.Getenv(s5cmdTestSecretEnv)
 		endpoint = os.Getenv(s5cmdTestEndpointEnv)
 		region = os.Getenv(s5cmdTestRegionEnv)
@@ -249,7 +249,7 @@ func (c *slowDownRetryer) ShouldRetry(req *request.Request) bool {
 }
 
 func isEndpointFromEnv() bool {
-	return os.Getenv(s5cmdTestIdEnv) != "" &&
+	return os.Getenv(s5cmdTestIDEnv) != "" &&
 		os.Getenv(s5cmdTestSecretEnv) != "" &&
 		os.Getenv(s5cmdTestEndpointEnv) != "" &&
 		os.Getenv(s5cmdTestRegionEnv) != "" &&
@@ -281,7 +281,7 @@ func s5cmd(workdir, endpoint string) func(args ...string) icmd.Cmd {
 		secret := defaultSecretAccessKey
 
 		if isEndpointFromEnv() {
-			id = os.Getenv(s5cmdTestIdEnv)
+			id = os.Getenv(s5cmdTestIDEnv)
 			secret = os.Getenv(s5cmdTestSecretEnv)
 			env = append(
 				env,
@@ -380,6 +380,10 @@ func createBucket(t *testing.T, client *s3.S3, bucket string) {
 		t.Fatal(err)
 	}
 
+	if !isEndpointFromEnv() {
+		return
+	}
+
 	t.Cleanup(func() {
 		// cleanup if bucket exists.
 		_, err := client.HeadBucket(&s3.HeadBucketInput{Bucket: aws.String(bucket)})
@@ -413,24 +417,51 @@ func createBucket(t *testing.T, client *s3.S3, bucket string) {
 				keys = make([]*s3.ObjectIdentifier, 0)
 			}
 
-			err = client.ListObjectsPages(&listInput, func(p *s3.ListObjectsOutput, lastPage bool) bool {
-				for _, c := range p.Contents {
-					objid := &s3.ObjectIdentifier{Key: c.Key}
-					keys = append(keys, objid)
+			listVersionsInput := s3.ListObjectVersionsInput{
+				Bucket: aws.String(bucket),
+			}
 
-					if len(keys) == chunkSize {
-						_, err := client.DeleteObjects(&s3.DeleteObjectsInput{
-							Bucket: aws.String(bucket),
-							Delete: &s3.Delete{Objects: keys},
-						})
-						if err != nil {
-							t.Fatal(err)
+			err = client.ListObjectVersionsPages(&listVersionsInput,
+				func(p *s3.ListObjectVersionsOutput, lastPage bool) bool {
+					for _, v := range p.Versions {
+						objid := &s3.ObjectIdentifier{
+							Key:       v.Key,
+							VersionId: v.VersionId,
 						}
-						initKeys()
+						keys = append(keys, objid)
+
+						if len(keys) == chunkSize {
+							_, err := client.DeleteObjects(&s3.DeleteObjectsInput{
+								Bucket: aws.String(bucket),
+								Delete: &s3.Delete{Objects: keys},
+							})
+							if err != nil {
+								t.Fatal(err)
+							}
+							initKeys()
+						}
 					}
-				}
-				return !lastPage
-			})
+
+					for _, d := range p.DeleteMarkers {
+						objid := &s3.ObjectIdentifier{
+							Key:       d.Key,
+							VersionId: d.VersionId,
+						}
+						keys = append(keys, objid)
+
+						if len(keys) == chunkSize {
+							_, err := client.DeleteObjects(&s3.DeleteObjectsInput{
+								Bucket: aws.String(bucket),
+								Delete: &s3.Delete{Objects: keys},
+							})
+							if err != nil {
+								t.Fatal(err)
+							}
+							initKeys()
+						}
+					}
+					return !lastPage
+				})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -462,6 +493,19 @@ func isGoogleEndpointFromEnv(t *testing.T) bool {
 		t.Fatal(err)
 	}
 	return storage.IsGoogleEndpoint(*endpoint)
+}
+
+func setBucketVersioning(t *testing.T, s3client *s3.S3, bucket string, versioning string) {
+	t.Helper()
+	_, err := s3client.PutBucketVersioning(&s3.PutBucketVersioningInput{
+		Bucket: aws.String(bucket),
+		VersioningConfiguration: &s3.VersioningConfiguration{
+			Status: aws.String(versioning),
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
 }
 
 var errS3NoSuchKey = fmt.Errorf("s3: no such key")

@@ -14,12 +14,12 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/urfave/cli/v2"
 
-	errorpkg "github.com/peak/s5cmd/error"
-	"github.com/peak/s5cmd/log"
-	"github.com/peak/s5cmd/log/stat"
-	"github.com/peak/s5cmd/parallel"
-	"github.com/peak/s5cmd/storage"
-	"github.com/peak/s5cmd/storage/url"
+	errorpkg "github.com/peak/s5cmd/v2/error"
+	"github.com/peak/s5cmd/v2/log"
+	"github.com/peak/s5cmd/v2/log/stat"
+	"github.com/peak/s5cmd/v2/parallel"
+	"github.com/peak/s5cmd/v2/storage"
+	"github.com/peak/s5cmd/v2/storage/url"
 )
 
 const (
@@ -45,7 +45,7 @@ Examples:
 		 > s5cmd {{.HelpName}} s3://bucket/prefix/object.gz myobject.gz
 
 	03. Download all S3 objects to a directory
-		 > s5cmd {{.HelpName}} s3://bucket/* target-directory/
+		 > s5cmd {{.HelpName}} "s3://bucket/*" target-directory/
 
 	04. Download an S3 object from a public bucket
 		 > s5cmd --no-sign-request {{.HelpName}} s3://bucket/prefix/object.gz .
@@ -54,7 +54,7 @@ Examples:
 		 > s5cmd {{.HelpName}} myfile.gz s3://bucket/
 
 	06. Upload matching files to S3 bucket
-		 > s5cmd {{.HelpName}} dir/*.gz s3://bucket/
+		 > s5cmd {{.HelpName}} "dir/*.gz" s3://bucket/
 
 	07. Upload all files in a directory to S3 bucket recursively
 		 > s5cmd {{.HelpName}} dir/ s3://bucket/
@@ -63,13 +63,13 @@ Examples:
 		 > s5cmd {{.HelpName}} s3://bucket/object s3://target-bucket/prefix/object
 
 	09. Copy matching S3 objects to another bucket
-		 > s5cmd {{.HelpName}} s3://bucket/*.gz s3://target-bucket/prefix/
+		 > s5cmd {{.HelpName}} "s3://bucket/*.gz" s3://target-bucket/prefix/
 
 	10. Copy files in a directory to S3 prefix if not found on target
 		 > s5cmd {{.HelpName}} -n -s -u dir/ s3://bucket/target-prefix/
 
 	11. Copy files in an S3 prefix to another S3 prefix if not found on target
-		 > s5cmd {{.HelpName}} -n -s -u s3://bucket/source-prefix/* s3://bucket/target-prefix/
+		 > s5cmd {{.HelpName}} -n -s -u "s3://bucket/source-prefix/*" s3://bucket/target-prefix/
 
 	12. Perform KMS Server Side Encryption of the object(s) at the destination
 		 > s5cmd {{.HelpName}} --sse aws:kms s3://bucket/object s3://target-bucket/prefix/object
@@ -78,7 +78,7 @@ Examples:
 		 > s5cmd {{.HelpName}} --sse aws:kms --sse-kms-key-id <your-kms-key-id> s3://bucket/object s3://target-bucket/prefix/object
 
 	14. Force transfer of GLACIER objects with a prefix whether they are restored or not
-		 > s5cmd {{.HelpName}} --force-glacier-transfer s3://bucket/prefix/* target-directory/
+		 > s5cmd {{.HelpName}} --force-glacier-transfer "s3://bucket/prefix/*" target-directory/
 
 	15. Upload a file to S3 bucket with public read s3 acl
 		 > s5cmd {{.HelpName}} --acl "public-read" myfile.gz s3://bucket/
@@ -93,13 +93,16 @@ Examples:
 		 > s5cmd {{.HelpName}} --exclude "*.txt" --exclude "*.gz" dir/ s3://bucket
 
 	19. Copy all files from S3 bucket to another S3 bucket but exclude the ones starts with log
-		 > s5cmd {{.HelpName}} --exclude "log*" s3://bucket/* s3://destbucket
+		 > s5cmd {{.HelpName}} --exclude "log*" "s3://bucket/*" s3://destbucket
 
 	20. Download an S3 object from a requester pays bucket
 		 > s5cmd --request-payer=requester {{.HelpName}} s3://bucket/prefix/object.gz .
 
 	21. Upload a file to S3 with a content-type and content-encoding header
 		 > s5cmd --content-type "text/css" --content-encoding "br" myfile.css.br s3://bucket/
+		 
+	22. Download the specific version of a remote object to working directory
+		 > s5cmd {{.HelpName}} --version-id VERSION_ID s3://bucket/prefix/object .
 `
 
 func NewSharedFlags() []cli.Flag {
@@ -207,6 +210,10 @@ func NewCopyCommandFlags() []cli.Flag {
 			Aliases: []string{"u"},
 			Usage:   "only overwrite destination if source modtime is newer",
 		},
+		&cli.StringFlag{
+			Name:  "version-id",
+			Usage: "use the specified version of an object",
+		},
 	}
 	sharedFlags := NewSharedFlags()
 	return append(copyFlags, sharedFlags...)
@@ -230,7 +237,11 @@ func NewCopyCommand() *cli.Command {
 			defer stat.Collect(c.Command.FullName(), &err)()
 
 			// don't delete source
-			return NewCopy(c, false).Run(c.Context)
+			copy, err := NewCopy(c, false)
+			if err != nil {
+				return err
+			}
+			return copy.Run(c.Context)
 		},
 	}
 
@@ -240,8 +251,8 @@ func NewCopyCommand() *cli.Command {
 
 // Copy holds copy operation flags and states.
 type Copy struct {
-	src         string
-	dst         string
+	src         *url.URL
+	dst         *url.URL
 	op          string
 	fullCommand string
 
@@ -259,7 +270,6 @@ type Copy struct {
 	acl                   string
 	forceGlacierTransfer  bool
 	ignoreGlacierWarnings bool
-	raw                   bool
 	exclude               []string
 	cacheControl          string
 	expires               string
@@ -277,12 +287,27 @@ type Copy struct {
 }
 
 // NewCopy creates Copy from cli.Context.
-func NewCopy(c *cli.Context, deleteSource bool) Copy {
-	return Copy{
-		src:          c.Args().Get(0),
-		dst:          c.Args().Get(1),
+func NewCopy(c *cli.Context, deleteSource bool) (*Copy, error) {
+	fullCommand := commandFromContext(c)
+
+	src, err := url.New(c.Args().Get(0), url.WithVersion(c.String("version-id")),
+		url.WithRaw(c.Bool("raw")))
+	if err != nil {
+		printError(fullCommand, c.Command.Name, err)
+		return nil, err
+	}
+
+	dst, err := url.New(c.Args().Get(1), url.WithRaw(c.Bool("raw")))
+	if err != nil {
+		printError(fullCommand, c.Command.Name, err)
+		return nil, err
+	}
+
+	return &Copy{
+		src:          src,
+		dst:          dst,
 		op:           c.Command.Name,
-		fullCommand:  commandFromContext(c),
+		fullCommand:  fullCommand,
 		deleteSource: deleteSource,
 		// flags
 		noClobber:             c.Bool("no-clobber"),
@@ -299,7 +324,6 @@ func NewCopy(c *cli.Context, deleteSource bool) Copy {
 		forceGlacierTransfer:  c.Bool("force-glacier-transfer"),
 		ignoreGlacierWarnings: c.Bool("ignore-glacier-warnings"),
 		exclude:               c.StringSlice("exclude"),
-		raw:                   c.Bool("raw"),
 		cacheControl:          c.String("cache-control"),
 		expires:               c.String("expires"),
 		contentType:           c.String("content-type"),
@@ -309,7 +333,7 @@ func NewCopy(c *cli.Context, deleteSource bool) Copy {
 		dstRegion: c.String("destination-region"),
 
 		storageOpts: NewStorageOpts(c),
-	}
+	}, nil
 }
 
 const fdlimitWarning = `
@@ -320,30 +344,18 @@ increase the open file limit or try to decrease the number of workers with
 
 // Run starts copying given source objects to destination.
 func (c Copy) Run(ctx context.Context) error {
-	srcurl, err := url.New(c.src, url.WithRaw(c.raw))
-	if err != nil {
-		printError(c.fullCommand, c.op, err)
-		return err
-	}
-
-	dsturl, err := url.New(c.dst, url.WithRaw(c.raw))
-	if err != nil {
-		printError(c.fullCommand, c.op, err)
-		return err
-	}
-
 	// override source region if set
 	if c.srcRegion != "" {
 		c.storageOpts.SetRegion(c.srcRegion)
 	}
 
-	client, err := storage.NewClient(ctx, srcurl, c.storageOpts)
+	client, err := storage.NewClient(ctx, c.src, c.storageOpts)
 	if err != nil {
 		printError(c.fullCommand, c.op, err)
 		return err
 	}
 
-	objch, err := expandSource(ctx, client, c.followSymlinks, srcurl)
+	objch, err := expandSource(ctx, client, c.followSymlinks, c.src)
 
 	if err != nil {
 		printError(c.fullCommand, c.op, err)
@@ -372,9 +384,9 @@ func (c Copy) Run(ctx context.Context) error {
 		}
 	}()
 
-	isBatch := srcurl.IsWildcard()
-	if !isBatch && !srcurl.IsRemote() {
-		obj, _ := client.Stat(ctx, srcurl)
+	isBatch := c.src.IsWildcard()
+	if !isBatch && !c.src.IsRemote() {
+		obj, _ := client.Stat(ctx, c.src)
 		isBatch = obj != nil && obj.Type.IsDir()
 	}
 
@@ -404,7 +416,7 @@ func (c Copy) Run(ctx context.Context) error {
 			continue
 		}
 
-		if isURLExcluded(excludePatterns, object.URL.Path, srcurl.Prefix) {
+		if isURLExcluded(excludePatterns, object.URL.Path, c.src.Prefix) {
 			continue
 		}
 
@@ -412,12 +424,12 @@ func (c Copy) Run(ctx context.Context) error {
 		var task parallel.Task
 
 		switch {
-		case srcurl.Type == dsturl.Type: // local->local or remote->remote
-			task = c.prepareCopyTask(ctx, srcurl, dsturl, isBatch)
+		case srcurl.Type == c.dst.Type: // local->local or remote->remote
+			task = c.prepareCopyTask(ctx, srcurl, c.dst, isBatch)
 		case srcurl.IsRemote(): // remote->local
-			task = c.prepareDownloadTask(ctx, srcurl, dsturl, isBatch)
-		case dsturl.IsRemote(): // local->remote
-			task = c.prepareUploadTask(ctx, srcurl, dsturl, isBatch)
+			task = c.prepareDownloadTask(ctx, srcurl, c.dst, isBatch)
+		case c.dst.IsRemote(): // local->remote
+			task = c.prepareUploadTask(ctx, srcurl, c.dst, isBatch)
 		default:
 			panic("unexpected src-dst pair")
 		}
@@ -516,25 +528,30 @@ func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) 
 		return err
 	}
 
-	file, err := dstClient.Create(dsturl.Absolute())
+	dstPath := filepath.Dir(dsturl.Absolute())
+	dstFile := filepath.Base(dsturl.Absolute())
+	file, err := dstClient.CreateTemp(dstPath, dstFile)
 	if err != nil {
 		return err
 	}
 
 	size, err := srcClient.Get(ctx, srcurl, file, c.concurrency, c.partSize)
+	file.Close()
 	if err != nil {
-		// file must be closed before deletion
-		file.Close()
-		dErr := dstClient.Delete(ctx, dsturl)
+		dErr := dstClient.Delete(ctx, &url.URL{Path: file.Name(), Type: dsturl.Type})
 		if dErr != nil {
 			printDebug(c.op, dErr, srcurl, dsturl)
 		}
 		return err
 	}
-	defer file.Close()
 
 	if c.deleteSource {
 		_ = srcClient.Delete(ctx, srcurl)
+	}
+
+	err = dstClient.Rename(file, dsturl.Absolute())
+	if err != nil {
+		return err
 	}
 
 	msg := log.InfoMessage{
@@ -848,7 +865,8 @@ func validateCopyCommand(c *cli.Context) error {
 	src := c.Args().Get(0)
 	dst := c.Args().Get(1)
 
-	srcurl, err := url.New(src, url.WithRaw(c.Bool("raw")))
+	srcurl, err := url.New(src, url.WithVersion(c.String("version-id")),
+		url.WithRaw(c.Bool("raw")))
 	if err != nil {
 		return err
 	}
@@ -872,6 +890,14 @@ func validateCopyCommand(c *cli.Context) error {
 	// surprises.
 	if srcurl.IsWildcard() && dsturl.IsRemote() && !dsturl.IsPrefix() && !dsturl.IsBucket() {
 		return fmt.Errorf("target %q must be a bucket or a prefix", dsturl)
+	}
+
+	if err := checkVersinoningURLRemote(srcurl); err != nil {
+		return err
+	}
+
+	if err := checkVersioningWithGoogleEndpoint(c); err != nil {
+		return err
 	}
 
 	switch {

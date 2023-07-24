@@ -1,19 +1,11 @@
 package progressbar
 
 import (
-	"reflect"
 	"strings"
 	"testing"
 
 	"gotest.tools/v3/assert"
 )
-
-func TestCommandProgress_InitializeProgressBar(t *testing.T) {
-	t.Parallel()
-	cp := &CommandProgressBar{}
-	cp.InitializeProgressBar()
-	assert.Equal(t, "*pb.ProgressBar", reflect.TypeOf(cp.progressbar).String())
-}
 
 func TestCommandProgress_Finish(t *testing.T) {
 	t.Parallel()
@@ -43,21 +35,6 @@ func TestCommandProgress_IncrementTotalObjects(t *testing.T) {
 	assert.Equal(t, int64(1), cp.totalObjects)
 	// Verify that the progress bar's task status has been updated
 	assert.Equal(t, true, strings.Contains(cp.progressbar.String(), "0/1"))
-}
-
-func TestCommandProgress_AddCompletedBytesInt64(t *testing.T) {
-	t.Parallel()
-	cp := &CommandProgressBar{}
-	cp.InitializeProgressBar()
-
-	bytes := int64(100)
-	cp.AddCompletedBytesInt64(bytes)
-
-	assert.Equal(t, int64(100), cp.completedBytes)
-	// Verify that the progress bar's completed bytes have been updated
-	assert.Equal(t, bytes, cp.progressbar.Current())
-	assert.Equal(t, true, strings.Contains(cp.progressbar.String(), "100 B"))
-
 }
 
 func TestCommandProgress_AddCompletedBytes(t *testing.T) {

@@ -39,6 +39,8 @@ type CommandProgressBar struct {
 	progressbar      *pb.ProgressBar
 }
 
+var _ ProgressBar = (*CommandProgressBar)(nil)
+
 const progressbarTemplate = `{{percent . | green}} {{bar . " " "━" "━" "─" " " | green}} {{counters . | green}} {{speed . "(%s/s)" | red}} {{rtime . "%s left" | blue}} {{ string . "objects" | yellow}}`
 
 func (cp *CommandProgressBar) InitializeProgressBar() {

@@ -5,7 +5,7 @@
 #### Breaking changes
 #### Features
 -- Added `--show-fullpath` flag to `ls`. (#[596](https://github.com/peak/s5cmd/issues/596))
--- Added `pipe` command. (#[182](https://github.com/peak/s5cmd/issues/182))
+- Added `pipe` command. ([#182](https://github.com/peak/s5cmd/issues/182))
 
 #### Improvements
 #### Bugfixes

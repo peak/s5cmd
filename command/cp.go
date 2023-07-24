@@ -289,8 +289,8 @@ type Copy struct {
 	contentType           string
 	contentEncoding       string
 	contentDisposition    string
-	
-  // patterns
+
+	// patterns
 	excludePatterns []*regexp.Regexp
 	includePatterns []*regexp.Regexp
 

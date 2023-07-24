@@ -1363,7 +1363,7 @@ func TestRemoveS3ObjectsWithIncludeExcludeFilter(t *testing.T) {
 	createBucket(t, s3client, bucket)
 
 	const (
-		includePattern = "file*"
+		includePattern = "*.md"
 		excludePattern = "*.py"
 		fileContent    = "content"
 	)
@@ -1373,12 +1373,13 @@ func TestRemoveS3ObjectsWithIncludeExcludeFilter(t *testing.T) {
 		"file2.py",
 		"test.py",
 		"app.py",
-		"docs/readme.md",
+		"docs/file.md",
 	}
 	filesKept := [...]string{
+		"file1.py",
+		"file2.py",
 		"test.py",
 		"app.py",
-		"docs/readme.md",
 	}
 
 	for _, filename := range files {
@@ -1393,8 +1394,7 @@ func TestRemoveS3ObjectsWithIncludeExcludeFilter(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals("rm %v/%s", srcpath, files[0]),
-		1: equals("rm %v/%s", srcpath, files[1]),
+		0: equals("rm %v/%s", srcpath, files[4]),
 	}, sortInput(true))
 
 	// assert s3
@@ -1403,7 +1403,7 @@ func TestRemoveS3ObjectsWithIncludeExcludeFilter(t *testing.T) {
 	}
 }
 
-// rm --exclude "file*" --include "*.py" s3://bucket/
+// rm --exclude "docs*" --include "*.md" --include "*.py" s3://bucket/
 func TestRemoveS3ObjectsWithIncludeExcludeFilter2(t *testing.T) {
 	t.Parallel()
 
@@ -1413,9 +1413,10 @@ func TestRemoveS3ObjectsWithIncludeExcludeFilter2(t *testing.T) {
 	createBucket(t, s3client, bucket)
 
 	const (
-		includePattern = "*.py"
-		excludePattern = "file*"
-		fileContent    = "content"
+		includePattern  = "*.md"
+		includePattern2 = "*.py"
+		excludePattern  = "docs*"
+		fileContent     = "content"
 	)
 
 	files := [...]string{
@@ -1435,7 +1436,7 @@ func TestRemoveS3ObjectsWithIncludeExcludeFilter2(t *testing.T) {
 
 	srcpath := fmt.Sprintf("s3://%s", bucket)
 
-	cmd := s5cmd("rm", "--exclude", excludePattern, "--include", includePattern, srcpath+"/*")
+	cmd := s5cmd("rm", "--exclude", excludePattern, "--include", includePattern, "--include", includePattern2, srcpath+"/*")
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Success)

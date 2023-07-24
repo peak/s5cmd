@@ -317,7 +317,7 @@ func NewCopy(c *cli.Context, deleteSource bool) (*Copy, error) {
 	if c.Bool("show-progress") {
 		commandProgressBar = &progressbar.CommandProgressBar{}
 	} else {
-		commandProgressBar = &progressbar.MockProgressBar{}
+		commandProgressBar = &progressbar.NoOpProgressBar{}
 	}
 
 	return &Copy{

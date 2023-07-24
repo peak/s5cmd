@@ -16,19 +16,19 @@ type ProgressBar interface {
 	AddTotalBytes(bytes int64)
 }
 
-type MockProgressBar struct{}
+type NoOpProgressBar struct{}
 
-func (pb *MockProgressBar) InitializeProgressBar() {}
+func (pb *NoOpProgressBar) InitializeProgressBar() {}
 
-func (pb *MockProgressBar) Finish() {}
+func (pb *NoOpProgressBar) Finish() {}
 
-func (pb *MockProgressBar) IncrementCompletedObjects() {}
+func (pb *NoOpProgressBar) IncrementCompletedObjects() {}
 
-func (pb *MockProgressBar) IncrementTotalObjects() {}
+func (pb *NoOpProgressBar) IncrementTotalObjects() {}
 
-func (pb *MockProgressBar) AddCompletedBytes(bytes int) {}
+func (pb *NoOpProgressBar) AddCompletedBytes(bytes int) {}
 
-func (pb *MockProgressBar) AddTotalBytes(bytes int64) {}
+func (pb *NoOpProgressBar) AddTotalBytes(bytes int64) {}
 
 type CommandProgressBar struct {
 	totalObjects     int64

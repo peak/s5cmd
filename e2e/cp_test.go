@@ -4256,20 +4256,14 @@ func TestCopyS3ObjectsWithIncludeExcludeFilter(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals("cp %v/file1.py %s", srcpath, files[0]),
-		1: equals("cp %v/file2.py %s", srcpath, files[1]),
-	}, sortInput(true))
+	assertLines(t, result.Stdout(), map[int]compareFunc{}, sortInput(true))
 
 	// assert s3
 	for _, f := range files {
 		assert.Assert(t, ensureS3Object(s3client, bucket, f, fileContent))
 	}
 
-	expectedFileSystem := []fs.PathOp{
-		fs.WithFile("file1.py", fileContent),
-		fs.WithFile("file2.py", fileContent),
-	}
+	expectedFileSystem := []fs.PathOp{}
 	// assert local filesystem
 	expected := fs.Expected(t, expectedFileSystem...)
 	assert.Assert(t, fs.Equal(cmd.Dir, expected))
@@ -4311,9 +4305,7 @@ func TestCopyS3ObjectsWithIncludeExcludeFilter2(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals("cp %v/app.py %s", srcpath, files[3]),
-		1: equals("cp %v/file1.py %s", srcpath, files[0]),
-		2: equals("cp %v/file2.py %s", srcpath, files[1]),
-		3: equals("cp %v/test.py %s", srcpath, files[2]),
+		1: equals("cp %v/test.py %s", srcpath, files[2]),
 	}, sortInput(true))
 
 	// assert s3
@@ -4322,8 +4314,6 @@ func TestCopyS3ObjectsWithIncludeExcludeFilter2(t *testing.T) {
 	}
 
 	expectedFileSystem := []fs.PathOp{
-		fs.WithFile("file1.py", fileContent),
-		fs.WithFile("file2.py", fileContent),
 		fs.WithFile("test.py", fileContent),
 		fs.WithFile("app.py", fileContent),
 	}

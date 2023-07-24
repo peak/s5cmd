@@ -31,9 +31,9 @@ jobs:
           # - 1.18.x
           # - 1.17.x
         os:
-          # - macos
+          - macos
           - ubuntu
-          # - windows
+          - windows
 
     name: test (${{ matrix.os }}/go-${{ matrix.go-version }})
     runs-on: ${{ matrix.os }}-latest

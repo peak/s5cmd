@@ -1847,8 +1847,8 @@ func TestSyncS3BucketToEmptyS3BucketWithExitOnErrorFlag(t *testing.T) {
 	}
 }
 
-// sync s3://bucket/* s3://NotExistingBucket/ (destbucket doesn't exist)
-func TestSyncS3BucketToS3BucketThatDoesNotExist(t *testing.T) {
+// sync --exit-on-error s3://bucket/* s3://NotExistingBucket/ (dest bucket doesn't exist)
+func TestSyncExitOnErrorS3BucketToS3BucketThatDoesNotExist(t *testing.T) {
 	t.Parallel()
 
 	now := time.Now()
@@ -1875,6 +1875,43 @@ func TestSyncS3BucketToS3BucketThatDoesNotExist(t *testing.T) {
 	dst := fmt.Sprintf("s3://%v/", destbucket)
 
 	cmd := s5cmd("sync", "--exit-on-error", src, dst)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Expected{ExitCode: 1})
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: contains(`status code: 404`),
+	})
+}
+
+// sync s3://bucket/* s3://NotExistingBucket/ (dest bucket doesn't exist)
+func TestSyncS3BucketToS3BucketThatDoesNotExist(t *testing.T) {
+	t.Parallel()
+
+	now := time.Now()
+	timeSource := newFixedTimeSource(now)
+	s3client, s5cmd := setup(t, withTimeSource(timeSource))
+
+	bucket := s3BucketFromTestName(t)
+	destbucket := "NotExistingBucket"
+
+	createBucket(t, s3client, bucket)
+
+	S3Content := map[string]string{
+		"testfile.txt":            "S: this is a test file",
+		"readme.md":               "S: this is a readme file",
+		"a/another_test_file.txt": "S: yet another txt file",
+		"abc/def/test.py":         "S: file in nested folders",
+	}
+
+	for filename, content := range S3Content {
+		putFile(t, s3client, bucket, filename, content)
+	}
+
+	src := fmt.Sprintf("s3://%v/*", bucket)
+	dst := fmt.Sprintf("s3://%v/", destbucket)
+
+	cmd := s5cmd("sync", src, dst)
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Expected{ExitCode: 1})

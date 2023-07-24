@@ -17,7 +17,7 @@ import (
 	"github.com/peak/s5cmd/v2/storage/url"
 )
 
-var selectHelpTemplate = `Name:
+var defaultSelectHelpTemplate = `Name:
 	{{.HelpName}} - {{.Usage}}
 
 Usage:
@@ -31,94 +31,227 @@ Examples:
 		 > s5cmd {{.HelpName}} --compression gzip --query "SELECT * FROM S3Object s WHERE s.foo='bar'" "s3://bucket/*"
 `
 
+func beforeFunc(c *cli.Context) error {
+	err := validateSelectCommand(c)
+	if err != nil {
+		printError(commandFromContext(c), c.Command.Name, err)
+	}
+	return err
+}
+
 func NewSelectCommand() *cli.Command {
+	sharedFlags := []cli.Flag{
+		&cli.StringFlag{
+			Name:    "query",
+			Aliases: []string{"e"},
+			Usage:   "SQL expression to use to select from the objects",
+		},
+		&cli.GenericFlag{
+			Name:  "output-format",
+			Usage: "output format of the result",
+			Value: &EnumValue{
+				Enum:    []string{"json", "csv"},
+				Default: "json",
+				ConditionFunction: func(str, target string) bool {
+					return strings.ToLower(target) == str
+				},
+			},
+		},
+		&cli.StringSliceFlag{
+			Name:  "exclude",
+			Usage: "exclude objects with given pattern",
+		},
+		&cli.BoolFlag{
+			Name:  "force-glacier-transfer",
+			Usage: "force transfer of glacier objects whether they are restored or not",
+		},
+		&cli.BoolFlag{
+			Name:  "ignore-glacier-warnings",
+			Usage: "turns off glacier warnings: ignore errors encountered during selecting objects",
+		},
+		&cli.BoolFlag{
+			Name:  "raw",
+			Usage: "disable the wildcard operations, useful with filenames that contains glob characters",
+		},
+		&cli.BoolFlag{
+			Name:  "all-versions",
+			Usage: "list all versions of object(s)",
+		},
+		&cli.StringFlag{
+			Name:  "version-id",
+			Usage: "use the specified version of the object",
+		},
+	}
 	cmd := &cli.Command{
 		Name:     "select",
 		HelpName: "select",
 		Usage:    "run SQL queries on objects",
-		Flags: []cli.Flag{
-			&cli.StringFlag{
-				Name:    "query",
-				Aliases: []string{"e"},
-				Usage:   "SQL expression to use to select from the objects",
-			},
-			&cli.GenericFlag{
-				Name:  "compression",
-				Usage: "input compression format",
-				Value: &EnumValue{
-					Enum:    []string{"none", "gzip", "bzip2"},
-					Default: "none",
-					ConditionFunction: func(str, target string) bool {
-						return strings.ToLower(target) == str
+		Subcommands: []*cli.Command{
+			{
+				Name:  "csv",
+				Usage: "write queries for csv files",
+				Flags: append([]cli.Flag{
+					&cli.GenericFlag{
+						Name:  "compression",
+						Usage: "input compression format",
+						Value: &EnumValue{
+							Enum:    []string{"none", "gzip", "bzip2"},
+							Default: "none",
+							ConditionFunction: func(str, target string) bool {
+								return strings.ToLower(target) == str
+							},
+						},
 					},
+					&cli.GenericFlag{
+						Name:  "delimiter",
+						Usage: "delimiter of the csv file",
+						Value: &EnumValue{
+							Enum:    []string{",", "\t"},
+							Default: ",",
+							ConditionFunction: func(str, target string) bool {
+								return strings.ToLower(target) == str
+							},
+						},
+					},
+				}, sharedFlags...),
+				CustomHelpTemplate: defaultSelectHelpTemplate,
+				Before:             beforeFunc,
+				Action: func(c *cli.Context) (err error) {
+					defer stat.Collect(c.Command.FullName(), &err)()
+
+					fullCommand := commandFromContext(c)
+
+					src, err := url.New(c.Args().Get(0), url.WithVersion(c.String("version-id")),
+						url.WithRaw(c.Bool("raw")), url.WithAllVersions(c.Bool("all-versions")))
+					if err != nil {
+						printError(fullCommand, c.Command.Name, err)
+						return err
+					}
+					return Select{
+						src:         src,
+						op:          c.Command.Name,
+						fullCommand: fullCommand,
+						// flags
+						inputFormat:           "csv",
+						inputStructure:        c.String("delimiter"),
+						outputFormat:          c.String("output-format"),
+						compressionType:       c.String("compression"),
+						query:                 c.String("query"),
+						exclude:               c.StringSlice("exclude"),
+						forceGlacierTransfer:  c.Bool("force-glacier-transfer"),
+						ignoreGlacierWarnings: c.Bool("ignore-glacier-warnings"),
+
+						storageOpts: NewStorageOpts(c),
+					}.Run(c.Context)
 				},
 			},
-			&cli.GenericFlag{
-				Name:  "format",
-				Usage: "input data format",
-				Value: &EnumValue{
-					Enum:    []string{"json", "csv"},
-					Default: "json",
-					ConditionFunction: func(str, target string) bool {
-						return strings.ToUpper(target) == str
+			{
+				Name:  "json",
+				Usage: "write queries for json files",
+				Flags: append([]cli.Flag{
+					&cli.GenericFlag{
+						Name:  "compression",
+						Usage: "input compression format",
+						Value: &EnumValue{
+							Enum:    []string{"none", "gzip", "bzip2"},
+							Default: "none",
+							ConditionFunction: func(str, target string) bool {
+								return strings.ToLower(target) == str
+							},
+						},
 					},
+					&cli.GenericFlag{
+						Name:  "structure",
+						Usage: "how objects are aligned in the json file",
+						Value: &EnumValue{
+							Enum:    []string{"lines", "document"},
+							Default: "lines",
+							ConditionFunction: func(str, target string) bool {
+								return strings.ToLower(target) == str
+							},
+						},
+					},
+				}, sharedFlags...),
+				CustomHelpTemplate: defaultSelectHelpTemplate,
+				Before:             beforeFunc,
+				Action: func(c *cli.Context) (err error) {
+					defer stat.Collect(c.Command.FullName(), &err)()
+
+					fullCommand := commandFromContext(c)
+
+					src, err := url.New(c.Args().Get(0), url.WithVersion(c.String("version-id")),
+						url.WithRaw(c.Bool("raw")), url.WithAllVersions(c.Bool("all-versions")))
+					if err != nil {
+						printError(fullCommand, c.Command.Name, err)
+						return err
+					}
+					return Select{
+						src:         src,
+						op:          c.Command.Name,
+						fullCommand: fullCommand,
+						// flags
+						inputFormat:           "json",
+						inputStructure:        c.String("structure"),
+						outputFormat:          c.String("output-format"),
+						query:                 c.String("query"),
+						compressionType:       c.String("compression"),
+						exclude:               c.StringSlice("exclude"),
+						forceGlacierTransfer:  c.Bool("force-glacier-transfer"),
+						ignoreGlacierWarnings: c.Bool("ignore-glacier-warnings"),
+
+						storageOpts: NewStorageOpts(c),
+					}.Run(c.Context)
 				},
 			},
-			&cli.GenericFlag{
-				Name:  "input-structure",
-				Usage: "structure of the data",
-				Value: &EnumValue{
-					Enum:    []string{"lines", "document", "comma", "tab"},
-					Default: "lines",
-					ConditionFunction: func(str, target string) bool {
-						return strings.ToLower(target) == str
+			{
+				Name:  "parquet",
+				Usage: "write queries for parquet files",
+				Flags: append([]cli.Flag{
+					&cli.GenericFlag{
+						Name:  "output-format",
+						Usage: "output data format",
+						Value: &EnumValue{
+							Enum:    []string{"json", "csv"},
+							Default: "json",
+							ConditionFunction: func(str, target string) bool {
+								return strings.ToLower(target) == str
+							},
+						},
 					},
+				}, sharedFlags...),
+				CustomHelpTemplate: defaultSelectHelpTemplate,
+				Before:             beforeFunc,
+				Action: func(c *cli.Context) (err error) {
+					defer stat.Collect(c.Command.FullName(), &err)()
+
+					fullCommand := commandFromContext(c)
+
+					src, err := url.New(c.Args().Get(0), url.WithVersion(c.String("version-id")),
+						url.WithRaw(c.Bool("raw")), url.WithAllVersions(c.Bool("all-versions")))
+					if err != nil {
+						printError(fullCommand, c.Command.Name, err)
+						return err
+					}
+					return Select{
+						src:         src,
+						op:          c.Command.Name,
+						fullCommand: fullCommand,
+						// flags
+						inputFormat:           "parquet",
+						outputFormat:          c.String("output-format"),
+						query:                 c.String("query"),
+						compressionType:       c.String("compression"),
+						exclude:               c.StringSlice("exclude"),
+						forceGlacierTransfer:  c.Bool("force-glacier-transfer"),
+						ignoreGlacierWarnings: c.Bool("ignore-glacier-warnings"),
+
+						storageOpts: NewStorageOpts(c),
+					}.Run(c.Context)
 				},
-			},
-			&cli.GenericFlag{
-				Name:  "output-format",
-				Usage: "output data format",
-				Value: &EnumValue{
-					Enum:    []string{"json", "csv"},
-					Default: "json",
-					ConditionFunction: func(str, target string) bool {
-						return strings.ToLower(target) == str
-					},
-				},
-			},
-			&cli.StringSliceFlag{
-				Name:  "exclude",
-				Usage: "exclude objects with given pattern",
-			},
-			&cli.BoolFlag{
-				Name:  "force-glacier-transfer",
-				Usage: "force transfer of glacier objects whether they are restored or not",
-			},
-			&cli.BoolFlag{
-				Name:  "ignore-glacier-warnings",
-				Usage: "turns off glacier warnings: ignore errors encountered during selecting objects",
-			},
-			&cli.BoolFlag{
-				Name:  "raw",
-				Usage: "disable the wildcard operations, useful with filenames that contains glob characters",
-			},
-			&cli.BoolFlag{
-				Name:  "all-versions",
-				Usage: "list all versions of object(s)",
-			},
-			&cli.StringFlag{
-				Name:  "version-id",
-				Usage: "use the specified version of the object",
 			},
 		},
-		CustomHelpTemplate: selectHelpTemplate,
-		Before: func(c *cli.Context) error {
-			err := validateSelectCommand(c)
-			if err != nil {
-				printError(commandFromContext(c), c.Command.Name, err)
-			}
-			return err
-		},
+		Flags:  sharedFlags,
+		Before: beforeFunc,
 		Action: func(c *cli.Context) (err error) {
 			defer stat.Collect(c.Command.FullName(), &err)()
 
@@ -135,17 +268,20 @@ func NewSelectCommand() *cli.Command {
 				op:          c.Command.Name,
 				fullCommand: fullCommand,
 				// flags
-				inputFormat:           c.String("format"),
-				inputStructure:        c.String("input-structure"),
+				inputFormat:           "json",
+				inputStructure:        "lines",
 				outputFormat:          c.String("output-format"),
 				query:                 c.String("query"),
+				compressionType:       c.String("compression"),
 				exclude:               c.StringSlice("exclude"),
 				forceGlacierTransfer:  c.Bool("force-glacier-transfer"),
 				ignoreGlacierWarnings: c.Bool("ignore-glacier-warnings"),
 
 				storageOpts: NewStorageOpts(c),
 			}.Run(c.Context)
+			return nil
 		},
+		CustomHelpTemplate: defaultSelectHelpTemplate,
 	}
 
 	cmd.BashComplete = getBashCompleteFn(cmd, true, false)

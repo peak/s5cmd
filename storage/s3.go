@@ -647,6 +647,62 @@ type SelectQuery struct {
 	CompressionType       string
 }
 
+const (
+	jsonType    = "json"
+	csvType     = "csv"
+	parquetType = "parquet"
+)
+
+func parseInputSerialization(val string, delimiter string) (*s3.InputSerialization, error) {
+	var inputSerialization *s3.InputSerialization
+
+	switch val {
+	case jsonType:
+		inputSerialization = &s3.InputSerialization{
+			JSON: &s3.JSONInput{
+				Type: aws.String(delimiter),
+			},
+		}
+	case csvType:
+		inputSerialization = &s3.InputSerialization{
+			CSV: &s3.CSVInput{
+				FieldDelimiter: aws.String(delimiter),
+			},
+		}
+	case parquetType:
+		inputSerialization = &s3.InputSerialization{
+			Parquet: &s3.ParquetInput{},
+		}
+	default:
+		return nil, errors.New("Input serialization is not valid")
+	}
+
+	return inputSerialization, nil
+}
+
+func parseOutputSerialization(val string, reader io.Reader) (*s3.OutputSerialization, EventStreamDecoder, error) {
+	var outputSerialization *s3.OutputSerialization
+	var decoder EventStreamDecoder
+
+	switch val {
+	case jsonType:
+		outputSerialization = &s3.OutputSerialization{
+			JSON: &s3.JSONOutput{},
+		}
+		decoder = NewCsvDecoder(reader)
+	case csvType:
+		outputSerialization = &s3.OutputSerialization{
+			CSV: &s3.CSVOutput{
+				FieldDelimiter: aws.String(","),
+			},
+		}
+		decoder = NewCsvDecoder(reader)
+	default:
+		return nil, nil, errors.New("Output serialization is not valid")
+	}
+	return outputSerialization, decoder, nil
+}
+
 func (s *S3) Select(ctx context.Context, url *url.URL, query *SelectQuery, resultCh chan<- json.RawMessage) error {
 	if s.dryRun {
 		return nil
@@ -654,33 +710,19 @@ func (s *S3) Select(ctx context.Context, url *url.URL, query *SelectQuery, resul
 	var inputSerialization *s3.InputSerialization
 	var outputSerialization *s3.OutputSerialization
 	var decoder EventStreamDecoder
+
 	reader, writer := io.Pipe()
 
-	if query.InputFormat == "json" {
-		inputSerialization = &s3.InputSerialization{
-			JSON: &s3.JSONInput{
-				Type: aws.String(query.InputContentStructure),
-			},
-		}
-		decoder = NewJsonDecoder(reader)
-	} else if query.InputFormat == "csv" {
-		inputSerialization = &s3.InputSerialization{
-			CSV: &s3.CSVInput{
-				FieldDelimiter: aws.String(","),
-			},
-		}
-		decoder = NewCsvDecoder(reader)
+	inputSerialization, err := parseInputSerialization(query.InputFormat, query.InputContentStructure)
+	if err != nil {
+		return err
 	}
 
-	if query.OutputFormat == "json" {
-		outputSerialization = &s3.OutputSerialization{
-			JSON: &s3.JSONOutput{},
-		}
-	} else if query.OutputFormat == "csv" {
-		outputSerialization = &s3.OutputSerialization{
-			CSV: &s3.CSVOutput{},
-		}
+	outputSerialization, decoder, err = parseOutputSerialization(query.OutputFormat, reader)
+	if err != nil {
+		return err
 	}
+
 	input := &s3.SelectObjectContentInput{
 		Bucket:              aws.String(url.Bucket),
 		Key:                 aws.String(url.Path),

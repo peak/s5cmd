@@ -28,7 +28,7 @@ Options:
 	{{end}}
 Examples:
 	01. Search for all JSON objects with the foo property set to 'bar' and spit them into stdout
-		 > s5cmd {{.HelpName}} --compression gzip --query "SELECT * FROM S3Object s WHERE s.foo='bar'" s3://bucket/*
+		 > s5cmd {{.HelpName}} --compression gzip --query "SELECT * FROM S3Object s WHERE s.foo='bar'" "s3://bucket/*"
 `
 
 func NewSelectCommand() *cli.Command {

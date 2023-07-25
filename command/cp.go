@@ -45,7 +45,7 @@ Examples:
 		 > s5cmd {{.HelpName}} s3://bucket/prefix/object.gz myobject.gz
 
 	03. Download all S3 objects to a directory
-		 > s5cmd {{.HelpName}} s3://bucket/* target-directory/
+		 > s5cmd {{.HelpName}} "s3://bucket/*" target-directory/
 
 	04. Download an S3 object from a public bucket
 		 > s5cmd --no-sign-request {{.HelpName}} s3://bucket/prefix/object.gz .
@@ -54,7 +54,7 @@ Examples:
 		 > s5cmd {{.HelpName}} myfile.gz s3://bucket/
 
 	06. Upload matching files to S3 bucket
-		 > s5cmd {{.HelpName}} dir/*.gz s3://bucket/
+		 > s5cmd {{.HelpName}} "dir/*.gz" s3://bucket/
 
 	07. Upload all files in a directory to S3 bucket recursively
 		 > s5cmd {{.HelpName}} dir/ s3://bucket/
@@ -63,13 +63,13 @@ Examples:
 		 > s5cmd {{.HelpName}} s3://bucket/object s3://target-bucket/prefix/object
 
 	09. Copy matching S3 objects to another bucket
-		 > s5cmd {{.HelpName}} s3://bucket/*.gz s3://target-bucket/prefix/
+		 > s5cmd {{.HelpName}} "s3://bucket/*.gz" s3://target-bucket/prefix/
 
 	10. Copy files in a directory to S3 prefix if not found on target
 		 > s5cmd {{.HelpName}} -n -s -u dir/ s3://bucket/target-prefix/
 
 	11. Copy files in an S3 prefix to another S3 prefix if not found on target
-		 > s5cmd {{.HelpName}} -n -s -u s3://bucket/source-prefix/* s3://bucket/target-prefix/
+		 > s5cmd {{.HelpName}} -n -s -u "s3://bucket/source-prefix/*" s3://bucket/target-prefix/
 
 	12. Perform KMS Server Side Encryption of the object(s) at the destination
 		 > s5cmd {{.HelpName}} --sse aws:kms s3://bucket/object s3://target-bucket/prefix/object
@@ -78,7 +78,7 @@ Examples:
 		 > s5cmd {{.HelpName}} --sse aws:kms --sse-kms-key-id <your-kms-key-id> s3://bucket/object s3://target-bucket/prefix/object
 
 	14. Force transfer of GLACIER objects with a prefix whether they are restored or not
-		 > s5cmd {{.HelpName}} --force-glacier-transfer s3://bucket/prefix/* target-directory/
+		 > s5cmd {{.HelpName}} --force-glacier-transfer "s3://bucket/prefix/*" target-directory/
 
 	15. Upload a file to S3 bucket with public read s3 acl
 		 > s5cmd {{.HelpName}} --acl "public-read" myfile.gz s3://bucket/
@@ -93,7 +93,7 @@ Examples:
 		 > s5cmd {{.HelpName}} --exclude "*.txt" --exclude "*.gz" dir/ s3://bucket
 
 	19. Copy all files from S3 bucket to another S3 bucket but exclude the ones starts with log
-		 > s5cmd {{.HelpName}} --exclude "log*" s3://bucket/* s3://destbucket
+		 > s5cmd {{.HelpName}} --exclude "log*" "s3://bucket/*" s3://destbucket
 
 	20. Download an S3 object from a requester pays bucket
 		 > s5cmd --request-payer=requester {{.HelpName}} s3://bucket/prefix/object.gz .
@@ -178,6 +178,10 @@ func NewSharedFlags() []cli.Flag {
 		&cli.StringFlag{
 			Name:  "content-encoding",
 			Usage: "set content encoding for target: defines content encoding header for object, e.g. --content-encoding gzip",
+		},
+		&cli.StringFlag{
+			Name:  "content-disposition",
+			Usage: "set content disposition for target: defines content disposition header for object, e.g. --content-disposition 'attachment; filename=\"filename.jpg\"'",
 		},
 		&cli.IntFlag{
 			Name:        "no-such-upload-retry-count",
@@ -275,7 +279,7 @@ type Copy struct {
 	expires               string
 	contentType           string
 	contentEncoding       string
-
+	contentDisposition    string
 	// region settings
 	srcRegion string
 	dstRegion string
@@ -328,6 +332,7 @@ func NewCopy(c *cli.Context, deleteSource bool) (*Copy, error) {
 		expires:               c.String("expires"),
 		contentType:           c.String("content-type"),
 		contentEncoding:       c.String("content-encoding"),
+		contentDisposition:    c.String("content-disposition"),
 		// region settings
 		srcRegion: c.String("source-region"),
 		dstRegion: c.String("destination-region"),
@@ -528,25 +533,30 @@ func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) 
 		return err
 	}
 
-	file, err := dstClient.Create(dsturl.Absolute())
+	dstPath := filepath.Dir(dsturl.Absolute())
+	dstFile := filepath.Base(dsturl.Absolute())
+	file, err := dstClient.CreateTemp(dstPath, dstFile)
 	if err != nil {
 		return err
 	}
 
 	size, err := srcClient.Get(ctx, srcurl, file, c.concurrency, c.partSize)
+	file.Close()
 	if err != nil {
-		// file must be closed before deletion
-		file.Close()
-		dErr := dstClient.Delete(ctx, dsturl)
+		dErr := dstClient.Delete(ctx, &url.URL{Path: file.Name(), Type: dsturl.Type})
 		if dErr != nil {
 			printDebug(c.op, dErr, srcurl, dsturl)
 		}
 		return err
 	}
-	defer file.Close()
 
 	if c.deleteSource {
 		_ = srcClient.Delete(ctx, srcurl)
+	}
+
+	err = dstClient.Rename(file, dsturl.Absolute())
+	if err != nil {
+		return err
 	}
 
 	msg := log.InfoMessage{
@@ -606,7 +616,9 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 	if c.contentEncoding != "" {
 		metadata.SetContentEncoding(c.contentEncoding)
 	}
-
+	if c.contentDisposition != "" {
+		metadata.SetContentDisposition(c.contentDisposition)
+	}
 	err = dstClient.Put(ctx, file, dsturl, metadata, c.concurrency, c.partSize)
 	if err != nil {
 		return err
@@ -660,6 +672,9 @@ func (c Copy) doCopy(ctx context.Context, srcurl, dsturl *url.URL) error {
 	}
 	if c.contentEncoding != "" {
 		metadata.SetContentEncoding(c.contentEncoding)
+	}
+	if c.contentDisposition != "" {
+		metadata.SetContentDisposition(c.contentDisposition)
 	}
 
 	err = c.shouldOverride(ctx, srcurl, dsturl)

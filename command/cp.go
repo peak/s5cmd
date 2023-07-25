@@ -581,7 +581,7 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 	}
 	defer file.Close()
 
-	isSpecialFile, err := srcClient.IsSpecialFile(file)
+	isSpecialFile, err := srcClient.IsSpecialFile(file.Name())
 	if err != nil {
 		return err
 	}

@@ -436,3 +436,46 @@ func TestUploadStdinToS3WithStorageClassGlacier(t *testing.T) {
 	// assert S3
 	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content, ensureStorageClass(expectedStorageClass)))
 }
+
+// pipe --content-disposition inline s3://bucket/object
+func TestUploadStdinToToS3WithContentDisposition(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd := setup(t)
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	const (
+		// make sure that Put reads the file header and guess Content-Type correctly.
+		filename = "index.html"
+		content  = `
+<html lang="tr">
+	<head>
+	<meta charset="utf-8">
+	<body>
+		<header></header>
+		<main></main>
+		<footer></footer>
+	</body>
+</html>
+`
+		expectedContentType        = "text/html; charset=utf-8"
+		expectedContentDisposition = "inline"
+	)
+
+	dstpath := fmt.Sprintf("s3://%v/%v", bucket, filename)
+	reader := bytes.NewBufferString(content)
+
+	cmd := s5cmd("pipe", "--content-disposition", "inline", dstpath)
+	result := icmd.RunCmd(cmd, icmd.WithStdin(reader))
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: suffix(`pipe %v`, dstpath),
+	})
+
+	// assert S3
+	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content, ensureContentType(expectedContentType), ensureContentDisposition(expectedContentDisposition)))
+}

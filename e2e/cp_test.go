@@ -4171,3 +4171,38 @@ func TestLocalFileOverridenWhenDownloadFailed(t *testing.T) {
 	expected := fs.Expected(t, fs.WithFile(filename, content))
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 }
+
+func TestUploaingSpecialFile(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd := setup(t)
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	const (
+		filename = "special_file"
+		content  = "preserved content"
+	)
+	fmt.Println(os.ModeCharDevice)
+	workdir := fs.NewDir(t, t.Name(), fs.WithFile(filename, content, fs.WithMode(os.ModeCharDevice)))
+	defer workdir.Remove()
+
+	cmd := s5cmd("cp", filename, "s3://"+bucket+"/")
+	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
+
+	// assert permissiong denied while opening the file
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: contains("permission denied"),
+	})
+
+	// assert logs are empty
+	assertLines(t, result.Stdout(), map[int]compareFunc{})
+
+	// assert exit code
+	result.Assert(t, icmd.Expected{ExitCode: 1})
+
+	// assert object is not uploaded
+	assertLines(t, ensureS3Object(s3client, bucket, filename, content).Error(), map[int]compareFunc{
+		0: contains("no such key"),
+	})
+}

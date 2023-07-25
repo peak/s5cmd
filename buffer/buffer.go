@@ -14,15 +14,15 @@ type fileChunk struct {
 	Content []byte
 }
 
-type OrderedBuffer struct {
+type OrderedWriterAt struct {
 	w       io.Writer
 	written int64
 	list    *list.List
 	mu      *sync.Mutex
 }
 
-func NewOrderedBuffer(w io.Writer) *OrderedBuffer {
-	return &OrderedBuffer{
+func NewOrderedWriterAt(w io.Writer) *OrderedWriterAt {
+	return &OrderedWriterAt{
 		written: 0,
 		list:    list.New(),
 		mu:      &sync.Mutex{},
@@ -30,7 +30,7 @@ func NewOrderedBuffer(w io.Writer) *OrderedBuffer {
 	}
 }
 
-func (ob *OrderedBuffer) WriteAt(p []byte, offset int64) (int, error) {
+func (ob *OrderedWriterAt) WriteAt(p []byte, offset int64) (int, error) {
 	ob.mu.Lock()
 	defer ob.mu.Unlock()
 

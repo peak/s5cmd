@@ -6,7 +6,7 @@
 
 #### Features
 - Added `--content-disposition` flag to `cp` command. ([#569](https://github.com/peak/s5cmd/issues/569))
-- Added `--show-fullpath` flag to `ls`. (#[596](https://github.com/peak/s5cmd/issues/596))
+- Added `--show-fullpath` flag to `ls`. ([#596](https://github.com/peak/s5cmd/issues/596))
 
 #### Improvements
 - Implemented concurrent multipart download support for `cat`. ([#593](https://github.com/peak/s5cmd/pull/593)) 

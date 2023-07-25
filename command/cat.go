@@ -116,7 +116,7 @@ func (c Cat) Run(ctx context.Context) error {
 		printError(c.fullCommand, c.op, err)
 		return err
 	}
-	buff := buffer.NewOrderedBuffer(os.Stdout)
+	buff := buffer.NewOrderedWriterAt(os.Stdout)
 	_, err = client.Get(ctx, c.src, buff, c.concurrency, c.partSize)
 	if err != nil {
 		printError(c.fullCommand, c.op, err)

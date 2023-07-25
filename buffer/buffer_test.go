@@ -47,7 +47,7 @@ func TestShuffleWriteWithStaticChunkSize(t *testing.T) {
 				tasks[i], tasks[j] = tasks[j], tasks[i]
 			}
 
-			buff := NewOrderedBuffer(&result)
+			buff := NewOrderedWriterAt(&result)
 
 			for _, task := range tasks {
 				buff.WriteAt(task.Content, int64(task.Start))
@@ -95,7 +95,7 @@ func TestShuffleWriteWithRandomChunkSize(t *testing.T) {
 				chunks[i], chunks[j] = chunks[j], chunks[i]
 			}
 
-			buff := NewOrderedBuffer(&result)
+			buff := NewOrderedWriterAt(&result)
 
 			for _, task := range chunks {
 				buff.WriteAt(task.Content, int64(task.Start))
@@ -143,7 +143,7 @@ func TestShuffleConcurrentWriteWithRandomChunkSize(t *testing.T) {
 				chunks[i], chunks[j] = chunks[j], chunks[i]
 			}
 
-			buff := NewOrderedBuffer(&result)
+			buff := NewOrderedWriterAt(&result)
 
 			chunkChan := make(chan fileChunk, 1)
 
@@ -175,7 +175,7 @@ func TestShuffleConcurrentWriteWithRandomChunkSize(t *testing.T) {
 }
 
 // when you use io.Copy, the slice it gives you changes in time.
-// You should copy the slice when a OrderedBuffer.WriteAt
+// You should copy the slice when a OrderedWriterAt.WriteAt
 // call occurs and don't count on the given slice's Content.
 
 // We will simulate the aws-sdk-go's download manager algorithm.
@@ -246,7 +246,7 @@ func TestBufferWithChangingSlice(t *testing.T) {
 			}
 
 			result := bytes.NewBuffer(make([]byte, 0, expectedFileSize))
-			buff := NewOrderedBuffer(result)
+			buff := NewOrderedWriterAt(result)
 
 			// we set the writerAt after we initialize the buff, since
 			// the buff can't be initialized until the expectedFileSize
@@ -321,7 +321,7 @@ func BenchmarkBufferWithChangingSlice(bench *testing.B) {
 			chunks[i], chunks[j] = chunks[j], chunks[i]
 		}
 		result := bytes.NewBuffer(make([]byte, 0, expectedFileSize))
-		buff := NewOrderedBuffer(result)
+		buff := NewOrderedWriterAt(result)
 
 		// we set the writerAt after we initialize the buff, since
 		// the buff can't be initialized until the expectedFileSize

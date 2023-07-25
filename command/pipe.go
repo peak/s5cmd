@@ -165,8 +165,7 @@ type Pipe struct {
 func NewPipe(c *cli.Context, deleteSource bool) (*Pipe, error) {
 	fullCommand := commandFromContext(c)
 
-	dst, err := url.New(c.Args().Get(0),
-		url.WithRaw(c.Bool("raw")))
+	dst, err := url.New(c.Args().Get(0), url.WithRaw(c.Bool("raw")))
 	if err != nil {
 		printError(fullCommand, c.Command.Name, err)
 		return nil, err

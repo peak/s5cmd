@@ -320,9 +320,9 @@ func NewCopy(c *cli.Context, deleteSource bool) (*Copy, error) {
 	var commandProgressBar progressbar.ProgressBar
 
 	if c.Bool("show-progress") && !(src.Type == dst.Type) {
-		commandProgressBar = progressbar.NewCommandProgressBar()
+		commandProgressBar = progressbar.New()
 	} else {
-		commandProgressBar = &progressbar.NoOpProgressBar{}
+		commandProgressBar = &progressbar.NoOp{}
 	}
 
 	return &Copy{
@@ -370,8 +370,6 @@ increase the open file limit or try to decrease the number of workers with
 
 // Run starts copying given source objects to destination.
 func (c Copy) Run(ctx context.Context) error {
-	c.progressbar.Start()
-
 	// override source region if set
 	if c.srcRegion != "" {
 		c.storageOpts.SetRegion(c.srcRegion)
@@ -389,6 +387,8 @@ func (c Copy) Run(ctx context.Context) error {
 		return err
 	}
 
+	c.progressbar.Start()
+	defer c.progressbar.Finish()
 	waiter := parallel.NewWaiter()
 
 	var (
@@ -473,7 +473,6 @@ func (c Copy) Run(ctx context.Context) error {
 	}
 	waiter.Wait()
 	<-errDoneCh
-	c.progressbar.Finish()
 
 	return multierror.Append(merrorWaiter, merrorObjects).ErrorOrNil()
 }

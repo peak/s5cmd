@@ -319,7 +319,7 @@ func NewCopy(c *cli.Context, deleteSource bool) (*Copy, error) {
 
 	var commandProgressBar progressbar.ProgressBar
 
-	if c.Bool("show-progress") {
+	if c.Bool("show-progress") && !(src.Type == dst.Type) {
 		commandProgressBar = progressbar.NewCommandProgressBar()
 	} else {
 		commandProgressBar = &progressbar.NoOpProgressBar{}
@@ -413,13 +413,7 @@ func (c Copy) Run(ctx context.Context) error {
 
 	isBatch := c.src.IsWildcard()
 	if !isBatch && !c.src.IsRemote() {
-		obj, err := client.Stat(ctx, c.src)
-		if err != nil {
-			printError(c.fullCommand, c.op, err)
-		}
-		if obj.Size > 0 {
-			c.progressbar.AddTotalBytes(obj.Size)
-		}
+		obj, _ := client.Stat(ctx, c.src)
 		isBatch = obj != nil && obj.Type.IsDir()
 	}
 
@@ -456,6 +450,12 @@ func (c Copy) Run(ctx context.Context) error {
 		srcurl := object.URL
 		var task parallel.Task
 
+		if object.Size == 0 && !(srcurl.Type == c.dst.Type) {
+			obj, err := client.Stat(ctx, srcurl)
+			if err == nil {
+				object.Size = obj.Size
+			}
+		}
 		c.progressbar.AddTotalBytes(object.Size)
 		c.progressbar.IncrementTotalObjects()
 
@@ -495,9 +495,7 @@ func (c Copy) prepareCopyTask(
 				Err: err,
 			}
 		}
-
 		c.progressbar.IncrementCompletedObjects()
-
 		return nil
 	}
 }

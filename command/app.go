@@ -197,7 +197,6 @@ func Commands() []*cli.Command {
 	return []*cli.Command{
 		NewListCommand(),
 		NewCopyCommand(),
-		NewPipeCommand(),
 		NewDeleteCommand(),
 		NewMoveCommand(),
 		NewMakeBucketCommand(),
@@ -205,6 +204,7 @@ func Commands() []*cli.Command {
 		NewSelectCommand(),
 		NewSizeCommand(),
 		NewCatCommand(),
+		NewPipeCommand(),
 		NewRunCommand(),
 		NewSyncCommand(),
 		NewVersionCommand(),

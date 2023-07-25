@@ -284,12 +284,11 @@ func (c Pipe) shouldOverride(ctx context.Context, dsturl *url.URL) error {
 		return nil
 	}
 
-	var stickyErr error
 	if c.noClobber {
-		stickyErr = errorpkg.ErrObjectExists
+		err = errorpkg.ErrObjectExists
 	}
 
-	return stickyErr
+	return err
 }
 
 func validatePipeCommand(c *cli.Context) error {

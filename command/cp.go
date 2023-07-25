@@ -416,7 +416,6 @@ func (c Copy) Run(ctx context.Context) error {
 		obj, err := client.Stat(ctx, c.src)
 		if err != nil {
 			printError(c.fullCommand, c.op, err)
-			return err
 		}
 		if obj.Size > 0 {
 			c.progressbar.AddTotalBytes(obj.Size)

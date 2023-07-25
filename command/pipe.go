@@ -84,6 +84,10 @@ func NewPipeCommandFlags() []cli.Flag {
 			Name:  "content-encoding",
 			Usage: "set content encoding for target: defines content encoding header for object, e.g. --content-encoding gzip",
 		},
+		&cli.StringFlag{
+			Name:  "content-disposition",
+			Usage: "set content disposition for target: defines content disposition header for object, e.g. --content-disposition 'attachment; filename=\"filename.jpg\"'",
+		},
 		&cli.IntFlag{
 			Name:        "no-such-upload-retry-count",
 			Usage:       "number of times that a request will be retried on NoSuchUpload error; you should not use this unless you really know what you're doing",
@@ -137,15 +141,16 @@ type Pipe struct {
 	deleteSource bool
 
 	// flags
-	noClobber        bool
-	storageClass     storage.StorageClass
-	encryptionMethod string
-	encryptionKeyID  string
-	acl              string
-	cacheControl     string
-	expires          string
-	contentType      string
-	contentEncoding  string
+	noClobber          bool
+	storageClass       storage.StorageClass
+	encryptionMethod   string
+	encryptionKeyID    string
+	acl                string
+	cacheControl       string
+	expires            string
+	contentType        string
+	contentEncoding    string
+	contentDisposition string
 
 	// region settings
 	dstRegion string
@@ -173,18 +178,19 @@ func NewPipe(c *cli.Context, deleteSource bool) (*Pipe, error) {
 		fullCommand:  fullCommand,
 		deleteSource: deleteSource,
 		// flags
-		noClobber:        c.Bool("no-clobber"),
-		storageClass:     storage.StorageClass(c.String("storage-class")),
-		concurrency:      c.Int("concurrency"),
-		partSize:         c.Int64("part-size") * megabytes,
-		encryptionMethod: c.String("sse"),
-		encryptionKeyID:  c.String("sse-kms-key-id"),
-		acl:              c.String("acl"),
-		cacheControl:     c.String("cache-control"),
-		expires:          c.String("expires"),
-		contentType:      c.String("content-type"),
-		contentEncoding:  c.String("content-encoding"),
-		dstRegion:        c.String("destination-region"),
+		noClobber:          c.Bool("no-clobber"),
+		storageClass:       storage.StorageClass(c.String("storage-class")),
+		concurrency:        c.Int("concurrency"),
+		partSize:           c.Int64("part-size") * megabytes,
+		encryptionMethod:   c.String("sse"),
+		encryptionKeyID:    c.String("sse-kms-key-id"),
+		acl:                c.String("acl"),
+		cacheControl:       c.String("cache-control"),
+		expires:            c.String("expires"),
+		contentType:        c.String("content-type"),
+		contentEncoding:    c.String("content-encoding"),
+		contentDisposition: c.String("content-disposition"),
+		dstRegion:          c.String("destination-region"),
 
 		// s3 options
 		storageOpts: NewStorageOpts(c),
@@ -256,6 +262,9 @@ func (c Pipe) doUpload(ctx context.Context, dsturl *url.URL) error {
 
 	if c.contentEncoding != "" {
 		metadata.SetContentEncoding(c.contentEncoding)
+	}
+	if c.contentDisposition != "" {
+		metadata.SetContentDisposition(c.contentDisposition)
 	}
 
 	err = dstClient.Put(ctx, &stdin{file: os.Stdin}, dsturl, metadata, c.concurrency, c.partSize)

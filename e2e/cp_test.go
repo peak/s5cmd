@@ -4183,7 +4183,7 @@ func TestUploaingSpecialFile(t *testing.T) {
 		filename = "special_file"
 		content  = "preserved content"
 	)
-	fmt.Println(os.ModeCharDevice)
+
 	workdir := fs.NewDir(t, t.Name(), fs.WithFile(filename, content, fs.WithMode(os.ModeCharDevice)))
 	defer workdir.Remove()
 

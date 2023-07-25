@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"syscall"
 
 	"github.com/karrick/godirwalk"
 	"github.com/termie/go-shutil"
@@ -174,6 +175,10 @@ func (f *Filesystem) Delete(ctx context.Context, url *url.URL) error {
 	if f.dryRun {
 		return nil
 	}
+	isSpecialFile, err := f.IsSpecialFile(url.Absolute())
+	if err == nil && isSpecialFile {
+		return nil
+	}
 
 	return os.Remove(url.Absolute())
 }
@@ -245,6 +250,20 @@ func (f *Filesystem) Rename(file *os.File, newpath string) error {
 	}
 
 	return os.Rename(file.Name(), newpath)
+}
+
+func (f *Filesystem) IsSpecialFile(path string) (bool, error) {
+	fileInfo, err := os.Stat(path)
+	if err != nil {
+		return false, err
+	}
+	mode := fileInfo.Mode()
+	switch mode & syscall.S_IFMT {
+	case syscall.S_IFCHR, syscall.S_IFBLK, syscall.S_IFIFO, syscall.S_IFSOCK:
+		return true, nil
+	default:
+		return false, nil
+	}
 }
 
 func sendObject(ctx context.Context, obj *Object, ch chan *Object) {

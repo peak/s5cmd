@@ -1,5 +1,11 @@
 name: ci
-on: [push, pull_request]
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
 jobs:
   build:
     strategy:
@@ -63,7 +69,7 @@ jobs:
     - run: go install github.com/golang/mock/mockgen@v1.6.0
     - run: make check-codegen
     - run: make vet
-    - run: go install honnef.co/go/tools/cmd/staticcheck@v0.3.0
+    - run: go install honnef.co/go/tools/cmd/staticcheck@v0.4.3
     - run: make staticcheck
     - run: go install mvdan.cc/unparam@latest
     - run: make unparam

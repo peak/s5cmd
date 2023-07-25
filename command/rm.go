@@ -102,13 +102,13 @@ func NewDeleteCommand() *cli.Command {
 				return err
 			}
 
-			excludePatterns, err := createExcludesFromWildcard(c.StringSlice("exclude"))
+			excludePatterns, err := createRegexFromWildcard(c.StringSlice("exclude"))
 			if err != nil {
 				printError(fullCommand, c.Command.Name, err)
 				return err
 			}
 
-			includePatterns, err := createIncludesFromWildcard(c.StringSlice("include"))
+			includePatterns, err := createRegexFromWildcard(c.StringSlice("include"))
 			if err != nil {
 				printError(fullCommand, c.Command.Name, err)
 				return err
@@ -227,11 +227,11 @@ func (d Delete) shouldDeleteObject(object *storage.Object, verbose bool, prefix 
 		}
 		return false
 	}
-	if len(d.excludePatterns) > 0 && isURLExcluded(d.excludePatterns, object.URL.Path, prefix) {
+	if len(d.excludePatterns) > 0 && isURLMatched(d.excludePatterns, object.URL.Path, prefix) {
 		return false
 	}
 	if len(d.includePatterns) > 0 {
-		return isURLIncluded(d.includePatterns, object.URL.Path, prefix)
+		return isURLMatched(d.includePatterns, object.URL.Path, prefix)
 	}
 	return true
 }

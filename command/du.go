@@ -144,7 +144,7 @@ func (sz Size) Run(ctx context.Context) error {
 
 	var merror error
 
-	excludePatterns, err := createExcludesFromWildcard(sz.exclude)
+	excludePatterns, err := createRegexFromWildcard(sz.exclude)
 	if err != nil {
 		printError(sz.fullCommand, sz.op, err)
 		return err
@@ -161,7 +161,7 @@ func (sz Size) Run(ctx context.Context) error {
 			continue
 		}
 
-		if isURLExcluded(excludePatterns, object.URL.Path, sz.src.Prefix) {
+		if isURLMatched(excludePatterns, object.URL.Path, sz.src.Prefix) {
 			continue
 		}
 

@@ -8,10 +8,10 @@ import (
 	"github.com/peak/s5cmd/v2/strutil"
 )
 
-// createExcludesFromWildcard creates regex strings from wildcard.
-func createExcludesFromWildcard(inputExcludes []string) ([]*regexp.Regexp, error) {
+// createRegexFromWildcard creates regex strings from wildcard.
+func createRegexFromWildcard(wildcards []string) ([]*regexp.Regexp, error) {
 	var result []*regexp.Regexp
-	for _, input := range inputExcludes {
+	for _, input := range wildcards {
 		if input != "" {
 			regex := strutil.WildCardToRegexp(input)
 			regex = strutil.MatchFromStartToEnd(regex)
@@ -26,17 +26,16 @@ func createExcludesFromWildcard(inputExcludes []string) ([]*regexp.Regexp, error
 	return result, nil
 }
 
-// isURLExcluded checks whether given urlPath matches any of the exclude patterns.
-func isURLExcluded(excludePatterns []*regexp.Regexp, urlPath, sourcePrefix string) bool {
-	if len(excludePatterns) == 0 {
+func isURLMatched(regexPatterns []*regexp.Regexp, urlPath, sourcePrefix string) bool {
+	if len(regexPatterns) == 0 {
 		return false
 	}
 	if !strings.HasSuffix(sourcePrefix, "/") {
 		sourcePrefix += "/"
 	}
 	sourcePrefix = filepath.ToSlash(sourcePrefix)
-	for _, excludePattern := range excludePatterns {
-		if excludePattern.MatchString(strings.TrimPrefix(urlPath, sourcePrefix)) {
+	for _, regexPattern := range regexPatterns {
+		if regexPattern.MatchString(strings.TrimPrefix(urlPath, sourcePrefix)) {
 			return true
 		}
 	}

@@ -410,13 +410,13 @@ func (c Copy) Run(ctx context.Context) error {
 		isBatch = obj != nil && obj.Type.IsDir()
 	}
 
-	c.excludePatterns, err = createExcludesFromWildcard(c.exclude)
+	c.excludePatterns, err = createRegexFromWildcard(c.exclude)
 	if err != nil {
 		printError(c.fullCommand, c.op, err)
 		return err
 	}
 
-	c.includePatterns, err = createIncludesFromWildcard(c.include)
+	c.includePatterns, err = createRegexFromWildcard(c.include)
 	if err != nil {
 		printError(c.fullCommand, c.op, err)
 		return err
@@ -806,11 +806,11 @@ func (c Copy) shouldCopyObject(object *storage.Object, verbose bool) bool {
 		}
 		return false
 	}
-	if len(c.excludePatterns) > 0 && isURLExcluded(c.excludePatterns, object.URL.Path, c.src.Prefix) {
+	if len(c.excludePatterns) > 0 && isURLMatched(c.excludePatterns, object.URL.Path, c.src.Prefix) {
 		return false
 	}
 	if len(c.includePatterns) > 0 {
-		return isURLIncluded(c.includePatterns, object.URL.Path, c.src.Prefix)
+		return isURLMatched(c.includePatterns, object.URL.Path, c.src.Prefix)
 	}
 	return true
 }

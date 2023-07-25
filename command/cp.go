@@ -581,6 +581,14 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 	}
 	defer file.Close()
 
+	isSpecialFile, err := srcClient.IsSpecialFile(file)
+	if err != nil {
+		return err
+	}
+	if isSpecialFile {
+		return fmt.Errorf("object '%v' is a special file", file.Name())
+	}
+
 	err = c.shouldOverride(ctx, srcurl, dsturl)
 	if err != nil {
 		if errorpkg.IsWarning(err) {

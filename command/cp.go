@@ -406,16 +406,13 @@ func (c Copy) Run(ctx context.Context) error {
 			continue
 		}
 		if c.dst.IsRemote() {
-			isSpecialFile, err := client.(*storage.Filesystem).IsSpecialFile(object.URL.Path)
+			fileInfo, err := os.Stat(object.URL.Absolute())
 			if err != nil {
 				merrorObjects = multierror.Append(merrorObjects, err)
 				printError(c.fullCommand, c.op, err)
 				continue
 			}
-			if isSpecialFile {
-				err := fmt.Errorf("object '%v' is a special file", object)
-				merrorObjects = multierror.Append(merrorObjects, err)
-				printError(c.fullCommand, c.op, err)
+			if !fileInfo.Mode().IsRegular() {
 				continue
 			}
 		}

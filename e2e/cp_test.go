@@ -2532,6 +2532,7 @@ func TestCopyLocalFileToS3WithNoClobber(t *testing.T) {
 	)
 
 	createBucket(t, s3client, bucket)
+	putFile(t, s3client, bucket, filename, content)
 
 	// the file to be uploaded is modified
 	workdir := fs.NewDir(t, t.Name(), fs.WithFile(filename, newContent))
@@ -2543,9 +2544,7 @@ func TestCopyLocalFileToS3WithNoClobber(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(`cp %v %v/%v`, filename, dst, filename),
-	})
+	assertLines(t, result.Stdout(), map[int]compareFunc{})
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{})
 
@@ -2554,7 +2553,7 @@ func TestCopyLocalFileToS3WithNoClobber(t *testing.T) {
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 
 	// expect s3 object is not overridden
-	assert.Assert(t, ensureS3Object(s3client, bucket, filename, newContent))
+	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content))
 }
 
 // cp -n -s file s3://bucket (bucket/file exists)

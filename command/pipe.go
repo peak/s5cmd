@@ -27,7 +27,7 @@ Options:
 	{{end}}
 Examples:
 	01. Upload stdin output to a bucket
-		 > echo "content" | s5cmd {{.HelpName}} s3://bucket/prefix/object.gz
+		 > echo "content" | gzip | s5cmd {{.HelpName}} s3://bucket/prefix/object.gz
 `
 
 func NewPipeCommandFlags() []cli.Flag {

@@ -405,6 +405,20 @@ func (c Copy) Run(ctx context.Context) error {
 		if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) {
 			continue
 		}
+		if c.dst.IsRemote() {
+			isSpecialFile, err := client.(*storage.Filesystem).IsSpecialFile(object.URL.Path)
+			if err != nil {
+				merrorObjects = multierror.Append(merrorObjects, err)
+				printError(c.fullCommand, c.op, err)
+				continue
+			}
+			if isSpecialFile {
+				err := fmt.Errorf("object '%v' is a special file", object)
+				merrorObjects = multierror.Append(merrorObjects, err)
+				printError(c.fullCommand, c.op, err)
+				continue
+			}
+		}
 
 		if err := object.Err; err != nil {
 			merrorObjects = multierror.Append(merrorObjects, err)
@@ -580,14 +594,6 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 		return err
 	}
 	defer file.Close()
-
-	isSpecialFile, err := srcClient.IsSpecialFile(file.Name())
-	if err != nil {
-		return err
-	}
-	if isSpecialFile {
-		return fmt.Errorf("object '%v' is a special file", file.Name())
-	}
 
 	err = c.shouldOverride(ctx, srcurl, dsturl)
 	if err != nil {

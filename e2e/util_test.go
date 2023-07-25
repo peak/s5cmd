@@ -77,6 +77,9 @@ func init() {
 type setupOpts struct {
 	s3backend   string
 	endpointURL string
+	accessKeyId string
+	secretKey   string
+	region      string
 	timeSource  gofakes3.TimeSource
 	enableProxy bool
 }
@@ -95,6 +98,24 @@ func withEndpointURL(url string) option {
 	}
 }
 
+func withAccessKeyId(key string) option {
+	return func(opts *setupOpts) {
+		opts.accessKeyId = key
+	}
+}
+
+func withSecretKey(key string) option {
+	return func(opts *setupOpts) {
+		opts.secretKey = key
+	}
+}
+
+func withRegion(region string) option {
+	return func(opts *setupOpts) {
+		opts.region = region
+	}
+}
+
 func withTimeSource(timeSource gofakes3.TimeSource) option {
 	return func(opts *setupOpts) {
 		opts.timeSource = timeSource
@@ -105,6 +126,12 @@ func withProxy() option {
 	return func(opts *setupOpts) {
 		opts.enableProxy = true
 	}
+}
+
+type credentialCfg struct {
+	AccessKeyId string
+	SecretKey   string
+	Region      string
 }
 
 func setup(t *testing.T, options ...option) (*s3.S3, func(...string) icmd.Cmd) {
@@ -133,10 +160,35 @@ func setup(t *testing.T, options ...option) (*s3.S3, func(...string) icmd.Cmd) {
 	if opts.endpointURL != "" {
 		endpoint = opts.endpointURL
 	}
+	secretKey := ""
+	if opts.secretKey != "" {
+		secretKey = opts.secretKey
+	}
+
+	accessKeyId := ""
+	if opts.accessKeyId != "" {
+		accessKeyId = opts.accessKeyId
+	}
+
+	region := ""
+	if opts.region != "" {
+		region = opts.accessKeyId
+	}
+
+	var cfg *credentialCfg
+	if region != "" || accessKeyId != "" || secretKey != "" {
+		cfg = &credentialCfg{
+			AccessKeyId: accessKeyId,
+			SecretKey:   secretKey,
+			Region:      region,
+		}
+	} else {
+		cfg = nil
+	}
 	client := s3client(t, storage.Options{
 		Endpoint:    endpoint,
 		NoVerifySSL: true,
-	})
+	}, cfg)
 
 	return client, s5cmd(workdir, endpoint)
 }
@@ -171,7 +223,7 @@ func server(t *testing.T, testdir *fs.Dir, opts *setupOpts) string {
 	return endpoint
 }
 
-func s3client(t *testing.T, options storage.Options) *s3.S3 {
+func s3client(t *testing.T, options storage.Options, creds *credentialCfg) *s3.S3 {
 	t.Helper()
 
 	awsLogLevel := aws.LogOff
@@ -180,12 +232,20 @@ func s3client(t *testing.T, options storage.Options) *s3.S3 {
 	}
 	s3Config := aws.NewConfig()
 
-	id := defaultAccessKeyID
-	key := defaultSecretAccessKey
-	endpoint := options.Endpoint
-	region := endpoints.UsEast1RegionID
-	isVirtualHost := false
+	var id, key, region string
 
+	if creds != nil {
+		id = creds.AccessKeyId
+		key = creds.SecretKey
+		region = creds.Region
+	} else {
+		id = defaultAccessKeyID
+		key = defaultSecretAccessKey
+		region = endpoints.UsEast1RegionID
+	}
+
+	endpoint := options.Endpoint
+	isVirtualHost := false
 	// get environment variables and use external endpoint url.
 	// this can be used to test s3 sources such as GCS, amazon, wasabi etc.
 	if isEndpointFromEnv() {

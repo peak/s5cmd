@@ -199,7 +199,7 @@ func NewPipe(c *cli.Context, deleteSource bool) (*Pipe, error) {
 // Run starts copying stdin output to destination.
 func (c Pipe) Run(ctx context.Context) error {
 	if c.dst.IsBucket() || c.dst.IsPrefix() {
-		return fmt.Errorf("target %q must be a file", c.dst)
+		return fmt.Errorf("target %q must be an object", c.dst)
 	}
 	err := c.shouldOverride(ctx, c.dst)
 	if err != nil {

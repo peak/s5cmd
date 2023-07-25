@@ -39,12 +39,57 @@ func beforeFunc(c *cli.Context) error {
 	return err
 }
 
+func buildSelect(c *cli.Context, inputFormat string, inputStructure *string) (cmd *Select, err error) {
+	defer stat.Collect(c.Command.FullName(), &err)()
+
+	fullCommand := commandFromContext(c)
+
+	src, err := url.New(c.Args().Get(0), url.WithVersion(c.String("version-id")),
+		url.WithRaw(c.Bool("raw")), url.WithAllVersions(c.Bool("all-versions")))
+	if err != nil {
+		printError(fullCommand, c.Command.Name, err)
+		return nil, err
+	}
+	cmd = &Select{
+		src:         src,
+		op:          c.Command.Name,
+		fullCommand: fullCommand,
+		// flags
+		inputFormat:           inputFormat,
+		outputFormat:          c.String("output-format"),
+		query:                 c.String("query"),
+		compressionType:       c.String("compression"),
+		exclude:               c.StringSlice("exclude"),
+		forceGlacierTransfer:  c.Bool("force-glacier-transfer"),
+		ignoreGlacierWarnings: c.Bool("ignore-glacier-warnings"),
+
+		storageOpts: NewStorageOpts(c),
+	}
+
+	// parquet files don't have an input structure
+	if inputStructure != nil {
+		cmd.inputStructure = *inputStructure
+	}
+	return cmd, nil
+}
+
 func NewSelectCommand() *cli.Command {
 	sharedFlags := []cli.Flag{
 		&cli.StringFlag{
 			Name:    "query",
 			Aliases: []string{"e"},
 			Usage:   "SQL expression to use to select from the objects",
+		},
+		&cli.GenericFlag{
+			Name:  "compression",
+			Usage: "input compression format",
+			Value: &EnumValue{
+				Enum:    []string{"none", "gzip", "bzip2"},
+				Default: "none",
+				ConditionFunction: func(str, target string) bool {
+					return strings.ToLower(target) == str
+				},
+			},
 		},
 		&cli.GenericFlag{
 			Name:  "output-format",
@@ -91,75 +136,27 @@ func NewSelectCommand() *cli.Command {
 				Name:  "csv",
 				Usage: "write queries for csv files",
 				Flags: append([]cli.Flag{
-					&cli.GenericFlag{
-						Name:  "compression",
-						Usage: "input compression format",
-						Value: &EnumValue{
-							Enum:    []string{"none", "gzip", "bzip2"},
-							Default: "none",
-							ConditionFunction: func(str, target string) bool {
-								return strings.ToLower(target) == str
-							},
-						},
-					},
-					&cli.GenericFlag{
+					&cli.StringFlag{
 						Name:  "delimiter",
 						Usage: "delimiter of the csv file",
-						Value: &EnumValue{
-							Enum:    []string{",", "\t"},
-							Default: ",",
-							ConditionFunction: func(str, target string) bool {
-								return strings.ToLower(target) == str
-							},
-						},
 					},
 				}, sharedFlags...),
 				CustomHelpTemplate: defaultSelectHelpTemplate,
 				Before:             beforeFunc,
 				Action: func(c *cli.Context) (err error) {
-					defer stat.Collect(c.Command.FullName(), &err)()
-
-					fullCommand := commandFromContext(c)
-
-					src, err := url.New(c.Args().Get(0), url.WithVersion(c.String("version-id")),
-						url.WithRaw(c.Bool("raw")), url.WithAllVersions(c.Bool("all-versions")))
+					delimiter := c.String("delimiter")
+					cmd, err := buildSelect(c, "csv", &delimiter)
 					if err != nil {
-						printError(fullCommand, c.Command.Name, err)
+						printError(cmd.fullCommand, c.Command.Name, err)
 						return err
 					}
-					return Select{
-						src:         src,
-						op:          c.Command.Name,
-						fullCommand: fullCommand,
-						// flags
-						inputFormat:           "csv",
-						inputStructure:        c.String("delimiter"),
-						outputFormat:          c.String("output-format"),
-						compressionType:       c.String("compression"),
-						query:                 c.String("query"),
-						exclude:               c.StringSlice("exclude"),
-						forceGlacierTransfer:  c.Bool("force-glacier-transfer"),
-						ignoreGlacierWarnings: c.Bool("ignore-glacier-warnings"),
-
-						storageOpts: NewStorageOpts(c),
-					}.Run(c.Context)
+					return cmd.Run(c.Context)
 				},
 			},
 			{
 				Name:  "json",
 				Usage: "write queries for json files",
 				Flags: append([]cli.Flag{
-					&cli.GenericFlag{
-						Name:  "compression",
-						Usage: "input compression format",
-						Value: &EnumValue{
-							Enum:    []string{"none", "gzip", "bzip2"},
-							Default: "none",
-							ConditionFunction: func(str, target string) bool {
-								return strings.ToLower(target) == str
-							},
-						},
-					},
 					&cli.GenericFlag{
 						Name:  "structure",
 						Usage: "how objects are aligned in the json file",
@@ -175,110 +172,30 @@ func NewSelectCommand() *cli.Command {
 				CustomHelpTemplate: defaultSelectHelpTemplate,
 				Before:             beforeFunc,
 				Action: func(c *cli.Context) (err error) {
-					defer stat.Collect(c.Command.FullName(), &err)()
-
-					fullCommand := commandFromContext(c)
-
-					src, err := url.New(c.Args().Get(0), url.WithVersion(c.String("version-id")),
-						url.WithRaw(c.Bool("raw")), url.WithAllVersions(c.Bool("all-versions")))
+					structure := c.String("structure")
+					cmd, err := buildSelect(c, "json", &structure)
 					if err != nil {
-						printError(fullCommand, c.Command.Name, err)
+						printError(cmd.fullCommand, c.Command.Name, err)
 						return err
 					}
-					return Select{
-						src:         src,
-						op:          c.Command.Name,
-						fullCommand: fullCommand,
-						// flags
-						inputFormat:           "json",
-						inputStructure:        c.String("structure"),
-						outputFormat:          c.String("output-format"),
-						query:                 c.String("query"),
-						compressionType:       c.String("compression"),
-						exclude:               c.StringSlice("exclude"),
-						forceGlacierTransfer:  c.Bool("force-glacier-transfer"),
-						ignoreGlacierWarnings: c.Bool("ignore-glacier-warnings"),
-
-						storageOpts: NewStorageOpts(c),
-					}.Run(c.Context)
+					return cmd.Run(c.Context)
 				},
 			},
 			{
-				Name:  "parquet",
-				Usage: "write queries for parquet files",
-				Flags: append([]cli.Flag{
-					&cli.GenericFlag{
-						Name:  "output-format",
-						Usage: "output data format",
-						Value: &EnumValue{
-							Enum:    []string{"json", "csv"},
-							Default: "json",
-							ConditionFunction: func(str, target string) bool {
-								return strings.ToLower(target) == str
-							},
-						},
-					},
-				}, sharedFlags...),
+				Name:               "parquet",
+				Usage:              "write queries for parquet files",
+				Flags:              sharedFlags,
 				CustomHelpTemplate: defaultSelectHelpTemplate,
 				Before:             beforeFunc,
 				Action: func(c *cli.Context) (err error) {
-					defer stat.Collect(c.Command.FullName(), &err)()
-
-					fullCommand := commandFromContext(c)
-
-					src, err := url.New(c.Args().Get(0), url.WithVersion(c.String("version-id")),
-						url.WithRaw(c.Bool("raw")), url.WithAllVersions(c.Bool("all-versions")))
+					cmd, err := buildSelect(c, "parquet", nil)
 					if err != nil {
-						printError(fullCommand, c.Command.Name, err)
+						printError(cmd.fullCommand, c.Command.Name, err)
 						return err
 					}
-					return Select{
-						src:         src,
-						op:          c.Command.Name,
-						fullCommand: fullCommand,
-						// flags
-						inputFormat:           "parquet",
-						outputFormat:          c.String("output-format"),
-						query:                 c.String("query"),
-						compressionType:       c.String("compression"),
-						exclude:               c.StringSlice("exclude"),
-						forceGlacierTransfer:  c.Bool("force-glacier-transfer"),
-						ignoreGlacierWarnings: c.Bool("ignore-glacier-warnings"),
-
-						storageOpts: NewStorageOpts(c),
-					}.Run(c.Context)
+					return cmd.Run(c.Context)
 				},
 			},
-		},
-		Flags:  sharedFlags,
-		Before: beforeFunc,
-		Action: func(c *cli.Context) (err error) {
-			defer stat.Collect(c.Command.FullName(), &err)()
-
-			fullCommand := commandFromContext(c)
-
-			src, err := url.New(c.Args().Get(0), url.WithVersion(c.String("version-id")),
-				url.WithRaw(c.Bool("raw")), url.WithAllVersions(c.Bool("all-versions")))
-			if err != nil {
-				printError(fullCommand, c.Command.Name, err)
-				return err
-			}
-			return Select{
-				src:         src,
-				op:          c.Command.Name,
-				fullCommand: fullCommand,
-				// flags
-				inputFormat:           "json",
-				inputStructure:        "lines",
-				outputFormat:          c.String("output-format"),
-				query:                 c.String("query"),
-				compressionType:       c.String("compression"),
-				exclude:               c.StringSlice("exclude"),
-				forceGlacierTransfer:  c.Bool("force-glacier-transfer"),
-				ignoreGlacierWarnings: c.Bool("ignore-glacier-warnings"),
-
-				storageOpts: NewStorageOpts(c),
-			}.Run(c.Context)
 		},
 		CustomHelpTemplate: defaultSelectHelpTemplate,
 	}

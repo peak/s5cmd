@@ -511,8 +511,9 @@ func setBucketVersioning(t *testing.T, s3client *s3.S3, bucket string, versionin
 var errS3NoSuchKey = fmt.Errorf("s3: no such key")
 
 type ensureOpts struct {
-	contentType  *string
-	storageClass *string
+	contentType        *string
+	contentDisposition *string
+	storageClass       *string
 }
 
 type ensureOption func(*ensureOpts)
@@ -520,6 +521,12 @@ type ensureOption func(*ensureOpts)
 func ensureContentType(contentType string) ensureOption {
 	return func(opts *ensureOpts) {
 		opts.contentType = &contentType
+	}
+}
+
+func ensureContentDisposition(contentDisposition string) ensureOption {
+	return func(opts *ensureOpts) {
+		opts.contentDisposition = &contentDisposition
 	}
 }
 
@@ -571,6 +578,13 @@ func ensureS3Object(
 		if diff := cmp.Diff(opts.contentType, output.ContentType); diff != "" {
 			return fmt.Errorf("content-type of %v/%v: (-want +got):\n%v", bucket, key, diff)
 		}
+	}
+
+	if opts.contentDisposition != nil {
+		if diff := cmp.Diff(opts.contentDisposition, output.ContentDisposition); diff != "" {
+			return fmt.Errorf("content-disposition of %v/%v: (-want +got):\n%v", bucket, key, diff)
+		}
+
 	}
 
 	if opts.storageClass != nil {

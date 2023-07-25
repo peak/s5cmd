@@ -514,6 +514,9 @@ via `--retry-count` flag.
 
 ℹ️ Enable debug level logging for displaying retryable errors.
 
+### Integrity Verification
+`s5cmd` performs checksum validation for uploading files. The AWS SDK appends `Content-MD5` header for both standard and multipart uploads. If the checksum that S3 calculates does not match the `Content-MD5` provided, S3 will not store the object and instead will return an error message back to `s5cmd` with the error code `InvalidDigest`. If `s5cmd` receives an `InvalidDigest` error it will stop retrying and return with a non-success code.
+
 ## Using wildcards
 
 On some shells, like zsh, the `*` character gets treated as a file globbing

@@ -111,14 +111,12 @@ func (c Cat) Run(ctx context.Context) error {
 		printError(c.fullCommand, c.op, err)
 		return err
 	}
-
-	obj, err := client.Stat(ctx, c.src)
-
+	_, err = client.Stat(ctx, c.src)
 	if err != nil {
 		printError(c.fullCommand, c.op, err)
 		return err
 	}
-	buff := buffer.NewOrderedBuffer(obj.Size, os.Stdout)
+	buff := buffer.NewOrderedBuffer(os.Stdout)
 	_, err = client.Get(ctx, c.src, buff, c.concurrency, c.partSize)
 	if err != nil {
 		printError(c.fullCommand, c.op, err)

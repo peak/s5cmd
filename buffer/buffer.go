@@ -1,3 +1,6 @@
+// Package buffer implements an unbounded buffer for ordering concurrent writes for
+// non-seekable writers. It keeps an internal linked list that keeps the chunks in order
+// and flushes buffered chunks when the smallest expected offset is available.
 package buffer
 
 import (
@@ -6,28 +9,24 @@ import (
 	"sync"
 )
 
-type FileChunk struct {
+type fileChunk struct {
 	Start   int64
 	Content []byte
 }
 
 type OrderedBuffer struct {
-	w             io.Writer
-	totalExpected int64
-	written       int64
-	list          *list.List
-	mu            *sync.Mutex
-	Queued        int
+	w       io.Writer
+	written int64
+	list    *list.List
+	mu      *sync.Mutex
 }
 
-func NewOrderedBuffer(expectedBytes int64, w io.Writer) *OrderedBuffer {
+func NewOrderedBuffer(w io.Writer) *OrderedBuffer {
 	return &OrderedBuffer{
-		totalExpected: expectedBytes,
-		written:       0,
-		list:          list.New(),
-		mu:            &sync.Mutex{},
-		w:             w,
-		Queued:        0,
+		written: 0,
+		list:    list.New(),
+		mu:      &sync.Mutex{},
+		w:       w,
 	}
 }
 
@@ -47,24 +46,19 @@ func (ob *OrderedBuffer) WriteAt(p []byte, offset int64) (int, error) {
 		}
 		b := make([]byte, len(p))
 		copy(b, p)
-		ob.list.PushBack(&FileChunk{
+		ob.list.PushBack(&fileChunk{
 			Start:   offset,
 			Content: b,
 		})
-		ob.Queued++
 		return len(p), nil
 	}
 	inserted := false
 	for e := ob.list.Front(); e != nil; e = e.Next() {
-		v, ok := e.Value.(*FileChunk)
-		if !ok {
-			// NOTE: should we handle this ?
-			continue
-		}
+		v, _ := e.Value.(*fileChunk)
 		if offset < v.Start {
 			b := make([]byte, len(p))
 			copy(b, p)
-			ob.list.InsertBefore(&FileChunk{
+			ob.list.InsertBefore(&fileChunk{
 				Start:   offset,
 				Content: b,
 			}, e)
@@ -75,19 +69,14 @@ func (ob *OrderedBuffer) WriteAt(p []byte, offset int64) (int, error) {
 	if !inserted {
 		b := make([]byte, len(p))
 		copy(b, p)
-		ob.list.PushBack(&FileChunk{
+		ob.list.PushBack(&fileChunk{
 			Start:   offset,
 			Content: b,
 		})
 	}
-	ob.Queued++
 	removeList := make([]*list.Element, 0)
 	for e := ob.list.Front(); e != nil; e = e.Next() {
-		v, ok := e.Value.(*FileChunk)
-		if !ok {
-			// NOTE: should we handle this ?
-			continue
-		}
+		v, _ := e.Value.(*fileChunk)
 		if v.Start == ob.written {
 			n, err := ob.w.Write(v.Content)
 			if err != nil {
@@ -95,7 +84,6 @@ func (ob *OrderedBuffer) WriteAt(p []byte, offset int64) (int, error) {
 			}
 			removeList = append(removeList, e)
 			ob.written += int64(n)
-			ob.Queued--
 		} else {
 			break
 		}

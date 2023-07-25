@@ -172,7 +172,6 @@ func TestCatS3ObjectFail(t *testing.T) {
 			cmd := s5cmd(tc.cmd...)
 
 			result := icmd.RunCmd(cmd)
-
 			result.Assert(t, icmd.Expected{ExitCode: 1})
 			assertLines(t, result.Stderr(), tc.expected, tc.assertOps...)
 		})

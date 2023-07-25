@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"syscall"
 
 	"github.com/karrick/godirwalk"
 	"github.com/termie/go-shutil"
@@ -258,8 +257,8 @@ func (f *Filesystem) IsSpecialFile(path string) (bool, error) {
 		return false, err
 	}
 	mode := fileInfo.Mode()
-	switch mode & syscall.S_IFMT {
-	case syscall.S_IFCHR, syscall.S_IFBLK, syscall.S_IFIFO, syscall.S_IFSOCK:
+	switch mode & (os.ModeNamedPipe | os.ModeSocket | os.ModeCharDevice | os.ModeDevice) {
+	case os.ModeNamedPipe, os.ModeSocket, os.ModeCharDevice, os.ModeDevice:
 		return true, nil
 	default:
 		return false, nil

@@ -174,13 +174,7 @@ func (f *Filesystem) Delete(ctx context.Context, url *url.URL) error {
 	if f.dryRun {
 		return nil
 	}
-	isSpecialFile, err := f.IsSpecialFile(url.Absolute())
-	if err != nil {
-		return err
-	}
-	if isSpecialFile {
-		return fmt.Errorf("object %v is a special file", url)
-	}
+
 	return os.Remove(url.Absolute())
 }
 
@@ -251,21 +245,6 @@ func (f *Filesystem) Rename(file *os.File, newpath string) error {
 	}
 
 	return os.Rename(file.Name(), newpath)
-}
-
-func (f *Filesystem) IsSpecialFile(path string) (bool, error) {
-	fileInfo, err := os.Stat(path)
-	if err != nil {
-		return false, err
-	}
-	mode := fileInfo.Mode()
-	fmt.Println("mode=", mode)
-	switch mode & (os.ModeNamedPipe | os.ModeSocket | os.ModeCharDevice | os.ModeDevice) {
-	case os.ModeNamedPipe, os.ModeSocket, os.ModeCharDevice, os.ModeDevice:
-		return true, nil
-	default:
-		return false, nil
-	}
 }
 
 func sendObject(ctx context.Context, obj *Object, ch chan *Object) {

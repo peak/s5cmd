@@ -198,53 +198,25 @@ func NewPipe(c *cli.Context, deleteSource bool) (*Pipe, error) {
 
 // Run starts copying stdin output to destination.
 func (c Pipe) Run(ctx context.Context) error {
-	var task = c.prepareUploadTask(ctx, c.dst)
-	var err = task()
-
-	return err
-}
-
-func (c Pipe) prepareUploadTask(
-	ctx context.Context,
-	dsturl *url.URL,
-) func() error {
-	return func() error {
-		if dsturl.IsBucket() || dsturl.IsPrefix() {
-			return fmt.Errorf("target %q must be a file", dsturl)
-		}
-
-		err := c.doUpload(ctx, dsturl)
-		if err != nil {
-			return &errorpkg.Error{
-				Op:  c.op,
-				Src: nil,
-				Dst: dsturl,
-				Err: err,
-			}
-		}
-		return nil
+	if c.dst.IsBucket() || c.dst.IsPrefix() {
+		return fmt.Errorf("target %q must be a file", c.dst)
 	}
-}
-
-func (c Pipe) doUpload(ctx context.Context, dsturl *url.URL) error {
-	err := c.shouldOverride(ctx, dsturl)
+	err := c.shouldOverride(ctx, c.dst)
 	if err != nil {
 		if errorpkg.IsWarning(err) {
-			printDebug(c.op, err, nil, dsturl)
+			printDebug(c.op, err, nil, c.dst)
 			return nil
 		}
 		return err
 	}
-
 	// override destination region if set
 	if c.dstRegion != "" {
 		c.storageOpts.SetRegion(c.dstRegion)
 	}
-	dstClient, err := storage.NewRemoteClient(ctx, dsturl, c.storageOpts)
+	dstClient, err := storage.NewRemoteClient(ctx, c.dst, c.storageOpts)
 	if err != nil {
 		return err
 	}
-
 	metadata := storage.NewMetadata().
 		SetStorageClass(string(c.storageClass)).
 		SetSSE(c.encryptionMethod).
@@ -256,32 +228,35 @@ func (c Pipe) doUpload(ctx context.Context, dsturl *url.URL) error {
 	if c.contentType != "" {
 		metadata.SetContentType(c.contentType)
 	} else {
-		metadata.SetContentType(guessContentTypeByExtension(dsturl))
+		metadata.SetContentType(guessContentTypeByExtension(c.dst))
 	}
-
 	if c.contentEncoding != "" {
 		metadata.SetContentEncoding(c.contentEncoding)
 	}
 	if c.contentDisposition != "" {
 		metadata.SetContentDisposition(c.contentDisposition)
 	}
-
-	err = dstClient.Put(ctx, &stdin{file: os.Stdin}, dsturl, metadata, c.concurrency, c.partSize)
-
+	err = dstClient.Put(ctx, &stdin{file: os.Stdin}, c.dst, metadata, c.concurrency, c.partSize)
 	if err != nil {
 		return err
 	}
-
 	msg := log.InfoMessage{
 		Operation:   c.op,
 		Source:      nil,
-		Destination: dsturl,
+		Destination: c.dst,
 		Object: &storage.Object{
 			StorageClass: c.storageClass,
 		},
 	}
 	log.Info(msg)
-
+	if err != nil {
+		return &errorpkg.Error{
+			Op:  c.op,
+			Src: nil,
+			Dst: c.dst,
+			Err: err,
+		}
+	}
 	return nil
 }
 

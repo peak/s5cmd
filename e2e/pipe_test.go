@@ -10,7 +10,7 @@ import (
 	"gotest.tools/v3/icmd"
 )
 
-// pipe s3://bucket/object
+// pipe s3://bucket/object.zip
 func TestUploadStdinToS3(t *testing.T) {
 	t.Parallel()
 
@@ -189,37 +189,6 @@ func TestUploadStdinToS3WithPrefix(t *testing.T) {
 	assert.Assert(t, ensureS3Object(s3client, bucket, fmt.Sprintf("s5cmdtest/%v", filename), content))
 }
 
-// pipe s3://bucket/object
-func TestUploadStdinToS3WithCustomName(t *testing.T) {
-	t.Parallel()
-
-	bucket := s3BucketFromTestName(t)
-
-	s3client, s5cmd := setup(t)
-
-	const (
-		filename = "testfile1.txt"
-		content  = "this is the content"
-	)
-
-	createBucket(t, s3client, bucket)
-
-	reader := bytes.NewBufferString(content)
-	dstpath := fmt.Sprintf("s3://%v/%v", bucket, filename)
-
-	cmd := s5cmd("pipe", dstpath)
-	result := icmd.RunCmd(cmd, icmd.WithStdin(reader))
-
-	result.Assert(t, icmd.Success)
-
-	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(`pipe %v`, dstpath),
-	})
-
-	// assert s3 object
-	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content))
-}
-
 // pipe -n s3://bucket/object
 func TestUploadStdinToS3WithNoClobber(t *testing.T) {
 	t.Parallel()
@@ -229,23 +198,22 @@ func TestUploadStdinToS3WithNoClobber(t *testing.T) {
 	s3client, s5cmd := setup(t)
 
 	const (
-		filename = "testfile1.txt"
-		content  = "this is the content"
+		filename   = "test.txt"
+		content    = "this text should be preserved"
+		newContent = "new content should not be written"
 	)
 
 	createBucket(t, s3client, bucket)
+	putFile(t, s3client, bucket, filename, content)
 
-	reader := bytes.NewBufferString(content)
-
-	dst := fmt.Sprintf("s3://%v/%v", bucket, filename)
+	dst := "s3://" + bucket + "/" + filename
 	cmd := s5cmd("pipe", "-n", dst)
+	reader := bytes.NewBufferString(content)
 	result := icmd.RunCmd(cmd, icmd.WithStdin(reader))
 
 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(`pipe %v`, dst),
-	})
+	assertLines(t, result.Stdout(), map[int]compareFunc{})
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{})
 
@@ -270,7 +238,7 @@ func TestUploadStdinToS3WithSameFilenameWithNoClobber(t *testing.T) {
 	createBucket(t, s3client, bucket)
 	putFile(t, s3client, bucket, filename, content)
 
-	reader := bytes.NewBufferString(content)
+	reader := bytes.NewBufferString(newContent)
 
 	dst := fmt.Sprintf("s3://%v/%v", bucket, filename)
 	cmd := s5cmd("--log=debug", "pipe", "-n", dst)

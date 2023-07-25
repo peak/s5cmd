@@ -32,8 +32,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/s3"
 	"gotest.tools/v3/assert"
 	"gotest.tools/v3/fs"
 	"gotest.tools/v3/icmd"
@@ -708,11 +706,6 @@ func TestCopySingleFileToS3(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	output, _ := s3client.GetObject(&s3.GetObjectInput{
-		Bucket: aws.String(bucket),
-		Key:    aws.String(filename),
-	})
-	fmt.Printf("%v\n", output)
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: suffix(`cp %v %v%v`, srcpath, dstpath, filename),
 	})

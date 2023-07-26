@@ -402,8 +402,7 @@ func (c Copy) Run(ctx context.Context) error {
 	}
 
 	for object := range objch {
-		specialFile, _ := storage.IsSpecialFile(object.URL)
-		if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) || specialFile {
+		if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) {
 			continue
 		}
 
@@ -422,7 +421,8 @@ func (c Copy) Run(ctx context.Context) error {
 			continue
 		}
 
-		if isURLExcluded(excludePatterns, object.URL.Path, c.src.Prefix) {
+		specialFile, _ := storage.IsSpecialFile(object.URL)
+		if isURLExcluded(excludePatterns, object.URL.Path, c.src.Prefix) || specialFile {
 			continue
 		}
 

@@ -3,7 +3,6 @@ package command
 import (
 	"io"
 	"os"
-	"reflect"
 	"testing"
 
 	"github.com/peak/s5cmd/v2/storage"
@@ -146,6 +145,6 @@ func TestShouldCopyObject(t *testing.T) {
 				filteredObjects = append(filteredObjects, object)
 			}
 		}
-		assert.Equal(t, reflect.DeepEqual(tc.filteredObjects, filteredObjects), true)
+		assert.DeepEqual(t, tc.filteredObjects, filteredObjects)
 	}
 }

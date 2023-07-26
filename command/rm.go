@@ -154,20 +154,18 @@ func (d Delete) Run(ctx context.Context) error {
 		defer close(urlch)
 
 		for object := range objch {
-			if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) {
+			specialFile, _ := storage.IsSpecialFile(object.URL)
+			if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) || specialFile {
 				continue
 			}
-
 			if err := object.Err; err != nil {
 				merrorObjects = multierror.Append(merrorObjects, err)
 				printError(d.fullCommand, d.op, err)
 				continue
 			}
-
 			if isURLExcluded(excludePatterns, object.URL.Path, srcurl.Prefix) {
 				continue
 			}
-
 			urlch <- object.URL
 		}
 	}()

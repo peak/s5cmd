@@ -402,19 +402,9 @@ func (c Copy) Run(ctx context.Context) error {
 	}
 
 	for object := range objch {
-		if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) {
+		specialFile, _ := storage.IsSpecialFile(object.URL)
+		if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) || specialFile {
 			continue
-		}
-		if c.dst.IsRemote() {
-			fileInfo, err := os.Stat(object.URL.Absolute())
-			if err != nil {
-				merrorObjects = multierror.Append(merrorObjects, err)
-				printError(c.fullCommand, c.op, err)
-				continue
-			}
-			if !fileInfo.Mode().IsRegular() {
-				continue
-			}
 		}
 
 		if err := object.Err; err != nil {
@@ -732,6 +722,11 @@ func (c Copy) doCopy(ctx context.Context, srcurl, dsturl *url.URL) error {
 // the <dst> if <src> and <dst> filenames are the same, except if the size
 // differs.
 func (c Copy) shouldOverride(ctx context.Context, srcurl *url.URL, dsturl *url.URL) error {
+	specialFile, _ := storage.IsSpecialFile(dsturl)
+	if specialFile {
+		return errorpkg.ErrObjectExists
+	}
+
 	// if not asked to override, ignore.
 	if !c.noClobber && !c.ifSizeDiffer && !c.ifSourceNewer {
 		return nil

@@ -4182,7 +4182,7 @@ func TestUploadingSocketFile(t *testing.T) {
 	workdir := fs.NewDir(t, t.Name())
 	defer workdir.Remove()
 	sockaddr := workdir.Path() + "/s5cmd.sock"
-	ln, _ := net.Listen("unix", sockaddr)
+	ln, _ := net.Listen("tcp", sockaddr)
 	t.Cleanup(func() {
 		ln.Close()
 		os.Remove(sockaddr)
@@ -4214,7 +4214,7 @@ func TestOverridingSocketFile(t *testing.T) {
 	workdir := fs.NewDir(t, t.Name())
 	defer workdir.Remove()
 	sockaddr := fmt.Sprintf("%v/%v", workdir.Path(), filename)
-	ln, _ := net.Listen("unix", sockaddr)
+	ln, _ := net.Listen("tcp", sockaddr)
 	t.Cleanup(func() {
 		ln.Close()
 		os.Remove(sockaddr)

@@ -24,6 +24,7 @@ package e2e
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -4172,37 +4173,28 @@ func TestLocalFileOverridenWhenDownloadFailed(t *testing.T) {
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 }
 
-func TestUploaingSpecialFile(t *testing.T) {
+func TestUploadingSocketFile(t *testing.T) {
 	t.Parallel()
-
 	s3client, s5cmd := setup(t)
 	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
-
-	const (
-		filename = "special_file"
-		content  = "preserved content"
-	)
-
-	workdir := fs.NewDir(t, t.Name(), fs.WithFile(filename, content, fs.WithMode(os.ModeCharDevice)))
+	workdir := fs.NewDir(t, t.Name())
 	defer workdir.Remove()
-
-	cmd := s5cmd("cp", filename, "s3://"+bucket+"/")
+	sockaddr := workdir.Path() + "/s5cmd.sock"
+	ln, _ := net.Listen("unix", sockaddr)
+	t.Cleanup(func() {
+		ln.Close()
+		os.Remove(sockaddr)
+	})
+	cmd := s5cmd("cp", sockaddr, "s3://"+bucket+"/")
 	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
 
-	// assert permissiong denied while opening the file
-	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: contains("permission denied"),
-	})
+	// assert no error
+	assertLines(t, result.Stderr(), map[int]compareFunc{})
 
-	// assert logs are empty
+	// assert logs are empty (no remove)
 	assertLines(t, result.Stdout(), map[int]compareFunc{})
 
 	// assert exit code
-	result.Assert(t, icmd.Expected{ExitCode: 1})
-
-	// assert object is not uploaded
-	assertLines(t, ensureS3Object(s3client, bucket, filename, content).Error(), map[int]compareFunc{
-		0: contains("no such key"),
-	})
+	result.Assert(t, icmd.Success)
 }

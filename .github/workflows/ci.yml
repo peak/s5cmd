@@ -47,7 +47,7 @@ jobs:
         minio:
             image: minio/minio
             ports:
-                - 9000: 45677
+                - 9000:45677
     steps:
     - uses: actions/checkout@v2
     - uses: actions/setup-go@v2

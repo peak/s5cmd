@@ -95,7 +95,7 @@ Examples:
 
 	19. Copy all files from S3 bucket to another S3 bucket but exclude the ones starts with log
 		 > s5cmd {{.HelpName}} --exclude "log*" "s3://bucket/*" s3://destbucket
-	
+
 	20. Copy all files from S3 bucket to another S3 bucket but only the ones starts with log
 		 > s5cmd {{.HelpName}} --include "log*" "s3://bucket/*" s3://destbucket
 

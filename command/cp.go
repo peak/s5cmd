@@ -660,6 +660,8 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 	if err != nil {
 		return err
 	}
+	obj, _ := srcClient.Stat(ctx, srcurl)
+	size := obj.Size
 
 	if c.deleteSource {
 		// close the file before deleting
@@ -670,13 +672,12 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 	}
 
 	if !c.showProgress {
-		obj, _ := srcClient.Stat(ctx, srcurl)
 		msg := log.InfoMessage{
 			Operation:   c.op,
 			Source:      srcurl,
 			Destination: dsturl,
 			Object: &storage.Object{
-				Size:         obj.Size,
+				Size:         size,
 				StorageClass: c.storageClass,
 			},
 		}

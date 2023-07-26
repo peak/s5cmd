@@ -153,6 +153,11 @@ func (u *URL) IsRemote() bool {
 	return u.Type == remoteObject
 }
 
+// IsLocal returns whether the object is stored on the local file system.
+func (u *URL) IsLocal() bool {
+	return u.Type == localObject
+}
+
 // IsPrefix reports whether the remote object is an S3 prefix, and does not
 // look like an object.
 func (u *URL) IsPrefix() bool {

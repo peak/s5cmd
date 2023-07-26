@@ -4175,6 +4175,9 @@ func TestLocalFileOverridenWhenDownloadFailed(t *testing.T) {
 
 // It should skip special files and don't try to upload them
 func TestUploadingSocketFile(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip()
+	}
 	t.Parallel()
 	s3client, s5cmd := setup(t)
 	bucket := s3BucketFromTestName(t)
@@ -4182,7 +4185,7 @@ func TestUploadingSocketFile(t *testing.T) {
 	workdir := fs.NewDir(t, t.Name())
 	defer workdir.Remove()
 	sockaddr := workdir.Path() + "/s5cmd.sock"
-	ln, _ := net.Listen("tcp", sockaddr)
+	ln, _ := net.Listen("unix", sockaddr)
 	t.Cleanup(func() {
 		ln.Close()
 		os.Remove(sockaddr)
@@ -4202,6 +4205,9 @@ func TestUploadingSocketFile(t *testing.T) {
 
 // If destination has a special file with the same name, it shouldn't be overriden.
 func TestOverridingSocketFile(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip()
+	}
 	t.Parallel()
 	const (
 		filename = "s5cmd.sock"
@@ -4214,7 +4220,7 @@ func TestOverridingSocketFile(t *testing.T) {
 	workdir := fs.NewDir(t, t.Name())
 	defer workdir.Remove()
 	sockaddr := fmt.Sprintf("%v/%v", workdir.Path(), filename)
-	ln, _ := net.Listen("tcp", sockaddr)
+	ln, _ := net.Listen("unix", sockaddr)
 	t.Cleanup(func() {
 		ln.Close()
 		os.Remove(sockaddr)

@@ -1305,12 +1305,15 @@ func TestRemoveByVersionID(t *testing.T) {
 }
 
 func TestRemovingSocketFile(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip()
+	}
 	t.Parallel()
 	_, s5cmd := setup(t)
 	workdir := fs.NewDir(t, t.Name())
 	defer workdir.Remove()
 	sockaddr := workdir.Path() + "/s5cmd.sock"
-	ln, _ := net.Listen("tcp", sockaddr)
+	ln, _ := net.Listen("unix", sockaddr)
 	t.Cleanup(func() {
 		ln.Close()
 		os.Remove(sockaddr)

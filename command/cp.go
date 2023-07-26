@@ -572,12 +572,9 @@ func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) 
 		return err
 	}
 
-	writer := &CountingWriter{
-		pb: c.progressbar,
-		fp: file,
-	}
+	writer := newCountingReaderWriter(file, c.progressbar)
 	size, err := srcClient.Get(ctx, srcurl, writer, c.concurrency, c.partSize)
-	writer.fp.Close()
+	file.Close()
 
 	if err != nil {
 		dErr := dstClient.Delete(ctx, &url.URL{Path: file.Name(), Type: dsturl.Type})
@@ -658,18 +655,11 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 	if c.contentDisposition != "" {
 		metadata.SetContentDisposition(c.contentDisposition)
 	}
-	reader := &CountingReader{
-		pb:      c.progressbar,
-		fp:      file,
-		signMap: map[int64]struct{}{},
-	}
+	reader := newCountingReaderWriter(file, c.progressbar)
 	err = dstClient.Put(ctx, reader, dsturl, metadata, c.concurrency, c.partSize)
 	if err != nil {
 		return err
 	}
-
-	obj, _ := srcClient.Stat(ctx, srcurl)
-	size := obj.Size
 
 	if c.deleteSource {
 		// close the file before deleting
@@ -680,12 +670,13 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 	}
 
 	if !c.showProgress {
+		obj, _ := srcClient.Stat(ctx, srcurl)
 		msg := log.InfoMessage{
 			Operation:   c.op,
 			Source:      srcurl,
 			Destination: dsturl,
 			Object: &storage.Object{
-				Size:         size,
+				Size:         obj.Size,
 				StorageClass: c.storageClass,
 			},
 		}
@@ -1013,49 +1004,40 @@ func guessContentType(file *os.File) string {
 	return contentType
 }
 
-type CountingWriter struct {
-	pb progressbar.ProgressBar
-	fp *os.File
-}
-
-func (r *CountingWriter) WriteAt(p []byte, off int64) (int, error) {
-	n, err := r.fp.Write(p)
-	if err != nil {
-		return n, err
-	}
-
-	r.pb.AddCompletedBytes(int64(n))
-
-	return n, err
-}
-
-type CountingReader struct {
+type countingReaderWriter struct {
 	pb      progressbar.ProgressBar
 	fp      *os.File
 	signMap map[int64]struct{}
 	mu      sync.Mutex
 }
 
-func (r *CountingReader) Read(p []byte) (int, error) {
-	n, err := r.fp.Read(p)
-	if err != nil {
-		return n, err
+func newCountingReaderWriter(file *os.File, pb progressbar.ProgressBar) *countingReaderWriter {
+	return &countingReaderWriter{
+		pb:      pb,
+		fp:      file,
+		signMap: map[int64]struct{}{},
 	}
+}
+
+func (r *countingReaderWriter) WriteAt(p []byte, off int64) (int, error) {
+	n, err := r.fp.WriteAt(p, off)
 	r.pb.AddCompletedBytes(int64(n))
 	return n, err
 }
 
-func (r *CountingReader) ReadAt(p []byte, off int64) (int, error) {
+func (r *countingReaderWriter) Read(p []byte) (int, error) {
+	n, err := r.fp.Read(p)
+	r.pb.AddCompletedBytes(int64(n))
+	return n, err
+}
+
+func (r *countingReaderWriter) ReadAt(p []byte, off int64) (int, error) {
 	n, err := r.fp.ReadAt(p, off)
-	if err != nil {
-		return n, err
-	}
 	r.mu.Lock()
 	// Ignore the first signature call
 	if _, ok := r.signMap[off]; ok {
 		// Got the length have read (or means has uploaded)
 		r.pb.AddCompletedBytes(int64(n))
-
 	} else {
 		r.signMap[off] = struct{}{}
 	}
@@ -1063,6 +1045,6 @@ func (r *CountingReader) ReadAt(p []byte, off int64) (int, error) {
 	return n, err
 }
 
-func (r *CountingReader) Seek(offset int64, whence int) (int64, error) {
+func (r *countingReaderWriter) Seek(offset int64, whence int) (int64, error) {
 	return r.fp.Seek(offset, whence)
 }

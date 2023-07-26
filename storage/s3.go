@@ -845,6 +845,11 @@ func (s *S3) Put(
 		input.ContentEncoding = aws.String(contentEncoding)
 	}
 
+	contentDisposition := metadata.ContentDisposition()
+	if contentDisposition != "" {
+		input.ContentDisposition = aws.String(contentDisposition)
+	}
+
 	// add retry ID to the object metadata
 	if s.noSuchUploadRetryCount > 0 {
 		input.Metadata[metadataKeyRetryID] = generateRetryID()

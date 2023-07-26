@@ -689,7 +689,8 @@ func TestCopySingleFileToS3(t *testing.T) {
 	</body>
 </html>
 `
-		expectedContentType = "text/html; charset=utf-8"
+		expectedContentType        = "text/html; charset=utf-8"
+		expectedContentDisposition = "inline"
 	)
 
 	workdir := fs.NewDir(t, bucket, fs.WithFile(filename, content))
@@ -697,9 +698,10 @@ func TestCopySingleFileToS3(t *testing.T) {
 
 	srcpath := workdir.Join(filename)
 	dstpath := fmt.Sprintf("s3://%v/", bucket)
+	contentDisposition := "inline"
 
 	srcpath = filepath.ToSlash(srcpath)
-	cmd := s5cmd("cp", srcpath, dstpath)
+	cmd := s5cmd("cp", "--content-disposition", contentDisposition, srcpath, dstpath)
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Success)
@@ -713,7 +715,7 @@ func TestCopySingleFileToS3(t *testing.T) {
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 
 	// assert S3
-	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content, ensureContentType(expectedContentType)))
+	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content, ensureContentType(expectedContentType), ensureContentDisposition(expectedContentDisposition)))
 }
 
 func TestCopySingleFileToS3WithAdjacentSlashes(t *testing.T) {

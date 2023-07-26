@@ -45,7 +45,7 @@ jobs:
     runs-on: ${{ matrix.os }}-latest
     services:
       minio:
-        image: ${{ (matrix.os == 'ubuntu') && 'minio/minio:RELEASE.2023-07-21T21-12-44Z' || ''}}
+        image: ${{ (matrix.os == 'ubuntu') && 'bitnami/minio:2023.7.18' || ''}}
         ports:
           - 45677:9000
         options: >-
@@ -53,7 +53,6 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-          server ./temp
     steps:
     - uses: actions/checkout@v2
     - uses: actions/setup-go@v2

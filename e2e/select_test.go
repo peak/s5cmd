@@ -5,6 +5,7 @@ import (
 	"encoding/csv"
 	jsonpkg "encoding/json"
 	"fmt"
+	"os"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -134,12 +135,11 @@ func TestSelectCommand(t *testing.T) {
 	region := "us-east-1"
 	accessKeyID := "minioadmin"
 	secretKey := "minioadmin"
-	/*
-			host := os.Getenv("MINIO_HOST")
-			port := os.Getenv("MINIO_PORT")
-		address := fmt.Sprintf("http://%s:%s", host, port)
-	*/
-	address := "http://localhost:45677"
+
+	endpoint := os.Getenv("S3_ENDPOINT")
+	if endpoint == "" {
+		t.Skipf("skipping the test because S3_ENDPOINT environment variable is empty")
+	}
 	// The query is default for all cases, we want to assert the output
 	// is as expected after a query.
 	query := "SELECT * FROM s3object s LIMIT 6"
@@ -276,7 +276,7 @@ func TestSelectCommand(t *testing.T) {
 			src := fmt.Sprintf("s3://%s/%s", bucket, filename)
 			tc.cmd = append(tc.cmd, src)
 
-			s3client, s5cmd := setup(t, withEndpointURL(address), withRegion(region), withAccessKeyID(accessKeyID), withSecretKey(secretKey))
+			s3client, s5cmd := setup(t, withEndpointURL(endpoint), withRegion(region), withAccessKeyID(accessKeyID), withSecretKey(secretKey))
 			createBucket(t, s3client, bucket)
 			putFile(t, s3client, bucket, filename, contents)
 			cmd := s5cmd(tc.cmd...)

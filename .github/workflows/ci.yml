@@ -64,9 +64,7 @@ jobs:
 
     - run: make test
       env:
-        MINIO_HOST: 0.0.0.0
-        MINIO_PORT: 45677
-
+        S3_ENDPOINT: ${{ (matrix.os == 'ubuntu') && 'http://0.0.0.0:45677' || '' }}
   qa:
     strategy:
       matrix:

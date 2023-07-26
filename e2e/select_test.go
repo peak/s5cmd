@@ -122,14 +122,8 @@ csv:
 	default input structure and output as csv
 	tab input structure and default output
 	tab input structure and output as csv
-
-parquet:
-
-	// TODO: discuss about testing
-	default input structure and output
-	default input structure and output as csv
 */
-func TestSelectCommand(t *testing.T) {
+func TestSelectCommandWithGeneratedFiles(t *testing.T) {
 	t.Parallel()
 	// credentials are same for all test cases
 	region := "us-east-1"
@@ -149,8 +143,6 @@ func TestSelectCommand(t *testing.T) {
 		in        string
 		structure string
 		out       string
-		expected  map[int]compareFunc
-		src       string
 	}{
 		// json
 		{
@@ -287,6 +279,103 @@ func TestSelectCommand(t *testing.T) {
 				t.Errorf("select command mismatch (-want +got):\n%s", diff)
 			}
 
+		})
+	}
+}
+
+func TestSelectWithParquet(t *testing.T) {
+	t.Parallel()
+	// credentials are same for all test cases
+	region := "us-east-1"
+	accessKeyID := "minioadmin"
+	secretKey := "minioadmin"
+
+	endpoint := os.Getenv("S3_ENDPOINT")
+	if endpoint == "" {
+		t.Skipf("skipping the test because S3_ENDPOINT environment variable is empty")
+	}
+	// The query is default for all cases, we want to assert the output
+	// is as expected
+	query := "SELECT * FROM s3object s LIMIT 6"
+	testcases := []struct {
+		name     string
+		src      string
+		cmd      []string
+		expected string
+	}{
+		{
+			name: "parquet select with json output",
+			src:  "five_line_simple.parquet",
+			cmd: []string{
+				"select",
+				"parquet",
+				"--query",
+				query,
+			},
+			expected: "output.json",
+		},
+		{
+			name: "parquet select with json output",
+			src:  "five_line_simple.parquet",
+			cmd: []string{
+				"select",
+				"parquet",
+				"--output-format",
+				"csv",
+				"--query",
+				query,
+			},
+			expected: "output.csv",
+		},
+	}
+
+	for _, tc := range testcases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			// change the working directory to ./e2e/testdata/parquet
+			cwd, err := os.Getwd()
+			if err != nil {
+				t.Fatal(err)
+			}
+			cwd += "/testfiles/parquet/"
+			sourceFile, err := os.Open(cwd + tc.src)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer sourceFile.Close()
+			var buf bytes.Buffer
+			// read the file content
+			_, err = sourceFile.Read(buf.Bytes())
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			expectedFile, err := os.Open(cwd + tc.expected)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer expectedFile.Close()
+			var expectedBuf bytes.Buffer
+			// read the file content
+			_, err = expectedFile.Read(expectedBuf.Bytes())
+			if err != nil {
+				t.Fatal(err)
+			}
+			// convert the file content to string
+			expected := expectedBuf.String()
+			bucket := s3BucketFromTestName(t)
+			src := fmt.Sprintf("s3://%s/%s", bucket, tc.src)
+			tc.cmd = append(tc.cmd, src)
+
+			s3client, s5cmd := setup(t, withEndpointURL(endpoint), withRegion(region), withAccessKeyID(accessKeyID), withSecretKey(secretKey))
+			createBucket(t, s3client, bucket)
+			putFile(t, s3client, bucket, tc.src, buf.String())
+
+			cmd := s5cmd(tc.cmd...)
+			result := icmd.RunCmd(cmd, withEnv("AWS_ACCESS_KEY_ID", accessKeyID), withEnv("AWS_SECRET_ACCESS_KEY", secretKey))
+			if diff := cmp.Diff(expected, result.Stdout()); diff != "" {
+				t.Errorf("select command mismatch (-want +got):\n%s", diff)
+			}
 		})
 	}
 }

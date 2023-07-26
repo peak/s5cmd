@@ -188,6 +188,19 @@ func ShouldProcessURL(url *url.URL, followSymlinks bool) bool {
 	return fi.Mode()&os.ModeSymlink == 0
 }
 
+func IsSpecialFile(url *url.URL) (bool, error) {
+	if url.IsLocal() {
+		fileInfo, err := os.Stat(url.Absolute())
+		if err != nil {
+			return false, err
+		}
+		if !fileInfo.Mode().IsRegular() {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 // dateFormat is a constant time template for the bucket.
 const dateFormat = "2006/01/02 15:04:05"
 

@@ -44,10 +44,10 @@ jobs:
     name: test (${{ matrix.os }}/go-${{ matrix.go-version }})
     runs-on: ${{ matrix.os }}-latest
     services:
-        minio:
-          image: ${{ (matrix.os == 'ubuntu') && 'minio/minio:RELEASE.2023-07-21T21-12-44Z' || ''}} 
-            ports:
-                - 9000:45677
+      minio:
+        image: ${{ (matrix.os == 'ubuntu') && 'minio/minio:RELEASE.2023-07-21T21-12-44Z' || ''}}
+        ports:
+          - 9000:45677
     steps:
     - uses: actions/checkout@v2
     - uses: actions/setup-go@v2

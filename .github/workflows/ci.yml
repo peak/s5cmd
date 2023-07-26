@@ -45,7 +45,7 @@ jobs:
     runs-on: ${{ matrix.os }}-latest
     services:
         minio:
-            image: ${{''}} 
+            image: ${{ (false) && 'minio/minio' || ''}} 
             ports:
                 - 9000:45677
     steps:

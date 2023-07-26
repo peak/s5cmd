@@ -49,7 +49,7 @@ jobs:
         ports:
           - 45677:9000
         options: >-
-          --health-cmd "curl -I http://localhost:45677/minio/health/live -s"
+          --health-cmd "curl -I http://localhost:9000/minio/health/live -s"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5

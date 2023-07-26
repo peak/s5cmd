@@ -2,14 +2,10 @@
 package e2e
 
 import (
-	"context"
 	"fmt"
 	"strings"
 	"testing"
 
-	"github.com/docker/go-connections/nat"
-	"github.com/testcontainers/testcontainers-go"
-	"github.com/testcontainers/testcontainers-go/wait"
 	"gotest.tools/v3/icmd"
 )
 
@@ -127,41 +123,6 @@ func getSequentialFile(n int, inputForm, outputForm, structure string) (string, 
 	return sb.String(), expectedLines
 }
 
-func startMinio(t *testing.T, ctx context.Context) (testcontainers.Container, string, error) {
-	t.Helper()
-	port, err := nat.NewPort("", "9000")
-	if err != nil {
-		t.Errorf("error while building port\n")
-		return nil, "", err
-	}
-
-	req := testcontainers.ContainerRequest{
-		Image:        "minio/minio",
-		ExposedPorts: []string{string(port)},
-		Cmd:          []string{"server", "/data"},
-		WaitingFor:   wait.ForListeningPort(port),
-	}
-
-	minioC, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
-		ContainerRequest: req,
-		Started:          true,
-	})
-	if err != nil {
-		return nil, "", err
-	}
-	host, err := minioC.Host(ctx)
-	if err != nil {
-		return nil, "", err
-	}
-
-	mappedPort, err := minioC.MappedPort(ctx, port)
-	if err != nil {
-		return nil, "", err
-	}
-	address := fmt.Sprintf("http://%s:%d", host, mappedPort.Int())
-	return minioC, address, nil
-}
-
 /*
 test cases:
 json:
@@ -186,19 +147,6 @@ parquet:
 */
 func TestSelectCommand(t *testing.T) {
 	t.Parallel()
-	/*
-		ctx := context.Background()
-		container, address, err := startMinio(t, ctx)
-		if err != nil {
-			t.Fatalf("could not start the container. Error:%v\n", err)
-		}
-
-		t.Cleanup(func() {
-			if err := container.Terminate(ctx); err != nil {
-				t.Errorf("could not terminate the container. Error:%v\n", err)
-			}
-		})
-	*/
 	// credentials are same for all test cases
 	region := "us-east-1"
 	accessKeyId := "minioadmin"

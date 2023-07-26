@@ -287,6 +287,24 @@ folder hierarchy.
 ⚠️ Copying objects (from S3 to S3) larger than 5GB is not supported yet. We have
 an [open ticket](https://github.com/peak/s5cmd/issues/29) to track the issue.
 
+#### Using Exclude and Include Filters
+`s5cmd` supports both `--exclude` and `--include` flags, which can take wildcard values. These flags can be used with `cp`, `rm`, and `sync` commands. If `--exclude` flag is used, all objects matching the pattern will be excluded from the transfer. If `--include` flag is used, only objects matching the pattern will be included in the transfer. If both flags are used at the same time, `--exclude` has precedence over `--include`. This means if an object URL is matched with any of `--exclude` patterns, the object will be skipped. If there are exclude patterns but a URL does not match any of them, it will check for include patterns. If the URL matches any of include patterns, it will be transferred; otherwise, it will be skipped. The order of the flags does not affect the results, unlike `aws-cli`.
+
+The command below will delete only objects that end with `.log`.
+
+    s5cmd rm --include "*.log" 's3://bucket/logs/2020/*'
+
+The command below will delete all objects except those that end with `.log` or `.txt`.
+
+    s5cmd rm --exclude "*.log" --exclude "*.txt" 's3://bucket/logs/2020/*'
+
+If you wish, you can use multiple flags, like below. It will download objects that start with `request` and end with `.log`.
+
+    s5cmd cp --include "*.log" --include "request*" 's3://bucket/logs/2020/*' .
+
+Using a combination of `--include` and `--exclude` also possible. The command below will only sync objects that end with `.log` and `.txt` but exclude those that start with `access_`. For example, `request.log`, and `license.txt` will be included, while `access_log.txt`, and `readme.md` are excluded.
+
+    s5cmd sync --include "*log" --exclude "access_*" --include "*txt" 's3://bucket/logs/*' .
 #### Select JSON object content using SQL
 
 `s5cmd` supports the `SelectObjectContent` S3 operation, and will run your

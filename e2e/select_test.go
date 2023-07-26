@@ -5,7 +5,6 @@ import (
 	"encoding/csv"
 	jsonpkg "encoding/json"
 	"fmt"
-	"os"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -135,9 +134,12 @@ func TestSelectCommand(t *testing.T) {
 	region := "us-east-1"
 	accessKeyID := "minioadmin"
 	secretKey := "minioadmin"
-	host := os.Getenv("MINIO_HOST")
-	port := os.Getenv("MINIO_PORT")
-	address := fmt.Sprintf("http://%s:%s", host, port)
+	/*
+			host := os.Getenv("MINIO_HOST")
+			port := os.Getenv("MINIO_PORT")
+		address := fmt.Sprintf("http://%s:%s", host, port)
+	*/
+	address := "http://localhost:45677"
 	// The query is default for all cases, we want to assert the output
 	// is as expected after a query.
 	query := "SELECT * FROM s3object s LIMIT 6"

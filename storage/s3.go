@@ -592,17 +592,17 @@ type EventStreamDecoder interface {
 	Decode() ([]byte, error)
 }
 
-type JsonDecoder struct {
+type JSONDecoder struct {
 	decoder *json.Decoder
 }
 
-func NewJsonDecoder(reader io.Reader) EventStreamDecoder {
-	return &JsonDecoder{
+func NewJSONDecoder(reader io.Reader) EventStreamDecoder {
+	return &JSONDecoder{
 		decoder: json.NewDecoder(reader),
 	}
 }
 
-func (jd *JsonDecoder) Decode() ([]byte, error) {
+func (jd *JSONDecoder) Decode() ([]byte, error) {
 	var val json.RawMessage
 	err := jd.decoder.Decode(&val)
 	if err != nil {
@@ -696,7 +696,7 @@ func parseOutputSerialization(val string, reader io.Reader) (*s3.OutputSerializa
 		outputSerialization = &s3.OutputSerialization{
 			JSON: &s3.JSONOutput{},
 		}
-		decoder = NewJsonDecoder(reader)
+		decoder = NewJSONDecoder(reader)
 	case csvType:
 		outputSerialization = &s3.OutputSerialization{
 			CSV: &s3.CSVOutput{

@@ -77,7 +77,7 @@ func init() {
 type setupOpts struct {
 	s3backend   string
 	endpointURL string
-	accessKeyId string
+	accessKeyID string
 	secretKey   string
 	region      string
 	timeSource  gofakes3.TimeSource
@@ -98,9 +98,9 @@ func withEndpointURL(url string) option {
 	}
 }
 
-func withAccessKeyId(key string) option {
+func withAccessKeyID(key string) option {
 	return func(opts *setupOpts) {
-		opts.accessKeyId = key
+		opts.accessKeyID = key
 	}
 }
 
@@ -129,7 +129,7 @@ func withProxy() option {
 }
 
 type credentialCfg struct {
-	AccessKeyId string
+	AccessKeyID string
 	SecretKey   string
 	Region      string
 }
@@ -165,20 +165,20 @@ func setup(t *testing.T, options ...option) (*s3.S3, func(...string) icmd.Cmd) {
 		secretKey = opts.secretKey
 	}
 
-	accessKeyId := ""
-	if opts.accessKeyId != "" {
-		accessKeyId = opts.accessKeyId
+	accessKeyID := ""
+	if opts.accessKeyID != "" {
+		accessKeyID = opts.accessKeyID
 	}
 
 	region := ""
 	if opts.region != "" {
-		region = opts.accessKeyId
+		region = opts.accessKeyID
 	}
 
 	var cfg *credentialCfg
-	if region != "" || accessKeyId != "" || secretKey != "" {
+	if region != "" || accessKeyID != "" || secretKey != "" {
 		cfg = &credentialCfg{
-			AccessKeyId: accessKeyId,
+			AccessKeyID: accessKeyID,
 			SecretKey:   secretKey,
 			Region:      region,
 		}
@@ -235,7 +235,7 @@ func s3client(t *testing.T, options storage.Options, creds *credentialCfg) *s3.S
 	var id, key, region string
 
 	if creds != nil {
-		id = creds.AccessKeyId
+		id = creds.AccessKeyID
 		key = creds.SecretKey
 		region = creds.Region
 	} else {

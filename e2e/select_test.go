@@ -1,126 +1,109 @@
-// go:build external
 package e2e
 
 import (
+	"bytes"
+	"encoding/csv"
+	jsonpkg "encoding/json"
 	"fmt"
-	"strings"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"gotest.tools/v3/icmd"
 )
 
-/*
-query csv to json {_1, _2, ..}, n objects with header
-query json(lines) to json {} n objects
-query csv to csv a,b,c, with header
-query json(lines) to csv  n lines, without header
-query json(document) to json -> same object
-query json(document) to csv -> not supported(?)
-*/
-func getSequentialFile(n int, inputForm, outputForm, structure string) (string, map[int]compareFunc) {
-	sb := strings.Builder{}
-	expectedLines := make(map[int]compareFunc)
-	for i := 0; i < n+1; i++ {
-		var line string
-		switch inputForm {
-		case "json":
-			switch structure {
-			case "lines":
-				if i == n {
-					break
-				}
-				line = fmt.Sprintf(`{ "line": "%d", "id": "i%d", "data": "some event %d" }`, i, i, i)
-			case "document":
-				if i == 0 {
-					line = fmt.Sprintf("{\n%s", line)
-				} else if i == n {
-					line = fmt.Sprintf("%s\n}", line)
-				} else {
-					if i == n-1 {
-						line = fmt.Sprintf(`	"obj%d": {"line": "%d", "id": "i%d", "data": "some event %d"}`, i, i, i, i)
-					} else {
-						line = fmt.Sprintf(`	"obj%d": {"line": "%d", "id": "i%d", "data": "some event %d"},`, i, i, i, i)
-					}
-				}
+func getFile(n int, inputForm, outputForm, structure string) (string, string) {
+	type row struct {
+		Line string `json:"line"`
+		ID   string `json:"id"`
+		Data string `json:"data"`
+	}
+	var data []row
 
+	for i := 0; i < n; i++ {
+		data = append(data, row{
+			Line: fmt.Sprintf("%d", i),
+			ID:   fmt.Sprintf("id%d", i),
+			Data: fmt.Sprintf("some event %d", i),
+		})
+	}
+	var input bytes.Buffer
+	var expected bytes.Buffer
+	switch inputForm {
+	case "json":
+		encoder := jsonpkg.NewEncoder(&input)
+		switch structure {
+		case "document":
+			rows := make(map[string]row)
+			for i, v := range data {
+				rows[fmt.Sprintf("obj%d", i)] = v
 			}
-		case "csv":
-			if i == n {
-				break
+			err := encoder.Encode(rows)
+			if err != nil {
+				panic(err)
 			}
-			if i == 0 {
-				line = fmt.Sprintf("line%sid%sdata", structure, structure)
-			} else {
-				line = fmt.Sprintf(`%d%si%d%s"some event %d"`, i-1, structure, i-1, structure, i-1)
-			}
-		}
-		sb.WriteString(line)
-		sb.WriteString("\n")
-
-		switch inputForm {
-		case "json":
-			// edge case
-			if structure == "document" && i == n {
-				totalLine := ""
-				expectedLines := make(map[int]compareFunc, 1)
-				for j := 0; j < n+1; j++ {
-					if j == 0 {
-						line = "{"
-					} else if j == n {
-						line = "}"
-					} else {
-						if j == n-1 {
-							line = fmt.Sprintf(`"obj%d":{"line":"%d","id":"i%d","data":"some event %d"}`, j, j, j, j)
-						} else {
-							line = fmt.Sprintf(`"obj%d":{"line":"%d","id":"i%d","data":"some event %d"},`, j, j, j, j)
-						}
-					}
-					totalLine = fmt.Sprintf("%s%s", totalLine, line)
+			return input.String(), input.String()
+		default:
+			for _, d := range data {
+				err := encoder.Encode(d)
+				if err != nil {
+					panic(err)
 				}
-				expectedLines[0] = equals(totalLine)
-				return sb.String(), expectedLines
-
-			}
-			if i == n {
-				break
 			}
 			switch outputForm {
-			case "csv":
-				structure := ","
-				line = fmt.Sprintf(`%d%si%d%ssome event %d`, i, structure, i, structure, i)
 			case "json":
-				if i != n {
-					line = fmt.Sprintf(`{"line":"%d","id":"i%d","data":"some event %d"}`, i, i, i)
+				return input.String(), input.String()
+			case "csv":
+				writer := csv.NewWriter(&expected)
+				for _, d := range data {
+					err := writer.Write([]string{d.Line, d.ID, d.Data})
+					if err != nil {
+						panic(err)
+					}
 				}
+				writer.Flush()
 
-			}
-		case "csv":
-			if i == n {
-				break
-			}
-			switch outputForm {
-			case "csv":
-				structure := ","
-				if i == 0 {
-					line = fmt.Sprintf("line%sid%sdata", structure, structure)
-				} else {
-					line = fmt.Sprintf(`%d%si%d%ssome event %d`, i-1, structure, i-1, structure, i-1)
-				}
-			case "json":
-				if i == 0 {
-					line = `{"_1":"line","_2":"id","_3":"data"}`
-				} else {
-					form := `{"_1":"%d","_2":"i%d","_3":"some event %d"}`
-					line = fmt.Sprintf(form, i-1, i-1, i-1)
-				}
+				return input.String(), expected.String()
 			}
 		}
-		if i != n {
-			expectedLines[i] = equals(line)
+
+		// edge case
+
+	case "csv":
+		writer := csv.NewWriter(&input)
+		writer.Comma = []rune(structure)[0]
+		writer.Write([]string{"line", "id", "data"})
+		for _, d := range data {
+			writer.Write([]string{d.Line, d.ID, d.Data})
+		}
+		writer.Flush()
+		switch outputForm {
+		case "json":
+			encoder := jsonpkg.NewEncoder(&expected)
+			encoder.Encode(map[string]string{
+				"_1": "line",
+				"_2": "id",
+				"_3": "data",
+			})
+			for _, d := range data {
+				encoder.Encode(map[string]string{
+					"_1": d.Line,
+					"_2": d.ID,
+					"_3": d.Data,
+				})
+			}
+			return input.String(), expected.String()
+		case "csv":
+			writer := csv.NewWriter(&expected)
+			writer.Write([]string{"line", "id", "data"})
+			for _, d := range data {
+				writer.Write([]string{d.Line, d.ID, d.Data})
+			}
+			writer.Flush()
+
+			return input.String(), expected.String()
 		}
 	}
-
-	return sb.String(), expectedLines
+	panic("unreachable")
 }
 
 /*
@@ -149,12 +132,12 @@ func TestSelectCommand(t *testing.T) {
 	t.Parallel()
 	// credentials are same for all test cases
 	region := "us-east-1"
-	accessKeyId := "minioadmin"
+	accessKeyID := "minioadmin"
 	secretKey := "minioadmin"
 	address := "http://127.0.0.1:9000"
 	// The query is default for all cases, we want to assert the output
 	// is as expected after a query.
-	query := "SELECT * FROM s3object s LIMIT 5"
+	query := "SELECT * FROM s3object s LIMIT 6"
 	testcases := []struct {
 		name      string
 		cmd       []string
@@ -282,21 +265,23 @@ func TestSelectCommand(t *testing.T) {
 	for _, tc := range testcases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			contents, expectedLines := getSequentialFile(5, tc.in, tc.out, tc.structure)
+			contents, expected := getFile(5, tc.in, tc.out, tc.structure)
 			filename := fmt.Sprintf("file.%s", tc.in)
 			bucket := s3BucketFromTestName(t)
 			src := fmt.Sprintf("s3://%s/%s", bucket, filename)
 			tc.cmd = append(tc.cmd, src)
 
-			s3client, s5cmd := setup(t, withEndpointURL(address), withRegion(region), withAccessKeyId(accessKeyId), withSecretKey(secretKey))
+			s3client, s5cmd := setup(t, withEndpointURL(address), withRegion(region), withAccessKeyID(accessKeyID), withSecretKey(secretKey))
 			createBucket(t, s3client, bucket)
 			putFile(t, s3client, bucket, filename, contents)
 			cmd := s5cmd(tc.cmd...)
-			result := icmd.RunCmd(cmd, withEnv("AWS_ACCESS_KEY_ID", accessKeyId), withEnv("AWS_SECRET_ACCESS_KEY", secretKey))
 
-			assertLines(t, result.Stdout(), expectedLines)
+			result := icmd.RunCmd(cmd, withEnv("AWS_ACCESS_KEY_ID", accessKeyID), withEnv("AWS_SECRET_ACCESS_KEY", secretKey))
+
+			if diff := cmp.Diff(expected, result.Stdout()); diff != "" {
+				t.Errorf("select command mismatch (-want +got):\n%s", diff)
+			}
+
 		})
 	}
 }

@@ -54,8 +54,8 @@ jobs:
           --health-timeout 5s
           --health-retries 5
         env:
-          - MINIO_ROOT_USER=minioadmin
-          - MINIO_ROOT_PASSWORD=minioadmin
+          MINIO_ROOT_USER: minioadmin
+          MINIO_ROOT_PASSWORD: minioadmin
     steps:
     - uses: actions/checkout@v2
     - uses: actions/setup-go@v2

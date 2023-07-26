@@ -47,16 +47,17 @@ jobs:
         minio:
             image: minio/minio
             ports:
-              - 9000: 45667
+                - 9000: 45677
     steps:
     - uses: actions/checkout@v2
     - uses: actions/setup-go@v2
       with:
         go-version: ${{ matrix.go-version }}
-      env:
-        MINIO_HOST: localhost
-        MINIO_PORT: 45667
+
     - run: make test
+      env:
+        MINIO_HOST: minio
+        MINIO_PORT: 45677
 
   qa:
     strategy:

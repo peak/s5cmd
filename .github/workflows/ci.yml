@@ -56,7 +56,7 @@ jobs:
 
     - run: make test
       env:
-        MINIO_HOST: minio
+        MINIO_HOST: localhost
         MINIO_PORT: 45677
 
   qa:

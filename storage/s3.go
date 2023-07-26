@@ -612,12 +612,14 @@ func (jd *JsonDecoder) Decode() ([]byte, error) {
 }
 
 type CsvDecoder struct {
-	decoder *csv.Reader
+	decoder   *csv.Reader
+	delimiter string
 }
 
 func NewCsvDecoder(reader io.Reader) EventStreamDecoder {
 	csvDecoder := &CsvDecoder{
-		decoder: csv.NewReader(reader),
+		decoder:   csv.NewReader(reader),
+		delimiter: ",",
 	}
 	// returned values from AWS has double quotes in it
 	// so we enable lazy quotes
@@ -631,8 +633,13 @@ func (cd *CsvDecoder) Decode() ([]byte, error) {
 		return nil, err
 	}
 
-	result := make([]byte, len(res))
-	for _, str := range res {
+	result := []byte{}
+	for i, str := range res {
+		// csv results return carriage returns, which puts \x00
+		// to byte array, which breaks the output result.
+		if i != len(res)-1 {
+			str = fmt.Sprintf("%s%s", str, cd.delimiter)
+		}
 		result = append(result, []byte(str)...)
 	}
 	return result, nil
@@ -674,7 +681,7 @@ func parseInputSerialization(val string, delimiter string) (*s3.InputSerializati
 			Parquet: &s3.ParquetInput{},
 		}
 	default:
-		return nil, errors.New("Input serialization is not valid")
+		return nil, errors.New("input serialization is not valid")
 	}
 
 	return inputSerialization, nil
@@ -689,7 +696,7 @@ func parseOutputSerialization(val string, reader io.Reader) (*s3.OutputSerializa
 		outputSerialization = &s3.OutputSerialization{
 			JSON: &s3.JSONOutput{},
 		}
-		decoder = NewCsvDecoder(reader)
+		decoder = NewJsonDecoder(reader)
 	case csvType:
 		outputSerialization = &s3.OutputSerialization{
 			CSV: &s3.CSVOutput{
@@ -698,7 +705,7 @@ func parseOutputSerialization(val string, reader io.Reader) (*s3.OutputSerializa
 		}
 		decoder = NewCsvDecoder(reader)
 	default:
-		return nil, nil, errors.New("Output serialization is not valid")
+		return nil, nil, errors.New("output serialization is not valid")
 	}
 	return outputSerialization, decoder, nil
 }

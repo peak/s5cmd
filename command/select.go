@@ -139,6 +139,7 @@ func NewSelectCommand() *cli.Command {
 					&cli.StringFlag{
 						Name:  "delimiter",
 						Usage: "delimiter of the csv file",
+						Value: ",",
 					},
 				}, sharedFlags...),
 				CustomHelpTemplate: defaultSelectHelpTemplate,

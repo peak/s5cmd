@@ -24,7 +24,6 @@ query json(document) to csv -> not supported(?)
 func getSequentialFile(n int, inputForm, outputForm, structure string) (string, map[int]compareFunc) {
 	sb := strings.Builder{}
 	expectedLines := make(map[int]compareFunc)
-
 	for i := 0; i < n+1; i++ {
 		var line string
 		switch inputForm {
@@ -34,20 +33,25 @@ func getSequentialFile(n int, inputForm, outputForm, structure string) (string, 
 				if i == n {
 					break
 				}
-				line = fmt.Sprintf(`{ "line": "%d", "id": "i%d", data: "some event %d" }`, i, i, i)
+				line = fmt.Sprintf(`{ "line": "%d", "id": "i%d", "data": "some event %d" }`, i, i, i)
 			case "document":
-				if i == n {
-					break
-				} else if i == 0 {
-					line = fmt.Sprintf(`{\n"obj%d": {"line": "%d", "id": "i%d", data: "some event %d"}`, i, i, i, i)
-				} else if i == n-1 {
-					line = fmt.Sprintf(`"obj%d": {"line": "%d", "id": "i%d", data: "some event %d"}\n}`, i, i, i, i)
+				if i == 0 {
+					line = fmt.Sprintf("{\n%s", line)
+				} else if i == n {
+					line = fmt.Sprintf("%s\n}", line)
 				} else {
-					line = fmt.Sprintf(`"obj%d": {"line": "%d", "id": "i%d", data: "some event %d"},`, i, i, i, i)
+					if i == n-1 {
+						line = fmt.Sprintf(`	"obj%d": {"line": "%d", "id": "i%d", "data": "some event %d"}`, i, i, i, i)
+					} else {
+						line = fmt.Sprintf(`	"obj%d": {"line": "%d", "id": "i%d", "data": "some event %d"},`, i, i, i, i)
+					}
 				}
 
 			}
 		case "csv":
+			if i == n {
+				break
+			}
 			if i == 0 {
 				line = fmt.Sprintf("line%sid%sdata", structure, structure)
 			} else {
@@ -56,22 +60,66 @@ func getSequentialFile(n int, inputForm, outputForm, structure string) (string, 
 		}
 		sb.WriteString(line)
 		sb.WriteString("\n")
-		switch outputForm {
+
+		switch inputForm {
 		case "json":
+			// edge case
+			if structure == "document" && i == n {
+				totalLine := ""
+				expectedLines := make(map[int]compareFunc, 1)
+				for j := 0; j < n+1; j++ {
+					if j == 0 {
+						line = "{"
+					} else if j == n {
+						line = "}"
+					} else {
+						if j == n-1 {
+							line = fmt.Sprintf(`"obj%d":{"line":"%d","id":"i%d","data":"some event %d"}`, j, j, j, j)
+						} else {
+							line = fmt.Sprintf(`"obj%d":{"line":"%d","id":"i%d","data":"some event %d"},`, j, j, j, j)
+						}
+					}
+					totalLine = fmt.Sprintf("%s%s", totalLine, line)
+				}
+				expectedLines[0] = equals(totalLine)
+				return sb.String(), expectedLines
+
+			}
 			if i == n {
 				break
 			}
-			line = fmt.Sprintf(`{ "line": "%d", "id": "i%d", data: "some event %d" }`, i, i, i)
-			expectedLines[i] = equals(line)
-		case "csv":
-			structure := ","
-			if i == 0 {
-				line = fmt.Sprintf("line%sid%sdata", structure, structure)
-			} else {
-				line = fmt.Sprintf(`%d%si%d%s"some event %d"`, i-1, structure, i-1, structure, i-1)
+			switch outputForm {
+			case "csv":
+				structure := ","
+				line = fmt.Sprintf(`%d%si%d%ssome event %d`, i, structure, i, structure, i)
+			case "json":
+				if i != n {
+					line = fmt.Sprintf(`{"line":"%d","id":"i%d","data":"some event %d"}`, i, i, i)
+				}
+
 			}
-			expectedLines[i] = equals(line)
-		default:
+		case "csv":
+			if i == n {
+				break
+			}
+			switch outputForm {
+			case "csv":
+				structure := ","
+				if i == 0 {
+					line = fmt.Sprintf("line%sid%sdata", structure, structure)
+				} else {
+					line = fmt.Sprintf(`%d%si%d%ssome event %d`, i-1, structure, i-1, structure, i-1)
+				}
+			case "json":
+				if i == 0 {
+					line = `{"_1":"line","_2":"id","_3":"data"}`
+				} else {
+					form := `{"_1":"%d","_2":"i%d","_3":"some event %d"}`
+					line = fmt.Sprintf(form, i-1, i-1, i-1)
+				}
+			}
+		}
+		if i != n {
 			expectedLines[i] = equals(line)
 		}
 	}
@@ -127,8 +175,8 @@ csv:
 
 	default input structure and output
 	default input structure and output as csv
-	\t input structure and default output
-	\t input structure and output as csv
+	tab input structure and default output
+	tab input structure and output as csv
 
 parquet:
 
@@ -137,7 +185,6 @@ parquet:
 	default input structure and output as csv
 */
 func TestSelectCommand(t *testing.T) {
-	t.Skip()
 	t.Parallel()
 	/*
 		ctx := context.Background()
@@ -156,11 +203,10 @@ func TestSelectCommand(t *testing.T) {
 	region := "us-east-1"
 	accessKeyId := "minioadmin"
 	secretKey := "minioadmin"
-
 	address := "http://127.0.0.1:9000"
 	// The query is default for all cases, we want to assert the output
 	// is as expected after a query.
-	query := "SELECT * FROM s3object s LIMIT 1"
+	query := "SELECT * FROM s3object s LIMIT 5"
 	testcases := []struct {
 		name      string
 		cmd       []string
@@ -211,7 +257,7 @@ func TestSelectCommand(t *testing.T) {
 			structure: "document",
 			out:       "json",
 		},
-		{
+		/* {
 			name: "json-lines select with document input structure and csv output",
 			cmd: []string{
 				"select",
@@ -226,7 +272,7 @@ func TestSelectCommand(t *testing.T) {
 			in:        "json",
 			structure: "document",
 			out:       "csv",
-		},
+		}, */ // This case is not supported by AWS itself.
 		// csv
 		{
 			name: "csv select with default delimiter and output",
@@ -261,7 +307,6 @@ func TestSelectCommand(t *testing.T) {
 				"csv",
 				"--delimiter",
 				"\t",
-				"document",
 				"--query",
 				query,
 			},
@@ -298,13 +343,11 @@ func TestSelectCommand(t *testing.T) {
 			tc.cmd = append(tc.cmd, src)
 
 			s3client, s5cmd := setup(t, withEndpointURL(address), withRegion(region), withAccessKeyId(accessKeyId), withSecretKey(secretKey))
-
 			createBucket(t, s3client, bucket)
 			putFile(t, s3client, bucket, filename, contents)
-
 			cmd := s5cmd(tc.cmd...)
 			result := icmd.RunCmd(cmd, withEnv("AWS_ACCESS_KEY_ID", accessKeyId), withEnv("AWS_SECRET_ACCESS_KEY", secretKey))
-			fmt.Println(result.Stderr())
+
 			assertLines(t, result.Stdout(), expectedLines)
 		})
 	}

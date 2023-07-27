@@ -24,6 +24,7 @@ package e2e
 
 import (
 	"fmt"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -4169,5 +4170,34 @@ func TestLocalFileOverridenWhenDownloadFailed(t *testing.T) {
 
 	// assert initial file is untouched
 	expected := fs.Expected(t, fs.WithFile(filename, content))
+	assert.Assert(t, fs.Equal(workdir.Path(), expected))
+}
+
+// Test that counting writer does not corrupt objects during a download process
+func TestCountingWriter(t *testing.T) {
+	t.Parallel()
+
+	const (
+		filename = "log.txt"
+		size     = 3 * 1024 * 1024
+	)
+	content := make([]byte, size)
+	rand.Read(content)
+
+	s3client, s5cmd := setup(t)
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+	putFile(t, s3client, bucket, filename, string(content))
+
+	workdir := fs.NewDir(t, t.Name())
+	defer workdir.Remove()
+
+	cmd := s5cmd("cp", "--show-progress", "--concurrency", "3", "--part-size", "1", "s3://"+bucket+"/"+filename, ".")
+	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
+
+	result.Assert(t, icmd.Success)
+
+	// assert the downloaded file has the same content with the remote object
+	expected := fs.Expected(t, fs.WithFile(filename, string(content)))
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 }

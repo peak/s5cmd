@@ -15,6 +15,16 @@ const (
 	testRuns = 64
 )
 
+func randomBytes(n int) []byte {
+	const alphabet = "abcdefghijklmnopqrstuvwxyz0123456789"
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = alphabet[rand.Intn(len(alphabet))]
+
+	}
+	return b
+}
+
 func TestShuffleWriteWithStaticChunkSize(t *testing.T) {
 	t.Parallel()
 
@@ -31,14 +41,9 @@ func TestShuffleWriteWithStaticChunkSize(t *testing.T) {
 			var result bytes.Buffer
 
 			// we know the filesize ahead so make it buffered
-			expected := make([]byte, fileSize)
-
-			for i := 0; i < fileSize; i++ {
-				ch := rand.Intn(255)
-				expected[i] = uint8(ch)
-			}
-
+			expected := randomBytes(fileSize)
 			chunks := []chunk{}
+
 			// first create chunks number of tasks
 			// Create tasks and put them in the array
 			for i := 0; i < fileSize; i += chunkSize {
@@ -89,10 +94,8 @@ func TestShuffleWriteWithRandomChunkSize(t *testing.T) {
 			// generate chunks
 			for i := 0; i <= maxFileSize; {
 				chunkSize := minChunkSize + rand.Intn(maxChunkSize-minChunkSize)
-				bytechunk := make([]byte, chunkSize)
-				for j := 0; j < chunkSize; j++ {
-					bytechunk[j] = uint8(rand.Intn(256))
-				}
+				bytechunk := randomBytes(chunkSize)
+
 				chunks = append(chunks, chunk{
 					offset: offset,
 					value:  bytechunk,
@@ -141,11 +144,7 @@ func TestShuffleConcurrentWriteWithRandomChunkSize(t *testing.T) {
 			// generate chunks
 			for i := 0; i <= maxFileSize; {
 				chunkSize := minChunkSize + rand.Intn(maxChunkSize-minChunkSize)
-				bytechunk := make([]byte, chunkSize)
-
-				for j := 0; j < chunkSize; j++ {
-					bytechunk[j] = uint8(rand.Intn(256))
-				}
+				bytechunk := randomBytes(chunkSize)
 
 				chunks = append(chunks, chunk{
 					offset: int64(i),
@@ -248,11 +247,7 @@ func TestBufferWithChangingSlice(t *testing.T) {
 			// generate chunks
 			for i := 0; i <= maxFileSize; {
 				chunkSize := minChunkSize + rand.Intn(maxChunkSize-minChunkSize)
-				bytechunk := make([]byte, chunkSize)
-
-				for j := 0; j < chunkSize; j++ {
-					bytechunk[j] = uint8(rand.Intn(256))
-				}
+				bytechunk := randomBytes(chunkSize)
 
 				// we use the expectedFileSize to track the offset
 				chunks = append(chunks, dlchunk{

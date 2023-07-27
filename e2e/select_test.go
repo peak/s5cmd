@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"bytes"
+	"compress/gzip"
 	"encoding/csv"
 	jsonpkg "encoding/json"
 	"fmt"
@@ -139,11 +140,12 @@ func TestSelectCommandWithGeneratedFiles(t *testing.T) {
 	// is as expected after a query.
 	query := "SELECT * FROM s3object s LIMIT 6"
 	testcases := []struct {
-		name      string
-		cmd       []string
-		in        string
-		structure string
-		out       string
+		name        string
+		cmd         []string
+		in          string
+		structure   string
+		compression bool
+		out         string
 	}{
 		// json
 		{
@@ -185,6 +187,54 @@ func TestSelectCommandWithGeneratedFiles(t *testing.T) {
 			in:        "json",
 			structure: "document",
 			out:       "json",
+		}, {
+			name: "json-lines select with default input structure and output",
+			cmd: []string{
+				"select",
+				"json",
+				"--compression",
+				"gzip",
+				"--query",
+				query,
+			},
+			in:          "json",
+			compression: true,
+			structure:   "lines",
+			out:         "json",
+		},
+		{
+			name: "json-lines select with default input structure and csv output",
+			cmd: []string{
+				"select",
+				"json",
+				"--compression",
+				"gzip",
+				"--output-format",
+				"csv",
+				"--query",
+				query,
+			},
+			in:          "json",
+			compression: true,
+			structure:   "lines",
+			out:         "csv",
+		},
+		{
+			name: "json-lines select with document input structure and output",
+			cmd: []string{
+				"select",
+				"json",
+				"--compression",
+				"gzip",
+				"--structure",
+				"document",
+				"--query",
+				query,
+			},
+			in:          "json",
+			compression: true,
+			structure:   "document",
+			out:         "json",
 		},
 		/* {
 			name: "json-lines select with document input structure and csv output",
@@ -214,6 +264,38 @@ func TestSelectCommandWithGeneratedFiles(t *testing.T) {
 			in:        "csv",
 			structure: ",",
 			out:       "json",
+		},
+		{
+			name: "csv select with gzip compression, default delimiter and output",
+			cmd: []string{
+				"select",
+				"csv",
+				"--compression",
+				"gzip",
+				"--query",
+				query,
+			},
+			in:          "csv",
+			compression: true,
+			structure:   ",",
+			out:         "json",
+		},
+		{
+			name: "csv select with gzip compression, default delimiter and csv output",
+			cmd: []string{
+				"select",
+				"csv",
+				"--compression",
+				"gzip",
+				"--output-form",
+				"csv",
+				"--query",
+				query,
+			},
+			in:          "csv",
+			compression: true,
+			structure:   ",",
+			out:         "csv",
 		},
 		{
 			name: "csv select with default delimiter and csv output",
@@ -274,6 +356,14 @@ func TestSelectCommandWithGeneratedFiles(t *testing.T) {
 			s3client, s5cmd := setup(t, withEndpointURL(endpoint), withRegion(region), withAccessKeyID(accessKeyID), withSecretKey(secretKey))
 
 			createBucket(t, s3client, bucket)
+			if tc.compression {
+				var b bytes.Buffer
+				gz := gzip.NewWriter(&b)
+				if _, err := gz.Write([]byte(contents)); err != nil {
+					t.Errorf("could not compress the input object. error: %v\n", err)
+				}
+				contents = b.String()
+			}
 			putFile(t, s3client, bucket, filename, contents)
 
 			cmd := s5cmd(tc.cmd...)

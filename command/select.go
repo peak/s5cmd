@@ -3,6 +3,7 @@ package command
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -27,8 +28,11 @@ Options:
 	{{range .VisibleFlags}}{{.}}
 	{{end}}
 Examples:
-	01. Search for all json objects with the foo property set to 'bar' and spit them into stdout
-		 > s5cmd {{.HelpName}} --compression gzip --query "SELECT * FROM S3Object s WHERE s.foo='bar'" "s3://bucket/*"
+	01. Search for all objects with the foo property set to 'bar' and spit them into stdout
+		 > {{.HelpName}} --query "SELECT * FROM S3Object s WHERE s.foo='bar'" "s3://bucket/*"
+
+	02. Search for all objects that use GZIP compression with(parquet does not support) the foo property set to 'bar' and spit them into stdout in csv.
+		 > {{.HelpName}} --compression GZIP --output-format csv --query "SELECT * FROM S3Object s WHERE s.foo='bar'" "s3://bucket/*"
 `
 
 func beforeFunc(c *cli.Context) error {
@@ -187,7 +191,15 @@ func NewSelectCommand() *cli.Command {
 				Usage:              "write queries for parquet files",
 				Flags:              sharedFlags,
 				CustomHelpTemplate: defaultSelectHelpTemplate,
-				Before:             beforeFunc,
+				Before: func(c *cli.Context) (err error) {
+					if c.String("compression") != "" {
+						err = errors.New("compression is not supported for parquet files")
+						cmd := commandFromContext(c)
+						printError(cmd, "select parquet", err)
+						return err
+					}
+					return beforeFunc(c)
+				},
 				Action: func(c *cli.Context) (err error) {
 					cmd, err := buildSelect(c, "parquet", nil)
 					if err != nil {

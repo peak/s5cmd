@@ -3,12 +3,12 @@ package command
 import (
 	"context"
 	"fmt"
-	"io"
 	"os"
 
 	"github.com/urfave/cli/v2"
 
 	"github.com/peak/s5cmd/v2/log/stat"
+	"github.com/peak/s5cmd/v2/orderedwriter"
 	"github.com/peak/s5cmd/v2/storage"
 	"github.com/peak/s5cmd/v2/storage/url"
 )
@@ -44,6 +44,18 @@ func NewCatCommand() *cli.Command {
 				Name:  "version-id",
 				Usage: "use the specified version of an object",
 			},
+			&cli.IntFlag{
+				Name:    "concurrency",
+				Aliases: []string{"c"},
+				Value:   defaultCopyConcurrency,
+				Usage:   "number of concurrent parts transferred between host and remote server",
+			},
+			&cli.IntFlag{
+				Name:    "part-size",
+				Aliases: []string{"p"},
+				Value:   defaultPartSize,
+				Usage:   "size of each part transferred between host and remote server, in MiB",
+			},
 		},
 		CustomHelpTemplate: catHelpTemplate,
 		Before: func(c *cli.Context) error {
@@ -72,6 +84,8 @@ func NewCatCommand() *cli.Command {
 				fullCommand: fullCommand,
 
 				storageOpts: NewStorageOpts(c),
+				concurrency: c.Int("concurrency"),
+				partSize:    c.Int64("part-size") * megabytes,
 			}.Run(c.Context)
 		},
 	}
@@ -86,6 +100,8 @@ type Cat struct {
 	fullCommand string
 
 	storageOpts storage.Options
+	concurrency int
+	partSize    int64
 }
 
 // Run prints content of given source to standard output.
@@ -95,20 +111,17 @@ func (c Cat) Run(ctx context.Context) error {
 		printError(c.fullCommand, c.op, err)
 		return err
 	}
-
-	rc, err := client.Read(ctx, c.src)
+	_, err = client.Stat(ctx, c.src)
 	if err != nil {
 		printError(c.fullCommand, c.op, err)
 		return err
 	}
-	defer rc.Close()
-
-	_, err = io.Copy(os.Stdout, rc)
+	buf := orderedwriter.New(os.Stdout)
+	_, err = client.Get(ctx, c.src, buf, c.concurrency, c.partSize)
 	if err != nil {
 		printError(c.fullCommand, c.op, err)
 		return err
 	}
-
 	return nil
 }
 

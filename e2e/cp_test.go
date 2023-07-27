@@ -4185,11 +4185,9 @@ func TestUploadingSocketFile(t *testing.T) {
 	workdir := fs.NewDir(t, t.Name())
 	defer workdir.Remove()
 	sockaddr := workdir.Path() + "/s5cmd.sock"
-	var ln net.Listener
-	if runtime.GOOS == "windows" {
-		ln, _ = net.Listen("tcp", sockaddr)
-	} else {
-		ln, _ = net.Listen("unix", sockaddr)
+	ln, err := net.Listen("unix", sockaddr)
+	if err != nil {
+		t.Log(err)
 	}
 	t.Cleanup(func() {
 		ln.Close()
@@ -4197,19 +4195,19 @@ func TestUploadingSocketFile(t *testing.T) {
 	})
 	cmd := s5cmd("cp", sockaddr, "s3://"+bucket+"/")
 	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
-
 	// assert no error
 	assertLines(t, result.Stderr(), map[int]compareFunc{})
-
-	// assert logs are empty (no remove)
+	// assert logs are empty (no copy)
 	assertLines(t, result.Stdout(), map[int]compareFunc{})
-
 	// assert exit code
 	result.Assert(t, icmd.Success)
 }
 
 // If destination has a special file with the same name, it shouldn't be overriden.
 func TestOverridingSocketFile(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip()
+	}
 	t.Parallel()
 	const (
 		filename = "s5cmd.sock"
@@ -4222,13 +4220,9 @@ func TestOverridingSocketFile(t *testing.T) {
 	workdir := fs.NewDir(t, t.Name())
 	defer workdir.Remove()
 	sockaddr := fmt.Sprintf("%v/%v", workdir.Path(), filename)
-	var ln net.Listener
-	var err error
-	if runtime.GOOS == "windows" {
-		ln, err = net.Listen("tcp", sockaddr)
+	ln, err := net.Listen("unix", sockaddr)
+	if err != nil {
 		t.Log(err)
-	} else {
-		ln, _ = net.Listen("unix", sockaddr)
 	}
 	t.Cleanup(func() {
 		ln.Close()
@@ -4236,13 +4230,10 @@ func TestOverridingSocketFile(t *testing.T) {
 	})
 	cmd := s5cmd("cp", "s3://"+bucket+"/"+filename, ".")
 	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
-
 	// assert no error
 	assertLines(t, result.Stderr(), map[int]compareFunc{})
-
-	// assert logs are empty (no remove)
+	// assert logs are empty (no copy)
 	assertLines(t, result.Stdout(), map[int]compareFunc{})
-
 	// assert exit code
 	result.Assert(t, icmd.Success)
 }

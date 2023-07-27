@@ -1313,11 +1313,9 @@ func TestRemovingSocketFile(t *testing.T) {
 	workdir := fs.NewDir(t, t.Name())
 	defer workdir.Remove()
 	sockaddr := workdir.Path() + "/s5cmd.sock"
-	var ln net.Listener
-	if runtime.GOOS == "windows" {
-		ln, _ = net.Listen("tcp", sockaddr)
-	} else {
-		ln, _ = net.Listen("unix", sockaddr)
+	ln, err := net.Listen("unix", sockaddr)
+	if err != nil {
+		t.Log(err)
 	}
 	t.Cleanup(func() {
 		ln.Close()
@@ -1325,13 +1323,10 @@ func TestRemovingSocketFile(t *testing.T) {
 	})
 	cmd := s5cmd("rm", sockaddr)
 	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
-
 	// assert no error
 	assertLines(t, result.Stderr(), map[int]compareFunc{})
-
 	// assert logs are empty (no remove)
 	assertLines(t, result.Stdout(), map[int]compareFunc{})
-
 	// assert exit code
 	result.Assert(t, icmd.Success)
 }

@@ -207,7 +207,7 @@ func (c Pipe) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	
+
 	metadata := storage.NewMetadata().
 		SetStorageClass(string(c.storageClass)).
 		SetSSE(c.encryptionMethod).

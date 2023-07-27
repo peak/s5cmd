@@ -5,9 +5,9 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/peak/s5cmd/atomic"
-	"github.com/peak/s5cmd/storage"
-	"github.com/peak/s5cmd/storage/url"
+	"github.com/peak/s5cmd/v2/atomic"
+	"github.com/peak/s5cmd/v2/storage"
+	"github.com/peak/s5cmd/v2/storage/url"
 )
 
 // expandSource returns the full list of objects from the given src argument.
@@ -32,12 +32,12 @@ func expandSource(
 	}
 
 	// call storage.List for only walking operations.
-	if srcurl.IsWildcard() || isDir {
+	if srcurl.IsWildcard() || srcurl.AllVersions || isDir {
 		return client.List(ctx, srcurl, followSymlinks), nil
 	}
 
 	ch := make(chan *storage.Object, 1)
-	if storage.ShouldProcessUrl(srcurl, followSymlinks) {
+	if storage.ShouldProcessURL(srcurl, followSymlinks) {
 		ch <- &storage.Object{URL: srcurl}
 	}
 	close(ch)

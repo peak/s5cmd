@@ -7,11 +7,11 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/urfave/cli/v2"
 
-	errorpkg "github.com/peak/s5cmd/error"
-	"github.com/peak/s5cmd/log"
-	"github.com/peak/s5cmd/log/stat"
-	"github.com/peak/s5cmd/storage"
-	"github.com/peak/s5cmd/storage/url"
+	errorpkg "github.com/peak/s5cmd/v2/error"
+	"github.com/peak/s5cmd/v2/log"
+	"github.com/peak/s5cmd/v2/log/stat"
+	"github.com/peak/s5cmd/v2/storage"
+	"github.com/peak/s5cmd/v2/storage/url"
 )
 
 var deleteHelpTemplate = `Name:
@@ -28,16 +28,28 @@ Examples:
 		 > s5cmd {{.HelpName}} s3://bucketname/prefix/object.gz
 
 	2. Delete all objects with a prefix
-		 > s5cmd {{.HelpName}} s3://bucketname/prefix/*
+		 > s5cmd {{.HelpName}} "s3://bucketname/prefix/*"
 
 	3. Delete all objects that matches a wildcard
-		 > s5cmd {{.HelpName}} s3://bucketname/*/obj*.gz
+		 > s5cmd {{.HelpName}} "s3://bucketname/*/obj*.gz"
 
 	4. Delete all matching objects and a specific object
-		 > s5cmd {{.HelpName}} s3://bucketname/prefix/* s3://bucketname/object1.gz
+		 > s5cmd {{.HelpName}} "s3://bucketname/prefix/*" s3://bucketname/object1.gz
 
 	5. Delete all matching objects but exclude the ones with .txt extension or starts with "main"
-		 > s5cmd {{.HelpName}} --exclude "*.txt" --exclude "main*" s3://bucketname/prefix/*
+		 > s5cmd {{.HelpName}} --exclude "*.txt" --exclude "main*" "s3://bucketname/prefix/*"
+	
+	6. Delete the specific version of a remote object's content to stdout
+		 > s5cmd {{.HelpName}} --version-id VERSION_ID s3://bucket/prefix/object
+
+	7. Delete all versions of an object in the bucket
+		 > s5cmd {{.HelpName}} --all-versions s3://bucket/object
+
+	8. Delete all versions of all objects that starts with a prefix in the bucket
+		 > s5cmd {{.HelpName}} --all-versions "s3://bucket/prefix*"
+   
+	9. Delete all versions of all objects in the bucket
+		 > s5cmd {{.HelpName}} --all-versions "s3://bucket/*"
 `
 
 func NewDeleteCommand() *cli.Command {
@@ -54,6 +66,14 @@ func NewDeleteCommand() *cli.Command {
 				Name:  "exclude",
 				Usage: "exclude objects with given pattern",
 			},
+			&cli.BoolFlag{
+				Name:  "all-versions",
+				Usage: "list all versions of object(s)",
+			},
+			&cli.StringFlag{
+				Name:  "version-id",
+				Usage: "use the specified version of an object",
+			},
 		},
 		CustomHelpTemplate: deleteHelpTemplate,
 		Before: func(c *cli.Context) error {
@@ -65,13 +85,21 @@ func NewDeleteCommand() *cli.Command {
 		},
 		Action: func(c *cli.Context) (err error) {
 			defer stat.Collect(c.Command.FullName(), &err)()
+			fullCommand := commandFromContext(c)
+
+			sources := c.Args().Slice()
+			srcUrls, err := newURLs(c.Bool("raw"), c.String("version-id"), c.Bool("all-versions"), sources...)
+			if err != nil {
+				printError(fullCommand, c.Command.Name, err)
+				return err
+			}
+
 			return Delete{
-				src:         c.Args().Slice(),
+				src:         srcUrls,
 				op:          c.Command.Name,
-				fullCommand: commandFromContext(c),
+				fullCommand: fullCommand,
 
 				// flags
-				raw:     c.Bool("raw"),
 				exclude: c.StringSlice("exclude"),
 
 				storageOpts: NewStorageOpts(c),
@@ -85,13 +113,12 @@ func NewDeleteCommand() *cli.Command {
 
 // Delete holds delete operation flags and states.
 type Delete struct {
-	src         []string
+	src         []*url.URL
 	op          string
 	fullCommand string
 
 	// flag options
 	exclude []string
-	raw     bool
 
 	// storage options
 	storageOpts storage.Options
@@ -99,12 +126,8 @@ type Delete struct {
 
 // Run remove given sources.
 func (d Delete) Run(ctx context.Context) error {
-	srcurls, err := newURLs(d.raw, d.src...)
-	if err != nil {
-		printError(d.fullCommand, d.op, err)
-		return err
-	}
-	srcurl := srcurls[0]
+
+	srcurl := d.src[0]
 
 	client, err := storage.NewClient(ctx, srcurl, d.storageOpts)
 	if err != nil {
@@ -118,7 +141,7 @@ func (d Delete) Run(ctx context.Context) error {
 		return err
 	}
 
-	objch := expandSources(ctx, client, false, srcurls...)
+	objch := expandSources(ctx, client, false, d.src...)
 
 	var (
 		merrorObjects error
@@ -173,11 +196,16 @@ func (d Delete) Run(ctx context.Context) error {
 }
 
 // newSources creates object URL list from given sources.
-func newURLs(urlMode bool, sources ...string) ([]*url.URL, error) {
+func newURLs(isRaw bool, versionID string, isAllVersions bool, sources ...string) ([]*url.URL, error) {
 	var urls []*url.URL
 	for _, src := range sources {
-		srcurl, err := url.New(src, url.WithRaw(urlMode))
+		srcurl, err := url.New(src, url.WithRaw(isRaw), url.WithVersion(versionID),
+			url.WithAllVersions(isAllVersions))
 		if err != nil {
+			return nil, err
+		}
+
+		if err := checkVersinoningURLRemote(srcurl); err != nil {
 			return nil, err
 		}
 		urls = append(urls, srcurl)
@@ -190,8 +218,26 @@ func validateRMCommand(c *cli.Context) error {
 		return fmt.Errorf("expected at least 1 object to remove")
 	}
 
-	srcurls, err := newURLs(c.Bool("raw"), c.Args().Slice()...)
+	// It might be a reasonable request too. Consider that user wants to delete
+	// all-versions of "a" and "b", but want to delete only a single
+	// version of "c" "someversion". User might want to express this as
+	// `s5cmd rm --all-versions a --all-versions b version-id someversion c`
+	// but, current implementation does not take repetitive flags into account,
+	// anyway, this is not supported in the current implementation.
+	if err := checkVersioningFlagCompatibility(c); err != nil {
+		return err
+	}
+
+	if len(c.Args().Slice()) > 1 && c.String("version-id") != "" {
+		return fmt.Errorf("version-id flag can only be used with single source object")
+	}
+
+	srcurls, err := newURLs(c.Bool("raw"), c.String("version-id"), c.Bool("all-versions"), c.Args().Slice()...)
 	if err != nil {
+		return err
+	}
+
+	if err := checkVersioningWithGoogleEndpoint(c); err != nil {
 		return err
 	}
 

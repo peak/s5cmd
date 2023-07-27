@@ -9,7 +9,7 @@ import (
 	"github.com/karrick/godirwalk"
 	"github.com/termie/go-shutil"
 
-	"github.com/peak/s5cmd/storage/url"
+	"github.com/peak/s5cmd/v2/storage/url"
 )
 
 // Filesystem is the Storage implementation of a local filesystem.
@@ -105,7 +105,7 @@ func (f *Filesystem) expandGlob(ctx context.Context, src *url.URL, followSymlink
 
 func walkDir(ctx context.Context, fs *Filesystem, src *url.URL, followSymlinks bool, fn func(o *Object)) {
 	//skip if symlink is pointing to a dir and --no-follow-symlink
-	if !ShouldProcessUrl(src, followSymlinks) {
+	if !ShouldProcessURL(src, followSymlinks) {
 		return
 	}
 	err := godirwalk.Walk(src.Absolute(), &godirwalk.Options{
@@ -123,7 +123,7 @@ func walkDir(ctx context.Context, fs *Filesystem, src *url.URL, followSymlinks b
 			fileurl.SetRelative(src)
 
 			//skip if symlink is pointing to a file and --no-follow-symlink
-			if !ShouldProcessUrl(fileurl, followSymlinks) {
+			if !ShouldProcessURL(fileurl, followSymlinks) {
 				return nil
 			}
 
@@ -221,6 +221,30 @@ func (f *Filesystem) Open(path string) (*os.File, error) {
 	}
 
 	return file, nil
+}
+
+// CreateTemp creates a new temporary file
+func (f *Filesystem) CreateTemp(dir, pattern string) (*os.File, error) {
+	if f.dryRun {
+		return &os.File{}, nil
+	}
+
+	file, err := os.CreateTemp(dir, pattern)
+	if err != nil {
+		return nil, err
+	}
+
+	err = file.Chmod(0644)
+	return file, err
+}
+
+// Rename a file
+func (f *Filesystem) Rename(file *os.File, newpath string) error {
+	if f.dryRun {
+		return nil
+	}
+
+	return os.Rename(file.Name(), newpath)
 }
 
 func sendObject(ctx context.Context, obj *Object, ch chan *Object) {

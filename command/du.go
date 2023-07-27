@@ -4,15 +4,17 @@ import (
 	"context"
 	"fmt"
 
+	urlpkg "net/url"
+
 	"github.com/hashicorp/go-multierror"
 	"github.com/urfave/cli/v2"
 
-	errorpkg "github.com/peak/s5cmd/error"
-	"github.com/peak/s5cmd/log"
-	"github.com/peak/s5cmd/log/stat"
-	"github.com/peak/s5cmd/storage"
-	"github.com/peak/s5cmd/storage/url"
-	"github.com/peak/s5cmd/strutil"
+	errorpkg "github.com/peak/s5cmd/v2/error"
+	"github.com/peak/s5cmd/v2/log"
+	"github.com/peak/s5cmd/v2/log/stat"
+	"github.com/peak/s5cmd/v2/storage"
+	"github.com/peak/s5cmd/v2/storage/url"
+	"github.com/peak/s5cmd/v2/strutil"
 )
 
 var sizeHelpTemplate = `Name:
@@ -26,13 +28,25 @@ Options:
 	{{end}}
 Examples:
 	1. Show disk usage of all objects in a bucket
-		 > s5cmd {{.HelpName}} s3://bucket/*
+		 > s5cmd {{.HelpName}} "s3://bucket/*"
 
 	2. Show disk usage of all objects that match a wildcard, grouped by storage class
-		 > s5cmd {{.HelpName}} --group s3://bucket/prefix/obj*.gz
+		 > s5cmd {{.HelpName}} --group "s3://bucket/prefix/obj*.gz"
 
 	3. Show disk usage of all objects in a bucket but exclude the ones with py extension or starts with main
-		 > s5cmd {{.HelpName}} --exclude "*.py" --exclude "main*" s3://bucket/*
+		 > s5cmd {{.HelpName}} --exclude "*.py" --exclude "main*" "s3://bucket/*"
+
+	4. Show disk usage of all versions of an object in the bucket
+		 > s5cmd {{.HelpName}} --all-versions s3://bucket/object
+
+	5. Show disk usage of all versions of all objects that starts with a prefix in the bucket
+		 > s5cmd {{.HelpName}} --all-versions "s3://bucket/prefix*"
+		
+	6. Show disk usage of all versions of all objects in the bucket
+		 > s5cmd {{.HelpName}} --all-versions "s3://bucket/*"
+	
+	7. Show disk usage of a specific version of an object in the bucket
+		 > s5cmd {{.HelpName}} --version-id VERSION_ID s3://bucket/object
 `
 
 func NewSizeCommand() *cli.Command {
@@ -56,6 +70,14 @@ func NewSizeCommand() *cli.Command {
 				Name:  "exclude",
 				Usage: "exclude objects with given pattern",
 			},
+			&cli.BoolFlag{
+				Name:  "all-versions",
+				Usage: "list all versions of object(s)",
+			},
+			&cli.StringFlag{
+				Name:  "version-id",
+				Usage: "use the specified version of an object",
+			},
 		},
 		Before: func(c *cli.Context) error {
 			err := validateDUCommand(c)
@@ -67,10 +89,20 @@ func NewSizeCommand() *cli.Command {
 		Action: func(c *cli.Context) (err error) {
 			defer stat.Collect(c.Command.FullName(), &err)()
 
+			fullCommand := commandFromContext(c)
+
+			srcurl, err := url.New(c.Args().First(),
+				url.WithAllVersions(c.Bool("all-versions")),
+				url.WithVersion(c.String("version-id")))
+			if err != nil {
+				printError(fullCommand, c.Command.Name, err)
+				return err
+			}
+
 			return Size{
-				src:         c.Args().First(),
+				src:         srcurl,
 				op:          c.Command.Name,
-				fullCommand: commandFromContext(c),
+				fullCommand: fullCommand,
 				// flags
 				groupByClass: c.Bool("group"),
 				humanize:     c.Bool("humanize"),
@@ -87,7 +119,7 @@ func NewSizeCommand() *cli.Command {
 
 // Size holds disk usage (du) operation flags and states.
 type Size struct {
-	src         string
+	src         *url.URL
 	op          string
 	fullCommand string
 
@@ -101,12 +133,7 @@ type Size struct {
 
 // Run calculates disk usage of given source.
 func (sz Size) Run(ctx context.Context) error {
-	srcurl, err := url.New(sz.src)
-	if err != nil {
-		return err
-	}
-
-	client, err := storage.NewClient(ctx, srcurl, sz.storageOpts)
+	client, err := storage.NewClient(ctx, sz.src, sz.storageOpts)
 	if err != nil {
 		printError(sz.fullCommand, sz.op, err)
 		return err
@@ -123,7 +150,7 @@ func (sz Size) Run(ctx context.Context) error {
 		return err
 	}
 
-	for object := range client.List(ctx, srcurl, false) {
+	for object := range client.List(ctx, sz.src, false) {
 		if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) {
 			continue
 		}
@@ -134,7 +161,7 @@ func (sz Size) Run(ctx context.Context) error {
 			continue
 		}
 
-		if isURLExcluded(excludePatterns, object.URL.Path, srcurl.Prefix) {
+		if isURLExcluded(excludePatterns, object.URL.Path, sz.src.Prefix) {
 			continue
 		}
 
@@ -148,7 +175,7 @@ func (sz Size) Run(ctx context.Context) error {
 
 	if !sz.groupByClass {
 		msg := SizeMessage{
-			Source:        srcurl.String(),
+			Source:        sz.src.String(),
 			Count:         total.count,
 			Size:          total.size,
 			showHumanized: sz.humanize,
@@ -159,7 +186,7 @@ func (sz Size) Run(ctx context.Context) error {
 
 	for k, v := range storageTotal {
 		msg := SizeMessage{
-			Source:        srcurl.String(),
+			Source:        sz.src.String(),
 			StorageClass:  k,
 			Count:         v.count,
 			Size:          v.size,
@@ -222,5 +249,27 @@ func validateDUCommand(c *cli.Context) error {
 	if c.Args().Len() != 1 {
 		return fmt.Errorf("expected only 1 argument")
 	}
+
+	if err := checkVersioningFlagCompatibility(c); err != nil {
+		return err
+	}
+
+	srcurl, err := url.New(c.Args().First(),
+		url.WithAllVersions(c.Bool("all-versions")))
+	if err != nil {
+		return err
+	}
+
+	if err := checkVersinoningURLRemote(srcurl); err != nil {
+		return err
+	}
+
+	// the "all-versions" flag of du command works with GCS, because it does not
+	// depend on the generation numbers.
+	endpoint, err := urlpkg.Parse(c.String("endpoint-url"))
+	if err == nil && c.String("version-id") != "" && storage.IsGoogleEndpoint(*endpoint) {
+		return fmt.Errorf(versioningNotSupportedWarning, endpoint)
+	}
+
 	return nil
 }

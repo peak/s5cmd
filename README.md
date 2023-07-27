@@ -1,4 +1,4 @@
-[![Go Report](https://goreportcard.com/badge/github.com/peak/s5cmd)](https://goreportcard.com/report/github.com/peak/s5cmd) ![Github Actions Status](https://github.com/peak/s5cmd/workflows/CI/badge.svg)
+[![Go Report](https://goreportcard.com/badge/github.com/peak/s5cmd)](https://goreportcard.com/report/github.com/peak/s5cmd) ![Github Actions Status](https://github.com/peak/s5cmd/actions/workflows/ci.yml/badge.svg)
 
 ![](./doc/s5cmd_header.jpg)
 
@@ -94,7 +94,7 @@ ps.  Quoted from [s5cmd feedstock](https://github.com/conda-forge/s5cmd-feedstoc
 You can build `s5cmd` from source if you have [Go](https://golang.org/dl/) 1.17+
 installed.
 
-    go get github.com/peak/s5cmd
+    go install github.com/peak/s5cmd/v2@master
 
 ⚠️ Please note that building from `master` is not guaranteed to be stable since
 development happens on `master` branch.
@@ -124,6 +124,53 @@ then filtering the results in-memory. For example, for the following command;
 
 first a `ListObjects` request is send, then the copy operation will be executed
 against each matching object, in parallel.
+
+
+### Specifying credentials
+
+`s5cmd` uses official AWS SDK to access S3. SDK requires credentials to sign
+requests to AWS. Credentials can be provided in a [variety of ways](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html):
+
+- Command line options `--profile` to use a named profile, `--credentials-file` flag to use the specified credentials file
+
+    ```sh
+    # Use your company profile in AWS default credential file
+    s5cmd --profile my-work-profile ls s3://my-company-bucket/
+
+    # Use your company profile in your own credential file
+    s5cmd --credentials-file ~/.your-credentials-file --profile my-work-profile ls s3://my-company-bucket/
+    ```
+
+- Environment variables
+
+    ```sh
+    # Export your AWS access key and secret pair
+    export AWS_ACCESS_KEY_ID='<your-access-key-id>'
+    export AWS_SECRET_ACCESS_KEY='<your-secret-access-key>'
+    export AWS_PROFILE='<your-profile-name>'
+    export AWS_REGION='<your-bucket-region>'
+
+    s5cmd ls s3://your-bucket/
+    ```
+
+- If `s5cmd` runs on an Amazon EC2 instance, EC2 IAM role
+- If `s5cmd` runs on EKS, Kube IAM role
+- Or, you can send requests anonymously with `--no-sign-request` option
+
+    ```sh
+    # List objects in a public bucket
+    s5cmd --no-sign-request ls s3://public-bucket/
+    ```
+
+### Region detection
+
+While executing the commands, `s5cmd` detects the region according to the following order of priority:
+
+1. `--source-region` or `--destination-region` flags of `cp` command.
+2. `AWS_REGION` environment variable.
+3. Region section of AWS profile.
+4. Auto detection from bucket region (via `HeadBucket` API call).
+5. `us-east-1` as default region.
 
 ### Examples
 
@@ -226,7 +273,7 @@ are not supported by `s5cmd` and result in error (since we have 2 different buck
     rm s3://bucket-foo/object
     rm s3://bucket-bar/object
 
-more details and examples on `s5cmd run` are presented in a [later section](./README.md#L224).
+more details and examples on `s5cmd run` are presented in a [later section](./README.md#L293).
 
 #### Copy objects from S3 to S3
 
@@ -406,31 +453,6 @@ flag is useful for services that do not support ListObjectsV2 API.
 ```
 s5cmd --use-list-objects-v1 ls s3://bucket/
 ```
-
-### Specifying credentials
-
-`s5cmd` uses official AWS SDK to access S3. SDK requires credentials to sign
-requests to AWS. Credentials can be provided in a variety of ways:
-- Command line options `--profile` to use a [named profile](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-profiles.html), `--credentials-file` flag to use the specified credentials file, and `--no-sign-request` to send requests anonymously
-- Environment variables
-- AWS credentials file, including profile selection via `AWS_PROFILE` environment
-  variable
-- If `s5cmd` runs on an Amazon EC2 instance, EC2 IAM role
-- If `s5cmd` runs on EKS, Kube IAM role
-
-The SDK detects and uses the built-in providers automatically, without requiring
-manual configurations.
-
-
-### Region detection
-
-While executing the commands, `s5cmd` detects the region according to the following order of priority:
-
-1. `--source-region` or `--destination-region` flags of `cp` command.
-2. `AWS_REGION` environment variable.
-3. Region section of AWS profile.
-4. Auto detection from bucket region (via `HeadBucket`).
-5. `us-east-1` as default region.
 
 
 ### Shell auto-completion
@@ -625,7 +647,7 @@ For a more practical scenario, let's say we have an [avocado prices](https://www
 
 ## Beast Mode s5cmd
 
-`s5cmd` allows to pass in some file, containing list of operations to be performed, as an argument to the `run` command as illustrated in the [above](./README.md#L224) example. Alternatively, one can pipe in commands into
+`s5cmd` allows to pass in some file, containing list of operations to be performed, as an argument to the `run` command as illustrated in the [above](./README.md#L293) example. Alternatively, one can pipe in commands into
 the `run:`
 
     BUCKET=s5cmd-test; s5cmd ls s3://$BUCKET/*test | grep -v DIR | awk ‘{print $NF}’

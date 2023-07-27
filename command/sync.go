@@ -6,18 +6,23 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"sync"
 
 	"github.com/hashicorp/go-multierror"
+	"github.com/lanrat/extsort"
 	"github.com/urfave/cli/v2"
 
-	errorpkg "github.com/peak/s5cmd/error"
-	"github.com/peak/s5cmd/log/stat"
-	"github.com/peak/s5cmd/parallel"
-	"github.com/peak/s5cmd/storage"
-	"github.com/peak/s5cmd/storage/url"
+	errorpkg "github.com/peak/s5cmd/v2/error"
+	"github.com/peak/s5cmd/v2/log/stat"
+	"github.com/peak/s5cmd/v2/parallel"
+	"github.com/peak/s5cmd/v2/storage"
+	"github.com/peak/s5cmd/v2/storage/url"
+)
+
+const (
+	extsortChannelBufferSize = 1_000
+	extsortChunkSize         = 100_000
 )
 
 var syncHelpTemplate = `Name:
@@ -34,22 +39,22 @@ Examples:
 		 > s5cmd {{.HelpName}} folder/ s3://bucket/
 
 	02. Sync S3 bucket to local folder
-		 > s5cmd {{.HelpName}} s3://bucket/* folder/
+		 > s5cmd {{.HelpName}} "s3://bucket/*" folder/
 
 	03. Sync S3 bucket objects under prefix to S3 bucket.
-		 > s5cmd {{.HelpName}} s3://sourcebucket/prefix/* s3://destbucket/
+		 > s5cmd {{.HelpName}} "s3://sourcebucket/prefix/*" s3://destbucket/
 
 	04. Sync local folder to S3 but delete the files that S3 bucket has but local does not have.
 		 > s5cmd {{.HelpName}} --delete folder/ s3://bucket/
 
 	05. Sync S3 bucket to local folder but use size as only comparison criteria.
-		 > s5cmd {{.HelpName}} --size-only s3://bucket/* folder/
+		 > s5cmd {{.HelpName}} --size-only "s3://bucket/*" folder/
 
 	06. Sync a file to S3 bucket
 		 > s5cmd {{.HelpName}} myfile.gz s3://bucket/
 
 	07. Sync matching S3 objects to another bucket
-		 > s5cmd {{.HelpName}} s3://bucket/*.gz s3://target-bucket/prefix/
+		 > s5cmd {{.HelpName}} "s3://bucket/*.gz" s3://target-bucket/prefix/
 
 	08. Perform KMS Server Side Encryption of the object(s) at the destination
 		 > s5cmd {{.HelpName}} --sse aws:kms s3://bucket/object s3://target-bucket/prefix/object
@@ -216,71 +221,66 @@ func (s Sync) Run(c *cli.Context) error {
 	return multierror.Append(err, merrorWaiter).ErrorOrNil()
 }
 
-// compareObjects compares source and destination objects.
+// compareObjects compares source and destination objects. It assumes that
+// sourceObjects and destObjects channels are already sorted in ascending order.
 // Returns objects those in only source, only destination
 // and both.
-// The algorithm is taken from;
-// https://github.com/rclone/rclone/blob/HEAD/fs/march/march.go#L304
-func compareObjects(sourceObjects, destObjects []*storage.Object) ([]*url.URL, []*url.URL, []*ObjectPair) {
-	// sort the source and destination objects.
-	sort.SliceStable(sourceObjects, func(i, j int) bool {
-		return sourceObjects[i].URL.Relative() < sourceObjects[j].URL.Relative()
-	})
-	sort.SliceStable(destObjects, func(i, j int) bool {
-		return destObjects[i].URL.Relative() < destObjects[j].URL.Relative()
-	})
-
+func compareObjects(sourceObjects, destObjects chan *storage.Object) (chan *url.URL, chan *url.URL, chan *ObjectPair) {
 	var (
-		srcOnly   []*url.URL
-		dstOnly   []*url.URL
-		commonObj []*ObjectPair
+		srcOnly   = make(chan *url.URL, extsortChannelBufferSize)
+		dstOnly   = make(chan *url.URL, extsortChannelBufferSize)
+		commonObj = make(chan *ObjectPair, extsortChannelBufferSize)
+		srcName   string
+		dstName   string
 	)
 
-	for iSrc, iDst := 0, 0; ; iSrc, iDst = iSrc+1, iDst+1 {
-		var srcObject, dstObject *storage.Object
-		var srcName, dstName string
+	go func() {
+		src, srcOk := <-sourceObjects
+		dst, dstOk := <-destObjects
 
-		if iSrc < len(sourceObjects) {
-			srcObject = sourceObjects[iSrc]
-			srcName = filepath.ToSlash(srcObject.URL.Relative())
-		}
+		defer close(srcOnly)
+		defer close(dstOnly)
+		defer close(commonObj)
 
-		if iDst < len(destObjects) {
-			dstObject = destObjects[iDst]
-			dstName = filepath.ToSlash(dstObject.URL.Relative())
-		}
+		for {
+			if srcOk {
+				srcName = filepath.ToSlash(src.URL.Relative())
+			}
+			if dstOk {
+				dstName = filepath.ToSlash(dst.URL.Relative())
+			}
 
-		if srcObject == nil && dstObject == nil {
-			break
-		}
-
-		if srcObject != nil && dstObject != nil {
-			if srcName > dstName {
-				srcObject = nil
-				iSrc--
-			} else if srcName == dstName { // if there is a match.
-				commonObj = append(commonObj, &ObjectPair{src: srcObject, dst: dstObject})
-			} else {
-				dstObject = nil
-				iDst--
+			if srcOk && dstOk {
+				if srcName < dstName {
+					srcOnly <- src.URL
+					src, srcOk = <-sourceObjects
+				} else if srcName == dstName { // if there is a match.
+					commonObj <- &ObjectPair{src: src, dst: dst}
+					src, srcOk = <-sourceObjects
+					dst, dstOk = <-destObjects
+				} else {
+					dstOnly <- dst.URL
+					dst, dstOk = <-destObjects
+				}
+			} else if srcOk {
+				srcOnly <- src.URL
+				src, srcOk = <-sourceObjects
+			} else if dstOk {
+				dstOnly <- dst.URL
+				dst, dstOk = <-destObjects
+			} else /* if !srcOK && !dstOk */ {
+				break
 			}
 		}
+	}()
 
-		switch {
-		case srcObject == nil && dstObject == nil:
-			// do nothing
-		case srcObject == nil:
-			dstOnly = append(dstOnly, dstObject.URL)
-		case dstObject == nil:
-			srcOnly = append(srcOnly, srcObject.URL)
-		}
-	}
 	return srcOnly, dstOnly, commonObj
 }
 
-// getSourceAndDestinationObjects returns source and destination
-// objects from given urls.
-func (s Sync) getSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl *url.URL) ([]*storage.Object, []*storage.Object, error) {
+// getSourceAndDestinationObjects returns source and destination objects from
+// given URLs. The returned channels gives objects sorted in ascending order
+// with respect to their url.Relative path. See also storage.Less.
+func (s Sync) getSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl *url.URL) (chan *storage.Object, chan *storage.Object, error) {
 	sourceClient, err := storage.NewClient(ctx, srcurl, s.storageOpts)
 	if err != nil {
 		return nil, nil, err
@@ -305,46 +305,104 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 	}
 
 	var (
-		sourceObjects []*storage.Object
-		destObjects   []*storage.Object
-		wg            sync.WaitGroup
+		sourceObjects = make(chan *storage.Object, extsortChannelBufferSize)
+		destObjects   = make(chan *storage.Object, extsortChannelBufferSize)
 	)
 
+	extsortDefaultConfig := extsort.DefaultConfig()
+	extsortConfig := &extsort.Config{
+		ChunkSize:          extsortChunkSize,
+		NumWorkers:         extsortDefaultConfig.NumWorkers,
+		ChanBuffSize:       extsortChannelBufferSize,
+		SortedChanBuffSize: extsortChannelBufferSize,
+	}
+	extsortDefaultConfig = nil
+
 	// get source objects.
-	wg.Add(1)
 	go func() {
-		defer wg.Done()
-		srcObjectChannel := sourceClient.List(ctx, srcurl, s.followSymlinks)
-		for srcObject := range srcObjectChannel {
-			if s.shouldSkipObject(srcObject, true) {
-				continue
+		defer close(sourceObjects)
+		unfilteredSrcObjectChannel := sourceClient.List(ctx, srcurl, s.followSymlinks)
+		filteredSrcObjectChannel := make(chan extsort.SortType, extsortChannelBufferSize)
+
+		go func() {
+			defer close(filteredSrcObjectChannel)
+			// filter and redirect objects
+			for st := range unfilteredSrcObjectChannel {
+				if s.shouldSkipObject(st, true) {
+					continue
+				}
+				filteredSrcObjectChannel <- *st
 			}
-			sourceObjects = append(sourceObjects, srcObject)
+		}()
+
+		var (
+			sorter        *extsort.SortTypeSorter
+			srcOutputChan chan extsort.SortType
+		)
+
+		sorter, srcOutputChan, srcErrCh := extsort.New(filteredSrcObjectChannel, storage.FromBytes, storage.Less, extsortConfig)
+		sorter.Sort(ctx)
+
+		for srcObject := range srcOutputChan {
+			o := srcObject.(storage.Object)
+			sourceObjects <- &o
 		}
+
+		// read and print the external sort errors
+		go func() {
+			for err := range srcErrCh {
+				printError(s.fullCommand, s.op, err)
+			}
+		}()
 	}()
 
 	// get destination objects.
-	wg.Add(1)
 	go func() {
-		defer wg.Done()
-		destObjectsChannel := destClient.List(ctx, destObjectsURL, false)
-		for destObject := range destObjectsChannel {
-			if s.shouldSkipObject(destObject, false) {
-				continue
+		defer close(destObjects)
+		unfilteredDestObjectsChannel := destClient.List(ctx, destObjectsURL, false)
+		filteredDstObjectChannel := make(chan extsort.SortType, extsortChannelBufferSize)
+
+		go func() {
+			defer close(filteredDstObjectChannel)
+
+			// filter and redirect objects
+			for dt := range unfilteredDestObjectsChannel {
+				if s.shouldSkipObject(dt, false) {
+					continue
+				}
+				filteredDstObjectChannel <- *dt
 			}
-			destObjects = append(destObjects, destObject)
+		}()
+
+		var (
+			dstSorter     *extsort.SortTypeSorter
+			dstOutputChan chan extsort.SortType
+		)
+
+		dstSorter, dstOutputChan, dstErrCh := extsort.New(filteredDstObjectChannel, storage.FromBytes, storage.Less, extsortConfig)
+		dstSorter.Sort(ctx)
+
+		for destObject := range dstOutputChan {
+			o := destObject.(storage.Object)
+			destObjects <- &o
 		}
+
+		// read and print the external sort errors
+		go func() {
+			for err := range dstErrCh {
+				printError(s.fullCommand, s.op, err)
+			}
+		}()
 	}()
 
-	wg.Wait()
 	return sourceObjects, destObjects, nil
 }
 
 // planRun prepares the commands and writes them to writer 'w'.
 func (s Sync) planRun(
 	c *cli.Context,
-	onlySource, onlyDest []*url.URL,
-	common []*ObjectPair,
+	onlySource, onlyDest chan *url.URL,
+	common chan *ObjectPair,
 	dsturl *url.URL,
 	strategy SyncStrategy,
 	w io.WriteCloser,
@@ -359,44 +417,80 @@ func (s Sync) planRun(
 		"raw": true,
 	}
 
+	// it should wait until both of the child goroutines for onlySource and common channels
+	// are completed before closing the WriteCloser w to ensure that all URLs are processed.
+	var wg sync.WaitGroup
+
 	// only in source
-	for _, srcurl := range onlySource {
-		curDestURL := generateDestinationURL(srcurl, dsturl, isBatch)
-		command, err := generateCommand(c, "cp", defaultFlags, srcurl, curDestURL)
-		if err != nil {
-			printDebug(s.op, err, srcurl, curDestURL)
-			continue
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for srcurl := range onlySource {
+			curDestURL := generateDestinationURL(srcurl, dsturl, isBatch)
+			command, err := generateCommand(c, "cp", defaultFlags, srcurl, curDestURL)
+			if err != nil {
+				printDebug(s.op, err, srcurl, curDestURL)
+				continue
+			}
+			fmt.Fprintln(w, command)
 		}
-		fmt.Fprintln(w, command)
-	}
+	}()
 
 	// both in source and destination
-	for _, commonObject := range common {
-		sourceObject, destObject := commonObject.src, commonObject.dst
-		curSourceURL, curDestURL := sourceObject.URL, destObject.URL
-		err := strategy.ShouldSync(sourceObject, destObject) // check if object should be copied.
-		if err != nil {
-			printDebug(s.op, err, curSourceURL, curDestURL)
-			continue
-		}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for commonObject := range common {
+			sourceObject, destObject := commonObject.src, commonObject.dst
+			curSourceURL, curDestURL := sourceObject.URL, destObject.URL
+			err := strategy.ShouldSync(sourceObject, destObject) // check if object should be copied.
+			if err != nil {
+				printDebug(s.op, err, curSourceURL, curDestURL)
+				continue
+			}
 
-		command, err := generateCommand(c, "cp", defaultFlags, curSourceURL, curDestURL)
-		if err != nil {
-			printDebug(s.op, err, curSourceURL, curDestURL)
-			continue
+			command, err := generateCommand(c, "cp", defaultFlags, curSourceURL, curDestURL)
+			if err != nil {
+				printDebug(s.op, err, curSourceURL, curDestURL)
+				continue
+			}
+			fmt.Fprintln(w, command)
 		}
-		fmt.Fprintln(w, command)
-	}
+	}()
 
 	// only in destination
-	if s.delete && len(onlyDest) > 0 {
-		command, err := generateCommand(c, "rm", defaultFlags, onlyDest...)
-		if err != nil {
-			printDebug(s.op, err, onlyDest...)
-			return
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if s.delete {
+			// unfortunately we need to read them all!
+			// or rewrite generateCommand function?
+			dstURLs := make([]*url.URL, 0, extsortChunkSize)
+
+			for d := range onlyDest {
+				dstURLs = append(dstURLs, d)
+			}
+
+			if len(dstURLs) == 0 {
+				return
+			}
+
+			command, err := generateCommand(c, "rm", defaultFlags, dstURLs...)
+			if err != nil {
+				printDebug(s.op, err, dstURLs...)
+				return
+			}
+			fmt.Fprintln(w, command)
+		} else {
+			// we only need  to consume them from the channel so that rest of the objects
+			// can be sent to channel.
+			for d := range onlyDest {
+				_ = d
+			}
 		}
-		fmt.Fprintln(w, command)
-	}
+	}()
+
+	wg.Wait()
 }
 
 // generateDestinationURL generates destination url for given

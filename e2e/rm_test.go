@@ -1313,7 +1313,12 @@ func TestRemovingSocketFile(t *testing.T) {
 	workdir := fs.NewDir(t, t.Name())
 	defer workdir.Remove()
 	sockaddr := workdir.Path() + "/s5cmd.sock"
-	ln, _ := net.Listen("unix", sockaddr)
+	var ln net.Listener
+	if runtime.GOOS == "windows" {
+		ln, _ = net.Listen("tcp", sockaddr)
+	} else {
+		ln, _ = net.Listen("unix", sockaddr)
+	}
 	t.Cleanup(func() {
 		ln.Close()
 		os.Remove(sockaddr)

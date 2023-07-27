@@ -14,7 +14,7 @@
 
 #### Bugfixes
 - Fixed a bug introduced with `external sort` support in `sync` command which prevents `sync` to an empty destination with `--delete` option. ([#576](https://github.com/peak/s5cmd/issues/576))
-- Fixed a bug `sync` command continues to execution even if an error is received from destination bucket. ([#564](https://github.com/peak/s5cmd/issues/564))
+- Fixed a bug in `sync` command, which previously caused the command to continue running even if an error was received from the destination bucket. ([#564](https://github.com/peak/s5cmd/issues/564))
 - Fixed a bug that causes local files to be lost if downloads fail. ([#479](https://github.com/peak/s5cmd/issues/479))
 
 ## v2.1.0 - 19 Jun 2023

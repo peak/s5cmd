@@ -4223,8 +4223,10 @@ func TestOverridingSocketFile(t *testing.T) {
 	defer workdir.Remove()
 	sockaddr := fmt.Sprintf("%v/%v", workdir.Path(), filename)
 	var ln net.Listener
+	var err error
 	if runtime.GOOS == "windows" {
-		ln, _ = net.Listen("tcp", sockaddr)
+		ln, err = net.Listen("tcp", sockaddr)
+		t.Log(err)
 	} else {
 		ln, _ = net.Listen("unix", sockaddr)
 	}

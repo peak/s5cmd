@@ -684,7 +684,6 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL, ex
 		metadata = metadata.SetExtraData(key, value)
 	}
 
-	err = dstClient.Put(ctx, file, dsturl, metadata, c.concurrency, c.partSize)
 	reader := newCountingReaderWriter(file, c.progressbar)
 	err = dstClient.Put(ctx, reader, dsturl, metadata, c.concurrency, c.partSize)
 

@@ -8,7 +8,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
+	"gotest.tools/v3/assert"
 )
 
 const (
@@ -17,12 +17,20 @@ const (
 
 func TestShuffleWriteWithStaticChunkSize(t *testing.T) {
 	t.Parallel()
+
+	// only for this test
+	const (
+		chunkSize = 5
+		fileSize  = 1000
+	)
+
 	for b := 0; b < testRuns; b++ {
+		b := b
 		t.Run(fmt.Sprintf("Run%d", b), func(t *testing.T) {
 			t.Parallel()
 			var result bytes.Buffer
-			chunkSize := 5
-			fileSize := 1000
+
+			// we know the filesize ahead so make it buffered
 			expected := make([]byte, fileSize)
 
 			for i := 0; i < fileSize; i++ {
@@ -30,7 +38,7 @@ func TestShuffleWriteWithStaticChunkSize(t *testing.T) {
 				expected[i] = uint8(ch)
 			}
 
-			tasks := []chunk{}
+			chunks := []chunk{}
 			// first create chunks number of tasks
 			// Create tasks and put them in the array
 			for i := 0; i < fileSize; i += chunkSize {
@@ -38,42 +46,46 @@ func TestShuffleWriteWithStaticChunkSize(t *testing.T) {
 					offset: int64(i),
 					value:  expected[i : i+chunkSize],
 				}
-				tasks = append(tasks, task)
+				chunks = append(chunks, task)
 			}
 
-			// shuffle
-			for i := range tasks {
-				j := rand.Intn(i + 1)
-				tasks[i], tasks[j] = tasks[j], tasks[i]
-			}
+			rand.Shuffle(len(chunks), func(i, j int) {
+				chunks[i], chunks[j] = chunks[j], chunks[i]
+			})
 
-			buff := New(&result)
+			buf := New(&result)
 
-			for _, task := range tasks {
-				buff.WriteAt(task.value, int64(task.offset))
+			for _, chunk := range chunks {
+				buf.WriteAt(chunk.value, int64(chunk.offset))
 
 			}
+
 			// Ensure all chunks have been written correctly
-			if !bytes.Equal(result.Bytes(), expected) {
-				t.Errorf("Length comparison: Got: %d bytes, expected: %d bytes\n", len(result.Bytes()), len(expected))
-				cmp.Diff(result.Bytes(), expected)
-			}
+			assert.DeepEqual(t, result.Bytes(), expected)
 		})
 	}
 }
 
 func TestShuffleWriteWithRandomChunkSize(t *testing.T) {
 	t.Parallel()
-	maxFileSize := 1024 * 100
-	minChunkSize, maxChunkSize := 5, 1000
+
+	const (
+		maxFileSize                = 1024 * 100
+		minChunkSize, maxChunkSize = 5, 1000
+	)
+
 	for b := 0; b < testRuns; b++ {
 		b := b
 		t.Run(fmt.Sprintf("TR%d", b), func(t *testing.T) {
 			t.Parallel()
-			var result bytes.Buffer
-			var offset int64
-			expected := []byte{}
-			chunks := []chunk{}
+
+			var (
+				result   bytes.Buffer
+				offset   int64
+				expected []byte
+				chunks   []chunk
+			)
+
 			// generate chunks
 			for i := 0; i <= maxFileSize; {
 				chunkSize := minChunkSize + rand.Intn(maxChunkSize-minChunkSize)
@@ -89,22 +101,19 @@ func TestShuffleWriteWithRandomChunkSize(t *testing.T) {
 				offset += int64(chunkSize)
 				i += chunkSize
 			}
-			// shuffle the chunks
-			for i := range chunks {
-				j := rand.Intn(i + 1)
+
+			rand.Shuffle(len(chunks), func(i, j int) {
 				chunks[i], chunks[j] = chunks[j], chunks[i]
+			})
+
+			buf := New(&result)
+
+			for _, chunk := range chunks {
+				buf.WriteAt(chunk.value, int64(chunk.offset))
 			}
 
-			buff := New(&result)
-
-			for _, task := range chunks {
-				buff.WriteAt(task.value, int64(task.offset))
-			}
 			// Ensure all chunks have been written correctly
-			if !bytes.Equal(result.Bytes(), expected) {
-				t.Errorf("Length comparison: Got: %d bytes, expected: %d bytes\n", len(result.Bytes()), len(expected))
-				cmp.Diff(result.Bytes(), expected)
-			}
+			assert.DeepEqual(t, result.Bytes(), expected)
 		})
 	}
 
@@ -112,40 +121,48 @@ func TestShuffleWriteWithRandomChunkSize(t *testing.T) {
 
 func TestShuffleConcurrentWriteWithRandomChunkSize(t *testing.T) {
 	t.Parallel()
-	maxFileSize := 1024
-	minChunkSize, maxChunkSize := 5, 100
+
+	const (
+		maxFileSize                = 1024 * 100
+		minChunkSize, maxChunkSize = 5, 1000
+	)
+
 	for b := 0; b < testRuns; b++ {
 		b := b
 		t.Run(fmt.Sprintf("Run%d", b), func(t *testing.T) {
 			t.Parallel()
-			var result bytes.Buffer
-			var offset int64
-			expected := []byte{}
-			chunks := []chunk{}
+
+			var (
+				result   bytes.Buffer
+				expected []byte
+				chunks   []chunk
+			)
+
 			// generate chunks
 			for i := 0; i <= maxFileSize; {
 				chunkSize := minChunkSize + rand.Intn(maxChunkSize-minChunkSize)
 				bytechunk := make([]byte, chunkSize)
+
 				for j := 0; j < chunkSize; j++ {
 					bytechunk[j] = uint8(rand.Intn(256))
 				}
+
 				chunks = append(chunks, chunk{
-					offset: offset,
+					offset: int64(i),
 					value:  bytechunk,
 				})
+
 				expected = append(expected, bytechunk...)
-				offset += int64(chunkSize)
 				i += chunkSize
 			}
-			// shuffle the chunks
-			for i := range chunks {
-				j := rand.Intn(i + 1)
+
+			rand.Shuffle(len(chunks), func(i, j int) {
 				chunks[i], chunks[j] = chunks[j], chunks[i]
-			}
+			})
 
-			buff := New(&result)
+			buf := New(&result)
 
-			chunkChan := make(chan chunk, 1)
+			chunkch := make(chan chunk)
 
 			var wg sync.WaitGroup
 			workerCount := 5 + rand.Intn(20) // 5-25 workers
@@ -154,22 +171,20 @@ func TestShuffleConcurrentWriteWithRandomChunkSize(t *testing.T) {
 				go func(ch chan chunk) {
 					defer wg.Done()
 					for task := range ch {
-						buff.WriteAt(task.value, int64(task.offset))
+						buf.WriteAt(task.value, int64(task.offset))
 					}
-				}(chunkChan)
+				}(chunkch)
 			}
 
 			for _, chunk := range chunks {
-				chunkChan <- chunk
+				chunkch <- chunk
 			}
-			close(chunkChan)
+
+			close(chunkch)
 			wg.Wait()
 
 			// Ensure all chunks have been written correctly
-			if !bytes.Equal(result.Bytes(), expected) {
-				t.Errorf("Length comparison: Got: %d bytes, expected: %d bytes\n", len(result.Bytes()), len(expected))
-				cmp.Diff(result.Bytes(), expected)
-			}
+			assert.DeepEqual(t, result.Bytes(), expected)
 		})
 	}
 }
@@ -199,167 +214,111 @@ type dlchunk struct {
 //
 // If a range is specified on the dlchunk the size will be ignored when writing.
 // as the total size may not of be known ahead of time.
-func (c *dlchunk) Write(p []byte) (n int, err error) {
+func (c *dlchunk) Write(p []byte) (int, error) {
 	if c.cur >= c.size {
 		return 0, io.EOF
 	}
 
-	n, err = c.w.WriteAt(p, c.offset+c.cur)
+	n, err := c.w.WriteAt(p, c.offset+c.cur)
 	c.cur += int64(n)
 
-	return
+	return n, err
 }
+
 func TestBufferWithChangingSlice(t *testing.T) {
 	t.Parallel()
-	maxFileSize := 1024 * 1024
-	testRuns := 1
-	minChunkSize, maxChunkSize := 5, 100
+
+	const (
+		maxFileSize                = 1024 * 1024
+		testRuns                   = 1
+		minChunkSize, maxChunkSize = 5, 100
+	)
+
 	for b := 0; b < testRuns; b++ {
 		b := b
 		t.Run(fmt.Sprintf("Run%d", b), func(t *testing.T) {
 			t.Parallel()
-			var expectedFileSize int64
-			expected := []byte{}
-			chunks := []dlchunk{}
+
+			var (
+				expectedFileSize int64
+				expected         []byte
+				chunks           []dlchunk
+			)
 
 			// generate chunks
 			for i := 0; i <= maxFileSize; {
 				chunkSize := minChunkSize + rand.Intn(maxChunkSize-minChunkSize)
-				chunk := make([]byte, chunkSize)
+				bytechunk := make([]byte, chunkSize)
+
 				for j := 0; j < chunkSize; j++ {
-					chunk[j] = uint8(rand.Intn(256))
+					bytechunk[j] = uint8(rand.Intn(256))
 				}
+
 				// we use the expectedFileSize to track the offset
 				chunks = append(chunks, dlchunk{
 					offset: int64(expectedFileSize),
 					size:   int64(chunkSize),
-					value:  chunk,
+					value:  bytechunk,
 				})
-				expected = append(expected, chunk...)
+
+				expected = append(expected, bytechunk...)
 				expectedFileSize += int64(chunkSize)
 				i += chunkSize
 			}
-			// shuffle the chunks
-			for i := range chunks {
-				j := rand.Intn(i + 1)
+
+			rand.Shuffle(len(chunks), func(i, j int) {
 				chunks[i], chunks[j] = chunks[j], chunks[i]
-			}
+			})
 
 			result := bytes.NewBuffer(make([]byte, 0, expectedFileSize))
-			buff := New(result)
+			buf := New(result)
 
-			// we set the writerAt after we initialize the buff, since
-			// the buff can't be initialized until the expectedFileSize
+			// we set the writerAt after we initialize the buf, since
+			// the buf can't be initialized until the expectedFileSize
 			// is known.
 			for i := 0; i < len(chunks); i++ {
-				chunks[i].w = buff
+				chunks[i].w = buf
 			}
-			chunkChan := make(chan dlchunk, 1)
 
-			var wg sync.WaitGroup
-			var blockingTask dlchunk
+			var (
+				wg           sync.WaitGroup
+				blockingTask dlchunk
+			)
+
+			chunkch := make(chan dlchunk)
 			workerCount := 5 + rand.Intn(20) // 5-25 workers
+
 			for i := 0; i < workerCount; i++ {
 				wg.Add(1)
 				go func(ch chan dlchunk) {
 					defer wg.Done()
 					for task := range ch {
+						// the test is to block all chunks then
+						// releasing them, the first bytechunk is blocked
 						if task.offset == 0 {
 							blockingTask = task
 							continue
 						}
+
 						r := bytes.NewReader(task.value)
 						io.Copy(&task, r)
 					}
-				}(chunkChan)
+				}(chunkch)
 			}
 
-			for _, chunk := range chunks {
-				chunkChan <- chunk
+			for _, bytechunk := range chunks {
+				chunkch <- bytechunk
 			}
-			close(chunkChan)
+
+			close(chunkch)
 			wg.Wait()
-			// block all chunks except the first one
+
+			// write the blocking bytechunk
 			r := bytes.NewReader(blockingTask.value)
 			io.Copy(&blockingTask, r)
+
 			// Ensure all chunks have been written correctly
-			if !bytes.Equal(result.Bytes(), expected) {
-				t.Errorf("Length comparison: Got: %d bytes, expected: %d bytes\n", len(result.Bytes()), len(expected))
-				cmp.Diff(result.Bytes(), expected)
-			}
+			assert.DeepEqual(t, result.Bytes(), expected)
 		})
-	}
-}
-
-func BenchmarkBufferWithChangingSlice(bench *testing.B) {
-	maxFileSize := 1024 * 1024
-	minChunkSize, maxChunkSize := 5, 100
-	for b := 0; b < bench.N; b++ {
-		var expectedFileSize int64
-		expected := []byte{}
-		chunks := []dlchunk{}
-
-		// generate chunks
-		for i := 0; i <= maxFileSize; {
-			chunkSize := minChunkSize + rand.Intn(maxChunkSize-minChunkSize)
-			chunk := make([]byte, chunkSize)
-			for j := 0; j < chunkSize; j++ {
-				chunk[j] = uint8(rand.Intn(256))
-			}
-			chunks = append(chunks, dlchunk{
-				offset: int64(expectedFileSize),
-				size:   int64(chunkSize),
-				value:  chunk,
-			})
-			expected = append(expected, chunk...)
-			expectedFileSize += int64(chunkSize)
-			i += chunkSize
-		}
-		// shuffle the chunks
-		for i := range chunks {
-			j := rand.Intn(i + 1)
-			chunks[i], chunks[j] = chunks[j], chunks[i]
-		}
-		result := bytes.NewBuffer(make([]byte, 0, expectedFileSize))
-		buff := New(result)
-
-		// we set the writerAt after we initialize the buff, since
-		// the buff can't be initialized until the expectedFileSize
-		// is known.
-		for i := 0; i < len(chunks); i++ {
-			chunks[i].w = buff
-		}
-		chunkChan := make(chan dlchunk, 1)
-
-		var wg sync.WaitGroup
-		var blockingTask dlchunk
-		workerCount := 5 + rand.Intn(20) // 5-25 workers
-		for i := 0; i < workerCount; i++ {
-			wg.Add(1)
-			go func(ch chan dlchunk) {
-				defer wg.Done()
-				for task := range ch {
-					if task.offset == 0 {
-						blockingTask = task
-						continue
-					}
-					r := bytes.NewReader(task.value)
-					io.Copy(&task, r)
-				}
-			}(chunkChan)
-		}
-
-		for _, chunk := range chunks {
-			chunkChan <- chunk
-		}
-		close(chunkChan)
-		wg.Wait()
-		// block all chunks except the first one
-		r := bytes.NewReader(blockingTask.value)
-		io.Copy(&blockingTask, r)
-		if !bytes.Equal(result.Bytes(), expected) {
-			bench.Errorf("Length comparison: Got: %d bytes, expected: %d bytes\n", len(result.Bytes()), len(expected))
-			cmp.Diff(result.Bytes(), expected)
-		}
 	}
 }

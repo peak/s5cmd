@@ -1,6 +1,6 @@
-// Package buffer implements an unbounded buffer for ordering concurrent writes for
+// Package orderedwriter implements an unbounded buffer for ordering concurrent writes for
 // non-seekable writers. It keeps an internal linked list that keeps the chunks in order
-// and flushes buffered chunks when the smallest expected offset is available.
+// and flushes buffered chunks when the expected offset is available.
 package orderedwriter
 
 import (
@@ -34,18 +34,24 @@ func (w *OrderedWriterAt) WriteAt(p []byte, offset int64) (int, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	if w.list.Front() == nil {
-		// if the queue is empty and the chunk is writeable, push it without queueing
-		if w.written == offset {
-			n, err := w.w.Write(p)
-			if err != nil {
-				return n, err
-			}
-			w.written += int64(n)
-			return len(p), nil
+	// If the queue is empty and the chunk is writeable, push it without queueing.
+	if w.list.Front() == nil && w.written == offset {
+		n, err := w.w.Write(p)
+		if err != nil {
+			return n, err
 		}
-		b := make([]byte, len(p))
-		copy(b, p)
+		w.written += int64(n)
+		return len(p), nil
+	}
+
+	// Copy the chunk, buffered writers can modify
+	// the slice before we consume them.
+	b := make([]byte, len(p))
+	copy(b, p)
+
+	// If there are no items in the list and we can't write
+	// directly push back and return early.
+	if w.list.Front() == nil {
 		w.list.PushBack(&chunk{
 			offset: offset,
 			value:  b,
@@ -53,12 +59,14 @@ func (w *OrderedWriterAt) WriteAt(p []byte, offset int64) (int, error) {
 		return len(p), nil
 	}
 
-	inserted := false
+	// Traverse the list from the beginning and insert
+	// it to the smallest index possible. That is,
+	// compare the element's offset with the offset
+	// that you want to buffer.
+	var inserted bool
 	for e := w.list.Front(); e != nil; e = e.Next() {
 		v, _ := e.Value.(*chunk)
 		if offset < v.offset {
-			b := make([]byte, len(p))
-			copy(b, p)
 			w.list.InsertBefore(&chunk{
 				offset: offset,
 				value:  b,
@@ -67,30 +75,39 @@ func (w *OrderedWriterAt) WriteAt(p []byte, offset int64) (int, error) {
 			break
 		}
 	}
+
+	// If the chunk haven't been inserted, put it at
+	// the end of the buffer.
 	if !inserted {
-		b := make([]byte, len(p))
-		copy(b, p)
 		w.list.PushBack(&chunk{
 			offset: offset,
 			value:  b,
 		})
 	}
-	removeList := make([]*list.Element, 0)
+
+	// If the expected offset is buffered,
+	// flush the items that you can.
+	var removeList []*list.Element
 	for e := w.list.Front(); e != nil; e = e.Next() {
 		v, _ := e.Value.(*chunk)
 		if v.offset != w.written {
 			break
 		}
+
 		n, err := w.w.Write(v.value)
 		if err != nil {
 			return n, err
 		}
+
 		removeList = append(removeList, e)
 		w.written += int64(n)
 
 	}
+
+	// Remove the items that have been written.
 	for _, e := range removeList {
 		w.list.Remove(e)
 	}
+
 	return len(p), nil
 }

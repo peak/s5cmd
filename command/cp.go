@@ -421,8 +421,8 @@ func (c Copy) Run(ctx context.Context) error {
 			continue
 		}
 
-		specialFile, _ := storage.IsSpecialFile(object.URL)
-		if isURLExcluded(excludePatterns, object.URL.Path, c.src.Prefix) || specialFile {
+		isSpecialFile, _ := storage.IsSpecialFile(object.URL)
+		if isSpecialFile || isURLExcluded(excludePatterns, object.URL.Path, c.src.Prefix) {
 			continue
 		}
 

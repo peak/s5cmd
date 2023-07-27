@@ -97,7 +97,7 @@ func NewPipeCommand() *cli.Command {
 	cmd := &cli.Command{
 		Name:               "pipe",
 		HelpName:           "pipe",
-		Usage:              "upload to remote from stdin",
+		Usage:              "strean to remote from stdin",
 		Flags:              NewPipeCommandFlags(),
 		CustomHelpTemplate: pipeHelpTemplate,
 		Before: func(c *cli.Context) error {

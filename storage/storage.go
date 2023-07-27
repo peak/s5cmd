@@ -221,6 +221,13 @@ func NewMetadata() Metadata {
 	return Metadata{}
 }
 
+// This is a hacky fix to not break the API. We set
+// arbitrary metadata to object, but we don't want to
+// set these as arbitrary.
+func (m Metadata) ServerSideKeys() []string {
+	return []string{"ACL", "CacheControl", "Expires", "StorageClass", "ContentType", "ContentDisposition", "EncryptionMethod", "EncryptionKeyID", "ContentEncoding"}
+}
+
 func (m Metadata) ACL() string {
 	return m["ACL"]
 }
@@ -299,6 +306,15 @@ func (m Metadata) ContentEncoding() string {
 
 func (m Metadata) SetContentEncoding(contentEncoding string) Metadata {
 	m["ContentEncoding"] = contentEncoding
+	return m
+}
+
+func (m Metadata) GetExtraData(key string) string {
+	return m[key]
+}
+
+func (m Metadata) SetExtraData(key, value string) Metadata {
+	m[key] = value
 	return m
 }
 

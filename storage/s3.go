@@ -477,6 +477,18 @@ func (s *S3) listObjects(ctx context.Context, url *url.URL) <-chan *Object {
 	return objCh
 }
 
+// a simple helper to check whether a string is contained in the
+// array
+func contains(s []string, str string) bool {
+	for _, v := range s {
+		if v == str {
+			return true
+		}
+	}
+
+	return false
+}
+
 // Copy is a single-object copy operation which copies objects to S3
 // destination from another S3 source.
 func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata Metadata) error {
@@ -533,6 +545,19 @@ func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata Metadata) err
 			return err
 		}
 		input.Expires = aws.Time(t)
+	}
+
+	extradata := map[string]*string{}
+	serverSideKeys := metadata.ServerSideKeys()
+	for key, value := range metadata {
+		if contains(serverSideKeys, key) {
+			continue
+		}
+		extradata[key] = aws.String(value)
+	}
+
+	if len(extradata) != 0 {
+		input.Metadata = extradata
 	}
 
 	_, err := s.api.CopyObject(input)
@@ -733,6 +758,19 @@ func (s *S3) Put(
 	// add retry ID to the object metadata
 	if s.noSuchUploadRetryCount > 0 {
 		input.Metadata[metadataKeyRetryID] = generateRetryID()
+	}
+
+	extradata := map[string]*string{}
+	serverSideKeys := metadata.ServerSideKeys()
+	for key, value := range metadata {
+		if contains(serverSideKeys, key) {
+			continue
+		}
+		extradata[key] = aws.String(value)
+	}
+
+	if len(extradata) != 0 {
+		input.Metadata = extradata
 	}
 
 	uploaderOptsFn := func(u *s3manager.Uploader) {

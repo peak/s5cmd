@@ -513,6 +513,7 @@ var errS3NoSuchKey = fmt.Errorf("s3: no such key")
 type ensureOpts struct {
 	contentType        *string
 	contentDisposition *string
+	metadata           map[string]*string
 	storageClass       *string
 }
 
@@ -533,6 +534,12 @@ func ensureContentDisposition(contentDisposition string) ensureOption {
 func ensureStorageClass(expected string) ensureOption {
 	return func(opts *ensureOpts) {
 		opts.storageClass = &expected
+	}
+}
+
+func ensureArbitraryMetadata(metadata map[string]*string) ensureOption {
+	return func(opts *ensureOpts) {
+		opts.metadata = metadata
 	}
 }
 
@@ -593,6 +600,16 @@ func ensureS3Object(
 		}
 	}
 
+	if opts.metadata != nil {
+		for mkey := range opts.metadata {
+			if opts.metadata[mkey] == nil || output.Metadata[mkey] == nil {
+				return fmt.Errorf("check the assertion keys of %v/%v key:%v\n", bucket, key, mkey)
+			}
+			if diff := cmp.Diff(*opts.metadata[mkey], *output.Metadata[mkey]); diff != "" {
+				return fmt.Errorf("arbitrary metadata of %v/%v: (-want +got):\n%v", bucket, key, diff)
+			}
+		}
+	}
 	return nil
 }
 
@@ -603,6 +620,20 @@ func putFile(t *testing.T, client *s3.S3, bucket string, filename string, conten
 		Body:   strings.NewReader(content),
 		Bucket: aws.String(bucket),
 		Key:    aws.String(filename),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func putFileWithMetadata(t *testing.T, client *s3.S3, bucket string, filename string, content string, metadata map[string]*string) {
+	t.Helper()
+
+	_, err := client.PutObject(&s3.PutObjectInput{
+		Body:     strings.NewReader(content),
+		Bucket:   aws.String(bucket),
+		Key:      aws.String(filename),
+		Metadata: metadata,
 	})
 	if err != nil {
 		t.Fatal(err)

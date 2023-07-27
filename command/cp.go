@@ -127,6 +127,11 @@ func NewSharedFlags() []cli.Flag {
 			Value:   defaultPartSize,
 			Usage:   "size of each part transferred between host and remote server, in MiB",
 		},
+		&cli.StringSliceFlag{
+			Name:    "metadata",
+			Aliases: []string{"md"},
+			Usage:   "set arbitrary metadata for the object",
+		},
 		&cli.StringFlag{
 			Name:  "sse",
 			Usage: "perform server side encryption of the data at its destination, e.g. aws:kms",
@@ -280,6 +285,7 @@ type Copy struct {
 	contentType           string
 	contentEncoding       string
 	contentDisposition    string
+	metadata              []string
 	// region settings
 	srcRegion string
 	dstRegion string
@@ -333,6 +339,7 @@ func NewCopy(c *cli.Context, deleteSource bool) (*Copy, error) {
 		contentType:           c.String("content-type"),
 		contentEncoding:       c.String("content-encoding"),
 		contentDisposition:    c.String("content-disposition"),
+		metadata:              c.StringSlice("metadata"),
 		// region settings
 		srcRegion: c.String("source-region"),
 		dstRegion: c.String("destination-region"),
@@ -430,11 +437,23 @@ func (c Copy) Run(ctx context.Context) error {
 
 		switch {
 		case srcurl.Type == c.dst.Type: // local->local or remote->remote
-			task = c.prepareCopyTask(ctx, srcurl, c.dst, isBatch)
+			metadata, err := parseMetadata(c.metadata)
+			if err != nil {
+				merrorObjects = multierror.Append(merrorObjects, err)
+				printError(c.fullCommand, c.op, err)
+				continue
+			}
+			task = c.prepareCopyTask(ctx, srcurl, c.dst, isBatch, metadata)
 		case srcurl.IsRemote(): // remote->local
 			task = c.prepareDownloadTask(ctx, srcurl, c.dst, isBatch)
 		case c.dst.IsRemote(): // local->remote
-			task = c.prepareUploadTask(ctx, srcurl, c.dst, isBatch)
+			metadata, err := parseMetadata(c.metadata)
+			if err != nil {
+				merrorObjects = multierror.Append(merrorObjects, err)
+				printError(c.fullCommand, c.op, err)
+				continue
+			}
+			task = c.prepareUploadTask(ctx, srcurl, c.dst, isBatch, metadata)
 		default:
 			panic("unexpected src-dst pair")
 		}
@@ -453,10 +472,11 @@ func (c Copy) prepareCopyTask(
 	srcurl *url.URL,
 	dsturl *url.URL,
 	isBatch bool,
+	metadata map[string]string,
 ) func() error {
 	return func() error {
 		dsturl = prepareRemoteDestination(srcurl, dsturl, c.flatten, isBatch)
-		err := c.doCopy(ctx, srcurl, dsturl)
+		err := c.doCopy(ctx, srcurl, dsturl, metadata)
 		if err != nil {
 			return &errorpkg.Error{
 				Op:  c.op,
@@ -498,10 +518,11 @@ func (c Copy) prepareUploadTask(
 	srcurl *url.URL,
 	dsturl *url.URL,
 	isBatch bool,
+	metadata map[string]string,
 ) func() error {
 	return func() error {
 		dsturl = prepareRemoteDestination(srcurl, dsturl, c.flatten, isBatch)
-		err := c.doUpload(ctx, srcurl, dsturl)
+		err := c.doUpload(ctx, srcurl, dsturl, metadata)
 		if err != nil {
 			return &errorpkg.Error{
 				Op:  c.op,
@@ -572,7 +593,7 @@ func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) 
 	return nil
 }
 
-func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) error {
+func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL, extradata map[string]string) error {
 	srcClient := storage.NewLocalClient(c.storageOpts)
 
 	file, err := srcClient.Open(srcurl.Absolute())
@@ -619,6 +640,11 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 	if c.contentDisposition != "" {
 		metadata.SetContentDisposition(c.contentDisposition)
 	}
+
+	for key, value := range extradata {
+		metadata = metadata.SetExtraData(key, value)
+	}
+
 	err = dstClient.Put(ctx, file, dsturl, metadata, c.concurrency, c.partSize)
 	if err != nil {
 		return err
@@ -649,7 +675,7 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 	return nil
 }
 
-func (c Copy) doCopy(ctx context.Context, srcurl, dsturl *url.URL) error {
+func (c Copy) doCopy(ctx context.Context, srcurl, dsturl *url.URL, extradata map[string]string) error {
 	// override destination region if set
 	if c.dstRegion != "" {
 		c.storageOpts.SetRegion(c.dstRegion)
@@ -675,6 +701,10 @@ func (c Copy) doCopy(ctx context.Context, srcurl, dsturl *url.URL) error {
 	}
 	if c.contentDisposition != "" {
 		metadata.SetContentDisposition(c.contentDisposition)
+	}
+
+	for key, value := range extradata {
+		metadata = metadata.SetExtraData(key, value)
 	}
 
 	err = c.shouldOverride(ctx, srcurl, dsturl)
@@ -948,6 +978,23 @@ func validateUpload(ctx context.Context, srcurl, dsturl *url.URL, storageOpts st
 	}
 
 	return nil
+}
+
+// parseMetadata parses arbitrary number of tokens to set
+// the metadata of the object. If any of the inputs are invalid,
+// returns nil
+func parseMetadata(tokens []string) (map[string]string, error) {
+	m := map[string]string{}
+	for _, token := range tokens {
+		s := strings.Split(token, "=")
+
+		if len(s) > 2 {
+			return nil, fmt.Errorf("field: %s is in invalid form to be set as metadata.", token)
+		}
+
+		m[s[0]] = s[1]
+	}
+	return m, nil
 }
 
 // guessContentType gets content type of the file.

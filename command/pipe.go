@@ -84,12 +84,6 @@ func NewPipeCommandFlags() []cli.Flag {
 			Name:  "content-disposition",
 			Usage: "set content disposition for target: defines content disposition header for object, e.g. --content-disposition 'attachment; filename=\"filename.jpg\"'",
 		},
-		&cli.IntFlag{
-			Name:        "no-such-upload-retry-count",
-			Usage:       "number of times that a request will be retried on NoSuchUpload error; you should not use this unless you really know what you're doing",
-			DefaultText: "0",
-			Hidden:      true,
-		},
 		&cli.BoolFlag{
 			Name:    "no-clobber",
 			Aliases: []string{"n"},

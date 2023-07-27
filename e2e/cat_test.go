@@ -10,7 +10,7 @@ import (
 	"gotest.tools/v3/icmd"
 )
 
-var (
+const (
 	kb int64 = 1024
 	mb       = kb * kb
 )

@@ -7,8 +7,8 @@ import (
 
 	"github.com/urfave/cli/v2"
 
-	"github.com/peak/s5cmd/v2/buffer"
 	"github.com/peak/s5cmd/v2/log/stat"
+	"github.com/peak/s5cmd/v2/orderedwriter"
 	"github.com/peak/s5cmd/v2/storage"
 	"github.com/peak/s5cmd/v2/storage/url"
 )
@@ -116,8 +116,8 @@ func (c Cat) Run(ctx context.Context) error {
 		printError(c.fullCommand, c.op, err)
 		return err
 	}
-	buff := buffer.NewOrderedWriterAt(os.Stdout)
-	_, err = client.Get(ctx, c.src, buff, c.concurrency, c.partSize)
+	buf := orderedwriter.New(os.Stdout)
+	_, err = client.Get(ctx, c.src, buf, c.concurrency, c.partSize)
 	if err != nil {
 		printError(c.fullCommand, c.op, err)
 		return err

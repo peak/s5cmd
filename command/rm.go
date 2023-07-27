@@ -162,8 +162,8 @@ func (d Delete) Run(ctx context.Context) error {
 				printError(d.fullCommand, d.op, err)
 				continue
 			}
-			specialFile, _ := storage.IsSpecialFile(object.URL)
-			if isURLExcluded(excludePatterns, object.URL.Path, srcurl.Prefix) || specialFile {
+			isSpecialFile, _ := storage.IsSpecialFile(object.URL)
+			if isSpecialFile || isURLExcluded(excludePatterns, object.URL.Path, srcurl.Prefix) {
 				continue
 			}
 			urlch <- object.URL

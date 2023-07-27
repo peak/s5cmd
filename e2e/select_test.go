@@ -71,6 +71,7 @@ func getFile(n int, inputForm, outputForm, structure string) (string, string) {
 
 	case "csv":
 		writer := csv.NewWriter(&input)
+		// set the delimiter for the input
 		writer.Comma = []rune(structure)[0]
 		writer.Write([]string{"line", "id", "data"})
 		for _, d := range data {
@@ -263,14 +264,18 @@ func TestSelectCommandWithGeneratedFiles(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			contents, expected := getFile(5, tc.in, tc.out, tc.structure)
+
 			filename := fmt.Sprintf("file.%s", tc.in)
 			bucket := s3BucketFromTestName(t)
 			src := fmt.Sprintf("s3://%s/%s", bucket, filename)
+
 			tc.cmd = append(tc.cmd, src)
 
 			s3client, s5cmd := setup(t, withEndpointURL(endpoint), withRegion(region), withAccessKeyID(accessKeyID), withSecretKey(secretKey))
+
 			createBucket(t, s3client, bucket)
 			putFile(t, s3client, bucket, filename, contents)
+
 			cmd := s5cmd(tc.cmd...)
 
 			result := icmd.RunCmd(cmd, withEnv("AWS_ACCESS_KEY_ID", accessKeyID), withEnv("AWS_SECRET_ACCESS_KEY", secretKey))
@@ -335,31 +340,31 @@ func TestSelectWithParquet(t *testing.T) {
 			// change the working directory to ./e2e/testdata/parquet
 			cwd, err := os.Getwd()
 			if err != nil {
-				t.Fatal(err)
+				t.Fatalf("couldn't reach the current working directory to access testfiles. error: %v\n", err)
 			}
 			cwd += "/testfiles/parquet/"
 			sourceFile, err := os.Open(cwd + tc.src)
 			if err != nil {
-				t.Fatal(err)
+				t.Fatalf("couldn't read the parquet file to be queried. error: %v\n", err)
 			}
 			defer sourceFile.Close()
 			var buf bytes.Buffer
 			// read the file content
 			_, err = sourceFile.Read(buf.Bytes())
 			if err != nil {
-				t.Fatal(err)
+				t.Fatalf("couldn't write the parquet file to buffer. error: %v\n", err)
 			}
 
 			expectedFile, err := os.Open(cwd + tc.expected)
 			if err != nil {
-				t.Fatal(err)
+				t.Fatalf("couldnt read the output file to be compared against. error: %v\n", err)
 			}
 			defer expectedFile.Close()
 			var expectedBuf bytes.Buffer
 			// read the file content
 			_, err = expectedFile.Read(expectedBuf.Bytes())
 			if err != nil {
-				t.Fatal(err)
+				t.Fatalf("couldn't write the output file to buffer. error: %v\n", err)
 			}
 			// convert the file content to string
 			expected := expectedBuf.String()

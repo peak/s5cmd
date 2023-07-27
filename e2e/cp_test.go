@@ -24,7 +24,6 @@ package e2e
 
 import (
 	"fmt"
-	"math/rand"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -4179,25 +4178,21 @@ func TestCountingWriter(t *testing.T) {
 
 	const (
 		filename = "log.txt"
-		size     = 3 * 1024 * 1024
 	)
-	content := make([]byte, size)
-	rand.Read(content)
+
+	content := randomString(3_000_000)
 
 	s3client, s5cmd := setup(t)
 	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
-	putFile(t, s3client, bucket, filename, string(content))
-
-	workdir := fs.NewDir(t, t.Name())
-	defer workdir.Remove()
+	putFile(t, s3client, bucket, filename, content)
 
 	cmd := s5cmd("cp", "--show-progress", "--concurrency", "3", "--part-size", "1", "s3://"+bucket+"/"+filename, ".")
-	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
+	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Success)
 
 	// assert the downloaded file has the same content with the remote object
-	expected := fs.Expected(t, fs.WithFile(filename, string(content)))
-	assert.Assert(t, fs.Equal(workdir.Path(), expected))
+	expected := fs.Expected(t, fs.WithFile(filename, content, fs.WithMode(0644)))
+	assert.Assert(t, fs.Equal(cmd.Dir, expected))
 }

@@ -221,7 +221,7 @@ func NewMetadata() Metadata {
 	return Metadata{}
 }
 
-// This is a hacky fix to not break the API. We set
+// ServerSideKeys is a hacky fix to not break the API. We set
 // arbitrary metadata to object, but we don't want to
 // set these as arbitrary.
 func (m Metadata) ServerSideKeys() []string {

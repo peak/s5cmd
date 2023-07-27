@@ -103,6 +103,9 @@ Examples:
 		 
 	22. Download the specific version of a remote object to working directory
 		 > s5cmd {{.HelpName}} --version-id VERSION_ID s3://bucket/prefix/object .
+
+	23. Pass arbitrary metadata to the object during upload or copying 
+		 > s5cmd {{.HelpName}} --metadata "foo=bar" localfile s3://bucket/prefix/object 
 `
 
 func NewSharedFlags() []cli.Flag {
@@ -989,7 +992,7 @@ func parseMetadata(tokens []string) (map[string]string, error) {
 		s := strings.Split(token, "=")
 
 		if len(s) > 2 {
-			return nil, fmt.Errorf("field: %s is in invalid form to be set as metadata.", token)
+			return nil, fmt.Errorf("field: %s is in invalid form to be set as metadata", token)
 		}
 
 		m[s[0]] = s[1]

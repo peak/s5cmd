@@ -569,9 +569,7 @@ func (s Sync) shouldStopSync(err error) bool {
 	}
 	if awsErr, ok := err.(awserr.Error); ok {
 		switch awsErr.Code() {
-		case "AccessDenied":
-			fallthrough
-		case "NoSuchBucket":
+		case "AccessDenied", "NoSuchBucket":
 			return true
 		}
 	}

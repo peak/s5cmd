@@ -197,7 +197,7 @@ func (c Pipe) Run(ctx context.Context) error {
 		return err
 	}
 
-	dstClient, err := storage.NewRemoteClient(ctx, c.dst, c.storageOpts)
+	client, err := storage.NewRemoteClient(ctx, c.dst, c.storageOpts)
 	if err != nil {
 		return err
 	}
@@ -224,7 +224,7 @@ func (c Pipe) Run(ctx context.Context) error {
 		metadata.SetContentDisposition(c.contentDisposition)
 	}
 
-	err = dstClient.Put(ctx, &stdin{file: os.Stdin}, c.dst, metadata, c.concurrency, c.partSize)
+	err = client.Put(ctx, &stdin{file: os.Stdin}, c.dst, metadata, c.concurrency, c.partSize)
 	if err != nil {
 		return err
 	}

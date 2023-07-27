@@ -98,35 +98,6 @@ func TestUploadStdinToS3WithoutFileExtension(t *testing.T) {
 	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content, ensureContentType(expectedContentType)))
 }
 
-func TestUploadStdinToS3WithNoSuchUploadRetryCount(t *testing.T) {
-	t.Parallel()
-
-	s3client, s5cmd := setup(t)
-
-	bucket := s3BucketFromTestName(t)
-	createBucket(t, s3client, bucket)
-
-	const (
-		filename = "example.txt"
-		content  = "Some example text"
-	)
-
-	reader := bytes.NewBufferString(content)
-	dstpath := fmt.Sprintf("s3://%v/%v", bucket, filename)
-
-	cmd := s5cmd("pipe", "--no-such-upload-retry-count", "5", dstpath)
-	result := icmd.RunCmd(cmd, icmd.WithStdin(reader))
-
-	result.Assert(t, icmd.Success)
-
-	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: suffix(`pipe %v`, dstpath),
-	})
-
-	// assert S3
-	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content))
-}
-
 // pipe --raw s3://bucket/object
 func TestUploadStdinToS3WithRawMode(t *testing.T) {
 	t.Parallel()

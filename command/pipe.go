@@ -26,7 +26,7 @@ Options:
 	{{range .VisibleFlags}}{{.}}
 	{{end}}
 Examples:
-	01. Upload stdin output to a bucket
+	01. Stream stdin output to an object
 		 > echo "content" | gzip | s5cmd {{.HelpName}} s3://bucket/prefix/object.gz
 `
 
@@ -67,10 +67,6 @@ func NewPipeCommandFlags() []cli.Flag {
 		&cli.StringFlag{
 			Name:  "expires",
 			Usage: "set expires for target (uses RFC3339 format): defines expires header for object, e.g. pipe  --expires '2024-10-01T20:30:00Z'",
-		},
-		&cli.StringFlag{
-			Name:  "destination-region",
-			Usage: "set the region of destination bucket: the region of the destination bucket will be automatically discovered if --destination-region is not specified",
 		},
 		&cli.BoolFlag{
 			Name:  "raw",
@@ -152,9 +148,6 @@ type Pipe struct {
 	contentEncoding    string
 	contentDisposition string
 
-	// region settings
-	dstRegion string
-
 	// s3 options
 	concurrency int
 	partSize    int64
@@ -189,7 +182,6 @@ func NewPipe(c *cli.Context, deleteSource bool) (*Pipe, error) {
 		contentType:        c.String("content-type"),
 		contentEncoding:    c.String("content-encoding"),
 		contentDisposition: c.String("content-disposition"),
-		dstRegion:          c.String("destination-region"),
 
 		// s3 options
 		storageOpts: NewStorageOpts(c),
@@ -201,6 +193,7 @@ func (c Pipe) Run(ctx context.Context) error {
 	if c.dst.IsBucket() || c.dst.IsPrefix() {
 		return fmt.Errorf("target %q must be an object", c.dst)
 	}
+
 	err := c.shouldOverride(ctx, c.dst)
 	if err != nil {
 		if errorpkg.IsWarning(err) {
@@ -209,14 +202,12 @@ func (c Pipe) Run(ctx context.Context) error {
 		}
 		return err
 	}
-	// override destination region if set
-	if c.dstRegion != "" {
-		c.storageOpts.SetRegion(c.dstRegion)
-	}
+
 	dstClient, err := storage.NewRemoteClient(ctx, c.dst, c.storageOpts)
 	if err != nil {
 		return err
 	}
+	
 	metadata := storage.NewMetadata().
 		SetStorageClass(string(c.storageClass)).
 		SetSSE(c.encryptionMethod).
@@ -230,16 +221,20 @@ func (c Pipe) Run(ctx context.Context) error {
 	} else {
 		metadata.SetContentType(guessContentTypeByExtension(c.dst))
 	}
+
 	if c.contentEncoding != "" {
 		metadata.SetContentEncoding(c.contentEncoding)
 	}
+
 	if c.contentDisposition != "" {
 		metadata.SetContentDisposition(c.contentDisposition)
 	}
+
 	err = dstClient.Put(ctx, &stdin{file: os.Stdin}, c.dst, metadata, c.concurrency, c.partSize)
 	if err != nil {
 		return err
 	}
+
 	msg := log.InfoMessage{
 		Operation:   c.op,
 		Source:      nil,
@@ -249,14 +244,7 @@ func (c Pipe) Run(ctx context.Context) error {
 		},
 	}
 	log.Info(msg)
-	if err != nil {
-		return &errorpkg.Error{
-			Op:  c.op,
-			Src: nil,
-			Dst: c.dst,
-			Err: err,
-		}
-	}
+
 	return nil
 }
 
@@ -269,26 +257,26 @@ func (c Pipe) shouldOverride(ctx context.Context, dsturl *url.URL) error {
 		return nil
 	}
 
-	dstClient, err := storage.NewClient(ctx, dsturl, c.storageOpts)
+	client, err := storage.NewClient(ctx, dsturl, c.storageOpts)
 	if err != nil {
 		return err
 	}
 
-	dstObj, err := getObject(ctx, dsturl, dstClient)
+	obj, err := getObject(ctx, dsturl, client)
 	if err != nil {
 		return err
 	}
 
 	// if destination not exists, no conditions apply.
-	if dstObj == nil {
+	if obj == nil {
 		return nil
 	}
 
 	if c.noClobber {
-		err = errorpkg.ErrObjectExists
+		return errorpkg.ErrObjectExists
 	}
 
-	return err
+	return nil
 }
 
 func validatePipeCommand(c *cli.Context) error {
@@ -303,9 +291,12 @@ func validatePipeCommand(c *cli.Context) error {
 		return err
 	}
 
-	// destination must be a file
+	if !dsturl.IsRemote() {
+		return fmt.Errorf("destination must be a bucket")
+	}
+
 	if dsturl.IsBucket() || dsturl.IsPrefix() {
-		return fmt.Errorf("target %q must be a file", dsturl)
+		return fmt.Errorf("target %q must be an object", dsturl)
 	}
 
 	// wildcard destination can not be used with pipe

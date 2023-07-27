@@ -26,7 +26,7 @@ Options:
 	{{range .VisibleFlags}}{{.}}
 	{{end}}
 Examples:
-	01. Stream stdin output to an object
+	01. Stream stdin to an object
 		 > echo "content" | gzip | s5cmd {{.HelpName}} s3://bucket/prefix/object.gz
 `
 
@@ -97,7 +97,7 @@ func NewPipeCommand() *cli.Command {
 	cmd := &cli.Command{
 		Name:               "pipe",
 		HelpName:           "pipe",
-		Usage:              "strean to remote from stdin",
+		Usage:              "stream to remote from stdin",
 		Flags:              NewPipeCommandFlags(),
 		CustomHelpTemplate: pipeHelpTemplate,
 		Before: func(c *cli.Context) error {

@@ -6,7 +6,7 @@
 
 #### Features
 - Added `--content-disposition` flag to `cp` command. ([#569](https://github.com/peak/s5cmd/issues/569))
-- Added `--show-fullpath` flag to `ls`. (#[596](https://github.com/peak/s5cmd/issues/596))
+- Added `--show-fullpath` flag to `ls`. ([#596](https://github.com/peak/s5cmd/issues/596))
 - Added `pipe` command. ([#182](https://github.com/peak/s5cmd/issues/182))
 - Added `--include` flag to `cp`, `rm` and `sync` commands. ([#516](https://github.com/peak/s5cmd/issues/516))
 

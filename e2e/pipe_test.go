@@ -356,9 +356,7 @@ func TestUploadStdinToS3WithAdjacentSlashes(t *testing.T) {
 			// assert S3
 			assert.Assert(t, ensureS3Object(s3client, bucket, objkey, content))
 		})
-
 	}
-
 }
 
 // --json pipe s3://bucket/object

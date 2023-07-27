@@ -13,13 +13,19 @@ import (
 	"gotest.tools/v3/icmd"
 )
 
+// getFile is a helper for creating file contents and expected values
 func getFile(n int, inputForm, outputForm, structure string) (string, string) {
 	type row struct {
 		Line string `json:"line"`
 		ID   string `json:"id"`
 		Data string `json:"data"`
 	}
-	var data []row
+
+	var (
+		data     []row
+		input    bytes.Buffer
+		expected bytes.Buffer
+	)
 
 	for i := 0; i < n; i++ {
 		data = append(data, row{
@@ -28,40 +34,44 @@ func getFile(n int, inputForm, outputForm, structure string) (string, string) {
 			Data: fmt.Sprintf("some event %d", i),
 		})
 	}
-	var input bytes.Buffer
-	var expected bytes.Buffer
+
 	switch inputForm {
 	case "json":
 		encoder := jsonpkg.NewEncoder(&input)
+
 		switch structure {
 		case "document":
 			rows := make(map[string]row)
+
 			for i, v := range data {
 				rows[fmt.Sprintf("obj%d", i)] = v
 			}
-			err := encoder.Encode(rows)
-			if err != nil {
+
+			if err := encoder.Encode(rows); err != nil {
 				panic(err)
 			}
 			return input.String(), input.String()
 		default:
 			for _, d := range data {
 				err := encoder.Encode(d)
+
 				if err != nil {
 					panic(err)
 				}
 			}
+
 			switch outputForm {
 			case "json":
 				return input.String(), input.String()
 			case "csv":
 				writer := csv.NewWriter(&expected)
+
 				for _, d := range data {
-					err := writer.Write([]string{d.Line, d.ID, d.Data})
-					if err != nil {
+					if err := writer.Write([]string{d.Line, d.ID, d.Data}); err != nil {
 						panic(err)
 					}
 				}
+
 				writer.Flush()
 
 				return input.String(), expected.String()
@@ -75,10 +85,13 @@ func getFile(n int, inputForm, outputForm, structure string) (string, string) {
 		// set the delimiter for the input
 		writer.Comma = []rune(structure)[0]
 		writer.Write([]string{"line", "id", "data"})
+
 		for _, d := range data {
 			writer.Write([]string{d.Line, d.ID, d.Data})
 		}
+
 		writer.Flush()
+
 		switch outputForm {
 		case "json":
 			encoder := jsonpkg.NewEncoder(&expected)
@@ -87,6 +100,7 @@ func getFile(n int, inputForm, outputForm, structure string) (string, string) {
 				"_2": "id",
 				"_3": "data",
 			})
+
 			for _, d := range data {
 				encoder.Encode(map[string]string{
 					"_1": d.Line,
@@ -98,9 +112,11 @@ func getFile(n int, inputForm, outputForm, structure string) (string, string) {
 		case "csv":
 			writer := csv.NewWriter(&expected)
 			writer.Write([]string{"line", "id", "data"})
+
 			for _, d := range data {
 				writer.Write([]string{d.Line, d.ID, d.Data})
 			}
+
 			writer.Flush()
 
 			return input.String(), expected.String()
@@ -109,36 +125,22 @@ func getFile(n int, inputForm, outputForm, structure string) (string, string) {
 	panic("unreachable")
 }
 
-/*
-test cases:
-json:
-
-	default input structure and output
-	default input structure and output as csv
-	document input structure and default output
-	document input structure and output as csv
-
-csv:
-
-	default input structure and output
-	default input structure and output as csv
-	tab input structure and default output
-	tab input structure and output as csv
-*/
 func TestSelectCommandWithGeneratedFiles(t *testing.T) {
 	t.Parallel()
 	// credentials are same for all test cases
 	region := "us-east-1"
 	accessKeyID := "minioadmin"
 	secretKey := "minioadmin"
-
-	endpoint := os.Getenv("S3_ENDPOINT")
-	if endpoint == "" {
-		t.Skipf("skipping the test because S3_ENDPOINT environment variable is empty")
-	}
 	// The query is default for all cases, we want to assert the output
 	// is as expected after a query.
 	query := "SELECT * FROM s3object s LIMIT 6"
+
+	endpoint := os.Getenv("S3_ENDPOINT")
+
+	if endpoint == "" {
+		t.Skipf("skipping the test because S3_ENDPOINT environment variable is empty")
+	}
+
 	testcases := []struct {
 		name        string
 		cmd         []string
@@ -188,7 +190,7 @@ func TestSelectCommandWithGeneratedFiles(t *testing.T) {
 			structure: "document",
 			out:       "json",
 		}, {
-			name: "json-lines select with default input structure and output",
+			name: "json-lines select with gzip compression default input structure and output",
 			cmd: []string{
 				"select",
 				"json",
@@ -203,7 +205,7 @@ func TestSelectCommandWithGeneratedFiles(t *testing.T) {
 			out:         "json",
 		},
 		{
-			name: "json-lines select with default input structure and csv output",
+			name: "json-lines select with gzip compression default input structure and csv output",
 			cmd: []string{
 				"select",
 				"json",
@@ -220,7 +222,7 @@ func TestSelectCommandWithGeneratedFiles(t *testing.T) {
 			out:         "csv",
 		},
 		{
-			name: "json-lines select with document input structure and output",
+			name: "json-lines select with gzip compression document input structure and output",
 			cmd: []string{
 				"select",
 				"json",
@@ -287,7 +289,7 @@ func TestSelectCommandWithGeneratedFiles(t *testing.T) {
 				"csv",
 				"--compression",
 				"gzip",
-				"--output-form",
+				"--output-format",
 				"csv",
 				"--query",
 				query,
@@ -341,29 +343,65 @@ func TestSelectCommandWithGeneratedFiles(t *testing.T) {
 			structure: "\t",
 			out:       "csv",
 		},
+		{
+			name: "query json with default fallback",
+			cmd: []string{
+				"select",
+				"--query",
+				query,
+			},
+			in:        "json",
+			structure: "lines",
+			out:       "json",
+		},
+		{
+			name: "query compressed json with default fallback",
+			cmd: []string{
+				"select",
+				"--query",
+				query,
+				"--compression",
+				"gzip",
+			},
+			in:          "json",
+			compression: true,
+			structure:   "lines",
+			out:         "json",
+		},
 	}
 	for _, tc := range testcases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
+			var bucket, src, filename string
 			contents, expected := getFile(5, tc.in, tc.out, tc.structure)
 
-			filename := fmt.Sprintf("file.%s", tc.in)
-			bucket := s3BucketFromTestName(t)
-			src := fmt.Sprintf("s3://%s/%s", bucket, filename)
+			if tc.compression {
+				b := bytes.Buffer{}
+				gz := gzip.NewWriter(&b)
+				filename = fmt.Sprintf("file.%s.gz", tc.in)
+				src = fmt.Sprintf("s3://%s/%s", bucket, filename)
 
-			tc.cmd = append(tc.cmd, src)
+				if _, err := gz.Write([]byte(contents)); err != nil {
+					t.Errorf("could not compress the input object. error: %v\n", err)
+				}
+
+				if err := gz.Close(); err != nil {
+					t.Errorf("could not close the compressor error: %v\n", err)
+				}
+
+				contents = b.String()
+			} else {
+				filename = fmt.Sprintf("file.%s", tc.in)
+				bucket = s3BucketFromTestName(t)
+				src = fmt.Sprintf("s3://%s/%s", bucket, filename)
+			}
 
 			s3client, s5cmd := setup(t, withEndpointURL(endpoint), withRegion(region), withAccessKeyID(accessKeyID), withSecretKey(secretKey))
 
 			createBucket(t, s3client, bucket)
-			if tc.compression {
-				var b bytes.Buffer
-				gz := gzip.NewWriter(&b)
-				if _, err := gz.Write([]byte(contents)); err != nil {
-					t.Errorf("could not compress the input object. error: %v\n", err)
-				}
-				contents = b.String()
-			}
+
+			tc.cmd = append(tc.cmd, src)
+
 			putFile(t, s3client, bucket, filename, contents)
 
 			cmd := s5cmd(tc.cmd...)
@@ -384,14 +422,16 @@ func TestSelectWithParquet(t *testing.T) {
 	region := "us-east-1"
 	accessKeyID := "minioadmin"
 	secretKey := "minioadmin"
+	// The query is default for all cases, we want to assert the output
+	// is as expected after a query.
+	query := "SELECT * FROM s3object s LIMIT 6"
 
 	endpoint := os.Getenv("S3_ENDPOINT")
+
 	if endpoint == "" {
 		t.Skipf("skipping the test because S3_ENDPOINT environment variable is empty")
 	}
-	// The query is default for all cases, we want to assert the output
-	// is as expected
-	query := "SELECT * FROM s3object s LIMIT 6"
+
 	testcases := []struct {
 		name     string
 		src      string
@@ -427,21 +467,23 @@ func TestSelectWithParquet(t *testing.T) {
 	for _, tc := range testcases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			var expectedBuf bytes.Buffer
+
 			// change the working directory to ./e2e/testdata/parquet
 			cwd, err := os.Getwd()
 			if err != nil {
 				t.Fatalf("couldn't reach the current working directory to access testfiles. error: %v\n", err)
 			}
+
 			cwd += "/testfiles/parquet/"
 			sourceFile, err := os.Open(cwd + tc.src)
 			if err != nil {
 				t.Fatalf("couldn't read the parquet file to be queried. error: %v\n", err)
 			}
 			defer sourceFile.Close()
-			var buf bytes.Buffer
-			// read the file content
-			_, err = sourceFile.Read(buf.Bytes())
-			if err != nil {
+
+			if _, err := sourceFile.Read(buf.Bytes()); err != nil {
 				t.Fatalf("couldn't write the parquet file to buffer. error: %v\n", err)
 			}
 
@@ -450,12 +492,11 @@ func TestSelectWithParquet(t *testing.T) {
 				t.Fatalf("couldnt read the output file to be compared against. error: %v\n", err)
 			}
 			defer expectedFile.Close()
-			var expectedBuf bytes.Buffer
-			// read the file content
-			_, err = expectedFile.Read(expectedBuf.Bytes())
-			if err != nil {
+
+			if _, err := expectedFile.Read(expectedBuf.Bytes()); err != nil {
 				t.Fatalf("couldn't write the output file to buffer. error: %v\n", err)
 			}
+
 			// convert the file content to string
 			expected := expectedBuf.String()
 			bucket := s3BucketFromTestName(t)

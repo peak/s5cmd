@@ -20,11 +20,9 @@ func commandFromContext(c *cli.Context) string {
 			cmd = fmt.Sprintf("%s --%s=%v", cmd, flagname, flagvalue)
 		}
 	}
-
 	if c.Args().Len() > 0 {
 		cmd = fmt.Sprintf("%v %v", cmd, strings.Join(c.Args().Slice(), " "))
 	}
-
 	return cmd
 }
 

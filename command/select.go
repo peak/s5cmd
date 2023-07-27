@@ -201,6 +201,7 @@ func NewSelectCommand() *cli.Command {
 					return beforeFunc(c)
 				},
 				Action: func(c *cli.Context) (err error) {
+
 					cmd, err := buildSelect(c, "parquet", nil)
 					if err != nil {
 						printError(cmd.fullCommand, c.Command.Name, err)
@@ -210,9 +211,27 @@ func NewSelectCommand() *cli.Command {
 				},
 			},
 		},
+		Flags: sharedFlags,
+		Before: func(c *cli.Context) (err error) {
+			if c.Args().Len() == 0 {
+				err = fmt.Errorf("expected source argument")
+				printError(commandFromContext(c), c.Command.Name, err)
+				return err
+			}
+			return nil
+		},
+		Action: func(c *cli.Context) (err error) {
+			// default fallback
+			structure := "lines"
+			cmd, err := buildSelect(c, "json", &structure)
+			if err != nil {
+				printError(cmd.fullCommand, c.Command.Name, err)
+				return err
+			}
+			return cmd.Run(c.Context)
+		},
 		CustomHelpTemplate: defaultSelectHelpTemplate,
 	}
-
 	cmd.BashComplete = getBashCompleteFn(cmd, true, false)
 	return cmd
 }

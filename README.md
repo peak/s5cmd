@@ -88,6 +88,20 @@ You can also install `s5cmd` from [MacPorts](https://ports.macports.org/port/s5c
 > ```
 ps.  Quoted from [s5cmd feedstock](https://github.com/conda-forge/s5cmd-feedstock). You can also find further instructions on its [README](https://github.com/conda-forge/s5cmd-feedstock/blob/main/README.md).
 
+#### FreeBSD
+
+On FreeBSD you can install s5cmd as a package:
+
+```
+pkg install s5cmd
+```
+
+or via ports:
+
+```
+cd /usr/ports/net/s5cmd
+make install clean
+```
 
 ### Build from source
 

@@ -17,7 +17,7 @@ type Message interface {
 type InfoMessage struct {
 	Operation   string   `json:"operation"`
 	Success     bool     `json:"success"`
-	Source      *url.URL `json:"source"`
+	Source      *url.URL `json:"source,omitempty"`
 	Destination *url.URL `json:"destination,omitempty"`
 	Object      Message  `json:"object,omitempty"`
 
@@ -28,11 +28,14 @@ type InfoMessage struct {
 
 // String is the string representation of InfoMessage.
 func (i InfoMessage) String() string {
-	if i.Destination != nil {
+	if i.Source != nil && i.Destination != nil {
 		return fmt.Sprintf("%v %v %v", i.Operation, i.Source, i.Destination)
 	}
 	if i.Source != nil && i.Source.VersionID != "" {
 		return fmt.Sprintf("%v %-50v %v", i.Operation, i.Source, i.Source.VersionID)
+	}
+	if i.Destination != nil {
+		return fmt.Sprintf("%v %v", i.Operation, i.Destination)
 	}
 	return fmt.Sprintf("%v %v", i.Operation, i.Source)
 }

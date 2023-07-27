@@ -268,7 +268,7 @@ func TestSelectCommandWithGeneratedFiles(t *testing.T) {
 			out:       "json",
 		},
 		{
-			name: "csv select with gzip compression, default delimiter and output",
+			name: "csv select with gzip compression default delimiter and output",
 			cmd: []string{
 				"select",
 				"csv",
@@ -283,7 +283,7 @@ func TestSelectCommandWithGeneratedFiles(t *testing.T) {
 			out:         "json",
 		},
 		{
-			name: "csv select with gzip compression, default delimiter and csv output",
+			name: "csv select with gzip compression default delimiter and csv output",
 			cmd: []string{
 				"select",
 				"csv",
@@ -372,7 +372,9 @@ func TestSelectCommandWithGeneratedFiles(t *testing.T) {
 	for _, tc := range testcases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			var bucket, src, filename string
+			var src, filename string
+
+			bucket := s3BucketFromTestName(t)
 			contents, expected := getFile(5, tc.in, tc.out, tc.structure)
 
 			if tc.compression {
@@ -392,7 +394,6 @@ func TestSelectCommandWithGeneratedFiles(t *testing.T) {
 				contents = b.String()
 			} else {
 				filename = fmt.Sprintf("file.%s", tc.in)
-				bucket = s3BucketFromTestName(t)
 				src = fmt.Sprintf("s3://%s/%s", bucket, filename)
 			}
 

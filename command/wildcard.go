@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/peak/s5cmd/v2/storage"
 	"github.com/peak/s5cmd/v2/strutil"
 )
 
@@ -40,4 +41,17 @@ func isURLMatched(regexPatterns []*regexp.Regexp, urlPath, sourcePrefix string) 
 		}
 	}
 	return false
+}
+
+func isObjectExcluded(object *storage.Object, excludePatterns []*regexp.Regexp, includePatterns []*regexp.Regexp, prefix string) (bool, error) {
+	if err := object.Err; err != nil {
+		return true, err
+	}
+	if len(excludePatterns) > 0 && isURLMatched(excludePatterns, object.URL.Path, prefix) {
+		return true, nil
+	}
+	if len(includePatterns) > 0 {
+		return !isURLMatched(includePatterns, object.URL.Path, prefix), nil
+	}
+	return false, nil
 }

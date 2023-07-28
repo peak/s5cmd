@@ -296,7 +296,7 @@ type Copy struct {
 	contentType           string
 	contentEncoding       string
 	contentDisposition    string
-  showProgress          bool
+	showProgress          bool
 	progressbar           progressbar.ProgressBar
 
 	// patterns
@@ -463,7 +463,11 @@ func (c Copy) Run(ctx context.Context) error {
 			continue
 		}
 
-		if !c.shouldCopyObject(object, true) {
+		isExcluded, err := isObjectExcluded(object, c.excludePatterns, c.includePatterns, c.src.Prefix)
+		if err != nil {
+			printError(c.fullCommand, c.op, err)
+		}
+		if isExcluded {
 			continue
 		}
 

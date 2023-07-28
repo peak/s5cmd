@@ -188,7 +188,11 @@ func (d Delete) Run(ctx context.Context) error {
 				continue
 			}
 
-			if !d.shouldDeleteObject(object, true, srcurl.Prefix) {
+			isExcluded, err := isObjectExcluded(object, d.excludePatterns, d.includePatterns, srcurl.Prefix)
+			if err != nil {
+				printError(d.fullCommand, d.op, err)
+			}
+			if isExcluded {
 				continue
 			}
 
@@ -217,23 +221,6 @@ func (d Delete) Run(ctx context.Context) error {
 	}
 
 	return multierror.Append(merrorResult, merrorObjects).ErrorOrNil()
-}
-
-// shouldDeleteObject checks is object should be deleted.
-func (d Delete) shouldDeleteObject(object *storage.Object, verbose bool, prefix string) bool {
-	if err := object.Err; err != nil {
-		if verbose {
-			printError(d.fullCommand, d.op, err)
-		}
-		return false
-	}
-	if len(d.excludePatterns) > 0 && isURLMatched(d.excludePatterns, object.URL.Path, prefix) {
-		return false
-	}
-	if len(d.includePatterns) > 0 {
-		return isURLMatched(d.includePatterns, object.URL.Path, prefix)
-	}
-	return true
 }
 
 // newSources creates object URL list from given sources.

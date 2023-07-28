@@ -192,7 +192,7 @@ func (s Sync) Run(c *cli.Context) error {
 			return err
 		}
 
-		obj, err := sourceClient.Stat(c.Context, srcurl)
+		obj, err := sourceClient.Stat(ctx, srcurl)
 		if err != nil {
 			return err
 		}

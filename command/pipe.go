@@ -266,7 +266,7 @@ func (c Pipe) shouldOverride(ctx context.Context, dsturl *url.URL) error {
 		return err
 	}
 
-	obj, err := getObject(ctx, dsturl, client)
+	obj, err := statObject(ctx, dsturl, client)
 	if err != nil {
 		return err
 	}

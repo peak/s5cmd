@@ -66,9 +66,13 @@ func (m *MapValue) String() string {
 }
 
 func (m *MapValue) Set(s string) error {
+	if len(s) == 0 {
+		return fmt.Errorf("flag can't be passed empty. Format: key=value")
+	}
+
 	tokens := strings.Split(s, "=")
 
-	if len(tokens) > 2 {
+	if len(tokens) != 2 {
 		return fmt.Errorf("the key value pair(%s) format is invalid", tokens)
 	}
 

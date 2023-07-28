@@ -107,8 +107,8 @@ Examples:
 	22. Download the specific version of a remote object to working directory
 		 > s5cmd {{.HelpName}} --version-id VERSION_ID s3://bucket/prefix/object .
 
-	23. Pass arbitrary metadata to the object during upload or copying 
-		 > s5cmd {{.HelpName}} --metadata "foo=bar" localfile s3://bucket/prefix/object 
+	23. Pass arbitrary metadata to the object during upload or copy 
+		 > s5cmd {{.HelpName}} --metadata "foo=bar" --metadata "fizz=buzz" localfile s3://bucket/prefix/object 
 `
 
 func NewSharedFlags() []cli.Flag {
@@ -133,10 +133,9 @@ func NewSharedFlags() []cli.Flag {
 			Value:   defaultPartSize,
 			Usage:   "size of each part transferred between host and remote server, in MiB",
 		},
-		&cli.StringSliceFlag{
-			Name:    "metadata",
-			Aliases: []string{"md"},
-			Usage:   "set arbitrary metadata for the object",
+		&MapFlag{
+			Name:  "metadata",
+			Usage: "set arbitrary metadata for the object",
 		},
 		&cli.StringFlag{
 			Name:  "sse",
@@ -296,7 +295,7 @@ type Copy struct {
 	contentType           string
 	contentEncoding       string
 	contentDisposition    string
-	metadata              []string
+	metadata              map[string]string
 	showProgress          bool
 	progressbar           progressbar.ProgressBar
 
@@ -335,6 +334,13 @@ func NewCopy(c *cli.Context, deleteSource bool) (*Copy, error) {
 		commandProgressBar = &progressbar.NoOp{}
 	}
 
+	metadata, ok := c.Value("metadata").(map[string]string)
+	if !ok {
+		err := errors.New("metadata flag is not a map")
+		printError(fullCommand, c.Command.Name, err)
+		return nil, err
+	}
+
 	return &Copy{
 		src:          src,
 		dst:          dst,
@@ -361,7 +367,7 @@ func NewCopy(c *cli.Context, deleteSource bool) (*Copy, error) {
 		contentType:           c.String("content-type"),
 		contentEncoding:       c.String("content-encoding"),
 		contentDisposition:    c.String("content-disposition"),
-		metadata:              c.StringSlice("metadata"),
+		metadata:              metadata,
 		showProgress:          c.Bool("show-progress"),
 		progressbar:           commandProgressBar,
 
@@ -472,33 +478,11 @@ func (c Copy) Run(ctx context.Context) error {
 
 		switch {
 		case srcurl.Type == c.dst.Type: // local->local or remote->remote
-			metadata, size, err := parseMetadata(c.metadata)
-			if err != nil {
-				merrorObjects = multierror.Append(merrorObjects, err)
-				printError(c.fullCommand, c.op, err)
-				continue
-			}
-			if size >= kilobytes*8 {
-				err := fmt.Errorf("user defined metadata size can be at most 8 kb")
-				printError(c.fullCommand, c.op, err)
-				continue
-			}
-			task = c.prepareCopyTask(ctx, srcurl, c.dst, isBatch, metadata)
+			task = c.prepareCopyTask(ctx, srcurl, c.dst, isBatch, c.metadata)
 		case srcurl.IsRemote(): // remote->local
 			task = c.prepareDownloadTask(ctx, srcurl, c.dst, isBatch)
 		case c.dst.IsRemote(): // local->remote
-			metadata, size, err := parseMetadata(c.metadata)
-			if err != nil {
-				merrorObjects = multierror.Append(merrorObjects, err)
-				printError(c.fullCommand, c.op, err)
-				continue
-			}
-			if size >= kilobytes*8 {
-				err := fmt.Errorf("user defined metadata size can be at most 8 kb")
-				printError(c.fullCommand, c.op, err)
-				continue
-			}
-			task = c.prepareUploadTask(ctx, srcurl, c.dst, isBatch, metadata)
+			task = c.prepareUploadTask(ctx, srcurl, c.dst, isBatch, c.metadata)
 		default:
 			panic("unexpected src-dst pair")
 		}
@@ -669,30 +653,24 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL, ex
 	if err != nil {
 		return err
 	}
+	metadata := storage.NewMetadata(extradata)
 
-	metadata := storage.NewMetadata().
-		SetStorageClass(string(c.storageClass)).
-		SetSSE(c.encryptionMethod).
-		SetSSEKeyID(c.encryptionKeyID).
-		SetACL(c.acl).
-		SetCacheControl(c.cacheControl).
-		SetExpires(c.expires)
+	if c.storageClass != "" {
+		metadata.StorageClass = string(c.storageClass)
+	}
 
 	if c.contentType != "" {
-		metadata.SetContentType(c.contentType)
+		metadata.ContentType = c.contentType
 	} else {
-		metadata.SetContentType(guessContentType(file))
+		metadata.ContentType = guessContentType(file)
 	}
 
 	if c.contentEncoding != "" {
-		metadata.SetContentEncoding(c.contentEncoding)
-	}
-	if c.contentDisposition != "" {
-		metadata.SetContentDisposition(c.contentDisposition)
+		metadata.ContentEncoding = c.contentEncoding
 	}
 
-	for key, value := range extradata {
-		metadata = metadata.SetExtraData(key, value)
+	if c.contentDisposition != "" {
+		metadata.ContentDisposition = c.contentDisposition
 	}
 
 	reader := newCountingReaderWriter(file, c.progressbar)
@@ -738,26 +716,21 @@ func (c Copy) doCopy(ctx context.Context, srcurl, dsturl *url.URL, extradata map
 		return err
 	}
 
-	metadata := storage.NewMetadata().
-		SetStorageClass(string(c.storageClass)).
-		SetSSE(c.encryptionMethod).
-		SetSSEKeyID(c.encryptionKeyID).
-		SetACL(c.acl).
-		SetCacheControl(c.cacheControl).
-		SetExpires(c.expires)
+	metadata := storage.NewMetadata(extradata)
+
+	if c.storageClass != "" {
+		metadata.StorageClass = string(c.storageClass)
+	}
 
 	if c.contentType != "" {
-		metadata.SetContentType(c.contentType)
-	}
-	if c.contentEncoding != "" {
-		metadata.SetContentEncoding(c.contentEncoding)
-	}
-	if c.contentDisposition != "" {
-		metadata.SetContentDisposition(c.contentDisposition)
+		metadata.ContentType = c.contentType
 	}
 
-	for key, value := range extradata {
-		metadata = metadata.SetExtraData(key, value)
+	if c.contentEncoding != "" {
+		metadata.ContentEncoding = c.contentEncoding
+	}
+	if c.contentDisposition != "" {
+		metadata.ContentDisposition = c.contentDisposition
 	}
 
 	err = c.shouldOverride(ctx, srcurl, dsturl)
@@ -1031,24 +1004,6 @@ func validateUpload(ctx context.Context, srcurl, dsturl *url.URL, storageOpts st
 	}
 
 	return nil
-}
-
-// parseMetadata parses arbitrary number of tokens to set
-// the metadata of the object. If any of the inputs are invalid,
-// returns nil
-func parseMetadata(tokens []string) (map[string]string, int, error) {
-	m := map[string]string{}
-	size := 0
-	for _, token := range tokens {
-		s := strings.Split(token, "=")
-
-		if len(s) > 2 {
-			return nil, 0, fmt.Errorf("field: %s is in invalid form to be set as metadata", token)
-		}
-		size += len(token)
-		m[s[0]] = s[1]
-	}
-	return m, size, nil
 }
 
 // guessContentType gets content type of the file.

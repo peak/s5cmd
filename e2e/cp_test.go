@@ -4173,6 +4173,31 @@ func TestLocalFileOverridenWhenDownloadFailed(t *testing.T) {
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 }
 
+// Test that counting writer does not corrupt objects during a download process
+func TestCountingWriter(t *testing.T) {
+	t.Parallel()
+
+	const (
+		filename = "log.txt"
+	)
+
+	content := randomString(3_000_000)
+
+	s3client, s5cmd := setup(t)
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+	putFile(t, s3client, bucket, filename, content)
+
+	cmd := s5cmd("cp", "--show-progress", "--concurrency", "3", "--part-size", "1", "s3://"+bucket+"/"+filename, ".")
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	// assert the downloaded file has the same content with the remote object
+	expected := fs.Expected(t, fs.WithFile(filename, content, fs.WithMode(0644)))
+	assert.Assert(t, fs.Equal(cmd.Dir, expected))
+}
+
 // It should skip special files and don't try to upload them
 func TestUploadingSocketFile(t *testing.T) {
 	if runtime.GOOS == "windows" {

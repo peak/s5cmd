@@ -182,7 +182,11 @@ func (s Sync) Run(c *cli.Context) error {
 			return err
 		}
 
-		obj, _ := sourceClient.Stat(c.Context, srcurl)
+		obj, err := sourceClient.Stat(c.Context, srcurl)
+		if err != nil {
+			return err
+		}
+
 		isBatch = obj != nil && obj.Type.IsDir()
 	}
 

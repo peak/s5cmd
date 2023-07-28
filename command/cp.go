@@ -28,6 +28,7 @@ const (
 	defaultCopyConcurrency = 5
 	defaultPartSize        = 50 // MiB
 	megabytes              = 1024 * 1024
+	kilobytes              = 1024
 )
 
 var copyHelpTemplate = `Name:
@@ -471,9 +472,14 @@ func (c Copy) Run(ctx context.Context) error {
 
 		switch {
 		case srcurl.Type == c.dst.Type: // local->local or remote->remote
-			metadata, err := parseMetadata(c.metadata)
+			metadata, size, err := parseMetadata(c.metadata)
 			if err != nil {
 				merrorObjects = multierror.Append(merrorObjects, err)
+				printError(c.fullCommand, c.op, err)
+				continue
+			}
+			if size >= kilobytes*8 {
+				err := fmt.Errorf("user defined metadata size can be at most 8 kb")
 				printError(c.fullCommand, c.op, err)
 				continue
 			}
@@ -481,9 +487,14 @@ func (c Copy) Run(ctx context.Context) error {
 		case srcurl.IsRemote(): // remote->local
 			task = c.prepareDownloadTask(ctx, srcurl, c.dst, isBatch)
 		case c.dst.IsRemote(): // local->remote
-			metadata, err := parseMetadata(c.metadata)
+			metadata, size, err := parseMetadata(c.metadata)
 			if err != nil {
 				merrorObjects = multierror.Append(merrorObjects, err)
+				printError(c.fullCommand, c.op, err)
+				continue
+			}
+			if size >= kilobytes*8 {
+				err := fmt.Errorf("user defined metadata size can be at most 8 kb")
 				printError(c.fullCommand, c.op, err)
 				continue
 			}
@@ -1025,18 +1036,19 @@ func validateUpload(ctx context.Context, srcurl, dsturl *url.URL, storageOpts st
 // parseMetadata parses arbitrary number of tokens to set
 // the metadata of the object. If any of the inputs are invalid,
 // returns nil
-func parseMetadata(tokens []string) (map[string]string, error) {
+func parseMetadata(tokens []string) (map[string]string, int, error) {
 	m := map[string]string{}
+	size := 0
 	for _, token := range tokens {
 		s := strings.Split(token, "=")
 
 		if len(s) > 2 {
-			return nil, fmt.Errorf("field: %s is in invalid form to be set as metadata", token)
+			return nil, 0, fmt.Errorf("field: %s is in invalid form to be set as metadata", token)
 		}
-
+		size += len(token)
 		m[s[0]] = s[1]
 	}
-	return m, nil
+	return m, size, nil
 }
 
 // guessContentType gets content type of the file.

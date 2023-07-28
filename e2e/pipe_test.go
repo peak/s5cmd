@@ -6,6 +6,7 @@ import (
 	"runtime"
 	"testing"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"gotest.tools/v3/assert"
 	"gotest.tools/v3/icmd"
 )
@@ -368,6 +369,59 @@ func TestUploadStdinToS3JSON(t *testing.T) {
 
 	// assert S3
 	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content))
+}
+
+// cp dir/file s3://bucket/ --metadata key1=val1 --metadata key2=val2 ...
+func TestPipeToS3WithArbitraryMetadata(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd := setup(t)
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	const (
+		// make sure that Put reads the file header and guess Content-Type correctly.
+		filename = "index"
+		content  = `
+<html lang="en">
+	<head>
+	<meta charset="utf-8">
+	<body>
+		<div id="foo">
+			<div class="bar"></div>
+		</div>
+		<div id="baz">
+			<style data-hey="naber"></style>
+		</div>
+	</body>
+</html>
+`
+		foo = "Key1=foo"
+		bar = "Key2=bar"
+	)
+
+	// build assert map
+	metadata := map[string]*string{
+		"Key1": aws.String("foo"),
+		"Key2": aws.String("bar"),
+	}
+
+	reader := bytes.NewBufferString(content)
+
+	dstpath := fmt.Sprintf("s3://%v/%v", bucket, filename)
+
+	cmd := s5cmd("pipe", "--metadata", foo, "--metadata", bar, dstpath)
+	result := icmd.RunCmd(cmd, icmd.WithStdin(reader))
+	result.Assert(t, icmd.Success)
+
+	// assert local filesystem
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: suffix(`pipe %v`, dstpath),
+	})
+
+	// assert S3
+	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content, ensureArbitraryMetadata(metadata)))
 }
 
 // pipe --storage-class=GLACIER s3://bucket/object

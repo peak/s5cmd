@@ -768,7 +768,7 @@ func TestCopySingleFileToS3WithArbitraryMetadata(t *testing.T) {
 	// assert local filesystem
 	expected := fs.Expected(t, fs.WithFile(filename, content))
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
-	fmt.Println(result.Stdout())
+
 	// assert S3
 	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content, ensureArbitraryMetadata(metadata)))
 }
@@ -807,7 +807,6 @@ func TestCopyS3ToS3WithArbitraryMetadata(t *testing.T) {
 	result := icmd.RunCmd(cmd)
 	result.Assert(t, icmd.Success)
 
-	fmt.Println(result.Stdout())
 	// assert S3
 	assert.Assert(t, ensureS3Object(s3client, bucket, fmt.Sprintf("%s_cp", filename), content, ensureArbitraryMetadata(dstmetadata)))
 }

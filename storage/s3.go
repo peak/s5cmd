@@ -158,7 +158,7 @@ func (s *S3) List(ctx context.Context, url *url.URL, _ bool) <-chan *Object {
 	if url.VersionID != "" || url.AllVersions {
 		return s.listObjectVersions(ctx, url)
 	}
-	if IsGoogleEndpoint(s.endpointURL) || s.useListObjectsV1 {
+	if s.useListObjectsV1 {
 		return s.listObjects(ctx, url)
 	}
 

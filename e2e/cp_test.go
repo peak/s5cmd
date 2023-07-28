@@ -689,7 +689,8 @@ func TestCopySingleFileToS3(t *testing.T) {
 	</body>
 </html>
 `
-		expectedContentType = "text/html; charset=utf-8"
+		expectedContentType        = "text/html; charset=utf-8"
+		expectedContentDisposition = "inline"
 	)
 
 	workdir := fs.NewDir(t, bucket, fs.WithFile(filename, content))
@@ -697,9 +698,10 @@ func TestCopySingleFileToS3(t *testing.T) {
 
 	srcpath := workdir.Join(filename)
 	dstpath := fmt.Sprintf("s3://%v/", bucket)
+	contentDisposition := "inline"
 
 	srcpath = filepath.ToSlash(srcpath)
-	cmd := s5cmd("cp", srcpath, dstpath)
+	cmd := s5cmd("cp", "--content-disposition", contentDisposition, srcpath, dstpath)
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Success)
@@ -713,7 +715,7 @@ func TestCopySingleFileToS3(t *testing.T) {
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 
 	// assert S3
-	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content, ensureContentType(expectedContentType)))
+	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content, ensureContentType(expectedContentType), ensureContentDisposition(expectedContentDisposition)))
 }
 
 func TestCopySingleFileToS3WithAdjacentSlashes(t *testing.T) {
@@ -4168,4 +4170,29 @@ func TestLocalFileOverridenWhenDownloadFailed(t *testing.T) {
 	// assert initial file is untouched
 	expected := fs.Expected(t, fs.WithFile(filename, content))
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
+}
+
+// Test that counting writer does not corrupt objects during a download process
+func TestCountingWriter(t *testing.T) {
+	t.Parallel()
+
+	const (
+		filename = "log.txt"
+	)
+
+	content := randomString(3_000_000)
+
+	s3client, s5cmd := setup(t)
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+	putFile(t, s3client, bucket, filename, content)
+
+	cmd := s5cmd("cp", "--show-progress", "--concurrency", "3", "--part-size", "1", "s3://"+bucket+"/"+filename, ".")
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	// assert the downloaded file has the same content with the remote object
+	expected := fs.Expected(t, fs.WithFile(filename, content, fs.WithMode(0644)))
+	assert.Assert(t, fs.Equal(cmd.Dir, expected))
 }

@@ -48,7 +48,7 @@ const (
 	testDisableRaceFlagVal       = "1"
 	s5cmdTestIDEnv               = "S5CMD_ACCESS_KEY_ID"
 	s5cmdTestSecretEnv           = "S5CMD_SECRET_ACCESS_KEY"
-	s5cmdTestEndpointEnv         = "S5CMD_ENDPOINT_URL"
+	s5cmdTestEndpointEnv         = "S5CMD_TEST_ENDPOINT_URL"
 	s5cmdTestIsVirtualHost       = "S5CMD_IS_VIRTUAL_HOST"
 	s5cmdTestRegionEnv           = "S5CMD_REGION"
 	s5cmdTestIKnowWhatImDoingEnv = "S5CMD_I_KNOW_WHAT_IM_DOING"

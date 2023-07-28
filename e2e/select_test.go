@@ -135,10 +135,10 @@ func TestSelectCommandWithGeneratedFiles(t *testing.T) {
 	// is as expected after a query.
 	query := "SELECT * FROM s3object s LIMIT 6"
 
-	endpoint := os.Getenv("S3_ENDPOINT")
+	endpoint := os.Getenv("S5CMD_TEST_ENDPOINT_URL")
 
 	if endpoint == "" {
-		t.Skipf("skipping the test because S3_ENDPOINT environment variable is empty")
+		t.Skipf("skipping the test because S5CMD_TEST_ENDPOINT_URL environment variable is empty")
 	}
 
 	testcases := []struct {
@@ -153,10 +153,8 @@ func TestSelectCommandWithGeneratedFiles(t *testing.T) {
 		{
 			name: "json-lines select with default input structure and output",
 			cmd: []string{
-				"select",
-				"json",
-				"--query",
-				query,
+				"select", "json",
+				"--query", query,
 			},
 			in:        "json",
 			structure: "lines",
@@ -165,12 +163,9 @@ func TestSelectCommandWithGeneratedFiles(t *testing.T) {
 		{
 			name: "json-lines select with default input structure and csv output",
 			cmd: []string{
-				"select",
-				"json",
-				"--output-format",
-				"csv",
-				"--query",
-				query,
+				"select", "json",
+				"--output-format", "csv",
+				"--query", query,
 			},
 			in:        "json",
 			structure: "lines",
@@ -179,12 +174,9 @@ func TestSelectCommandWithGeneratedFiles(t *testing.T) {
 		{
 			name: "json-lines select with document input structure and output",
 			cmd: []string{
-				"select",
-				"json",
-				"--structure",
-				"document",
-				"--query",
-				query,
+				"select", "json",
+				"--structure", "document",
+				"--query", query,
 			},
 			in:        "json",
 			structure: "document",
@@ -192,12 +184,9 @@ func TestSelectCommandWithGeneratedFiles(t *testing.T) {
 		}, {
 			name: "json-lines select with gzip compression default input structure and output",
 			cmd: []string{
-				"select",
-				"json",
-				"--compression",
-				"gzip",
-				"--query",
-				query,
+				"select", "json",
+				"--compression", "gzip",
+				"--query", query,
 			},
 			in:          "json",
 			compression: true,
@@ -207,14 +196,10 @@ func TestSelectCommandWithGeneratedFiles(t *testing.T) {
 		{
 			name: "json-lines select with gzip compression default input structure and csv output",
 			cmd: []string{
-				"select",
-				"json",
-				"--compression",
-				"gzip",
-				"--output-format",
-				"csv",
-				"--query",
-				query,
+				"select", "json",
+				"--compression", "gzip",
+				"--output-format", "csv",
+				"--query", query,
 			},
 			in:          "json",
 			compression: true,
@@ -224,44 +209,22 @@ func TestSelectCommandWithGeneratedFiles(t *testing.T) {
 		{
 			name: "json-lines select with gzip compression document input structure and output",
 			cmd: []string{
-				"select",
-				"json",
-				"--compression",
-				"gzip",
-				"--structure",
-				"document",
-				"--query",
-				query,
+				"select", "json",
+				"--compression", "gzip",
+				"--structure", "document",
+				"--query", query,
 			},
 			in:          "json",
 			compression: true,
 			structure:   "document",
 			out:         "json",
 		},
-		/* {
-			name: "json-lines select with document input structure and csv output",
-			cmd: []string{
-				"select",
-				"json",
-				"--structure",
-				"document",
-				"--output-format",
-				"csv",
-				"--query",
-				query,
-			},
-			in:        "json",
-			structure: "document",
-			out:       "csv",
-		}, */ // This case is not supported by AWS itself.
 		// csv
 		{
 			name: "csv select with default delimiter and output",
 			cmd: []string{
-				"select",
-				"csv",
-				"--query",
-				query,
+				"select", "csv",
+				"--query", query,
 			},
 			in:        "csv",
 			structure: ",",
@@ -270,12 +233,9 @@ func TestSelectCommandWithGeneratedFiles(t *testing.T) {
 		{
 			name: "csv select with gzip compression default delimiter and output",
 			cmd: []string{
-				"select",
-				"csv",
-				"--compression",
-				"gzip",
-				"--query",
-				query,
+				"select", "csv",
+				"--compression", "gzip",
+				"--query", query,
 			},
 			in:          "csv",
 			compression: true,
@@ -285,14 +245,10 @@ func TestSelectCommandWithGeneratedFiles(t *testing.T) {
 		{
 			name: "csv select with gzip compression default delimiter and csv output",
 			cmd: []string{
-				"select",
-				"csv",
-				"--compression",
-				"gzip",
-				"--output-format",
-				"csv",
-				"--query",
-				query,
+				"select", "csv",
+				"--compression", "gzip",
+				"--output-format", "csv",
+				"--query", query,
 			},
 			in:          "csv",
 			compression: true,
@@ -302,12 +258,9 @@ func TestSelectCommandWithGeneratedFiles(t *testing.T) {
 		{
 			name: "csv select with default delimiter and csv output",
 			cmd: []string{
-				"select",
-				"csv",
-				"--output-format",
-				"csv",
-				"--query",
-				query,
+				"select", "csv",
+				"--output-format", "csv",
+				"--query", query,
 			},
 			in:        "csv",
 			structure: ",",
@@ -316,12 +269,9 @@ func TestSelectCommandWithGeneratedFiles(t *testing.T) {
 		{
 			name: "csv select with custom delimiter and default output",
 			cmd: []string{
-				"select",
-				"csv",
-				"--delimiter",
-				"\t",
-				"--query",
-				query,
+				"select", "csv",
+				"--delimiter", "\t",
+				"--query", query,
 			},
 			in:        "csv",
 			structure: "\t",
@@ -330,14 +280,10 @@ func TestSelectCommandWithGeneratedFiles(t *testing.T) {
 		{
 			name: "csv select with custom delimiter and csv output",
 			cmd: []string{
-				"select",
-				"csv",
-				"--delimiter",
-				"\t",
-				"--output-format",
-				"csv",
-				"--query",
-				query,
+				"select", "csv",
+				"--delimiter", "\t",
+				"--output-format", "csv",
+				"--query", query,
 			},
 			in:        "csv",
 			structure: "\t",
@@ -347,8 +293,7 @@ func TestSelectCommandWithGeneratedFiles(t *testing.T) {
 			name: "query json with default fallback",
 			cmd: []string{
 				"select",
-				"--query",
-				query,
+				"--query", query,
 			},
 			in:        "json",
 			structure: "lines",
@@ -358,10 +303,8 @@ func TestSelectCommandWithGeneratedFiles(t *testing.T) {
 			name: "query compressed json with default fallback",
 			cmd: []string{
 				"select",
-				"--query",
-				query,
-				"--compression",
-				"gzip",
+				"--query", query,
+				"--compression", "gzip",
 			},
 			in:          "json",
 			compression: true,
@@ -427,10 +370,10 @@ func TestSelectWithParquet(t *testing.T) {
 	// is as expected after a query.
 	query := "SELECT * FROM s3object s LIMIT 6"
 
-	endpoint := os.Getenv("S3_ENDPOINT")
+	endpoint := os.Getenv("S5CMD_TEST_ENDPOINT_URL")
 
 	if endpoint == "" {
-		t.Skipf("skipping the test because S3_ENDPOINT environment variable is empty")
+		t.Skipf("skipping the test because S5CMD_TEST_ENDPOINT_URL environment variable is empty")
 	}
 
 	testcases := []struct {
@@ -443,10 +386,8 @@ func TestSelectWithParquet(t *testing.T) {
 			name: "parquet select with json output",
 			src:  "five_line_simple.parquet",
 			cmd: []string{
-				"select",
-				"parquet",
-				"--query",
-				query,
+				"select", "parquet",
+				"--query", query,
 			},
 			expected: "output.json",
 		},
@@ -454,12 +395,9 @@ func TestSelectWithParquet(t *testing.T) {
 			name: "parquet select with json output",
 			src:  "five_line_simple.parquet",
 			cmd: []string{
-				"select",
-				"parquet",
-				"--output-format",
-				"csv",
-				"--query",
-				query,
+				"select", "parquet",
+				"--output-format", "csv",
+				"--query", query,
 			},
 			expected: "output.csv",
 		},

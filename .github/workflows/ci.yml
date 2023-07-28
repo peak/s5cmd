@@ -62,7 +62,7 @@ jobs:
 
     - run: make test
       env:
-        S3_ENDPOINT: ${{ (matrix.os == 'ubuntu') && 'http://localhost:45677' || '' }}
+        S5CMD_TEST_ENDPOINT_URL: ${{ (matrix.os == 'ubuntu') && 'http://localhost:45677' || '' }}
   qa:
     strategy:
       matrix:

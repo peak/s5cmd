@@ -64,6 +64,7 @@ func NewRemoteClient(ctx context.Context, url *url.URL, opts Options) (*S3, erro
 		MaxRetries:             opts.MaxRetries,
 		NoSuchUploadRetryCount: opts.NoSuchUploadRetryCount,
 		Endpoint:               opts.Endpoint,
+		HTTP3:                  opts.HTTP3,
 		NoVerifySSL:            opts.NoVerifySSL,
 		DryRun:                 opts.DryRun,
 		NoSignRequest:          opts.NoSignRequest,
@@ -90,6 +91,7 @@ type Options struct {
 	MaxRetries             int
 	NoSuchUploadRetryCount int
 	Endpoint               string
+	HTTP3                  bool
 	NoVerifySSL            bool
 	DryRun                 bool
 	NoSignRequest          bool

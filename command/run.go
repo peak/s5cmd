@@ -200,7 +200,6 @@ func (r *Reader) read() {
 				if err == io.EOF {
 					if errors.Is(r.ctx.Err(), context.Canceled) {
 						r.err = r.ctx.Err()
-						return
 					}
 					return
 				}

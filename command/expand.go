@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"sync/atomic"
 
-	"github.com/peak/s5cmd/v2/atomic"
 	"github.com/peak/s5cmd/v2/storage"
 	"github.com/peak/s5cmd/v2/storage/url"
 )
@@ -81,13 +81,13 @@ func expandSources(
 						continue
 					}
 					ch <- object
-					objFound.Set(true)
+					objFound.Store(true)
 				}
 			}(origSrc)
 		}
 
 		wg.Wait()
-		if !objFound.Get() {
+		if !objFound.Load() {
 			ch <- &storage.Object{Err: storage.ErrNoObjectFound}
 		}
 	}()

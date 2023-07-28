@@ -12,6 +12,7 @@
 
 #### Improvements
 - Implemented concurrent multipart download support for `cat`. ([#245](https://github.com/peak/s5cmd/issues/245)) 
+- Upgraded minimum required Go version to 1.19. ([#583](https://github.com/peak/s5cmd/pull/583))
 
 #### Bugfixes
 - Fixed a bug introduced with `external sort` support in `sync` command which prevents `sync` to an empty destination with `--delete` option. ([#576](https://github.com/peak/s5cmd/issues/576))

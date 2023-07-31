@@ -157,14 +157,17 @@ func (d Delete) Run(ctx context.Context) error {
 			if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) {
 				continue
 			}
+
 			if err := object.Err; err != nil {
 				merrorObjects = multierror.Append(merrorObjects, err)
 				printError(d.fullCommand, d.op, err)
 				continue
 			}
+
 			if isURLExcluded(excludePatterns, object.URL.Path, srcurl.Prefix) {
 				continue
 			}
+
 			urlch <- object.URL
 		}
 	}()

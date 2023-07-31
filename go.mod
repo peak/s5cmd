@@ -6,7 +6,7 @@ require (
 	github.com/aws/aws-sdk-go v1.44.256
 	github.com/cheggaaa/pb/v3 v3.1.4
 	github.com/golang/mock v1.6.0
-	github.com/google/go-cmp v0.4.0
+	github.com/google/go-cmp v0.5.9
 	github.com/hashicorp/go-multierror v1.0.0
 	github.com/iancoleman/strcase v0.0.0-20191112232945-16388991a334
 	github.com/igungor/gofakes3 v0.0.14
@@ -39,7 +39,6 @@ require (
 	golang.org/x/sync v0.1.0 // indirect
 	golang.org/x/sys v0.7.0 // indirect
 	golang.org/x/tools v0.8.0 // indirect
-	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
 	gopkg.in/mgo.v2 v2.0.0-20180705113604-9856a29383ce // indirect
 )

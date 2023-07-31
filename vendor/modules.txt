@@ -71,8 +71,8 @@ github.com/fatih/color
 # github.com/golang/mock v1.6.0
 ## explicit; go 1.11
 github.com/golang/mock/gomock
-# github.com/google/go-cmp v0.4.0
-## explicit; go 1.8
+# github.com/google/go-cmp v0.5.9
+## explicit; go 1.13
 github.com/google/go-cmp/cmp
 github.com/google/go-cmp/cmp/cmpopts
 github.com/google/go-cmp/cmp/internal/diff
@@ -158,10 +158,6 @@ golang.org/x/sys/windows
 # golang.org/x/tools v0.8.0
 ## explicit; go 1.18
 golang.org/x/tools/cover
-# golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1
-## explicit; go 1.11
-golang.org/x/xerrors
-golang.org/x/xerrors/internal
 # gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127
 ## explicit
 # gopkg.in/mgo.v2 v2.0.0-20180705113604-9856a29383ce

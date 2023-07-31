@@ -1,6 +1,6 @@
 // Copyright 2018, The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
-// license that can be found in the LICENSE.md file.
+// license that can be found in the LICENSE file.
 
 package cmpopts
 
@@ -23,6 +23,7 @@ func (xf xformFilter) filter(p cmp.Path) bool {
 // that the transformer cannot be recursively applied upon its own output.
 //
 // An example use case is a transformer that splits a string by lines:
+//
 //	AcyclicTransformer("SplitLines", func(s string) []string{
 //		return strings.Split(s, "\n")
 //	})

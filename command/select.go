@@ -18,7 +18,7 @@ import (
 	"github.com/peak/s5cmd/v2/storage/url"
 )
 
-var defaultSelectHelpTemplate = `Name:
+var selectHelpTemplate = `Name:
 	{{.HelpName}} - {{.Usage}}
 
 Usage:
@@ -140,7 +140,7 @@ func NewSelectCommand() *cli.Command {
 						Value: ",",
 					},
 				}, sharedFlags...),
-				CustomHelpTemplate: defaultSelectHelpTemplate,
+				CustomHelpTemplate: selectHelpTemplate,
 				Before:             beforeFunc,
 				Action: func(c *cli.Context) (err error) {
 					delimiter := c.String("delimiter")
@@ -168,7 +168,7 @@ func NewSelectCommand() *cli.Command {
 						},
 					},
 				}, sharedFlags...),
-				CustomHelpTemplate: defaultSelectHelpTemplate,
+				CustomHelpTemplate: selectHelpTemplate,
 				Before:             beforeFunc,
 				Action: func(c *cli.Context) (err error) {
 					structure := c.String("structure")
@@ -184,7 +184,7 @@ func NewSelectCommand() *cli.Command {
 				Name:               "parquet",
 				Usage:              "write queries for parquet files",
 				Flags:              sharedFlags,
-				CustomHelpTemplate: defaultSelectHelpTemplate,
+				CustomHelpTemplate: selectHelpTemplate,
 				Before: func(c *cli.Context) (err error) {
 					if c.String("compression") != "" {
 						err = errors.New("compression is not supported for parquet files")
@@ -224,7 +224,7 @@ func NewSelectCommand() *cli.Command {
 			}
 			return cmd.Run(c.Context)
 		},
-		CustomHelpTemplate: defaultSelectHelpTemplate,
+		CustomHelpTemplate: selectHelpTemplate,
 	}
 	cmd.BashComplete = getBashCompleteFn(cmd, true, false)
 	return cmd

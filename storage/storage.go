@@ -168,6 +168,11 @@ func (o ObjectType) IsSymlink() bool {
 	return o.mode&os.ModeSymlink != 0
 }
 
+// IsRegular checks if the object is a regular file.
+func (o ObjectType) IsRegular() bool {
+	return o.mode.IsRegular()
+}
+
 // ShouldProcessURL returns true if follow symlinks is enabled.
 // If follow symlinks is disabled we should not process the url.
 // (this check is needed only for local files)
@@ -186,19 +191,6 @@ func ShouldProcessURL(url *url.URL, followSymlinks bool) bool {
 
 	// do not process symlinks
 	return fi.Mode()&os.ModeSymlink == 0
-}
-
-func IsSpecialFile(url *url.URL) (bool, error) {
-	if url.IsLocal() {
-		fileInfo, err := os.Stat(url.Absolute())
-		if err != nil {
-			return false, err
-		}
-		if !fileInfo.Mode().IsRegular() {
-			return true, nil
-		}
-	}
-	return false, nil
 }
 
 // dateFormat is a constant time template for the bucket.

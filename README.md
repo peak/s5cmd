@@ -529,7 +529,17 @@ via `--retry-count` flag.
 ℹ️ Enable debug level logging for displaying retryable errors.
 
 ### Integrity Verification
-`s5cmd` performs checksum validation for uploading files. The AWS SDK appends `Content-MD5` header for both standard and multipart uploads. If the checksum that S3 calculates does not match the `Content-MD5` provided, S3 will not store the object and instead will return an error message back to `s5cmd` with the error code `InvalidDigest`. If `s5cmd` receives an `InvalidDigest` error it will stop retrying and return with a non-success code.
+`s5cmd` performs checksum validation for uploading files. The AWS SDK appends both `Content-MD5` and `X-Amz-Content-Sha256` headers for both standard and multipart uploads ([Source](https://github.com/aws/aws-sdk-go/blob/b75b2a7b3cb40ece5774ed07dde44903481a2d4d/service/s3/customizations.go#L56)).
+
+If the checksum that S3 calculates does not match one of the hashes provided in `Content-MD5` and `X-Amz-Content-Sha256` headers, S3 will not store the object and instead will return an error message back to `s5cmd` with the error code `InvalidDigest` for `MD5` mismatch and `XAmzContentSHA256Mismatch` for `SHA256` mismatch. If `s5cmd` receives an `InvalidDigest` or `XAmzContentSHA256Mismatch` error, it will stop retrying and return with exit code `1`.
+
+    ERROR "cp file.log s3://bucket/file.log": InvalidDigest: The Content-MD5 you specified was invalid. status code: 400, request id: S3TR4P2E0A2K3JMH7, host id: XTeMYKd2KECOHWk5S
+    *** or ***
+    ERROR "cp file.log s3://bucket/file.log": XAmzContentSHA256Mismatch: The provided 'x-amz-content-sha256' header does not match what was computed. status code: 400, request id: S3TR4P2E0A2K3JMH7, host id: XTeMYKd2KECOHWk5S
+
+The differences between `aws-cli` and `s5cmd` in integrity verification are that `aws-cli` tries up to five times until exiting while `s5cmd` tries only once, and even if you enable `Signature Version 4` in your `~/.aws/config` file, `s5cmd` will both verify `MD5` and `SHA256` checksums while `aws-cli` would check only `SHA256` ([AWS CLI docs](https://docs.aws.amazon.com/cli/latest/topic/s3-faq.html)). 
+
+You can learn more about checking data integrity for S3 objects in the [AWS S3 Docs](https://aws.amazon.com/getting-started/hands-on/amazon-s3-with-additional-checksums/).
 
 ## Using wildcards
 

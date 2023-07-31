@@ -1,8 +1,6 @@
 package storage
 
-import (
-	"testing"
-)
+import "testing"
 
 func TestFilesystemImplementsStorageInterface(t *testing.T) {
 	var i interface{} = new(Filesystem)

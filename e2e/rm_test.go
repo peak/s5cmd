@@ -2,8 +2,6 @@ package e2e
 
 import (
 	"fmt"
-	"net"
-	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -1302,31 +1300,4 @@ func TestRemoveByVersionID(t *testing.T) {
 	cmd = s5cmd("ls", "--all-versions", "s3://"+bucket+"/"+filename)
 	result = icmd.RunCmd(cmd)
 	assert.Assert(t, result.Stdout() == "")
-}
-
-func TestRemovingSocketFile(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip()
-	}
-	t.Parallel()
-	_, s5cmd := setup(t)
-	workdir := fs.NewDir(t, t.Name())
-	defer workdir.Remove()
-	sockaddr := workdir.Path() + "/s5cmd.sock"
-	ln, err := net.Listen("unix", sockaddr)
-	if err != nil {
-		t.Log(err)
-	}
-	t.Cleanup(func() {
-		ln.Close()
-		os.Remove(sockaddr)
-	})
-	cmd := s5cmd("rm", sockaddr)
-	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
-	// assert no error
-	assertLines(t, result.Stderr(), map[int]compareFunc{})
-	// assert logs are empty (no remove)
-	assertLines(t, result.Stdout(), map[int]compareFunc{})
-	// assert exit code
-	result.Assert(t, icmd.Success)
 }

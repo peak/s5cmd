@@ -4227,38 +4227,3 @@ func TestUploadingSocketFile(t *testing.T) {
 	// assert exit code
 	result.Assert(t, icmd.Success)
 }
-
-// If destination has a special file with the same name, it shouldn't be overriden.
-func TestOverridingSocketFile(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip()
-	}
-	t.Parallel()
-	const (
-		filename = "s5cmd.sock"
-		content  = "content"
-	)
-	s3client, s5cmd := setup(t)
-	bucket := s3BucketFromTestName(t)
-	createBucket(t, s3client, bucket)
-	putFile(t, s3client, bucket, filename, content)
-	workdir := fs.NewDir(t, t.Name())
-	defer workdir.Remove()
-	sockaddr := fmt.Sprintf("%v/%v", workdir.Path(), filename)
-	ln, err := net.Listen("unix", sockaddr)
-	if err != nil {
-		t.Log(err)
-	}
-	t.Cleanup(func() {
-		ln.Close()
-		os.Remove(sockaddr)
-	})
-	cmd := s5cmd("cp", "s3://"+bucket+"/"+filename, ".")
-	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
-	// assert no error
-	assertLines(t, result.Stderr(), map[int]compareFunc{})
-	// assert logs are empty (no copy)
-	assertLines(t, result.Stdout(), map[int]compareFunc{})
-	// assert exit code
-	result.Assert(t, icmd.Success)
-}

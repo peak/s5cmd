@@ -31,8 +31,8 @@ Examples:
 	01. Search for all objects with the foo property set to 'bar' and spit them into stdout
 		 > {{.HelpName}} --query "SELECT * FROM S3Object s WHERE s.foo='bar'" "s3://bucket/*"
 
-	02. Search for all objects that use GZIP compression with(parquet does not support) the foo property set to 'bar' and spit them into stdout in csv.
-		 > {{.HelpName}} --compression GZIP --output-format csv --query "SELECT * FROM S3Object s WHERE s.foo='bar'" "s3://bucket/*"
+	02. Select the average price of the avocado and amount sold, set the output format csv 
+		 > {{.HelpName}} --compression GZIP --output-format csv --query "SELECT s.avg_price, s.quantity FROM S3Object s WHERE s.item='avocado'" "s3://bucket/itemprices"
 `
 
 func beforeFunc(c *cli.Context) error {
@@ -48,8 +48,13 @@ func buildSelect(c *cli.Context, inputFormat string, inputStructure *string) (cm
 
 	fullCommand := commandFromContext(c)
 
-	src, err := url.New(c.Args().Get(0), url.WithVersion(c.String("version-id")),
-		url.WithRaw(c.Bool("raw")), url.WithAllVersions(c.Bool("all-versions")))
+	src, err := url.New(
+		c.Args().Get(0),
+		url.WithVersion(c.String("version-id")),
+		url.WithRaw(c.Bool("raw")),
+		url.WithAllVersions(c.Bool("all-versions")),
+	)
+
 	if err != nil {
 		printError(fullCommand, c.Command.Name, err)
 		return nil, err
@@ -125,6 +130,7 @@ func NewSelectCommand() *cli.Command {
 			Usage: "use the specified version of the object",
 		},
 	}
+
 	cmd := &cli.Command{
 		Name:     "select",
 		HelpName: "select",
@@ -132,7 +138,7 @@ func NewSelectCommand() *cli.Command {
 		Subcommands: []*cli.Command{
 			{
 				Name:  "csv",
-				Usage: "write queries for csv files",
+				Usage: "run queries on csv files",
 				Flags: append([]cli.Flag{
 					&cli.StringFlag{
 						Name:  "delimiter",
@@ -154,7 +160,7 @@ func NewSelectCommand() *cli.Command {
 			},
 			{
 				Name:  "json",
-				Usage: "write queries for json files",
+				Usage: "run queries on json files",
 				Flags: append([]cli.Flag{
 					&cli.GenericFlag{
 						Name:  "structure",
@@ -182,7 +188,7 @@ func NewSelectCommand() *cli.Command {
 			},
 			{
 				Name:               "parquet",
-				Usage:              "write queries for parquet files",
+				Usage:              "run queries on parquet files",
 				Flags:              sharedFlags,
 				CustomHelpTemplate: selectHelpTemplate,
 				Before: func(c *cli.Context) (err error) {
@@ -195,7 +201,6 @@ func NewSelectCommand() *cli.Command {
 					return beforeFunc(c)
 				},
 				Action: func(c *cli.Context) (err error) {
-
 					cmd, err := buildSelect(c, "parquet", nil)
 					if err != nil {
 						printError(cmd.fullCommand, c.Command.Name, err)
@@ -376,14 +381,23 @@ func validateSelectCommand(c *cli.Context) error {
 		return err
 	}
 
-	srcurl, err := url.New(c.Args().Get(0), url.WithVersion(c.String("version-id")),
-		url.WithRaw(c.Bool("raw")), url.WithAllVersions(c.Bool("all-versions")))
+	srcurl, err := url.New(
+		c.Args().Get(0),
+		url.WithVersion(c.String("version-id")),
+		url.WithRaw(c.Bool("raw")),
+		url.WithAllVersions(c.Bool("all-versions")),
+	)
+
 	if err != nil {
 		return err
 	}
 
 	if !srcurl.IsRemote() {
 		return fmt.Errorf("source must be remote")
+	}
+
+	if c.String("query") == "" {
+		return fmt.Errorf("query must be non-empty")
 	}
 
 	return nil

@@ -413,7 +413,12 @@ func (c Copy) Run(ctx context.Context) error {
 
 	isBatch := c.src.IsWildcard()
 	if !isBatch && !c.src.IsRemote() {
-		obj, _ := client.Stat(ctx, c.src)
+		obj, err := client.Stat(ctx, c.src)
+		if err != nil {
+			printError(c.fullCommand, c.op, err)
+			return err
+		}
+
 		isBatch = obj != nil && obj.Type.IsDir()
 	}
 
@@ -661,8 +666,11 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 	if err != nil {
 		return err
 	}
-	obj, _ := srcClient.Stat(ctx, srcurl)
-	size := obj.Size
+
+	obj, err := srcClient.Stat(ctx, srcurl)
+	if err != nil {
+		return err
+	}
 
 	if c.deleteSource {
 		// close the file before deleting
@@ -678,7 +686,7 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 			Source:      srcurl,
 			Destination: dsturl,
 			Object: &storage.Object{
-				Size:         size,
+				Size:         obj.Size,
 				StorageClass: c.storageClass,
 			},
 		}
@@ -775,7 +783,7 @@ func (c Copy) shouldOverride(ctx context.Context, srcurl *url.URL, dsturl *url.U
 		return err
 	}
 
-	srcObj, err := getObject(ctx, srcurl, srcClient)
+	srcObj, err := statObject(ctx, srcurl, srcClient)
 	if err != nil {
 		return err
 	}
@@ -785,7 +793,7 @@ func (c Copy) shouldOverride(ctx context.Context, srcurl *url.URL, dsturl *url.U
 		return err
 	}
 
-	dstObj, err := getObject(ctx, dsturl, dstClient)
+	dstObj, err := statObject(ctx, dsturl, dstClient)
 	if err != nil {
 		return err
 	}
@@ -865,7 +873,6 @@ func prepareLocalDestination(
 	}
 
 	obj, err := client.Stat(ctx, dsturl)
-
 	if err != nil {
 		var objNotFound *storage.ErrGivenObjectNotFound
 		if !errors.As(err, &objNotFound) {
@@ -898,9 +905,9 @@ func prepareLocalDestination(
 	return dsturl, nil
 }
 
-// getObject checks if the object from given url exists. If no object is
+// statObject checks if the object from given url exists. If no object is
 // found, error and returning object would be nil.
-func getObject(ctx context.Context, url *url.URL, client storage.Storage) (*storage.Object, error) {
+func statObject(ctx context.Context, url *url.URL, client storage.Storage) (*storage.Object, error) {
 	obj, err := client.Stat(ctx, url)
 	var objNotFound *storage.ErrGivenObjectNotFound
 	if errors.As(err, &objNotFound) {

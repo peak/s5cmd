@@ -429,7 +429,7 @@ func (c Copy) Run(ctx context.Context) error {
 	}
 
 	for object := range objch {
-		if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) {
+		if !object.Type.IsRegular() || object.Type.IsDir() || errorpkg.IsCancelation(object.Err) {
 			continue
 		}
 
@@ -448,8 +448,7 @@ func (c Copy) Run(ctx context.Context) error {
 			continue
 		}
 
-		isSpecialFile, _ := storage.IsSpecialFile(object.URL)
-		if isSpecialFile || isURLExcluded(excludePatterns, object.URL.Path, c.src.Prefix) {
+		if isURLExcluded(excludePatterns, object.URL.Path, c.src.Prefix) {
 			continue
 		}
 
@@ -768,11 +767,6 @@ func (c Copy) doCopy(ctx context.Context, srcurl, dsturl *url.URL) error {
 // the <dst> if <src> and <dst> filenames are the same, except if the size
 // differs.
 func (c Copy) shouldOverride(ctx context.Context, srcurl *url.URL, dsturl *url.URL) error {
-	specialFile, _ := storage.IsSpecialFile(dsturl)
-	if specialFile {
-		return errorpkg.ErrObjectExists
-	}
-
 	// if not asked to override, ignore.
 	if !c.noClobber && !c.ifSizeDiffer && !c.ifSourceNewer {
 		return nil

@@ -21,7 +21,7 @@ jobs:
     name: build (${{ matrix.os }}/go-${{ matrix.go-version }})
     runs-on: ${{ matrix.os }}-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - uses: actions/setup-go@v2
       with:
         go-version: ${{ matrix.go-version }}
@@ -42,7 +42,7 @@ jobs:
     name: test (${{ matrix.os }}/go-${{ matrix.go-version }})
     runs-on: ${{ matrix.os }}-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - uses: actions/setup-go@v2
       with:
         go-version: ${{ matrix.go-version }}
@@ -59,7 +59,7 @@ jobs:
 
     runs-on: ${{ matrix.os }}-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - uses: actions/setup-go@v2
       with:
         go-version: ${{ matrix.go-version }}

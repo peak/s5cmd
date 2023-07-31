@@ -3,7 +3,7 @@ package fs
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -72,7 +72,6 @@ func removeCarriageReturn(in []byte) []byte {
 	return bytes.Replace(in, []byte("\r\n"), []byte("\n"), -1)
 }
 
-// nolint: gocyclo
 func eqFile(x, y *file) []problem {
 	p := eqResource(x.resource, y.resource)
 
@@ -87,9 +86,9 @@ func eqFile(x, y *file) []problem {
 		return p
 	}
 
-	xContent, xErr := ioutil.ReadAll(x.content)
+	xContent, xErr := io.ReadAll(x.content)
 	defer x.content.Close()
-	yContent, yErr := ioutil.ReadAll(y.content)
+	yContent, yErr := io.ReadAll(y.content)
 	defer y.content.Close()
 
 	if xErr != nil {
@@ -159,7 +158,7 @@ func eqSymlink(x, y *symlink) []problem {
 
 func eqDirectory(path string, x, y *directory) []failure {
 	p := eqResource(x.resource, y.resource)
-	var f []failure // nolint: prealloc
+	var f []failure
 	matchedFiles := make(map[string]bool)
 
 	for _, name := range sortedKeys(x.items) {

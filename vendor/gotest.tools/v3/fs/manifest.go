@@ -1,12 +1,11 @@
 package fs
 
 import (
+	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
-	"github.com/pkg/errors"
 	"gotest.tools/v3/assert"
 )
 
@@ -75,7 +74,7 @@ func manifestFromDir(path string) (Manifest, error) {
 	case err != nil:
 		return Manifest{}, err
 	case !info.IsDir():
-		return Manifest{}, errors.Errorf("path %s must be a directory", path)
+		return Manifest{}, fmt.Errorf("path %s must be a directory", path)
 	}
 
 	directory, err := newDirectory(path, info)
@@ -84,7 +83,7 @@ func manifestFromDir(path string) (Manifest, error) {
 
 func newDirectory(path string, info os.FileInfo) (*directory, error) {
 	items := make(map[string]dirEntry)
-	children, err := ioutil.ReadDir(path)
+	children, err := os.ReadDir(path)
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +102,11 @@ func newDirectory(path string, info os.FileInfo) (*directory, error) {
 	}, nil
 }
 
-func getTypedResource(path string, info os.FileInfo) (dirEntry, error) {
+func getTypedResource(path string, entry os.DirEntry) (dirEntry, error) {
+	info, err := entry.Info()
+	if err != nil {
+		return nil, err
+	}
 	switch {
 	case info.IsDir():
 		return newDirectory(path, info)

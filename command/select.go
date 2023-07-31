@@ -84,17 +84,11 @@ func NewSelectCommand() *cli.Command {
 			Aliases: []string{"e"},
 			Usage:   "SQL expression to use to select from the objects",
 		},
-		&cli.GenericFlag{
+		&cli.StringFlag{
 			Name:  "compression",
 			Usage: "input compression format",
-			Value: &EnumValue{
-				Enum:    []string{"none", "gzip", "bzip2"},
-				Default: "none",
-				ConditionFunction: func(str, target string) bool {
-					return strings.ToLower(target) == str
-				},
-			},
 		},
+
 		&cli.GenericFlag{
 			Name:  "output-format",
 			Usage: "output format of the result",

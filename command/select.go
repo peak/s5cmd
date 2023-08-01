@@ -204,7 +204,12 @@ func NewSelectCommand() *cli.Command {
 				},
 			},
 		},
-		Flags: sharedFlags,
+		Flags: append([]cli.Flag{
+			&cli.StringFlag{
+				Name:  "compression",
+				Usage: "input compression format",
+			},
+		}, sharedFlags...),
 		Before: func(c *cli.Context) (err error) {
 			if c.Args().Len() == 0 {
 				err = fmt.Errorf("expected source argument")

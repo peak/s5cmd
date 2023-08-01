@@ -22,10 +22,10 @@ Options:
 	{{range .VisibleFlags}}{{.}}
 	{{end}}
 Examples:
-	1. Print a remote object's url to stdout
+	1. Print a remote object url to stdout
 		 > s5cmd {{.HelpName}} s3://bucket/prefix/object
 
-	2. Print a remote object's url with a specific expiration time to stdout
+	2. Print a remote object url with a specific expiration time to stdout
 		 > s5cmd {{.HelpName}} --expire 24h s3://bucket/prefix/object
 `
 

@@ -45,7 +45,7 @@ func NewPersignCommand() *cli.Command {
 				Usage: "use the specified version of an object",
 			},
 		},
-		CustomHelpTemplate: catHelpTemplate,
+		CustomHelpTemplate: persignHelpTemplate,
 		Before: func(c *cli.Context) error {
 			err := validatePersignCommand(c)
 			if err != nil {
@@ -77,7 +77,7 @@ func NewPersignCommand() *cli.Command {
 	return cmd
 }
 
-// Cat holds cat operation flags and states.
+// Persign holds persign operation flags and states.
 type Persign struct {
 	src         *url.URL
 	op          string

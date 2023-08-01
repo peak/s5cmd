@@ -1823,12 +1823,15 @@ func TestSyncSocketDestinationEmpty(t *testing.T) {
 
 	cmd := s5cmd("sync", ".", "s3://"+bucket+"/")
 	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
-	// assert no error
-	assertLines(t, result.Stderr(), nil)
+
+	// assert error message
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: contains(`is skipped due to it's a special file`),
+	})
 
 	// assert logs are empty (no sync)
 	assertLines(t, result.Stdout(), nil)
 
 	// assert exit code
-	result.Assert(t, icmd.Success)
+	result.Assert(t, icmd.Expected{ExitCode: 1})
 }

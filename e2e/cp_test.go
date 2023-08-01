@@ -4198,7 +4198,7 @@ func TestCountingWriter(t *testing.T) {
 	assert.Assert(t, fs.Equal(cmd.Dir, expected))
 }
 
-// It should skip special files and don't try to upload them
+// It should skip special files
 func TestUploadingSocketFile(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip()
@@ -4225,12 +4225,14 @@ func TestUploadingSocketFile(t *testing.T) {
 	cmd := s5cmd("cp", sockaddr, "s3://"+bucket+"/")
 	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
 
-	// assert no error
-	assertLines(t, result.Stderr(), nil)
+	// assert error message
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: contains(`is skipped due to it's a special file`),
+	})
 
 	// assert logs are empty (no copy)
 	assertLines(t, result.Stdout(), nil)
 
 	// assert exit code
-	result.Assert(t, icmd.Success)
+	result.Assert(t, icmd.Expected{ExitCode: 1})
 }

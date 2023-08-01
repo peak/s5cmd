@@ -1801,12 +1801,16 @@ func TestSyncSocketDestinationEmpty(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip()
 	}
+
 	t.Parallel()
+
 	s3client, s5cmd := setup(t)
 	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
+
 	workdir := fs.NewDir(t, t.Name())
 	defer workdir.Remove()
+
 	sockaddr := workdir.Path() + "/sock"
 	ln, err := net.Listen("unix", sockaddr)
 	if err != nil {
@@ -1816,12 +1820,15 @@ func TestSyncSocketDestinationEmpty(t *testing.T) {
 		ln.Close()
 		os.Remove(sockaddr)
 	})
+
 	cmd := s5cmd("sync", ".", "s3://"+bucket+"/")
 	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
 	// assert no error
-	assertLines(t, result.Stderr(), map[int]compareFunc{})
+	assertLines(t, result.Stderr(), nil)
+
 	// assert logs are empty (no sync)
-	assertLines(t, result.Stdout(), map[int]compareFunc{})
+	assertLines(t, result.Stdout(), nil)
+
 	// assert exit code
 	result.Assert(t, icmd.Success)
 }

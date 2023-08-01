@@ -3,9 +3,20 @@
 ## not released yet
 
 #### Breaking changes
+
 #### Features
+- Added `--content-disposition` flag to `cp` command. ([#569](https://github.com/peak/s5cmd/issues/569))
+- Added `--show-fullpath` flag to `ls`. ([#596](https://github.com/peak/s5cmd/issues/596))
+- Added `pipe` command. ([#182](https://github.com/peak/s5cmd/issues/182))
+- Added `--show-progress` flag to `cp` to show a progress bar. ([#51](https://github.com/peak/s5cmd/issues/51))
+
 #### Improvements
+- Implemented concurrent multipart download support for `cat`. ([#245](https://github.com/peak/s5cmd/issues/245)) 
+- Upgraded minimum required Go version to 1.19. ([#583](https://github.com/peak/s5cmd/pull/583))
+
 #### Bugfixes
+- Fixed a bug introduced with `external sort` support in `sync` command which prevents `sync` to an empty destination with `--delete` option. ([#576](https://github.com/peak/s5cmd/issues/576))
+- Fixed a bug that causes local files to be lost if downloads fail. ([#479](https://github.com/peak/s5cmd/issues/479))
 
 ## v2.1.0 - 19 Jun 2023
 

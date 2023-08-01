@@ -44,6 +44,7 @@ func (f *Filesystem) List(ctx context.Context, src *url.URL, followSymlinks bool
 	}
 
 	obj, err := f.Stat(ctx, src)
+
 	isDir := err == nil && obj.Type.IsDir()
 
 	if isDir {
@@ -85,10 +86,19 @@ func (f *Filesystem) expandGlob(ctx context.Context, src *url.URL, followSymlink
 		for _, filename := range matchedFiles {
 			filename := filename
 
-			fileurl, _ := url.New(filename)
+			fileurl, err := url.New(filename)
+			if err != nil {
+				sendError(ctx, err, ch)
+				return
+			}
+
 			fileurl.SetRelative(src)
 
-			obj, _ := f.Stat(ctx, fileurl)
+			obj, err := f.Stat(ctx, fileurl)
+			if err != nil {
+				sendError(ctx, err, ch)
+				return
+			}
 
 			if !obj.Type.IsDir() {
 				sendObject(ctx, obj, ch)
@@ -128,14 +138,13 @@ func walkDir(ctx context.Context, fs *Filesystem, src *url.URL, followSymlinks b
 			}
 
 			obj, err := fs.Stat(ctx, fileurl)
-
 			if err != nil {
 				return err
 			}
+
 			fn(obj)
 			return nil
 		},
-		// flags
 		FollowSymbolicLinks: followSymlinks,
 	})
 	if err != nil {
@@ -221,6 +230,30 @@ func (f *Filesystem) Open(path string) (*os.File, error) {
 	}
 
 	return file, nil
+}
+
+// CreateTemp creates a new temporary file
+func (f *Filesystem) CreateTemp(dir, pattern string) (*os.File, error) {
+	if f.dryRun {
+		return &os.File{}, nil
+	}
+
+	file, err := os.CreateTemp(dir, pattern)
+	if err != nil {
+		return nil, err
+	}
+
+	err = file.Chmod(0644)
+	return file, err
+}
+
+// Rename a file
+func (f *Filesystem) Rename(file *os.File, newpath string) error {
+	if f.dryRun {
+		return nil
+	}
+
+	return os.Rename(file.Name(), newpath)
 }
 
 func sendObject(ctx context.Context, obj *Object, ch chan *Object) {

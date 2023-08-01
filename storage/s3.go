@@ -158,7 +158,7 @@ func (s *S3) List(ctx context.Context, url *url.URL, _ bool) <-chan *Object {
 	if url.VersionID != "" || url.AllVersions {
 		return s.listObjectVersions(ctx, url)
 	}
-	if IsGoogleEndpoint(s.endpointURL) || s.useListObjectsV1 {
+	if s.useListObjectsV1 {
 		return s.listObjects(ctx, url)
 	}
 
@@ -736,6 +736,11 @@ func (s *S3) Put(
 	contentEncoding := metadata.ContentEncoding()
 	if contentEncoding != "" {
 		input.ContentEncoding = aws.String(contentEncoding)
+	}
+
+	contentDisposition := metadata.ContentDisposition()
+	if contentDisposition != "" {
+		input.ContentDisposition = aws.String(contentDisposition)
 	}
 
 	// add retry ID to the object metadata

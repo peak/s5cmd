@@ -3,7 +3,6 @@ package command
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -89,11 +88,6 @@ func NewSelectCommand() *cli.Command {
 			Aliases: []string{"e"},
 			Usage:   "SQL expression to use to select from the objects",
 		},
-		&cli.StringFlag{
-			Name:  "compression",
-			Usage: "input compression format",
-		},
-
 		&cli.GenericFlag{
 			Name:  "output-format",
 			Usage: "output format of the result",
@@ -145,6 +139,10 @@ func NewSelectCommand() *cli.Command {
 						Usage: "delimiter of the csv file",
 						Value: ",",
 					},
+					&cli.StringFlag{
+						Name:  "compression",
+						Usage: "input compression format",
+					},
 				}, sharedFlags...),
 				CustomHelpTemplate: selectHelpTemplate,
 				Before:             beforeFunc,
@@ -173,6 +171,10 @@ func NewSelectCommand() *cli.Command {
 							},
 						},
 					},
+					&cli.StringFlag{
+						Name:  "compression",
+						Usage: "input compression format",
+					},
 				}, sharedFlags...),
 				CustomHelpTemplate: selectHelpTemplate,
 				Before:             beforeFunc,
@@ -191,15 +193,7 @@ func NewSelectCommand() *cli.Command {
 				Usage:              "run queries on parquet files",
 				Flags:              sharedFlags,
 				CustomHelpTemplate: selectHelpTemplate,
-				Before: func(c *cli.Context) (err error) {
-					if c.String("compression") != "" {
-						err = errors.New("compression is not supported for parquet files")
-						cmd := commandFromContext(c)
-						printError(cmd, "select parquet", err)
-						return err
-					}
-					return beforeFunc(c)
-				},
+				Before:             beforeFunc,
 				Action: func(c *cli.Context) (err error) {
 					cmd, err := buildSelect(c, "parquet", nil)
 					if err != nil {

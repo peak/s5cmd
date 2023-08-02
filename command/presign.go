@@ -12,7 +12,7 @@ import (
 	"github.com/peak/s5cmd/v2/storage/url"
 )
 
-var persignHelpTemplate = `Name:
+var presignHelpTemplate = `Name:
 	{{.HelpName}} - {{.Usage}}
 
 Usage:
@@ -29,11 +29,11 @@ Examples:
 		 > s5cmd {{.HelpName}} --expire 24h s3://bucket/prefix/object
 `
 
-func NewPersignCommand() *cli.Command {
+func NewPresignCommand() *cli.Command {
 	cmd := &cli.Command{
-		Name:     "persign",
-		HelpName: "persign",
-		Usage:    "print remote object persign url",
+		Name:     "presign",
+		HelpName: "presign",
+		Usage:    "print remote object presign url",
 		Flags: []cli.Flag{
 			&cli.DurationFlag{
 				Name:  "expire",
@@ -45,9 +45,9 @@ func NewPersignCommand() *cli.Command {
 				Usage: "use the specified version of an object",
 			},
 		},
-		CustomHelpTemplate: persignHelpTemplate,
+		CustomHelpTemplate: presignHelpTemplate,
 		Before: func(c *cli.Context) error {
-			err := validatePersignCommand(c)
+			err := validatePresignCommand(c)
 			if err != nil {
 				printError(commandFromContext(c), c.Command.Name, err)
 			}
@@ -65,7 +65,7 @@ func NewPersignCommand() *cli.Command {
 				return err
 			}
 
-			return Persign{
+			return Presign{
 				src:         src,
 				op:          op,
 				fullCommand: fullCommand,
@@ -77,8 +77,8 @@ func NewPersignCommand() *cli.Command {
 	return cmd
 }
 
-// Persign holds persign operation flags and states.
-type Persign struct {
+// Presign holds presign operation flags and states.
+type Presign struct {
 	src         *url.URL
 	op          string
 	fullCommand string
@@ -88,7 +88,7 @@ type Persign struct {
 }
 
 // Run prints content of given source to standard output.
-func (c Persign) Run(ctx context.Context) error {
+func (c Presign) Run(ctx context.Context) error {
 	client, err := storage.NewRemoteClient(ctx, c.src, c.storageOpts)
 	if err != nil {
 		printError(c.fullCommand, c.op, err)
@@ -104,7 +104,7 @@ func (c Persign) Run(ctx context.Context) error {
 	return nil
 }
 
-func validatePersignCommand(c *cli.Context) error {
+func validatePresignCommand(c *cli.Context) error {
 	if c.Args().Len() != 1 {
 		return fmt.Errorf("expected only one argument")
 	}

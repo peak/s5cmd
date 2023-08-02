@@ -209,7 +209,7 @@ func Commands() []*cli.Command {
 		NewSyncCommand(),
 		NewVersionCommand(),
 		NewBucketVersionCommand(),
-		NewPersignCommand(),
+		NewPresignCommand(),
 	}
 }
 

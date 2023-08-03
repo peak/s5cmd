@@ -4212,6 +4212,7 @@ func TestUploadingSocketFile(t *testing.T) {
 
 	workdir := fs.NewDir(t, t.Name())
 	defer workdir.Remove()
+	
 	sockaddr := workdir.Path() + "/s5cmd.sock"
 	ln, err := net.Listen("unix", sockaddr)
 	if err != nil {

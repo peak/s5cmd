@@ -638,7 +638,7 @@ func parseInputSerialization(e eventType, c string, delimiter string) (*s3.Input
 	return s, nil
 }
 
-func parseOutputSerialization(e eventType, reader io.Reader) (*s3.OutputSerialization, EventStreamDecoder, error) {
+func parseOutputSerialization(e eventType, delimiter string, reader io.Reader) (*s3.OutputSerialization, EventStreamDecoder, error) {
 	var s *s3.OutputSerialization
 	var decoder EventStreamDecoder
 
@@ -651,7 +651,7 @@ func parseOutputSerialization(e eventType, reader io.Reader) (*s3.OutputSerializ
 	case csvType:
 		s = &s3.OutputSerialization{
 			CSV: &s3.CSVOutput{
-				FieldDelimiter: aws.String(","),
+				FieldDelimiter: aws.String(delimiter),
 			},
 		}
 		decoder = NewCsvDecoder(reader)
@@ -685,6 +685,7 @@ func (s *S3) Select(ctx context.Context, url *url.URL, query *SelectQuery, resul
 
 	outputFormat, decoder, err = parseOutputSerialization(
 		eventType(query.OutputFormat),
+		query.InputContentStructure,
 		reader,
 	)
 

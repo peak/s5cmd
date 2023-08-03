@@ -65,7 +65,7 @@ func getFile(n int, inputForm, outputForm, structure string) (string, string) {
 				return input.String(), input.String()
 			case "csv":
 				writer := csv.NewWriter(&expected)
-
+				writer.Comma = []rune(structure)[0]
 				for _, d := range data {
 					if err := writer.Write([]string{d.Line, d.ID, d.Data}); err != nil {
 						panic(err)
@@ -111,6 +111,7 @@ func getFile(n int, inputForm, outputForm, structure string) (string, string) {
 			return input.String(), expected.String()
 		case "csv":
 			writer := csv.NewWriter(&expected)
+			writer.Comma = []rune(structure)[0]
 			writer.Write([]string{"line", "id", "data"})
 
 			for _, d := range data {
@@ -228,7 +229,7 @@ func TestSelectCommandWithGeneratedFiles(t *testing.T) {
 			},
 			in:        "csv",
 			structure: ",",
-			out:       "json",
+			out:       "csv",
 		},
 		{
 			name: "csv select with gzip compression default delimiter and output",
@@ -240,7 +241,7 @@ func TestSelectCommandWithGeneratedFiles(t *testing.T) {
 			in:          "csv",
 			compression: true,
 			structure:   ",",
-			out:         "json",
+			out:         "csv",
 		},
 		{
 			name: "csv select with gzip compression default delimiter and csv output",
@@ -275,7 +276,7 @@ func TestSelectCommandWithGeneratedFiles(t *testing.T) {
 			},
 			in:        "csv",
 			structure: "\t",
-			out:       "json",
+			out:       "csv",
 		},
 		{
 			name: "csv select with custom delimiter and csv output",

@@ -30,8 +30,14 @@ Examples:
 	01. Search for all objects with the foo property set to 'bar' and spit them into stdout
 		 > {{.HelpName}} --query "SELECT * FROM S3Object s WHERE s.foo='bar'" "s3://bucket/*"
 
-	02. Select the average price of the avocado and amount sold, set the output format csv 
+	01. Select the average price of the avocado and amount sold, set the output format as csv 
 		 > {{.HelpName}} --compression GZIP --output-format csv --query "SELECT s.avg_price, s.quantity FROM S3Object s WHERE s.item='avocado'" "s3://bucket/itemprices"
+
+	02. Query TSV files 
+		 > s5cmd select csv --delimiter=\t --compression GZIP --output-format csv --query "SELECT s.avg_price, s.quantity FROM S3Object s WHERE s.item='avocado'" "s3://bucket/itemprices"
+
+	03. Select the specific field in a JSON document 
+		 > s5cmd select json --structure document --compression GZIP --output-format csv --query "SELECT s.tracking_id FROM s3object[*]['metadata']['.zattrs'] s" "s3://bucket/metadataobj"
 `
 
 func beforeFunc(c *cli.Context) error {
@@ -58,13 +64,19 @@ func buildSelect(c *cli.Context, inputFormat string, inputStructure *string) (cm
 		printError(fullCommand, c.Command.Name, err)
 		return nil, err
 	}
+
+	outputFormat := c.String("output-format")
+	if c.String("output-format") == "" {
+		outputFormat = inputFormat
+	}
+
 	cmd = &Select{
 		src:         src,
 		op:          c.Command.Name,
 		fullCommand: fullCommand,
 		// flags
 		inputFormat:           inputFormat,
-		outputFormat:          c.String("output-format"),
+		outputFormat:          outputFormat,
 		query:                 c.String("query"),
 		compressionType:       c.String("compression"),
 		exclude:               c.StringSlice("exclude"),
@@ -88,16 +100,9 @@ func NewSelectCommand() *cli.Command {
 			Aliases: []string{"e"},
 			Usage:   "SQL expression to use to select from the objects",
 		},
-		&cli.GenericFlag{
+		&cli.StringFlag{
 			Name:  "output-format",
-			Usage: "output format of the result",
-			Value: &EnumValue{
-				Enum:    []string{"json", "csv"},
-				Default: "json",
-				ConditionFunction: func(str, target string) bool {
-					return strings.ToLower(target) == str
-				},
-			},
+			Usage: "output format of the result (options: json, csv)",
 		},
 		&cli.StringSliceFlag{
 			Name:  "exclude",
@@ -141,7 +146,7 @@ func NewSelectCommand() *cli.Command {
 					},
 					&cli.StringFlag{
 						Name:  "compression",
-						Usage: "input compression format",
+						Usage: "input compression format (for AWS: GZIP or BZIP2)",
 					},
 				}, sharedFlags...),
 				CustomHelpTemplate: selectHelpTemplate,
@@ -162,7 +167,7 @@ func NewSelectCommand() *cli.Command {
 				Flags: append([]cli.Flag{
 					&cli.GenericFlag{
 						Name:  "structure",
-						Usage: "how objects are aligned in the json file",
+						Usage: "how objects are aligned in the json file, options:[lines, document]",
 						Value: &EnumValue{
 							Enum:    []string{"lines", "document"},
 							Default: "lines",
@@ -173,7 +178,7 @@ func NewSelectCommand() *cli.Command {
 					},
 					&cli.StringFlag{
 						Name:  "compression",
-						Usage: "input compression format",
+						Usage: "input compression format (for AWS: GZIP or BZIP2)",
 					},
 				}, sharedFlags...),
 				CustomHelpTemplate: selectHelpTemplate,
@@ -207,7 +212,7 @@ func NewSelectCommand() *cli.Command {
 		Flags: append([]cli.Flag{
 			&cli.StringFlag{
 				Name:  "compression",
-				Usage: "input compression format",
+				Usage: "input compression format (for AWS: GZIP or BZIP2)",
 			},
 		}, sharedFlags...),
 		Before: func(c *cli.Context) (err error) {

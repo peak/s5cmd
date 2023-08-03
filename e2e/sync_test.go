@@ -1814,8 +1814,9 @@ func TestSyncSocketDestinationEmpty(t *testing.T) {
 	sockaddr := workdir.Path() + "/sock"
 	ln, err := net.Listen("unix", sockaddr)
 	if err != nil {
-		t.Log(err)
+		t.Fatalf("error occurred while creating a socket file: %v\n", err)
 	}
+
 	t.Cleanup(func() {
 		ln.Close()
 		os.Remove(sockaddr)

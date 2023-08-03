@@ -1811,7 +1811,7 @@ func TestSyncSocketDestinationEmpty(t *testing.T) {
 	workdir := fs.NewDir(t, t.Name())
 	defer workdir.Remove()
 
-	sockaddr := workdir.Path() + "/sock"
+	sockaddr := workdir.Join("/s5cmd.sock")
 	ln, err := net.Listen("unix", sockaddr)
 	if err != nil {
 		t.Fatalf("error occurred while creating a socket file: %v\n", err)

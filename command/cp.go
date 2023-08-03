@@ -434,7 +434,7 @@ func (c Copy) Run(ctx context.Context) error {
 		}
 
 		if !object.Type.IsRegular() {
-			err := fmt.Errorf("object '%v' is skipped due to it's a special file", object)
+			err := fmt.Errorf("object '%v' is not a regular file", object)
 			merrorObjects = multierror.Append(merrorObjects, err)
 			printError(c.fullCommand, c.op, err)
 			continue

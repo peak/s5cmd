@@ -4229,7 +4229,7 @@ func TestUploadingSocketFile(t *testing.T) {
 
 	// assert error message
 	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: contains(`is skipped due to it's a special file`),
+		0: contains(`is not a regular file`),
 	})
 
 	// assert logs are empty (no copy)

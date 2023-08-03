@@ -4216,7 +4216,7 @@ func TestUploadingSocketFile(t *testing.T) {
 	sockaddr := workdir.Join("/s5cmd.sock")
 	ln, err := net.Listen("unix", sockaddr)
 	if err != nil {
-		t.Fatalf("error occurred while creating a socket file: %v\n", err)
+		t.Fatal(err)
 	}
 
 	t.Cleanup(func() {

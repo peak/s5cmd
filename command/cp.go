@@ -432,6 +432,7 @@ func (c Copy) Run(ctx context.Context) error {
 		if errorpkg.IsCancelation(object.Err) || object.Type.IsDir() {
 			continue
 		}
+
 		if !object.Type.IsRegular() {
 			err := fmt.Errorf("object '%v' is skipped due to it's a special file", object)
 			merrorObjects = multierror.Append(merrorObjects, err)

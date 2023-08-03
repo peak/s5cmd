@@ -4212,12 +4212,13 @@ func TestUploadingSocketFile(t *testing.T) {
 
 	workdir := fs.NewDir(t, t.Name())
 	defer workdir.Remove()
-	
+
 	sockaddr := workdir.Path() + "/s5cmd.sock"
 	ln, err := net.Listen("unix", sockaddr)
 	if err != nil {
-		t.Log(err)
+		t.Fatalf("error occurred while creating a socket file: %v\n", err)
 	}
+
 	t.Cleanup(func() {
 		ln.Close()
 		os.Remove(sockaddr)

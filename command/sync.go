@@ -9,11 +9,13 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/hashicorp/go-multierror"
 	"github.com/lanrat/extsort"
 	"github.com/urfave/cli/v2"
 
 	errorpkg "github.com/peak/s5cmd/v2/error"
+	"github.com/peak/s5cmd/v2/log"
 	"github.com/peak/s5cmd/v2/log/stat"
 	"github.com/peak/s5cmd/v2/parallel"
 	"github.com/peak/s5cmd/v2/storage"
@@ -79,6 +81,10 @@ func NewSyncCommandFlags() []cli.Flag {
 			Name:  "size-only",
 			Usage: "make size of object only criteria to decide whether an object should be synced",
 		},
+		&cli.BoolFlag{
+			Name:  "exit-on-error",
+			Usage: "stops the sync process if an error is received",
+		},
 	}
 	sharedFlags := NewSharedFlags()
 	return append(syncFlags, sharedFlags...)
@@ -122,8 +128,9 @@ type Sync struct {
 	fullCommand string
 
 	// flags
-	delete   bool
-	sizeOnly bool
+	delete      bool
+	sizeOnly    bool
+	exitOnError bool
 
 	// s3 options
 	storageOpts storage.Options
@@ -145,8 +152,9 @@ func NewSync(c *cli.Context) Sync {
 		fullCommand: commandFromContext(c),
 
 		// flags
-		delete:   c.Bool("delete"),
-		sizeOnly: c.Bool("size-only"),
+		delete:      c.Bool("delete"),
+		sizeOnly:    c.Bool("size-only"),
+		exitOnError: c.Bool("exit-on-error"),
 
 		// flags
 		followSymlinks: !c.Bool("no-follow-symlinks"),
@@ -172,7 +180,9 @@ func (s Sync) Run(c *cli.Context) error {
 		return err
 	}
 
-	sourceObjects, destObjects, err := s.getSourceAndDestinationObjects(c.Context, srcurl, dsturl)
+	ctx, cancel := context.WithCancel(c.Context)
+
+	sourceObjects, destObjects, err := s.getSourceAndDestinationObjects(ctx, cancel, srcurl, dsturl)
 	if err != nil {
 		printError(s.fullCommand, s.op, err)
 		return err
@@ -180,12 +190,12 @@ func (s Sync) Run(c *cli.Context) error {
 
 	isBatch := srcurl.IsWildcard()
 	if !isBatch && !srcurl.IsRemote() {
-		sourceClient, err := storage.NewClient(c.Context, srcurl, s.storageOpts)
+		sourceClient, err := storage.NewClient(ctx, srcurl, s.storageOpts)
 		if err != nil {
 			return err
 		}
 
-		obj, err := sourceClient.Stat(c.Context, srcurl)
+		obj, err := sourceClient.Stat(ctx, srcurl)
 		if err != nil {
 			return err
 		}
@@ -224,7 +234,7 @@ func (s Sync) Run(c *cli.Context) error {
 	// Create commands in background.
 	go s.planRun(c, onlySource, onlyDest, commonObjects, dsturl, strategy, pipeWriter, isBatch)
 
-	err = NewRun(c, pipeReader).Run(c.Context)
+	err = NewRun(c, pipeReader).Run(ctx)
 	return multierror.Append(err, merrorWaiter).ErrorOrNil()
 }
 
@@ -287,7 +297,7 @@ func compareObjects(sourceObjects, destObjects chan *storage.Object) (chan *url.
 // getSourceAndDestinationObjects returns source and destination objects from
 // given URLs. The returned channels gives objects sorted in ascending order
 // with respect to their url.Relative path. See also storage.Less.
-func (s Sync) getSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl *url.URL) (chan *storage.Object, chan *storage.Object, error) {
+func (s Sync) getSourceAndDestinationObjects(ctx context.Context, cancel context.CancelFunc, srcurl, dsturl *url.URL) (chan *storage.Object, chan *storage.Object, error) {
 	sourceClient, err := storage.NewClient(ctx, srcurl, s.storageOpts)
 	if err != nil {
 		return nil, nil, err
@@ -335,6 +345,15 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 			defer close(filteredSrcObjectChannel)
 			// filter and redirect objects
 			for st := range unfilteredSrcObjectChannel {
+				if st.Err != nil && s.shouldStopSync(st.Err) {
+					msg := log.ErrorMessage{
+						Err:       cleanupError(st.Err),
+						Command:   s.fullCommand,
+						Operation: s.op,
+					}
+					log.Error(msg)
+					cancel()
+				}
 				if s.shouldSkipObject(st, true) {
 					continue
 				}
@@ -371,9 +390,17 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, srcurl, dsturl
 
 		go func() {
 			defer close(filteredDstObjectChannel)
-
 			// filter and redirect objects
 			for dt := range unfilteredDestObjectsChannel {
+				if dt.Err != nil && s.shouldStopSync(dt.Err) {
+					msg := log.ErrorMessage{
+						Err:       cleanupError(dt.Err),
+						Command:   s.fullCommand,
+						Operation: s.op,
+					}
+					log.Error(msg)
+					cancel()
+				}
 				if s.shouldSkipObject(dt, false) {
 					continue
 				}
@@ -540,4 +567,18 @@ func (s Sync) shouldSkipObject(object *storage.Object, verbose bool) bool {
 		return true
 	}
 	return false
+}
+
+// shouldStopSync determines whether a sync process should be stopped or not.
+func (s Sync) shouldStopSync(err error) bool {
+	if err == storage.ErrNoObjectFound {
+		return false
+	}
+	if awsErr, ok := err.(awserr.Error); ok {
+		switch awsErr.Code() {
+		case "AccessDenied", "NoSuchBucket":
+			return true
+		}
+	}
+	return s.exitOnError
 }

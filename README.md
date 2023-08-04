@@ -555,7 +555,7 @@ If the `SHA256` checksum mismatches, you will see an error like the one below.
 
 `aws-cli` and `s5cmd` are both command-line tools that can be used to interact with Amazon S3. However, there are some differences between the two tools in terms of how they verify the integrity of data uploaded to S3.
 
-* **Number of retries:** `aws-cli` will retry up to five times to upload a file, while `s5cmd` will only retry once.
+* **Number of retries:** `aws-cli` will retry up to five times to upload a file, while `s5cmd` will not retry.
 * **Checksums:** If you enable `Signature Version 4` in your `~/.aws/config` file, `aws-cli` will only check the `SHA256` checksum of a file  while `s5cmd` will check both the `MD5` and `SHA256` checksums.
 
 **Sources:**

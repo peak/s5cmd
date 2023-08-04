@@ -168,6 +168,11 @@ func (o ObjectType) IsSymlink() bool {
 	return o.mode&os.ModeSymlink != 0
 }
 
+// IsRegular checks if the object is a regular file.
+func (o ObjectType) IsRegular() bool {
+	return o.mode.IsRegular()
+}
+
 // ShouldProcessURL returns true if follow symlinks is enabled.
 // If follow symlinks is disabled we should not process the url.
 // (this check is needed only for local files)

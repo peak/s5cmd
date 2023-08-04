@@ -847,23 +847,6 @@ func (c Copy) shouldOverride(ctx context.Context, srcurl *url.URL, dsturl *url.U
 	return stickyErr
 }
 
-// shouldCopyObject checks is object should be copied.
-func (c Copy) shouldCopyObject(object *storage.Object, verbose bool) bool {
-	if err := object.Err; err != nil {
-		if verbose {
-			printError(c.fullCommand, c.op, err)
-		}
-		return false
-	}
-	if len(c.excludePatterns) > 0 && isURLMatched(c.excludePatterns, object.URL.Path, c.src.Prefix) {
-		return false
-	}
-	if len(c.includePatterns) > 0 {
-		return isURLMatched(c.includePatterns, object.URL.Path, c.src.Prefix)
-	}
-	return true
-}
-
 // prepareRemoteDestination will return a new destination URL for
 // remote->remote and local->remote copy operations.
 func prepareRemoteDestination(

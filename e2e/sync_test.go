@@ -2,6 +2,8 @@ package e2e
 
 import (
 	"fmt"
+	"net"
+	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -1792,4 +1794,172 @@ func TestIssue435(t *testing.T) {
 		err := ensureS3Object(s3client, bucket, filename, content)
 		assertError(t, err, errS3NoSuchKey)
 	}
+}
+
+// sync s3://bucket/* s3://bucket/ (dest bucket is empty)
+func TestSyncS3BucketToEmptyS3BucketWithExitOnErrorFlag(t *testing.T) {
+	t.Parallel()
+	s3client, s5cmd := setup(t)
+
+	bucket := s3BucketFromTestName(t)
+	dstbucket := s3BucketFromTestNameWithPrefix(t, "dst")
+
+	const (
+		prefix = "prefix"
+	)
+	createBucket(t, s3client, bucket)
+	createBucket(t, s3client, dstbucket)
+
+	S3Content := map[string]string{
+		"testfile.txt":            "S: this is a test file",
+		"readme.md":               "S: this is a readme file",
+		"a/another_test_file.txt": "S: yet another txt file",
+		"abc/def/test.py":         "S: file in nested folders",
+	}
+
+	for filename, content := range S3Content {
+		putFile(t, s3client, bucket, filename, content)
+	}
+
+	bucketPath := fmt.Sprintf("s3://%v", bucket)
+	src := fmt.Sprintf("%v/*", bucketPath)
+	dst := fmt.Sprintf("s3://%v/%v/", dstbucket, prefix)
+
+	cmd := s5cmd("sync", "--exit-on-error", src, dst)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`cp %v/a/another_test_file.txt %va/another_test_file.txt`, bucketPath, dst),
+		1: equals(`cp %v/abc/def/test.py %vabc/def/test.py`, bucketPath, dst),
+		2: equals(`cp %v/readme.md %vreadme.md`, bucketPath, dst),
+		3: equals(`cp %v/testfile.txt %vtestfile.txt`, bucketPath, dst),
+	}, sortInput(true))
+
+	// assert  s3 objects in source bucket.
+	for key, content := range S3Content {
+		assert.Assert(t, ensureS3Object(s3client, bucket, key, content))
+	}
+
+	// assert s3 objects in dest bucket
+	for key, content := range S3Content {
+		key = fmt.Sprintf("%s/%s", prefix, key) // add the prefix
+		assert.Assert(t, ensureS3Object(s3client, dstbucket, key, content))
+	}
+}
+
+// sync --exit-on-error s3://bucket/* s3://NotExistingBucket/ (dest bucket doesn't exist)
+func TestSyncExitOnErrorS3BucketToS3BucketThatDoesNotExist(t *testing.T) {
+	t.Parallel()
+
+	now := time.Now()
+	timeSource := newFixedTimeSource(now)
+	s3client, s5cmd := setup(t, withTimeSource(timeSource))
+
+	bucket := s3BucketFromTestName(t)
+	destbucket := "NotExistingBucket"
+
+	createBucket(t, s3client, bucket)
+
+	S3Content := map[string]string{
+		"testfile.txt":            "S: this is a test file",
+		"readme.md":               "S: this is a readme file",
+		"a/another_test_file.txt": "S: yet another txt file",
+		"abc/def/test.py":         "S: file in nested folders",
+	}
+
+	for filename, content := range S3Content {
+		putFile(t, s3client, bucket, filename, content)
+	}
+
+	src := fmt.Sprintf("s3://%v/*", bucket)
+	dst := fmt.Sprintf("s3://%v/", destbucket)
+
+	cmd := s5cmd("sync", "--exit-on-error", src, dst)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Expected{ExitCode: 1})
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: contains(`status code: 404`),
+	})
+}
+
+// sync s3://bucket/* s3://NotExistingBucket/ (dest bucket doesn't exist)
+func TestSyncS3BucketToS3BucketThatDoesNotExist(t *testing.T) {
+	t.Parallel()
+
+	now := time.Now()
+	timeSource := newFixedTimeSource(now)
+	s3client, s5cmd := setup(t, withTimeSource(timeSource))
+
+	bucket := s3BucketFromTestName(t)
+	destbucket := "NotExistingBucket"
+
+	createBucket(t, s3client, bucket)
+
+	S3Content := map[string]string{
+		"testfile.txt":            "S: this is a test file",
+		"readme.md":               "S: this is a readme file",
+		"a/another_test_file.txt": "S: yet another txt file",
+		"abc/def/test.py":         "S: file in nested folders",
+	}
+
+	for filename, content := range S3Content {
+		putFile(t, s3client, bucket, filename, content)
+	}
+
+	src := fmt.Sprintf("s3://%v/*", bucket)
+	dst := fmt.Sprintf("s3://%v/", destbucket)
+
+	cmd := s5cmd("sync", src, dst)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Expected{ExitCode: 1})
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: contains(`status code: 404`),
+	})
+}
+
+// If source path contains a special file it should not be synced
+func TestSyncSocketDestinationEmpty(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip()
+	}
+
+	t.Parallel()
+
+	s3client, s5cmd := setup(t)
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	workdir := fs.NewDir(t, t.Name())
+	defer workdir.Remove()
+
+	sockaddr := workdir.Join("/s5cmd.sock")
+	ln, err := net.Listen("unix", sockaddr)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Cleanup(func() {
+		ln.Close()
+		os.Remove(sockaddr)
+	})
+
+	cmd := s5cmd("sync", ".", "s3://"+bucket+"/")
+	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
+
+	// assert error message
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: contains(`is not a regular file`),
+	})
+
+	// assert logs are empty (no sync)
+	assertLines(t, result.Stdout(), nil)
+
+	// assert exit code
+	result.Assert(t, icmd.Expected{ExitCode: 1})
 }

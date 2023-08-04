@@ -2,6 +2,8 @@ package e2e
 
 import (
 	"fmt"
+	"net"
+	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -1919,4 +1921,45 @@ func TestSyncS3BucketToS3BucketThatDoesNotExist(t *testing.T) {
 	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: contains(`status code: 404`),
 	})
+}
+
+// If source path contains a special file it should not be synced
+func TestSyncSocketDestinationEmpty(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip()
+	}
+
+	t.Parallel()
+
+	s3client, s5cmd := setup(t)
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	workdir := fs.NewDir(t, t.Name())
+	defer workdir.Remove()
+
+	sockaddr := workdir.Join("/s5cmd.sock")
+	ln, err := net.Listen("unix", sockaddr)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Cleanup(func() {
+		ln.Close()
+		os.Remove(sockaddr)
+	})
+
+	cmd := s5cmd("sync", ".", "s3://"+bucket+"/")
+	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
+
+	// assert error message
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: contains(`is not a regular file`),
+	})
+
+	// assert logs are empty (no sync)
+	assertLines(t, result.Stdout(), nil)
+
+	// assert exit code
+	result.Assert(t, icmd.Expected{ExitCode: 1})
 }

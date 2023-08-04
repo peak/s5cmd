@@ -302,7 +302,12 @@ folder hierarchy.
 an [open ticket](https://github.com/peak/s5cmd/issues/29) to track the issue.
 
 #### Using Exclude and Include Filters
-`s5cmd` supports both `--exclude` and `--include` flags, which can take wildcard values. These flags can be used with `cp`, `rm`, and `sync` commands. If `--exclude` flag is used, all objects matching the pattern will be excluded from the transfer. If `--include` flag is used, only objects matching the pattern will be included in the transfer. If both flags are used at the same time, `--exclude` has precedence over `--include`. This means if an object URL is matched with any of `--exclude` patterns, the object will be skipped. If there are exclude patterns but a URL does not match any of them, it will check for include patterns. If the URL matches any of include patterns, it will be transferred; otherwise, it will be skipped. The order of the flags does not affect the results, unlike `aws-cli`.
+`s5cmd` supports the `--exclude` and `--include` flags, which can be used to specify patterns for objects to be excluded or included in commands. 
+
+- The `--exclude` flag specifies objects that should be excluded from the operation. Any object that matches the pattern will be skipped.
+- The `--include` flag specifies objects that should be included in the operation. Only objects that match the pattern will be handled.
+- If both flags are used, `--exclude` has precedence over `--include`. This means that if an object URL matches any of the `--exclude` patterns, the object will be skipped, even if it also matches one of the `--include` patterns.
+- The order of the flags does not affect the results (unlike `aws-cli`).
 
 The command below will delete only objects that end with `.log`.
 

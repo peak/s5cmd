@@ -559,8 +559,6 @@ If the `SHA256` checksum mismatches, you will see an error like the one below.
 * **Number of retries:** `aws-cli` will retry up to five times to upload a file, while `s5cmd` will only retry once.
 * **Checksums:** `aws-cli` will only check the SHA256 checksum of a file, while `s5cmd` will check both the MD5 and SHA256 checksums.
 
-This means that `aws-cli` is more likely to succeed in uploading a file that has been corrupted during transmission, but `s5cmd` provides a more comprehensive verification of the integrity of the data.
-
 **Sources:**
 - [AWS Go SDK](https://github.com/aws/aws-sdk-go/blob/b75b2a7b3cb40ece5774ed07dde44903481a2d4d/service/s3/customizations.go#L56)
 - [AWS CLI docs](https://docs.aws.amazon.com/cli/latest/topic/s3-faq.html)

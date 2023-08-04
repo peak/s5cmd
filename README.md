@@ -531,13 +531,12 @@ via `--retry-count` flag.
 ### Integrity Verification
 `s5cmd` verifies the integrity of files uploaded to Amazon S3 by checking the `Content-MD5` and `X-Amz-Content-Sha256` headers. These headers are added by the AWS SDK for both standard and multipart uploads.
 
-* `Content-MD5` is a checksum of the file's contents, calculated using the MD5 algorithm.
-* `X-Amz-Content-Sha256` is a checksum of the file's contents, calculated using the SHA256 algorithm.
+* `Content-MD5` is a checksum of the file's contents, calculated using the `MD5` algorithm.
+* `X-Amz-Content-Sha256` is a checksum of the file's contents, calculated using the `SHA256` algorithm.
 
 If the checksums in these headers do not match the checksum of the file that was actually uploaded, then `s5cmd` will fail the upload. This helps to ensure that the file was not corrupted during transmission.
 
-
-If the checksum calculated by S3 does not match the checksums provided in the `Content-MD5` and `X-Amz-Content-Sha256` headers, S3 will not store the object. Instead, it will return an error message to `s5cmd` with the error code `InvalidDigest` for an MD5 mismatch or `XAmzContentSHA256Mismatch` for a SHA256 mismatch.
+If the checksum calculated by S3 does not match the checksums provided in the `Content-MD5` and `X-Amz-Content-Sha256` headers, S3 will not store the object. Instead, it will return an error message to `s5cmd` with the error code `InvalidDigest` for an `MD5` mismatch or `XAmzContentSHA256Mismatch` for a `SHA256` mismatch.
 
 | Error Code | Description |
 |---|---|
@@ -557,11 +556,11 @@ If the `SHA256` checksum mismatches, you will see an error like the one below.
 `aws-cli` and `s5cmd` are both command-line tools that can be used to interact with Amazon S3. However, there are some differences between the two tools in terms of how they verify the integrity of data uploaded to S3.
 
 * **Number of retries:** `aws-cli` will retry up to five times to upload a file, while `s5cmd` will only retry once.
-* **Checksums:** `aws-cli` will only check the SHA256 checksum of a file, while `s5cmd` will check both the MD5 and SHA256 checksums.
+* **Checksums:** If you enable `Signature Version 4` in your `~/.aws/config` file, `aws-cli` will only check the `SHA256` checksum of a file  while `s5cmd` will check both the `MD5` and `SHA256` checksums.
 
 **Sources:**
 - [AWS Go SDK](https://github.com/aws/aws-sdk-go/blob/b75b2a7b3cb40ece5774ed07dde44903481a2d4d/service/s3/customizations.go#L56)
-- [AWS CLI docs](https://docs.aws.amazon.com/cli/latest/topic/s3-faq.html)
+- [AWS CLI Docs](https://docs.aws.amazon.com/cli/latest/topic/s3-faq.html)
 - [AWS S3 Docs](https://aws.amazon.com/getting-started/hands-on/amazon-s3-with-additional-checksums/)
 
 ## Using wildcards

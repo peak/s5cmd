@@ -529,9 +529,22 @@ via `--retry-count` flag.
 ℹ️ Enable debug level logging for displaying retryable errors.
 
 ### Integrity Verification
-`s5cmd` performs checksum validation for uploading files. The AWS SDK appends both `Content-MD5` and `X-Amz-Content-Sha256` headers for both standard and multipart uploads ([Source](https://github.com/aws/aws-sdk-go/blob/b75b2a7b3cb40ece5774ed07dde44903481a2d4d/service/s3/customizations.go#L56)).
+`s5cmd` verifies the integrity of files uploaded to Amazon S3 by checking the `Content-MD5` and `X-Amz-Content-Sha256` headers. These headers are added by the AWS SDK for both standard and multipart uploads.
 
-If the checksum that S3 calculates does not match one of the hashes provided in `Content-MD5` and `X-Amz-Content-Sha256` headers, S3 will not store the object and instead will return an error message back to `s5cmd` with the error code `InvalidDigest` for `MD5` mismatch and `XAmzContentSHA256Mismatch` for `SHA256` mismatch. If `s5cmd` receives an `InvalidDigest` or `XAmzContentSHA256Mismatch` error, it will stop retrying and return with exit code `1`.
+* `Content-MD5` is a checksum of the file's contents, calculated using the MD5 algorithm.
+* `X-Amz-Content-Sha256` is a checksum of the file's contents, calculated using the SHA256 algorithm.
+
+If the checksums in these headers do not match the checksum of the file that was actually uploaded, then `s5cmd` will fail the upload. This helps to ensure that the file was not corrupted during transmission.
+
+
+If the checksum calculated by S3 does not match the checksums provided in the `Content-MD5` and `X-Amz-Content-Sha256` headers, S3 will not store the object. Instead, it will return an error message to `s5cmd` with the error code `InvalidDigest` for an MD5 mismatch or `XAmzContentSHA256Mismatch` for a SHA256 mismatch.
+
+| Error Code | Description |
+|---|---|
+| `InvalidDigest` | The checksum provided in the `Content-MD5` header does not match the checksum calculated by S3. |
+| `XAmzContentSHA256Mismatch` | The checksum provided in the `X-Amz-Content-Sha256` header does not match the checksum calculated by S3. |
+
+If `s5cmd` receives either of these error codes, it will stop retrying and exit with code `1`.
 
 If the `MD5` checksum mismatches, you will see an error like the one below.
 
@@ -541,9 +554,17 @@ If the `SHA256` checksum mismatches, you will see an error like the one below.
 
     ERROR "cp file.log s3://bucket/file.log": XAmzContentSHA256Mismatch: The provided 'x-amz-content-sha256' header does not match what was computed. status code: 400, request id: S3TR4P2E0A2K3JMH7, host id: XTeMYKd2KECOHWk5S
 
-The differences between `aws-cli` and `s5cmd` in integrity verification are that `aws-cli` tries up to five times until exiting while `s5cmd` tries only once, and even if you enable `Signature Version 4` in your `~/.aws/config` file, `s5cmd` will both verify `MD5` and `SHA256` checksums while `aws-cli` would check only `SHA256` ([AWS CLI docs](https://docs.aws.amazon.com/cli/latest/topic/s3-faq.html)). 
+`aws-cli` and `s5cmd` are both command-line tools that can be used to interact with Amazon S3. However, there are some differences between the two tools in terms of how they verify the integrity of data uploaded to S3.
 
-You can learn more about checking data integrity for S3 objects in the [AWS S3 Docs](https://aws.amazon.com/getting-started/hands-on/amazon-s3-with-additional-checksums/).
+* **Number of retries:** `aws-cli` will retry up to five times to upload a file, while `s5cmd` will only retry once.
+* **Checksums:** `aws-cli` will only check the SHA256 checksum of a file, while `s5cmd` will check both the MD5 and SHA256 checksums.
+
+This means that `aws-cli` is more likely to succeed in uploading a file that has been corrupted during transmission, but `s5cmd` provides a more comprehensive verification of the integrity of the data.
+
+**Sources:**
+- [AWS Go SDK](https://github.com/aws/aws-sdk-go/blob/b75b2a7b3cb40ece5774ed07dde44903481a2d4d/service/s3/customizations.go#L56)
+- [AWS CLI docs](https://docs.aws.amazon.com/cli/latest/topic/s3-faq.html)
+- [AWS S3 Docs](https://aws.amazon.com/getting-started/hands-on/amazon-s3-with-additional-checksums/)
 
 ## Using wildcards
 

@@ -591,6 +591,7 @@ func (s *S3) Get(
 type SelectQuery struct {
 	InputFormat           string
 	InputContentStructure string
+	FileHeaderInfo        string
 	OutputFormat          string
 	ExpressionType        string
 	Expression            string
@@ -605,7 +606,7 @@ const (
 	parquetType eventType = "parquet"
 )
 
-func parseInputSerialization(e eventType, c string, delimiter string) (*s3.InputSerialization, error) {
+func parseInputSerialization(e eventType, c string, delimiter string, headerInfo string) (*s3.InputSerialization, error) {
 	var s *s3.InputSerialization
 
 	switch e {
@@ -621,6 +622,7 @@ func parseInputSerialization(e eventType, c string, delimiter string) (*s3.Input
 	case csvType:
 		s = &s3.InputSerialization{
 			CSV: &s3.CSVInput{
+				FileHeaderInfo: aws.String(headerInfo),
 				FieldDelimiter: aws.String(delimiter),
 			},
 		}
@@ -677,6 +679,7 @@ func (s *S3) Select(ctx context.Context, url *url.URL, query *SelectQuery, resul
 		eventType(query.InputFormat),
 		query.CompressionType,
 		query.InputContentStructure,
+		query.FileHeaderInfo,
 	)
 
 	if err != nil {

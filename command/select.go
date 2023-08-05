@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
@@ -142,18 +143,42 @@ func NewSelectCommand() *cli.Command {
 					&cli.StringFlag{
 						Name:  "delimiter",
 						Usage: "delimiter of the csv file",
-						Value: ",",
+						Value: "','",
+					},
+					&cli.StringFlag{
+						Name:  "use-header",
+						Usage: "use header of the csv file. (options for AWS: IGNORE, NONE, USE)",
+						Value: "NONE",
 					},
 					&cli.StringFlag{
 						Name:  "compression",
-						Usage: "input compression format (for AWS: GZIP or BZIP2)",
+						Usage: "input compression format (options for AWS: GZIP or BZIP2)",
 					},
 				}, sharedFlags...),
 				CustomHelpTemplate: selectHelpTemplate,
 				Before:             beforeFunc,
 				Action: func(c *cli.Context) (err error) {
 					delimiter := c.String("delimiter")
-					cmd, err := buildSelect(c, "csv", &delimiter)
+					quotedDelimiter, err := strconv.Unquote(`"` + delimiter + `"`)
+
+					if err != nil {
+						printError("select csv", c.Command.Name, err)
+						return err
+					}
+
+					cmd, err := buildSelect(c, "csv", &quotedDelimiter)
+
+					// Since this flag is only specific to csv
+					// and we set a default value, we tend
+					// to set it explicitly after building
+					// the command rather than setting it
+					// on the shared builder. We also
+					// show the options, but we don't
+					// constraint the options that can be
+					// passed to this flag, since other
+					// providers might support other options
+					// that AWS does not support.
+					cmd.fileHeaderInfo = c.String("use-header")
 					if err != nil {
 						printError(cmd.fullCommand, c.Command.Name, err)
 						return err
@@ -167,7 +192,7 @@ func NewSelectCommand() *cli.Command {
 				Flags: append([]cli.Flag{
 					&cli.GenericFlag{
 						Name:  "structure",
-						Usage: "how objects are aligned in the json file, options:[lines, document]",
+						Usage: "how objects are aligned in the json file, options:(lines, document)",
 						Value: &EnumValue{
 							Enum:    []string{"lines", "document"},
 							Default: "lines",
@@ -178,7 +203,7 @@ func NewSelectCommand() *cli.Command {
 					},
 					&cli.StringFlag{
 						Name:  "compression",
-						Usage: "input compression format (for AWS: GZIP or BZIP2)",
+						Usage: "input compression format (options for AWS: GZIP or BZIP2)",
 					},
 				}, sharedFlags...),
 				CustomHelpTemplate: selectHelpTemplate,
@@ -212,7 +237,7 @@ func NewSelectCommand() *cli.Command {
 		Flags: append([]cli.Flag{
 			&cli.StringFlag{
 				Name:  "compression",
-				Usage: "input compression format (for AWS: GZIP or BZIP2)",
+				Usage: "input compression format (options for AWS: GZIP or BZIP2)",
 			},
 		}, sharedFlags...),
 		Before: func(c *cli.Context) (err error) {
@@ -249,6 +274,7 @@ type Select struct {
 	inputFormat           string
 	compressionType       string
 	inputStructure        string
+	fileHeaderInfo        string
 	outputFormat          string
 	exclude               []string
 	forceGlacierTransfer  bool
@@ -364,6 +390,7 @@ func (s Select) prepareTask(ctx context.Context, client *storage.S3, url *url.UR
 			Expression:            s.query,
 			InputFormat:           s.inputFormat,
 			InputContentStructure: s.inputStructure,
+			FileHeaderInfo:        s.fileHeaderInfo,
 			OutputFormat:          s.outputFormat,
 			CompressionType:       s.compressionType,
 		}

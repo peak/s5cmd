@@ -24,6 +24,7 @@ package e2e
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -4288,4 +4289,45 @@ func TestCountingWriter(t *testing.T) {
 	// assert the downloaded file has the same content with the remote object
 	expected := fs.Expected(t, fs.WithFile(filename, content, fs.WithMode(0644)))
 	assert.Assert(t, fs.Equal(cmd.Dir, expected))
+}
+
+// It should skip special files
+func TestUploadingSocketFile(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip()
+	}
+
+	t.Parallel()
+
+	s3client, s5cmd := setup(t)
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	workdir := fs.NewDir(t, t.Name())
+	defer workdir.Remove()
+
+	sockaddr := workdir.Join("/s5cmd.sock")
+	ln, err := net.Listen("unix", sockaddr)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Cleanup(func() {
+		ln.Close()
+		os.Remove(sockaddr)
+	})
+
+	cmd := s5cmd("cp", sockaddr, "s3://"+bucket+"/")
+	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
+
+	// assert error message
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: contains(`is not a regular file`),
+	})
+
+	// assert logs are empty (no copy)
+	assertLines(t, result.Stdout(), nil)
+
+	// assert exit code
+	result.Assert(t, icmd.Expected{ExitCode: 1})
 }

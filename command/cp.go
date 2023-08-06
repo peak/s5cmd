@@ -446,7 +446,14 @@ func (c Copy) Run(ctx context.Context) error {
 	}
 
 	for object := range objch {
-		if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) {
+		if errorpkg.IsCancelation(object.Err) || object.Type.IsDir() {
+			continue
+		}
+
+		if !object.Type.IsRegular() {
+			err := fmt.Errorf("object '%v' is not a regular file", object)
+			merrorObjects = multierror.Append(merrorObjects, err)
+			printError(c.fullCommand, c.op, err)
 			continue
 		}
 

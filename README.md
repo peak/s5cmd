@@ -543,7 +543,7 @@ If the checksum calculated by S3 does not match the checksums provided in the `C
 | `InvalidDigest` | The checksum provided in the `Content-MD5` header does not match the checksum calculated by S3. |
 | `XAmzContentSHA256Mismatch` | The checksum provided in the `X-Amz-Content-Sha256` header does not match the checksum calculated by S3. |
 
-If `s5cmd` receives either of these error codes, it will stop retrying and exit with code `1`.
+If `s5cmd` receives either of these error codes, it will not retry to upload the object again and exit code will be `1`.
 
 If the `MD5` checksum mismatches, you will see an error like the one below.
 

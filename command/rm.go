@@ -3,6 +3,7 @@ package command
 import (
 	"context"
 	"fmt"
+	"regexp"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/urfave/cli/v2"
@@ -38,17 +39,20 @@ Examples:
 
 	5. Delete all matching objects but exclude the ones with .txt extension or starts with "main"
 		 > s5cmd {{.HelpName}} --exclude "*.txt" --exclude "main*" "s3://bucketname/prefix/*"
+
+	6. Delete all matching objects but only the ones with .txt extension or starts with "main"
+		 > s5cmd {{.HelpName}} --include "*.txt" --include "main*" "s3://bucketname/prefix/*"
 	
-	6. Delete the specific version of a remote object's content to stdout
+	7. Delete the specific version of a remote object's content to stdout
 		 > s5cmd {{.HelpName}} --version-id VERSION_ID s3://bucket/prefix/object
 
-	7. Delete all versions of an object in the bucket
+	8. Delete all versions of an object in the bucket
 		 > s5cmd {{.HelpName}} --all-versions s3://bucket/object
 
-	8. Delete all versions of all objects that starts with a prefix in the bucket
+	9. Delete all versions of all objects that starts with a prefix in the bucket
 		 > s5cmd {{.HelpName}} --all-versions "s3://bucket/prefix*"
    
-	9. Delete all versions of all objects in the bucket
+	10. Delete all versions of all objects in the bucket
 		 > s5cmd {{.HelpName}} --all-versions "s3://bucket/*"
 `
 
@@ -65,6 +69,10 @@ func NewDeleteCommand() *cli.Command {
 			&cli.StringSliceFlag{
 				Name:  "exclude",
 				Usage: "exclude objects with given pattern",
+			},
+			&cli.StringSliceFlag{
+				Name:  "include",
+				Usage: "include objects with given pattern",
 			},
 			&cli.BoolFlag{
 				Name:  "all-versions",
@@ -94,6 +102,18 @@ func NewDeleteCommand() *cli.Command {
 				return err
 			}
 
+			excludePatterns, err := createRegexFromWildcard(c.StringSlice("exclude"))
+			if err != nil {
+				printError(fullCommand, c.Command.Name, err)
+				return err
+			}
+
+			includePatterns, err := createRegexFromWildcard(c.StringSlice("include"))
+			if err != nil {
+				printError(fullCommand, c.Command.Name, err)
+				return err
+			}
+
 			return Delete{
 				src:         srcUrls,
 				op:          c.Command.Name,
@@ -101,6 +121,11 @@ func NewDeleteCommand() *cli.Command {
 
 				// flags
 				exclude: c.StringSlice("exclude"),
+				include: c.StringSlice("include"),
+
+				// patterns
+				excludePatterns: excludePatterns,
+				includePatterns: includePatterns,
 
 				storageOpts: NewStorageOpts(c),
 			}.Run(c.Context)
@@ -119,6 +144,11 @@ type Delete struct {
 
 	// flag options
 	exclude []string
+	include []string
+
+	// patterns
+	excludePatterns []*regexp.Regexp
+	includePatterns []*regexp.Regexp
 
 	// storage options
 	storageOpts storage.Options
@@ -130,12 +160,6 @@ func (d Delete) Run(ctx context.Context) error {
 	srcurl := d.src[0]
 
 	client, err := storage.NewClient(ctx, srcurl, d.storageOpts)
-	if err != nil {
-		printError(d.fullCommand, d.op, err)
-		return err
-	}
-
-	excludePatterns, err := createExcludesFromWildcard(d.exclude)
 	if err != nil {
 		printError(d.fullCommand, d.op, err)
 		return err
@@ -164,7 +188,11 @@ func (d Delete) Run(ctx context.Context) error {
 				continue
 			}
 
-			if isURLExcluded(excludePatterns, object.URL.Path, srcurl.Prefix) {
+			isExcluded, err := isObjectExcluded(object, d.excludePatterns, d.includePatterns, srcurl.Prefix)
+			if err != nil {
+				printError(d.fullCommand, d.op, err)
+			}
+			if isExcluded {
 				continue
 			}
 

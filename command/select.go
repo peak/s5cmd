@@ -340,7 +340,7 @@ func (s Select) Run(ctx context.Context) error {
 		}
 	}()
 
-	excludePatterns, err := createExcludesFromWildcard(s.exclude)
+	excludePatterns, err := createRegexFromWildcard(s.exclude)
 	if err != nil {
 		printError(s.fullCommand, s.op, err)
 		return err
@@ -366,7 +366,7 @@ func (s Select) Run(ctx context.Context) error {
 			continue
 		}
 
-		if isURLExcluded(excludePatterns, object.URL.Path, s.src.Prefix) {
+		if isURLMatched(excludePatterns, object.URL.Path, s.src.Prefix) {
 			continue
 		}
 

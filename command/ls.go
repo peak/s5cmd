@@ -188,7 +188,7 @@ func (l List) Run(ctx context.Context) error {
 
 	var merror error
 
-	excludePatterns, err := createExcludesFromWildcard(l.exclude)
+	excludePatterns, err := createRegexFromWildcard(l.exclude)
 	if err != nil {
 		printError(l.fullCommand, l.op, err)
 		return err
@@ -205,7 +205,7 @@ func (l List) Run(ctx context.Context) error {
 			continue
 		}
 
-		if isURLExcluded(excludePatterns, object.URL.Path, l.src.Prefix) {
+		if isURLMatched(excludePatterns, object.URL.Path, l.src.Prefix) {
 			continue
 		}
 

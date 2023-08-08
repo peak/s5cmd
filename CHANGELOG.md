@@ -9,6 +9,7 @@
 - Added `--show-fullpath` flag to `ls`. ([#596](https://github.com/peak/s5cmd/issues/596))
 - Added `pipe` command. ([#182](https://github.com/peak/s5cmd/issues/182))
 - Added `--show-progress` flag to `cp` to show a progress bar. ([#51](https://github.com/peak/s5cmd/issues/51))
+- Added `--include` flag to `cp`, `rm` and `sync` commands. ([#516](https://github.com/peak/s5cmd/issues/516))
 
 #### Improvements
 - Implemented concurrent multipart download support for `cat`. ([#245](https://github.com/peak/s5cmd/issues/245)) 

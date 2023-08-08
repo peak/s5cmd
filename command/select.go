@@ -28,17 +28,17 @@ Options:
 	{{range .VisibleFlags}}{{.}}
 	{{end}}
 Examples:
-	01. Search for all objects with the foo property set to 'bar' and spit them into stdout
-		 > {{.HelpName}} --query "SELECT * FROM S3Object s WHERE s.foo='bar'" "s3://bucket/*"
-
 	01. Select the average price of the avocado and amount sold, set the output format as csv 
 		 > {{.HelpName}} --compression GZIP --output-format csv --query "SELECT s.avg_price, s.quantity FROM S3Object s WHERE s.item='avocado'" "s3://bucket/itemprices"
 
 	02. Query TSV files 
 		 > s5cmd select csv --delimiter=\t --compression GZIP --output-format csv --query "SELECT s.avg_price, s.quantity FROM S3Object s WHERE s.item='avocado'" "s3://bucket/itemprices"
 
-	03. Select the specific field in a JSON document 
+	03. Select a specific field in a JSON document 
 		 > s5cmd select json --structure document --compression GZIP --output-format csv --query "SELECT s.tracking_id FROM s3object[*]['metadata']['.zattrs'] s" "s3://bucket/metadataobj"
+
+	04. Query CSV files using their headers to access columns by their name 
+		 > s5cmd select csv --use-header=USE --delimiter "\t" --query "SELECT s.name FROM s3object s WHERE s.price='1.99'" "s3://bucket/prices.tsv"
 `
 
 func beforeFunc(c *cli.Context) error {

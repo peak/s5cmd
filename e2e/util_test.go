@@ -176,15 +176,15 @@ func setup(t *testing.T, options ...option) (*s3.S3, func(...string) icmd.Cmd) {
 	}
 
 	var cfg *credentialCfg
+
 	if region != "" || accessKeyID != "" || secretKey != "" {
 		cfg = &credentialCfg{
 			AccessKeyID: accessKeyID,
 			SecretKey:   secretKey,
 			Region:      region,
 		}
-	} else {
-		cfg = nil
 	}
+
 	client := s3client(t, storage.Options{
 		Endpoint:    endpoint,
 		NoVerifySSL: true,

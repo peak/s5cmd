@@ -38,8 +38,7 @@ func TestCommandProgress_AddCompletedBytes(t *testing.T) {
 	cp.Start()
 	bytes := int64(101)
 	cp.AddCompletedBytes(bytes)
-	assert.Equal(t, int64(101), cp.progressbar.Current())
-	assert.Equal(t, int64(bytes), cp.progressbar.Current())
+	assert.Equal(t, bytes, cp.progressbar.Current())
 	assert.Equal(t, true, strings.Contains(cp.progressbar.String(), "101 B"))
 }
 
@@ -49,7 +48,6 @@ func TestCommandProgress_AddTotalBytes(t *testing.T) {
 	cp.Start()
 	bytes := int64(102)
 	cp.AddTotalBytes(bytes)
-	assert.Equal(t, int64(102), cp.progressbar.Total())
 	assert.Equal(t, bytes, cp.progressbar.Total())
 	assert.Equal(t, true, strings.Contains(cp.progressbar.String(), "102 B"))
 }

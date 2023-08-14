@@ -301,6 +301,29 @@ folder hierarchy.
 ⚠️ Copying objects (from S3 to S3) larger than 5GB is not supported yet. We have
 an [open ticket](https://github.com/peak/s5cmd/issues/29) to track the issue.
 
+#### Using Exclude and Include Filters
+`s5cmd` supports the `--exclude` and `--include` flags, which can be used to specify patterns for objects to be excluded or included in commands. 
+
+- The `--exclude` flag specifies objects that should be excluded from the operation. Any object that matches the pattern will be skipped.
+- The `--include` flag specifies objects that should be included in the operation. Only objects that match the pattern will be handled.
+- If both flags are used, `--exclude` has precedence over `--include`. This means that if an object URL matches any of the `--exclude` patterns, the object will be skipped, even if it also matches one of the `--include` patterns.
+- The order of the flags does not affect the results (unlike `aws-cli`).
+
+The command below will delete only objects that end with `.log`.
+
+    s5cmd rm --include "*.log" 's3://bucket/logs/2020/*'
+
+The command below will delete all objects except those that end with `.log` or `.txt`.
+
+    s5cmd rm --exclude "*.log" --exclude "*.txt" 's3://bucket/logs/2020/*'
+
+If you wish, you can use multiple flags, like below. It will download objects that start with `request` and end with `.log`.
+
+    s5cmd cp --include "*.log" --include "request*" 's3://bucket/logs/2020/*' .
+
+Using a combination of `--include` and `--exclude` also possible. The command below will only sync objects that end with `.log` and `.txt` but exclude those that start with `access_`. For example, `request.log`, and `license.txt` will be included, while `access_log.txt`, and `readme.md` are excluded.
+
+    s5cmd sync --include "*log" --exclude "access_*" --include "*txt" 's3://bucket/logs/*' .
 #### Select JSON object content using SQL
 
 `s5cmd` supports the `SelectObjectContent` S3 operation, and will run your

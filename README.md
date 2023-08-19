@@ -301,6 +301,29 @@ folder hierarchy.
 ⚠️ Copying objects (from S3 to S3) larger than 5GB is not supported yet. We have
 an [open ticket](https://github.com/peak/s5cmd/issues/29) to track the issue.
 
+#### Using Exclude and Include Filters
+`s5cmd` supports the `--exclude` and `--include` flags, which can be used to specify patterns for objects to be excluded or included in commands. 
+
+- The `--exclude` flag specifies objects that should be excluded from the operation. Any object that matches the pattern will be skipped.
+- The `--include` flag specifies objects that should be included in the operation. Only objects that match the pattern will be handled.
+- If both flags are used, `--exclude` has precedence over `--include`. This means that if an object URL matches any of the `--exclude` patterns, the object will be skipped, even if it also matches one of the `--include` patterns.
+- The order of the flags does not affect the results (unlike `aws-cli`).
+
+The command below will delete only objects that end with `.log`.
+
+    s5cmd rm --include "*.log" 's3://bucket/logs/2020/*'
+
+The command below will delete all objects except those that end with `.log` or `.txt`.
+
+    s5cmd rm --exclude "*.log" --exclude "*.txt" 's3://bucket/logs/2020/*'
+
+If you wish, you can use multiple flags, like below. It will download objects that start with `request` and end with `.log`.
+
+    s5cmd cp --include "*.log" --include "request*" 's3://bucket/logs/2020/*' .
+
+Using a combination of `--include` and `--exclude` also possible. The command below will only sync objects that end with `.log` and `.txt` but exclude those that start with `access_`. For example, `request.log`, and `license.txt` will be included, while `access_log.txt`, and `readme.md` are excluded.
+
+    s5cmd sync --include "*log" --exclude "access_*" --include "*txt" 's3://bucket/logs/*' .
 #### Select JSON object content using SQL
 
 `s5cmd` supports the `SelectObjectContent` S3 operation, and will run your
@@ -527,6 +550,41 @@ credentials`, `authorization errors` etc, will not be retried. By default,
 via `--retry-count` flag.
 
 ℹ️ Enable debug level logging for displaying retryable errors.
+
+### Integrity Verification
+`s5cmd` verifies the integrity of files uploaded to Amazon S3 by checking the `Content-MD5` and `X-Amz-Content-Sha256` headers. These headers are added by the AWS SDK for both standard and multipart uploads.
+
+* `Content-MD5` is a checksum of the file's contents, calculated using the `MD5` algorithm.
+* `X-Amz-Content-Sha256` is a checksum of the file's contents, calculated using the `SHA256` algorithm.
+
+If the checksums in these headers do not match the checksum of the file that was actually uploaded, then `s5cmd` will fail the upload. This helps to ensure that the file was not corrupted during transmission.
+
+If the checksum calculated by S3 does not match the checksums provided in the `Content-MD5` and `X-Amz-Content-Sha256` headers, S3 will not store the object. Instead, it will return an error message to `s5cmd` with the error code `InvalidDigest` for an `MD5` mismatch or `XAmzContentSHA256Mismatch` for a `SHA256` mismatch.
+
+| Error Code | Description |
+|---|---|
+| `InvalidDigest` | The checksum provided in the `Content-MD5` header does not match the checksum calculated by S3. |
+| `XAmzContentSHA256Mismatch` | The checksum provided in the `X-Amz-Content-Sha256` header does not match the checksum calculated by S3. |
+
+If `s5cmd` receives either of these error codes, it will not retry to upload the object again and exit code will be `1`.
+
+If the `MD5` checksum mismatches, you will see an error like the one below.
+
+    ERROR "cp file.log s3://bucket/file.log": InvalidDigest: The Content-MD5 you specified was invalid. status code: 400, request id: S3TR4P2E0A2K3JMH7, host id: XTeMYKd2KECOHWk5S
+
+If the `SHA256` checksum mismatches, you will see an error like the one below.
+
+    ERROR "cp file.log s3://bucket/file.log": XAmzContentSHA256Mismatch: The provided 'x-amz-content-sha256' header does not match what was computed. status code: 400, request id: S3TR4P2E0A2K3JMH7, host id: XTeMYKd2KECOHWk5S
+
+`aws-cli` and `s5cmd` are both command-line tools that can be used to interact with Amazon S3. However, there are some differences between the two tools in terms of how they verify the integrity of data uploaded to S3.
+
+* **Number of retries:** `aws-cli` will retry up to five times to upload a file, while `s5cmd` will not retry.
+* **Checksums:** If you enable `Signature Version 4` in your `~/.aws/config` file, `aws-cli` will only check the `SHA256` checksum of a file  while `s5cmd` will check both the `MD5` and `SHA256` checksums.
+
+**Sources:**
+- [AWS Go SDK](https://github.com/aws/aws-sdk-go/blob/b75b2a7b3cb40ece5774ed07dde44903481a2d4d/service/s3/customizations.go#L56)
+- [AWS CLI Docs](https://docs.aws.amazon.com/cli/latest/topic/s3-faq.html)
+- [AWS S3 Docs](https://aws.amazon.com/getting-started/hands-on/amazon-s3-with-additional-checksums/)
 
 ## Using wildcards
 

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 
@@ -98,13 +99,16 @@ Examples:
 	19. Copy all files from S3 bucket to another S3 bucket but exclude the ones starts with log
 		 > s5cmd {{.HelpName}} --exclude "log*" "s3://bucket/*" s3://destbucket
 
-	20. Download an S3 object from a requester pays bucket
+	20. Copy all files from S3 bucket to another S3 bucket but only the ones starts with log
+		 > s5cmd {{.HelpName}} --include "log*" "s3://bucket/*" s3://destbucket
+
+	21. Download an S3 object from a requester pays bucket
 		 > s5cmd --request-payer=requester {{.HelpName}} s3://bucket/prefix/object.gz .
 
-	21. Upload a file to S3 with a content-type and content-encoding header
+	22. Upload a file to S3 with a content-type and content-encoding header
 		 > s5cmd --content-type "text/css" --content-encoding "br" myfile.css.br s3://bucket/
 		 
-	22. Download the specific version of a remote object to working directory
+	23. Download the specific version of a remote object to working directory
 		 > s5cmd {{.HelpName}} --version-id VERSION_ID s3://bucket/prefix/object .
 
 	23. Pass arbitrary metadata to the object during upload or copy 
@@ -176,6 +180,10 @@ func NewSharedFlags() []cli.Flag {
 		&cli.StringSliceFlag{
 			Name:  "exclude",
 			Usage: "exclude objects with given pattern",
+		},
+		&cli.StringSliceFlag{
+			Name:  "include",
+			Usage: "include objects with given pattern",
 		},
 		&cli.BoolFlag{
 			Name:  "raw",
@@ -290,6 +298,7 @@ type Copy struct {
 	forceGlacierTransfer  bool
 	ignoreGlacierWarnings bool
 	exclude               []string
+	include               []string
 	cacheControl          string
 	expires               string
 	contentType           string
@@ -298,6 +307,10 @@ type Copy struct {
 	metadata              map[string]string
 	showProgress          bool
 	progressbar           progressbar.ProgressBar
+
+	// patterns
+	excludePatterns []*regexp.Regexp
+	includePatterns []*regexp.Regexp
 
 	// region settings
 	srcRegion string
@@ -362,6 +375,7 @@ func NewCopy(c *cli.Context, deleteSource bool) (*Copy, error) {
 		forceGlacierTransfer:  c.Bool("force-glacier-transfer"),
 		ignoreGlacierWarnings: c.Bool("ignore-glacier-warnings"),
 		exclude:               c.StringSlice("exclude"),
+		include:               c.StringSlice("include"),
 		cacheControl:          c.String("cache-control"),
 		expires:               c.String("expires"),
 		contentType:           c.String("content-type"),
@@ -439,7 +453,13 @@ func (c Copy) Run(ctx context.Context) error {
 		isBatch = obj != nil && obj.Type.IsDir()
 	}
 
-	excludePatterns, err := createExcludesFromWildcard(c.exclude)
+	c.excludePatterns, err = createRegexFromWildcard(c.exclude)
+	if err != nil {
+		printError(c.fullCommand, c.op, err)
+		return err
+	}
+
+	c.includePatterns, err = createRegexFromWildcard(c.include)
 	if err != nil {
 		printError(c.fullCommand, c.op, err)
 		return err
@@ -472,7 +492,11 @@ func (c Copy) Run(ctx context.Context) error {
 			continue
 		}
 
-		if isURLExcluded(excludePatterns, object.URL.Path, c.src.Prefix) {
+		isExcluded, err := isObjectExcluded(object, c.excludePatterns, c.includePatterns, c.src.Prefix)
+		if err != nil {
+			printError(c.fullCommand, c.op, err)
+		}
+		if isExcluded {
 			continue
 		}
 

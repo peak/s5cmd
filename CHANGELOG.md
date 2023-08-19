@@ -10,12 +10,14 @@
 - Added `pipe` command. ([#182](https://github.com/peak/s5cmd/issues/182))
 - Added `--show-progress` flag to `cp` to show a progress bar. ([#51](https://github.com/peak/s5cmd/issues/51))
 - Added `--metadata` flag to `cp` and `pipe` to set arbitrary metadata for the objects. ([#537](https://github.com/peak/s5cmd/issues/537))
+- Added `--include` flag to `cp`, `rm` and `sync` commands. ([#516](https://github.com/peak/s5cmd/issues/516))
 
 #### Improvements
 - Implemented concurrent multipart download support for `cat`. ([#245](https://github.com/peak/s5cmd/issues/245)) 
 - Upgraded minimum required Go version to 1.19. ([#583](https://github.com/peak/s5cmd/pull/583))
 
 #### Bugfixes
+- Fixed a bug that causes `sync` command with whitespaced flag value to fail. ([#541](https://github.com/peak/s5cmd/issues/541))
 - Fixed a bug introduced with `external sort` support in `sync` command which prevents `sync` to an empty destination with `--delete` option. ([#576](https://github.com/peak/s5cmd/issues/576))
 - Fixed a bug in `sync` command, which previously caused the command to continue running even if an error was received from the destination bucket. ([#564](https://github.com/peak/s5cmd/issues/564))
 - Fixed a bug that causes local files to be lost if downloads fail. ([#479](https://github.com/peak/s5cmd/issues/479))

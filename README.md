@@ -323,7 +323,7 @@ If you wish, you can use multiple flags, like below. It will download objects th
 
 Using a combination of `--include` and `--exclude` also possible. The command below will only sync objects that end with `.log` or `.txt` but exclude those that start with `access_`. For example, `request.log`, and `license.txt` will be included, while `access_log.txt`, and `readme.md` are excluded.
 
-    s5cmd sync --include "*log" --exclude "access_*" --include "*txt" 's3://bucket/logs/*' .
+    s5cmd sync --include "*.log" --exclude "access_*" --include "*.txt" 's3://bucket/logs/*' .
 #### Select JSON object content using SQL
 
 `s5cmd` supports the `SelectObjectContent` S3 operation, and will run your

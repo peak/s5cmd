@@ -7,14 +7,559 @@ import (
 	jsonpkg "encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
+	"gotest.tools/v3/assert"
+	"gotest.tools/v3/golden"
 	"gotest.tools/v3/icmd"
 )
 
-// getFile is a helper for creating file contents and expected values
-func getFile(n int, inputForm, outputForm, structure string) (string, string) {
+func TestSelectCommand(t *testing.T) {
+	t.Parallel()
+
+	const (
+		region      = "us-east-1"
+		accessKeyID = "minioadmin"
+		secretKey   = "minioadmin"
+
+		query                   = "SELECT * FROM s3object s"
+		queryWithWhereClause    = "SELECT s.id FROM s3object s WHERE s.line='0'"
+		queryWithDocumentAccess = "SELECT s.obj0.id FROM s3object s"
+	)
+
+	endpoint := os.Getenv(s5cmdTestEndpointEnv)
+	if endpoint == "" {
+		t.Skipf("skipping the test because %v environment variable is empty", s5cmdTestEndpointEnv)
+	}
+
+	type testcase struct {
+		name          string
+		cmd           []string
+		informat      string
+		structure     string
+		compression   bool
+		outformat     string
+		expectedValue string
+	}
+
+	testcasesByGroup := map[string][]testcase{
+		"json": {
+			{
+				name: "input:json-lines,output:json-lines",
+				cmd: []string{
+					"select", "json",
+					"--query", query,
+				},
+				informat:  "json",
+				structure: "lines",
+				outformat: "json",
+			},
+			{
+				name: "input:json-lines,output:csv",
+				cmd: []string{
+					"select", "json",
+					"--output-format", "csv",
+					"--query", query,
+				},
+				informat:  "json",
+				structure: "lines",
+				outformat: "csv",
+			},
+			{
+				name: "input:json-document,output:json-lines",
+				cmd: []string{
+					"select", "json",
+					"--structure", "document",
+					"--query", query,
+				},
+				informat:  "json",
+				structure: "document",
+				outformat: "json",
+			}, {
+				name: "input:json-lines,output:json-lines,compression:gzip",
+				cmd: []string{
+					"select", "json",
+					"--compression", "gzip",
+					"--query", query,
+				},
+				informat:    "json",
+				compression: true,
+				structure:   "lines",
+				outformat:   "json",
+			},
+			{
+				name: "input:json-lines,output:csv,compression:gzip",
+				cmd: []string{
+					"select", "json",
+					"--compression", "gzip",
+					"--output-format", "csv",
+					"--query", query,
+				},
+				informat:    "json",
+				compression: true,
+				structure:   "lines",
+				outformat:   "csv",
+			},
+			{
+				name: "input:json-document,output:json-lines,compression:gzip",
+				cmd: []string{
+					"select", "json",
+					"--compression", "gzip",
+					"--structure", "document",
+					"--query", query,
+				},
+				informat:    "json",
+				compression: true,
+				structure:   "document",
+				outformat:   "json",
+			},
+			{
+				name: "input:json-lines,output:json-lines,select:with-where",
+				cmd: []string{
+					"select", "json",
+					"--query", queryWithWhereClause,
+				},
+				informat:      "json",
+				structure:     "lines",
+				outformat:     "json",
+				expectedValue: "{\"id\":\"id0\"}\n",
+			},
+			{
+				name: "input:json-lines,output:json-lines,compression:gzip,select:with-where",
+				cmd: []string{
+					"select", "json",
+					"--compression", "gzip",
+					"--query", queryWithWhereClause,
+				},
+				informat:      "json",
+				compression:   true,
+				structure:     "lines",
+				outformat:     "json",
+				expectedValue: "{\"id\":\"id0\"}\n",
+			},
+			{
+				name: "input:json-lines,output:csv,compression:gzip,select:with-where",
+				cmd: []string{
+					"select", "json",
+					"--compression", "gzip",
+					"--output-format", "csv",
+					"--query", queryWithWhereClause,
+				},
+				informat:      "json",
+				compression:   true,
+				structure:     "lines",
+				outformat:     "csv",
+				expectedValue: "id0\n",
+			},
+			{
+				name: "input:json-lines,output:csv,compression:gzip,select:with-where",
+				cmd: []string{
+					"select", "json",
+					"--output-format", "csv",
+					"--query", queryWithWhereClause,
+				},
+				informat:      "json",
+				structure:     "lines",
+				outformat:     "csv",
+				expectedValue: "id0\n",
+			},
+			{
+				name: "input:json-document,output:json,select:with-document-access",
+				cmd: []string{
+					"select", "json",
+					"--structure", "document",
+					"--query", queryWithDocumentAccess,
+				},
+				informat:      "json",
+				structure:     "document",
+				outformat:     "json",
+				expectedValue: "{\"id\":\"id0\"}\n",
+			},
+			{
+				name: "input:json-document,output:json,compression:gzip,select:with-document-access",
+				cmd: []string{
+					"select", "json",
+					"--structure", "document",
+					"--compression", "gzip",
+					"--query", queryWithDocumentAccess,
+				},
+				informat:      "json",
+				compression:   true,
+				structure:     "document",
+				outformat:     "json",
+				expectedValue: "{\"id\":\"id0\"}\n",
+			},
+			{
+				name: "input:json-document,output:csv,select:with-document-access",
+				cmd: []string{
+					"select", "json",
+					"--structure", "document",
+					"--output-format", "csv",
+					"--query", queryWithDocumentAccess,
+				},
+				informat:      "json",
+				structure:     "document",
+				outformat:     "json",
+				expectedValue: "id0\n",
+			},
+			{
+				name: "input:json-document,output:json,compression:gzip,select:with-document-access",
+				cmd: []string{
+					"select", "json",
+					"--structure", "document",
+					"--compression", "gzip",
+					"--output-format", "csv",
+					"--query", queryWithDocumentAccess,
+				},
+				informat:      "json",
+				compression:   true,
+				structure:     "document",
+				outformat:     "json",
+				expectedValue: "id0\n",
+			},
+		},
+		"csv": {
+			{
+				name: "input:csv,output:csv,delimiter:comma",
+				cmd: []string{
+					"select", "csv",
+					"--query", query,
+				},
+				informat:  "csv",
+				structure: ",",
+				outformat: "csv",
+			},
+			{
+				name: "input:csv,output:csv,delimiter:comma,compression:gzip",
+				cmd: []string{
+					"select", "csv",
+					"--compression", "gzip",
+					"--query", query,
+				},
+				informat:    "csv",
+				compression: true,
+				structure:   ",",
+				outformat:   "csv",
+			},
+			{
+				name: "input:csv,output:csv,delimiter:comma,compression:gzip",
+				cmd: []string{
+					"select", "csv",
+					"--compression", "gzip",
+					"--output-format", "csv",
+					"--query", query,
+				},
+				informat:    "csv",
+				compression: true,
+				structure:   ",",
+				outformat:   "csv",
+			},
+			{
+				name: "input:csv,output:csv,delimiter:comma",
+				cmd: []string{
+					"select", "csv",
+					"--output-format", "csv",
+					"--query", query,
+				},
+				informat:  "csv",
+				structure: ",",
+				outformat: "csv",
+			},
+			{
+				name: "input:csv,output:csv,delimiter:tab",
+				cmd: []string{
+					"select", "csv",
+					"--delimiter", "\t",
+					"--query", query,
+				},
+				informat:  "csv",
+				structure: "\t",
+				outformat: "csv",
+			},
+			{
+				name: "input:csv,output:csv,delimiter:tab",
+				cmd: []string{
+					"select", "csv",
+					"--delimiter", "\t",
+					"--output-format", "csv",
+					"--query", query,
+				},
+				informat:  "csv",
+				structure: "\t",
+				outformat: "csv",
+			},
+			{
+				name: "input:csv,output:csv,delimiter:comma,select:with-where",
+				cmd: []string{
+					"select", "csv",
+					"--output-format", "csv",
+					"--use-header", "USE",
+					"--query", queryWithWhereClause,
+				},
+				informat:      "csv",
+				structure:     ",",
+				outformat:     "csv",
+				expectedValue: "id0\n",
+			},
+			{
+				name: "input:csv,output:csv,delimiter:comma,compression:gzip,select:with-where",
+				cmd: []string{
+					"select", "csv",
+					"--output-format", "csv",
+					"--use-header", "USE",
+					"--compression", "gzip",
+					"--query", queryWithWhereClause,
+				},
+				informat:      "csv",
+				compression:   true,
+				structure:     ",",
+				outformat:     "csv",
+				expectedValue: "id0\n",
+			},
+			{
+				name: "input:csv,output:csv,delimiter:tab,select:with-where",
+				cmd: []string{
+					"select", "csv",
+					"--output-format", "csv",
+					"--delimiter", "\t",
+					"--use-header", "USE",
+					"--query", queryWithWhereClause,
+				},
+				informat:      "csv",
+				structure:     "\t",
+				outformat:     "csv",
+				expectedValue: "id0\n",
+			},
+			{
+				name: "input:csv,output:csv,delimiter:delimiter,compression:gzip,select:with-where",
+				cmd: []string{
+					"select", "csv",
+					"--output-format", "csv",
+					"--delimiter", "\t",
+					"--use-header", "USE",
+					"--compression", "gzip",
+					"--query", queryWithWhereClause,
+				},
+				informat:      "csv",
+				compression:   true,
+				structure:     "\t",
+				outformat:     "csv",
+				expectedValue: "id0\n",
+			},
+			{
+				name: "input:csv,output:json,delimiter:comma,select:with-where",
+				cmd: []string{
+					"select", "csv",
+					"--output-format", "json",
+					"--use-header", "USE",
+					"--query", queryWithWhereClause,
+				},
+				informat:      "csv",
+				structure:     ",",
+				outformat:     "csv",
+				expectedValue: "{\"id\":\"id0\"}\n",
+			},
+			{
+				name: "input:csv,output:json,delimiter:comma,compression:gzip,select:with-where",
+				cmd: []string{
+					"select", "csv",
+					"--output-format", "json",
+					"--use-header", "USE",
+					"--compression", "gzip",
+					"--query", queryWithWhereClause,
+				},
+				informat:      "csv",
+				compression:   true,
+				structure:     ",",
+				outformat:     "csv",
+				expectedValue: "{\"id\":\"id0\"}\n",
+			},
+			{
+				name: "input:csv,output:json,delimiter:tab,select:with-where",
+				cmd: []string{
+					"select", "csv",
+					"--output-format", "json",
+					"--delimiter", "\t",
+					"--use-header", "USE",
+					"--query", queryWithWhereClause,
+				},
+				informat:      "csv",
+				structure:     "\t",
+				outformat:     "csv",
+				expectedValue: "{\"id\":\"id0\"}\n",
+			},
+			{
+				name: "input:csv,output:json,delimiter:delimiter,compression:gzip,select:with-where",
+				cmd: []string{
+					"select", "csv",
+					"--output-format", "json",
+					"--delimiter", "\t",
+					"--use-header", "USE",
+					"--compression", "gzip",
+					"--query", queryWithWhereClause,
+				},
+				informat:      "csv",
+				compression:   true,
+				structure:     "\t",
+				outformat:     "csv",
+				expectedValue: "{\"id\":\"id0\"}\n",
+			},
+		},
+		"backwards-compatibility": {
+			{
+				name: "input:json-lines,output:json-lines",
+				cmd: []string{
+					"select",
+					"--query", query,
+				},
+				informat:  "json",
+				structure: "lines",
+				outformat: "json",
+			},
+			{
+				name: "input:json-lines,output:json-lines,compression:gzip",
+				cmd: []string{
+					"select",
+					"--query", query,
+					"--compression", "gzip",
+				},
+				informat:    "json",
+				compression: true,
+				structure:   "lines",
+				outformat:   "json",
+			},
+		},
+	}
+	for testgroup, testcases := range testcasesByGroup {
+		testgroup := testgroup
+		testcases := testcases
+		t.Run(testgroup, func(t *testing.T) {
+			for _, tc := range testcases {
+				tc := tc
+				t.Run(tc.name, func(t *testing.T) {
+					t.Parallel()
+
+					bucket := s3BucketFromTestName(t)
+					const rowcount = 5
+					contents, expected := genTestData(t, rowcount, tc.informat, tc.outformat, tc.structure, false)
+
+					if tc.expectedValue != "" {
+						expected = tc.expectedValue
+					}
+
+					var src, filename string
+					if tc.compression {
+						b := bytes.Buffer{}
+						gz := gzip.NewWriter(&b)
+						filename = fmt.Sprintf("file.%s.gz", tc.informat)
+						src = fmt.Sprintf("s3://%s/%s", bucket, filename)
+
+						if _, err := gz.Write([]byte(contents)); err != nil {
+							t.Errorf("could not compress the input object. error: %v\n", err)
+						}
+
+						if err := gz.Close(); err != nil {
+							t.Errorf("could not close the compressor. error: %v\n", err)
+						}
+
+						contents = b.String()
+					} else {
+						filename = fmt.Sprintf("file.%s", tc.informat)
+						src = fmt.Sprintf("s3://%s/%s", bucket, filename)
+					}
+
+					s3client, s5cmd := setup(t, withEndpointURL(endpoint), withRegion(region), withAccessKeyID(accessKeyID), withSecretKey(secretKey))
+					createBucket(t, s3client, bucket)
+					putFile(t, s3client, bucket, filename, contents)
+
+					tc.cmd = append(tc.cmd, src)
+					cmd := s5cmd(tc.cmd...)
+
+					result := icmd.RunCmd(cmd, withEnv("AWS_ACCESS_KEY_ID", accessKeyID), withEnv("AWS_SECRET_ACCESS_KEY", secretKey))
+
+					result.Assert(t, icmd.Success)
+					assert.DeepEqual(t, expected, result.Stdout())
+				})
+			}
+		})
+	}
+}
+
+func TestSelectWithParquet(t *testing.T) {
+	// NOTE(deniz): We are skipping this test until the image we use in the
+	// service container releases parquet support for select api.
+
+	// TODO(deniz): When bitnami releases a version that is stable for parquet
+	// queries, enable this test.
+	t.Skip()
+	t.Parallel()
+
+	const (
+		region      = "us-east-1"
+		accessKeyID = "minioadmin"
+		secretKey   = "minioadmin"
+
+		query = "SELECT * FROM s3object s"
+	)
+
+	endpoint := os.Getenv(s5cmdTestEndpointEnv)
+	if endpoint == "" {
+		t.Skipf("skipping the test because %v environment variable is empty", s5cmdTestEndpointEnv)
+	}
+
+	testcases := []struct {
+		name     string
+		src      string
+		cmd      []string
+		expected string
+	}{
+		{
+			name: "in:parquet,output:json",
+			src:  "five_line_simple.parquet",
+			cmd: []string{
+				"select", "parquet",
+				"--query", query,
+			},
+			expected: "output.json",
+		},
+		{
+			name: "in:parquet,output,output:csv",
+			src:  "five_line_simple.parquet",
+			cmd: []string{
+				"select", "parquet",
+				"--output-format", "csv",
+				"--query", query,
+			},
+			expected: "output.csv",
+		},
+	}
+
+	for _, tc := range testcases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			bucket := s3BucketFromTestName(t)
+			src := fmt.Sprintf("s3://%s/%s", bucket, tc.src)
+			tc.cmd = append(tc.cmd, src)
+
+			s3client, s5cmd := setup(t, withEndpointURL(endpoint), withRegion(region), withAccessKeyID(accessKeyID), withSecretKey(secretKey))
+			createBucket(t, s3client, bucket)
+
+			input := golden.Get(t, filepath.Join("parquet", tc.src))
+			putFile(t, s3client, bucket, tc.src, string(input))
+
+			cmd := s5cmd(tc.cmd...)
+			result := icmd.RunCmd(cmd, withEnv("AWS_ACCESS_KEY_ID", accessKeyID), withEnv("AWS_SECRET_ACCESS_KEY", secretKey))
+
+			result.Assert(t, icmd.Success)
+			assert.Assert(t, golden.String(result.Stdout(), filepath.Join("parquet", tc.expected)))
+		})
+	}
+}
+
+func genTestData(t *testing.T, rowcount int, informat, outformat, structure string, where bool) (string, string) {
+	t.Helper()
+
 	type row struct {
 		Line string `json:"line"`
 		ID   string `json:"id"`
@@ -27,7 +572,7 @@ func getFile(n int, inputForm, outputForm, structure string) (string, string) {
 		expected bytes.Buffer
 	)
 
-	for i := 0; i < n; i++ {
+	for i := 0; i < rowcount; i++ {
 		data = append(data, row{
 			Line: fmt.Sprintf("%d", i),
 			ID:   fmt.Sprintf("id%d", i),
@@ -35,7 +580,7 @@ func getFile(n int, inputForm, outputForm, structure string) (string, string) {
 		})
 	}
 
-	switch inputForm {
+	switch informat {
 	case "json":
 		encoder := jsonpkg.NewEncoder(&input)
 
@@ -48,27 +593,27 @@ func getFile(n int, inputForm, outputForm, structure string) (string, string) {
 			}
 
 			if err := encoder.Encode(rows); err != nil {
-				panic(err)
+				t.Fatal(err)
 			}
+
 			return input.String(), input.String()
 		default:
 			for _, d := range data {
 				err := encoder.Encode(d)
 
 				if err != nil {
-					panic(err)
+					t.Fatal(err)
 				}
 			}
 
-			switch outputForm {
+			switch outformat {
 			case "json":
 				return input.String(), input.String()
 			case "csv":
 				writer := csv.NewWriter(&expected)
-				writer.Comma = []rune(structure)[0]
 				for _, d := range data {
 					if err := writer.Write([]string{d.Line, d.ID, d.Data}); err != nil {
-						panic(err)
+						t.Fatal(err)
 					}
 				}
 
@@ -77,9 +622,6 @@ func getFile(n int, inputForm, outputForm, structure string) (string, string) {
 				return input.String(), expected.String()
 			}
 		}
-
-		// edge case
-
 	case "csv":
 		writer := csv.NewWriter(&input)
 		// set the delimiter for the input
@@ -92,7 +634,7 @@ func getFile(n int, inputForm, outputForm, structure string) (string, string) {
 
 		writer.Flush()
 
-		switch outputForm {
+		switch outformat {
 		case "json":
 			encoder := jsonpkg.NewEncoder(&expected)
 			encoder.Encode(map[string]string{
@@ -123,335 +665,6 @@ func getFile(n int, inputForm, outputForm, structure string) (string, string) {
 			return input.String(), expected.String()
 		}
 	}
-	panic("unreachable")
-}
-
-func TestSelectCommandWithGeneratedFiles(t *testing.T) {
-	t.Parallel()
-	// credentials are same for all test cases
-	region := "us-east-1"
-	accessKeyID := "minioadmin"
-	secretKey := "minioadmin"
-	// The query is default for all cases, we want to assert the output
-	// is as expected after a query.
-	query := "SELECT * FROM s3object s LIMIT 6"
-
-	endpoint := os.Getenv("S5CMD_TEST_ENDPOINT_URL")
-
-	if endpoint == "" {
-		t.Skipf("skipping the test because S5CMD_TEST_ENDPOINT_URL environment variable is empty")
-	}
-
-	testcases := []struct {
-		name        string
-		cmd         []string
-		in          string
-		structure   string
-		compression bool
-		out         string
-	}{
-		// json
-		{
-			name: "json-lines select with default input structure and output",
-			cmd: []string{
-				"select", "json",
-				"--query", query,
-			},
-			in:        "json",
-			structure: "lines",
-			out:       "json",
-		},
-		{
-			name: "json-lines select with default input structure and csv output",
-			cmd: []string{
-				"select", "json",
-				"--output-format", "csv",
-				"--query", query,
-			},
-			in:        "json",
-			structure: "lines",
-			out:       "csv",
-		},
-		{
-			name: "json-lines select with document input structure and output",
-			cmd: []string{
-				"select", "json",
-				"--structure", "document",
-				"--query", query,
-			},
-			in:        "json",
-			structure: "document",
-			out:       "json",
-		}, {
-			name: "json-lines select with gzip compression default input structure and output",
-			cmd: []string{
-				"select", "json",
-				"--compression", "gzip",
-				"--query", query,
-			},
-			in:          "json",
-			compression: true,
-			structure:   "lines",
-			out:         "json",
-		},
-		{
-			name: "json-lines select with gzip compression default input structure and csv output",
-			cmd: []string{
-				"select", "json",
-				"--compression", "gzip",
-				"--output-format", "csv",
-				"--query", query,
-			},
-			in:          "json",
-			compression: true,
-			structure:   "lines",
-			out:         "csv",
-		},
-		{
-			name: "json-lines select with gzip compression document input structure and output",
-			cmd: []string{
-				"select", "json",
-				"--compression", "gzip",
-				"--structure", "document",
-				"--query", query,
-			},
-			in:          "json",
-			compression: true,
-			structure:   "document",
-			out:         "json",
-		},
-		// csv
-		{
-			name: "csv select with default delimiter and output",
-			cmd: []string{
-				"select", "csv",
-				"--query", query,
-			},
-			in:        "csv",
-			structure: ",",
-			out:       "csv",
-		},
-		{
-			name: "csv select with gzip compression default delimiter and output",
-			cmd: []string{
-				"select", "csv",
-				"--compression", "gzip",
-				"--query", query,
-			},
-			in:          "csv",
-			compression: true,
-			structure:   ",",
-			out:         "csv",
-		},
-		{
-			name: "csv select with gzip compression default delimiter and csv output",
-			cmd: []string{
-				"select", "csv",
-				"--compression", "gzip",
-				"--output-format", "csv",
-				"--query", query,
-			},
-			in:          "csv",
-			compression: true,
-			structure:   ",",
-			out:         "csv",
-		},
-		{
-			name: "csv select with default delimiter and csv output",
-			cmd: []string{
-				"select", "csv",
-				"--output-format", "csv",
-				"--query", query,
-			},
-			in:        "csv",
-			structure: ",",
-			out:       "csv",
-		},
-		{
-			name: "csv select with custom delimiter and default output",
-			cmd: []string{
-				"select", "csv",
-				"--delimiter", "\t",
-				"--query", query,
-			},
-			in:        "csv",
-			structure: "\t",
-			out:       "csv",
-		},
-		{
-			name: "csv select with custom delimiter and csv output",
-			cmd: []string{
-				"select", "csv",
-				"--delimiter", "\t",
-				"--output-format", "csv",
-				"--query", query,
-			},
-			in:        "csv",
-			structure: "\t",
-			out:       "csv",
-		},
-		{
-			name: "query json with default fallback",
-			cmd: []string{
-				"select",
-				"--query", query,
-			},
-			in:        "json",
-			structure: "lines",
-			out:       "json",
-		},
-		{
-			name: "query compressed json with default fallback",
-			cmd: []string{
-				"select",
-				"--query", query,
-				"--compression", "gzip",
-			},
-			in:          "json",
-			compression: true,
-			structure:   "lines",
-			out:         "json",
-		},
-	}
-	for _, tc := range testcases {
-		tc := tc
-		t.Run(tc.name, func(t *testing.T) {
-			var src, filename string
-
-			bucket := s3BucketFromTestName(t)
-			contents, expected := getFile(5, tc.in, tc.out, tc.structure)
-
-			if tc.compression {
-				b := bytes.Buffer{}
-				gz := gzip.NewWriter(&b)
-				filename = fmt.Sprintf("file.%s.gz", tc.in)
-				src = fmt.Sprintf("s3://%s/%s", bucket, filename)
-
-				if _, err := gz.Write([]byte(contents)); err != nil {
-					t.Errorf("could not compress the input object. error: %v\n", err)
-				}
-
-				if err := gz.Close(); err != nil {
-					t.Errorf("could not close the compressor error: %v\n", err)
-				}
-
-				contents = b.String()
-			} else {
-				filename = fmt.Sprintf("file.%s", tc.in)
-				src = fmt.Sprintf("s3://%s/%s", bucket, filename)
-			}
-
-			s3client, s5cmd := setup(t, withEndpointURL(endpoint), withRegion(region), withAccessKeyID(accessKeyID), withSecretKey(secretKey))
-
-			createBucket(t, s3client, bucket)
-
-			tc.cmd = append(tc.cmd, src)
-
-			putFile(t, s3client, bucket, filename, contents)
-
-			cmd := s5cmd(tc.cmd...)
-
-			result := icmd.RunCmd(cmd, withEnv("AWS_ACCESS_KEY_ID", accessKeyID), withEnv("AWS_SECRET_ACCESS_KEY", secretKey))
-
-			if diff := cmp.Diff(expected, result.Stdout()); diff != "" {
-				t.Errorf("select command mismatch (-want +got):\n%s", diff)
-			}
-
-		})
-	}
-}
-
-func TestSelectWithParquet(t *testing.T) {
-	t.Parallel()
-	// credentials are same for all test cases
-	region := "us-east-1"
-	accessKeyID := "minioadmin"
-	secretKey := "minioadmin"
-	// The query is default for all cases, we want to assert the output
-	// is as expected after a query.
-	query := "SELECT * FROM s3object s LIMIT 6"
-
-	endpoint := os.Getenv("S5CMD_TEST_ENDPOINT_URL")
-
-	if endpoint == "" {
-		t.Skipf("skipping the test because S5CMD_TEST_ENDPOINT_URL environment variable is empty")
-	}
-
-	testcases := []struct {
-		name     string
-		src      string
-		cmd      []string
-		expected string
-	}{
-		{
-			name: "parquet select with json output",
-			src:  "five_line_simple.parquet",
-			cmd: []string{
-				"select", "parquet",
-				"--query", query,
-			},
-			expected: "output.json",
-		},
-		{
-			name: "parquet select with json output",
-			src:  "five_line_simple.parquet",
-			cmd: []string{
-				"select", "parquet",
-				"--output-format", "csv",
-				"--query", query,
-			},
-			expected: "output.csv",
-		},
-	}
-
-	for _, tc := range testcases {
-		tc := tc
-		t.Run(tc.name, func(t *testing.T) {
-			var buf bytes.Buffer
-			var expectedBuf bytes.Buffer
-
-			// change the working directory to ./e2e/testdata/parquet
-			cwd, err := os.Getwd()
-			if err != nil {
-				t.Fatalf("couldn't reach the current working directory to access testfiles. error: %v\n", err)
-			}
-
-			cwd += "/testfiles/parquet/"
-			sourceFile, err := os.Open(cwd + tc.src)
-			if err != nil {
-				t.Fatalf("couldn't read the parquet file to be queried. error: %v\n", err)
-			}
-			defer sourceFile.Close()
-
-			if _, err := sourceFile.Read(buf.Bytes()); err != nil {
-				t.Fatalf("couldn't write the parquet file to buffer. error: %v\n", err)
-			}
-
-			expectedFile, err := os.Open(cwd + tc.expected)
-			if err != nil {
-				t.Fatalf("couldnt read the output file to be compared against. error: %v\n", err)
-			}
-			defer expectedFile.Close()
-
-			if _, err := expectedFile.Read(expectedBuf.Bytes()); err != nil {
-				t.Fatalf("couldn't write the output file to buffer. error: %v\n", err)
-			}
-
-			// convert the file content to string
-			expected := expectedBuf.String()
-			bucket := s3BucketFromTestName(t)
-			src := fmt.Sprintf("s3://%s/%s", bucket, tc.src)
-			tc.cmd = append(tc.cmd, src)
-
-			s3client, s5cmd := setup(t, withEndpointURL(endpoint), withRegion(region), withAccessKeyID(accessKeyID), withSecretKey(secretKey))
-			createBucket(t, s3client, bucket)
-			putFile(t, s3client, bucket, tc.src, buf.String())
-
-			cmd := s5cmd(tc.cmd...)
-			result := icmd.RunCmd(cmd, withEnv("AWS_ACCESS_KEY_ID", accessKeyID), withEnv("AWS_SECRET_ACCESS_KEY", secretKey))
-			if diff := cmp.Diff(expected, result.Stdout()); diff != "" {
-				t.Errorf("select command mismatch (-want +got):\n%s", diff)
-			}
-		})
-	}
+	t.Fatal("unreachable")
+	return "", ""
 }

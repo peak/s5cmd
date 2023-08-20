@@ -622,8 +622,8 @@ func parseInputSerialization(e eventType, c string, delimiter string, headerInfo
 	case csvType:
 		s = &s3.InputSerialization{
 			CSV: &s3.CSVInput{
-				FileHeaderInfo: aws.String(headerInfo),
 				FieldDelimiter: aws.String(delimiter),
+				FileHeaderInfo: aws.String(headerInfo),
 			},
 		}
 		if c != "" {
@@ -684,6 +684,12 @@ func (s *S3) Select(ctx context.Context, url *url.URL, query *SelectQuery, resul
 
 	if err != nil {
 		return err
+	}
+
+	// set the delimiter to ','. Otherwise, delimiter is set to "lines" or "document"
+	// for json queries.
+	if query.InputFormat == string(jsonType) && query.OutputFormat == string(csvType) {
+		query.InputContentStructure = ","
 	}
 
 	outputFormat, decoder, err = parseOutputSerialization(

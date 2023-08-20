@@ -141,9 +141,9 @@ func NewSelectCommand() *cli.Command {
 				Usage: "run queries on csv files",
 				Flags: append([]cli.Flag{
 					&cli.StringFlag{
-						Name:  "delimiter",
-						Usage: "delimiter of the csv file",
-						Value: "','",
+						Name:  "delimiter for the csv file",
+						Usage: "delimiter of the csv file. The input and output delimiters are same.",
+						Value: ",",
 					},
 					&cli.StringFlag{
 						Name:  "use-header",

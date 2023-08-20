@@ -164,12 +164,13 @@ func NewPipe(c *cli.Context, deleteSource bool) (*Pipe, error) {
 		return nil, err
 	}
 
-	metadata, ok := c.Value("metadata").(map[string]string)
+	t, ok := c.Value("metadata").(MapValue)
 	if !ok {
 		err := errors.New("metadata flag is not a map")
 		printError(fullCommand, c.Command.Name, err)
 		return nil, err
 	}
+	metadata := t.ToMap()
 
 	return &Pipe{
 		dst:          dst,

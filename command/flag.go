@@ -8,6 +8,13 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
+var (
+	_ cli.Flag              = (*MapFlag)(nil)
+	_ cli.RequiredFlag      = (*MapFlag)(nil)
+	_ cli.VisibleFlag       = (*MapFlag)(nil)
+	_ cli.DocGenerationFlag = (*MapFlag)(nil)
+)
+
 type EnumValue struct {
 	Enum    []string
 	Default string
@@ -45,49 +52,56 @@ func (e EnumValue) Get() interface{} {
 	return e
 }
 
-type MapValue struct {
-	m map[string]string
-}
+type MapValue map[string]string
 
-func NewMapValue() *MapValue {
-	return &MapValue{
-		m: map[string]string{},
+func (m MapValue) String() string {
+	if m == nil {
+		m = make(map[string]string)
 	}
-}
-
-func (m *MapValue) String() string {
 	s := ""
 
-	for key, value := range m.m {
+	for key, value := range m {
 		s = fmt.Sprintf("%s, %s=%s, ", s, key, value)
 	}
 
 	return s
 }
 
-func (m *MapValue) Set(s string) error {
+func (m MapValue) Set(s string) error {
+	if m == nil {
+		m = make(map[string]string)
+	}
+
 	if len(s) == 0 {
 		return fmt.Errorf("flag can't be passed empty. Format: key=value")
 	}
 
 	tokens := strings.Split(s, "=")
-
-	if len(tokens) != 2 {
-		return fmt.Errorf("the key value pair(%s) format is invalid", tokens)
+	if len(tokens) <= 1 {
+		return fmt.Errorf("the key value pair(%s) has invalid format", tokens)
 	}
 
-	_, ok := m.m[tokens[0]]
+	key := tokens[0]
+	value := strings.Join(tokens[1:], "=")
+
+	_, ok := m[key]
 	if ok {
-		return fmt.Errorf("the key: %s is already defined", tokens[0])
+		return fmt.Errorf("the key: %s is already defined", key)
 	}
 
-	m.m[tokens[0]] = tokens[1]
-
+	m[key] = value
 	return nil
 }
 
-func (m *MapValue) Get() interface{} {
-	return m.m
+func (m MapValue) Get() interface{} {
+	if m == nil {
+		m = make(map[string]string)
+	}
+	return m
+}
+
+func (m MapValue) ToMap() map[string]string {
+	return map[string]string(m)
 }
 
 type MapFlag struct {
@@ -102,14 +116,16 @@ type MapFlag struct {
 	Required   bool
 	Hidden     bool
 
-	M *MapValue
+	M MapValue
 }
 
 func (f *MapFlag) Apply(set *flag.FlagSet) error {
-	f.M = NewMapValue()
+	if f.M == nil {
+		f.M = make(map[string]string)
+	}
 	for _, name := range f.Names() {
 		set.Var(f.M, name, f.Usage)
-		if len(f.M.m) > 0 {
+		if len(f.M) > 0 {
 			f.HasBeenSet = true
 		}
 	}
@@ -155,12 +171,4 @@ func (f *MapFlag) GetEnvVars() []string {
 
 func (f *MapFlag) IsRequired() bool {
 	return f.Required
-}
-
-func (f *MapFlag) Get(cCtx *cli.Context) map[string]*string {
-	val, ok := cCtx.Generic(f.Name).(map[string]*string)
-	if !ok {
-		return nil
-	}
-	return val
 }

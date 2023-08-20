@@ -317,11 +317,11 @@ The command below will delete all objects except those that end with `.log` or `
 
     s5cmd rm --exclude "*.log" --exclude "*.txt" 's3://bucket/logs/2020/*'
 
-If you wish, you can use multiple flags, like below. It will download objects that start with `request` and end with `.log`.
+If you wish, you can use multiple flags, like below. It will download objects that start with `request` or end with `.log`.
 
     s5cmd cp --include "*.log" --include "request*" 's3://bucket/logs/2020/*' .
 
-Using a combination of `--include` and `--exclude` also possible. The command below will only sync objects that end with `.log` and `.txt` but exclude those that start with `access_`. For example, `request.log`, and `license.txt` will be included, while `access_log.txt`, and `readme.md` are excluded.
+Using a combination of `--include` and `--exclude` also possible. The command below will only sync objects that end with `.log` or `.txt` but exclude those that start with `access_`. For example, `request.log`, and `license.txt` will be included, while `access_log.txt`, and `readme.md` are excluded.
 
     s5cmd sync --include "*log" --exclude "access_*" --include "*txt" 's3://bucket/logs/*' .
 #### Select JSON object content using SQL

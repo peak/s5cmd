@@ -47,6 +47,10 @@ var app = &cli.App{
 			EnvVars: []string{"S3_ENDPOINT_URL"},
 		},
 		&cli.BoolFlag{
+			Name:  "http3",
+			Usage: "Enable HTTP3/QUIC support",
+		},
+		&cli.BoolFlag{
 			Name:  "no-verify-ssl",
 			Usage: "disable SSL certificate verification",
 		},
@@ -181,6 +185,7 @@ func NewStorageOpts(c *cli.Context) storage.Options {
 	return storage.Options{
 		DryRun:                 c.Bool("dry-run"),
 		Endpoint:               c.String("endpoint-url"),
+		HTTP3:                  c.Bool("http3"),
 		MaxRetries:             c.Int("retry-count"),
 		NoSignRequest:          c.Bool("no-sign-request"),
 		NoVerifySSL:            c.Bool("no-verify-ssl"),

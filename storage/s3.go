@@ -29,6 +29,8 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager/s3manageriface"
+	"github.com/quic-go/quic-go"
+	"github.com/quic-go/quic-go/http3"
 
 	"github.com/peak/s5cmd/v2/log"
 	"github.com/peak/s5cmd/v2/storage/url"
@@ -1092,6 +1094,18 @@ func (sc *SessionCache) newSession(ctx context.Context, opts Options) (*session.
 	}
 
 	var httpClient *http.Client
+
+	if opts.HTTP3 {
+		var qconf quic.Config
+		roundTripper := &http3.RoundTripper{
+			QuicConfig: &qconf,
+		}
+
+		httpClient = &http.Client{
+			Transport: roundTripper,
+		}
+	}
+
 	if opts.NoVerifySSL {
 		httpClient = insecureHTTPClient
 	}

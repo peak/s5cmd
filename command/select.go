@@ -32,7 +32,7 @@ Examples:
 		 > {{.HelpName}} --use-header USE --query "SELECT s.avg_price, s.quantity FROM S3Object s WHERE s.item='avocado'" "s3://bucket/prices.csv"
 
 	02. Query TSV files 
-		 > s5cmd select csv --delimiter=\t --compression GZIP --output-format csv --query "SELECT s.avg_price, s.quantity FROM S3Object s WHERE s.item='avocado'" "s3://bucket/itemprices"
+		 > s5cmd select csv --delimiter=\t --use-header USE --query "SELECT s.avg_price, s.quantity FROM S3Object s WHERE s.item='avocado'" "s3://bucket/prices.tsv"
 
 	03. Select a specific field in a JSON document 
 		 > s5cmd select json --structure document --query "SELECT s.tracking_id FROM s3object[*]['metadata']['.zattrs'] s" "s3://bucket/metadata.json"

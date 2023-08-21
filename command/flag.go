@@ -8,13 +8,6 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-var (
-	_ cli.Flag              = (*MapFlag)(nil)
-	_ cli.RequiredFlag      = (*MapFlag)(nil)
-	_ cli.VisibleFlag       = (*MapFlag)(nil)
-	_ cli.DocGenerationFlag = (*MapFlag)(nil)
-)
-
 type EnumValue struct {
 	Enum    []string
 	Default string
@@ -100,10 +93,6 @@ func (m MapValue) Get() interface{} {
 	return m
 }
 
-func (m MapValue) ToMap() map[string]string {
-	return map[string]string(m)
-}
-
 type MapFlag struct {
 	Name string
 
@@ -116,16 +105,23 @@ type MapFlag struct {
 	Required   bool
 	Hidden     bool
 
-	M MapValue
+	Value MapValue
 }
 
+var (
+	_ cli.Flag              = (*MapFlag)(nil)
+	_ cli.RequiredFlag      = (*MapFlag)(nil)
+	_ cli.VisibleFlag       = (*MapFlag)(nil)
+	_ cli.DocGenerationFlag = (*MapFlag)(nil)
+)
+
 func (f *MapFlag) Apply(set *flag.FlagSet) error {
-	if f.M == nil {
-		f.M = make(map[string]string)
+	if f.Value == nil {
+		f.Value = make(map[string]string)
 	}
 	for _, name := range f.Names() {
-		set.Var(f.M, name, f.Usage)
-		if len(f.M) > 0 {
+		set.Var(f.Value, name, f.Usage)
+		if len(f.Value) > 0 {
 			f.HasBeenSet = true
 		}
 	}
@@ -158,7 +154,7 @@ func (f *MapFlag) TakesValue() bool {
 }
 
 func (f *MapFlag) GetValue() string {
-	return f.M.String()
+	return f.Value.String()
 }
 
 func (f *MapFlag) GetDefaultText() string {

@@ -550,9 +550,9 @@ func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata Metadata) err
 		input.Metadata[metadataKeyRetryID] = generateRetryID()
 	}
 
-	if len(metadata.UserDefinedMetadata) != 0 {
+	if len(metadata.UserDefined) != 0 {
 		m := make(map[string]*string)
-		for k, v := range metadata.UserDefinedMetadata {
+		for k, v := range metadata.UserDefined {
 			m[k] = aws.String(v)
 		}
 		input.Metadata = m
@@ -758,9 +758,9 @@ func (s *S3) Put(
 		input.Metadata[metadataKeyRetryID] = generateRetryID()
 	}
 
-	if len(metadata.UserDefinedMetadata) != 0 {
+	if len(metadata.UserDefined) != 0 {
 		m := make(map[string]*string)
-		for k, v := range metadata.UserDefinedMetadata {
+		for k, v := range metadata.UserDefined {
 			m[k] = aws.String(v)
 		}
 		input.Metadata = m

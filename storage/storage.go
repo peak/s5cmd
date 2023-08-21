@@ -230,13 +230,7 @@ type Metadata struct {
 	EncryptionKeyID    string
 	ContentEncoding    string
 
-	UserDefinedMetadata map[string]string
-}
-
-func NewMetadata(udm map[string]string) Metadata {
-	return Metadata{
-		UserDefinedMetadata: udm,
-	}
+	UserDefined map[string]string
 }
 
 func (o Object) ToBytes() []byte {

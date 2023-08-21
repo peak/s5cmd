@@ -139,7 +139,7 @@ func NewSharedFlags() []cli.Flag {
 		},
 		&MapFlag{
 			Name:  "metadata",
-			Usage: "set arbitrary metadata for the object",
+			Usage: "set arbitrary metadata for the object, e.g. --metadata 'foo=bar' --metadata 'fizz=buzz'",
 		},
 		&cli.StringFlag{
 			Name:  "sse",
@@ -347,13 +347,12 @@ func NewCopy(c *cli.Context, deleteSource bool) (*Copy, error) {
 		commandProgressBar = &progressbar.NoOp{}
 	}
 
-	t, ok := c.Value("metadata").(MapValue)
+	metadata, ok := c.Value("metadata").(MapValue)
 	if !ok {
 		err := errors.New("metadata flag is not a map")
 		printError(fullCommand, c.Command.Name, err)
 		return nil, err
 	}
-	metadata := t.ToMap()
 
 	return &Copy{
 		src:          src,
@@ -690,7 +689,7 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL, ex
 	if err != nil {
 		return err
 	}
-	metadata := storage.NewMetadata(extradata)
+	metadata := storage.Metadata{UserDefined: extradata}
 
 	if c.storageClass != "" {
 		metadata.StorageClass = string(c.storageClass)
@@ -756,8 +755,7 @@ func (c Copy) doCopy(ctx context.Context, srcurl, dsturl *url.URL, extradata map
 		return err
 	}
 
-	metadata := storage.NewMetadata(extradata)
-
+	metadata := storage.Metadata{UserDefined: extradata}
 	if c.storageClass != "" {
 		metadata.StorageClass = string(c.storageClass)
 	}

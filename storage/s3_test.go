@@ -638,7 +638,7 @@ func TestS3RetryOnNoSuchUpload(t *testing.T) {
 				atomic.AddInt32(atomicCounter, 1)
 			})
 
-			mockS3.Put(ctx, strings.NewReader(""), url, NewMetadata(nil), s3manager.DefaultUploadConcurrency, s3manager.DefaultUploadPartSize)
+			mockS3.Put(ctx, strings.NewReader(""), url, Metadata{}, s3manager.DefaultUploadConcurrency, s3manager.DefaultUploadPartSize)
 
 			// +1 is for the original request
 			// *2 is to account for the "Stat" requests that are made to obtain
@@ -745,7 +745,7 @@ func TestS3CopyEncryptionRequest(t *testing.T) {
 				api: mockAPI,
 			}
 
-			metadata := NewMetadata(nil)
+			metadata := Metadata{}
 			metadata.EncryptionMethod = tc.sse
 			metadata.EncryptionKeyID = tc.sseKeyID
 			metadata.ACL = tc.acl
@@ -841,7 +841,7 @@ func TestS3PutEncryptionRequest(t *testing.T) {
 				uploader: s3manager.NewUploaderWithClient(mockAPI),
 			}
 
-			metadata := NewMetadata(nil)
+			metadata := Metadata{}
 			metadata.EncryptionMethod = tc.sse
 			metadata.EncryptionKeyID = tc.sseKeyID
 			metadata.ACL = tc.acl

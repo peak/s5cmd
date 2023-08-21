@@ -1,22 +1,21 @@
 # Changelog
 
-## not released yet
+## v2.2.0 - 21 Aug 2023
 
 #### Features
-- Added file types to `select` queries with more range of options to set during the query. ([#494](https://github.com/peak/s5cmd/issues/494))
-- Added `--content-disposition` flag to `cp` command. ([#569](https://github.com/peak/s5cmd/issues/569))
-- Added `--show-fullpath` flag to `ls`. ([#596](https://github.com/peak/s5cmd/issues/596))
 - Added `pipe` command. ([#182](https://github.com/peak/s5cmd/issues/182))
 - Added `presign` command. ([#634](https://github.com/peak/s5cmd/pull/634)) [@zemul](https://github.com/zemul)
-- Added `--show-progress` flag to `cp` to show a progress bar. ([#51](https://github.com/peak/s5cmd/issues/51))
-- Added `--metadata` flag to `cp` and `pipe` to set arbitrary metadata for the objects. ([#537](https://github.com/peak/s5cmd/issues/537))
-- Added `--include` flag to `cp`, `rm` and `sync` commands. ([#516](https://github.com/peak/s5cmd/issues/516))
+- Added file types to `select` queries with more range of options to set during the query. ([#494](https://github.com/peak/s5cmd/issues/494))
 - Added `--content-disposition` flag to `cp` command. ([#569](https://github.com/peak/s5cmd/issues/569))
-- Added `--show-fullpath` flag to `ls`. ([#596](https://github.com/peak/s5cmd/issues/596))
+- Added `--show-fullpath` flag to `ls` command. ([#596](https://github.com/peak/s5cmd/issues/596))
+- Added `--show-progress` flag to `cp` command. ([#51](https://github.com/peak/s5cmd/issues/51))
+- Added `--metadata` flag to `cp` and `pipe` commands to set arbitrary metadata for the objects. ([#537](https://github.com/peak/s5cmd/issues/537))
+- Added `--include` flag to `cp`, `rm`, and `sync` commands. ([#516](https://github.com/peak/s5cmd/issues/516))
+- Added `--content-disposition` flag to `cp` command. ([#569](https://github.com/peak/s5cmd/issues/569))
 
 
 #### Improvements
-- Implemented concurrent multipart download support for `cat`. ([#245](https://github.com/peak/s5cmd/issues/245)) 
+- Implemented concurrent multipart download support for `cat` command. ([#245](https://github.com/peak/s5cmd/issues/245))
 - Upgraded minimum required Go version to 1.19. ([#583](https://github.com/peak/s5cmd/pull/583))
 - `ListObjectsV2` S3 API is enabled for Google Cloud Storage. ([#617](https://github.com/peak/s5cmd/pull/617))
 - Added installation instructions for FreeBSD. ([#573](https://github.com/peak/s5cmd/pull/573)) [@ehaupt](https://github.com/ehaupt)
@@ -42,8 +41,8 @@
 - Added `--credentials-file` flag to allow users to specify path for the AWS credentials file instead of using the [default location](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html#cli-configure-files-where).
 - Added `--all-versions` flag to `ls`, `rm`, `du` and `select` subcommands to apply operation on(/over) all versions of the objects. ([#475](https://github.com/peak/s5cmd/pull/475))
 - Added `--version-id` flag to `cat`, `cp`/`mv`, `rm`, `du`  and `select` subcommands to apply operation on(/over) a specific versions of the object. ([#475](https://github.com/peak/s5cmd/pull/475))
-- Added `bucket-version` command to configure bucket versioning. Bucket name alone returns the bucket versioning status of the bucket. Bucket versioning can be configured with `set` flag. ([#475](https://github.com/peak/s5cmd/pull/475)) 
-- Added `--raw` flag to `cat` and `select` subcommands. It disables the wildcard operations. ([#475](https://github.com/peak/s5cmd/pull/475)) 
+- Added `bucket-version` command to configure bucket versioning. Bucket name alone returns the bucket versioning status of the bucket. Bucket versioning can be configured with `set` flag. ([#475](https://github.com/peak/s5cmd/pull/475))
+- Added `--raw` flag to `cat` and `select` subcommands. It disables the wildcard operations. ([#475](https://github.com/peak/s5cmd/pull/475))
 - Added `bench.py` script under new `benchmark` folder to compare performances of two different builds of s5cmd. ([#471](https://github.com/peak/s5cmd/pull/471))
 
 #### Improvements

@@ -29,7 +29,7 @@ Options:
 	{{end}}
 Examples:
 	01. Select the average price of the avocado and amount sold, set the output format as csv 
-		 > {{.HelpName}} --compression GZIP --output-format csv --query "SELECT s.avg_price, s.quantity FROM S3Object s WHERE s.item='avocado'" "s3://bucket/itemprices"
+		 > {{.HelpName}} --use-header USE --query "SELECT s.avg_price, s.quantity FROM S3Object s WHERE s.item='avocado'" "s3://bucket/prices.csv"
 
 	02. Query TSV files 
 		 > s5cmd select csv --delimiter=\t --compression GZIP --output-format csv --query "SELECT s.avg_price, s.quantity FROM S3Object s WHERE s.item='avocado'" "s3://bucket/itemprices"

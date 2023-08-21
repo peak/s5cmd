@@ -159,6 +159,9 @@ func NewSelectCommand() *cli.Command {
 				Before:             beforeFunc,
 				Action: func(c *cli.Context) (err error) {
 					delimiter := c.String("delimiter")
+					// We are doing this because the delimiters that are special characters
+					// are automatically escaped by go. We quote/unquote to capture the actual
+					// delimiter. See: https://stackoverflow.com/questions/59952721/how-to-read-t-as-tab-in-golang
 					quotedDelimiter, err := strconv.Unquote(`"` + delimiter + `"`)
 
 					if err != nil {

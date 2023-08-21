@@ -51,13 +51,13 @@ func (m MapValue) String() string {
 	if m == nil {
 		m = make(map[string]string)
 	}
-	s := ""
 
+	var s strings.Builder
 	for key, value := range m {
-		s = fmt.Sprintf("%s, %s=%s, ", s, key, value)
+		s.WriteString(fmt.Sprintf("%s=%s ", key, value))
 	}
 
-	return s
+	return s.String()
 }
 
 func (m MapValue) Set(s string) error {
@@ -79,7 +79,7 @@ func (m MapValue) Set(s string) error {
 
 	_, ok := m[key]
 	if ok {
-		return fmt.Errorf("the key: %s is already defined", key)
+		return fmt.Errorf("key %q is already defined", key)
 	}
 
 	m[key] = value

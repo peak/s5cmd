@@ -111,8 +111,8 @@ Examples:
 	23. Download the specific version of a remote object to working directory
 		 > s5cmd {{.HelpName}} --version-id VERSION_ID s3://bucket/prefix/object .
 
-	23. Pass arbitrary metadata to the object during upload or copy 
-		 > s5cmd {{.HelpName}} --metadata "foo=bar" --metadata "fizz=buzz" localfile s3://bucket/prefix/object 
+	24. Pass arbitrary metadata to the object during upload or copy 
+		 > s5cmd {{.HelpName}} --metadata "camera=Nixon D750" --metadata "imageSize=6032x4032" flowers.png s3://bucket/prefix/flowers.png 
 `
 
 func NewSharedFlags() []cli.Flag {

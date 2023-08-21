@@ -33,6 +33,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"gotest.tools/v3/assert"
 	"gotest.tools/v3/fs"
 	"gotest.tools/v3/icmd"
@@ -717,6 +718,98 @@ func TestCopySingleFileToS3(t *testing.T) {
 
 	// assert S3
 	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content, ensureContentType(expectedContentType), ensureContentDisposition(expectedContentDisposition)))
+}
+
+// cp dir/file s3://bucket/ --metadata key1=val1 --metadata key2=val2 ...
+func TestCopySingleFileToS3WithArbitraryMetadata(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd := setup(t)
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	const (
+		// make sure that Put reads the file header and guess Content-Type correctly.
+		filename = "index"
+		content  = `
+<html lang="en">
+	<head>
+	<meta charset="utf-8">
+	<body>
+		<div id="foo">
+			<div class="bar"></div>
+		</div>
+		<div id="baz">
+			<style data-hey="naber"></style>
+		</div>
+	</body>
+</html>
+`
+		foo = "Key1=foo"
+		bar = "Key2=bar"
+	)
+
+	// build assert map
+	metadata := map[string]*string{
+		"Key1": aws.String("foo"),
+		"Key2": aws.String("bar"),
+	}
+	workdir := fs.NewDir(t, bucket, fs.WithFile(filename, content))
+	defer workdir.Remove()
+
+	srcpath := workdir.Join(filename)
+	dstpath := fmt.Sprintf("s3://%v/", bucket)
+
+	srcpath = filepath.ToSlash(srcpath)
+	cmd := s5cmd("cp", "--metadata", foo, "--metadata", bar, srcpath, dstpath)
+	result := icmd.RunCmd(cmd)
+	result.Assert(t, icmd.Success)
+
+	// assert local filesystem
+	expected := fs.Expected(t, fs.WithFile(filename, content))
+	assert.Assert(t, fs.Equal(workdir.Path(), expected))
+
+	// assert S3
+	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content, ensureArbitraryMetadata(metadata)))
+}
+
+// cp s3://bucket2/obj2 s3://bucket1/obj1 --metadata key1=val1 --metadata key2=val2 ...
+func TestCopyS3ToS3WithArbitraryMetadata(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd := setup(t)
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	const (
+		filename = "index"
+		content  = "things"
+		foo      = "Key1=foo"
+		bar      = "Key2=bar"
+	)
+
+	// build assert map
+	srcmetadata := map[string]*string{
+		"Key1": aws.String("value1"),
+		"Key2": aws.String("value2"),
+	}
+
+	dstmetadata := map[string]*string{
+		"Key1": aws.String("foo"),
+		"Key2": aws.String("bar"),
+	}
+	srcpath := fmt.Sprintf("s3://%v/%v", bucket, filename)
+	dstpath := fmt.Sprintf("s3://%v/%v_cp", bucket, filename)
+
+	putFileWithMetadata(t, s3client, bucket, filename, content, srcmetadata)
+	cmd := s5cmd("cp", "--metadata", foo, "--metadata", bar, srcpath, dstpath)
+	result := icmd.RunCmd(cmd)
+	result.Assert(t, icmd.Success)
+
+	// assert S3
+	assert.Assert(t, ensureS3Object(s3client, bucket, fmt.Sprintf("%s_cp", filename), content, ensureArbitraryMetadata(dstmetadata)))
 }
 
 func TestCopySingleFileToS3WithAdjacentSlashes(t *testing.T) {

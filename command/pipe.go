@@ -2,6 +2,7 @@ package command
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"mime"
 	"os"
@@ -28,9 +29,11 @@ Options:
 Examples:
 	01. Stream stdin to an object
 		 > echo "content" | gzip | s5cmd {{.HelpName}} s3://bucket/prefix/object.gz
-	02. Download an object and stream it to a bucket
+	02. Pass arbitrary metadata to an object
+		 > cat "flowers.png" | gzip | s5cmd {{.HelpName}} --metadata "imageSize=6032x4032" s3://bucket/prefix/flowers.gz
+	03. Download an object and stream it to a bucket
 		> curl https://github.com/peak/s5cmd/ | s5cmd {{.HelpName}} s3://bucket/s5cmd.html
-	03. Compress an object and stream it to a bucket
+	04. Compress an object and stream it to a bucket
 		> tar -cf - file.bin | s5cmd {{.HelpName}} s3://bucket/file.bin.tar
 `
 
@@ -51,6 +54,10 @@ func NewPipeCommandFlags() []cli.Flag {
 			Aliases: []string{"p"},
 			Value:   defaultPartSize,
 			Usage:   "size of each part transferred between host and remote server, in MiB",
+		},
+		&MapFlag{
+			Name:  "metadata",
+			Usage: "set arbitrary metadata for the object",
 		},
 		&cli.StringFlag{
 			Name:  "sse",
@@ -145,6 +152,7 @@ type Pipe struct {
 	contentType        string
 	contentEncoding    string
 	contentDisposition string
+	metadata           map[string]string
 
 	// s3 options
 	concurrency int
@@ -158,6 +166,13 @@ func NewPipe(c *cli.Context, deleteSource bool) (*Pipe, error) {
 
 	dst, err := url.New(c.Args().Get(0), url.WithRaw(c.Bool("raw")))
 	if err != nil {
+		printError(fullCommand, c.Command.Name, err)
+		return nil, err
+	}
+
+	metadata, ok := c.Value("metadata").(MapValue)
+	if !ok {
+		err := errors.New("metadata flag is not a map")
 		printError(fullCommand, c.Command.Name, err)
 		return nil, err
 	}
@@ -180,7 +195,7 @@ func NewPipe(c *cli.Context, deleteSource bool) (*Pipe, error) {
 		contentType:        c.String("content-type"),
 		contentEncoding:    c.String("content-encoding"),
 		contentDisposition: c.String("content-disposition"),
-
+		metadata:           metadata,
 		// s3 options
 		storageOpts: NewStorageOpts(c),
 	}, nil
@@ -206,26 +221,22 @@ func (c Pipe) Run(ctx context.Context) error {
 		return err
 	}
 
-	metadata := storage.NewMetadata().
-		SetStorageClass(string(c.storageClass)).
-		SetSSE(c.encryptionMethod).
-		SetSSEKeyID(c.encryptionKeyID).
-		SetACL(c.acl).
-		SetCacheControl(c.cacheControl).
-		SetExpires(c.expires)
+	metadata := storage.Metadata{UserDefined: c.metadata}
+	if c.storageClass != "" {
+		metadata.StorageClass = string(c.storageClass)
+	}
 
 	if c.contentType != "" {
-		metadata.SetContentType(c.contentType)
+		metadata.ContentType = c.contentType
 	} else {
-		metadata.SetContentType(guessContentTypeByExtension(c.dst))
+		metadata.ContentType = guessContentTypeByExtension(c.dst)
 	}
 
 	if c.contentEncoding != "" {
-		metadata.SetContentEncoding(c.contentEncoding)
+		metadata.ContentEncoding = c.contentEncoding
 	}
-
 	if c.contentDisposition != "" {
-		metadata.SetContentDisposition(c.contentDisposition)
+		metadata.ContentDisposition = c.contentDisposition
 	}
 
 	err = client.Put(ctx, &stdin{file: os.Stdin}, c.dst, metadata, c.concurrency, c.partSize)

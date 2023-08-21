@@ -502,37 +502,60 @@ func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata Metadata) err
 		input.CopySource = aws.String(copySource + "?versionId=" + from.VersionID)
 	}
 
-	storageClass := metadata.StorageClass()
+	storageClass := metadata.StorageClass
 	if storageClass != "" {
 		input.StorageClass = aws.String(storageClass)
 	}
 
-	sseEncryption := metadata.SSE()
-	if sseEncryption != "" {
-		input.ServerSideEncryption = aws.String(sseEncryption)
-		sseKmsKeyID := metadata.SSEKeyID()
-		if sseKmsKeyID != "" {
-			input.SSEKMSKeyId = aws.String(sseKmsKeyID)
-		}
-	}
-
-	acl := metadata.ACL()
+	acl := metadata.ACL
 	if acl != "" {
 		input.ACL = aws.String(acl)
 	}
 
-	cacheControl := metadata.CacheControl()
+	cacheControl := metadata.CacheControl
 	if cacheControl != "" {
 		input.CacheControl = aws.String(cacheControl)
 	}
 
-	expires := metadata.Expires()
+	expires := metadata.Expires
 	if expires != "" {
 		t, err := time.Parse(time.RFC3339, expires)
 		if err != nil {
 			return err
 		}
 		input.Expires = aws.Time(t)
+	}
+
+	sseEncryption := metadata.EncryptionMethod
+	if sseEncryption != "" {
+		input.ServerSideEncryption = aws.String(sseEncryption)
+		sseKmsKeyID := metadata.EncryptionKeyID
+		if sseKmsKeyID != "" {
+			input.SSEKMSKeyId = aws.String(sseKmsKeyID)
+		}
+	}
+
+	contentEncoding := metadata.ContentEncoding
+	if contentEncoding != "" {
+		input.ContentEncoding = aws.String(contentEncoding)
+	}
+
+	contentDisposition := metadata.ContentDisposition
+	if contentDisposition != "" {
+		input.ContentDisposition = aws.String(contentDisposition)
+	}
+
+	// add retry ID to the object metadata
+	if s.noSuchUploadRetryCount > 0 {
+		input.Metadata[metadataKeyRetryID] = generateRetryID()
+	}
+
+	if len(metadata.UserDefined) != 0 {
+		m := make(map[string]*string)
+		for k, v := range metadata.UserDefined {
+			m[k] = aws.String(v)
+		}
+		input.Metadata = m
 	}
 
 	_, err := s.api.CopyObject(input)
@@ -687,7 +710,7 @@ func (s *S3) Put(
 		return nil
 	}
 
-	contentType := metadata.ContentType()
+	contentType := metadata.ContentType
 	if contentType == "" {
 		contentType = "application/octet-stream"
 	}
@@ -701,21 +724,21 @@ func (s *S3) Put(
 		RequestPayer: s.RequestPayer(),
 	}
 
-	storageClass := metadata.StorageClass()
+	storageClass := metadata.StorageClass
 	if storageClass != "" {
 		input.StorageClass = aws.String(storageClass)
 	}
-	acl := metadata.ACL()
+	acl := metadata.ACL
 	if acl != "" {
 		input.ACL = aws.String(acl)
 	}
 
-	cacheControl := metadata.CacheControl()
+	cacheControl := metadata.CacheControl
 	if cacheControl != "" {
 		input.CacheControl = aws.String(cacheControl)
 	}
 
-	expires := metadata.Expires()
+	expires := metadata.Expires
 	if expires != "" {
 		t, err := time.Parse(time.RFC3339, expires)
 		if err != nil {
@@ -724,21 +747,21 @@ func (s *S3) Put(
 		input.Expires = aws.Time(t)
 	}
 
-	sseEncryption := metadata.SSE()
+	sseEncryption := metadata.EncryptionMethod
 	if sseEncryption != "" {
 		input.ServerSideEncryption = aws.String(sseEncryption)
-		sseKmsKeyID := metadata.SSEKeyID()
+		sseKmsKeyID := metadata.EncryptionKeyID
 		if sseKmsKeyID != "" {
 			input.SSEKMSKeyId = aws.String(sseKmsKeyID)
 		}
 	}
 
-	contentEncoding := metadata.ContentEncoding()
+	contentEncoding := metadata.ContentEncoding
 	if contentEncoding != "" {
 		input.ContentEncoding = aws.String(contentEncoding)
 	}
 
-	contentDisposition := metadata.ContentDisposition()
+	contentDisposition := metadata.ContentDisposition
 	if contentDisposition != "" {
 		input.ContentDisposition = aws.String(contentDisposition)
 	}
@@ -746,6 +769,14 @@ func (s *S3) Put(
 	// add retry ID to the object metadata
 	if s.noSuchUploadRetryCount > 0 {
 		input.Metadata[metadataKeyRetryID] = generateRetryID()
+	}
+
+	if len(metadata.UserDefined) != 0 {
+		m := make(map[string]*string)
+		for k, v := range metadata.UserDefined {
+			m[k] = aws.String(v)
+		}
+		input.Metadata = m
 	}
 
 	uploaderOptsFn := func(u *s3manager.Uploader) {

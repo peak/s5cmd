@@ -29,6 +29,7 @@ const (
 	defaultCopyConcurrency = 5
 	defaultPartSize        = 50 // MiB
 	megabytes              = 1024 * 1024
+	kilobytes              = 1024
 )
 
 var copyHelpTemplate = `Name:
@@ -109,6 +110,9 @@ Examples:
 		 
 	23. Download the specific version of a remote object to working directory
 		 > s5cmd {{.HelpName}} --version-id VERSION_ID s3://bucket/prefix/object .
+
+	24. Pass arbitrary metadata to the object during upload or copy 
+		 > s5cmd {{.HelpName}} --metadata "camera=Nixon D750" --metadata "imageSize=6032x4032" flowers.png s3://bucket/prefix/flowers.png 
 `
 
 func NewSharedFlags() []cli.Flag {
@@ -132,6 +136,10 @@ func NewSharedFlags() []cli.Flag {
 			Aliases: []string{"p"},
 			Value:   defaultPartSize,
 			Usage:   "size of each part transferred between host and remote server, in MiB",
+		},
+		&MapFlag{
+			Name:  "metadata",
+			Usage: "set arbitrary metadata for the object, e.g. --metadata 'foo=bar' --metadata 'fizz=buzz'",
 		},
 		&cli.StringFlag{
 			Name:  "sse",
@@ -296,6 +304,7 @@ type Copy struct {
 	contentType           string
 	contentEncoding       string
 	contentDisposition    string
+	metadata              map[string]string
 	showProgress          bool
 	progressbar           progressbar.ProgressBar
 
@@ -338,6 +347,13 @@ func NewCopy(c *cli.Context, deleteSource bool) (*Copy, error) {
 		commandProgressBar = &progressbar.NoOp{}
 	}
 
+	metadata, ok := c.Value("metadata").(MapValue)
+	if !ok {
+		err := errors.New("metadata flag is not a map")
+		printError(fullCommand, c.Command.Name, err)
+		return nil, err
+	}
+
 	return &Copy{
 		src:          src,
 		dst:          dst,
@@ -365,6 +381,7 @@ func NewCopy(c *cli.Context, deleteSource bool) (*Copy, error) {
 		contentType:           c.String("content-type"),
 		contentEncoding:       c.String("content-encoding"),
 		contentDisposition:    c.String("content-disposition"),
+		metadata:              metadata,
 		showProgress:          c.Bool("show-progress"),
 		progressbar:           commandProgressBar,
 
@@ -497,11 +514,11 @@ func (c Copy) Run(ctx context.Context) error {
 
 		switch {
 		case srcurl.Type == c.dst.Type: // local->local or remote->remote
-			task = c.prepareCopyTask(ctx, srcurl, c.dst, isBatch)
+			task = c.prepareCopyTask(ctx, srcurl, c.dst, isBatch, c.metadata)
 		case srcurl.IsRemote(): // remote->local
 			task = c.prepareDownloadTask(ctx, srcurl, c.dst, isBatch)
 		case c.dst.IsRemote(): // local->remote
-			task = c.prepareUploadTask(ctx, srcurl, c.dst, isBatch)
+			task = c.prepareUploadTask(ctx, srcurl, c.dst, isBatch, c.metadata)
 		default:
 			panic("unexpected src-dst pair")
 		}
@@ -518,10 +535,11 @@ func (c Copy) prepareCopyTask(
 	srcurl *url.URL,
 	dsturl *url.URL,
 	isBatch bool,
+	metadata map[string]string,
 ) func() error {
 	return func() error {
 		dsturl = prepareRemoteDestination(srcurl, dsturl, c.flatten, isBatch)
-		err := c.doCopy(ctx, srcurl, dsturl)
+		err := c.doCopy(ctx, srcurl, dsturl, metadata)
 		if err != nil {
 			return &errorpkg.Error{
 				Op:  c.op,
@@ -565,10 +583,11 @@ func (c Copy) prepareUploadTask(
 	srcurl *url.URL,
 	dsturl *url.URL,
 	isBatch bool,
+	metadata map[string]string,
 ) func() error {
 	return func() error {
 		dsturl = prepareRemoteDestination(srcurl, dsturl, c.flatten, isBatch)
-		err := c.doUpload(ctx, srcurl, dsturl)
+		err := c.doUpload(ctx, srcurl, dsturl, metadata)
 		if err != nil {
 			return &errorpkg.Error{
 				Op:  c.op,
@@ -644,7 +663,7 @@ func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) 
 	return nil
 }
 
-func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) error {
+func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL, extradata map[string]string) error {
 	srcClient := storage.NewLocalClient(c.storageOpts)
 
 	file, err := srcClient.Open(srcurl.Absolute())
@@ -670,29 +689,29 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 	if err != nil {
 		return err
 	}
+	metadata := storage.Metadata{UserDefined: extradata}
 
-	metadata := storage.NewMetadata().
-		SetStorageClass(string(c.storageClass)).
-		SetSSE(c.encryptionMethod).
-		SetSSEKeyID(c.encryptionKeyID).
-		SetACL(c.acl).
-		SetCacheControl(c.cacheControl).
-		SetExpires(c.expires)
+	if c.storageClass != "" {
+		metadata.StorageClass = string(c.storageClass)
+	}
 
 	if c.contentType != "" {
-		metadata.SetContentType(c.contentType)
+		metadata.ContentType = c.contentType
 	} else {
-		metadata.SetContentType(guessContentType(file))
+		metadata.ContentType = guessContentType(file)
 	}
 
 	if c.contentEncoding != "" {
-		metadata.SetContentEncoding(c.contentEncoding)
+		metadata.ContentEncoding = c.contentEncoding
 	}
+
 	if c.contentDisposition != "" {
-		metadata.SetContentDisposition(c.contentDisposition)
+		metadata.ContentDisposition = c.contentDisposition
 	}
+
 	reader := newCountingReaderWriter(file, c.progressbar)
 	err = dstClient.Put(ctx, reader, dsturl, metadata, c.concurrency, c.partSize)
+
 	if err != nil {
 		return err
 	}
@@ -726,7 +745,7 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 	return nil
 }
 
-func (c Copy) doCopy(ctx context.Context, srcurl, dsturl *url.URL) error {
+func (c Copy) doCopy(ctx context.Context, srcurl, dsturl *url.URL, extradata map[string]string) error {
 	// override destination region if set
 	if c.dstRegion != "" {
 		c.storageOpts.SetRegion(c.dstRegion)
@@ -736,22 +755,20 @@ func (c Copy) doCopy(ctx context.Context, srcurl, dsturl *url.URL) error {
 		return err
 	}
 
-	metadata := storage.NewMetadata().
-		SetStorageClass(string(c.storageClass)).
-		SetSSE(c.encryptionMethod).
-		SetSSEKeyID(c.encryptionKeyID).
-		SetACL(c.acl).
-		SetCacheControl(c.cacheControl).
-		SetExpires(c.expires)
+	metadata := storage.Metadata{UserDefined: extradata}
+	if c.storageClass != "" {
+		metadata.StorageClass = string(c.storageClass)
+	}
 
 	if c.contentType != "" {
-		metadata.SetContentType(c.contentType)
+		metadata.ContentType = c.contentType
 	}
+
 	if c.contentEncoding != "" {
-		metadata.SetContentEncoding(c.contentEncoding)
+		metadata.ContentEncoding = c.contentEncoding
 	}
 	if c.contentDisposition != "" {
-		metadata.SetContentDisposition(c.contentDisposition)
+		metadata.ContentDisposition = c.contentDisposition
 	}
 
 	err = c.shouldOverride(ctx, srcurl, dsturl)

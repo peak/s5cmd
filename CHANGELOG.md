@@ -10,6 +10,7 @@
 - Added `--show-fullpath` flag to `ls`. ([#596](https://github.com/peak/s5cmd/issues/596))
 - Added `pipe` command. ([#182](https://github.com/peak/s5cmd/issues/182))
 - Added `--show-progress` flag to `cp` to show a progress bar. ([#51](https://github.com/peak/s5cmd/issues/51))
+- Added `--metadata` flag to `cp` and `pipe` to set arbitrary metadata for the objects. ([#537](https://github.com/peak/s5cmd/issues/537))
 - Added `--include` flag to `cp`, `rm` and `sync` commands. ([#516](https://github.com/peak/s5cmd/issues/516))
 
 

@@ -219,92 +219,18 @@ func (s StorageClass) IsGlacier() bool {
 	return s == "GLACIER"
 }
 
-type Metadata map[string]string
+type Metadata struct {
+	ACL                string
+	CacheControl       string
+	Expires            string
+	StorageClass       string
+	ContentType        string
+	ContentDisposition string
+	EncryptionMethod   string
+	EncryptionKeyID    string
+	ContentEncoding    string
 
-// NewMetadata will return an empty metadata object.
-func NewMetadata() Metadata {
-	return Metadata{}
-}
-
-func (m Metadata) ACL() string {
-	return m["ACL"]
-}
-
-func (m Metadata) SetACL(acl string) Metadata {
-	m["ACL"] = acl
-	return m
-}
-
-func (m Metadata) CacheControl() string {
-	return m["CacheControl"]
-}
-
-func (m Metadata) SetCacheControl(cacheControl string) Metadata {
-	m["CacheControl"] = cacheControl
-	return m
-}
-
-func (m Metadata) Expires() string {
-	return m["Expires"]
-}
-
-func (m Metadata) SetExpires(expires string) Metadata {
-	m["Expires"] = expires
-	return m
-}
-
-func (m Metadata) StorageClass() string {
-	return m["StorageClass"]
-}
-
-func (m Metadata) SetStorageClass(class string) Metadata {
-	m["StorageClass"] = class
-	return m
-}
-
-func (m Metadata) ContentType() string {
-	return m["ContentType"]
-}
-
-func (m Metadata) SetContentType(contentType string) Metadata {
-	m["ContentType"] = contentType
-	return m
-}
-
-func (m Metadata) SetContentDisposition(contentDisposition string) Metadata {
-	m["ContentDisposition"] = contentDisposition
-	return m
-}
-
-func (m Metadata) ContentDisposition() string {
-	return m["ContentDisposition"]
-}
-
-func (m Metadata) SSE() string {
-	return m["EncryptionMethod"]
-}
-
-func (m Metadata) SetSSE(sse string) Metadata {
-	m["EncryptionMethod"] = sse
-	return m
-}
-
-func (m Metadata) SSEKeyID() string {
-	return m["EncryptionKeyID"]
-}
-
-func (m Metadata) SetSSEKeyID(kid string) Metadata {
-	m["EncryptionKeyID"] = kid
-	return m
-}
-
-func (m Metadata) ContentEncoding() string {
-	return m["ContentEncoding"]
-}
-
-func (m Metadata) SetContentEncoding(contentEncoding string) Metadata {
-	m["ContentEncoding"] = contentEncoding
-	return m
+	UserDefined map[string]string
 }
 
 func (o Object) ToBytes() []byte {

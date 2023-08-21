@@ -106,7 +106,7 @@ func (c Presign) Run(ctx context.Context) error {
 
 func validatePresignCommand(c *cli.Context) error {
 	if c.Args().Len() != 1 {
-		return fmt.Errorf("expected only one argument")
+		return fmt.Errorf("expected remote object url")
 	}
 
 	src, err := url.New(c.Args().Get(0), url.WithVersion(c.String("version-id")))

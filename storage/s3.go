@@ -581,7 +581,6 @@ func (s *S3) Read(ctx context.Context, src *url.URL) (io.ReadCloser, error) {
 	return resp.Body, nil
 }
 
-// Presign fetches the remote object url and returns its.
 func (s *S3) Presign(ctx context.Context, from *url.URL, expire time.Duration) (string, error) {
 	input := &s3.GetObjectInput{
 		Bucket:       aws.String(from.Bucket),
@@ -590,8 +589,8 @@ func (s *S3) Presign(ctx context.Context, from *url.URL, expire time.Duration) (
 	}
 
 	req, _ := s.api.GetObjectRequest(input)
-	url, err := req.Presign(expire)
-	return url, err
+
+	return req.Presign(expire)
 }
 
 // Get is a multipart download operation which downloads S3 objects into any

@@ -29,7 +29,7 @@ Examples:
 	01. Stream stdin to an object
 		 > echo "content" | gzip | s5cmd {{.HelpName}} s3://bucket/prefix/object.gz
 	02. Download an object and stream it to a bucket
-		> curl https://github.com/peak/s5cmd/ | ./s5cmd {{.HelpName}} s3://bucket/s5cmd.html
+		> curl https://github.com/peak/s5cmd/ | s5cmd {{.HelpName}} s3://bucket/s5cmd.html
 	03. Compress an object and stream it to a bucket
 		> tar -cf - file.bin | s5cmd {{.HelpName}} s3://bucket/file.bin.tar
 `

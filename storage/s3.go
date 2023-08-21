@@ -22,6 +22,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/client"
 	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/defaults"
 	"github.com/aws/aws-sdk-go/aws/endpoints"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -29,6 +30,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager/s3manageriface"
+	"gopkg.in/ini.v1"
 
 	"github.com/peak/s5cmd/v2/log"
 	"github.com/peak/s5cmd/v2/storage/url"
@@ -49,6 +51,9 @@ const (
 
 	// the key of the object metadata which is used to handle retry decision on NoSuchUpload error
 	metadataKeyRetryID = "s5cmd-upload-retry-id"
+
+	// The endpoint_url key in the profile configuration (AWS config file)
+	endpointURLKey = "endpoint_url"
 )
 
 // Re-used AWS sessions dramatically improve performance.
@@ -1072,6 +1077,25 @@ func (sc *SessionCache) newSession(ctx context.Context, opts Options) (*session.
 		awsCfg = awsCfg.WithCredentials(
 			credentials.NewSharedCredentials(opts.CredentialFile, opts.Profile),
 		)
+	}
+
+	if opts.Profile != "" && opts.Endpoint == "" {
+		awsConfigFilePath, awsConfigFileEnvExists := os.LookupEnv("AWS_CONFIG_FILE")
+		if !awsConfigFileEnvExists {
+			awsConfigFilePath = defaults.SharedConfigFilename()
+		}
+
+		if _, awsConfigFileErr := os.Stat(awsConfigFilePath); awsConfigFileErr == nil {
+			awsProfileConfig, err := ini.Load(awsConfigFilePath)
+			if err != nil {
+				return nil, err
+			}
+
+			awsProfileName := "profile " + opts.Profile
+			if awsProfileConfig.HasSection(awsProfileName) && awsProfileConfig.Section(awsProfileName).HasKey(endpointURLKey) {
+				opts.Endpoint = awsProfileConfig.Section(awsProfileName).Key(endpointURLKey).String()
+			}
+		}
 	}
 
 	endpointURL, err := parseEndpoint(opts.Endpoint)

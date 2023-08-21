@@ -264,7 +264,7 @@ of the source.
 #### Stream stdin to S3
 You can upload remote objects by piping stdin to `s5cmd`:
 
-    curl https://github.com/peak/s5cmd/ | ./s5cmd pipe s3://bucket/s5cmd.html
+    curl https://github.com/peak/s5cmd/ | s5cmd pipe s3://bucket/s5cmd.html
 
 Or you can compress the data before uploading:
 

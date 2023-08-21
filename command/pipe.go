@@ -29,6 +29,8 @@ Options:
 Examples:
 	01. Stream stdin to an object
 		 > echo "content" | gzip | s5cmd {{.HelpName}} s3://bucket/prefix/object.gz
+	02. Pass arbitrary metadata to an object
+		 > cat "flowers.png" | gzip | s5cmd {{.HelpName}} --metadata "imageSize=6032x4032" s3://bucket/prefix/flowers.gz
 `
 
 func NewPipeCommandFlags() []cli.Flag {

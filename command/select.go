@@ -142,7 +142,7 @@ func NewSelectCommand() *cli.Command {
 				Flags: append([]cli.Flag{
 					&cli.StringFlag{
 						Name:  "delimiter for the csv file",
-						Usage: "delimiter of the csv file. The input and output delimiters are same.",
+						Usage: "delimiter of the csv file.",
 						Value: ",",
 					},
 					&cli.StringFlag{

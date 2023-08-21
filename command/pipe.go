@@ -31,6 +31,10 @@ Examples:
 		 > echo "content" | gzip | s5cmd {{.HelpName}} s3://bucket/prefix/object.gz
 	02. Pass arbitrary metadata to an object
 		 > cat "flowers.png" | gzip | s5cmd {{.HelpName}} --metadata "imageSize=6032x4032" s3://bucket/prefix/flowers.gz
+	03. Download an object and stream it to a bucket
+		> curl https://github.com/peak/s5cmd/ | s5cmd {{.HelpName}} s3://bucket/s5cmd.html
+	04. Compress an object and stream it to a bucket
+		> tar -cf - file.bin | s5cmd {{.HelpName}} s3://bucket/file.bin.tar
 `
 
 func NewPipeCommandFlags() []cli.Flag {

@@ -2,24 +2,28 @@
 
 ## not released yet
 
-#### Breaking changes
-
 #### Features
-- Added `--content-disposition` flag to `cp` command. ([#569](https://github.com/peak/s5cmd/issues/569))
-- Added `--show-fullpath` flag to `ls`. ([#596](https://github.com/peak/s5cmd/issues/596))
 - Added `pipe` command. ([#182](https://github.com/peak/s5cmd/issues/182))
+- Added `presign` command. ([#634](https://github.com/peak/s5cmd/pull/634)) [@zemul](https://github.com/zemul)
 - Added `--show-progress` flag to `cp` to show a progress bar. ([#51](https://github.com/peak/s5cmd/issues/51))
 - Added `--include` flag to `cp`, `rm` and `sync` commands. ([#516](https://github.com/peak/s5cmd/issues/516))
+- Added `--content-disposition` flag to `cp` command. ([#569](https://github.com/peak/s5cmd/issues/569))
+- Added `--show-fullpath` flag to `ls`. ([#596](https://github.com/peak/s5cmd/issues/596))
 
 #### Improvements
 - Implemented concurrent multipart download support for `cat`. ([#245](https://github.com/peak/s5cmd/issues/245)) 
 - Upgraded minimum required Go version to 1.19. ([#583](https://github.com/peak/s5cmd/pull/583))
+- `ListObjectsV2` S3 API is enabled for Google Cloud Storage. ([#617](https://github.com/peak/s5cmd/pull/617))
+- Added installation instructions for FreeBSD. ([#573](https://github.com/peak/s5cmd/pull/573)) [@ehaupt](https://github.com/ehaupt)
+- Added `ppc64le` support. ([#552](https://github.com/peak/s5cmd/pull/552)) [@mgiessing](https://github.com/mgiessing)
 
 #### Bugfixes
-- Fixed a bug that causes `sync` command with whitespaced flag value to fail. ([#541](https://github.com/peak/s5cmd/issues/541))
+- Fixed a bug that causes `sync` command with whitespaced flag value to fail. ([#541](https://github.com/peak/s5cmd/issues/541)) [ataberkgrl](https://github.com/ataberkgrl)
 - Fixed a bug introduced with `external sort` support in `sync` command which prevents `sync` to an empty destination with `--delete` option. ([#576](https://github.com/peak/s5cmd/issues/576))
 - Fixed a bug in `sync` command, which previously caused the command to continue running even if an error was received from the destination bucket. ([#564](https://github.com/peak/s5cmd/issues/564))
 - Fixed a bug that causes local files to be lost if downloads fail. ([#479](https://github.com/peak/s5cmd/issues/479))
+- Fixed a bug where `cp` command could not upload a non-regular file to remote destination. ([#618](https://github.com/peak/s5cmd/pull/618))
+- Fixed a crash where a file or a remote object is removed or renamed after it is listed to be operated on. ([#620](https://github.com/peak/s5cmd/pull/620))
 
 ## v2.1.0 - 19 Jun 2023
 

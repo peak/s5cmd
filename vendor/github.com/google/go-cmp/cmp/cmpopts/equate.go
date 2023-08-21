@@ -1,17 +1,17 @@
 // Copyright 2017, The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
-// license that can be found in the LICENSE.md file.
+// license that can be found in the LICENSE file.
 
 // Package cmpopts provides common options for the cmp package.
 package cmpopts
 
 import (
+	"errors"
 	"math"
 	"reflect"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"golang.org/x/xerrors"
 )
 
 func equateAlways(_, _ interface{}) bool { return true }
@@ -42,6 +42,7 @@ func isEmpty(x, y interface{}) bool {
 // The fraction and margin must be non-negative.
 //
 // The mathematical expression used is equivalent to:
+//
 //	|x-y| ≤ max(fraction*min(|x|, |y|), margin)
 //
 // EquateApprox can be used in conjunction with EquateNaNs.
@@ -112,7 +113,7 @@ type timeApproximator struct {
 
 func (a timeApproximator) compare(x, y time.Time) bool {
 	// Avoid subtracting times to avoid overflow when the
-	// difference is larger than the largest representible duration.
+	// difference is larger than the largest representable duration.
 	if x.After(y) {
 		// Ensure x is always before y
 		x, y = y, x
@@ -151,6 +152,5 @@ func areConcreteErrors(x, y interface{}) bool {
 func compareErrors(x, y interface{}) bool {
 	xe := x.(error)
 	ye := y.(error)
-	// TODO: Use errors.Is when go1.13 is the minimally supported version of Go.
-	return xerrors.Is(xe, ye) || xerrors.Is(ye, xe)
+	return errors.Is(xe, ye) || errors.Is(ye, xe)
 }

@@ -3,6 +3,9 @@
 ## not released yet
 
 #### Features
+- Added file types to `select` queries with more range of options to set during the query. ([#494](https://github.com/peak/s5cmd/issues/494))
+- Added `--content-disposition` flag to `cp` command. ([#569](https://github.com/peak/s5cmd/issues/569))
+- Added `--show-fullpath` flag to `ls`. ([#596](https://github.com/peak/s5cmd/issues/596))
 - Added `pipe` command. ([#182](https://github.com/peak/s5cmd/issues/182))
 - Added `presign` command. ([#634](https://github.com/peak/s5cmd/pull/634)) [@zemul](https://github.com/zemul)
 - Added `--show-progress` flag to `cp` to show a progress bar. ([#51](https://github.com/peak/s5cmd/issues/51))
@@ -10,6 +13,7 @@
 - Added `--include` flag to `cp`, `rm` and `sync` commands. ([#516](https://github.com/peak/s5cmd/issues/516))
 - Added `--content-disposition` flag to `cp` command. ([#569](https://github.com/peak/s5cmd/issues/569))
 - Added `--show-fullpath` flag to `ls`. ([#596](https://github.com/peak/s5cmd/issues/596))
+
 
 #### Improvements
 - Implemented concurrent multipart download support for `cat`. ([#245](https://github.com/peak/s5cmd/issues/245)) 

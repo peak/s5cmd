@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/tls"
+	"encoding/csv"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -623,9 +624,78 @@ func (s *S3) Get(
 }
 
 type SelectQuery struct {
-	ExpressionType  string
-	Expression      string
-	CompressionType string
+	InputFormat           string
+	InputContentStructure string
+	FileHeaderInfo        string
+	OutputFormat          string
+	ExpressionType        string
+	Expression            string
+	CompressionType       string
+}
+
+type eventType string
+
+const (
+	jsonType    eventType = "json"
+	csvType     eventType = "csv"
+	parquetType eventType = "parquet"
+)
+
+func parseInputSerialization(e eventType, c string, delimiter string, headerInfo string) (*s3.InputSerialization, error) {
+	var s *s3.InputSerialization
+
+	switch e {
+	case jsonType:
+		s = &s3.InputSerialization{
+			JSON: &s3.JSONInput{
+				Type: aws.String(delimiter),
+			},
+		}
+		if c != "" {
+			s.CompressionType = aws.String(c)
+		}
+	case csvType:
+		s = &s3.InputSerialization{
+			CSV: &s3.CSVInput{
+				FieldDelimiter: aws.String(delimiter),
+				FileHeaderInfo: aws.String(headerInfo),
+			},
+		}
+		if c != "" {
+			s.CompressionType = aws.String(c)
+		}
+	case parquetType:
+		s = &s3.InputSerialization{
+			Parquet: &s3.ParquetInput{},
+		}
+	default:
+		return nil, fmt.Errorf("input format is not valid")
+	}
+
+	return s, nil
+}
+
+func parseOutputSerialization(e eventType, delimiter string, reader io.Reader) (*s3.OutputSerialization, EventStreamDecoder, error) {
+	var s *s3.OutputSerialization
+	var decoder EventStreamDecoder
+
+	switch e {
+	case jsonType:
+		s = &s3.OutputSerialization{
+			JSON: &s3.JSONOutput{},
+		}
+		decoder = NewJSONDecoder(reader)
+	case csvType:
+		s = &s3.OutputSerialization{
+			CSV: &s3.CSVOutput{
+				FieldDelimiter: aws.String(delimiter),
+			},
+		}
+		decoder = NewCsvDecoder(reader)
+	default:
+		return nil, nil, fmt.Errorf("output serialization is not valid")
+	}
+	return s, decoder, nil
 }
 
 func (s *S3) Select(ctx context.Context, url *url.URL, query *SelectQuery, resultCh chan<- json.RawMessage) error {
@@ -633,28 +703,53 @@ func (s *S3) Select(ctx context.Context, url *url.URL, query *SelectQuery, resul
 		return nil
 	}
 
+	var (
+		inputFormat  *s3.InputSerialization
+		outputFormat *s3.OutputSerialization
+		decoder      EventStreamDecoder
+	)
+	reader, writer := io.Pipe()
+
+	inputFormat, err := parseInputSerialization(
+		eventType(query.InputFormat),
+		query.CompressionType,
+		query.InputContentStructure,
+		query.FileHeaderInfo,
+	)
+
+	if err != nil {
+		return err
+	}
+
+	// set the delimiter to ','. Otherwise, delimiter is set to "lines" or "document"
+	// for json queries.
+	if query.InputFormat == string(jsonType) && query.OutputFormat == string(csvType) {
+		query.InputContentStructure = ","
+	}
+
+	outputFormat, decoder, err = parseOutputSerialization(
+		eventType(query.OutputFormat),
+		query.InputContentStructure,
+		reader,
+	)
+
+	if err != nil {
+		return err
+	}
+
 	input := &s3.SelectObjectContentInput{
-		Bucket:         aws.String(url.Bucket),
-		Key:            aws.String(url.Path),
-		ExpressionType: aws.String(query.ExpressionType),
-		Expression:     aws.String(query.Expression),
-		InputSerialization: &s3.InputSerialization{
-			CompressionType: aws.String(query.CompressionType),
-			JSON: &s3.JSONInput{
-				Type: aws.String("Lines"),
-			},
-		},
-		OutputSerialization: &s3.OutputSerialization{
-			JSON: &s3.JSONOutput{},
-		},
+		Bucket:              aws.String(url.Bucket),
+		Key:                 aws.String(url.Path),
+		ExpressionType:      aws.String(query.ExpressionType),
+		Expression:          aws.String(query.Expression),
+		InputSerialization:  inputFormat,
+		OutputSerialization: outputFormat,
 	}
 
 	resp, err := s.api.SelectObjectContentWithContext(ctx, input)
 	if err != nil {
 		return err
 	}
-
-	reader, writer := io.Pipe()
 
 	go func() {
 		defer writer.Close()
@@ -678,18 +773,15 @@ func (s *S3) Select(ctx context.Context, url *url.URL, query *SelectQuery, resul
 			}
 		}
 	}()
-
-	decoder := json.NewDecoder(reader)
 	for {
-		var record json.RawMessage
-		err := decoder.Decode(&record)
+		val, err := decoder.Decode()
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
 			return err
 		}
-		resultCh <- record
+		resultCh <- val
 	}
 
 	return resp.EventStream.Reader.Err()
@@ -1316,4 +1408,61 @@ func IsCancelationError(err error) bool {
 func generateRetryID() *string {
 	num, _ := rand.Int(rand.Reader, big.NewInt(math.MaxInt64))
 	return aws.String(num.String())
+}
+
+// EventStreamDecoder decodes a s3.Event with
+// the given decoder.
+type EventStreamDecoder interface {
+	Decode() ([]byte, error)
+}
+
+type JSONDecoder struct {
+	decoder *json.Decoder
+}
+
+func NewJSONDecoder(reader io.Reader) EventStreamDecoder {
+	return &JSONDecoder{
+		decoder: json.NewDecoder(reader),
+	}
+}
+
+func (jd *JSONDecoder) Decode() ([]byte, error) {
+	var val json.RawMessage
+	err := jd.decoder.Decode(&val)
+	if err != nil {
+		return nil, err
+	}
+	return val, nil
+}
+
+type CsvDecoder struct {
+	decoder   *csv.Reader
+	delimiter string
+}
+
+func NewCsvDecoder(reader io.Reader) EventStreamDecoder {
+	csvDecoder := &CsvDecoder{
+		decoder:   csv.NewReader(reader),
+		delimiter: ",",
+	}
+	// returned values from AWS has double quotes in it
+	// so we enable lazy quotes
+	csvDecoder.decoder.LazyQuotes = true
+	return csvDecoder
+}
+
+func (cd *CsvDecoder) Decode() ([]byte, error) {
+	res, err := cd.decoder.Read()
+	if err != nil {
+		return nil, err
+	}
+
+	result := []byte{}
+	for i, str := range res {
+		if i != len(res)-1 {
+			str = fmt.Sprintf("%s%s", str, cd.delimiter)
+		}
+		result = append(result, []byte(str)...)
+	}
+	return result, nil
 }

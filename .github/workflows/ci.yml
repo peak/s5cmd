@@ -41,6 +41,19 @@ jobs:
 
     name: test (${{ matrix.os }}/go-${{ matrix.go-version }})
     runs-on: ${{ matrix.os }}-latest
+    services:
+      minio:
+        image: ${{ (matrix.os == 'ubuntu') && 'bitnami/minio:2023.7.18' || ''}}
+        ports:
+          - 45677:9000
+        options: >-
+          --health-cmd "curl -I http://localhost:9000/minio/health/live -s"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        env:
+          MINIO_ROOT_USER: minioadmin
+          MINIO_ROOT_PASSWORD: minioadmin
     steps:
     - uses: actions/checkout@v2
     - uses: actions/setup-go@v2
@@ -48,7 +61,8 @@ jobs:
         go-version: ${{ matrix.go-version }}
 
     - run: make test
-
+      env:
+        S5CMD_TEST_ENDPOINT_URL: ${{ (matrix.os == 'ubuntu') && 'http://localhost:45677' || '' }}
   qa:
     strategy:
       matrix:

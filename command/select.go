@@ -35,7 +35,7 @@ Examples:
 		 > s5cmd select csv --delimiter=\t --compression GZIP --output-format csv --query "SELECT s.avg_price, s.quantity FROM S3Object s WHERE s.item='avocado'" "s3://bucket/itemprices"
 
 	03. Select a specific field in a JSON document 
-		 > s5cmd select json --structure document --compression GZIP --output-format csv --query "SELECT s.tracking_id FROM s3object[*]['metadata']['.zattrs'] s" "s3://bucket/metadataobj"
+		 > s5cmd select json --structure document --query "SELECT s.tracking_id FROM s3object[*]['metadata']['.zattrs'] s" "s3://bucket/metadata.json"
 
 	04. Query CSV files using their headers to access columns by their name 
 		 > s5cmd select csv --use-header=USE --delimiter "\t" --query "SELECT s.name FROM s3object s WHERE s.price='1.99'" "s3://bucket/prices.tsv"

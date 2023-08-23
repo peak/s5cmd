@@ -4,7 +4,7 @@ before:
 builds:
   -
     binary: s5cmd
-    ldflags: -s -w -X github.com/peak/s5cmd/version.Version={{.Tag}} -X github.com/peak/s5cmd/version.GitCommit={{ .ShortCommit }}
+    ldflags: -s -w -X github.com/peak/s5cmd/v2/version.Version={{.Tag}} -X github.com/peak/s5cmd/v2/version.GitCommit={{ .ShortCommit }}
     env:
       - CGO_ENABLED=0
     goos:

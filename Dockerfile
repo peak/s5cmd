@@ -5,6 +5,7 @@ RUN apk add --no-cache git make && \
     CGO_ENABLED=0 make build
 
 FROM alpine:3.15
+RUN apk add --no-cache coreutils findutils bash grep jq
 COPY --from=build /s5cmd/s5cmd .
 WORKDIR /aws
 ENTRYPOINT ["/s5cmd"]

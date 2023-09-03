@@ -225,10 +225,10 @@ type Metadata struct {
 	Expires            string
 	StorageClass       string
 	ContentType        string
+	ContentEncoding    string
 	ContentDisposition string
 	EncryptionMethod   string
 	EncryptionKeyID    string
-	ContentEncoding    string
 
 	UserDefined map[string]string
 }

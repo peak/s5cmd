@@ -689,7 +689,19 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL, ex
 	if err != nil {
 		return err
 	}
+
 	metadata := storage.Metadata{UserDefined: extradata}
+	if c.acl != "" {
+		metadata.ACL = c.acl
+	}
+
+	if c.cacheControl != "" {
+		metadata.CacheControl = c.cacheControl
+	}
+
+	if c.expires != "" {
+		metadata.Expires = c.expires
+	}
 
 	if c.storageClass != "" {
 		metadata.StorageClass = string(c.storageClass)
@@ -707,6 +719,14 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL, ex
 
 	if c.contentDisposition != "" {
 		metadata.ContentDisposition = c.contentDisposition
+	}
+
+	if c.encryptionMethod != "" {
+		metadata.EncryptionMethod = c.encryptionMethod
+	}
+
+	if c.encryptionKeyID != "" {
+		metadata.EncryptionKeyID = c.encryptionKeyID
 	}
 
 	reader := newCountingReaderWriter(file, c.progressbar)
@@ -756,6 +776,18 @@ func (c Copy) doCopy(ctx context.Context, srcurl, dsturl *url.URL, extradata map
 	}
 
 	metadata := storage.Metadata{UserDefined: extradata}
+	if c.acl != "" {
+		metadata.ACL = c.acl
+	}
+
+	if c.cacheControl != "" {
+		metadata.CacheControl = c.cacheControl
+	}
+
+	if c.expires != "" {
+		metadata.Expires = c.expires
+	}
+
 	if c.storageClass != "" {
 		metadata.StorageClass = string(c.storageClass)
 	}
@@ -767,8 +799,17 @@ func (c Copy) doCopy(ctx context.Context, srcurl, dsturl *url.URL, extradata map
 	if c.contentEncoding != "" {
 		metadata.ContentEncoding = c.contentEncoding
 	}
+
 	if c.contentDisposition != "" {
 		metadata.ContentDisposition = c.contentDisposition
+	}
+
+	if c.encryptionMethod != "" {
+		metadata.EncryptionMethod = c.encryptionMethod
+	}
+
+	if c.encryptionKeyID != "" {
+		metadata.EncryptionKeyID = c.encryptionKeyID
 	}
 
 	err = c.shouldOverride(ctx, srcurl, dsturl)

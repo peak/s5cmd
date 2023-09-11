@@ -571,13 +571,43 @@ func setBucketVersioning(t *testing.T, s3client *s3.S3, bucket string, versionin
 var errS3NoSuchKey = fmt.Errorf("s3: no such key")
 
 type ensureOpts struct {
+	acl                *string
+	cacheControl       *string
+	expires            *string
+	storageClass       *string
 	contentType        *string
 	contentDisposition *string
+	contentEncoding    *string
+	encryptionMethod   *string
+	encryptionKeyID    *string
 	metadata           map[string]*string
-	storageClass       *string
 }
 
 type ensureOption func(*ensureOpts)
+
+func ensureACL(acl string) ensureOption {
+	return func(opts *ensureOpts) {
+		opts.acl = &acl
+	}
+}
+
+func ensureCacheControl(cacheControl string) ensureOption {
+	return func(opts *ensureOpts) {
+		opts.cacheControl = &cacheControl
+	}
+}
+
+func ensureExpires(expires string) ensureOption {
+	return func(opts *ensureOpts) {
+		opts.expires = &expires
+	}
+}
+
+func ensureStorageClass(expected string) ensureOption {
+	return func(opts *ensureOpts) {
+		opts.storageClass = &expected
+	}
+}
 
 func ensureContentType(contentType string) ensureOption {
 	return func(opts *ensureOpts) {
@@ -591,12 +621,22 @@ func ensureContentDisposition(contentDisposition string) ensureOption {
 	}
 }
 
-func ensureStorageClass(expected string) ensureOption {
+func ensureContentEncoding(contentEncoding string) ensureOption {
 	return func(opts *ensureOpts) {
-		opts.storageClass = &expected
+		opts.contentEncoding = &contentEncoding
+	}
+}
+func ensureEncryptionMethod(encryptionMethod string) ensureOption {
+	return func(opts *ensureOpts) {
+		opts.encryptionMethod = &encryptionMethod
 	}
 }
 
+func ensureEncryptionKeyID(encryptionKeyID string) ensureOption {
+	return func(opts *ensureOpts) {
+		opts.encryptionKeyID = &encryptionKeyID
+	}
+}
 func ensureArbitraryMetadata(metadata map[string]*string) ensureOption {
 	return func(opts *ensureOpts) {
 		opts.metadata = metadata
@@ -641,6 +681,42 @@ func ensureS3Object(
 		return fmt.Errorf("s3 %v/%v: (-want +got):\n%v", bucket, key, diff)
 	}
 
+	// ACL is not returned by GetObject, so we need to make a separate call.
+	// TODO: Implement GetObjectAcl endpoint
+	// in gofakes3
+	if opts.acl != nil {
+		getACLOutput, err := client.GetObjectAcl(&s3.GetObjectAclInput{
+			Bucket: aws.String(bucket),
+			Key:    aws.String(key),
+		})
+
+		if err != nil {
+			return err
+		}
+
+		if diff := cmp.Diff(*opts.acl, *getACLOutput.Grants[0].Permission); diff != "" {
+			return fmt.Errorf("acl of %v/%v: (-want +got):\n%v", bucket, key, diff)
+		}
+	}
+
+	if opts.cacheControl != nil {
+		if diff := cmp.Diff(opts.cacheControl, output.CacheControl); diff != "" {
+			return fmt.Errorf("cache-control of %v/%v: (-want +got):\n%v", bucket, key, diff)
+		}
+	}
+
+	if opts.expires != nil {
+		if diff := cmp.Diff(opts.expires, output.Expires); diff != "" {
+			return fmt.Errorf("expires of %v/%v: (-want +got):\n%v", bucket, key, diff)
+		}
+	}
+
+	if opts.contentEncoding != nil {
+		if diff := cmp.Diff(opts.contentEncoding, output.ContentEncoding); diff != "" {
+			return fmt.Errorf("content-encoding of %v/%v: (-want +got):\n%v", bucket, key, diff)
+		}
+	}
+
 	if opts.contentType != nil {
 		if diff := cmp.Diff(opts.contentType, output.ContentType); diff != "" {
 			return fmt.Errorf("content-type of %v/%v: (-want +got):\n%v", bucket, key, diff)
@@ -660,6 +736,18 @@ func ensureS3Object(
 		}
 	}
 
+	if opts.encryptionMethod != nil {
+		if diff := cmp.Diff(opts.encryptionMethod, output.ServerSideEncryption); diff != "" {
+			return fmt.Errorf("encryption-method of %v/%v: (-want +got):\n%v", bucket, key, diff)
+		}
+	}
+
+	if opts.encryptionKeyID != nil {
+		if diff := cmp.Diff(opts.encryptionKeyID, output.SSEKMSKeyId); diff != "" {
+			return fmt.Errorf("encryption-key-id of %v/%v: (-want +got):\n%v", bucket, key, diff)
+		}
+	}
+
 	if opts.metadata != nil {
 		for mkey := range opts.metadata {
 			if opts.metadata[mkey] == nil || output.Metadata[mkey] == nil {
@@ -673,28 +761,27 @@ func ensureS3Object(
 	return nil
 }
 
-func putFile(t *testing.T, client *s3.S3, bucket string, filename string, content string) {
-	t.Helper()
+type putOption func(*s3.PutObjectInput)
 
-	_, err := client.PutObject(&s3.PutObjectInput{
-		Body:   strings.NewReader(content),
-		Bucket: aws.String(bucket),
-		Key:    aws.String(filename),
-	})
-	if err != nil {
-		t.Fatal(err)
+func putArbitraryMetadata(metadata map[string]*string) putOption {
+	return func(opts *s3.PutObjectInput) {
+		opts.Metadata = metadata
 	}
 }
 
-func putFileWithMetadata(t *testing.T, client *s3.S3, bucket string, filename string, content string, metadata map[string]*string) {
+func putFile(t *testing.T, client *s3.S3, bucket string, filename string, content string, opts ...putOption) {
 	t.Helper()
+	input := &s3.PutObjectInput{
+		Body:   strings.NewReader(content),
+		Bucket: aws.String(bucket),
+		Key:    aws.String(filename),
+	}
 
-	_, err := client.PutObject(&s3.PutObjectInput{
-		Body:     strings.NewReader(content),
-		Bucket:   aws.String(bucket),
-		Key:      aws.String(filename),
-		Metadata: metadata,
-	})
+	for _, opt := range opts {
+		opt(input)
+	}
+
+	_, err := client.PutObject(input)
 	if err != nil {
 		t.Fatal(err)
 	}

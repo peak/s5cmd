@@ -1039,10 +1039,13 @@ func metadataHeaders(headers map[string][]string, at time.Time, sizeLimit int) (
 		if strings.HasPrefix(hk, "X-Amz-") ||
 			hk == "Content-Type" ||
 			hk == "Content-Disposition" ||
-			hk == "Content-Encoding" {
+			hk == "Content-Encoding" ||
+			hk == "Expires" ||
+			hk == "Cache-Control" {
 			meta[hk] = hv[0]
 		}
 	}
+
 	meta["Last-Modified"] = formatHeaderTime(at)
 
 	if sizeLimit > 0 && metadataSize(meta) > sizeLimit {

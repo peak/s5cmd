@@ -3,11 +3,14 @@ package e2e
 import (
 	"bytes"
 	"fmt"
+	"net/http"
 	"runtime"
 	"testing"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"gotest.tools/v3/assert"
+	"gotest.tools/v3/fs"
 	"gotest.tools/v3/icmd"
 )
 
@@ -461,44 +464,68 @@ func TestUploadStdinToS3WithStorageClassGlacier(t *testing.T) {
 }
 
 // pipe --content-disposition inline s3://bucket/object
-func TestUploadStdinToToS3WithContentDisposition(t *testing.T) {
+func TestUploadStdinToToS3WithAllMetadataFlags(t *testing.T) {
 	t.Parallel()
 
 	s3client, s5cmd := setup(t)
 
 	bucket := s3BucketFromTestName(t)
+
 	createBucket(t, s3client, bucket)
 
 	const (
-		// make sure that Put reads the file header and guess Content-Type correctly.
-		filename = "index.html"
-		content  = `
-<html lang="tr">
-	<head>
-	<meta charset="utf-8">
-	<body>
-		<header></header>
-		<main></main>
-		<footer></footer>
-	</body>
-</html>
-`
-		expectedContentType        = "text/html; charset=utf-8"
-		expectedContentDisposition = "inline"
+		filename           = "index"
+		content            = `testfilecontent`
+		cacheControl       = "public, max-age=3600"
+		expires            = "2025-01-01T00:00:00Z"
+		storageClass       = "STANDARD_IA"
+		ContentType        = "text/html; charset=utf-8"
+		ContentDisposition = "inline"
+		ContentEncoding    = "utf-8"
+		EncryptionMethod   = "aws:kms"
+		EncryptionKeyID    = "1234abcd-12ab-34cd-56ef-1234567890ab"
 	)
 
+	// expected expires flag is the parsed version of the date in RFC3339 format
+	parsedTime, err := time.Parse(time.RFC3339, expires)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expectedExpires := parsedTime.Format(http.TimeFormat)
+
+	workdir := fs.NewDir(t, bucket, fs.WithFile(filename, content))
+	defer workdir.Remove()
+
 	dstpath := fmt.Sprintf("s3://%v/%v", bucket, filename)
+
 	reader := bytes.NewBufferString(content)
 
-	cmd := s5cmd("pipe", "--content-disposition", "inline", dstpath)
+	cmd := s5cmd("pipe",
+		"--cache-control", cacheControl,
+		"--expires", expires,
+		"--storage-class", storageClass,
+		"--content-type", ContentType,
+		"--content-disposition", ContentDisposition,
+		"--content-encoding", ContentEncoding,
+		"--sse", EncryptionMethod,
+		"--sse-kms-key-id", EncryptionKeyID,
+		dstpath,
+	)
+
 	result := icmd.RunCmd(cmd, icmd.WithStdin(reader))
 
 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: suffix(`pipe %v`, dstpath),
-	})
-
 	// assert S3
-	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content, ensureContentType(expectedContentType), ensureContentDisposition(expectedContentDisposition)))
+	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content,
+		ensureExpires(expectedExpires),
+		ensureCacheControl(cacheControl),
+		ensureStorageClass(storageClass),
+		ensureContentType(ContentType),
+		ensureContentDisposition(ContentDisposition),
+		ensureContentEncoding(ContentEncoding),
+		ensureEncryptionMethod(EncryptionMethod),
+		ensureEncryptionKeyID(EncryptionKeyID),
+	))
 }

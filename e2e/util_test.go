@@ -433,6 +433,7 @@ func createBucket(t *testing.T, client *s3.S3, bucket string) {
 
 	input := &s3.CreateBucketInput{
 		Bucket: aws.String(bucket),
+		ACL:    aws.String(s3.BucketCannedACLPublicRead),
 	}
 
 	_, err := client.CreateBucket(input)
@@ -571,7 +572,6 @@ func setBucketVersioning(t *testing.T, s3client *s3.S3, bucket string, versionin
 var errS3NoSuchKey = fmt.Errorf("s3: no such key")
 
 type ensureOpts struct {
-	acl                *string
 	cacheControl       *string
 	expires            *string
 	storageClass       *string
@@ -584,12 +584,6 @@ type ensureOpts struct {
 }
 
 type ensureOption func(*ensureOpts)
-
-func ensureACL(acl string) ensureOption {
-	return func(opts *ensureOpts) {
-		opts.acl = &acl
-	}
-}
 
 func ensureCacheControl(cacheControl string) ensureOption {
 	return func(opts *ensureOpts) {
@@ -679,24 +673,6 @@ func ensureS3Object(
 
 	if diff := cmp.Diff(content, body.String()); diff != "" {
 		return fmt.Errorf("s3 %v/%v: (-want +got):\n%v", bucket, key, diff)
-	}
-
-	// ACL is not returned by GetObject, so we need to make a separate call.
-	// TODO: Implement GetObjectAcl endpoint
-	// in gofakes3
-	if opts.acl != nil {
-		getACLOutput, err := client.GetObjectAcl(&s3.GetObjectAclInput{
-			Bucket: aws.String(bucket),
-			Key:    aws.String(key),
-		})
-
-		if err != nil {
-			return err
-		}
-
-		if diff := cmp.Diff(*opts.acl, *getACLOutput.Grants[0].Permission); diff != "" {
-			return fmt.Errorf("acl of %v/%v: (-want +got):\n%v", bucket, key, diff)
-		}
 	}
 
 	if opts.cacheControl != nil {

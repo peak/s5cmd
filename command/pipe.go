@@ -222,43 +222,19 @@ func (c Pipe) Run(ctx context.Context) error {
 	}
 
 	metadata := storage.Metadata{UserDefined: c.metadata}
-	if c.acl != "" {
-		metadata.ACL = c.acl
-	}
-
-	if c.cacheControl != "" {
-		metadata.CacheControl = c.cacheControl
-	}
-
-	if c.expires != "" {
-		metadata.Expires = c.expires
-	}
-
-	if c.storageClass != "" {
-		metadata.StorageClass = string(c.storageClass)
-	}
-
+	metadata.ACL = c.acl
+	metadata.CacheControl = c.cacheControl
+	metadata.Expires = c.expires
+	metadata.StorageClass = string(c.storageClass)
 	if c.contentType != "" {
 		metadata.ContentType = c.contentType
 	} else {
 		metadata.ContentType = guessContentTypeByExtension(c.dst)
 	}
-
-	if c.contentEncoding != "" {
-		metadata.ContentEncoding = c.contentEncoding
-	}
-
-	if c.contentDisposition != "" {
-		metadata.ContentDisposition = c.contentDisposition
-	}
-
-	if c.encryptionMethod != "" {
-		metadata.EncryptionMethod = c.encryptionMethod
-	}
-
-	if c.encryptionKeyID != "" {
-		metadata.EncryptionKeyID = c.encryptionKeyID
-	}
+	metadata.ContentEncoding = c.contentEncoding
+	metadata.ContentDisposition = c.contentDisposition
+	metadata.EncryptionMethod = c.encryptionMethod
+	metadata.EncryptionKeyID = c.encryptionKeyID
 
 	err = client.Put(ctx, &stdin{file: os.Stdin}, c.dst, metadata, c.concurrency, c.partSize)
 	if err != nil {

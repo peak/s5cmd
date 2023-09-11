@@ -691,21 +691,10 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL, ex
 	}
 
 	metadata := storage.Metadata{UserDefined: extradata}
-	if c.acl != "" {
-		metadata.ACL = c.acl
-	}
-
-	if c.cacheControl != "" {
-		metadata.CacheControl = c.cacheControl
-	}
-
-	if c.expires != "" {
-		metadata.Expires = c.expires
-	}
-
-	if c.storageClass != "" {
-		metadata.StorageClass = string(c.storageClass)
-	}
+	metadata.ACL = c.acl
+	metadata.CacheControl = c.cacheControl
+	metadata.Expires = c.expires
+	metadata.StorageClass = string(c.storageClass)
 
 	if c.contentType != "" {
 		metadata.ContentType = c.contentType
@@ -713,21 +702,10 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL, ex
 		metadata.ContentType = guessContentType(file)
 	}
 
-	if c.contentEncoding != "" {
-		metadata.ContentEncoding = c.contentEncoding
-	}
-
-	if c.contentDisposition != "" {
-		metadata.ContentDisposition = c.contentDisposition
-	}
-
-	if c.encryptionMethod != "" {
-		metadata.EncryptionMethod = c.encryptionMethod
-	}
-
-	if c.encryptionKeyID != "" {
-		metadata.EncryptionKeyID = c.encryptionKeyID
-	}
+	metadata.ContentEncoding = c.contentEncoding
+	metadata.ContentDisposition = c.contentDisposition
+	metadata.EncryptionMethod = c.encryptionMethod
+	metadata.EncryptionKeyID = c.encryptionKeyID
 
 	reader := newCountingReaderWriter(file, c.progressbar)
 	err = dstClient.Put(ctx, reader, dsturl, metadata, c.concurrency, c.partSize)
@@ -776,41 +754,15 @@ func (c Copy) doCopy(ctx context.Context, srcurl, dsturl *url.URL, extradata map
 	}
 
 	metadata := storage.Metadata{UserDefined: extradata}
-	if c.acl != "" {
-		metadata.ACL = c.acl
-	}
-
-	if c.cacheControl != "" {
-		metadata.CacheControl = c.cacheControl
-	}
-
-	if c.expires != "" {
-		metadata.Expires = c.expires
-	}
-
-	if c.storageClass != "" {
-		metadata.StorageClass = string(c.storageClass)
-	}
-
-	if c.contentType != "" {
-		metadata.ContentType = c.contentType
-	}
-
-	if c.contentEncoding != "" {
-		metadata.ContentEncoding = c.contentEncoding
-	}
-
-	if c.contentDisposition != "" {
-		metadata.ContentDisposition = c.contentDisposition
-	}
-
-	if c.encryptionMethod != "" {
-		metadata.EncryptionMethod = c.encryptionMethod
-	}
-
-	if c.encryptionKeyID != "" {
-		metadata.EncryptionKeyID = c.encryptionKeyID
-	}
+	metadata.ACL = c.acl
+	metadata.CacheControl = c.cacheControl
+	metadata.Expires = c.expires
+	metadata.StorageClass = string(c.storageClass)
+	metadata.ContentType = c.contentType
+	metadata.ContentEncoding = c.contentEncoding
+	metadata.ContentDisposition = c.contentDisposition
+	metadata.EncryptionMethod = c.encryptionMethod
+	metadata.EncryptionKeyID = c.encryptionKeyID
 
 	err = c.shouldOverride(ctx, srcurl, dsturl)
 	if err != nil {

@@ -767,7 +767,9 @@ func TestCopySingleFileToS3WithAllMetadataFlags(t *testing.T) {
 		"--content-encoding", ContentEncoding,
 		"--sse", EncryptionMethod,
 		"--sse-kms-key-id", EncryptionKeyID,
-		srcpath, dstpath)
+		srcpath, dstpath,
+	)
+
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Success)
@@ -785,44 +787,6 @@ func TestCopySingleFileToS3WithAllMetadataFlags(t *testing.T) {
 		ensureEncryptionMethod(EncryptionMethod),
 		ensureEncryptionKeyID(EncryptionKeyID),
 	))
-
-}
-
-// NOTE: This test needs an implementation of the
-// `ACL` feature in gofakes3.
-func TestCopySingleFileToS3WithACLFlag(t *testing.T) {
-	t.Skip()
-
-	t.Parallel()
-
-	s3client, s5cmd := setup(t)
-
-	bucket := s3BucketFromTestName(t)
-
-	createBucket(t, s3client, bucket)
-
-	const (
-		filename = "index"
-		content  = `testfilecontent`
-		acl      = "public-read"
-	)
-
-	workdir := fs.NewDir(t, bucket, fs.WithFile(filename, content))
-	defer workdir.Remove()
-
-	srcpath := workdir.Join(filename)
-	dstpath := fmt.Sprintf("s3://%v/", bucket)
-
-	srcpath = filepath.ToSlash(srcpath)
-	cmd := s5cmd("cp", "--acl", acl, srcpath, dstpath)
-	result := icmd.RunCmd(cmd)
-
-	result.Assert(t, icmd.Success)
-
-	expected := fs.Expected(t, fs.WithFile(filename, content))
-	assert.Assert(t, fs.Equal(workdir.Path(), expected))
-
-	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content, ensureACL(acl)))
 
 }
 

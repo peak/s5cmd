@@ -221,20 +221,23 @@ func (c Pipe) Run(ctx context.Context) error {
 		return err
 	}
 
-	metadata := storage.Metadata{UserDefined: c.metadata}
-	metadata.ACL = c.acl
-	metadata.CacheControl = c.cacheControl
-	metadata.Expires = c.expires
-	metadata.StorageClass = string(c.storageClass)
+	metadata := storage.Metadata{
+		UserDefined:        c.metadata,
+		ACL:                c.acl,
+		CacheControl:       c.cacheControl,
+		Expires:            c.expires,
+		StorageClass:       string(c.storageClass),
+		ContentEncoding:    c.contentEncoding,
+		ContentDisposition: c.contentDisposition,
+		EncryptionMethod:   c.encryptionMethod,
+		EncryptionKeyID:    c.encryptionKeyID,
+	}
+
 	if c.contentType != "" {
 		metadata.ContentType = c.contentType
 	} else {
 		metadata.ContentType = guessContentTypeByExtension(c.dst)
 	}
-	metadata.ContentEncoding = c.contentEncoding
-	metadata.ContentDisposition = c.contentDisposition
-	metadata.EncryptionMethod = c.encryptionMethod
-	metadata.EncryptionKeyID = c.encryptionKeyID
 
 	err = client.Put(ctx, &stdin{file: os.Stdin}, c.dst, metadata, c.concurrency, c.partSize)
 	if err != nil {

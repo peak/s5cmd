@@ -690,22 +690,23 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL, ex
 		return err
 	}
 
-	metadata := storage.Metadata{UserDefined: extradata}
-	metadata.ACL = c.acl
-	metadata.CacheControl = c.cacheControl
-	metadata.Expires = c.expires
-	metadata.StorageClass = string(c.storageClass)
+	metadata := storage.Metadata{
+		UserDefined:        extradata,
+		ACL:                c.acl,
+		CacheControl:       c.cacheControl,
+		Expires:            c.expires,
+		StorageClass:       string(c.storageClass),
+		ContentEncoding:    c.contentEncoding,
+		ContentDisposition: c.contentDisposition,
+		EncryptionMethod:   c.encryptionMethod,
+		EncryptionKeyID:    c.encryptionKeyID,
+	}
 
 	if c.contentType != "" {
 		metadata.ContentType = c.contentType
 	} else {
 		metadata.ContentType = guessContentType(file)
 	}
-
-	metadata.ContentEncoding = c.contentEncoding
-	metadata.ContentDisposition = c.contentDisposition
-	metadata.EncryptionMethod = c.encryptionMethod
-	metadata.EncryptionKeyID = c.encryptionKeyID
 
 	reader := newCountingReaderWriter(file, c.progressbar)
 	err = dstClient.Put(ctx, reader, dsturl, metadata, c.concurrency, c.partSize)
@@ -753,16 +754,18 @@ func (c Copy) doCopy(ctx context.Context, srcurl, dsturl *url.URL, extradata map
 		return err
 	}
 
-	metadata := storage.Metadata{UserDefined: extradata}
-	metadata.ACL = c.acl
-	metadata.CacheControl = c.cacheControl
-	metadata.Expires = c.expires
-	metadata.StorageClass = string(c.storageClass)
-	metadata.ContentType = c.contentType
-	metadata.ContentEncoding = c.contentEncoding
-	metadata.ContentDisposition = c.contentDisposition
-	metadata.EncryptionMethod = c.encryptionMethod
-	metadata.EncryptionKeyID = c.encryptionKeyID
+	metadata := storage.Metadata{
+		UserDefined:        extradata,
+		ACL:                c.acl,
+		CacheControl:       c.cacheControl,
+		Expires:            c.expires,
+		StorageClass:       string(c.storageClass),
+		ContentType:        c.contentType,
+		ContentEncoding:    c.contentEncoding,
+		ContentDisposition: c.contentDisposition,
+		EncryptionMethod:   c.encryptionMethod,
+		EncryptionKeyID:    c.encryptionKeyID,
+	}
 
 	err = c.shouldOverride(ctx, srcurl, dsturl)
 	if err != nil {

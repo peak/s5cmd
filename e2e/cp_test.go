@@ -25,6 +25,7 @@ package e2e
 import (
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -720,6 +721,75 @@ func TestCopySingleFileToS3(t *testing.T) {
 	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content, ensureContentType(expectedContentType), ensureContentDisposition(expectedContentDisposition)))
 }
 
+func TestCopySingleFileToS3WithAllMetadataFlags(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd := setup(t)
+
+	bucket := s3BucketFromTestName(t)
+
+	createBucket(t, s3client, bucket)
+
+	const (
+		filename           = "index"
+		content            = `testfilecontent`
+		cacheControl       = "public, max-age=3600"
+		expires            = "2025-01-01T00:00:00Z"
+		storageClass       = "STANDARD_IA"
+		ContentType        = "text/html; charset=utf-8"
+		ContentDisposition = "inline"
+		ContentEncoding    = "utf-8"
+		EncryptionMethod   = "aws:kms"
+		EncryptionKeyID    = "1234abcd-12ab-34cd-56ef-1234567890ab"
+	)
+
+	// expected expires flag is the parsed version of the date in RFC3339 format
+	parsedTime, err := time.Parse(time.RFC3339, expires)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expectedExpires := parsedTime.Format(http.TimeFormat)
+
+	workdir := fs.NewDir(t, bucket, fs.WithFile(filename, content))
+	defer workdir.Remove()
+
+	srcpath := workdir.Join(filename)
+	dstpath := fmt.Sprintf("s3://%v/", bucket)
+
+	srcpath = filepath.ToSlash(srcpath)
+	cmd := s5cmd("cp",
+		"--cache-control", cacheControl,
+		"--expires", expires,
+		"--storage-class", storageClass,
+		"--content-type", ContentType,
+		"--content-disposition", ContentDisposition,
+		"--content-encoding", ContentEncoding,
+		"--sse", EncryptionMethod,
+		"--sse-kms-key-id", EncryptionKeyID,
+		srcpath, dstpath,
+	)
+
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	expected := fs.Expected(t, fs.WithFile(filename, content))
+	assert.Assert(t, fs.Equal(workdir.Path(), expected))
+
+	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content,
+		ensureExpires(expectedExpires),
+		ensureCacheControl(cacheControl),
+		ensureStorageClass(storageClass),
+		ensureContentType(ContentType),
+		ensureContentDisposition(ContentDisposition),
+		ensureContentEncoding(ContentEncoding),
+		ensureEncryptionMethod(EncryptionMethod),
+		ensureEncryptionKeyID(EncryptionKeyID),
+	))
+
+}
+
 // cp dir/file s3://bucket/ --metadata key1=val1 --metadata key2=val2 ...
 func TestCopySingleFileToS3WithArbitraryMetadata(t *testing.T) {
 	t.Parallel()
@@ -800,10 +870,11 @@ func TestCopyS3ToS3WithArbitraryMetadata(t *testing.T) {
 		"Key1": aws.String("foo"),
 		"Key2": aws.String("bar"),
 	}
+
 	srcpath := fmt.Sprintf("s3://%v/%v", bucket, filename)
 	dstpath := fmt.Sprintf("s3://%v/%v_cp", bucket, filename)
 
-	putFileWithMetadata(t, s3client, bucket, filename, content, srcmetadata)
+	putFile(t, s3client, bucket, filename, content, putArbitraryMetadata(srcmetadata))
 	cmd := s5cmd("cp", "--metadata", foo, "--metadata", bar, srcpath, dstpath)
 	result := icmd.RunCmd(cmd)
 	result.Assert(t, icmd.Success)

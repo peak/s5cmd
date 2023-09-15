@@ -819,6 +819,7 @@ func (s *S3) Put(
 	if storageClass != "" {
 		input.StorageClass = aws.String(storageClass)
 	}
+
 	acl := metadata.ACL
 	if acl != "" {
 		input.ACL = aws.String(acl)

@@ -1,10 +1,12 @@
 # Changelog
+## v2.2.2 - 13 Sep 2023 
 
+#### Bugfixes
+- Fixed `cp` and `pipe` to not omit some of the metadata flags. ([#657](https://github.com/peak/s5cmd/issues/657))
 ## v2.2.1 - 23 Aug 2023
 
 #### Bugfixes
 - Fixed incorrect `s5cmd version` output ([#650](https://github.com/peak/s5cmd/pull/650))
-
 ## v2.2.0 - 21 Aug 2023
 
 #### Features

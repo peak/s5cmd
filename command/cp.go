@@ -689,24 +689,23 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL, ex
 	if err != nil {
 		return err
 	}
-	metadata := storage.Metadata{UserDefined: extradata}
 
-	if c.storageClass != "" {
-		metadata.StorageClass = string(c.storageClass)
+	metadata := storage.Metadata{
+		UserDefined:        extradata,
+		ACL:                c.acl,
+		CacheControl:       c.cacheControl,
+		Expires:            c.expires,
+		StorageClass:       string(c.storageClass),
+		ContentEncoding:    c.contentEncoding,
+		ContentDisposition: c.contentDisposition,
+		EncryptionMethod:   c.encryptionMethod,
+		EncryptionKeyID:    c.encryptionKeyID,
 	}
 
 	if c.contentType != "" {
 		metadata.ContentType = c.contentType
 	} else {
 		metadata.ContentType = guessContentType(file)
-	}
-
-	if c.contentEncoding != "" {
-		metadata.ContentEncoding = c.contentEncoding
-	}
-
-	if c.contentDisposition != "" {
-		metadata.ContentDisposition = c.contentDisposition
 	}
 
 	reader := newCountingReaderWriter(file, c.progressbar)
@@ -755,20 +754,17 @@ func (c Copy) doCopy(ctx context.Context, srcurl, dsturl *url.URL, extradata map
 		return err
 	}
 
-	metadata := storage.Metadata{UserDefined: extradata}
-	if c.storageClass != "" {
-		metadata.StorageClass = string(c.storageClass)
-	}
-
-	if c.contentType != "" {
-		metadata.ContentType = c.contentType
-	}
-
-	if c.contentEncoding != "" {
-		metadata.ContentEncoding = c.contentEncoding
-	}
-	if c.contentDisposition != "" {
-		metadata.ContentDisposition = c.contentDisposition
+	metadata := storage.Metadata{
+		UserDefined:        extradata,
+		ACL:                c.acl,
+		CacheControl:       c.cacheControl,
+		Expires:            c.expires,
+		StorageClass:       string(c.storageClass),
+		ContentType:        c.contentType,
+		ContentEncoding:    c.contentEncoding,
+		ContentDisposition: c.contentDisposition,
+		EncryptionMethod:   c.encryptionMethod,
+		EncryptionKeyID:    c.encryptionKeyID,
 	}
 
 	err = c.shouldOverride(ctx, srcurl, dsturl)

@@ -18,29 +18,37 @@ var outputCh = make(chan output, 10000)
 var global *Logger
 
 // Init inits global logger.
-func Init(level string, json bool) {
-	global = New(level, json)
+func Init(level string, json bool, stderr bool) {
+	global = New(level, json, stderr)
+}
+
+func LoggerOutFile(logger *Logger) *os.File {
+	if logger.stderr {
+		return os.Stderr
+	}
+
+	return os.Stdout
 }
 
 // Trace prints message in trace mode.
 func Trace(msg Message) {
-	global.printf(LevelTrace, msg, os.Stdout)
+	global.printf(LevelTrace, msg, LoggerOutFile(global))
 }
 
 // Debug prints message in debug mode.
 func Debug(msg Message) {
-	global.printf(LevelDebug, msg, os.Stdout)
+	global.printf(LevelDebug, msg, LoggerOutFile(global))
 }
 
 // Info prints message in info mode.
 func Info(msg Message) {
-	global.printf(LevelInfo, msg, os.Stdout)
+	global.printf(LevelInfo, msg, LoggerOutFile(global))
 }
 
 // Stat prints stat message regardless of the log level with info print formatting.
 // It uses printfHelper instead of printf to ignore the log level condition.
 func Stat(msg Message) {
-	global.printfHelper(LevelInfo, msg, os.Stdout)
+	global.printfHelper(LevelInfo, msg, LoggerOutFile(global))
 }
 
 // Error prints message in error mode.
@@ -61,15 +69,17 @@ type Logger struct {
 	donech chan struct{}
 	json   bool
 	level  LogLevel
+	stderr bool
 }
 
 // New creates new logger.
-func New(level string, json bool) *Logger {
+func New(level string, json bool, stderr bool) *Logger {
 	logLevel := LevelFromString(level)
 	logger := &Logger{
 		donech: make(chan struct{}),
 		json:   json,
 		level:  logLevel,
+		stderr: stderr,
 	}
 	go logger.out()
 	return logger

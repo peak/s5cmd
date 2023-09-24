@@ -148,7 +148,7 @@ func NewSharedFlags() []cli.Flag {
 				Enum:    []string{"COPY", "REPLACE", ""},
 				Default: "",
 				ConditionFunction: func(str, target string) bool {
-					return strings.ToLower(target) == strings.ToLower(str)
+					return strings.EqualFold(target, str)
 				},
 			},
 		},

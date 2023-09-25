@@ -107,12 +107,15 @@ Examples:
 
 	22. Upload a file to S3 with a content-type and content-encoding header
 		 > s5cmd --content-type "text/css" --content-encoding "br" myfile.css.br s3://bucket/
-		 
+
 	23. Download the specific version of a remote object to working directory
 		 > s5cmd {{.HelpName}} --version-id VERSION_ID s3://bucket/prefix/object .
 
-	24. Pass arbitrary metadata to the object during upload or copy 
-		 > s5cmd {{.HelpName}} --metadata "camera=Nixon D750" --metadata "imageSize=6032x4032" flowers.png s3://bucket/prefix/flowers.png 
+	24. Pass arbitrary metadata to the object during upload or copy
+		 > s5cmd {{.HelpName}} --metadata "camera=Nixon D750" --metadata "imageSize=6032x4032" flowers.png s3://bucket/prefix/flowers.png
+
+	25. Copy from S3 bucket to S3 bucket via the local client
+		 > s5cmd {{.HelpName}} "s3://bucket/*.gz" s3://target-bucket/prefix/ --client-copy
 `
 
 func NewSharedFlags() []cli.Flag {
@@ -241,6 +244,11 @@ func NewCopyCommandFlags() []cli.Flag {
 			Aliases: []string{"sp"},
 			Usage:   "show a progress bar",
 		},
+		&cli.BoolFlag{
+			Name:    "client-copy",
+			Aliases: []string{"cc"},
+			Usage:   "copies from S3 bucket to S3 bucket through the local client (Advanced Use Case)",
+		},
 	}
 	sharedFlags := NewSharedFlags()
 	return append(copyFlags, sharedFlags...)
@@ -307,6 +315,7 @@ type Copy struct {
 	metadata              map[string]string
 	showProgress          bool
 	progressbar           progressbar.ProgressBar
+	clientCopy            bool
 
 	// patterns
 	excludePatterns []*regexp.Regexp
@@ -384,6 +393,7 @@ func NewCopy(c *cli.Context, deleteSource bool) (*Copy, error) {
 		metadata:              metadata,
 		showProgress:          c.Bool("show-progress"),
 		progressbar:           commandProgressBar,
+		clientCopy:            c.Bool("client-copy"),
 
 		// region settings
 		srcRegion: c.String("source-region"),
@@ -513,6 +523,8 @@ func (c Copy) Run(ctx context.Context) error {
 		c.progressbar.IncrementTotalObjects()
 
 		switch {
+		case (srcurl.Type == c.dst.Type) && c.clientCopy: // local->local or remote->remote and client copy
+			task = c.prepareClientCopyTask(ctx, srcurl, c.dst, isBatch, c.metadata)
 		case srcurl.Type == c.dst.Type: // local->local or remote->remote
 			task = c.prepareCopyTask(ctx, srcurl, c.dst, isBatch, c.metadata)
 		case srcurl.IsRemote(): // remote->local
@@ -548,6 +560,56 @@ func (c Copy) prepareCopyTask(
 				Err: err,
 			}
 		}
+		c.progressbar.IncrementCompletedObjects()
+		return nil
+	}
+}
+
+func (c Copy) prepareClientCopyTask(
+	ctx context.Context,
+	srcurl *url.URL,
+	dsturl *url.URL,
+	isBatch bool,
+	metadata map[string]string,
+) func() error {
+	return func() error {
+		tempfilelocation := "./tmp"
+		templocaldst, err := url.New(tempfilelocation)
+		if err != nil {
+			printError("temp destination", "temp destination", err)
+			return err
+		}
+
+		// set a temporary local file destination for the client copy
+		templocaldsturl, err := prepareLocalDestination(ctx, srcurl, templocaldst, c.flatten, isBatch, c.storageOpts)
+		if err != nil {
+			return err
+		}
+		err = c.doDownload(ctx, srcurl, templocaldsturl)
+		if err != nil {
+			return &errorpkg.Error{
+				Op:  c.op,
+				Src: srcurl,
+				Dst: dsturl,
+				Err: err,
+			}
+		}
+
+		dsturl = prepareRemoteDestination(srcurl, dsturl, c.flatten, isBatch)
+
+		// set to delete local copy after upload to true to clean up local filesystem
+		c.deleteSource = true
+
+		err2 := c.doUpload(ctx, templocaldsturl, dsturl, metadata)
+		if err2 != nil {
+			return &errorpkg.Error{
+				Op:  c.op,
+				Src: srcurl,
+				Dst: dsturl,
+				Err: err2,
+			}
+		}
+
 		c.progressbar.IncrementCompletedObjects()
 		return nil
 	}

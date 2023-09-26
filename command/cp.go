@@ -249,6 +249,14 @@ func NewCopyCommandFlags() []cli.Flag {
 			Aliases: []string{"cc"},
 			Usage:   "copies from S3 bucket to S3 bucket through the local client (Advanced Use Case)",
 		},
+		&cli.StringFlag{
+			Name:  "source-region-profile",
+			Usage: "use the specified profile from the credentials file for the source region",
+		},
+		&cli.StringFlag{
+			Name:  "destination-region-profile",
+			Usage: "use the specified profile from the credentials file for the destination region",
+		},
 	}
 	sharedFlags := NewSharedFlags()
 	return append(copyFlags, sharedFlags...)
@@ -322,8 +330,10 @@ type Copy struct {
 	includePatterns []*regexp.Regexp
 
 	// region settings
-	srcRegion string
-	dstRegion string
+	srcRegion        string
+	dstRegion        string
+	srcRegionProfile string
+	dstRegionProfile string
 
 	// s3 options
 	concurrency int
@@ -396,8 +406,10 @@ func NewCopy(c *cli.Context, deleteSource bool) (*Copy, error) {
 		clientCopy:            c.Bool("client-copy"),
 
 		// region settings
-		srcRegion: c.String("source-region"),
-		dstRegion: c.String("destination-region"),
+		srcRegion:        c.String("source-region"),
+		dstRegion:        c.String("destination-region"),
+		srcRegionProfile: c.String("source-region-profile"),
+		dstRegionProfile: c.String("destination-region-profile"),
 
 		storageOpts: NewStorageOpts(c),
 	}, nil
@@ -414,6 +426,21 @@ func (c Copy) Run(ctx context.Context) error {
 	// override source region if set
 	if c.srcRegion != "" {
 		c.storageOpts.SetRegion(c.srcRegion)
+	}
+
+	// TODO: Consider putting an override if sourceprofile exists, then it would not be needed later
+	// Otherwise for now we would need a default profile, or we'd need credentials in the chain
+	// Override with a specific source region identity profile if set
+
+	// expandSource requires a client to the Source location. If a Profile is not set, or if there not credentials otherwise in the chain the operation will fail. Override the Profile to the srcRegionProfile if set and the Profile is not set. This allows the following combinations
+	// 1. profile unset, source-region-profile unset, destination-region-profile unset (uses default credentials for both source and destination)
+	// 2. profile set, source-region-profile unset, destination-region-profile unset (uses profile credentials for both source and destination)
+	// 3. profile unset, source-region-profile set, destination-region-profile unset (uses source-region-profile credentials for source, uses default credentials for destination)
+	// 4. profile set, source-region-profile set, destination-region-profile unset (uses source-region-profile credentials for source, uses profile credentials for destination)
+	// 5. profile unset, source-region-profile set, destination-region-profile set (uses source-region-profile credentials for source, uses destination-region-profile credentials for destination)
+	// 6. profile set, source-region-profile set, destination-region-profile set (uses source-region-profile credentials for source, uses destination-region-profile credentials for destination)
+	if c.srcRegionProfile != "" && c.storageOpts.Profile == "" {
+		c.storageOpts.Profile = c.srcRegionProfile
 	}
 
 	client, err := storage.NewClient(ctx, c.src, c.storageOpts)
@@ -573,6 +600,8 @@ func (c Copy) prepareClientCopyTask(
 	metadata map[string]string,
 ) func() error {
 	return func() error {
+		defaultProfile := c.storageOpts.Profile
+
 		tempfilelocation := "./tmp"
 		templocaldst, err := url.New(tempfilelocation)
 		if err != nil {
@@ -585,6 +614,12 @@ func (c Copy) prepareClientCopyTask(
 		if err != nil {
 			return err
 		}
+
+		// Override with a specific source region identity profile if set
+		if c.srcRegionProfile != "" {
+			c.storageOpts.Profile = c.srcRegionProfile
+		}
+
 		err = c.doDownload(ctx, srcurl, templocaldsturl)
 		if err != nil {
 			return &errorpkg.Error{
@@ -599,6 +634,13 @@ func (c Copy) prepareClientCopyTask(
 
 		// set to delete local copy after upload to true to clean up local filesystem
 		c.deleteSource = true
+
+		// Override with a specific destination region identity profile if set, reset otherwise
+		if c.dstRegionProfile != "" {
+			c.storageOpts.Profile = c.dstRegionProfile
+		} else {
+			c.storageOpts.Profile = defaultProfile
+		}
 
 		err2 := c.doUpload(ctx, templocaldsturl, dsturl, metadata)
 		if err2 != nil {

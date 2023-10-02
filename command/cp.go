@@ -460,14 +460,6 @@ func (c Copy) Run(ctx context.Context) error {
 	// TODO: Consider putting an override if sourceprofile exists, then it would not be needed later
 	// Otherwise for now we would need a default profile, or we'd need credentials in the chain
 	// Override with a specific source region identity profile if set
-
-	// expandSource requires a client to the Source location. If a Profile is not set, or if there not credentials otherwise in the chain the operation will fail. Override the Profile to the srcRegionProfile if set and the Profile is not set. This allows the following combinations
-	// 1. profile unset, source-region-profile unset, destination-region-profile unset (uses default credentials for both source and destination)
-	// 2. profile set, source-region-profile unset, destination-region-profile unset (uses profile credentials for both source and destination)
-	// 3. profile unset, source-region-profile set, destination-region-profile unset (uses source-region-profile credentials for source, uses default credentials for destination)
-	// 4. profile set, source-region-profile set, destination-region-profile unset (uses source-region-profile credentials for source, uses profile credentials for destination)
-	// 5. profile unset, source-region-profile set, destination-region-profile set (uses source-region-profile credentials for source, uses destination-region-profile credentials for destination)
-	// 6. profile set, source-region-profile set, destination-region-profile set (uses source-region-profile credentials for source, uses destination-region-profile credentials for destination)
 	if c.srcRegionProfile != "" && c.storageOpts.Profile == "" {
 		c.storageOpts.Profile = c.srcRegionProfile
 	}

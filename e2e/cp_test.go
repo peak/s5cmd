@@ -4561,3 +4561,195 @@ func TestCopyS3ObjectsWithIncludeExcludeFilter2(t *testing.T) {
 	expected := fs.Expected(t, expectedFileSystem...)
 	assert.Assert(t, fs.Equal(cmd.Dir, expected))
 }
+
+// cp --client-copy s3://bucket/object s3://bucket/object2
+func TestClientCopySingleS3ObjectToS3(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd := setup(t)
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	const (
+		filename    = "testfile1.txt"
+		dstfilename = "copy_" + filename
+		content     = "this is a file content"
+	)
+
+	putFile(t, s3client, bucket, filename, content)
+
+	src := fmt.Sprintf("s3://%v/%v", bucket, filename)
+	dst := fmt.Sprintf("s3://%v/%v", bucket, dstfilename)
+
+	cmd := s5cmd("cp", "--client-copy", src, dst)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`cp %v tmp`, src),
+		1: equals(`cp tmp %v`, dst),
+	})
+
+	// assert s3 source object
+	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content))
+
+	// assert s3 destination object
+	assert.Assert(t, ensureS3Object(s3client, bucket, dstfilename, content))
+}
+
+// cp --client-copy s3://bucket/object s3://bucket2/
+func TestClientCopySingleS3ObjectIntoAnotherBucket(t *testing.T) {
+	t.Parallel()
+
+	srcbucket := s3BucketFromTestName(t)
+	dstbucket := s3BucketFromTestNameWithPrefix(t, "copy")
+
+	s3client, s5cmd := setup(t)
+
+	createBucket(t, s3client, srcbucket)
+	createBucket(t, s3client, dstbucket)
+
+	const (
+		filename = "testfile1.txt"
+		content  = "this is a file content"
+	)
+
+	putFile(t, s3client, srcbucket, filename, content)
+
+	src := fmt.Sprintf("s3://%v/%v", srcbucket, filename)
+	dst := fmt.Sprintf("s3://%v/", dstbucket)
+
+	cmd := s5cmd("cp", "--client-copy", src, dst)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`cp %v tmp`, src),
+		1: equals(`cp tmp %v%v`, dst, filename),
+	})
+
+	// assert s3 source object
+	assert.Assert(t, ensureS3Object(s3client, srcbucket, filename, content))
+
+	// assert s3 destination object
+	assert.Assert(t, ensureS3Object(s3client, dstbucket, filename, content))
+}
+
+// cp --flatten s3://bucket/object s3://bucket2/
+func TestFlattenClientCopySingleS3ObjectIntoAnotherBucket(t *testing.T) {
+	t.Parallel()
+
+	srcbucket := s3BucketFromTestName(t)
+	dstbucket := s3BucketFromTestNameWithPrefix(t, "copy")
+
+	s3client, s5cmd := setup(t)
+
+	createBucket(t, s3client, srcbucket)
+	createBucket(t, s3client, dstbucket)
+
+	const (
+		filename = "testfile1.txt"
+		content  = "this is a file content"
+	)
+
+	putFile(t, s3client, srcbucket, filename, content)
+
+	src := fmt.Sprintf("s3://%v/%v", srcbucket, filename)
+	dst := fmt.Sprintf("s3://%v/", dstbucket)
+
+	cmd := s5cmd("cp", "--flatten", "--client-copy", src, dst)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`cp %v tmp`, src),
+		1: equals(`cp tmp %v%v`, dst, filename),
+	})
+
+	// assert s3 source object
+	assert.Assert(t, ensureS3Object(s3client, srcbucket, filename, content))
+
+	// assert s3 destination object
+	assert.Assert(t, ensureS3Object(s3client, dstbucket, filename, content))
+}
+
+// cp s3://bucket/object s3://bucket2/object
+func TestClientCopySingleS3ObjectIntoAnotherBucketWithObjName(t *testing.T) {
+	t.Parallel()
+
+	srcbucket := s3BucketFromTestNameWithPrefix(t, "src")
+	dstbucket := s3BucketFromTestNameWithPrefix(t, "dst")
+
+	s3client, s5cmd := setup(t)
+
+	createBucket(t, s3client, srcbucket)
+	createBucket(t, s3client, dstbucket)
+
+	const (
+		filename = "testfile1.txt"
+		content  = "this is a file content"
+	)
+
+	putFile(t, s3client, srcbucket, filename, content)
+
+	src := fmt.Sprintf("s3://%v/%v", srcbucket, filename)
+	dst := fmt.Sprintf("s3://%v/%v", dstbucket, filename)
+
+	cmd := s5cmd("cp", "--client-copy", src, dst)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		// 0: equals(`cp %v %v`, src, dst),
+		0: equals(`cp %v tmp`, src),
+		1: equals(`cp tmp %v`, dst),
+	})
+
+	// assert s3 source object
+	assert.Assert(t, ensureS3Object(s3client, srcbucket, filename, content))
+
+	// assert s3 destination object
+	assert.Assert(t, ensureS3Object(s3client, dstbucket, filename, content))
+}
+
+// cp s3://bucket/object s3://bucket2/prefix/
+func TestClientCopySingleS3ObjectIntoAnotherBucketWithPrefix(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd := setup(t)
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	const (
+		filename = "testfile1.txt"
+		content  = "this is a file content"
+	)
+
+	putFile(t, s3client, bucket, filename, content)
+
+	src := fmt.Sprintf("s3://%v/%v", bucket, filename)
+	dst := fmt.Sprintf("s3://%v/prefix/%v", bucket, filename)
+
+	cmd := s5cmd("cp", "--client-copy", src, dst)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		// 0: equals(`cp %v %v`, src, dst),
+		0: equals(`cp %v tmp`, src),
+		1: equals(`cp tmp %v`, dst),
+	})
+
+	// assert s3 source object
+	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content))
+
+	// assert s3 destination object
+	assert.Assert(t, ensureS3Object(s3client, bucket, "prefix/"+filename, content))
+}

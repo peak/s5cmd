@@ -231,6 +231,11 @@ type Metadata struct {
 	EncryptionKeyID    string
 
 	UserDefined map[string]string
+
+	// MetadataDirective is used to specify whether the metadata is copied from
+	// the source object or replaced with metadata provided when copying S3
+	// objects. If MetadataDirective is not set, it defaults to "COPY".
+	Directive string
 }
 
 func (o Object) ToBytes() []byte {

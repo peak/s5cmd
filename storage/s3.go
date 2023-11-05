@@ -551,6 +551,10 @@ func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata Metadata) err
 		input.Metadata[metadataKeyRetryID] = generateRetryID()
 	}
 
+	if metadata.Directive != "" {
+		input.MetadataDirective = aws.String(metadata.Directive)
+	}
+
 	if len(metadata.UserDefined) != 0 {
 		m := make(map[string]*string)
 		for k, v := range metadata.UserDefined {

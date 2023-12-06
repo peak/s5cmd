@@ -489,12 +489,12 @@ func TestS3Retry(t *testing.T) {
 		{
 			name:          "ExpiredToken",
 			err:           awserr.New("ExpiredToken", "expired token", nil),
-			expectedRetry: 0,
+			expectedRetry: 5,
 		},
 		{
 			name:          "ExpiredTokenException",
 			err:           awserr.New("ExpiredTokenException", "expired token exception", nil),
-			expectedRetry: 0,
+			expectedRetry: 5,
 		},
 
 		// Invalid Token errors

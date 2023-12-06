@@ -1339,11 +1339,6 @@ func newCustomRetryer(sc *SessionCache, maxRetries int) *customRetryer {
 // ShouldRetry overrides SDK's built in DefaultRetryer, adding custom retry
 // logics that are not included in the SDK.
 func (c *customRetryer) ShouldRetry(req *request.Request) bool {
-	log.Error(log.ErrorMessage{
-		Command: "retrier",
-		Err:     req.Error.Error(),
-	})
-
 	shouldRetry := errHasCode(req.Error, "InternalError") || errHasCode(req.Error, "RequestTimeTooSkewed") || errHasCode(req.Error, "SlowDown") || strings.Contains(req.Error.Error(), "connection reset") || strings.Contains(req.Error.Error(), "connection timed out") || errHasCode(req.Error, "ExpiredToken") || errHasCode(req.Error, "ExpiredTokenException")
 
 	if errHasCode(req.Error, "ExpiredToken") || errHasCode(req.Error, "ExpiredTokenException") {

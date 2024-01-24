@@ -1237,7 +1237,7 @@ func (sc *SessionCache) newSession(ctx context.Context, opts Options) (*session.
 
 	awsCfg.Retryer = newCustomRetryer(sc, opts.MaxRetries)
 
-	useSharedConfig := session.SharedConfigDisable
+	useSharedConfig := session.SharedConfigEnable
 	{
 		// Reverse of what the SDK does: if AWS_SDK_LOAD_CONFIG is 0 (or a
 		// falsy value) disable shared configs

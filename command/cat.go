@@ -3,14 +3,14 @@ package command
 import (
 	"context"
 	"fmt"
-	"io"
 	"os"
 
 	"github.com/urfave/cli/v2"
 
-	"github.com/peak/s5cmd/log/stat"
-	"github.com/peak/s5cmd/storage"
-	"github.com/peak/s5cmd/storage/url"
+	"github.com/peak/s5cmd/v2/log/stat"
+	"github.com/peak/s5cmd/v2/orderedwriter"
+	"github.com/peak/s5cmd/v2/storage"
+	"github.com/peak/s5cmd/v2/storage/url"
 )
 
 var catHelpTemplate = `Name:
@@ -25,13 +25,38 @@ Options:
 Examples:
 	1. Print a remote object's content to stdout
 		 > s5cmd {{.HelpName}} s3://bucket/prefix/object
+
+	2. Print specific version of a remote object's content to stdout
+		 > s5cmd {{.HelpName}} --version-id VERSION_ID s3://bucket/prefix/object
 `
 
 func NewCatCommand() *cli.Command {
 	cmd := &cli.Command{
-		Name:               "cat",
-		HelpName:           "cat",
-		Usage:              "print remote object content",
+		Name:     "cat",
+		HelpName: "cat",
+		Usage:    "print remote object content",
+		Flags: []cli.Flag{
+			&cli.BoolFlag{
+				Name:  "raw",
+				Usage: "disable the wildcard operations, useful with filenames that contains glob characters",
+			},
+			&cli.StringFlag{
+				Name:  "version-id",
+				Usage: "use the specified version of an object",
+			},
+			&cli.IntFlag{
+				Name:    "concurrency",
+				Aliases: []string{"c"},
+				Value:   defaultCopyConcurrency,
+				Usage:   "number of concurrent parts transferred between host and remote server",
+			},
+			&cli.IntFlag{
+				Name:    "part-size",
+				Aliases: []string{"p"},
+				Value:   defaultPartSize,
+				Usage:   "size of each part transferred between host and remote server, in MiB",
+			},
+		},
 		CustomHelpTemplate: catHelpTemplate,
 		Before: func(c *cli.Context) error {
 			err := validateCatCommand(c)
@@ -43,9 +68,11 @@ func NewCatCommand() *cli.Command {
 		Action: func(c *cli.Context) (err error) {
 			defer stat.Collect(c.Command.FullName(), &err)()
 
-			src, err := url.New(c.Args().Get(0))
 			op := c.Command.Name
 			fullCommand := commandFromContext(c)
+
+			src, err := url.New(c.Args().Get(0), url.WithVersion(c.String("version-id")),
+				url.WithRaw(c.Bool("raw")))
 			if err != nil {
 				printError(fullCommand, op, err)
 				return err
@@ -57,6 +84,8 @@ func NewCatCommand() *cli.Command {
 				fullCommand: fullCommand,
 
 				storageOpts: NewStorageOpts(c),
+				concurrency: c.Int("concurrency"),
+				partSize:    c.Int64("part-size") * megabytes,
 			}.Run(c.Context)
 		},
 	}
@@ -71,6 +100,8 @@ type Cat struct {
 	fullCommand string
 
 	storageOpts storage.Options
+	concurrency int
+	partSize    int64
 }
 
 // Run prints content of given source to standard output.
@@ -80,20 +111,17 @@ func (c Cat) Run(ctx context.Context) error {
 		printError(c.fullCommand, c.op, err)
 		return err
 	}
-
-	rc, err := client.Read(ctx, c.src)
+	_, err = client.Stat(ctx, c.src)
 	if err != nil {
 		printError(c.fullCommand, c.op, err)
 		return err
 	}
-	defer rc.Close()
-
-	_, err = io.Copy(os.Stdout, rc)
+	buf := orderedwriter.New(os.Stdout)
+	_, err = client.Get(ctx, c.src, buf, c.concurrency, c.partSize)
 	if err != nil {
 		printError(c.fullCommand, c.op, err)
 		return err
 	}
-
 	return nil
 }
 
@@ -102,8 +130,8 @@ func validateCatCommand(c *cli.Context) error {
 		return fmt.Errorf("expected only one argument")
 	}
 
-	src, err := url.New(c.Args().Get(0))
-
+	src, err := url.New(c.Args().Get(0), url.WithVersion(c.String("version-id")),
+		url.WithRaw(c.Bool("raw")))
 	if err != nil {
 		return err
 	}
@@ -119,5 +147,10 @@ func validateCatCommand(c *cli.Context) error {
 	if src.IsWildcard() {
 		return fmt.Errorf("remote source %q can not contain glob characters", src)
 	}
+
+	if err := checkVersioningWithGoogleEndpoint(c); err != nil {
+		return err
+	}
+
 	return nil
 }

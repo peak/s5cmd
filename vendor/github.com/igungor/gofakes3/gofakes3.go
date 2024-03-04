@@ -168,7 +168,6 @@ func (g *GoFakeS3) listBuckets(w http.ResponseWriter, r *http.Request) error {
 //
 // - https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGET.html
 // - https://docs.aws.amazon.com/AmazonS3/latest/API/v2-RESTBucketGET.html
-//
 func (g *GoFakeS3) listBucket(bucketName string, w http.ResponseWriter, r *http.Request) error {
 	g.log.Print(LogInfo, "LIST BUCKET")
 
@@ -454,10 +453,26 @@ func (g *GoFakeS3) headObject(
 	g.log.Print(LogInfo, "Bucket:", bucket)
 	g.log.Print(LogInfo, "└── Object:", object)
 
-	obj, err := g.storage.HeadObject(bucket, object)
-	if err != nil {
-		return err
+	var obj *Object
+	var err error
+	{
+		if versionID == "" {
+			obj, err = g.storage.HeadObject(bucket, object)
+			if err != nil {
+				return err
+			}
+		} else {
+			if g.versioned == nil {
+				return ErrNotImplemented
+			} else {
+				obj, err = g.versioned.HeadObjectVersion(bucket, object, versionID)
+				if err != nil {
+					return err
+				}
+			}
+		}
 	}
+
 	if obj == nil {
 		g.log.Print(LogErr, "unexpected nil object for key", bucket, object)
 		return ErrInternal
@@ -782,12 +797,12 @@ func (g *GoFakeS3) initiateMultipartUpload(bucket, object string, w http.Respons
 }
 
 // From the docs:
-//	A part number uniquely identifies a part and also defines its position
-// 	within the object being created. If you upload a new part using the same
-// 	part number that was used with a previous part, the previously uploaded part
-// 	is overwritten. Each part must be at least 5 MB in size, except the last
-// 	part. There is no size limit on the last part of your multipart upload.
 //
+//	A part number uniquely identifies a part and also defines its position
+//	within the object being created. If you upload a new part using the same
+//	part number that was used with a previous part, the previously uploaded part
+//	is overwritten. Each part must be at least 5 MB in size, except the last
+//	part. There is no size limit on the last part of your multipart upload.
 func (g *GoFakeS3) putMultipartUploadPart(bucket, object string, uploadID UploadID, w http.ResponseWriter, r *http.Request) error {
 	g.log.Print(LogInfo, "put multipart upload", bucket, object, uploadID)
 
@@ -1019,11 +1034,18 @@ func metadataSize(meta map[string]string) int {
 
 func metadataHeaders(headers map[string][]string, at time.Time, sizeLimit int) (map[string]string, error) {
 	meta := make(map[string]string)
+
 	for hk, hv := range headers {
-		if strings.HasPrefix(hk, "X-Amz-") || hk == "Content-Type" {
+		if strings.HasPrefix(hk, "X-Amz-") ||
+			hk == "Content-Type" ||
+			hk == "Content-Disposition" ||
+			hk == "Content-Encoding" ||
+			hk == "Expires" ||
+			hk == "Cache-Control" {
 			meta[hk] = hv[0]
 		}
 	}
+
 	meta["Last-Modified"] = formatHeaderTime(at)
 
 	if sizeLimit > 0 && metadataSize(meta) > sizeLimit {

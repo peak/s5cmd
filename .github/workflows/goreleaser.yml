@@ -4,7 +4,25 @@ on:
     tags:
       - 'v*'
 jobs:
+  gcs_test:
+    name: gcs-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+        with:
+          go-version: 1.20.x
+      - run: make test_without_race
+        env:
+          S5CMD_ACCESS_KEY_ID: ${{ secrets.S5CMD_GCS_ACCESS_KEY_ID }}
+          S5CMD_SECRET_ACCESS_KEY: ${{ secrets.S5CMD_GCS_SECRET_ACCESS_KEY }}
+          S5CMD_ENDPOINT_URL: https://storage.googleapis.com
+          S5CMD_IS_VIRTUAL_HOST: 1
+          S5CMD_REGION: ${{ secrets.S5CMD_GCS_REGION }}
+          S5CMD_I_KNOW_WHAT_IM_DOING: 1
+
   goreleaser:
+    needs: [ gcs_test ]
     runs-on: ubuntu-latest
     steps:
       -
@@ -16,12 +34,12 @@ jobs:
         name: Set up Go
         uses: actions/setup-go@v2
         with:
-          go-version: 1.19
+          go-version: '1.20'
       -
         name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v2
         with:
-          version: latest
+          version: '1.18.2'
           args: release --rm-dist
         env:
           GITHUB_TOKEN: ${{ secrets.GORELEASER_TOKEN }}

@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/peak/s5cmd/storage/url"
+	"github.com/peak/s5cmd/v2/storage/url"
 	"github.com/urfave/cli/v2"
 )
 
@@ -73,7 +73,7 @@ func generateCommand(c *cli.Context, cmd string, defaultFlags map[string]interfa
 
 	flags := []string{}
 	for flagname, flagvalue := range defaultFlags {
-		flags = append(flags, fmt.Sprintf("--%s=%v", flagname, flagvalue))
+		flags = append(flags, fmt.Sprintf("--%s='%v'", flagname, flagvalue))
 	}
 
 	isDefaultFlag := func(flagname string) bool {
@@ -88,7 +88,7 @@ func generateCommand(c *cli.Context, cmd string, defaultFlags map[string]interfa
 		}
 
 		for _, flagvalue := range contextValue(c, flagname) {
-			flags = append(flags, fmt.Sprintf("--%s=%s", flagname, flagvalue))
+			flags = append(flags, fmt.Sprintf("--%s='%s'", flagname, flagvalue))
 		}
 	}
 

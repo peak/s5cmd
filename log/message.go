@@ -3,8 +3,8 @@ package log
 import (
 	"fmt"
 
-	"github.com/peak/s5cmd/storage/url"
-	"github.com/peak/s5cmd/strutil"
+	"github.com/peak/s5cmd/v2/storage/url"
+	"github.com/peak/s5cmd/v2/strutil"
 )
 
 // Message is an interface to print structured logs.
@@ -17,21 +17,34 @@ type Message interface {
 type InfoMessage struct {
 	Operation   string   `json:"operation"`
 	Success     bool     `json:"success"`
-	Source      *url.URL `json:"source"`
+	Source      *url.URL `json:"source,omitempty"`
 	Destination *url.URL `json:"destination,omitempty"`
 	Object      Message  `json:"object,omitempty"`
+
+	// the VersionID field exist only for JSON Marshall, it must not be used for
+	// any other purpose.
+	VersionID string `json:"version_id,omitempty"`
 }
 
 // String is the string representation of InfoMessage.
 func (i InfoMessage) String() string {
-	if i.Destination != nil {
+	if i.Source != nil && i.Destination != nil {
 		return fmt.Sprintf("%v %v %v", i.Operation, i.Source, i.Destination)
+	}
+	if i.Source != nil && i.Source.VersionID != "" {
+		return fmt.Sprintf("%v %-50v %v", i.Operation, i.Source, i.Source.VersionID)
+	}
+	if i.Destination != nil {
+		return fmt.Sprintf("%v %v", i.Operation, i.Destination)
 	}
 	return fmt.Sprintf("%v %v", i.Operation, i.Source)
 }
 
 // JSON is the JSON representation of InfoMessage.
 func (i InfoMessage) JSON() string {
+	if i.Destination == nil && i.Source != nil {
+		i.VersionID = i.Source.VersionID
+	}
 	i.Success = true
 	return strutil.JSON(i)
 }

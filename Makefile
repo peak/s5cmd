@@ -5,7 +5,7 @@ all: clean build test check
 
 VERSION := `git describe --abbrev=0 --tags || echo "0.0.0"`
 BUILD := `git rev-parse --short HEAD`
-LDFLAGS=-ldflags "-X=github.com/peak/s5cmd/version.Version=$(VERSION) -X=github.com/peak/s5cmd/version.GitCommit=$(BUILD)"
+LDFLAGS=-ldflags "-X=github.com/peak/s5cmd/v2/version.Version=$(VERSION) -X=github.com/peak/s5cmd/v2/version.GitCommit=$(BUILD)"
 
 .PHONY: build
 build:
@@ -28,11 +28,11 @@ test_without_race:
 	@S5CMD_BUILD_BINARY_WITHOUT_RACE_FLAG=1 go test -mod=vendor -count=1 ./...
 
 .PHONY: check
-check: vet staticcheck unparam check-fmt
+check: vet staticcheck unparam check-fmt check-codegen
 
 .PHONY: staticcheck
 staticcheck:
-	@staticcheck -checks 'all,-U1000,-ST1000,-ST1003' ./...
+	@staticcheck -checks 'all,-ST1000' ./...
 
 .PHONY: unparam
 unparam:
@@ -49,9 +49,13 @@ check-fmt:
 		exit 1;\
 	fi
 
-.PHONY: mock
-mock:
-	@mockery -inpkg -dir=storage -name=Storage -case=underscore
+.PHONY: check-codegen
+check-codegen: gogenerate ## Check generated code is up-to-date
+	@git diff --exit-code --
+
+.PHONY: gogenerate
+gogenerate:
+	@go generate -mod vendor ./...
 
 .PHONY: clean
 clean:

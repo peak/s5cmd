@@ -3,6 +3,7 @@ package command
 import (
 	"bufio"
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -13,7 +14,7 @@ import (
 	"github.com/kballard/go-shellquote"
 	"github.com/urfave/cli/v2"
 
-	"github.com/peak/s5cmd/parallel"
+	"github.com/peak/s5cmd/v2/parallel"
 )
 
 var runHelpTemplate = `Name:
@@ -197,6 +198,9 @@ func (r *Reader) read() {
 			}
 			if err != nil {
 				if err == io.EOF {
+					if errors.Is(r.ctx.Err(), context.Canceled) {
+						r.err = r.ctx.Err()
+					}
 					return
 				}
 				r.err = multierror.Append(r.err, err)

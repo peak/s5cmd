@@ -23,8 +23,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/peak/s5cmd/storage"
-	"github.com/peak/s5cmd/strutil"
+	"github.com/peak/s5cmd/v2/storage"
+	"github.com/peak/s5cmd/v2/strutil"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -46,9 +46,9 @@ const (
 	// Don't use "race" flag in the build arguments.
 	testDisableRaceFlagKey       = "S5CMD_BUILD_BINARY_WITHOUT_RACE_FLAG"
 	testDisableRaceFlagVal       = "1"
-	s5cmdTestIdEnv               = "S5CMD_ACCESS_KEY_ID"
+	s5cmdTestIDEnv               = "S5CMD_ACCESS_KEY_ID"
 	s5cmdTestSecretEnv           = "S5CMD_SECRET_ACCESS_KEY"
-	s5cmdTestEndpointEnv         = "S5CMD_ENDPOINT_URL"
+	s5cmdTestEndpointEnv         = "S5CMD_TEST_ENDPOINT_URL"
 	s5cmdTestIsVirtualHost       = "S5CMD_IS_VIRTUAL_HOST"
 	s5cmdTestRegionEnv           = "S5CMD_REGION"
 	s5cmdTestIKnowWhatImDoingEnv = "S5CMD_I_KNOW_WHAT_IM_DOING"
@@ -77,6 +77,9 @@ func init() {
 type setupOpts struct {
 	s3backend   string
 	endpointURL string
+	accessKeyID string
+	secretKey   string
+	region      string
 	timeSource  gofakes3.TimeSource
 	enableProxy bool
 }
@@ -95,6 +98,24 @@ func withEndpointURL(url string) option {
 	}
 }
 
+func withAccessKeyID(key string) option {
+	return func(opts *setupOpts) {
+		opts.accessKeyID = key
+	}
+}
+
+func withSecretKey(key string) option {
+	return func(opts *setupOpts) {
+		opts.secretKey = key
+	}
+}
+
+func withRegion(region string) option {
+	return func(opts *setupOpts) {
+		opts.region = region
+	}
+}
+
 func withTimeSource(timeSource gofakes3.TimeSource) option {
 	return func(opts *setupOpts) {
 		opts.timeSource = timeSource
@@ -105,6 +126,12 @@ func withProxy() option {
 	return func(opts *setupOpts) {
 		opts.enableProxy = true
 	}
+}
+
+type credentialCfg struct {
+	AccessKeyID string
+	SecretKey   string
+	Region      string
 }
 
 func setup(t *testing.T, options ...option) (*s3.S3, func(...string) icmd.Cmd) {
@@ -133,10 +160,35 @@ func setup(t *testing.T, options ...option) (*s3.S3, func(...string) icmd.Cmd) {
 	if opts.endpointURL != "" {
 		endpoint = opts.endpointURL
 	}
+	secretKey := ""
+	if opts.secretKey != "" {
+		secretKey = opts.secretKey
+	}
+
+	accessKeyID := ""
+	if opts.accessKeyID != "" {
+		accessKeyID = opts.accessKeyID
+	}
+
+	region := ""
+	if opts.region != "" {
+		region = opts.accessKeyID
+	}
+
+	var cfg *credentialCfg
+
+	if region != "" || accessKeyID != "" || secretKey != "" {
+		cfg = &credentialCfg{
+			AccessKeyID: accessKeyID,
+			SecretKey:   secretKey,
+			Region:      region,
+		}
+	}
+
 	client := s3client(t, storage.Options{
 		Endpoint:    endpoint,
 		NoVerifySSL: true,
-	})
+	}, cfg)
 
 	return client, s5cmd(workdir, endpoint)
 }
@@ -171,7 +223,7 @@ func server(t *testing.T, testdir *fs.Dir, opts *setupOpts) string {
 	return endpoint
 }
 
-func s3client(t *testing.T, options storage.Options) *s3.S3 {
+func s3client(t *testing.T, options storage.Options, creds *credentialCfg) *s3.S3 {
 	t.Helper()
 
 	awsLogLevel := aws.LogOff
@@ -180,16 +232,24 @@ func s3client(t *testing.T, options storage.Options) *s3.S3 {
 	}
 	s3Config := aws.NewConfig()
 
-	id := defaultAccessKeyID
-	key := defaultSecretAccessKey
-	endpoint := options.Endpoint
-	region := endpoints.UsEast1RegionID
-	isVirtualHost := false
+	var id, key, region string
 
+	if creds != nil {
+		id = creds.AccessKeyID
+		key = creds.SecretKey
+		region = creds.Region
+	} else {
+		id = defaultAccessKeyID
+		key = defaultSecretAccessKey
+		region = endpoints.UsEast1RegionID
+	}
+
+	endpoint := options.Endpoint
+	isVirtualHost := false
 	// get environment variables and use external endpoint url.
 	// this can be used to test s3 sources such as GCS, amazon, wasabi etc.
 	if isEndpointFromEnv() {
-		id = os.Getenv(s5cmdTestIdEnv)
+		id = os.Getenv(s5cmdTestIDEnv)
 		key = os.Getenv(s5cmdTestSecretEnv)
 		endpoint = os.Getenv(s5cmdTestEndpointEnv)
 		region = os.Getenv(s5cmdTestRegionEnv)
@@ -249,7 +309,7 @@ func (c *slowDownRetryer) ShouldRetry(req *request.Request) bool {
 }
 
 func isEndpointFromEnv() bool {
-	return os.Getenv(s5cmdTestIdEnv) != "" &&
+	return os.Getenv(s5cmdTestIDEnv) != "" &&
 		os.Getenv(s5cmdTestSecretEnv) != "" &&
 		os.Getenv(s5cmdTestEndpointEnv) != "" &&
 		os.Getenv(s5cmdTestRegionEnv) != "" &&
@@ -281,7 +341,7 @@ func s5cmd(workdir, endpoint string) func(args ...string) icmd.Cmd {
 		secret := defaultSecretAccessKey
 
 		if isEndpointFromEnv() {
-			id = os.Getenv(s5cmdTestIdEnv)
+			id = os.Getenv(s5cmdTestIDEnv)
 			secret = os.Getenv(s5cmdTestSecretEnv)
 			env = append(
 				env,
@@ -373,11 +433,16 @@ func createBucket(t *testing.T, client *s3.S3, bucket string) {
 
 	input := &s3.CreateBucketInput{
 		Bucket: aws.String(bucket),
+		ACL:    aws.String(s3.BucketCannedACLPublicRead),
 	}
 
 	_, err := client.CreateBucket(input)
 	if err != nil {
 		t.Fatal(err)
+	}
+
+	if !isEndpointFromEnv() {
+		return
 	}
 
 	t.Cleanup(func() {
@@ -413,24 +478,51 @@ func createBucket(t *testing.T, client *s3.S3, bucket string) {
 				keys = make([]*s3.ObjectIdentifier, 0)
 			}
 
-			err = client.ListObjectsPages(&listInput, func(p *s3.ListObjectsOutput, lastPage bool) bool {
-				for _, c := range p.Contents {
-					objid := &s3.ObjectIdentifier{Key: c.Key}
-					keys = append(keys, objid)
+			listVersionsInput := s3.ListObjectVersionsInput{
+				Bucket: aws.String(bucket),
+			}
 
-					if len(keys) == chunkSize {
-						_, err := client.DeleteObjects(&s3.DeleteObjectsInput{
-							Bucket: aws.String(bucket),
-							Delete: &s3.Delete{Objects: keys},
-						})
-						if err != nil {
-							t.Fatal(err)
+			err = client.ListObjectVersionsPages(&listVersionsInput,
+				func(p *s3.ListObjectVersionsOutput, lastPage bool) bool {
+					for _, v := range p.Versions {
+						objid := &s3.ObjectIdentifier{
+							Key:       v.Key,
+							VersionId: v.VersionId,
 						}
-						initKeys()
+						keys = append(keys, objid)
+
+						if len(keys) == chunkSize {
+							_, err := client.DeleteObjects(&s3.DeleteObjectsInput{
+								Bucket: aws.String(bucket),
+								Delete: &s3.Delete{Objects: keys},
+							})
+							if err != nil {
+								t.Fatal(err)
+							}
+							initKeys()
+						}
 					}
-				}
-				return !lastPage
-			})
+
+					for _, d := range p.DeleteMarkers {
+						objid := &s3.ObjectIdentifier{
+							Key:       d.Key,
+							VersionId: d.VersionId,
+						}
+						keys = append(keys, objid)
+
+						if len(keys) == chunkSize {
+							_, err := client.DeleteObjects(&s3.DeleteObjectsInput{
+								Bucket: aws.String(bucket),
+								Delete: &s3.Delete{Objects: keys},
+							})
+							if err != nil {
+								t.Fatal(err)
+							}
+							initKeys()
+						}
+					}
+					return !lastPage
+				})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -464,14 +556,52 @@ func isGoogleEndpointFromEnv(t *testing.T) bool {
 	return storage.IsGoogleEndpoint(*endpoint)
 }
 
+func setBucketVersioning(t *testing.T, s3client *s3.S3, bucket string, versioning string) {
+	t.Helper()
+	_, err := s3client.PutBucketVersioning(&s3.PutBucketVersioningInput{
+		Bucket: aws.String(bucket),
+		VersioningConfiguration: &s3.VersioningConfiguration{
+			Status: aws.String(versioning),
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 var errS3NoSuchKey = fmt.Errorf("s3: no such key")
 
 type ensureOpts struct {
-	contentType  *string
-	storageClass *string
+	cacheControl       *string
+	expires            *string
+	storageClass       *string
+	contentType        *string
+	contentDisposition *string
+	contentEncoding    *string
+	encryptionMethod   *string
+	encryptionKeyID    *string
+	metadata           map[string]*string
 }
 
 type ensureOption func(*ensureOpts)
+
+func ensureCacheControl(cacheControl string) ensureOption {
+	return func(opts *ensureOpts) {
+		opts.cacheControl = &cacheControl
+	}
+}
+
+func ensureExpires(expires string) ensureOption {
+	return func(opts *ensureOpts) {
+		opts.expires = &expires
+	}
+}
+
+func ensureStorageClass(expected string) ensureOption {
+	return func(opts *ensureOpts) {
+		opts.storageClass = &expected
+	}
+}
 
 func ensureContentType(contentType string) ensureOption {
 	return func(opts *ensureOpts) {
@@ -479,9 +609,31 @@ func ensureContentType(contentType string) ensureOption {
 	}
 }
 
-func ensureStorageClass(expected string) ensureOption {
+func ensureContentDisposition(contentDisposition string) ensureOption {
 	return func(opts *ensureOpts) {
-		opts.storageClass = &expected
+		opts.contentDisposition = &contentDisposition
+	}
+}
+
+func ensureContentEncoding(contentEncoding string) ensureOption {
+	return func(opts *ensureOpts) {
+		opts.contentEncoding = &contentEncoding
+	}
+}
+func ensureEncryptionMethod(encryptionMethod string) ensureOption {
+	return func(opts *ensureOpts) {
+		opts.encryptionMethod = &encryptionMethod
+	}
+}
+
+func ensureEncryptionKeyID(encryptionKeyID string) ensureOption {
+	return func(opts *ensureOpts) {
+		opts.encryptionKeyID = &encryptionKeyID
+	}
+}
+func ensureArbitraryMetadata(metadata map[string]*string) ensureOption {
+	return func(opts *ensureOpts) {
+		opts.metadata = metadata
 	}
 }
 
@@ -523,10 +675,35 @@ func ensureS3Object(
 		return fmt.Errorf("s3 %v/%v: (-want +got):\n%v", bucket, key, diff)
 	}
 
+	if opts.cacheControl != nil {
+		if diff := cmp.Diff(opts.cacheControl, output.CacheControl); diff != "" {
+			return fmt.Errorf("cache-control of %v/%v: (-want +got):\n%v", bucket, key, diff)
+		}
+	}
+
+	if opts.expires != nil {
+		if diff := cmp.Diff(opts.expires, output.Expires); diff != "" {
+			return fmt.Errorf("expires of %v/%v: (-want +got):\n%v", bucket, key, diff)
+		}
+	}
+
+	if opts.contentEncoding != nil {
+		if diff := cmp.Diff(opts.contentEncoding, output.ContentEncoding); diff != "" {
+			return fmt.Errorf("content-encoding of %v/%v: (-want +got):\n%v", bucket, key, diff)
+		}
+	}
+
 	if opts.contentType != nil {
 		if diff := cmp.Diff(opts.contentType, output.ContentType); diff != "" {
 			return fmt.Errorf("content-type of %v/%v: (-want +got):\n%v", bucket, key, diff)
 		}
+	}
+
+	if opts.contentDisposition != nil {
+		if diff := cmp.Diff(opts.contentDisposition, output.ContentDisposition); diff != "" {
+			return fmt.Errorf("content-disposition of %v/%v: (-want +got):\n%v", bucket, key, diff)
+		}
+
 	}
 
 	if opts.storageClass != nil {
@@ -535,17 +712,52 @@ func ensureS3Object(
 		}
 	}
 
+	if opts.encryptionMethod != nil {
+		if diff := cmp.Diff(opts.encryptionMethod, output.ServerSideEncryption); diff != "" {
+			return fmt.Errorf("encryption-method of %v/%v: (-want +got):\n%v", bucket, key, diff)
+		}
+	}
+
+	if opts.encryptionKeyID != nil {
+		if diff := cmp.Diff(opts.encryptionKeyID, output.SSEKMSKeyId); diff != "" {
+			return fmt.Errorf("encryption-key-id of %v/%v: (-want +got):\n%v", bucket, key, diff)
+		}
+	}
+
+	if opts.metadata != nil {
+		for mkey := range opts.metadata {
+			if opts.metadata[mkey] == nil || output.Metadata[mkey] == nil {
+				return fmt.Errorf("check the assertion keys of %v/%v key:%v\n", bucket, key, mkey)
+			}
+			if diff := cmp.Diff(*opts.metadata[mkey], *output.Metadata[mkey]); diff != "" {
+				return fmt.Errorf("arbitrary metadata of %v/%v: (-want +got):\n%v", bucket, key, diff)
+			}
+		}
+	}
 	return nil
 }
 
-func putFile(t *testing.T, client *s3.S3, bucket string, filename string, content string) {
-	t.Helper()
+type putOption func(*s3.PutObjectInput)
 
-	_, err := client.PutObject(&s3.PutObjectInput{
+func putArbitraryMetadata(metadata map[string]*string) putOption {
+	return func(opts *s3.PutObjectInput) {
+		opts.Metadata = metadata
+	}
+}
+
+func putFile(t *testing.T, client *s3.S3, bucket string, filename string, content string, opts ...putOption) {
+	t.Helper()
+	input := &s3.PutObjectInput{
 		Body:   strings.NewReader(content),
 		Bucket: aws.String(bucket),
 		Key:    aws.String(filename),
-	})
+	}
+
+	for _, opt := range opts {
+		opt(input)
+	}
+
+	_, err := client.PutObject(input)
 	if err != nil {
 		t.Fatal(err)
 	}

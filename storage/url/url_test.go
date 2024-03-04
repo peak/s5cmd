@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/peak/s5cmd/strutil"
+	"github.com/peak/s5cmd/v2/strutil"
 )
 
 func TestHasWild(t *testing.T) {
@@ -587,15 +587,59 @@ func TestURLSetRelative(t *testing.T) {
 			if err != nil {
 				t.Errorf("URL cannot be instantiated: \nPath: %v, Error: %v", tt.base, err)
 			}
-			targUrl, err := New(tt.target)
+			targURL, err := New(tt.target)
 			if err != nil {
 				t.Errorf("URL cannot be instantiated:\nPath: %v, Error: %v", tt.base, err)
 			}
 
-			targUrl.SetRelative(baseURL)
+			targURL.SetRelative(baseURL)
 
-			if diff := cmp.Diff(tt.expect, targUrl.Relative()); diff != "" {
+			if diff := cmp.Diff(tt.expect, targURL.Relative()); diff != "" {
 				t.Errorf("SetRelative() with %s did not produce expected path (-want +got):\n%s", tt.name, diff)
+			}
+		})
+	}
+}
+
+func TestToFromBytes(t *testing.T) {
+	testcases := []struct {
+		name     string
+		key      string
+		relative string
+	}{
+		{
+			name:     "plain remote",
+			key:      "s3://bucket/file",
+			relative: "file",
+		},
+		{
+			name:     "space char remote",
+			key:      "s3://bucket/s ace/file",
+			relative: "s ace/file",
+		},
+		{
+			name:     "space char remote",
+			key:      "s3://bucket/li\ne/file",
+			relative: "li\ne/file",
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			url, err := New(tc.key)
+			if err != nil {
+				t.Errorf("URL cannot be instantiated: \nPath: %v, Error: %v", tc.key, err)
+			}
+
+			url.relativePath = tc.relative
+
+			newURL := FromBytes(url.ToBytes()).(*URL)
+
+			if !reflect.DeepEqual(url, newURL) {
+				t.Errorf("got = %q, want %q", url, newURL)
+			}
+			if !url.deepEqual(newURL) {
+				t.Errorf("Not equal")
 			}
 		})
 	}

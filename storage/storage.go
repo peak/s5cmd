@@ -1,16 +1,21 @@
+//go:generate mockgen -source=$GOFILE -destination=mock_$GOFILE -package=$GOPACKAGE Storage
+
 // Package storage implements operations for s3 and fs.
 package storage
 
 import (
+	"bytes"
 	"context"
+	"encoding/gob"
 	"encoding/json"
 	"fmt"
 	"os"
 	"time"
 
-	"github.com/peak/s5cmd/log"
-	"github.com/peak/s5cmd/storage/url"
-	"github.com/peak/s5cmd/strutil"
+	"github.com/lanrat/extsort"
+	"github.com/peak/s5cmd/v2/log"
+	"github.com/peak/s5cmd/v2/storage/url"
+	"github.com/peak/s5cmd/v2/strutil"
 )
 
 var (
@@ -57,6 +62,7 @@ func NewLocalClient(opts Options) *Filesystem {
 func NewRemoteClient(ctx context.Context, url *url.URL, opts Options) (*S3, error) {
 	newOpts := Options{
 		MaxRetries:             opts.MaxRetries,
+		NoSuchUploadRetryCount: opts.NoSuchUploadRetryCount,
 		Endpoint:               opts.Endpoint,
 		NoVerifySSL:            opts.NoVerifySSL,
 		DryRun:                 opts.DryRun,
@@ -68,7 +74,6 @@ func NewRemoteClient(ctx context.Context, url *url.URL, opts Options) (*S3, erro
 		LogLevel:               opts.LogLevel,
 		bucket:                 url.Bucket,
 		region:                 opts.region,
-		NoSuchUploadRetryCount: opts.NoSuchUploadRetryCount,
 	}
 	return newS3Storage(ctx, newOpts)
 }
@@ -111,6 +116,10 @@ type Object struct {
 	StorageClass StorageClass `json:"storage_class,omitempty"`
 	Err          error        `json:"error,omitempty"`
 	retryID      string
+
+	// the VersionID field exist only for JSON Marshall, it must not be used for
+	// any other purpose. URL.VersionID must be used instead.
+	VersionID string `json:"version_id,omitempty"`
 }
 
 // String returns the string representation of Object.
@@ -120,6 +129,9 @@ func (o *Object) String() string {
 
 // JSON returns the JSON representation of Object.
 func (o *Object) JSON() string {
+	if o.URL != nil {
+		o.VersionID = o.URL.VersionID
+	}
 	return strutil.JSON(o)
 }
 
@@ -156,10 +168,15 @@ func (o ObjectType) IsSymlink() bool {
 	return o.mode&os.ModeSymlink != 0
 }
 
-// ShouldProcessUrl returns true if follow symlinks is enabled.
+// IsRegular checks if the object is a regular file.
+func (o ObjectType) IsRegular() bool {
+	return o.mode.IsRegular()
+}
+
+// ShouldProcessURL returns true if follow symlinks is enabled.
 // If follow symlinks is disabled we should not process the url.
 // (this check is needed only for local files)
-func ShouldProcessUrl(url *url.URL, followSymlinks bool) bool {
+func ShouldProcessURL(url *url.URL, followSymlinks bool) bool {
 	if followSymlinks {
 		return true
 	}
@@ -202,81 +219,51 @@ func (s StorageClass) IsGlacier() bool {
 	return s == "GLACIER"
 }
 
-type Metadata map[string]string
+type Metadata struct {
+	ACL                string
+	CacheControl       string
+	Expires            string
+	StorageClass       string
+	ContentType        string
+	ContentEncoding    string
+	ContentDisposition string
+	EncryptionMethod   string
+	EncryptionKeyID    string
 
-// NewMetadata will return an empty metadata object.
-func NewMetadata() Metadata {
-	return Metadata{}
+	UserDefined map[string]string
 }
 
-func (m Metadata) ACL() string {
-	return m["ACL"]
+func (o Object) ToBytes() []byte {
+	buf := bytes.NewBuffer(make([]byte, 0, 200))
+	enc := gob.NewEncoder(buf)
+	enc.Encode(o.URL.ToBytes())
+	enc.Encode(o.ModTime.Format(time.RFC3339Nano))
+	enc.Encode(o.Type.mode)
+	enc.Encode(o.Size)
+
+	return buf.Bytes()
 }
 
-func (m Metadata) SetACL(acl string) Metadata {
-	m["ACL"] = acl
-	return m
+func FromBytes(data []byte) extsort.SortType {
+	dec := gob.NewDecoder(bytes.NewBuffer(data))
+	var gobURL []byte
+	dec.Decode(&gobURL)
+	u := url.FromBytes(gobURL).(*url.URL)
+	o := Object{
+		URL: u,
+	}
+	str := ""
+	dec.Decode(&str)
+	tmp, _ := time.Parse(time.RFC3339Nano, str)
+	o.ModTime = &tmp
+	dec.Decode(&o.Type.mode)
+	dec.Decode(&o.Size)
+	return o
 }
 
-func (m Metadata) CacheControl() string {
-	return m["CacheControl"]
-}
-
-func (m Metadata) SetCacheControl(cacheControl string) Metadata {
-	m["CacheControl"] = cacheControl
-	return m
-}
-
-func (m Metadata) Expires() string {
-	return m["Expires"]
-}
-
-func (m Metadata) SetExpires(expires string) Metadata {
-	m["Expires"] = expires
-	return m
-}
-
-func (m Metadata) StorageClass() string {
-	return m["StorageClass"]
-}
-
-func (m Metadata) SetStorageClass(class string) Metadata {
-	m["StorageClass"] = class
-	return m
-}
-
-func (m Metadata) ContentType() string {
-	return m["ContentType"]
-}
-
-func (m Metadata) SetContentType(contentType string) Metadata {
-	m["ContentType"] = contentType
-	return m
-}
-
-func (m Metadata) SSE() string {
-	return m["EncryptionMethod"]
-}
-
-func (m Metadata) SetSSE(sse string) Metadata {
-	m["EncryptionMethod"] = sse
-	return m
-}
-
-func (m Metadata) SSEKeyID() string {
-	return m["EncryptionKeyID"]
-}
-
-func (m Metadata) SetSSEKeyID(kid string) Metadata {
-	m["EncryptionKeyID"] = kid
-	return m
-}
-
-func (m Metadata) ContentEncoding() string {
-	return m["ContentEncoding"]
-}
-
-func (m Metadata) SetContentEncoding(contentEncoding string) Metadata {
-	m["ContentEncoding"] = contentEncoding
-	return m
+// Less returns if relative path of storage.Object a's URL comes before the one
+// of b's in the lexicographic order.
+// It assumes that both a, and b are the instances of Object
+func Less(a, b extsort.SortType) bool {
+	return a.(Object).URL.Relative() < b.(Object).URL.Relative()
 }

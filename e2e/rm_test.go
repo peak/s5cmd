@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"gotest.tools/v3/assert"
@@ -1166,4 +1167,289 @@ func TestRemovetNonexistingLocalFile(t *testing.T) {
 	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: equals(`ERROR "rm nonexistentfile": no object found`),
 	}, strictLineCheck(true))
+}
+
+func TestVersionedListAndRemove(t *testing.T) {
+	skipTestIfGCS(t, "versioning is not supported in GCS")
+
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	// versioninng is only supported with in memory backend!
+	s3client, s5cmd := setup(t, withS3Backend("mem"))
+
+	const (
+		filename              = "testfile.txt"
+		firstContent          = "this is the first content"
+		firstExpectedContent  = firstContent + "\n"
+		secondContent         = "this is the second content: different than the first."
+		secondExpectedContent = secondContent + "\n"
+	)
+
+	workdir := fs.NewDir(t, t.Name(), fs.WithFile(filename+"1", firstContent), fs.WithFile(filename+"2", firstContent))
+	defer workdir.Remove()
+
+	// create a bucket and Enable versioning
+	createBucket(t, s3client, bucket)
+	setBucketVersioning(t, s3client, bucket, "Enabled")
+
+	// upload two versions of the file with same key
+	putFile(t, s3client, bucket, filename, firstExpectedContent)
+	putFile(t, s3client, bucket, filename, secondExpectedContent)
+
+	//  remove (add a delete marker)
+	cmd := s5cmd("rm", "s3://"+bucket+"/"+filename)
+	result := icmd.RunCmd(cmd)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: contains("rm s3://%v/%v", bucket, filename),
+	})
+
+	// we expect to see it empty
+	cmd = s5cmd("ls", "s3://"+bucket+"/"+filename)
+	result = icmd.RunCmd(cmd)
+
+	assert.Assert(t, result.Stdout() == "")
+
+	// we expect to see 3 versions of objects one of which is a delete marker
+	cmd = s5cmd("ls", "--all-versions", "s3://"+bucket+"/"+filename)
+	result = icmd.RunCmd(cmd)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: contains("%v", filename),
+		1: contains("%v", filename),
+		2: contains("%v", filename),
+	})
+
+	// we expect all 3 versions of objects (one of which is a delete marker) to be deleted
+	cmd = s5cmd("rm", "--all-versions", "s3://"+bucket+"/"+filename)
+	result = icmd.RunCmd(cmd)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: contains("rm s3://%v/%v", bucket, filename),
+		1: contains("rm s3://%v/%v", bucket, filename),
+		2: contains("rm s3://%v/%v", bucket, filename),
+	})
+
+	// all versions are deleted so we don't expect to see any result
+	cmd = s5cmd("ls", "--all-versions", "s3://"+bucket+"/"+filename)
+	result = icmd.RunCmd(cmd)
+	assert.Assert(t, result.Stdout() == "")
+}
+
+func TestRemoveByVersionID(t *testing.T) {
+	skipTestIfGCS(t, "versioning is not supported in GCS")
+
+	t.Parallel()
+
+	bucket := s3BucketFromTestName(t)
+
+	// versioninng is only supported with in memory backend!
+	s3client, s5cmd := setup(t, withS3Backend("mem"))
+
+	const filename = "testfile.txt"
+
+	var contents = []string{
+		"This is first content",
+		"Second content it is, and it is a bit longer!!!",
+	}
+
+	// create a bucket and Enable versioning
+	createBucket(t, s3client, bucket)
+	setBucketVersioning(t, s3client, bucket, "Enabled")
+
+	// upload two versions of the file with same key
+	putFile(t, s3client, bucket, filename, contents[0])
+	putFile(t, s3client, bucket, filename, contents[1])
+
+	//  remove (add a delete marker)
+	cmd := s5cmd("rm", "s3://"+bucket+"/"+filename)
+	result := icmd.RunCmd(cmd)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: contains("rm s3://%v/%v", bucket, filename),
+	})
+
+	// we expect to see 3 versions of objects
+	cmd = s5cmd("ls", "--all-versions", "s3://"+bucket+"/"+filename)
+	result = icmd.RunCmd(cmd)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: contains("%v", filename),
+		1: contains("%v", filename),
+		2: contains("%v", filename),
+	})
+
+	// now we will parse their version IDs and remove them one by one
+	versionIDs := make([]string, 0)
+	for _, row := range strings.Split(result.Stdout(), "\n") {
+		if row != "" {
+			arr := strings.Split(row, " ")
+			versionIDs = append(versionIDs, arr[len(arr)-1])
+		}
+	}
+
+	for _, version := range versionIDs {
+		cmd = s5cmd("rm", "--version-id", version,
+			fmt.Sprintf("s3://%v/%v", bucket, filename))
+		_ = icmd.RunCmd(cmd)
+	}
+
+	// all versions are deleted so we don't expect to see any result
+	cmd = s5cmd("ls", "--all-versions", "s3://"+bucket+"/"+filename)
+	result = icmd.RunCmd(cmd)
+	assert.Assert(t, result.Stdout() == "")
+}
+
+// rm --include "*.py" s3://bucket/
+func TestRemoveS3ObjectsWithIncludeFilter(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd := setup(t)
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	const (
+		includePattern = "*.py"
+		fileContent    = "content"
+	)
+
+	files := [...]string{
+		"file1.py",
+		"file2.py",
+		"file.txt",
+		"data.txt",
+		"src/app.py",
+	}
+	filesKept := [...]string{
+		"file.txt",
+		"data.txt",
+	}
+
+	for _, filename := range files {
+		putFile(t, s3client, bucket, filename, fileContent)
+	}
+
+	srcpath := fmt.Sprintf("s3://%s", bucket)
+
+	cmd := s5cmd("rm", "--include", includePattern, srcpath+"/*")
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	fmt.Println(result.Stdout())
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals("rm %v/%s", srcpath, files[0]),
+		1: equals("rm %v/%s", srcpath, files[1]),
+		2: equals("rm %v/%s", srcpath, files[4]),
+	}, sortInput(true))
+
+	// assert s3
+	for _, f := range filesKept {
+		assert.Assert(t, ensureS3Object(s3client, bucket, f, fileContent))
+	}
+}
+
+// rm --include "file*" --exclude "*.py" s3://bucket/
+func TestRemoveS3ObjectsWithIncludeExcludeFilter(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd := setup(t)
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	const (
+		includePattern = "*.md"
+		excludePattern = "*.py"
+		fileContent    = "content"
+	)
+
+	files := [...]string{
+		"file1.py",
+		"file2.py",
+		"test.py",
+		"app.py",
+		"docs/file.md",
+	}
+	filesKept := [...]string{
+		"file1.py",
+		"file2.py",
+		"test.py",
+		"app.py",
+	}
+
+	for _, filename := range files {
+		putFile(t, s3client, bucket, filename, fileContent)
+	}
+
+	srcpath := fmt.Sprintf("s3://%s", bucket)
+
+	cmd := s5cmd("rm", "--include", includePattern, "--exclude", excludePattern, srcpath+"/*")
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals("rm %v/%s", srcpath, files[4]),
+	}, sortInput(true))
+
+	// assert s3
+	for _, f := range filesKept {
+		assert.Assert(t, ensureS3Object(s3client, bucket, f, fileContent))
+	}
+}
+
+// rm --exclude "docs*" --include "*.md" --include "*.py" s3://bucket/
+func TestRemoveS3ObjectsWithIncludeExcludeFilter2(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd := setup(t)
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	const (
+		includePattern  = "*.md"
+		includePattern2 = "*.py"
+		excludePattern  = "docs*"
+		fileContent     = "content"
+	)
+
+	files := [...]string{
+		"file1.py",
+		"file2.py",
+		"test.py",
+		"app.py",
+		"docs/readme.md",
+	}
+	filesKept := [...]string{
+		"docs/readme.md",
+	}
+
+	for _, filename := range files {
+		putFile(t, s3client, bucket, filename, fileContent)
+	}
+
+	srcpath := fmt.Sprintf("s3://%s", bucket)
+
+	cmd := s5cmd("rm", "--exclude", excludePattern, "--include", includePattern, "--include", includePattern2, srcpath+"/*")
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals("rm %v/%s", srcpath, files[3]),
+		1: equals("rm %v/%s", srcpath, files[0]),
+		2: equals("rm %v/%s", srcpath, files[1]),
+		3: equals("rm %v/%s", srcpath, files[2]),
+	}, sortInput(true))
+
+	// assert s3
+	for _, f := range filesKept {
+		assert.Assert(t, ensureS3Object(s3client, bucket, f, fileContent))
+	}
 }

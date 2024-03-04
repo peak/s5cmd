@@ -1,6 +1,42 @@
 # Changelog
+## v2.2.2 - 13 Sep 2023 
 
-## not released yet
+#### Bugfixes
+- Fixed `cp` and `pipe` to not omit some of the metadata flags. ([#657](https://github.com/peak/s5cmd/issues/657))
+## v2.2.1 - 23 Aug 2023
+
+#### Bugfixes
+- Fixed incorrect `s5cmd version` output ([#650](https://github.com/peak/s5cmd/pull/650))
+## v2.2.0 - 21 Aug 2023
+
+#### Features
+- Added `pipe` command. ([#182](https://github.com/peak/s5cmd/issues/182))
+- Added `presign` command. ([#634](https://github.com/peak/s5cmd/pull/634)) [@zemul](https://github.com/zemul)
+- Added file types to `select` queries with more range of options to set during the query. ([#494](https://github.com/peak/s5cmd/issues/494))
+- Added `--content-disposition` flag to `cp` command. ([#569](https://github.com/peak/s5cmd/issues/569))
+- Added `--show-fullpath` flag to `ls` command. ([#596](https://github.com/peak/s5cmd/issues/596))
+- Added `--show-progress` flag to `cp` command. ([#51](https://github.com/peak/s5cmd/issues/51))
+- Added `--metadata` flag to `cp` and `pipe` commands to set arbitrary metadata for the objects. ([#537](https://github.com/peak/s5cmd/issues/537))
+- Added `--include` flag to `cp`, `rm`, and `sync` commands. ([#516](https://github.com/peak/s5cmd/issues/516))
+- Added `--content-disposition` flag to `cp` command. ([#569](https://github.com/peak/s5cmd/issues/569))
+
+
+#### Improvements
+- Implemented concurrent multipart download support for `cat` command. ([#245](https://github.com/peak/s5cmd/issues/245))
+- Upgraded minimum required Go version to 1.19. ([#583](https://github.com/peak/s5cmd/pull/583))
+- `ListObjectsV2` S3 API is enabled for Google Cloud Storage. ([#617](https://github.com/peak/s5cmd/pull/617))
+- Added installation instructions for FreeBSD. ([#573](https://github.com/peak/s5cmd/pull/573)) [@ehaupt](https://github.com/ehaupt)
+- Added `ppc64le` support. ([#552](https://github.com/peak/s5cmd/pull/552)) [@mgiessing](https://github.com/mgiessing)
+
+#### Bugfixes
+- Fixed a bug that causes `sync` command with whitespaced flag value to fail. ([#541](https://github.com/peak/s5cmd/issues/541)) [ataberkgrl](https://github.com/ataberkgrl)
+- Fixed a bug introduced with `external sort` support in `sync` command which prevents `sync` to an empty destination with `--delete` option. ([#576](https://github.com/peak/s5cmd/issues/576))
+- Fixed a bug in `sync` command, which previously caused the command to continue running even if an error was received from the destination bucket. ([#564](https://github.com/peak/s5cmd/issues/564))
+- Fixed a bug that causes local files to be lost if downloads fail. ([#479](https://github.com/peak/s5cmd/issues/479))
+- Fixed a bug where `cp` command could not upload a non-regular file to remote destination. ([#618](https://github.com/peak/s5cmd/pull/618))
+- Fixed a crash where a file or a remote object is removed or renamed after it is listed to be operated on. ([#620](https://github.com/peak/s5cmd/pull/620))
+
+## v2.1.0 - 19 Jun 2023
 
 #### Breaking changes
 - Adjacent slashes in key are no longer removed when uploading to remote. Before `s5cmd cp file.txt s3://bucket/a//b///c/` would copy to `s3://bucket/a/b/c/file.txt` but now to `s3://bucket/a//b///c/file.txt`.([#459](https://github.com/peak/s5cmd/pull/459))
@@ -10,13 +46,21 @@
 - Added `--content-type` and `--content-encoding` flags to `cp` command. ([#264](https://github.com/peak/s5cmd/issues/264))
 - Added `--profile` flag to allow users to specify a [named profile](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-profiles.html). ([#353](https://github.com/peak/s5cmd/issues/353))
 - Added `--credentials-file` flag to allow users to specify path for the AWS credentials file instead of using the [default location](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html#cli-configure-files-where).
+- Added `--all-versions` flag to `ls`, `rm`, `du` and `select` subcommands to apply operation on(/over) all versions of the objects. ([#475](https://github.com/peak/s5cmd/pull/475))
+- Added `--version-id` flag to `cat`, `cp`/`mv`, `rm`, `du`  and `select` subcommands to apply operation on(/over) a specific versions of the object. ([#475](https://github.com/peak/s5cmd/pull/475))
+- Added `bucket-version` command to configure bucket versioning. Bucket name alone returns the bucket versioning status of the bucket. Bucket versioning can be configured with `set` flag. ([#475](https://github.com/peak/s5cmd/pull/475))
+- Added `--raw` flag to `cat` and `select` subcommands. It disables the wildcard operations. ([#475](https://github.com/peak/s5cmd/pull/475))
 - Added `bench.py` script under new `benchmark` folder to compare performances of two different builds of s5cmd. ([#471](https://github.com/peak/s5cmd/pull/471))
 
 #### Improvements
-- Disable AWS SDK logger if log level is not `trace`. ([##460](https://github.com/peak/s5cmd/pull/460))
+- Disable AWS SDK logger if log level is not `trace`. ([#460](https://github.com/peak/s5cmd/pull/460))
 - Allow adjacent slashes to be used as keys when uploading to remote. ([#459](https://github.com/peak/s5cmd/pull/459))
 - Debian packages are provided on [releases page](https://github.com/peak/s5cmd/releases) ([#380](https://github.com/peak/s5cmd/issues/380))
 - Upgraded minimum required Go version to 1.17.
+- The sync command uses `external sort` instead of `internal` sort. This change
+ reduces RAM usage from ~10 GB to ~1.5 GB for `sync` operation of a directory containing
+ 1,000,000 files at a cost of speed (20% slower for 1,000,000 objects). For smaller
+ directories (~50,000 files) there is no significant change in speed.  ([#483](https://github.com/peak/s5cmd/pull/483))
 - Improve auto-completion support of s5cmd for `zsh` and `bash`, start supporting `pwsh` and stop the support for `fish`. Now s5cmd can complete bucket names, s3 keys in a bucket and the local files. However, `install-completion` flag no longer _installs_ the completion script to `*rc` files instead it merely gives instructions to install autocompletion and provides the autocompletion script ([#500](https://github.com/peak/s5cmd/pull/500)).
 
 #### Bugfixes

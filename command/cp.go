@@ -9,23 +9,27 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/urfave/cli/v2"
 
-	errorpkg "github.com/peak/s5cmd/error"
-	"github.com/peak/s5cmd/log"
-	"github.com/peak/s5cmd/log/stat"
-	"github.com/peak/s5cmd/parallel"
-	"github.com/peak/s5cmd/storage"
-	"github.com/peak/s5cmd/storage/url"
+	errorpkg "github.com/peak/s5cmd/v2/error"
+	"github.com/peak/s5cmd/v2/log"
+	"github.com/peak/s5cmd/v2/log/stat"
+	"github.com/peak/s5cmd/v2/parallel"
+	"github.com/peak/s5cmd/v2/progressbar"
+	"github.com/peak/s5cmd/v2/storage"
+	"github.com/peak/s5cmd/v2/storage/url"
 )
 
 const (
 	defaultCopyConcurrency = 5
 	defaultPartSize        = 50 // MiB
 	megabytes              = 1024 * 1024
+	kilobytes              = 1024
 )
 
 var copyHelpTemplate = `Name:
@@ -45,7 +49,7 @@ Examples:
 		 > s5cmd {{.HelpName}} s3://bucket/prefix/object.gz myobject.gz
 
 	03. Download all S3 objects to a directory
-		 > s5cmd {{.HelpName}} s3://bucket/* target-directory/
+		 > s5cmd {{.HelpName}} "s3://bucket/*" target-directory/
 
 	04. Download an S3 object from a public bucket
 		 > s5cmd --no-sign-request {{.HelpName}} s3://bucket/prefix/object.gz .
@@ -54,7 +58,7 @@ Examples:
 		 > s5cmd {{.HelpName}} myfile.gz s3://bucket/
 
 	06. Upload matching files to S3 bucket
-		 > s5cmd {{.HelpName}} dir/*.gz s3://bucket/
+		 > s5cmd {{.HelpName}} "dir/*.gz" s3://bucket/
 
 	07. Upload all files in a directory to S3 bucket recursively
 		 > s5cmd {{.HelpName}} dir/ s3://bucket/
@@ -63,13 +67,13 @@ Examples:
 		 > s5cmd {{.HelpName}} s3://bucket/object s3://target-bucket/prefix/object
 
 	09. Copy matching S3 objects to another bucket
-		 > s5cmd {{.HelpName}} s3://bucket/*.gz s3://target-bucket/prefix/
+		 > s5cmd {{.HelpName}} "s3://bucket/*.gz" s3://target-bucket/prefix/
 
 	10. Copy files in a directory to S3 prefix if not found on target
 		 > s5cmd {{.HelpName}} -n -s -u dir/ s3://bucket/target-prefix/
 
 	11. Copy files in an S3 prefix to another S3 prefix if not found on target
-		 > s5cmd {{.HelpName}} -n -s -u s3://bucket/source-prefix/* s3://bucket/target-prefix/
+		 > s5cmd {{.HelpName}} -n -s -u "s3://bucket/source-prefix/*" s3://bucket/target-prefix/
 
 	12. Perform KMS Server Side Encryption of the object(s) at the destination
 		 > s5cmd {{.HelpName}} --sse aws:kms s3://bucket/object s3://target-bucket/prefix/object
@@ -78,7 +82,7 @@ Examples:
 		 > s5cmd {{.HelpName}} --sse aws:kms --sse-kms-key-id <your-kms-key-id> s3://bucket/object s3://target-bucket/prefix/object
 
 	14. Force transfer of GLACIER objects with a prefix whether they are restored or not
-		 > s5cmd {{.HelpName}} --force-glacier-transfer s3://bucket/prefix/* target-directory/
+		 > s5cmd {{.HelpName}} --force-glacier-transfer "s3://bucket/prefix/*" target-directory/
 
 	15. Upload a file to S3 bucket with public read s3 acl
 		 > s5cmd {{.HelpName}} --acl "public-read" myfile.gz s3://bucket/
@@ -93,13 +97,22 @@ Examples:
 		 > s5cmd {{.HelpName}} --exclude "*.txt" --exclude "*.gz" dir/ s3://bucket
 
 	19. Copy all files from S3 bucket to another S3 bucket but exclude the ones starts with log
-		 > s5cmd {{.HelpName}} --exclude "log*" s3://bucket/* s3://destbucket
+		 > s5cmd {{.HelpName}} --exclude "log*" "s3://bucket/*" s3://destbucket
 
-	20. Download an S3 object from a requester pays bucket
+	20. Copy all files from S3 bucket to another S3 bucket but only the ones starts with log
+		 > s5cmd {{.HelpName}} --include "log*" "s3://bucket/*" s3://destbucket
+
+	21. Download an S3 object from a requester pays bucket
 		 > s5cmd --request-payer=requester {{.HelpName}} s3://bucket/prefix/object.gz .
 
-	21. Upload a file to S3 with a content-type and content-encoding header
+	22. Upload a file to S3 with a content-type and content-encoding header
 		 > s5cmd --content-type "text/css" --content-encoding "br" myfile.css.br s3://bucket/
+		 
+	23. Download the specific version of a remote object to working directory
+		 > s5cmd {{.HelpName}} --version-id VERSION_ID s3://bucket/prefix/object .
+
+	24. Pass arbitrary metadata to the object during upload or copy 
+		 > s5cmd {{.HelpName}} --metadata "camera=Nixon D750" --metadata "imageSize=6032x4032" flowers.png s3://bucket/prefix/flowers.png 
 `
 
 func NewSharedFlags() []cli.Flag {
@@ -123,6 +136,10 @@ func NewSharedFlags() []cli.Flag {
 			Aliases: []string{"p"},
 			Value:   defaultPartSize,
 			Usage:   "size of each part transferred between host and remote server, in MiB",
+		},
+		&MapFlag{
+			Name:  "metadata",
+			Usage: "set arbitrary metadata for the object, e.g. --metadata 'foo=bar' --metadata 'fizz=buzz'",
 		},
 		&cli.StringFlag{
 			Name:  "sse",
@@ -164,6 +181,10 @@ func NewSharedFlags() []cli.Flag {
 			Name:  "exclude",
 			Usage: "exclude objects with given pattern",
 		},
+		&cli.StringSliceFlag{
+			Name:  "include",
+			Usage: "include objects with given pattern",
+		},
 		&cli.BoolFlag{
 			Name:  "raw",
 			Usage: "disable the wildcard operations, useful with filenames that contains glob characters",
@@ -175,6 +196,10 @@ func NewSharedFlags() []cli.Flag {
 		&cli.StringFlag{
 			Name:  "content-encoding",
 			Usage: "set content encoding for target: defines content encoding header for object, e.g. --content-encoding gzip",
+		},
+		&cli.StringFlag{
+			Name:  "content-disposition",
+			Usage: "set content disposition for target: defines content disposition header for object, e.g. --content-disposition 'attachment; filename=\"filename.jpg\"'",
 		},
 		&cli.IntFlag{
 			Name:        "no-such-upload-retry-count",
@@ -207,6 +232,15 @@ func NewCopyCommandFlags() []cli.Flag {
 			Aliases: []string{"u"},
 			Usage:   "only overwrite destination if source modtime is newer",
 		},
+		&cli.StringFlag{
+			Name:  "version-id",
+			Usage: "use the specified version of an object",
+		},
+		&cli.BoolFlag{
+			Name:    "show-progress",
+			Aliases: []string{"sp"},
+			Usage:   "show a progress bar",
+		},
 	}
 	sharedFlags := NewSharedFlags()
 	return append(copyFlags, sharedFlags...)
@@ -230,7 +264,11 @@ func NewCopyCommand() *cli.Command {
 			defer stat.Collect(c.Command.FullName(), &err)()
 
 			// don't delete source
-			return NewCopy(c, false).Run(c.Context)
+			copy, err := NewCopy(c, false)
+			if err != nil {
+				return err
+			}
+			return copy.Run(c.Context)
 		},
 	}
 
@@ -240,8 +278,8 @@ func NewCopyCommand() *cli.Command {
 
 // Copy holds copy operation flags and states.
 type Copy struct {
-	src         string
-	dst         string
+	src         *url.URL
+	dst         *url.URL
 	op          string
 	fullCommand string
 
@@ -259,12 +297,20 @@ type Copy struct {
 	acl                   string
 	forceGlacierTransfer  bool
 	ignoreGlacierWarnings bool
-	raw                   bool
 	exclude               []string
+	include               []string
 	cacheControl          string
 	expires               string
 	contentType           string
 	contentEncoding       string
+	contentDisposition    string
+	metadata              map[string]string
+	showProgress          bool
+	progressbar           progressbar.ProgressBar
+
+	// patterns
+	excludePatterns []*regexp.Regexp
+	includePatterns []*regexp.Regexp
 
 	// region settings
 	srcRegion string
@@ -277,12 +323,42 @@ type Copy struct {
 }
 
 // NewCopy creates Copy from cli.Context.
-func NewCopy(c *cli.Context, deleteSource bool) Copy {
-	return Copy{
-		src:          c.Args().Get(0),
-		dst:          c.Args().Get(1),
+func NewCopy(c *cli.Context, deleteSource bool) (*Copy, error) {
+	fullCommand := commandFromContext(c)
+
+	src, err := url.New(c.Args().Get(0), url.WithVersion(c.String("version-id")),
+		url.WithRaw(c.Bool("raw")))
+	if err != nil {
+		printError(fullCommand, c.Command.Name, err)
+		return nil, err
+	}
+
+	dst, err := url.New(c.Args().Get(1), url.WithRaw(c.Bool("raw")))
+	if err != nil {
+		printError(fullCommand, c.Command.Name, err)
+		return nil, err
+	}
+
+	var commandProgressBar progressbar.ProgressBar
+
+	if c.Bool("show-progress") && !(src.Type == dst.Type) {
+		commandProgressBar = progressbar.New()
+	} else {
+		commandProgressBar = &progressbar.NoOp{}
+	}
+
+	metadata, ok := c.Value("metadata").(MapValue)
+	if !ok {
+		err := errors.New("metadata flag is not a map")
+		printError(fullCommand, c.Command.Name, err)
+		return nil, err
+	}
+
+	return &Copy{
+		src:          src,
+		dst:          dst,
 		op:           c.Command.Name,
-		fullCommand:  commandFromContext(c),
+		fullCommand:  fullCommand,
 		deleteSource: deleteSource,
 		// flags
 		noClobber:             c.Bool("no-clobber"),
@@ -299,17 +375,22 @@ func NewCopy(c *cli.Context, deleteSource bool) Copy {
 		forceGlacierTransfer:  c.Bool("force-glacier-transfer"),
 		ignoreGlacierWarnings: c.Bool("ignore-glacier-warnings"),
 		exclude:               c.StringSlice("exclude"),
-		raw:                   c.Bool("raw"),
+		include:               c.StringSlice("include"),
 		cacheControl:          c.String("cache-control"),
 		expires:               c.String("expires"),
 		contentType:           c.String("content-type"),
 		contentEncoding:       c.String("content-encoding"),
+		contentDisposition:    c.String("content-disposition"),
+		metadata:              metadata,
+		showProgress:          c.Bool("show-progress"),
+		progressbar:           commandProgressBar,
+
 		// region settings
 		srcRegion: c.String("source-region"),
 		dstRegion: c.String("destination-region"),
 
 		storageOpts: NewStorageOpts(c),
-	}
+	}, nil
 }
 
 const fdlimitWarning = `
@@ -320,36 +401,25 @@ increase the open file limit or try to decrease the number of workers with
 
 // Run starts copying given source objects to destination.
 func (c Copy) Run(ctx context.Context) error {
-	srcurl, err := url.New(c.src, url.WithRaw(c.raw))
-	if err != nil {
-		printError(c.fullCommand, c.op, err)
-		return err
-	}
-
-	dsturl, err := url.New(c.dst, url.WithRaw(c.raw))
-	if err != nil {
-		printError(c.fullCommand, c.op, err)
-		return err
-	}
-
 	// override source region if set
 	if c.srcRegion != "" {
 		c.storageOpts.SetRegion(c.srcRegion)
 	}
 
-	client, err := storage.NewClient(ctx, srcurl, c.storageOpts)
+	client, err := storage.NewClient(ctx, c.src, c.storageOpts)
 	if err != nil {
 		printError(c.fullCommand, c.op, err)
 		return err
 	}
 
-	objch, err := expandSource(ctx, client, c.followSymlinks, srcurl)
-
+	objch, err := expandSource(ctx, client, c.followSymlinks, c.src)
 	if err != nil {
 		printError(c.fullCommand, c.op, err)
 		return err
 	}
 
+	c.progressbar.Start()
+	defer c.progressbar.Finish()
 	waiter := parallel.NewWaiter()
 
 	var (
@@ -372,20 +442,38 @@ func (c Copy) Run(ctx context.Context) error {
 		}
 	}()
 
-	isBatch := srcurl.IsWildcard()
-	if !isBatch && !srcurl.IsRemote() {
-		obj, _ := client.Stat(ctx, srcurl)
+	isBatch := c.src.IsWildcard()
+	if !isBatch && !c.src.IsRemote() {
+		obj, err := client.Stat(ctx, c.src)
+		if err != nil {
+			printError(c.fullCommand, c.op, err)
+			return err
+		}
+
 		isBatch = obj != nil && obj.Type.IsDir()
 	}
 
-	excludePatterns, err := createExcludesFromWildcard(c.exclude)
+	c.excludePatterns, err = createRegexFromWildcard(c.exclude)
+	if err != nil {
+		printError(c.fullCommand, c.op, err)
+		return err
+	}
+
+	c.includePatterns, err = createRegexFromWildcard(c.include)
 	if err != nil {
 		printError(c.fullCommand, c.op, err)
 		return err
 	}
 
 	for object := range objch {
-		if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) {
+		if errorpkg.IsCancelation(object.Err) || object.Type.IsDir() {
+			continue
+		}
+
+		if !object.Type.IsRegular() {
+			err := fmt.Errorf("object '%v' is not a regular file", object)
+			merrorObjects = multierror.Append(merrorObjects, err)
+			printError(c.fullCommand, c.op, err)
 			continue
 		}
 
@@ -404,27 +492,38 @@ func (c Copy) Run(ctx context.Context) error {
 			continue
 		}
 
-		if isURLExcluded(excludePatterns, object.URL.Path, srcurl.Prefix) {
+		isExcluded, err := isObjectExcluded(object, c.excludePatterns, c.includePatterns, c.src.Prefix)
+		if err != nil {
+			printError(c.fullCommand, c.op, err)
+		}
+		if isExcluded {
 			continue
 		}
 
 		srcurl := object.URL
 		var task parallel.Task
 
+		if object.Size == 0 && !(srcurl.Type == c.dst.Type) {
+			obj, err := client.Stat(ctx, srcurl)
+			if err == nil {
+				object.Size = obj.Size
+			}
+		}
+		c.progressbar.AddTotalBytes(object.Size)
+		c.progressbar.IncrementTotalObjects()
+
 		switch {
-		case srcurl.Type == dsturl.Type: // local->local or remote->remote
-			task = c.prepareCopyTask(ctx, srcurl, dsturl, isBatch)
+		case srcurl.Type == c.dst.Type: // local->local or remote->remote
+			task = c.prepareCopyTask(ctx, srcurl, c.dst, isBatch, c.metadata)
 		case srcurl.IsRemote(): // remote->local
-			task = c.prepareDownloadTask(ctx, srcurl, dsturl, isBatch)
-		case dsturl.IsRemote(): // local->remote
-			task = c.prepareUploadTask(ctx, srcurl, dsturl, isBatch)
+			task = c.prepareDownloadTask(ctx, srcurl, c.dst, isBatch)
+		case c.dst.IsRemote(): // local->remote
+			task = c.prepareUploadTask(ctx, srcurl, c.dst, isBatch, c.metadata)
 		default:
 			panic("unexpected src-dst pair")
 		}
-
 		parallel.Run(task, waiter)
 	}
-
 	waiter.Wait()
 	<-errDoneCh
 
@@ -436,10 +535,11 @@ func (c Copy) prepareCopyTask(
 	srcurl *url.URL,
 	dsturl *url.URL,
 	isBatch bool,
+	metadata map[string]string,
 ) func() error {
 	return func() error {
 		dsturl = prepareRemoteDestination(srcurl, dsturl, c.flatten, isBatch)
-		err := c.doCopy(ctx, srcurl, dsturl)
+		err := c.doCopy(ctx, srcurl, dsturl, metadata)
 		if err != nil {
 			return &errorpkg.Error{
 				Op:  c.op,
@@ -448,6 +548,7 @@ func (c Copy) prepareCopyTask(
 				Err: err,
 			}
 		}
+		c.progressbar.IncrementCompletedObjects()
 		return nil
 	}
 }
@@ -472,6 +573,7 @@ func (c Copy) prepareDownloadTask(
 				Err: err,
 			}
 		}
+		c.progressbar.IncrementCompletedObjects()
 		return nil
 	}
 }
@@ -481,10 +583,11 @@ func (c Copy) prepareUploadTask(
 	srcurl *url.URL,
 	dsturl *url.URL,
 	isBatch bool,
+	metadata map[string]string,
 ) func() error {
 	return func() error {
 		dsturl = prepareRemoteDestination(srcurl, dsturl, c.flatten, isBatch)
-		err := c.doUpload(ctx, srcurl, dsturl)
+		err := c.doUpload(ctx, srcurl, dsturl, metadata)
 		if err != nil {
 			return &errorpkg.Error{
 				Op:  c.op,
@@ -493,6 +596,7 @@ func (c Copy) prepareUploadTask(
 				Err: err,
 			}
 		}
+		c.progressbar.IncrementCompletedObjects()
 		return nil
 	}
 }
@@ -516,41 +620,50 @@ func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) 
 		return err
 	}
 
-	file, err := dstClient.Create(dsturl.Absolute())
+	dstPath := filepath.Dir(dsturl.Absolute())
+	dstFile := filepath.Base(dsturl.Absolute())
+	file, err := dstClient.CreateTemp(dstPath, dstFile)
 	if err != nil {
 		return err
 	}
 
-	size, err := srcClient.Get(ctx, srcurl, file, c.concurrency, c.partSize)
+	writer := newCountingReaderWriter(file, c.progressbar)
+	size, err := srcClient.Get(ctx, srcurl, writer, c.concurrency, c.partSize)
+	file.Close()
+
 	if err != nil {
-		// file must be closed before deletion
-		file.Close()
-		dErr := dstClient.Delete(ctx, dsturl)
+		dErr := dstClient.Delete(ctx, &url.URL{Path: file.Name(), Type: dsturl.Type})
 		if dErr != nil {
 			printDebug(c.op, dErr, srcurl, dsturl)
 		}
 		return err
 	}
-	defer file.Close()
 
 	if c.deleteSource {
 		_ = srcClient.Delete(ctx, srcurl)
 	}
 
-	msg := log.InfoMessage{
-		Operation:   c.op,
-		Source:      srcurl,
-		Destination: dsturl,
-		Object: &storage.Object{
-			Size: size,
-		},
+	err = dstClient.Rename(file, dsturl.Absolute())
+	if err != nil {
+		return err
 	}
-	log.Info(msg)
+
+	if !c.showProgress {
+		msg := log.InfoMessage{
+			Operation:   c.op,
+			Source:      srcurl,
+			Destination: dsturl,
+			Object: &storage.Object{
+				Size: size,
+			},
+		}
+		log.Info(msg)
+	}
 
 	return nil
 }
 
-func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) error {
+func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL, extradata map[string]string) error {
 	srcClient := storage.NewLocalClient(c.storageOpts)
 
 	file, err := srcClient.Open(srcurl.Absolute())
@@ -577,31 +690,35 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 		return err
 	}
 
-	metadata := storage.NewMetadata().
-		SetStorageClass(string(c.storageClass)).
-		SetSSE(c.encryptionMethod).
-		SetSSEKeyID(c.encryptionKeyID).
-		SetACL(c.acl).
-		SetCacheControl(c.cacheControl).
-		SetExpires(c.expires)
+	metadata := storage.Metadata{
+		UserDefined:        extradata,
+		ACL:                c.acl,
+		CacheControl:       c.cacheControl,
+		Expires:            c.expires,
+		StorageClass:       string(c.storageClass),
+		ContentEncoding:    c.contentEncoding,
+		ContentDisposition: c.contentDisposition,
+		EncryptionMethod:   c.encryptionMethod,
+		EncryptionKeyID:    c.encryptionKeyID,
+	}
 
 	if c.contentType != "" {
-		metadata.SetContentType(c.contentType)
+		metadata.ContentType = c.contentType
 	} else {
-		metadata.SetContentType(guessContentType(file))
+		metadata.ContentType = guessContentType(file)
 	}
 
-	if c.contentEncoding != "" {
-		metadata.SetContentEncoding(c.contentEncoding)
-	}
+	reader := newCountingReaderWriter(file, c.progressbar)
+	err = dstClient.Put(ctx, reader, dsturl, metadata, c.concurrency, c.partSize)
 
-	err = dstClient.Put(ctx, file, dsturl, metadata, c.concurrency, c.partSize)
 	if err != nil {
 		return err
 	}
 
-	obj, _ := srcClient.Stat(ctx, srcurl)
-	size := obj.Size
+	obj, err := srcClient.Stat(ctx, srcurl)
+	if err != nil {
+		return err
+	}
 
 	if c.deleteSource {
 		// close the file before deleting
@@ -611,21 +728,23 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) er
 		}
 	}
 
-	msg := log.InfoMessage{
-		Operation:   c.op,
-		Source:      srcurl,
-		Destination: dsturl,
-		Object: &storage.Object{
-			Size:         size,
-			StorageClass: c.storageClass,
-		},
+	if !c.showProgress {
+		msg := log.InfoMessage{
+			Operation:   c.op,
+			Source:      srcurl,
+			Destination: dsturl,
+			Object: &storage.Object{
+				Size:         obj.Size,
+				StorageClass: c.storageClass,
+			},
+		}
+		log.Info(msg)
 	}
-	log.Info(msg)
 
 	return nil
 }
 
-func (c Copy) doCopy(ctx context.Context, srcurl, dsturl *url.URL) error {
+func (c Copy) doCopy(ctx context.Context, srcurl, dsturl *url.URL, extradata map[string]string) error {
 	// override destination region if set
 	if c.dstRegion != "" {
 		c.storageOpts.SetRegion(c.dstRegion)
@@ -635,19 +754,17 @@ func (c Copy) doCopy(ctx context.Context, srcurl, dsturl *url.URL) error {
 		return err
 	}
 
-	metadata := storage.NewMetadata().
-		SetStorageClass(string(c.storageClass)).
-		SetSSE(c.encryptionMethod).
-		SetSSEKeyID(c.encryptionKeyID).
-		SetACL(c.acl).
-		SetCacheControl(c.cacheControl).
-		SetExpires(c.expires)
-
-	if c.contentType != "" {
-		metadata.SetContentType(c.contentType)
-	}
-	if c.contentEncoding != "" {
-		metadata.SetContentEncoding(c.contentEncoding)
+	metadata := storage.Metadata{
+		UserDefined:        extradata,
+		ACL:                c.acl,
+		CacheControl:       c.cacheControl,
+		Expires:            c.expires,
+		StorageClass:       string(c.storageClass),
+		ContentType:        c.contentType,
+		ContentEncoding:    c.contentEncoding,
+		ContentDisposition: c.contentDisposition,
+		EncryptionMethod:   c.encryptionMethod,
+		EncryptionKeyID:    c.encryptionKeyID,
 	}
 
 	err = c.shouldOverride(ctx, srcurl, dsturl)
@@ -704,7 +821,7 @@ func (c Copy) shouldOverride(ctx context.Context, srcurl *url.URL, dsturl *url.U
 		return err
 	}
 
-	srcObj, err := getObject(ctx, srcurl, srcClient)
+	srcObj, err := statObject(ctx, srcurl, srcClient)
 	if err != nil {
 		return err
 	}
@@ -714,7 +831,7 @@ func (c Copy) shouldOverride(ctx context.Context, srcurl *url.URL, dsturl *url.U
 		return err
 	}
 
-	dstObj, err := getObject(ctx, dsturl, dstClient)
+	dstObj, err := statObject(ctx, dsturl, dstClient)
 	if err != nil {
 		return err
 	}
@@ -794,7 +911,6 @@ func prepareLocalDestination(
 	}
 
 	obj, err := client.Stat(ctx, dsturl)
-
 	if err != nil {
 		var objNotFound *storage.ErrGivenObjectNotFound
 		if !errors.As(err, &objNotFound) {
@@ -827,9 +943,9 @@ func prepareLocalDestination(
 	return dsturl, nil
 }
 
-// getObject checks if the object from given url exists. If no object is
+// statObject checks if the object from given url exists. If no object is
 // found, error and returning object would be nil.
-func getObject(ctx context.Context, url *url.URL, client storage.Storage) (*storage.Object, error) {
+func statObject(ctx context.Context, url *url.URL, client storage.Storage) (*storage.Object, error) {
 	obj, err := client.Stat(ctx, url)
 	var objNotFound *storage.ErrGivenObjectNotFound
 	if errors.As(err, &objNotFound) {
@@ -848,7 +964,8 @@ func validateCopyCommand(c *cli.Context) error {
 	src := c.Args().Get(0)
 	dst := c.Args().Get(1)
 
-	srcurl, err := url.New(src, url.WithRaw(c.Bool("raw")))
+	srcurl, err := url.New(src, url.WithVersion(c.String("version-id")),
+		url.WithRaw(c.Bool("raw")))
 	if err != nil {
 		return err
 	}
@@ -872,6 +989,14 @@ func validateCopyCommand(c *cli.Context) error {
 	// surprises.
 	if srcurl.IsWildcard() && dsturl.IsRemote() && !dsturl.IsPrefix() && !dsturl.IsBucket() {
 		return fmt.Errorf("target %q must be a bucket or a prefix", dsturl)
+	}
+
+	if err := checkVersinoningURLRemote(srcurl); err != nil {
+		return err
+	}
+
+	if err := checkVersioningWithGoogleEndpoint(c); err != nil {
+		return err
 	}
 
 	switch {
@@ -929,4 +1054,49 @@ func guessContentType(file *os.File) string {
 		return http.DetectContentType(buf)
 	}
 	return contentType
+}
+
+type countingReaderWriter struct {
+	pb      progressbar.ProgressBar
+	fp      *os.File
+	signMap map[int64]struct{}
+	mu      sync.Mutex
+}
+
+func newCountingReaderWriter(file *os.File, pb progressbar.ProgressBar) *countingReaderWriter {
+	return &countingReaderWriter{
+		pb:      pb,
+		fp:      file,
+		signMap: map[int64]struct{}{},
+	}
+}
+
+func (r *countingReaderWriter) WriteAt(p []byte, off int64) (int, error) {
+	n, err := r.fp.WriteAt(p, off)
+	r.pb.AddCompletedBytes(int64(n))
+	return n, err
+}
+
+func (r *countingReaderWriter) Read(p []byte) (int, error) {
+	n, err := r.fp.Read(p)
+	r.pb.AddCompletedBytes(int64(n))
+	return n, err
+}
+
+func (r *countingReaderWriter) ReadAt(p []byte, off int64) (int, error) {
+	n, err := r.fp.ReadAt(p, off)
+	r.mu.Lock()
+	// Ignore the first signature call
+	if _, ok := r.signMap[off]; ok {
+		// Got the length have read (or means has uploaded)
+		r.pb.AddCompletedBytes(int64(n))
+	} else {
+		r.signMap[off] = struct{}{}
+	}
+	r.mu.Unlock()
+	return n, err
+}
+
+func (r *countingReaderWriter) Seek(offset int64, whence int) (int64, error) {
+	return r.fp.Seek(offset, whence)
 }

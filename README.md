@@ -1,4 +1,4 @@
-[![Go Report](https://goreportcard.com/badge/github.com/peak/s5cmd)](https://goreportcard.com/report/github.com/peak/s5cmd) ![Github Actions Status](https://github.com/peak/s5cmd/workflows/CI/badge.svg)
+[![Go Report](https://goreportcard.com/badge/github.com/peak/s5cmd/v2)](https://goreportcard.com/report/github.com/peak/s5cmd/v2) ![Github Actions Status](https://github.com/peak/s5cmd/actions/workflows/ci.yml/badge.svg)
 
 ![](./doc/s5cmd_header.jpg)
 
@@ -88,13 +88,27 @@ You can also install `s5cmd` from [MacPorts](https://ports.macports.org/port/s5c
 > ```
 ps.  Quoted from [s5cmd feedstock](https://github.com/conda-forge/s5cmd-feedstock). You can also find further instructions on its [README](https://github.com/conda-forge/s5cmd-feedstock/blob/main/README.md).
 
+#### FreeBSD
+
+On FreeBSD you can install s5cmd as a package:
+
+```
+pkg install s5cmd
+```
+
+or via ports:
+
+```
+cd /usr/ports/net/s5cmd
+make install clean
+```
 
 ### Build from source
 
-You can build `s5cmd` from source if you have [Go](https://golang.org/dl/) 1.17+
+You can build `s5cmd` from source if you have [Go](https://golang.org/dl/) 1.19+
 installed.
 
-    go get github.com/peak/s5cmd
+    go install github.com/peak/s5cmd/v2@master
 
 ⚠️ Please note that building from `master` is not guaranteed to be stable since
 development happens on `master` branch.
@@ -124,6 +138,53 @@ then filtering the results in-memory. For example, for the following command;
 
 first a `ListObjects` request is send, then the copy operation will be executed
 against each matching object, in parallel.
+
+
+### Specifying credentials
+
+`s5cmd` uses official AWS SDK to access S3. SDK requires credentials to sign
+requests to AWS. Credentials can be provided in a [variety of ways](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html):
+
+- Command line options `--profile` to use a named profile, `--credentials-file` flag to use the specified credentials file
+
+    ```sh
+    # Use your company profile in AWS default credential file
+    s5cmd --profile my-work-profile ls s3://my-company-bucket/
+
+    # Use your company profile in your own credential file
+    s5cmd --credentials-file ~/.your-credentials-file --profile my-work-profile ls s3://my-company-bucket/
+    ```
+
+- Environment variables
+
+    ```sh
+    # Export your AWS access key and secret pair
+    export AWS_ACCESS_KEY_ID='<your-access-key-id>'
+    export AWS_SECRET_ACCESS_KEY='<your-secret-access-key>'
+    export AWS_PROFILE='<your-profile-name>'
+    export AWS_REGION='<your-bucket-region>'
+
+    s5cmd ls s3://your-bucket/
+    ```
+
+- If `s5cmd` runs on an Amazon EC2 instance, EC2 IAM role
+- If `s5cmd` runs on EKS, Kube IAM role
+- Or, you can send requests anonymously with `--no-sign-request` option
+
+    ```sh
+    # List objects in a public bucket
+    s5cmd --no-sign-request ls s3://public-bucket/
+    ```
+
+### Region detection
+
+While executing the commands, `s5cmd` detects the region according to the following order of priority:
+
+1. `--source-region` or `--destination-region` flags of `cp` command.
+2. `AWS_REGION` environment variable.
+3. Region section of AWS profile.
+4. Auto detection from bucket region (via `HeadBucket` API call).
+5. `us-east-1` as default region.
 
 ### Examples
 
@@ -200,6 +261,15 @@ $ tree
 Will upload all files at given directory to S3 while keeping the folder hierarchy
 of the source.
 
+#### Stream stdin to S3
+You can upload remote objects by piping stdin to `s5cmd`:
+
+    curl https://github.com/peak/s5cmd/ | s5cmd pipe s3://bucket/s5cmd.html
+
+Or you can compress the data before uploading:
+
+    tar -cf - file.bin | s5cmd pipe s3://bucket/file.bin.tar
+
 #### Delete an S3 object
 
     s5cmd rm s3://bucket/logs/2020/03/18/file1.gz
@@ -226,7 +296,7 @@ are not supported by `s5cmd` and result in error (since we have 2 different buck
     rm s3://bucket-foo/object
     rm s3://bucket-bar/object
 
-more details and examples on `s5cmd run` are presented in a [later section](./README.md#L224).
+more details and examples on `s5cmd run` are presented in a [later section](./README.md#L293).
 
 #### Copy objects from S3 to S3
 
@@ -240,6 +310,29 @@ folder hierarchy.
 ⚠️ Copying objects (from S3 to S3) larger than 5GB is not supported yet. We have
 an [open ticket](https://github.com/peak/s5cmd/issues/29) to track the issue.
 
+#### Using Exclude and Include Filters
+`s5cmd` supports the `--exclude` and `--include` flags, which can be used to specify patterns for objects to be excluded or included in commands. 
+
+- The `--exclude` flag specifies objects that should be excluded from the operation. Any object that matches the pattern will be skipped.
+- The `--include` flag specifies objects that should be included in the operation. Only objects that match the pattern will be handled.
+- If both flags are used, `--exclude` has precedence over `--include`. This means that if an object URL matches any of the `--exclude` patterns, the object will be skipped, even if it also matches one of the `--include` patterns.
+- The order of the flags does not affect the results (unlike `aws-cli`).
+
+The command below will delete only objects that end with `.log`.
+
+    s5cmd rm --include "*.log" 's3://bucket/logs/2020/*'
+
+The command below will delete all objects except those that end with `.log` or `.txt`.
+
+    s5cmd rm --exclude "*.log" --exclude "*.txt" 's3://bucket/logs/2020/*'
+
+If you wish, you can use multiple flags, like below. It will download objects that start with `request` or end with `.log`.
+
+    s5cmd cp --include "*.log" --include "request*" 's3://bucket/logs/2020/*' .
+
+Using a combination of `--include` and `--exclude` also possible. The command below will only sync objects that end with `.log` or `.txt` but exclude those that start with `access_`. For example, `request.log`, and `license.txt` will be included, while `access_log.txt`, and `readme.md` are excluded.
+
+    s5cmd sync --include "*.log" --exclude "access_*" --include "*.txt" 's3://bucket/logs/*' .
 #### Select JSON object content using SQL
 
 `s5cmd` supports the `SelectObjectContent` S3 operation, and will run your
@@ -407,31 +500,6 @@ flag is useful for services that do not support ListObjectsV2 API.
 s5cmd --use-list-objects-v1 ls s3://bucket/
 ```
 
-### Specifying credentials
-
-`s5cmd` uses official AWS SDK to access S3. SDK requires credentials to sign
-requests to AWS. Credentials can be provided in a variety of ways:
-- Command line options `--profile` to use a [named profile](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-profiles.html), `--credentials-file` flag to use the specified credentials file, and `--no-sign-request` to send requests anonymously
-- Environment variables
-- AWS credentials file, including profile selection via `AWS_PROFILE` environment
-  variable
-- If `s5cmd` runs on an Amazon EC2 instance, EC2 IAM role
-- If `s5cmd` runs on EKS, Kube IAM role
-
-The SDK detects and uses the built-in providers automatically, without requiring
-manual configurations.
-
-
-### Region detection
-
-While executing the commands, `s5cmd` detects the region according to the following order of priority:
-
-1. `--source-region` or `--destination-region` flags of `cp` command.
-2. `AWS_REGION` environment variable.
-3. Region section of AWS profile.
-4. Auto detection from bucket region (via `HeadBucket`).
-5. `us-east-1` as default region.
-
 
 ### Shell auto-completion
 
@@ -491,6 +559,41 @@ credentials`, `authorization errors` etc, will not be retried. By default,
 via `--retry-count` flag.
 
 ℹ️ Enable debug level logging for displaying retryable errors.
+
+### Integrity Verification
+`s5cmd` verifies the integrity of files uploaded to Amazon S3 by checking the `Content-MD5` and `X-Amz-Content-Sha256` headers. These headers are added by the AWS SDK for both standard and multipart uploads.
+
+* `Content-MD5` is a checksum of the file's contents, calculated using the `MD5` algorithm.
+* `X-Amz-Content-Sha256` is a checksum of the file's contents, calculated using the `SHA256` algorithm.
+
+If the checksums in these headers do not match the checksum of the file that was actually uploaded, then `s5cmd` will fail the upload. This helps to ensure that the file was not corrupted during transmission.
+
+If the checksum calculated by S3 does not match the checksums provided in the `Content-MD5` and `X-Amz-Content-Sha256` headers, S3 will not store the object. Instead, it will return an error message to `s5cmd` with the error code `InvalidDigest` for an `MD5` mismatch or `XAmzContentSHA256Mismatch` for a `SHA256` mismatch.
+
+| Error Code | Description |
+|---|---|
+| `InvalidDigest` | The checksum provided in the `Content-MD5` header does not match the checksum calculated by S3. |
+| `XAmzContentSHA256Mismatch` | The checksum provided in the `X-Amz-Content-Sha256` header does not match the checksum calculated by S3. |
+
+If `s5cmd` receives either of these error codes, it will not retry to upload the object again and exit code will be `1`.
+
+If the `MD5` checksum mismatches, you will see an error like the one below.
+
+    ERROR "cp file.log s3://bucket/file.log": InvalidDigest: The Content-MD5 you specified was invalid. status code: 400, request id: S3TR4P2E0A2K3JMH7, host id: XTeMYKd2KECOHWk5S
+
+If the `SHA256` checksum mismatches, you will see an error like the one below.
+
+    ERROR "cp file.log s3://bucket/file.log": XAmzContentSHA256Mismatch: The provided 'x-amz-content-sha256' header does not match what was computed. status code: 400, request id: S3TR4P2E0A2K3JMH7, host id: XTeMYKd2KECOHWk5S
+
+`aws-cli` and `s5cmd` are both command-line tools that can be used to interact with Amazon S3. However, there are some differences between the two tools in terms of how they verify the integrity of data uploaded to S3.
+
+* **Number of retries:** `aws-cli` will retry up to five times to upload a file, while `s5cmd` will not retry.
+* **Checksums:** If you enable `Signature Version 4` in your `~/.aws/config` file, `aws-cli` will only check the `SHA256` checksum of a file  while `s5cmd` will check both the `MD5` and `SHA256` checksums.
+
+**Sources:**
+- [AWS Go SDK](https://github.com/aws/aws-sdk-go/blob/b75b2a7b3cb40ece5774ed07dde44903481a2d4d/service/s3/customizations.go#L56)
+- [AWS CLI Docs](https://docs.aws.amazon.com/cli/latest/topic/s3-faq.html)
+- [AWS S3 Docs](https://aws.amazon.com/getting-started/hands-on/amazon-s3-with-additional-checksums/)
 
 ## Using wildcards
 
@@ -625,7 +728,7 @@ For a more practical scenario, let's say we have an [avocado prices](https://www
 
 ## Beast Mode s5cmd
 
-`s5cmd` allows to pass in some file, containing list of operations to be performed, as an argument to the `run` command as illustrated in the [above](./README.md#L224) example. Alternatively, one can pipe in commands into
+`s5cmd` allows to pass in some file, containing list of operations to be performed, as an argument to the `run` command as illustrated in the [above](./README.md#L293) example. Alternatively, one can pipe in commands into
 the `run:`
 
     BUCKET=s5cmd-test; s5cmd ls s3://$BUCKET/*test | grep -v DIR | awk ‘{print $NF}’

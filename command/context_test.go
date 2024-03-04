@@ -2,11 +2,10 @@ package command
 
 import (
 	"flag"
-	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/peak/s5cmd/storage/url"
+	"github.com/peak/s5cmd/v2/storage/url"
 	"github.com/urfave/cli/v2"
 )
 
@@ -46,7 +45,25 @@ func TestGenerateCommand(t *testing.T) {
 				mustNewURL(t, "s3://bucket/key1"),
 				mustNewURL(t, "s3://bucket/key2"),
 			},
-			expectedCommand: `cp --acl=public-read --raw=true "s3://bucket/key1" "s3://bucket/key2"`,
+			expectedCommand: `cp --acl='public-read' --raw='true' "s3://bucket/key1" "s3://bucket/key2"`,
+		},
+		{
+			name: "cli-flag-with-whitespaced-flag-value",
+			cmd:  "cp",
+			flags: []cli.Flag{
+				&cli.StringFlag{
+					Name:  "cache-control",
+					Value: "public, max-age=31536000, immutable",
+				},
+			},
+			defaultFlags: map[string]interface{}{
+				"raw": true,
+			},
+			urls: []*url.URL{
+				mustNewURL(t, "s3://bucket/key1"),
+				mustNewURL(t, "s3://bucket/key2"),
+			},
+			expectedCommand: `cp --cache-control='public, max-age=31536000, immutable' --raw='true' "s3://bucket/key1" "s3://bucket/key2"`,
 		},
 		{
 			name: "same-flag-should-be-ignored-if-given-from-both-default-and-cli-flags",
@@ -64,7 +81,7 @@ func TestGenerateCommand(t *testing.T) {
 				mustNewURL(t, "s3://bucket/key1"),
 				mustNewURL(t, "s3://bucket/key2"),
 			},
-			expectedCommand: `cp --raw=true "s3://bucket/key1" "s3://bucket/key2"`,
+			expectedCommand: `cp --raw='true' "s3://bucket/key1" "s3://bucket/key2"`,
 		},
 		{
 			name: "ignore-non-shared-flag",
@@ -101,7 +118,7 @@ func TestGenerateCommand(t *testing.T) {
 				mustNewURL(t, "s3://bucket/key1"),
 				mustNewURL(t, "s3://bucket/key2"),
 			},
-			expectedCommand: `cp --concurrency=6 --flatten=true --force-glacier-transfer=true --raw=true "s3://bucket/key1" "s3://bucket/key2"`,
+			expectedCommand: `cp --concurrency='6' --flatten='true' --force-glacier-transfer='true' --raw='true' "s3://bucket/key1" "s3://bucket/key2"`,
 		},
 		{
 			name: "string-slice-flag",
@@ -116,7 +133,7 @@ func TestGenerateCommand(t *testing.T) {
 				mustNewURL(t, "/source/dir"),
 				mustNewURL(t, "s3://bucket/prefix/"),
 			},
-			expectedCommand: `cp --exclude=*.log --exclude=*.txt "/source/dir" "s3://bucket/prefix/"`,
+			expectedCommand: `cp --exclude='*.log' --exclude='*.txt' "/source/dir" "s3://bucket/prefix/"`,
 		},
 		{
 			name:  "command-with-multiple-args",
@@ -155,10 +172,12 @@ func TestGenerateCommand(t *testing.T) {
 			// and methods to update context are package-private, so write simple
 			// flag parser to update context value.
 			set.VisitAll(func(f *flag.Flag) {
-				value := strings.Trim(f.Value.String(), "[")
-				value = strings.Trim(value, "]")
-				for _, v := range strings.Fields(value) {
-					ctx.Set(f.Name, v)
+				if v, ok := f.Value.(*cli.StringSlice); ok {
+					for _, s := range v.Value() {
+						ctx.Set(f.Name, s)
+					}
+				} else {
+					ctx.Set(f.Name, f.Value.String())
 				}
 			})
 

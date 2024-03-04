@@ -1,7 +1,7 @@
 package command
 
 import (
-	"github.com/peak/s5cmd/log/stat"
+	"github.com/peak/s5cmd/v2/log/stat"
 
 	"github.com/urfave/cli/v2"
 )
@@ -23,7 +23,7 @@ Examples:
 		 > s5cmd {{.HelpName}} s3://bucket/prefix/object.gz myobject.gz
 
 	3. Move all S3 objects to a directory
-		 > s5cmd {{.HelpName}} s3://bucket/* target-directory/
+		 > s5cmd {{.HelpName}} "s3://bucket/*" target-directory/
 
 	4. Move a file to S3 bucket
 		 > s5cmd {{.HelpName}} myfile.gz s3://bucket/
@@ -35,7 +35,7 @@ Examples:
 		 > s5cmd {{.HelpName}} --exclude "*.txt" --exclude "*.gz" dir/ s3://bucket
 
 	7. Move all files from S3 bucket to another S3 bucket but exclude the ones starts with log
-		 > s5cmd {{.HelpName}} --exclude "log*" s3://bucket/* s3://destbucket
+		 > s5cmd {{.HelpName}} --exclude "log*" "s3://bucket/*" s3://destbucket
 `
 
 func NewMoveCommand() *cli.Command {
@@ -52,7 +52,11 @@ func NewMoveCommand() *cli.Command {
 			defer stat.Collect(c.Command.FullName(), &err)()
 
 			// delete source
-			return NewCopy(c, true).Run(c.Context)
+			copy, err := NewCopy(c, true)
+			if err != nil {
+				return err
+			}
+			return copy.Run(c.Context)
 		},
 	}
 

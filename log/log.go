@@ -17,59 +17,83 @@ var outputCh = make(chan output, 10000)
 
 var global *Logger
 
+type LoggerOptions struct {
+	logFile string
+}
+
+type LoggerOption func(*LoggerOptions)
+
+func LogFile(logFile string) LoggerOption {
+	return func(args *LoggerOptions) {
+		args.logFile = logFile
+	}
+}
+
 // Init inits global logger.
-func Init(level string, json bool) {
-	global = New(level, json)
+func Init(level string, json bool, options ...LoggerOption) {
+	global = New(level, json, options...)
 }
 
 // Trace prints message in trace mode.
 func Trace(msg Message) {
-	global.printf(LevelTrace, msg, os.Stdout)
+	global.printf(LevelTrace, msg, global.logFiles.stdout)
 }
 
 // Debug prints message in debug mode.
 func Debug(msg Message) {
-	global.printf(LevelDebug, msg, os.Stdout)
+	global.printf(LevelDebug, msg, global.logFiles.stdout)
 }
 
 // Info prints message in info mode.
 func Info(msg Message) {
-	global.printf(LevelInfo, msg, os.Stdout)
+	global.printf(LevelInfo, msg, global.logFiles.stdout)
 }
 
 // Stat prints stat message regardless of the log level with info print formatting.
 // It uses printfHelper instead of printf to ignore the log level condition.
 func Stat(msg Message) {
-	global.printfHelper(LevelInfo, msg, os.Stdout)
+	global.printfHelper(LevelInfo, msg, global.logFiles.stdout)
 }
 
 // Error prints message in error mode.
 func Error(msg Message) {
-	global.printf(LevelError, msg, os.Stderr)
+	global.printf(LevelError, msg, global.logFiles.stderr)
 }
 
 // Close closes logger and its channel.
 func Close() {
 	if global != nil {
 		close(outputCh)
+		global.logFiles.Close()
+
 		<-global.donech
 	}
 }
 
 // Logger is a structure for logging messages.
 type Logger struct {
-	donech chan struct{}
-	json   bool
-	level  LogLevel
+	donech   chan struct{}
+	json     bool
+	level    LogLevel
+	logFiles *LogFiles
 }
 
 // New creates new logger.
-func New(level string, json bool) *Logger {
+func New(level string, json bool, options ...LoggerOption) *Logger {
+	args := &LoggerOptions{
+		logFile: "none",
+	}
+
+	for _, setter := range options {
+		setter(args)
+	}
+
 	logLevel := LevelFromString(level)
 	logger := &Logger{
-		donech: make(chan struct{}),
-		json:   json,
-		level:  logLevel,
+		donech:   make(chan struct{}),
+		json:     json,
+		level:    logLevel,
+		logFiles: GetLogFiles(args.logFile),
 	}
 	go logger.out()
 	return logger
@@ -150,5 +174,34 @@ func LevelFromString(s string) LogLevel {
 		return LevelTrace
 	default:
 		return LevelInfo
+	}
+}
+
+type LogFiles struct {
+	stdout *os.File
+	stderr *os.File
+}
+
+func (files *LogFiles) Close() {
+	if files.stdout != os.Stdout {
+		files.stdout.Close()
+	}
+}
+
+func GetLogFiles(logFile string) *LogFiles {
+	if logFile == "none" {
+		return &LogFiles{
+			stdout: os.Stdout,
+			stderr: os.Stderr,
+		}
+	}
+
+	file, err := os.OpenFile(logFile, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+	if err != nil {
+		panic(err)
+	}
+	return &LogFiles{
+		stdout: file,
+		stderr: file,
 	}
 }

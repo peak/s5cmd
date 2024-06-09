@@ -17,12 +17,15 @@ var outputCh = make(chan output, 10000)
 
 var global *Logger
 
+// LoggerOptions stores parameters that are used to create a logger
 type LoggerOptions struct {
 	logFile string
 }
 
+// Type for setter functions that specify LoggerOptions parameters
 type LoggerOption func(*LoggerOptions)
 
+// Setter for LoggerOptions.logFile parameter
 func LogFile(logFile string) LoggerOption {
 	return func(args *LoggerOptions) {
 		args.logFile = logFile
@@ -70,6 +73,12 @@ func Close() {
 	}
 }
 
+// LogFiles stores pointers to stdout and stderr files
+type LogFiles struct {
+	stdout *os.File
+	stderr *os.File
+}
+
 // Logger is a structure for logging messages.
 type Logger struct {
 	donech   chan struct{}
@@ -78,22 +87,29 @@ type Logger struct {
 	logFiles *LogFiles
 }
 
+// Вefault value that disables the use of the log file
+const NoLogFile string = ""
+
 // New creates new logger.
 func New(level string, json bool, options ...LoggerOption) *Logger {
+	// Default logger options
 	args := &LoggerOptions{
-		logFile: "none",
+		logFile: NoLogFile,
 	}
 
+	// Apply setters to LoggerOptions struct
 	for _, setter := range options {
 		setter(args)
 	}
+
+	logFiles := GetLogFiles(args.logFile)
 
 	logLevel := LevelFromString(level)
 	logger := &Logger{
 		donech:   make(chan struct{}),
 		json:     json,
 		level:    logLevel,
-		logFiles: GetLogFiles(args.logFile),
+		logFiles: logFiles,
 	}
 	go logger.out()
 	return logger
@@ -177,29 +193,40 @@ func LevelFromString(s string) LogLevel {
 	}
 }
 
-type LogFiles struct {
-	stdout *os.File
-	stderr *os.File
-}
-
+// Closes stdout and stderr if file pointers are not os.Stdout or os.Stderr
 func (files *LogFiles) Close() {
 	if files.stdout != os.Stdout {
 		files.stdout.Close()
 	}
 }
 
+// Сhecks the path to the file is correct
+func IsValidLogFile(logFile string) error {
+	if logFile == NoLogFile {
+		return nil
+	}
+
+	file, err := os.OpenFile(logFile, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+	if err != nil {
+		return err
+	}
+
+	file.Close()
+	return nil
+}
+
+// Creates and/or opens a file for logging if the path to the file was specified.
+// Otherwise uses os.Stdout and os.Stderr for logging
 func GetLogFiles(logFile string) *LogFiles {
-	if logFile == "none" {
+	if logFile == NoLogFile {
 		return &LogFiles{
 			stdout: os.Stdout,
 			stderr: os.Stderr,
 		}
 	}
 
-	file, err := os.OpenFile(logFile, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
-	if err != nil {
-		panic(err)
-	}
+	file, _ := os.OpenFile(logFile, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+
 	return &LogFiles{
 		stdout: file,
 		stderr: file,

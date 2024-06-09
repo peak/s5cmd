@@ -60,7 +60,7 @@ var app = &cli.App{
 		},
 		&cli.StringFlag{
 			Name:  "log-file",
-			Value: "none",
+			Value: log.NoLogFile,
 			Usage: "sets file for logging",
 		},
 		&cli.BoolFlag{
@@ -105,8 +105,19 @@ var app = &cli.App{
 		isStat := c.Bool("stat")
 		endpointURL := c.String("endpoint-url")
 
+		// If validation fails, initialize the logger without a log file. Then we log the error
+		err := log.IsValidLogFile(logFile)
+		if err != nil {
+			logFile = log.NoLogFile
+		}
+
 		log.Init(logLevel, printJSON, log.LogFile(logFile))
 		parallel.Init(workerCount)
+
+		if err != nil {
+			printError(commandFromContext(c), c.Command.Name, err)
+			return err
+		}
 
 		if retryCount < 0 {
 			err := fmt.Errorf("retry count cannot be a negative value")

@@ -58,6 +58,11 @@ var app = &cli.App{
 			},
 			Usage: "log level: (trace, debug, info, error)",
 		},
+		&cli.StringFlag{
+			Name:  "log-file",
+			Value: log.NoLogFile,
+			Usage: "sets file for logging",
+		},
 		&cli.BoolFlag{
 			Name:  "install-completion",
 			Usage: "get completion installation instructions for your shell (only available for bash, pwsh, and zsh)",
@@ -96,11 +101,23 @@ var app = &cli.App{
 		workerCount := c.Int("numworkers")
 		printJSON := c.Bool("json")
 		logLevel := c.String("log")
+		logFile := c.String("log-file")
 		isStat := c.Bool("stat")
 		endpointURL := c.String("endpoint-url")
 
-		log.Init(logLevel, printJSON)
+		// If validation fails, initialize the logger without a log file. Then we log the error
+		err := log.IsValidLogFile(logFile)
+		if err != nil {
+			logFile = log.NoLogFile
+		}
+
+		log.Init(logLevel, printJSON, log.LogFile(logFile))
 		parallel.Init(workerCount)
+
+		if err != nil {
+			printError(commandFromContext(c), c.Command.Name, err)
+			return err
+		}
 
 		if retryCount < 0 {
 			err := fmt.Errorf("retry count cannot be a negative value")

@@ -578,8 +578,15 @@ func (g *GoFakeS3) createObject(bucket, object string, w http.ResponseWriter, r 
 		if err != nil {
 			return err
 		}
-		size = src.Size
 
+		if meta["X-Amz-Metadata-Directive"] == "COPY" {
+			meta = src.Metadata
+		}
+
+		// this is not actually a part of the metadata
+		delete(src.Metadata, "X-Amz-Metadata-Directive")
+
+		size = src.Size
 		body = src.Contents
 
 	} else {

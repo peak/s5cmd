@@ -59,6 +59,10 @@ var app = &cli.App{
 			Usage: "log level: (trace, debug, info, error)",
 		},
 		&cli.BoolFlag{
+			Name:  "log-stderr",
+			Usage: "direct log output to stderr instead of stdout",
+		},
+		&cli.BoolFlag{
 			Name:  "install-completion",
 			Usage: "get completion installation instructions for your shell (only available for bash, pwsh, and zsh)",
 		},
@@ -96,10 +100,11 @@ var app = &cli.App{
 		workerCount := c.Int("numworkers")
 		printJSON := c.Bool("json")
 		logLevel := c.String("log")
+		logStderr := c.Bool("log-stderr")
 		isStat := c.Bool("stat")
 		endpointURL := c.String("endpoint-url")
 
-		log.Init(logLevel, printJSON)
+		log.Init(logLevel, printJSON, logStderr)
 		parallel.Init(workerCount)
 
 		if retryCount < 0 {

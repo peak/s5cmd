@@ -22,10 +22,10 @@ type LoggerOptions struct {
 	logFile string
 }
 
-// Type for setter functions that specify LoggerOptions parameters
+// LoggerOption is type for setter functions that specify LoggerOptions parameters
 type LoggerOption func(*LoggerOptions)
 
-// Setter for LoggerOptions.logFile parameter
+// LogFile is setter for LoggerOptions.logFile parameter
 func LogFile(logFile string) LoggerOption {
 	return func(args *LoggerOptions) {
 		args.logFile = logFile
@@ -87,7 +87,7 @@ type Logger struct {
 	logFiles *LogFiles
 }
 
-// Вefault value that disables the use of the log file
+// NoLogFile is default value that disables the use of the log file
 const NoLogFile string = ""
 
 // New creates new logger.
@@ -193,14 +193,14 @@ func LevelFromString(s string) LogLevel {
 	}
 }
 
-// Closes stdout and stderr if file pointers are not os.Stdout or os.Stderr
+// Close closes stdout and stderr if file pointers are not os.Stdout or os.Stderr
 func (files *LogFiles) Close() {
 	if files.stdout != os.Stdout {
 		files.stdout.Close()
 	}
 }
 
-// Сhecks the path to the file is correct
+// IsValidLogFile checks the path to the file is correct
 func IsValidLogFile(logFile string) error {
 	if logFile == NoLogFile {
 		return nil
@@ -215,7 +215,7 @@ func IsValidLogFile(logFile string) error {
 	return nil
 }
 
-// Creates and/or opens a file for logging if the path to the file was specified.
+// GetLogFiles creates and/or opens a file for logging if the path to the file was specified.
 // Otherwise uses os.Stdout and os.Stderr for logging
 func GetLogFiles(logFile string) *LogFiles {
 	if logFile == NoLogFile {

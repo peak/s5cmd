@@ -268,7 +268,7 @@ You can upload remote objects by piping stdin to `s5cmd`:
 
 Or you can compress the data before uploading:
 
-    tar -cf - file.bin | s5cmd pipe s3://bucket/file.bin.tar
+    gzip -c file | s5cmd pipe s3://bucket/file.gz
 
 #### Delete an S3 object
 

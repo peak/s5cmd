@@ -34,7 +34,7 @@ Examples:
 	03. Download an object and stream it to a bucket
 		> curl https://github.com/peak/s5cmd/ | s5cmd {{.HelpName}} s3://bucket/s5cmd.html
 	04. Compress an object and stream it to a bucket
-		> tar -cf - file.bin | s5cmd {{.HelpName}} s3://bucket/file.bin.tar
+		> gzip -c file | s5cmd {{.HelpName}} s3://bucket/file.gz
 `
 
 func NewPipeCommandFlags() []cli.Flag {

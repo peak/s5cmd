@@ -210,6 +210,7 @@ func Commands() []*cli.Command {
 		NewVersionCommand(),
 		NewBucketVersionCommand(),
 		NewPresignCommand(),
+		NewHeadCommand(),
 	}
 }
 

@@ -1295,3 +1295,58 @@ func (e tempError) Error() string { return e.err.Error() }
 func (e tempError) Temporary() bool { return e.temp }
 
 func (e *tempError) Unwrap() error { return e.err }
+
+func TestS3HeadObject(t *testing.T) {
+	testcases := []struct {
+		name     string
+		url      string
+		expected string
+	}{
+		{
+			name:     "HeadObject",
+			url:      "s3://bucket/key",
+			expected: "bucket/key",
+		},
+		{
+			name:     "HeadObject with different URL",
+			url:      "s3://another-bucket/another-key",
+			expected: "another-bucket/another-key",
+		},
+		// Add more test cases here
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			u, err := url.New(tc.url)
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+
+			mockAPI := s3.New(unit.Session)
+			mockS3 := &S3{api: mockAPI}
+
+			mockAPI.Handlers.Send.Clear()
+			mockAPI.Handlers.Unmarshal.Clear()
+			mockAPI.Handlers.UnmarshalMeta.Clear()
+			mockAPI.Handlers.ValidateResponse.Clear()
+
+			mockAPI.Handlers.Send.PushBack(func(r *request.Request) {
+				r.HTTPResponse = &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(strings.NewReader("")),
+				}
+			})
+
+			mockAPI.Handlers.ValidateResponse.PushBack(func(r *request.Request) {
+				if r.Error != nil {
+					t.Errorf("unexpected error: %v", r.Error)
+				}
+			})
+
+			_, _, err = mockS3.HeadObject(context.Background(), u)
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
+	}
+}

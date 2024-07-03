@@ -1164,6 +1164,71 @@ func (s *S3) GetBucketVersioning(ctx context.Context, bucket string) (string, er
 
 }
 
+func (s *S3) HeadBucket(ctx context.Context, url *url.URL) (*Bucket, error) {
+
+	output, err := s.api.HeadBucketWithContext(ctx, &s3.HeadBucketInput{
+		Bucket: aws.String(url.Bucket),
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	if output == nil {
+		return nil, errors.New("output is nil")
+	}
+
+	return &Bucket{
+		Name: url.Bucket,
+	}, nil
+
+}
+
+func (s *S3) HeadObject(ctx context.Context, url *url.URL) (*Object, map[string]string, error) {
+
+	input := &s3.HeadObjectInput{
+		Bucket:       aws.String(url.Bucket),
+		Key:          aws.String(url.Path),
+		RequestPayer: s.RequestPayer(),
+	}
+	if url.VersionID != "" {
+		input.SetVersionId(url.VersionID)
+	}
+
+	output, err := s.api.HeadObjectWithContext(ctx, input)
+	if err != nil {
+		if errHasCode(err, "NotFound") {
+			return nil, nil, &ErrGivenObjectNotFound{ObjectAbsPath: url.Absolute()}
+		}
+		return nil, nil, err
+	}
+
+	var storageClassStr string
+
+	// There is a bug or a feature that causes the StorageClass to be nil
+	// when the object is created with the default storage class.
+	// In this case, we set the storage class to STANDARD.
+
+	if output.StorageClass != nil {
+		storageClassStr = aws.StringValue(output.StorageClass)
+	} else {
+		storageClassStr = "STANDART"
+	}
+
+	obj := &Object{
+		URL:          url,
+		ModTime:      output.LastModified,
+		Etag:         strings.Trim(aws.StringValue(output.ETag), `"`),
+		Size:         aws.Int64Value(output.ContentLength),
+		StorageClass: StorageClass(storageClassStr),
+	}
+
+	metadata := aws.StringValueMap(output.Metadata)
+
+	return obj, metadata, nil
+
+}
+
 type sdkLogger struct{}
 
 func (l sdkLogger) Log(args ...interface{}) {

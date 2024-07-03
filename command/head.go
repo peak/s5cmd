@@ -187,17 +187,17 @@ type HeadObjectMessage struct {
 	Metadata         map[string]string `json:"metadata"`
 }
 
-func (l HeadObjectMessage) String() string {
-	if l.showFullPath {
-		return l.Object.URL.String()
+func (m HeadObjectMessage) String() string {
+	if m.showFullPath {
+		return m.Object.URL.String()
 	}
 	var etag string
 	// date and storage fiels
 	var listFormat = "%19s %2s"
 
 	// align etag
-	if l.showEtag {
-		etag = l.Object.Etag
+	if m.showEtag {
+		etag = m.Object.Etag
 		listFormat = listFormat + " %-38s"
 	} else {
 		listFormat = listFormat + " %-1s"
@@ -206,46 +206,46 @@ func (l HeadObjectMessage) String() string {
 	// format file size
 	listFormat = listFormat + " %12s "
 	// format key and version ID
-	if l.Object.URL.VersionID != "" {
+	if m.Object.URL.VersionID != "" {
 		listFormat = listFormat + " %-50s %s"
 	} else {
 		listFormat = listFormat + " %s%s"
 	}
 
 	var s string
-	if l.Object.Type.IsDir() {
+	if m.Object.Type.IsDir() {
 		s = fmt.Sprintf(
 			listFormat,
 			"",
 			"",
 			"",
 			"DIR",
-			l.Object.URL.Relative(),
+			m.Object.URL.Relative(),
 			"",
 		)
 		return s
 	}
 
 	stclass := ""
-	if l.showStorageClass {
-		stclass = fmt.Sprintf("%v", l.Object.StorageClass)
+	if m.showStorageClass {
+		stclass = fmt.Sprintf("%v", m.Object.StorageClass)
 	}
 
 	var path string
-	if l.showFullPath {
-		path = l.Object.URL.String()
+	if m.showFullPath {
+		path = m.Object.URL.String()
 	} else {
-		path = l.Object.URL.Relative()
+		path = m.Object.URL.Relative()
 	}
 
 	s = fmt.Sprintf(
 		listFormat,
-		l.Object.ModTime.Format(dateFormat),
+		m.Object.ModTime.Format(dateFormat),
 		stclass,
 		etag,
-		l.humanize(),
+		m.humanize(),
 		path,
-		l.Object.URL.VersionID,
+		m.Object.URL.VersionID,
 	)
 
 	return s
@@ -255,12 +255,12 @@ func (m HeadObjectMessage) JSON() string {
 	return strutil.JSON(m.Object)
 }
 
-func (l HeadObjectMessage) humanize() string {
+func (m HeadObjectMessage) humanize() string {
 	var size string
-	if l.showHumanized {
-		size = strutil.HumanizeBytes(l.Object.Size)
+	if m.showHumanized {
+		size = strutil.HumanizeBytes(m.Object.Size)
 	} else {
-		size = fmt.Sprintf("%d", l.Object.Size)
+		size = fmt.Sprintf("%d", m.Object.Size)
 	}
 	return size
 }
@@ -269,8 +269,8 @@ type HeadBucketMessage struct {
 	Bucket *storage.Bucket `json:"bucket"`
 }
 
-func (l HeadBucketMessage) String() string {
-	return l.Bucket.Name
+func (m HeadBucketMessage) String() string {
+	return m.Bucket.Name
 }
 
 func (m HeadBucketMessage) JSON() string {

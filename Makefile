@@ -65,3 +65,5 @@ clean:
 checkgomod: ## Check go.mod file
 	@go mod tidy
 	@git diff --exit-code -- go.sum go.mod
+
+.NOTPARALLEL:

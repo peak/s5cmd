@@ -1,7 +1,7 @@
 default: all
 
 .PHONY: all
-all: clean build test check
+all: clean build test check checkgomod
 
 VERSION := `git describe --abbrev=0 --tags || echo "0.0.0"`
 BUILD := `git rev-parse --short HEAD`
@@ -61,4 +61,7 @@ gogenerate:
 clean:
 	@rm -f ./s5cmd
 
-.NOTPARALLEL:
+.PHONY: checkgomod
+checkgomod: ## Check go.mod file
+	@go mod tidy
+	@git diff --exit-code -- go.sum go.mod

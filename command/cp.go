@@ -107,12 +107,12 @@ Examples:
 
 	22. Upload a file to S3 with a content-type and content-encoding header
 		 > s5cmd --content-type "text/css" --content-encoding "br" myfile.css.br s3://bucket/
-		 
+
 	23. Download the specific version of a remote object to working directory
 		 > s5cmd {{.HelpName}} --version-id VERSION_ID s3://bucket/prefix/object .
 
-	24. Pass arbitrary metadata to the object during upload or copy 
-		 > s5cmd {{.HelpName}} --metadata "camera=Nixon D750" --metadata "imageSize=6032x4032" flowers.png s3://bucket/prefix/flowers.png 
+	24. Pass arbitrary metadata to the object during upload or copy
+		 > s5cmd {{.HelpName}} --metadata "camera=Nixon D750" --metadata "imageSize=6032x4032" flowers.png s3://bucket/prefix/flowers.png
 `
 
 func NewSharedFlags() []cli.Flag {
@@ -425,7 +425,7 @@ func (c Copy) Run(ctx context.Context) error {
 	var (
 		merrorWaiter  error
 		merrorObjects error
-		errDoneCh     = make(chan bool)
+		errDoneCh     = make(chan struct{})
 	)
 
 	go func() {

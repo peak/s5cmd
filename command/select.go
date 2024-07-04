@@ -28,15 +28,15 @@ Options:
 	{{range .VisibleFlags}}{{.}}
 	{{end}}
 Examples:
-	01. Select the average price of the avocado and amount sold, set the output format as csv 
+	01. Select the average price of the avocado and amount sold, set the output format as csv
 		 > s5cmd select csv -use-header USE --query "SELECT s.avg_price, s.quantity FROM S3Object s WHERE s.item='avocado'" "s3://bucket/prices.csv"
 
-	02. Query TSV files 
+	02. Query TSV files
 		 > s5cmd select csv --delimiter=\t --use-header USE --query "SELECT s.avg_price, s.quantity FROM S3Object s WHERE s.item='avocado'" "s3://bucket/prices.tsv"
 
-	03. Select a specific field in a JSON document 
+	03. Select a specific field in a JSON document
 		 > s5cmd select json --structure document --query "SELECT s.tracking_id FROM s3object[*]['metadata']['.zattrs'] s" "s3://bucket/metadata.json"
-	
+
 	04. Query files that contain lines of JSON objects
 		 > s5cmd select json --query "SELECT s.id FROM s3object s WHERE s.lineNumber = 1"
 `
@@ -310,8 +310,8 @@ func (s Select) Run(ctx context.Context) error {
 	)
 
 	waiter := parallel.NewWaiter()
-	errDoneCh := make(chan bool)
-	writeDoneCh := make(chan bool)
+	errDoneCh := make(chan struct{})
+	writeDoneCh := make(chan struct{})
 	resultCh := make(chan json.RawMessage, 128)
 
 	go func() {

@@ -763,6 +763,20 @@ func putFile(t *testing.T, client *s3.S3, bucket string, filename string, conten
 	}
 }
 
+// get the storage class of the object.
+func getObjectStorageClass(t *testing.T, s3client *s3.S3, bucket, key string) string {
+	t.Helper()
+	output, err := s3client.HeadObject(&s3.HeadObjectInput{
+		Bucket: aws.String(bucket),
+		Key:    aws.String(key),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return aws.StringValue(output.StorageClass)
+}
+
 func replaceMatchWithSpace(input string, match ...string) string {
 	for _, m := range match {
 		if m == "" {

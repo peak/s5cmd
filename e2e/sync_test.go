@@ -6,8 +6,12 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/s3"
 
 	"gotest.tools/v3/assert"
 	"gotest.tools/v3/fs"
@@ -849,6 +853,245 @@ func TestSyncS3BucketToS3BucketSameSizesSourceOlder(t *testing.T) {
 	// assert s3 objects in destination (should not change).
 	for key, content := range destS3Content {
 		assert.Assert(t, ensureS3Object(s3client, dstbucket, key, content))
+	}
+}
+
+// sync s3://bucket/* s3://destbucket/ (source is glacier, destination is standard)
+
+func TestSyncS3BucketToS3BucketSourceGlacierDestinationStandard(t *testing.T) {
+	t.Parallel()
+	s3client, s5cmd := setup(t)
+	bucket := s3BucketFromTestName(t)
+	dstbucket := s3BucketFromTestNameWithPrefix(t, "dst")
+
+	createBucket(t, s3client, bucket)
+	createBucket(t, s3client, dstbucket)
+
+	// put objects in source bucket
+	S3Content := map[string]string{
+		"testfile.txt":            "S: this is a test file",
+		"readme.md":               "S: this is a readme file",
+		"a/another_test_file.txt": "S: yet another txt file",
+		"abc/def/test.py":         "S: file in nested folders",
+	}
+
+	// put objects in glacier
+
+	for filename, content := range S3Content {
+		putObject := s3.PutObjectInput{
+			Bucket:       &bucket,
+			Key:          &filename,
+			Body:         strings.NewReader(content),
+			StorageClass: aws.String("GLACIER"),
+		}
+		_, err := s3client.PutObject(&putObject)
+
+		if err != nil {
+			t.Fatalf("failed to put object in glacier: %v", err)
+		}
+	}
+
+	// put objects in destination bucket
+	destS3Content := map[string]string{
+		"testfile.txt":            "S: this is a test file",
+		"readme.md":               "S: this is a readme file",
+		"a/another_test_file.txt": "S: yet another txt file",
+		"abc/def/test.py":         "S: file in nested folders",
+	}
+
+	for filename, content := range destS3Content {
+		putObject := s3.PutObjectInput{
+			Bucket:       &dstbucket,
+			Key:          &filename,
+			Body:         strings.NewReader(content),
+			StorageClass: aws.String("STANDARD"),
+		}
+
+		_, err := s3client.PutObject(&putObject)
+
+		if err != nil {
+			t.Fatalf("failed to put object in standard: %v", err)
+		}
+	}
+
+	bucketPath := fmt.Sprintf("s3://%v", bucket)
+	src := fmt.Sprintf("%s/*", bucketPath)
+	dst := fmt.Sprintf("s3://%v/", dstbucket)
+
+	// log debug
+	cmd := s5cmd("--log", "debug", "sync", src, dst)
+	result := icmd.RunCmd(cmd)
+
+	// there will be no stdout, since the objects are in glacier
+	result.Assert(t, icmd.Success)
+
+	// src bucket should have the objects in glacier
+	for key := range S3Content {
+		objectStorageClass := getObjectStorageClass(t, s3client, bucket, key)
+		assert.Equal(t, "GLACIER", objectStorageClass)
+	}
+
+	// dst bucket should have the objects in standard
+	for key := range destS3Content {
+		assert.Equal(t, "STANDARD", getObjectStorageClass(t, s3client, dstbucket, key))
+	}
+}
+
+func TestSyncS3BucketToS3BucketSourceStandardDestinationGlacier(t *testing.T) {
+	t.Parallel()
+	s3client, s5cmd := setup(t)
+	bucket := s3BucketFromTestName(t)
+	dstbucket := s3BucketFromTestNameWithPrefix(t, "dst")
+
+	createBucket(t, s3client, bucket)
+	createBucket(t, s3client, dstbucket)
+
+	// put objects in source bucket
+	S3Content := map[string]string{
+		"testfile.txt":            "S: this is a test file",
+		"readme.md":               "S: this is a readme file",
+		"a/another_test_file.txt": "S: yet another txt file",
+		"abc/def/test.py":         "S: file in nested folders",
+	}
+
+	// put objects in glacier
+
+	for filename, content := range S3Content {
+		putObject := s3.PutObjectInput{
+			Bucket:       &bucket,
+			Key:          &filename,
+			Body:         strings.NewReader(content),
+			StorageClass: aws.String("STANDARD"),
+		}
+		_, err := s3client.PutObject(&putObject)
+
+		if err != nil {
+			t.Fatalf("failed to put object in glacier: %v", err)
+		}
+	}
+
+	// put objects in destination bucket
+	destS3Content := map[string]string{
+		"testfile.txt":            "S: this is a test file",
+		"readme.md":               "S: this is a readme file",
+		"a/another_test_file.txt": "S: yet another txt file",
+		"abc/def/test.py":         "S: file in nested folders",
+	}
+
+	for filename, content := range destS3Content {
+		putObject := s3.PutObjectInput{
+			Bucket:       &dstbucket,
+			Key:          &filename,
+			Body:         strings.NewReader(content),
+			StorageClass: aws.String("GLACIER"),
+		}
+
+		_, err := s3client.PutObject(&putObject)
+
+		if err != nil {
+			t.Fatalf("failed to put object in standard: %v", err)
+		}
+	}
+
+	bucketPath := fmt.Sprintf("s3://%v", bucket)
+	src := fmt.Sprintf("%s/*", bucketPath)
+	dst := fmt.Sprintf("s3://%v/", dstbucket)
+
+	// log debug
+	cmd := s5cmd("--log", "debug", "sync", src, dst)
+	result := icmd.RunCmd(cmd)
+
+	// there will be no stdout, since the objects are in glacier
+	result.Assert(t, icmd.Success)
+
+	// src bucket should have the objects in glacier
+	for key := range S3Content {
+		objectStorageClass := getObjectStorageClass(t, s3client, bucket, key)
+		assert.Equal(t, "STANDARD", objectStorageClass)
+	}
+
+	// dst bucket should have the objects in standard
+	for key := range destS3Content {
+		assert.Equal(t, "GLACIER", getObjectStorageClass(t, s3client, dstbucket, key))
+	}
+}
+
+func TestSyncS3BucketToS3BucketSourceGlacierDestinationGlacier(t *testing.T) {
+	t.Parallel()
+	s3client, s5cmd := setup(t)
+	bucket := s3BucketFromTestName(t)
+	dstbucket := s3BucketFromTestNameWithPrefix(t, "dst")
+
+	createBucket(t, s3client, bucket)
+	createBucket(t, s3client, dstbucket)
+
+	// put objects in source bucket
+	S3Content := map[string]string{
+		"testfile.txt":            "S: this is a test file",
+		"readme.md":               "S: this is a readme file",
+		"a/another_test_file.txt": "S: yet another txt file",
+		"abc/def/test.py":         "S: file in nested folders",
+	}
+
+	// put objects in glacier
+
+	for filename, content := range S3Content {
+		putObject := s3.PutObjectInput{
+			Bucket:       &bucket,
+			Key:          &filename,
+			Body:         strings.NewReader(content),
+			StorageClass: aws.String("GLACIER"),
+		}
+		_, err := s3client.PutObject(&putObject)
+
+		if err != nil {
+			t.Fatalf("failed to put object in glacier: %v", err)
+		}
+	}
+
+	// put objects in destination bucket
+	destS3Content := map[string]string{
+		"testfile.txt":            "S: this is a test file",
+		"readme.md":               "S: this is a readme file",
+		"a/another_test_file.txt": "S: yet another txt file",
+		"abc/def/test.py":         "S: file in nested folders",
+	}
+
+	for filename, content := range destS3Content {
+		putObject := s3.PutObjectInput{
+			Bucket:       &dstbucket,
+			Key:          &filename,
+			Body:         strings.NewReader(content),
+			StorageClass: aws.String("GLACIER"),
+		}
+
+		_, err := s3client.PutObject(&putObject)
+
+		if err != nil {
+			t.Fatalf("failed to put object in standard: %v", err)
+		}
+	}
+
+	bucketPath := fmt.Sprintf("s3://%v", bucket)
+	src := fmt.Sprintf("%s/*", bucketPath)
+	dst := fmt.Sprintf("s3://%v/", dstbucket)
+
+	// log debug
+	cmd := s5cmd("--log", "debug", "sync", src, dst)
+	result := icmd.RunCmd(cmd)
+
+	// there will be no stdout, since the objects are in glacier
+	result.Assert(t, icmd.Success)
+
+	// src bucket should have the objects in glacier
+	for key := range S3Content {
+		objectStorageClass := getObjectStorageClass(t, s3client, bucket, key)
+		assert.Equal(t, "GLACIER", objectStorageClass)
+	}
+
+	// dst bucket should have the objects in standard
+	for key := range destS3Content {
+		assert.Equal(t, "GLACIER", getObjectStorageClass(t, s3client, dstbucket, key))
 	}
 }
 

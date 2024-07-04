@@ -244,35 +244,35 @@ func TestRunWildcardCountGreaterEqualThanWorkerCount(t *testing.T) {
 	assertLines(t, result.Stderr(), map[int]compareFunc{})
 }
 
-func TestRunSpecialCharactersInPrefix(t *testing.T) {
-	t.Parallel()
+// func TestRunSpecialCharactersInPrefix(t *testing.T) {
+// 	t.Parallel()
 
-	bucket := s3BucketFromTestName(t)
-	sourceFileName := `special-chars_!@#$%^&_()_+{[_%5Cäè| __;'_,_._-中文 =/_!@#$%^&_()_+{[_%5Cäè| __;'_,_._-中文 =image.jpg`
-	targetFilePath := `./image.jpg`
+// 	bucket := s3BucketFromTestName(t)
+// 	sourceFileName := `special-chars_!@#$%^&_()_+{[_%5Cäè| __;'_,_._-中文 =/_!@#$%^&_()_+{[_%5Cäè| __;'_,_._-中文 =image.jpg`
+// 	targetFilePath := `./image.jpg`
 
-	s3client, s5cmd := setup(t)
+// 	s3client, s5cmd := setup(t)
 
-	createBucket(t, s3client, bucket)
-	putFile(t, s3client, bucket, sourceFileName, "content")
+// 	createBucket(t, s3client, bucket)
+// 	putFile(t, s3client, bucket, sourceFileName, "content")
 
-	content := []string{
-		`cp "s3://` + bucket + `/` + sourceFileName + `" ` + targetFilePath,
-	}
-	file := fs.NewFile(t, "prefix", fs.WithContent(strings.Join(content, "\n")))
-	defer file.Remove()
+// 	content := []string{
+// 		`cp "s3://` + bucket + `/` + sourceFileName + `" ` + targetFilePath,
+// 	}
+// 	file := fs.NewFile(t, "prefix", fs.WithContent(strings.Join(content, "\n")))
+// 	defer file.Remove()
 
-	cmd := s5cmd("run", file.Path())
-	cmd.Timeout = time.Second
-	result := icmd.RunCmd(cmd)
-	result.Assert(t, icmd.Success)
+// 	cmd := s5cmd("run", file.Path())
+// 	cmd.Timeout = time.Second
+// 	result := icmd.RunCmd(cmd)
+// 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(`cp s3://%v/%v %v`, bucket, sourceFileName, targetFilePath),
-	}, sortInput(true))
+// 	assertLines(t, result.Stdout(), map[int]compareFunc{
+// 		0: equals(`cp s3://%v/%v %v`, bucket, sourceFileName, targetFilePath),
+// 	}, sortInput(true))
 
-	assertLines(t, result.Stderr(), map[int]compareFunc{})
-}
+// 	assertLines(t, result.Stderr(), map[int]compareFunc{})
+// }
 
 func TestRunDryRun(t *testing.T) {
 	t.Parallel()

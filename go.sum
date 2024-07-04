@@ -1,7 +1,8 @@
 github.com/VividCortex/ewma v1.2.0 h1:f58SaIzcDXrSy3kWaHNvuJgJ3Nmz59Zji6XoJR/q1ow=
 github.com/VividCortex/ewma v1.2.0/go.mod h1:nz4BbCtbLyFDeC9SUHbtcT5644juEuWfUAUnGx7j5l4=
-github.com/aws/aws-sdk-go v1.44.256 h1:O8VH+bJqgLDguqkH/xQBFz5o/YheeZqgcOYIgsTVWY4=
 github.com/aws/aws-sdk-go v1.44.256/go.mod h1:aVsgQcEevwlmQ7qHE9I3h+dtQgpqhFB+i8Phjh7fkwI=
+github.com/aws/aws-sdk-go v1.44.298 h1:5qTxdubgV7PptZJmp/2qDwD2JL187ePL7VOxsSh1i3g=
+github.com/aws/aws-sdk-go v1.44.298/go.mod h1:aVsgQcEevwlmQ7qHE9I3h+dtQgpqhFB+i8Phjh7fkwI=
 github.com/cheggaaa/pb/v3 v3.1.4 h1:DN8j4TVVdKu3WxVwcRKu0sG00IIU6FewoABZzXbRQeo=
 github.com/cheggaaa/pb/v3 v3.1.4/go.mod h1:6wVjILNBaXMs8c21qRiaUM8BR82erfgau1DQ4iUXmSA=
 github.com/cpuguy83/go-md2man/v2 v2.0.2 h1:p1EgwI/C7NhT0JmVkwCD2ZBK8j4aeHQX2pMHHBfMQ6w=

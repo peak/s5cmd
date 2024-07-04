@@ -1061,7 +1061,7 @@ func (s *S3) MultiDelete(ctx context.Context, urlch <-chan *url.URL) <-chan *Obj
 	resultch := make(chan *Object)
 
 	go func() {
-		sem := make(chan bool, 10)
+		sem := make(chan struct{}, 10)
 		defer close(sem)
 		defer close(resultch)
 
@@ -1072,7 +1072,7 @@ func (s *S3) MultiDelete(ctx context.Context, urlch <-chan *url.URL) <-chan *Obj
 			chunk := chunk
 
 			wg.Add(1)
-			sem <- true
+			sem <- struct{}{}
 
 			go func() {
 				defer wg.Done()

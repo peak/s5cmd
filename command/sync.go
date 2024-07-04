@@ -66,7 +66,7 @@ Examples:
 
 	10. Sync all files to S3 bucket but exclude the ones with txt and gz extension
 		 > s5cmd {{.HelpName}} --exclude "*.txt" --exclude "*.gz" dir/ s3://bucket
-	
+
 	11. Sync all files to S3 bucket but include the only ones with txt and gz extension
 		 > s5cmd {{.HelpName}} --include "*.txt" --include "*.gz" dir/ s3://bucket
 `
@@ -211,7 +211,7 @@ func (s Sync) Run(c *cli.Context) error {
 	waiter := parallel.NewWaiter()
 	var (
 		merrorWaiter error
-		errDoneCh    = make(chan bool)
+		errDoneCh    = make(chan struct{})
 	)
 
 	go func() {

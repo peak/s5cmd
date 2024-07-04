@@ -87,7 +87,7 @@ func (r Run) Run(ctx context.Context) error {
 
 	waiter := parallel.NewWaiter()
 
-	var errDoneCh = make(chan bool)
+	var errDoneCh = make(chan struct{})
 	var merrorWaiter error
 	go func() {
 		defer close(errDoneCh)

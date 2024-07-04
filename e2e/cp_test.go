@@ -912,7 +912,6 @@ func TestCopyS3ToS3WithArbitraryMetadataWithReplaceDirective(t *testing.T) {
 	putFile(t, s3client, bucket, filename, content, putArbitraryMetadata(srcmetadata))
 	cmd := s5cmd("cp", "--metadata-directive", "REPLACE", "--metadata", foo, "--metadata", bar, srcpath, dstpath)
 	result := icmd.RunCmd(cmd)
-
 	result.Assert(t, icmd.Success)
 
 	// assert S3

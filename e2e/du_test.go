@@ -300,3 +300,22 @@ func TestDiskUsageByVersionIDAndAllVersions(t *testing.T) {
 		})
 	}
 }
+
+func TestDiskUsageEmptyBucket(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd := setup(t)
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	cmd := s5cmd("du", "s3://"+bucket)
+	result := icmd.RunCmd(cmd)
+
+	// Expecting success exit code with no error message
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: suffix(`0 bytes in 0 objects: s3://%v`, bucket),
+	})
+}

@@ -1,4 +1,9 @@
 # Changelog
+## v2.3.0 - 4 July 2024
+
+#### Breaking changes
+- Changed the exit code from 1 to 0 for `ls` when used with an empty bucket. Exits with 1 if the bucket is non-existent.
+
 ## v2.2.2 - 13 Sep 2023 
 
 #### Bugfixes

@@ -786,3 +786,20 @@ func TestListNestedLocalFolders(t *testing.T) {
 		2: match(filepath.ToSlash("file.txt")),
 	}, trimMatch(dateRe), alignment(true))
 }
+
+// ls empty bucket
+func TestEmptyBucket(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd := setup(t)
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	cmd := s5cmd("ls", "s3://"+bucket)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{}, alignment(true))
+}

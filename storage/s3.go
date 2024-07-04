@@ -288,7 +288,7 @@ func (s *S3) listObjectVersions(ctx context.Context, url *url.URL) <-chan *Objec
 			return
 		}
 
-		if !objectFound {
+		if !objectFound && !url.IsBucket() {
 			objCh <- &Object{Err: ErrNoObjectFound}
 		}
 	}()
@@ -378,7 +378,7 @@ func (s *S3) listObjectsV2(ctx context.Context, url *url.URL) <-chan *Object {
 			return
 		}
 
-		if !objectFound {
+		if !objectFound && !url.IsBucket() {
 			objCh <- &Object{Err: ErrNoObjectFound}
 		}
 	}()
@@ -470,7 +470,7 @@ func (s *S3) listObjects(ctx context.Context, url *url.URL) <-chan *Object {
 			return
 		}
 
-		if !objectFound {
+		if !objectFound && !url.IsBucket() {
 			objCh <- &Object{Err: ErrNoObjectFound}
 		}
 	}()

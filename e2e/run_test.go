@@ -244,7 +244,7 @@ func TestRunWildcardCountGreaterEqualThanWorkerCount(t *testing.T) {
 	assertLines(t, result.Stderr(), map[int]compareFunc{})
 }
 
-/*func TestRunSpecialCharactersInPrefix(t *testing.T) {
+func TestRunSpecialCharactersInPrefix(t *testing.T) {
 	t.Parallel()
 
 	bucket := s3BucketFromTestName(t)
@@ -272,7 +272,7 @@ func TestRunWildcardCountGreaterEqualThanWorkerCount(t *testing.T) {
 	}, sortInput(true))
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{})
-}*/
+}
 
 func TestRunDryRun(t *testing.T) {
 	t.Parallel()

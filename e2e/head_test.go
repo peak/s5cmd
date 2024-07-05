@@ -8,7 +8,7 @@ import (
 	"gotest.tools/v3/icmd"
 )
 
-//head (without anything -> error)
+// head (without anything -> error)
 
 func TestHead(t *testing.T) {
 	t.Parallel()
@@ -20,8 +20,6 @@ func TestHead(t *testing.T) {
 
 	result.Assert(t, icmd.Expected{ExitCode: 1})
 }
-
-// ------------------ Bucket Tests ------------------
 
 // head bucket
 
@@ -64,8 +62,6 @@ func TestHeadBucketJSON(t *testing.T) {
 
 	cmd := s5cmd("--json", "head", fmt.Sprintf("s3://%v", bucket))
 	result := icmd.RunCmd(cmd)
-
-	//{"created_at":"2021/09/01 00:00:00","name":"bucket"}
 
 	result.Assert(t, icmd.Expected{ExitCode: 0, Out: fmt.Sprintf(`{"created_at":"%v","name":"%v"}`, "0001-01-01T00:00:00Z", bucket)})
 }
@@ -130,8 +126,6 @@ func TestHeadBucketStorageClass(t *testing.T) {
 	result.Assert(t, icmd.Expected{ExitCode: 0, Out: bucket})
 }
 
-// ------------------ Object Tests ------------------
-
 // head object
 
 func TestHeadObjectOutput(t *testing.T) {
@@ -151,7 +145,6 @@ func TestHeadObjectOutput(t *testing.T) {
 	sizePattern := `\d+`
 	s3urlPattern := `myfile.txt`
 
-	// Beklenen çıktıyı regex pattern'ları ile oluşturuyoruz
 	expectedOutput := fmt.Sprintf(
 		`%s\s+%s\s+%s\s+%s`,
 		datePattern,
@@ -160,7 +153,6 @@ func TestHeadObjectOutput(t *testing.T) {
 		s3urlPattern,
 	)
 
-	// Regex ile eşleştirme yaparak sonucu kontrol ediyoruz
 	match, err := regexp.MatchString(expectedOutput, result.Combined())
 	if err != nil {
 		t.Fatalf("regex match failed: %v", err)
@@ -170,7 +162,6 @@ func TestHeadObjectOutput(t *testing.T) {
 		t.Errorf("expected output to match:\n%s\nbut got:\n%s", expectedOutput, result.Combined())
 	}
 
-	// Çıkış kodunu kontrol ediyoruz
 	result.Assert(t, icmd.Expected{ExitCode: 0})
 }
 
@@ -297,8 +288,6 @@ func TestHeadObjectEtag(t *testing.T) {
 
 	cmd := s5cmd("head", "--etag", fmt.Sprintf("s3://%v/file.txt", bucket))
 	result := icmd.RunCmd(cmd)
-
-	//  2024/07/03 13:13:15 STANDART 9a0364b9e99bb480dd25e1f0284c8555                  7  file.txt
 
 	datePattern := `\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}`
 	storageClassPattern := `(?:STANDART|)`

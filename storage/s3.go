@@ -1165,7 +1165,6 @@ func (s *S3) GetBucketVersioning(ctx context.Context, bucket string) (string, er
 }
 
 func (s *S3) HeadBucket(ctx context.Context, url *url.URL) (*Bucket, error) {
-
 	output, err := s.api.HeadBucketWithContext(ctx, &s3.HeadBucketInput{
 		Bucket: aws.String(url.Bucket),
 	})
@@ -1185,7 +1184,6 @@ func (s *S3) HeadBucket(ctx context.Context, url *url.URL) (*Bucket, error) {
 }
 
 func (s *S3) HeadObject(ctx context.Context, url *url.URL) (*Object, map[string]string, error) {
-
 	input := &s3.HeadObjectInput{
 		Bucket:       aws.String(url.Bucket),
 		Key:          aws.String(url.Path),

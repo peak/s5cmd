@@ -73,20 +73,10 @@ func NewHeadCommand() *cli.Command {
 			return err
 		},
 		Action: func(c *cli.Context) (err error) {
-
-			//print the command name
-			//fmt.Println(c.Command.FullName())
-
 			defer stat.Collect(c.Command.FullName(), &err)()
 
-			//fmt.Println("head command")
-
 			op := c.Command.Name
-			//fmt.Println("op: ", op)
 			fullCommand := commandFromContext(c)
-
-			//print the command name
-			//fmt.Println("fullCommand: ", fullCommand)
 
 			src, err := url.New(c.Args().Get(0), url.WithVersion(c.String("version-id")),
 				url.WithRaw(c.Bool("raw")))
@@ -99,7 +89,7 @@ func NewHeadCommand() *cli.Command {
 				src:         src,
 				op:          op,
 				fullCommand: fullCommand,
-				//flag
+				//flags
 				showEtag:         c.Bool("etag"),
 				humanize:         c.Bool("humanize"),
 				showStorageClass: c.Bool("storage-class"),
@@ -107,7 +97,6 @@ func NewHeadCommand() *cli.Command {
 
 				storageOpts: NewStorageOpts(c),
 			}.Run(c.Context)
-
 		},
 	}
 	cmd.BashComplete = getBashCompleteFn(cmd, true, false)
@@ -149,14 +138,9 @@ func (h Head) Run(ctx context.Context) error {
 		log.Info(msg)
 
 		return nil
-
 	}
 
 	object, metadata, err := client.HeadObject(ctx, h.src)
-
-	//print the metadata all fields
-
-	//fmt.Println("metadata: ", metadata)
 
 	if err != nil {
 		printError(h.fullCommand, h.op, err)
@@ -192,7 +176,7 @@ func (m HeadObjectMessage) String() string {
 		return m.Object.URL.String()
 	}
 	var etag string
-	// date and storage fiels
+	// date and storage fields
 	var listFormat = "%19s %2s"
 
 	// align etag

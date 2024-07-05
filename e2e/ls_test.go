@@ -787,7 +787,6 @@ func TestListNestedLocalFolders(t *testing.T) {
 	}, trimMatch(dateRe), alignment(true))
 }
 
-// ls empty bucket
 func TestEmptyBucket(t *testing.T) {
 	t.Parallel()
 

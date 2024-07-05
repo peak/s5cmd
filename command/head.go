@@ -25,8 +25,24 @@ Examples:
 	1. Print a remote object's metadata
 		 > s5cmd {{.HelpName}} s3://bucket/prefix/object
 
-	2. Print specific version of a remote object's metadata
+	2. Check if a remote bucket exists
+		 > s5cmd {{.HelpName}} s3://bucket 
+	
+	3. Print a remote object's metadata with human-readable sizes
+		 > s5cmd {{.HelpName}} --humanize s3://bucket/prefix/object
+	
+	4. Print a remote object's metadata with ETag
+		 > s5cmd {{.HelpName}} --etag s3://bucket/prefix/object
+	
+	5. Print a remote object's fullpath
+		 > s5cmd {{.HelpName}} --show-fullpath s3://bucket/prefix/object
+	
+	6. Print a remote object's metadata with version ID
 		 > s5cmd {{.HelpName}} --version-id VERSION_ID s3://bucket/prefix/object
+	
+	7. Print a remote object's metadata with raw input
+		 > s5cmd {{.HelpName}} --raw s3://bucket/prefix/object
+
 `
 
 func NewHeadCommand() *cli.Command {
@@ -54,19 +70,22 @@ func NewHeadCommand() *cli.Command {
 				Usage:   "display full name of the object class",
 				Value:   true,
 			},
-
-			&cli.BoolFlag{
-				Name:  "all-versions",
-				Usage: "list all versions of object(s)",
-			},
 			&cli.BoolFlag{
 				Name:  "show-fullpath",
 				Usage: "shows only the fullpath names of the object(s)",
 			},
+			&cli.StringFlag{
+				Name:  "version-id",
+				Usage: "use the specified version of an object",
+			},
+			&cli.BoolFlag{
+				Name:  "raw",
+				Usage: "disable the wildcard operations, useful with filenames that contains glob characters",
+			},
 		},
 
 		Before: func(c *cli.Context) error {
-			err := validateHEADCommand(c)
+			err := validateHeadCommand(c)
 			if err != nil {
 				printError(commandFromContext(c), c.Command.Name, err)
 			}
@@ -77,7 +96,6 @@ func NewHeadCommand() *cli.Command {
 
 			op := c.Command.Name
 			fullCommand := commandFromContext(c)
-
 			src, err := url.New(c.Args().Get(0), url.WithVersion(c.String("version-id")),
 				url.WithRaw(c.Bool("raw")))
 			if err != nil {
@@ -89,7 +107,7 @@ func NewHeadCommand() *cli.Command {
 				src:         src,
 				op:          op,
 				fullCommand: fullCommand,
-				//flags
+				// flags
 				showEtag:         c.Bool("etag"),
 				humanize:         c.Bool("humanize"),
 				showStorageClass: c.Bool("storage-class"),
@@ -125,14 +143,14 @@ func (h Head) Run(ctx context.Context) error {
 	}
 
 	if h.src.IsBucket() {
-		bucket, err := client.HeadBucket(ctx, h.src)
+		err := client.HeadBucket(ctx, h.src)
 		if err != nil {
 			printError(h.fullCommand, h.op, err)
 			return err
 		}
 
 		msg := HeadBucketMessage{
-			Bucket: bucket,
+			Name: h.src.String(),
 		}
 
 		log.Info(msg)
@@ -141,7 +159,6 @@ func (h Head) Run(ctx context.Context) error {
 	}
 
 	object, metadata, err := client.HeadObject(ctx, h.src)
-
 	if err != nil {
 		printError(h.fullCommand, h.op, err)
 		return err
@@ -177,7 +194,7 @@ func (m HeadObjectMessage) String() string {
 	}
 	var etag string
 	// date and storage fields
-	var listFormat = "%19s %2s"
+	listFormat := "%19s %2s"
 
 	// align etag
 	if m.showEtag {
@@ -236,7 +253,15 @@ func (m HeadObjectMessage) String() string {
 }
 
 func (m HeadObjectMessage) JSON() string {
-	return strutil.JSON(m.Object)
+	j := struct {
+		storage.Object
+		Metadata map[string]string `json:"metadata"`
+	}{
+		Object:   *m.Object,
+		Metadata: m.Metadata,
+	}
+
+	return strutil.JSON(j)
 }
 
 func (m HeadObjectMessage) humanize() string {
@@ -250,26 +275,30 @@ func (m HeadObjectMessage) humanize() string {
 }
 
 type HeadBucketMessage struct {
-	Bucket *storage.Bucket `json:"bucket"`
+	Name string `json:"name"`
 }
 
 func (m HeadBucketMessage) String() string {
-	return m.Bucket.Name
+	return fmt.Sprintf(m.Name)
 }
 
 func (m HeadBucketMessage) JSON() string {
-	return strutil.JSON(m.Bucket)
+	return strutil.JSON(m)
 }
 
-func validateHEADCommand(c *cli.Context) error {
+func validateHeadCommand(c *cli.Context) error {
 	if c.Args().Len() > 1 {
 		return fmt.Errorf("expected only 1 argument")
 	}
 
-	srcurl, err := url.New(c.Args().First(),
-		url.WithAllVersions(c.Bool("all-versions")))
+	srcurl, err := url.New(c.Args().Get(0), url.WithVersion(c.String("version-id")),
+		url.WithRaw(c.Bool("raw")))
 	if err != nil {
 		return err
+	}
+
+	if srcurl.IsWildcard() {
+		return fmt.Errorf("remote source %q can not contain glob characters", srcurl)
 	}
 
 	if err := checkVersinoningURLRemote(srcurl); err != nil {

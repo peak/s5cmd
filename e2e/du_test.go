@@ -312,7 +312,6 @@ func TestDiskUsageEmptyBucket(t *testing.T) {
 	cmd := s5cmd("du", "s3://"+bucket)
 	result := icmd.RunCmd(cmd)
 
-	// Expecting success exit code with no error message
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{

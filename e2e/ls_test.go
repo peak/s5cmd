@@ -800,5 +800,5 @@ func TestEmptyBucket(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stdout(), map[int]compareFunc{}, alignment(true))
+	assertLines(t, result.Stdout(), nil)
 }

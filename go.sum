@@ -24,8 +24,8 @@ github.com/hashicorp/go-multierror v1.1.1 h1:H5DkEtf6CXdFp0N0Em5UCwQpXMWke8IA0+l
 github.com/hashicorp/go-multierror v1.1.1/go.mod h1:iw975J/qwKPdAO1clOe2L8331t/9/fmwbPZ6JB6eMoM=
 github.com/iancoleman/strcase v0.0.0-20191112232945-16388991a334 h1:VHgatEHNcBFEB7inlalqfNqw65aNkM1lGX2yt3NmbS8=
 github.com/iancoleman/strcase v0.0.0-20191112232945-16388991a334/go.mod h1:SK73tn/9oHe+/Y0h39VT4UCxmurVJkR5NA7kMEAOgSE=
-github.com/igungor/gofakes3 v0.0.15 h1:/57KiuC2Nc0Heh1cjnTOe6mWrDNxIr8kfF7xgah55OA=
-github.com/igungor/gofakes3 v0.0.15/go.mod h1:+rwAKRO9RTGCIeE8SRvRPLSj7PVhaMBLlm1zPXzu7Cs=
+github.com/igungor/gofakes3 v0.0.16 h1:aMipkwE9s2u4T6GfgIPZ8ngJcReYsJvGRm6c4/lLAfY=
+github.com/igungor/gofakes3 v0.0.16/go.mod h1:+rwAKRO9RTGCIeE8SRvRPLSj7PVhaMBLlm1zPXzu7Cs=
 github.com/jmespath/go-jmespath v0.4.0 h1:BEgLn5cpjn8UN1mAw4NjwDrS35OdebyEtFe+9YPoQUg=
 github.com/jmespath/go-jmespath v0.4.0/go.mod h1:T8mJZnbsbmF+m6zOOFylbeCJqk5+pHWvzYPziyZiYoo=
 github.com/jmespath/go-jmespath/internal/testify v1.5.1 h1:shLQSRRSCCPj3f2gpwzGwWFoC7ycTf1rcQZHOlsJ6N8=

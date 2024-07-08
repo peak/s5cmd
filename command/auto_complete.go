@@ -72,7 +72,7 @@ _s5cmd_cli_bash_autocomplete() {
 	fi
 }
 
-# call the _s5cmd_cli_bash_autocomplete to complete s5cmd command. 
+# call the _s5cmd_cli_bash_autocomplete to complete s5cmd command.
 complete -o nospace -F _s5cmd_cli_bash_autocomplete s5cmd
 `
 

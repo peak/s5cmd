@@ -133,30 +133,6 @@ func TestCatS3ObjectFail(t *testing.T) {
 				jsonCheck(true),
 			},
 		},
-		{
-			src:  "s3://%v/prefix/file.txt/*",
-			name: "cat remote object with glob",
-			cmd: []string{
-				"--json",
-				"cat",
-			},
-			expected: map[int]compareFunc{
-				0: match(`{"operation":"cat","command":"cat s3:\/\/(.+)?\/prefix\/file\.txt\/\*","error":"remote source \\"s3:\/\/(.*)\/prefix\/file\.txt\/\*\\" can not contain glob characters"}`),
-			},
-			assertOps: []assertOp{
-				jsonCheck(true),
-			},
-		},
-		{
-			src:  "s3://%v/prefix/",
-			name: "cat bucket",
-			cmd: []string{
-				"cat",
-			},
-			expected: map[int]compareFunc{
-				0: match(`ERROR "cat s3://(.+)?": remote source must be an object`),
-			},
-		},
 	}
 
 	for _, tc := range testcases {
@@ -227,6 +203,41 @@ func TestCatLocalFileFail(t *testing.T) {
 			assertLines(t, result.Stderr(), tc.expected)
 		})
 	}
+}
+
+func TestCatInEmptyBucket(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd := setup(t)
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	t.Run("EmptyBucket", func(t *testing.T) {
+		cmd := s5cmd("cat", fmt.Sprintf("s3://%v", bucket))
+		result := icmd.RunCmd(cmd)
+
+		result.Assert(t, icmd.Expected{ExitCode: 0})
+		assertLines(t, result.Stdout(), nil)
+	})
+
+	t.Run("PrefixInEmptyBucket", func(t *testing.T) {
+		cmd := s5cmd("cat", fmt.Sprintf("s3://%v/", bucket))
+		result := icmd.RunCmd(cmd)
+
+		result.Assert(t, icmd.Expected{ExitCode: 0})
+		assertLines(t, result.Stdout(), nil)
+	})
+
+	t.Run("WildcardInEmptyBucket", func(t *testing.T) {
+		cmd := s5cmd("cat", fmt.Sprintf("s3://%v/*", bucket))
+		result := icmd.RunCmd(cmd)
+
+		result.Assert(t, icmd.Expected{ExitCode: 1})
+		assertLines(t, result.Stderr(), map[int]compareFunc{
+			0: contains(fmt.Sprintf(`ERROR "cat s3://%v/*": no object found`, bucket)),
+		})
+	})
 }
 
 // getSequentialFileContent creates a string with size bytes in size.
@@ -305,4 +316,150 @@ func TestCatByVersionID(t *testing.T) {
 			t.Errorf("(-want +got):\n%v", diff)
 		}
 	}
+
+	version := "1"
+
+	// wildcard and prefix fail cases
+	cmd = s5cmd("cat", "--version-id", version, "s3://"+bucket+"/")
+	result = icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Expected{ExitCode: 1})
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: equals(`ERROR "cat --version-id=%v s3://%v/": wildcard/prefix operations are disabled with --version-id flag`, version, bucket),
+	}, strictLineCheck(false))
+
+	cmd = s5cmd("cat", "--version-id", version, "s3://"+bucket+"/folder/")
+	result = icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Expected{ExitCode: 1})
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: equals(`ERROR "cat --version-id=%v s3://%v/folder/": wildcard/prefix operations are disabled with --version-id flag`, version, bucket),
+	}, strictLineCheck(false))
+
+	cmd = s5cmd("cat", "--version-id", version, "s3://"+bucket+"/*")
+	result = icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Expected{ExitCode: 1})
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: equals(`ERROR "cat --version-id=%v s3://%v/*": wildcard/prefix operations are disabled with --version-id flag`, version, bucket),
+	}, strictLineCheck(false))
+}
+
+func TestCatPrefix(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd := setup(t)
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	testCases := []struct {
+		files    []string
+		prefix   string
+		expected string
+	}{
+		{files: []string{"file1.txt", "file2.txt"}, prefix: "", expected: "content0content1"},
+		{files: []string{"dir/file3.txt", "dir/file4.txt"}, prefix: "", expected: "content0content1"},
+		{files: nil, prefix: "dir/", expected: "content2content3"},
+		{files: []string{"dir/nesteddir/file5.txt"}, prefix: "dir/", expected: "content2content3"},
+		{files: nil, prefix: "dir/nesteddir/", expected: "content4"},
+	}
+
+	offset := 0
+	for _, tc := range testCases {
+		if tc.files != nil {
+			var concatenatedContent strings.Builder
+			for idx, file := range tc.files {
+				content := fmt.Sprintf("content%d", idx+offset)
+				putFile(t, s3client, bucket, file, content)
+				concatenatedContent.WriteString(content)
+			}
+			offset += len(tc.files)
+		}
+		verifyCatCommand(t, s5cmd, bucket, tc.expected, tc.prefix)
+	}
+}
+
+func TestCatWildcard(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd := setup(t)
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	files := []struct {
+		key     string
+		content string
+	}{
+		{"foo1.txt", "content0"},
+		{"foo2.txt", "content1"},
+		{"bar1.txt", "content2"},
+		{"foolder/foo3.txt", "content3"},
+		{"log-file-2024-01.txt", "content4"},
+		{"log-file-2024-02.txt", "content5"},
+		{"log-file-2023-01.txt", "content6"},
+		{"log-file-2022-01.txt", "content7"},
+	}
+
+	for _, file := range files {
+		putFile(t, s3client, bucket, file.key, file.content)
+	}
+
+	testCases := []struct {
+		prefix   string
+		expected string
+	}{
+		{"foo*", "content0content1content3"},
+		{"log-file-2024-*", "content4content5"},
+		{"log-file-*", "content7content6content4content5"},
+	}
+
+	for _, tc := range testCases {
+		verifyCatCommand(t, s5cmd, bucket, tc.expected, tc.prefix)
+	}
+}
+
+func TestPrefixWildcardFail(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd := setup(t)
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	testCases := []struct {
+		prefix string
+	}{
+		{"foo*"},
+		{"foolder/"},
+	}
+
+	for _, tc := range testCases {
+		cmd := s5cmd("cat", fmt.Sprintf("s3://%v/%v", bucket, tc.prefix))
+		result := icmd.RunCmd(cmd)
+
+		result.Assert(t, icmd.Expected{ExitCode: 1})
+		assertLines(t, result.Stderr(), map[int]compareFunc{
+			0: equals(`ERROR "cat s3://%v/%v": no object found`, bucket, tc.prefix),
+		}, strictLineCheck(false))
+	}
+
+	for _, tc := range testCases {
+		cmd := s5cmd("--json", "cat", fmt.Sprintf("s3://%v/%v", bucket, tc.prefix))
+		result := icmd.RunCmd(cmd)
+
+		result.Assert(t, icmd.Expected{ExitCode: 1})
+		assertLines(t, result.Stderr(), map[int]compareFunc{
+			0: equals(`{"operation":"cat","command":"cat s3://%v/%v","error":"no object found"}`, bucket, tc.prefix),
+		}, strictLineCheck(false))
+	}
+
+}
+
+func verifyCatCommand(t *testing.T, s5cmd func(...string) icmd.Cmd, bucket, expectedContent, prefix string) {
+	cmd := s5cmd("cat", fmt.Sprintf("s3://%v/%v", bucket, prefix))
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(expectedContent),
+	}, alignment(true))
 }

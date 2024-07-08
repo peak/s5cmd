@@ -218,6 +218,18 @@ func TestSelectCommand(t *testing.T) {
 				outformat:     "json",
 				expectedValue: "id0\n",
 			},
+			{
+				name: "input:json-lines,output:json-lines,all-versions:true",
+				cmd: []string{
+					"select", "json",
+					"--all-versions",
+					"--query", query,
+				},
+				informat:      "json",
+				structure:     "lines",
+				outformat:     "json",
+				expectedValue: "",
+			},
 		},
 		"csv": {
 			{

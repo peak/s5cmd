@@ -365,7 +365,7 @@ func (u *URL) String() string {
 }
 
 // MarshalJSON is the json.Marshaler implementation of URL.
-func (u *URL) MarshalJSON() ([]byte, error) {
+func (u URL) MarshalJSON() ([]byte, error) {
 	return json.Marshal(u.String())
 }
 
@@ -460,7 +460,8 @@ func (u *URL) EscapedPath() string {
 	for i, element := range sourceKeyElements {
 		sourceKeyElements[i] = url.QueryEscape(element)
 	}
-	return strings.Join(sourceKeyElements, "/")
+
+	return path.Join(sourceKeyElements...)
 }
 
 // check if all fields of URL equal

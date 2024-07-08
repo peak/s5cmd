@@ -641,7 +641,6 @@ func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) 
 
 	err = c.shouldOverride(ctx, srcurl, dsturl)
 	if err != nil {
-		// FIXME(ig): rename
 		if errorpkg.IsWarning(err) {
 			printDebug(c.op, err, srcurl, dsturl)
 			return nil

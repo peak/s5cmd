@@ -1,0 +1,8 @@
+rules:
+  - id: err-commented-debug-statements
+    message: "Commented debug statements"
+    languages: [go]
+    severity: ERROR
+    patterns:
+      - pattern-regex: //\s*(fmt\.Print|println)
+

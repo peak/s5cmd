@@ -1189,7 +1189,7 @@ func (s *S3) HeadObject(ctx context.Context, url *url.URL) (*Object, map[string]
 	// https://docs.aws.amazon.com/AmazonS3/latest/API/API_HeadObject.html#AmazonS3-HeadObject-response-header-StorageClass
 	// If the object's storage class is STANDARD, this header is not returned in the response.
 
-	storageClassStr := "STANDART"
+	storageClassStr := "STANDARD"
 	if output.StorageClass != nil {
 		storageClassStr = aws.StringValue(output.StorageClass)
 	}

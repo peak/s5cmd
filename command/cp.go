@@ -141,6 +141,17 @@ func NewSharedFlags() []cli.Flag {
 			Name:  "metadata",
 			Usage: "set arbitrary metadata for the object, e.g. --metadata 'foo=bar' --metadata 'fizz=buzz'",
 		},
+		&cli.GenericFlag{
+			Name:  "metadata-directive",
+			Usage: "set metadata directive for the object: COPY or REPLACE",
+			Value: &EnumValue{
+				Enum:    []string{"COPY", "REPLACE", ""},
+				Default: "",
+				ConditionFunction: func(str, target string) bool {
+					return strings.EqualFold(target, str)
+				},
+			},
+		},
 		&cli.StringFlag{
 			Name:  "sse",
 			Usage: "perform server side encryption of the data at its destination, e.g. aws:kms",
@@ -305,6 +316,7 @@ type Copy struct {
 	contentEncoding       string
 	contentDisposition    string
 	metadata              map[string]string
+	metadataDirective     string
 	showProgress          bool
 	progressbar           progressbar.ProgressBar
 
@@ -382,6 +394,7 @@ func NewCopy(c *cli.Context, deleteSource bool) (*Copy, error) {
 		contentEncoding:       c.String("content-encoding"),
 		contentDisposition:    c.String("content-disposition"),
 		metadata:              metadata,
+		metadataDirective:     c.String("metadata-directive"),
 		showProgress:          c.Bool("show-progress"),
 		progressbar:           commandProgressBar,
 
@@ -514,10 +527,26 @@ func (c Copy) Run(ctx context.Context) error {
 
 		switch {
 		case srcurl.Type == c.dst.Type: // local->local or remote->remote
+			if c.metadataDirective == "" {
+				// default to COPY
+				c.metadataDirective = "COPY"
+			}
 			task = c.prepareCopyTask(ctx, srcurl, c.dst, isBatch, c.metadata)
 		case srcurl.IsRemote(): // remote->local
+			if c.metadataDirective != "" {
+				err := fmt.Errorf("metadata directive is not supported for download")
+				merrorObjects = multierror.Append(merrorObjects, err)
+				printError(c.fullCommand, c.op, err)
+				continue
+			}
 			task = c.prepareDownloadTask(ctx, srcurl, c.dst, isBatch)
 		case c.dst.IsRemote(): // local->remote
+			if c.metadataDirective != "" {
+				err := fmt.Errorf("metadata directive is not supported for upload")
+				merrorObjects = multierror.Append(merrorObjects, err)
+				printError(c.fullCommand, c.op, err)
+				continue
+			}
 			task = c.prepareUploadTask(ctx, srcurl, c.dst, isBatch, c.metadata)
 		default:
 			panic("unexpected src-dst pair")
@@ -765,6 +794,7 @@ func (c Copy) doCopy(ctx context.Context, srcurl, dsturl *url.URL, extradata map
 		ContentDisposition: c.contentDisposition,
 		EncryptionMethod:   c.encryptionMethod,
 		EncryptionKeyID:    c.encryptionKeyID,
+		Directive:          c.metadataDirective,
 	}
 
 	err = c.shouldOverride(ctx, srcurl, dsturl)

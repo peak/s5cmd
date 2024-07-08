@@ -845,7 +845,42 @@ func TestCopySingleFileToS3WithArbitraryMetadata(t *testing.T) {
 }
 
 // cp s3://bucket2/obj2 s3://bucket1/obj1 --metadata key1=val1 --metadata key2=val2 ...
-func TestCopyS3ToS3WithArbitraryMetadata(t *testing.T) {
+func TestCopyS3ToS3WithArbitraryMetadataWithDefaultDirective(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd := setup(t)
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	const (
+		filename = "index"
+		content  = "things"
+		foo      = "Key1=foo"
+		bar      = "Key2=bar"
+	)
+
+	// build assert map
+	srcmetadata := map[string]*string{
+		"Key1": aws.String("value1"),
+		"Key2": aws.String("value2"),
+	}
+
+	srcpath := fmt.Sprintf("s3://%v/%v", bucket, filename)
+	dstpath := fmt.Sprintf("s3://%v/%v_cp", bucket, filename)
+
+	putFile(t, s3client, bucket, filename, content, putArbitraryMetadata(srcmetadata))
+	cmd := s5cmd("cp", "--metadata", foo, "--metadata", bar, srcpath, dstpath)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	// assert S3
+	assert.Assert(t, ensureS3Object(s3client, bucket, fmt.Sprintf("%s_cp", filename), content, ensureArbitraryMetadata(srcmetadata)))
+}
+
+// cp s3://bucket2/obj2 s3://bucket1/obj1 --metadata-directive REPLACE --metadata key1=val1 --metadata key2=val2 ...
+func TestCopyS3ToS3WithArbitraryMetadataWithReplaceDirective(t *testing.T) {
 	t.Parallel()
 
 	s3client, s5cmd := setup(t)
@@ -875,7 +910,7 @@ func TestCopyS3ToS3WithArbitraryMetadata(t *testing.T) {
 	dstpath := fmt.Sprintf("s3://%v/%v_cp", bucket, filename)
 
 	putFile(t, s3client, bucket, filename, content, putArbitraryMetadata(srcmetadata))
-	cmd := s5cmd("cp", "--metadata", foo, "--metadata", bar, srcpath, dstpath)
+	cmd := s5cmd("cp", "--metadata-directive", "REPLACE", "--metadata", foo, "--metadata", bar, srcpath, dstpath)
 	result := icmd.RunCmd(cmd)
 	result.Assert(t, icmd.Success)
 

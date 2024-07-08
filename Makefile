@@ -43,7 +43,7 @@ bootstrap: ## Install tooling
 	@go install $$(go list -e -f '{{join .Imports " "}}' ./internal/tools/tools.go)
 
 .PHONY: check
-check: vet staticcheck unparam check-fmt check-codegen check-gomod
+check: vet staticcheck unparam semgrep check-fmt check-codegen check-gomod
 
 .PHONY: staticcheck
 staticcheck:

@@ -461,7 +461,7 @@ func (u *URL) EscapedPath() string {
 		sourceKeyElements[i] = url.QueryEscape(element)
 	}
 
-	return path.Join(sourceKeyElements...)
+	return strings.Join(sourceKeyElements, "/") // nosem - silence semgrep's "use path.Join" error
 }
 
 // check if all fields of URL equal

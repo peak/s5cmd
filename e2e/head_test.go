@@ -162,7 +162,7 @@ func TestHeadObject(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	storageClassPattern := `(?:STANDART|)`
+	storageClassPattern := `(?:STANDARD|)`
 	sizePattern := `\d+`
 	s3urlPattern := `myfile.txt`
 
@@ -265,7 +265,7 @@ func TestHeadObjectHumanize(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	datePattern := `\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}`
-	storageClassPattern := `(?:STANDART|)`
+	storageClassPattern := `(?:STANDARD|)`
 	sizePattern := `(?:\d+(\.\d+)?[KMGTP]?B?)`
 	s3urlPattern := `file.txt`
 
@@ -298,7 +298,7 @@ func TestHeadObjectEtag(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	datePattern := `\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}`
-	storageClassPattern := `(?:STANDART|)`
+	storageClassPattern := `(?:STANDARD|)`
 	sizePattern := `\d+`
 	s3urlPattern := `file.txt`
 	etagPattern := `[a-f0-9]+`
@@ -375,7 +375,7 @@ func TestHeadObjectHumanizeEtag(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	datePattern := `\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}`
-	storageClassPattern := `(?:STANDART|)`
+	storageClassPattern := `(?:STANDARD|)`
 	sizePattern := `(?:\d+(\.\d+)?[KMGTP]?B?)`
 	s3urlPattern := `file.txt`
 	etagPattern := `[a-f0-9]+`
@@ -412,7 +412,7 @@ func TestHeadObjectRaw(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	datePattern := `\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}`
-	storageClassPattern := `(?:STANDART|)`
+	storageClassPattern := `(?:STANDARD|)`
 	sizePattern := `\d+`
 	s3urlPattern := `file\*.txt`
 
@@ -538,7 +538,7 @@ func TestHeadObjectWithVersionID(t *testing.T) {
 		result.Assert(t, icmd.Success)
 
 		datePattern := `\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}`
-		storageClassPattern := `(?:STANDART|)`
+		storageClassPattern := `(?:STANDARD|)`
 		sizePattern := len(contents[i])
 		s3urlPattern := filename
 

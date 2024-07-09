@@ -1161,10 +1161,7 @@ func (s *S3) HeadBucket(ctx context.Context, url *url.URL) error {
 	_, err := s.api.HeadBucketWithContext(ctx, &s3.HeadBucketInput{
 		Bucket: aws.String(url.Bucket),
 	})
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 func (s *S3) HeadObject(ctx context.Context, url *url.URL) (*Object, map[string]string, error) {
@@ -1188,7 +1185,6 @@ func (s *S3) HeadObject(ctx context.Context, url *url.URL) (*Object, map[string]
 
 	// https://docs.aws.amazon.com/AmazonS3/latest/API/API_HeadObject.html#AmazonS3-HeadObject-response-header-StorageClass
 	// If the object's storage class is STANDARD, this header is not returned in the response.
-
 	storageClassStr := "STANDARD"
 	if output.StorageClass != nil {
 		storageClassStr = aws.StringValue(output.StorageClass)

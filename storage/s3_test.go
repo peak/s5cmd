@@ -81,7 +81,6 @@ func TestNewSessionPathStyle(t *testing.T) {
 	for _, tc := range testcases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-
 			opts := Options{Endpoint: tc.endpoint.String()}
 			sess, err := globalSessionCache.newSession(context.Background(), opts)
 			if err != nil {
@@ -180,7 +179,6 @@ aws_secret_access_key = p2_profile_access_key`
 			expSecretAccessKey: "p1_profile_access_key",
 		},
 		{
-
 			name:               "use a non-existent profile",
 			fileName:           file.Name(),
 			profileName:        "non-existent-profile",
@@ -698,7 +696,6 @@ func TestS3CopyEncryptionRequest(t *testing.T) {
 	for _, tc := range testcases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-
 			mockAPI := s3.New(unit.Session)
 
 			mockAPI.Handlers.Unmarshal.Clear()
@@ -707,7 +704,6 @@ func TestS3CopyEncryptionRequest(t *testing.T) {
 			mockAPI.Handlers.Send.Clear()
 
 			mockAPI.Handlers.Send.PushBack(func(r *request.Request) {
-
 				r.HTTPResponse = &http.Response{
 					StatusCode: http.StatusOK,
 					Body:       io.NopCloser(strings.NewReader("")),
@@ -751,7 +747,6 @@ func TestS3CopyEncryptionRequest(t *testing.T) {
 			metadata.ACL = tc.acl
 
 			err = mockS3.Copy(context.Background(), u, u, metadata)
-
 			if err != nil {
 				t.Errorf("Expected %v, but received %q", nil, err)
 			}
@@ -803,7 +798,6 @@ func TestS3PutEncryptionRequest(t *testing.T) {
 	for _, tc := range testcases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-
 			mockAPI := s3.New(unit.Session)
 
 			mockAPI.Handlers.Unmarshal.Clear()
@@ -812,7 +806,6 @@ func TestS3PutEncryptionRequest(t *testing.T) {
 			mockAPI.Handlers.Send.Clear()
 
 			mockAPI.Handlers.Send.PushBack(func(r *request.Request) {
-
 				r.HTTPResponse = &http.Response{
 					StatusCode: http.StatusOK,
 					Body:       io.NopCloser(strings.NewReader("")),
@@ -847,7 +840,6 @@ func TestS3PutEncryptionRequest(t *testing.T) {
 			metadata.ACL = tc.acl
 
 			err = mockS3.Put(context.Background(), bytes.NewReader([]byte("")), u, metadata, 1, 5242880)
-
 			if err != nil {
 				t.Errorf("Expected %v, but received %q", nil, err)
 			}
@@ -1273,7 +1265,6 @@ func TestS3HeadObject(t *testing.T) {
 			url:      "s3://another-bucket/another-key",
 			expected: "another-bucket/another-key",
 		},
-		// Add more test cases here
 	}
 
 	for _, tc := range testcases {

@@ -9,7 +9,6 @@ import (
 )
 
 // head (without anything -> error)
-
 func TestHead(t *testing.T) {
 	t.Parallel()
 
@@ -22,7 +21,6 @@ func TestHead(t *testing.T) {
 }
 
 // head bucket
-
 func TestHeadBucket(t *testing.T) {
 	t.Parallel()
 
@@ -42,7 +40,6 @@ func TestHeadBucket(t *testing.T) {
 }
 
 // head bucket (non-existent)
-
 func TestHeadBucketNonExistent(t *testing.T) {
 	t.Parallel()
 
@@ -55,7 +52,6 @@ func TestHeadBucketNonExistent(t *testing.T) {
 }
 
 // --json head bucket
-
 func TestHeadBucketJSON(t *testing.T) {
 	t.Parallel()
 
@@ -75,7 +71,6 @@ func TestHeadBucketJSON(t *testing.T) {
 }
 
 // --json head bucket (non-existent)
-
 func TestHeadBucketJSONNonExistent(t *testing.T) {
 	t.Parallel()
 
@@ -88,7 +83,6 @@ func TestHeadBucketJSONNonExistent(t *testing.T) {
 }
 
 // head bucket --humanize
-
 func TestHeadBucketHumanize(t *testing.T) {
 	t.Parallel()
 
@@ -127,7 +121,6 @@ func TestHeadBucketEtag(t *testing.T) {
 }
 
 // head bucket --storage-class
-
 func TestHeadBucketStorageClass(t *testing.T) {
 	t.Parallel()
 
@@ -147,7 +140,6 @@ func TestHeadBucketStorageClass(t *testing.T) {
 }
 
 // head object
-
 func TestHeadObject(t *testing.T) {
 	t.Parallel()
 
@@ -162,16 +154,7 @@ func TestHeadObject(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	storageClassPattern := `(?:STANDARD|)`
-	sizePattern := `\d+`
-	s3urlPattern := `myfile.txt`
-
-	expectedOutput := fmt.Sprintf(
-		`%s\s+%s\s+%s`,
-		storageClassPattern,
-		sizePattern,
-		s3urlPattern,
-	)
+	expectedOutput := `(?:STANDARD|)\s+\d+\s+myfile.txt`
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: match(expectedOutput),
@@ -179,7 +162,6 @@ func TestHeadObject(t *testing.T) {
 }
 
 // head object (non-existent)
-
 func TestHeadObjectNonExistent(t *testing.T) {
 	t.Parallel()
 
@@ -195,7 +177,6 @@ func TestHeadObjectNonExistent(t *testing.T) {
 }
 
 // --json head object
-
 func TestHeadObjectJSON(t *testing.T) {
 	t.Parallel()
 
@@ -232,7 +213,6 @@ func TestHeadObjectJSON(t *testing.T) {
 }
 
 // --json head object (non-existent)
-
 func TestHeadObjectJSONNonExistent(t *testing.T) {
 	t.Parallel()
 
@@ -245,7 +225,6 @@ func TestHeadObjectJSONNonExistent(t *testing.T) {
 }
 
 // head object --humanize
-
 func TestHeadObjectHumanize(t *testing.T) {
 	t.Parallel()
 
@@ -264,18 +243,7 @@ func TestHeadObjectHumanize(t *testing.T) {
 	result := icmd.RunCmd(cmd)
 	result.Assert(t, icmd.Success)
 
-	datePattern := `\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}`
-	storageClassPattern := `(?:STANDARD|)`
-	sizePattern := `(?:\d+(\.\d+)?[KMGTP]?B?)`
-	s3urlPattern := `file.txt`
-
-	expectedOutput := fmt.Sprintf(
-		`%s\s+%s\s+%s\s+%s`,
-		datePattern,
-		storageClassPattern,
-		sizePattern,
-		s3urlPattern,
-	)
+	expectedOutput := `(?:STANDARD|)\s+(?:\d+(\.\d+)?[KMGTP]?B?)\s+file.txt`
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: match(expectedOutput),
@@ -283,7 +251,6 @@ func TestHeadObjectHumanize(t *testing.T) {
 }
 
 // head object --etag
-
 func TestHeadObjectEtag(t *testing.T) {
 	t.Parallel()
 
@@ -297,28 +264,14 @@ func TestHeadObjectEtag(t *testing.T) {
 	result := icmd.RunCmd(cmd)
 	result.Assert(t, icmd.Success)
 
-	datePattern := `\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}`
-	storageClassPattern := `(?:STANDARD|)`
-	sizePattern := `\d+`
-	s3urlPattern := `file.txt`
-	etagPattern := `[a-f0-9]+`
-
-	expectedOutput := fmt.Sprintf(
-		`%s\s+%s\s+%s\s+%s\s+%s`,
-		datePattern,
-		storageClassPattern,
-		etagPattern,
-		sizePattern,
-		s3urlPattern,
-	)
+	expectedOutput := `(?:STANDARD|)\s+[a-f0-9]+\s+(?:\d+(\.\d+)?[KMGTP]?B?)\s+file.txt`
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: match(expectedOutput),
-	}, alignment(true))
+	}, trimMatch(dateRe), alignment(true))
 }
 
 // head object --show-fullpath
-
 func TestHeadObjectShowFullpath(t *testing.T) {
 	t.Parallel()
 
@@ -354,7 +307,6 @@ func TestHeadObjectShowFullpathNonExistent(t *testing.T) {
 }
 
 // head object --humanize --etag
-
 func TestHeadObjectHumanizeEtag(t *testing.T) {
 	t.Parallel()
 
@@ -374,29 +326,15 @@ func TestHeadObjectHumanizeEtag(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	datePattern := `\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}`
-	storageClassPattern := `(?:STANDARD|)`
-	sizePattern := `(?:\d+(\.\d+)?[KMGTP]?B?)`
-	s3urlPattern := `file.txt`
-	etagPattern := `[a-f0-9]+`
-
-	expectedOutput := fmt.Sprintf(
-		`%s\s+%s\s+%s\s+%s\s+%s`,
-		datePattern,
-		storageClassPattern,
-		etagPattern,
-		sizePattern,
-		s3urlPattern,
-	)
+	expectedOutput := `(?:STANDARD|)\s+[a-f0-9]+\s+(?:\d+(\.\d+)?[KMGTP]?B?)\s+file.txt`
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: match(expectedOutput),
-	}, alignment(true))
+	}, trimMatch(dateRe), alignment(true))
 }
 
 // head --raw objectWithGlobChar
 // head --raw s3://bucket/file*.txt
-
 func TestHeadObjectRaw(t *testing.T) {
 	t.Parallel()
 
@@ -411,22 +349,11 @@ func TestHeadObjectRaw(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	datePattern := `\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}`
-	storageClassPattern := `(?:STANDARD|)`
-	sizePattern := `\d+`
-	s3urlPattern := `file\*.txt`
-
-	expectedOutput := fmt.Sprintf(
-		`%s\s+%s\s+%s\s+%s`,
-		datePattern,
-		storageClassPattern,
-		sizePattern,
-		s3urlPattern,
-	)
+	expectedOutput := `(?:STANDARD|)\s+\d+\s+file\*.txt`
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: match(expectedOutput),
-	}, alignment(true))
+	}, trimMatch(dateRe), alignment(true))
 }
 
 // head object s3://bucket/file*.txt
@@ -443,7 +370,6 @@ func TestHeadObjectWildcardWithoutRawFlag(t *testing.T) {
 }
 
 // head --json object s3://bucket/file.txt (metadata)
-
 func TestHeadObjectJSONMetadata(t *testing.T) {
 	t.Parallel()
 
@@ -537,22 +463,13 @@ func TestHeadObjectWithVersionID(t *testing.T) {
 		result = icmd.RunCmd(cmd)
 		result.Assert(t, icmd.Success)
 
-		datePattern := `\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}`
-		storageClassPattern := `(?:STANDARD|)`
-		sizePattern := len(contents[i])
-		s3urlPattern := filename
-
 		expectedOutput := fmt.Sprintf(
-			`%s\s+%s\s+%d\s+%s`,
-			datePattern,
-			storageClassPattern,
-			sizePattern,
-			s3urlPattern,
+			`(?:STANDARD|)\s+%d+\s+testfile.txt`,
+			len(contents[i]),
 		)
 
 		assertLines(t, result.Stdout(), map[int]compareFunc{
 			0: match(expectedOutput),
-		}, alignment(true))
-
+		}, trimMatch(dateRe), alignment(true))
 	}
 }

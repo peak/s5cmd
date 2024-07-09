@@ -26,22 +26,22 @@ Examples:
 		 > s5cmd {{.HelpName}} s3://bucket/prefix/object
 
 	2. Check if a remote bucket exists
-		 > s5cmd {{.HelpName}} s3://bucket 
-	
+		 > s5cmd {{.HelpName}} s3://bucket
+
 	3. Print a remote object's metadata with human-readable sizes
 		 > s5cmd {{.HelpName}} --humanize s3://bucket/prefix/object
-	
+
 	4. Print a remote object's metadata with ETag
 		 > s5cmd {{.HelpName}} --etag s3://bucket/prefix/object
-	
+
 	5. Print a remote object's fullpath
 		 > s5cmd {{.HelpName}} --show-fullpath s3://bucket/prefix/object
-	
+
 	6. Print a remote object's metadata with version ID
 		 > s5cmd {{.HelpName}} --version-id VERSION_ID s3://bucket/prefix/object
-	
+
 	7. Print a remote object's metadata with raw input
-		 > s5cmd {{.HelpName}} --raw s3://bucket/prefix/object
+		 > s5cmd {{.HelpName}} --raw 's3://bucket/prefix/object/with/*'
 
 `
 
@@ -135,6 +135,7 @@ type Head struct {
 }
 
 func (h Head) Run(ctx context.Context) error {
+	// to get the relative path
 	h.src.SetRelative(h.src)
 	client, err := storage.NewRemoteClient(ctx, h.src, h.storageOpts)
 	if err != nil {
@@ -179,13 +180,13 @@ func (h Head) Run(ctx context.Context) error {
 }
 
 type HeadObjectMessage struct {
-	Object *storage.Object `json:"object"`
+	Object *storage.Object
 
 	showEtag         bool
 	showHumanized    bool
 	showStorageClass bool
 	showFullPath     bool
-	Metadata         map[string]string `json:"metadata"`
+	Metadata         map[string]string
 }
 
 func (m HeadObjectMessage) String() string {
@@ -297,7 +298,7 @@ func validateHeadCommand(c *cli.Context) error {
 		return err
 	}
 
-	if srcurl.IsWildcard() {
+	if srcurl.IsWildcard() && !c.Bool("raw") {
 		return fmt.Errorf("remote source %q can not contain glob characters", srcurl)
 	}
 

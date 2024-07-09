@@ -55,7 +55,7 @@ unparam:
 
 .PHONY: semgrep
 semgrep: ## Run semgrep
-	@$(semgrep) --quiet --metrics=off --config="r/dgryski.semgrep-go" --config .github/semgrep-rules.yaml .
+	@$(semgrep) --quiet --metrics=off --error --config="r/dgryski.semgrep-go" --config .github/semgrep-rules.yaml .
 
 .PHONY: vet
 vet:

@@ -15,6 +15,16 @@ import (
 	"gotest.tools/v3/icmd"
 )
 
+type testcase struct {
+	name          string
+	cmd           []string
+	informat      string
+	structure     string
+	compression   bool
+	outformat     string
+	expectedValue string
+}
+
 func TestSelectCommand(t *testing.T) {
 	t.Parallel()
 
@@ -31,16 +41,6 @@ func TestSelectCommand(t *testing.T) {
 	endpoint := os.Getenv(s5cmdTestEndpointEnv)
 	if endpoint == "" {
 		t.Skipf("skipping the test because %v environment variable is empty", s5cmdTestEndpointEnv)
-	}
-
-	type testcase struct {
-		name          string
-		cmd           []string
-		informat      string
-		structure     string
-		compression   bool
-		outformat     string
-		expectedValue string
 	}
 
 	testcasesByGroup := map[string][]testcase{
@@ -217,18 +217,6 @@ func TestSelectCommand(t *testing.T) {
 				structure:     "document",
 				outformat:     "csv",
 				expectedValue: "id0\n",
-			},
-			{
-				name: "input:json-lines,output:json-lines,all-versions:true,empty-bucket:true",
-				cmd: []string{
-					"select", "json",
-					"--all-versions",
-					"--query", query,
-				},
-				informat:      "json",
-				structure:     "lines",
-				outformat:     "json",
-				expectedValue: "-",
 			},
 		},
 		"csv": {
@@ -453,18 +441,6 @@ func TestSelectCommand(t *testing.T) {
 				outformat:     "json",
 				expectedValue: "{\"id\":\"id0\"}\n",
 			},
-			{
-				name: "input:csv,output:csv,delimiter:comma,all-versions:true,empty-bucket:true",
-				cmd: []string{
-					"select", "csv",
-					"--all-versions",
-					"--query", query,
-				},
-				informat:      "csv",
-				structure:     ",",
-				outformat:     "csv",
-				expectedValue: "-",
-			},
 		},
 		"backwards-compatibility": {
 			{
@@ -532,12 +508,8 @@ func TestSelectCommand(t *testing.T) {
 					s3client, s5cmd := setup(t, withEndpointURL(endpoint), withRegion(region), withAccessKeyID(accessKeyID), withSecretKey(secretKey))
 					createBucket(t, s3client, bucket)
 
-					if tc.expectedValue == "-" { // test empty bucket case
-						src = fmt.Sprintf("s3://%s/", bucket)
-						expected = ""
-					} else {
-						putFile(t, s3client, bucket, filename, contents)
-					}
+					putFile(t, s3client, bucket, filename, contents)
+
 					tc.cmd = append(tc.cmd, src)
 					cmd := s5cmd(tc.cmd...)
 
@@ -547,6 +519,72 @@ func TestSelectCommand(t *testing.T) {
 					assert.DeepEqual(t, expected, result.Stdout())
 				})
 			}
+		})
+	}
+}
+
+func TestSelectCommandEmptyBucket(t *testing.T) {
+	t.Parallel()
+
+	const (
+		region      = "us-east-1"
+		accessKeyID = "minioadmin"
+		secretKey   = "minioadmin"
+
+		query = "SELECT * FROM s3object s"
+	)
+
+	endpoint := os.Getenv(s5cmdTestEndpointEnv)
+	if endpoint == "" {
+		t.Skipf("skipping the test because %v environment variable is empty", s5cmdTestEndpointEnv)
+	}
+
+	testcases := []testcase{
+		{
+			name: "input:json-lines,output:json-lines,all-versions:true,empty-bucket:true",
+			cmd: []string{
+				"select", "json",
+				"--all-versions",
+				"--query", query,
+			},
+			informat:      "json",
+			structure:     "lines",
+			outformat:     "json",
+			expectedValue: "",
+		},
+		{
+			name: "input:csv,output:csv,delimiter:comma,all-versions:true,empty-bucket:true",
+			cmd: []string{
+				"select", "csv",
+				"--all-versions",
+				"--query", query,
+			},
+			informat:      "csv",
+			structure:     ",",
+			outformat:     "csv",
+			expectedValue: "",
+		},
+	}
+
+	for _, tc := range testcases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			bucket := s3BucketFromTestName(t)
+
+			s3client, s5cmd := setup(t, withEndpointURL(endpoint), withRegion(region), withAccessKeyID(accessKeyID), withSecretKey(secretKey))
+			createBucket(t, s3client, bucket)
+
+			src := fmt.Sprintf("s3://%s/", bucket)
+			tc.cmd = append(tc.cmd, src)
+			cmd := s5cmd(tc.cmd...)
+
+			result := icmd.RunCmd(cmd, withEnv("AWS_ACCESS_KEY_ID", accessKeyID), withEnv("AWS_SECRET_ACCESS_KEY", secretKey))
+
+			result.Assert(t, icmd.Success)
+			assert.DeepEqual(t, tc.expectedValue, result.Stdout())
+
 		})
 	}
 }

@@ -354,7 +354,7 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, cancel context
 					log.Error(msg)
 					cancel()
 				}
-				if s.shouldSkipSrcObject(st, true) {
+				if s.shouldSkipObject(st, true, true) {
 					continue
 				}
 				filteredSrcObjectChannel <- *st
@@ -401,7 +401,7 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, cancel context
 					log.Error(msg)
 					cancel()
 				}
-				if s.shouldSkipDstObject(dt, false) {
+				if s.shouldSkipObject(dt, false, false) {
 					continue
 				}
 				filteredDstObjectChannel <- *dt
@@ -547,7 +547,7 @@ func generateDestinationURL(srcurl, dsturl *url.URL, isBatch bool) *url.URL {
 }
 
 // shouldSkipObject checks is object should be skipped.
-func (s Sync) shouldSkipSrcObject(object *storage.Object, verbose bool) bool {
+func (s Sync) shouldSkipObject(object *storage.Object, isSrc, verbose bool) bool {
 	if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) {
 		return true
 	}
@@ -558,29 +558,17 @@ func (s Sync) shouldSkipSrcObject(object *storage.Object, verbose bool) bool {
 		}
 		return true
 	}
-
-	if object.StorageClass.IsGlacier() {
+	// shouldSkipObject checks is object should be skipped.
+	// if object is destination object, it should not be skipped when it is a Glacier object.
+	// Because, if we skip the destination object, in comparison phase, it will be considered as
+	// only in source object. Then it will be overwritten by source object.
+	if object.StorageClass.IsGlacier() && isSrc {
 		if verbose {
 			err := fmt.Errorf("object '%v' is on Glacier storage", object)
 			printError(s.fullCommand, s.op, err)
 		}
 		return true
 	}
-	return false
-}
-
-func (s Sync) shouldSkipDstObject(object *storage.Object, verbose bool) bool {
-	if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) {
-		return true
-	}
-
-	if err := object.Err; err != nil {
-		if verbose {
-			printError(s.fullCommand, s.op, err)
-		}
-		return true
-	}
-
 	return false
 }
 

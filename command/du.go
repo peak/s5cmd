@@ -41,10 +41,10 @@ Examples:
 
 	5. Show disk usage of all versions of all objects that starts with a prefix in the bucket
 		 > s5cmd {{.HelpName}} --all-versions "s3://bucket/prefix*"
-		
+
 	6. Show disk usage of all versions of all objects in the bucket
 		 > s5cmd {{.HelpName}} --all-versions "s3://bucket/*"
-	
+
 	7. Show disk usage of a specific version of an object in the bucket
 		 > s5cmd {{.HelpName}} --version-id VERSION_ID s3://bucket/object
 `

@@ -2,7 +2,9 @@ package storage
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 
@@ -21,7 +23,7 @@ type Filesystem struct {
 func (f *Filesystem) Stat(ctx context.Context, url *url.URL) (*Object, error) {
 	st, err := os.Stat(url.Absolute())
 	if err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, fs.ErrNotExist) {
 			return nil, &ErrGivenObjectNotFound{ObjectAbsPath: url.Absolute()}
 		}
 		return nil, err

@@ -1076,10 +1076,10 @@ func TestSyncS3BucketToS3BucketSourceGlacierDestinationGlacier(t *testing.T) {
 
 	// src bucket should have the objects in glacier
 	for key := range S3Content {
-		assert.Assert(t, ensureS3Object(s3client, bucket, key, S3Content[key], ensureStorageClass("STANDARD")))
+		assert.Assert(t, ensureS3Object(s3client, bucket, key, S3Content[key], ensureStorageClass("GLACIER")))
 	}
 
-	// dst bucket should have the objects in standard
+	// dst bucket should have the objects in glacier
 	for key := range destS3Content {
 		assert.Assert(t, ensureS3Object(s3client, dstbucket, key, destS3Content[key], ensureStorageClass("GLACIER")))
 	}

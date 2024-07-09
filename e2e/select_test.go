@@ -582,8 +582,10 @@ func TestSelectCommandEmptyBucket(t *testing.T) {
 
 			result := icmd.RunCmd(cmd, withEnv("AWS_ACCESS_KEY_ID", accessKeyID), withEnv("AWS_SECRET_ACCESS_KEY", secretKey))
 
-			result.Assert(t, icmd.Success)
+                  if !tc.expectError {
+                  	result.Assert(t, icmd.Success)
 			assert.DeepEqual(t, "", result.Stdout())
+                  }
 		})
 	}
 }

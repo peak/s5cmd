@@ -27,10 +27,6 @@ func (s *SizeOnlyStrategy) ShouldSync(srcObj, dstObj *storage.Object) error {
 		return errorpkg.ErrObjectSizesMatch
 	}
 
-	if srcObj.StorageClass.IsGlacier() || dstObj.StorageClass.IsGlacier() {
-		return nil
-	}
-
 	return nil
 }
 
@@ -50,11 +46,6 @@ func (sm *SizeAndModificationStrategy) ShouldSync(srcObj, dstObj *storage.Object
 	}
 
 	if srcObj.Size != dstObj.Size {
-		return nil
-	}
-
-	if srcObj.StorageClass.IsGlacier() || dstObj.StorageClass.IsGlacier() {
-
 		return nil
 	}
 

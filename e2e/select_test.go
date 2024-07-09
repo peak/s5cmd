@@ -540,9 +540,8 @@ func TestSelectCommandEmptyBucket(t *testing.T) {
 	}
 
 	type testcase struct {
-		name        string
-		cmd         []string
-		expectError bool
+		name string
+		cmd  []string
 	}
 
 	testcases := []testcase{
@@ -553,7 +552,6 @@ func TestSelectCommandEmptyBucket(t *testing.T) {
 				"--all-versions",
 				"--query", query,
 			},
-			expectError: false,
 		},
 		{
 			name: "input:csv,output:csv,delimiter:comma,all-versions:true,empty-bucket:true",
@@ -562,7 +560,6 @@ func TestSelectCommandEmptyBucket(t *testing.T) {
 				"--all-versions",
 				"--query", query,
 			},
-			expectError: false,
 		},
 	}
 
@@ -582,10 +579,8 @@ func TestSelectCommandEmptyBucket(t *testing.T) {
 
 			result := icmd.RunCmd(cmd, withEnv("AWS_ACCESS_KEY_ID", accessKeyID), withEnv("AWS_SECRET_ACCESS_KEY", secretKey))
 
-			if !tc.expectError {
-				result.Assert(t, icmd.Success)
-				assert.DeepEqual(t, "", result.Stdout())
-			}
+			result.Assert(t, icmd.Success)
+			assert.DeepEqual(t, "", result.Stdout())
 		})
 	}
 }

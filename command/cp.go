@@ -46,8 +46,8 @@ Examples:
 		 > s5cmd {{.HelpName}} s3://bucket/prefix/object.gz .
 
 	02. Download an S3 object and rename
-		 > s5cmd {{.HelpName}} s3://bucket/prefix/object.gz myobject.gz
-
+		 > s5cmd {{.HelpName}} s3://bucket/prefix/object.gz myobject.gz   
+    
 	03. Download all S3 objects to a directory
 		 > s5cmd {{.HelpName}} "s3://bucket/*" target-directory/
 

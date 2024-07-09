@@ -857,7 +857,6 @@ func TestSyncS3BucketToS3BucketSameSizesSourceOlder(t *testing.T) {
 }
 
 // sync s3://bucket/* s3://destbucket/ (source is glacier, destination is standard)
-
 func TestSyncS3BucketToS3BucketSourceGlacierDestinationStandard(t *testing.T) {
 	t.Parallel()
 	s3client, s5cmd := setup(t)
@@ -885,7 +884,6 @@ func TestSyncS3BucketToS3BucketSourceGlacierDestinationStandard(t *testing.T) {
 			StorageClass: aws.String("GLACIER"),
 		}
 		_, err := s3client.PutObject(&putObject)
-
 		if err != nil {
 			t.Fatalf("failed to put object in glacier: %v", err)
 		}
@@ -893,10 +891,10 @@ func TestSyncS3BucketToS3BucketSourceGlacierDestinationStandard(t *testing.T) {
 
 	// put objects in destination bucket
 	destS3Content := map[string]string{
-		"testfile.txt":            "S: this is a test file",
-		"readme.md":               "S: this is a readme file",
-		"a/another_test_file.txt": "S: yet another txt file",
-		"abc/def/test.py":         "S: file in nested folders",
+		"testfile.txt":            "D: this is a test file",
+		"readme.md":               "D: this is a readme file",
+		"a/another_test_file.txt": "D: yet another txt file",
+		"abc/def/test.py":         "D: file in nested folders",
 	}
 
 	for filename, content := range destS3Content {
@@ -908,7 +906,6 @@ func TestSyncS3BucketToS3BucketSourceGlacierDestinationStandard(t *testing.T) {
 		}
 
 		_, err := s3client.PutObject(&putObject)
-
 		if err != nil {
 			t.Fatalf("failed to put object in standard: %v", err)
 		}
@@ -927,13 +924,12 @@ func TestSyncS3BucketToS3BucketSourceGlacierDestinationStandard(t *testing.T) {
 
 	// src bucket should have the objects in glacier
 	for key := range S3Content {
-		objectStorageClass := getObjectStorageClass(t, s3client, bucket, key)
-		assert.Equal(t, "GLACIER", objectStorageClass)
+		assert.Assert(t, ensureS3Object(s3client, bucket, key, S3Content[key], ensureStorageClass("GLACIER")))
 	}
 
 	// dst bucket should have the objects in standard
 	for key := range destS3Content {
-		assert.Equal(t, "STANDARD", getObjectStorageClass(t, s3client, dstbucket, key))
+		assert.Assert(t, ensureS3Object(s3client, dstbucket, key, destS3Content[key], ensureStorageClass("STANDARD")))
 	}
 }
 
@@ -964,7 +960,6 @@ func TestSyncS3BucketToS3BucketSourceStandardDestinationGlacier(t *testing.T) {
 			StorageClass: aws.String("STANDARD"),
 		}
 		_, err := s3client.PutObject(&putObject)
-
 		if err != nil {
 			t.Fatalf("failed to put object in glacier: %v", err)
 		}
@@ -972,10 +967,10 @@ func TestSyncS3BucketToS3BucketSourceStandardDestinationGlacier(t *testing.T) {
 
 	// put objects in destination bucket
 	destS3Content := map[string]string{
-		"testfile.txt":            "S: this is a test file",
-		"readme.md":               "S: this is a readme file",
-		"a/another_test_file.txt": "S: yet another txt file",
-		"abc/def/test.py":         "S: file in nested folders",
+		"testfile.txt":            "D: this is a test file",
+		"readme.md":               "D: this is a readme file",
+		"a/another_test_file.txt": "D: yet another txt file",
+		"abc/def/test.py":         "D: file in nested folders",
 	}
 
 	for filename, content := range destS3Content {
@@ -987,7 +982,6 @@ func TestSyncS3BucketToS3BucketSourceStandardDestinationGlacier(t *testing.T) {
 		}
 
 		_, err := s3client.PutObject(&putObject)
-
 		if err != nil {
 			t.Fatalf("failed to put object in standard: %v", err)
 		}
@@ -1006,13 +1000,12 @@ func TestSyncS3BucketToS3BucketSourceStandardDestinationGlacier(t *testing.T) {
 
 	// src bucket should have the objects in glacier
 	for key := range S3Content {
-		objectStorageClass := getObjectStorageClass(t, s3client, bucket, key)
-		assert.Equal(t, "STANDARD", objectStorageClass)
+		assert.Assert(t, ensureS3Object(s3client, bucket, key, S3Content[key], ensureStorageClass("STANDARD")))
 	}
 
 	// dst bucket should have the objects in standard
 	for key := range destS3Content {
-		assert.Equal(t, "GLACIER", getObjectStorageClass(t, s3client, dstbucket, key))
+		assert.Assert(t, ensureS3Object(s3client, dstbucket, key, destS3Content[key], ensureStorageClass("GLACIER")))
 	}
 }
 
@@ -1043,7 +1036,6 @@ func TestSyncS3BucketToS3BucketSourceGlacierDestinationGlacier(t *testing.T) {
 			StorageClass: aws.String("GLACIER"),
 		}
 		_, err := s3client.PutObject(&putObject)
-
 		if err != nil {
 			t.Fatalf("failed to put object in glacier: %v", err)
 		}
@@ -1051,10 +1043,10 @@ func TestSyncS3BucketToS3BucketSourceGlacierDestinationGlacier(t *testing.T) {
 
 	// put objects in destination bucket
 	destS3Content := map[string]string{
-		"testfile.txt":            "S: this is a test file",
-		"readme.md":               "S: this is a readme file",
-		"a/another_test_file.txt": "S: yet another txt file",
-		"abc/def/test.py":         "S: file in nested folders",
+		"testfile.txt":            "D: this is a test file",
+		"readme.md":               "D: this is a readme file",
+		"a/another_test_file.txt": "D: yet another txt file",
+		"abc/def/test.py":         "D: file in nested folders",
 	}
 
 	for filename, content := range destS3Content {
@@ -1066,7 +1058,6 @@ func TestSyncS3BucketToS3BucketSourceGlacierDestinationGlacier(t *testing.T) {
 		}
 
 		_, err := s3client.PutObject(&putObject)
-
 		if err != nil {
 			t.Fatalf("failed to put object in standard: %v", err)
 		}
@@ -1085,13 +1076,12 @@ func TestSyncS3BucketToS3BucketSourceGlacierDestinationGlacier(t *testing.T) {
 
 	// src bucket should have the objects in glacier
 	for key := range S3Content {
-		objectStorageClass := getObjectStorageClass(t, s3client, bucket, key)
-		assert.Equal(t, "GLACIER", objectStorageClass)
+		assert.Assert(t, ensureS3Object(s3client, bucket, key, S3Content[key], ensureStorageClass("STANDARD")))
 	}
 
 	// dst bucket should have the objects in standard
 	for key := range destS3Content {
-		assert.Equal(t, "GLACIER", getObjectStorageClass(t, s3client, dstbucket, key))
+		assert.Assert(t, ensureS3Object(s3client, dstbucket, key, destS3Content[key], ensureStorageClass("GLACIER")))
 	}
 }
 

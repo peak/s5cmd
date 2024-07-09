@@ -70,10 +70,6 @@ var (
 	s5cmdPath        string
 )
 
-func init() {
-	rand.Seed(time.Now().UnixNano())
-}
-
 type setupOpts struct {
 	s3backend   string
 	endpointURL string
@@ -144,7 +140,7 @@ func setup(t *testing.T, options ...option) (*s3.S3, func(...string) icmd.Cmd) {
 	for _, option := range options {
 		option(opts)
 	}
-	testdir, workdir := workdir(t, opts)
+	testdir, workdir := workdir(t)
 
 	endpoint := ""
 
@@ -193,7 +189,7 @@ func setup(t *testing.T, options ...option) (*s3.S3, func(...string) icmd.Cmd) {
 	return client, s5cmd(workdir, endpoint)
 }
 
-func workdir(t *testing.T, opts *setupOpts) (*fs.Dir, string) {
+func workdir(t *testing.T) (*fs.Dir, string) {
 	// testdir := fs.NewDir() tries to create a new directory which has a
 	// prefix = [test function name][operation name]
 	// e.g., prefix' = "TestCopySingleS3ObjectToLocal/cp_s3://bucket/object_file"

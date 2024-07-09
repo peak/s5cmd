@@ -51,11 +51,11 @@ Examples:
 
 	9. List all versions of all objects that starts with a prefix in the bucket
 		 > s5cmd {{.HelpName}} --all-versions "s3://bucket/prefix*"
-		
+
 	10. List all versions of all objects in the bucket
 		 > s5cmd {{.HelpName}} --all-versions "s3://bucket/*"
 
-	11. List all files with their fullpaths 
+	11. List all files with their fullpaths
 		 > s5cmd {{.HelpName}} --show-fullpath "s3://bucket/*"
 
 `

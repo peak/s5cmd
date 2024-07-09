@@ -15,16 +15,6 @@ import (
 	"gotest.tools/v3/icmd"
 )
 
-type testcase struct {
-	name          string
-	cmd           []string
-	informat      string
-	structure     string
-	compression   bool
-	outformat     string
-	expectedValue string
-}
-
 func TestSelectCommand(t *testing.T) {
 	t.Parallel()
 
@@ -41,6 +31,16 @@ func TestSelectCommand(t *testing.T) {
 	endpoint := os.Getenv(s5cmdTestEndpointEnv)
 	if endpoint == "" {
 		t.Skipf("skipping the test because %v environment variable is empty", s5cmdTestEndpointEnv)
+	}
+
+	type testcase struct {
+		name          string
+		cmd           []string
+		informat      string
+		structure     string
+		compression   bool
+		outformat     string
+		expectedValue string
 	}
 
 	testcasesByGroup := map[string][]testcase{
@@ -539,6 +539,12 @@ func TestSelectCommandEmptyBucket(t *testing.T) {
 		t.Skipf("skipping the test because %v environment variable is empty", s5cmdTestEndpointEnv)
 	}
 
+	type testcase struct {
+		name          string
+		cmd           []string
+		expectedValue string
+	}
+
 	testcases := []testcase{
 		{
 			name: "input:json-lines,output:json-lines,all-versions:true,empty-bucket:true",
@@ -547,9 +553,6 @@ func TestSelectCommandEmptyBucket(t *testing.T) {
 				"--all-versions",
 				"--query", query,
 			},
-			informat:      "json",
-			structure:     "lines",
-			outformat:     "json",
 			expectedValue: "",
 		},
 		{
@@ -559,9 +562,6 @@ func TestSelectCommandEmptyBucket(t *testing.T) {
 				"--all-versions",
 				"--query", query,
 			},
-			informat:      "csv",
-			structure:     ",",
-			outformat:     "csv",
 			expectedValue: "",
 		},
 	}

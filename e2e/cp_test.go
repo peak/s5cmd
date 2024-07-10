@@ -4732,7 +4732,7 @@ func TestCopyMultipleS3ObjectsToAnotherBucketWithContentType(t *testing.T) {
 	createBucket(t, s3client, srcbucket)
 	createBucket(t, s3client, dstbucket)
 
-	files_and_content := map[string]string{
+	fileAndContent := map[string]string{
 		"file1.txt":                "this is a test file 1",
 		"file2.html":               "<html><body><h1>file2</h1></body></html>",
 		"file3.mp4":                "this is a test file 3",
@@ -4742,7 +4742,7 @@ func TestCopyMultipleS3ObjectsToAnotherBucketWithContentType(t *testing.T) {
 		"b/filename-with-hypen.gz": "file has hypen in its name",
 	}
 
-	for filename, content := range files_and_content {
+	for filename, content := range fileAndContent {
 		putFile(t, s3client, srcbucket, filename, content)
 	}
 
@@ -4756,15 +4756,15 @@ func TestCopyMultipleS3ObjectsToAnotherBucketWithContentType(t *testing.T) {
 
 	// assert s3
 	// these seperation is intentional to make it easier to debug.
-	for filename, content := range files_and_content {
+	for filename, content := range fileAndContent {
 		assert.Assert(t, ensureS3Object(s3client, srcbucket, filename, content))
 	}
 
-	for filename, content := range files_and_content {
+	for filename, content := range fileAndContent {
 		assert.Assert(t, ensureS3Object(s3client, dstbucket, filename, content))
 	}
 
-	for filename, content := range files_and_content {
+	for filename, content := range fileAndContent {
 		assert.Assert(t, ensureS3Object(s3client, dstbucket, filename, content, ensureContentType("video/avi")))
 	}
 }

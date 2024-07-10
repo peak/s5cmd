@@ -30,7 +30,7 @@ Examples:
 		 > s5cmd {{.HelpName}} --version-id VERSION_ID s3://bucket/prefix/object
 
 	3. Concatenate multiple objects matching a prefix or wildcard and print to stdout
-		 > s5cmd {{.HelpName}} s3://bucket/prefix/*
+		 > s5cmd {{.HelpName}} "s3://bucket/prefix/*"
 `
 
 func NewCatCommand() *cli.Command {

@@ -165,7 +165,7 @@ func TestSelectCommand(t *testing.T) {
 				expectedValue: "id0\n",
 			},
 			{
-				name: "input:json-document,output:json-lines,select:with-document-access",
+				name: "input:json-document,output:json,select:with-document-access",
 				cmd: []string{
 					"select", "json",
 					"--structure", "document",
@@ -177,7 +177,7 @@ func TestSelectCommand(t *testing.T) {
 				expectedValue: "{\"id\":\"id0\"}\n",
 			},
 			{
-				name: "input:json-document,output:json-lines,compression:gzip,select:with-document-access",
+				name: "input:json-document,output:json,compression:gzip,select:with-document-access",
 				cmd: []string{
 					"select", "json",
 					"--structure", "document",
@@ -546,7 +546,7 @@ func TestSelectCommandEmptyBucket(t *testing.T) {
 
 	testcases := []testcase{
 		{
-			name: "input:json-lines,output:json-lines,all-versions:true,empty-bucket:true",
+			name: "input:json-lines,output:json,all-versions:true,empty-bucket:true",
 			cmd: []string{
 				"select", "json",
 				"--all-versions",

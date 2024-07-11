@@ -96,7 +96,6 @@ func TestCatS3Object(t *testing.T) {
 			assertLines(t, result.Stdout(), tc.expected)
 		})
 	}
-
 }
 
 func TestCatS3ObjectFail(t *testing.T) {
@@ -274,7 +273,7 @@ func TestCatByVersionID(t *testing.T) {
 
 	const filename = "testfile.txt"
 
-	var contents = []string{
+	contents := []string{
 		"This is first content",
 		"Second content it is, and it is a bit longer!!!",
 	}
@@ -355,43 +354,63 @@ func TestCatPrefix(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
-		files    []string
-		contents []string
-		prefix   string
-		expected string
+		filesAndContents map[string]string
+		prefix           string
+		expected         string
 	}{
 		{
-			files:    []string{"file1.txt", "file2.txt"},
-			contents: []string{"content0", "content1"},
-			expected: "content0content1"},
-		{
-			files:    []string{"file1.txt", "file2.txt", "dir/file3.txt", "dir/file4.txt"},
-			contents: []string{"content0", "content1", "content2", "content3"},
+			filesAndContents: map[string]string{
+				"file1.txt": "content0",
+				"file2.txt": "content1",
+			},
 			expected: "content0content1",
 		},
 		{
-			files:    []string{"file1.txt", "file2.txt", "dir/file3.txt", "dir/file4.txt"},
-			contents: []string{"content0", "content1", "content2", "content3"},
+			filesAndContents: map[string]string{
+				"file1.txt":     "content0",
+				"file2.txt":     "content1",
+				"dir/file3.txt": "content2",
+				"dir/file4.txt": "content3",
+			},
+			expected: "content0content1",
+		},
+		{
+			filesAndContents: map[string]string{
+				"file1.txt":     "content0",
+				"file2.txt":     "content1",
+				"dir/file3.txt": "content2",
+				"dir/file4.txt": "content3",
+			},
 			prefix:   "dir/",
 			expected: "content2content3",
 		},
 		{
-			files:    []string{"file1.txt", "file2.txt", "dir/file3.txt", "dir/file4.txt", "dir/nesteddir/file5.txt"},
-			contents: []string{"content0", "content1", "content2", "content3", "content4"},
+			filesAndContents: map[string]string{
+				"file1.txt":               "content0",
+				"file2.txt":               "content1",
+				"dir/file3.txt":           "content2",
+				"dir/file4.txt":           "content3",
+				"dir/nesteddir/file5.txt": "content4",
+			},
 			prefix:   "dir/",
 			expected: "content2content3",
 		},
 		{
-			files:    []string{"file1.txt", "file2.txt", "dir/file3.txt", "dir/file4.txt", "dir/nesteddir/file5.txt"},
-			contents: []string{"content0", "content1", "content2", "content3", "content4"},
+			filesAndContents: map[string]string{
+				"file1.txt":               "content0",
+				"file2.txt":               "content1",
+				"dir/file3.txt":           "content2",
+				"dir/file4.txt":           "content3",
+				"dir/nesteddir/file5.txt": "content4",
+			},
 			prefix:   "dir/nesteddir/",
 			expected: "content4",
 		},
 	}
 
-	for _, tc := range testCases {
+	for idx, tc := range testCases {
 		tc := tc
-		t.Run(tc.expected, func(t *testing.T) {
+		t.Run(fmt.Sprintf("case-%v", idx), func(t *testing.T) {
 			t.Parallel()
 
 			s3client, s5cmd := setup(t)
@@ -399,8 +418,7 @@ func TestCatPrefix(t *testing.T) {
 			bucket := s3BucketFromTestName(t)
 			createBucket(t, s3client, bucket)
 
-			for idx, file := range tc.files {
-				content := tc.contents[idx]
+			for file, content := range tc.filesAndContents {
 				putFile(t, s3client, bucket, file, content)
 			}
 
@@ -422,22 +440,19 @@ func TestCatWildcard(t *testing.T) {
 	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
-	files := []struct {
-		key     string
-		content string
-	}{
-		{"foo1.txt", "content0"},
-		{"foo2.txt", "content1"},
-		{"bar1.txt", "content2"},
-		{"foolder/foo3.txt", "content3"},
-		{"log-file-2024-01.txt", "content4"},
-		{"log-file-2024-02.txt", "content5"},
-		{"log-file-2023-01.txt", "content6"},
-		{"log-file-2022-01.txt", "content7"},
+	fileAndContent := map[string]string{
+		"foo1.txt":             "content0",
+		"foo2.txt":             "content1",
+		"bar1.txt":             "content2",
+		"foolder/foo3.txt":     "content3",
+		"log-file-2024-01.txt": "content4",
+		"log-file-2024-02.txt": "content5",
+		"log-file-2023-01.txt": "content6",
+		"log-file-2022-01.txt": "content7",
 	}
 
-	for _, file := range files {
-		putFile(t, s3client, bucket, file.key, file.content)
+	for file, content := range fileAndContent {
+		putFile(t, s3client, bucket, file, content)
 	}
 
 	testCases := []struct {
@@ -532,5 +547,4 @@ func TestPrefixWildcardFail(t *testing.T) {
 			})
 		})
 	}
-
 }

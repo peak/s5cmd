@@ -115,43 +115,44 @@ func (c Cat) Run(ctx context.Context) error {
 		return err
 	}
 
-	// Initialize an empty channel to handle single or multiple objects
-	var objectChan <-chan *storage.Object
-
 	if c.src.IsWildcard() || c.src.IsPrefix() || c.src.IsBucket() {
-		objectChan = client.List(ctx, c.src, false)
-	} else {
-		_, err = client.Stat(ctx, c.src)
-		if err != nil {
-			printError(c.fullCommand, c.op, err)
-			return err
-		}
-		singleObjChan := make(chan *storage.Object, 1)
-		singleObjChan <- &storage.Object{URL: c.src}
-		close(singleObjChan)
-		objectChan = singleObjChan
+		objectChan := client.List(ctx, c.src, false)
+		return c.processObjects(ctx, client, objectChan)
 	}
 
-	return c.processObjects(ctx, client, objectChan)
+	_, err = client.Stat(ctx, c.src)
+	if err != nil {
+		printError(c.fullCommand, c.op, err)
+		return err
+	}
+	return c.processSingleObject(ctx, client, &storage.Object{URL: c.src})
 }
 
 func (c Cat) processObjects(ctx context.Context, client *storage.S3, objectChan <-chan *storage.Object) error {
 	for obj := range objectChan {
-		if obj.Err != nil {
-			printError(c.fullCommand, c.op, obj.Err)
-			return obj.Err
-		}
-		if obj.Type.IsDir() {
-			continue
-		}
-		buf := orderedwriter.New(os.Stdout)
-
-		_, err := client.Get(ctx, obj.URL, buf, c.concurrency, c.partSize)
-		if err != nil {
-			printError(c.fullCommand, c.op, err)
+		if err := c.processSingleObject(ctx, client, obj); err != nil {
 			return err
 		}
 	}
+	return nil
+}
+
+func (c Cat) processSingleObject(ctx context.Context, client *storage.S3, obj *storage.Object) error {
+	if obj.Err != nil {
+		printError(c.fullCommand, c.op, obj.Err)
+		return obj.Err
+	}
+	if obj.Type.IsDir() {
+		return nil
+	}
+	buf := orderedwriter.New(os.Stdout)
+
+	_, err := client.Get(ctx, obj.URL, buf, c.concurrency, c.partSize)
+	if err != nil {
+		printError(c.fullCommand, c.op, err)
+		return err
+	}
+
 	return nil
 }
 

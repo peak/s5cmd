@@ -213,7 +213,7 @@ func TestCatInEmptyBucket(t *testing.T) {
 	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
-	t.Run("EmptyBucket", func(t *testing.T) {
+	t.Run("without prefix", func(t *testing.T) {
 		cmd := s5cmd("cat", fmt.Sprintf("s3://%v", bucket))
 		result := icmd.RunCmd(cmd)
 
@@ -221,7 +221,7 @@ func TestCatInEmptyBucket(t *testing.T) {
 		assertLines(t, result.Stdout(), nil)
 	})
 
-	t.Run("PrefixInEmptyBucket", func(t *testing.T) {
+	t.Run("with prefix", func(t *testing.T) {
 		cmd := s5cmd("cat", fmt.Sprintf("s3://%v/", bucket))
 		result := icmd.RunCmd(cmd)
 
@@ -229,7 +229,7 @@ func TestCatInEmptyBucket(t *testing.T) {
 		assertLines(t, result.Stdout(), nil)
 	})
 
-	t.Run("WildcardInEmptyBucket", func(t *testing.T) {
+	t.Run("with wildcard", func(t *testing.T) {
 		cmd := s5cmd("cat", fmt.Sprintf("s3://%v/*", bucket))
 		result := icmd.RunCmd(cmd)
 
@@ -426,30 +426,42 @@ func TestPrefixWildcardFail(t *testing.T) {
 	createBucket(t, s3client, bucket)
 
 	testCases := []struct {
+		name   string
 		prefix string
 	}{
-		{"foo*"},
-		{"foolder/"},
+		{
+			name:   "wildcard",
+			prefix: "foo*",
+		},
+		{
+			name:   "prefix",
+			prefix: "foolder/",
+		},
 	}
 
 	for _, tc := range testCases {
-		cmd := s5cmd("cat", fmt.Sprintf("s3://%v/%v", bucket, tc.prefix))
-		result := icmd.RunCmd(cmd)
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Run("default", func(t *testing.T) {
+				cmd := s5cmd("cat", fmt.Sprintf("s3://%v/%v", bucket, tc.prefix))
+				result := icmd.RunCmd(cmd)
 
-		result.Assert(t, icmd.Expected{ExitCode: 1})
-		assertLines(t, result.Stderr(), map[int]compareFunc{
-			0: equals(`ERROR "cat s3://%v/%v": no object found`, bucket, tc.prefix),
-		}, strictLineCheck(false))
-	}
+				result.Assert(t, icmd.Expected{ExitCode: 1})
+				assertLines(t, result.Stderr(), map[int]compareFunc{
+					0: equals(`ERROR "cat s3://%v/%v": no object found`, bucket, tc.prefix),
+				}, strictLineCheck(false))
+			})
+			t.Run("json", func(t *testing.T) {
+				t.Parallel()
+				cmd := s5cmd("--json", "cat", fmt.Sprintf("s3://%v/%v", bucket, tc.prefix))
+				result := icmd.RunCmd(cmd)
 
-	for _, tc := range testCases {
-		cmd := s5cmd("--json", "cat", fmt.Sprintf("s3://%v/%v", bucket, tc.prefix))
-		result := icmd.RunCmd(cmd)
-
-		result.Assert(t, icmd.Expected{ExitCode: 1})
-		assertLines(t, result.Stderr(), map[int]compareFunc{
-			0: equals(`{"operation":"cat","command":"cat s3://%v/%v","error":"no object found"}`, bucket, tc.prefix),
-		}, strictLineCheck(false))
+				result.Assert(t, icmd.Expected{ExitCode: 1})
+				assertLines(t, result.Stderr(), map[int]compareFunc{
+					0: equals(`{"operation":"cat","command":"cat s3://%v/%v","error":"no object found"}`, bucket, tc.prefix),
+				}, strictLineCheck(false))
+			})
+		})
 	}
 
 }

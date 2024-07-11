@@ -261,9 +261,8 @@ func compareObjects(sourceObjects, destObjects chan *storage.Object, isSrcBatch 
 
 		for {
 			if srcOk {
-				if isSrcBatch {
-					srcName = filepath.ToSlash(src.URL.Relative())
-				} else {
+				srcName = filepath.ToSlash(src.URL.Relative())
+				if !isSrcBatch {
 					srcName = src.URL.Base()
 				}
 			}

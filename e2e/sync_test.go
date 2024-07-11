@@ -92,7 +92,7 @@ func TestSyncSingleS3ObjectToLocalTwice(t *testing.T) {
 }
 
 // sync s3://bucket/dir/source.go .
-func TestSyncSingleS3ObjectFromDirToLocal(t *testing.T) {
+func TestSyncSinglePrefixedS3ObjectToCurrentDirectory(t *testing.T) {
 	t.Parallel()
 
 	s3client, s5cmd := setup(t)
@@ -122,8 +122,8 @@ func TestSyncSingleS3ObjectFromDirToLocal(t *testing.T) {
 	assertLines(t, result.Stdout(), map[int]compareFunc{})
 }
 
-// sync s3://bucket/dir/source.go folder/
-func TestSyncSingleS3ObjectFromDirToLocalDir(t *testing.T) {
+// sync s3://bucket/prefix/source.go dir/
+func TestSyncPrefixedSingleS3ObjectToLocalDirectory(t *testing.T) {
 	t.Parallel()
 
 	s3client, s5cmd := setup(t)
@@ -154,8 +154,8 @@ func TestSyncSingleS3ObjectFromDirToLocalDir(t *testing.T) {
 	assertLines(t, result.Stdout(), map[int]compareFunc{})
 }
 
-// sync s3://bucket/source.go folder/
-func TestSyncSingleS3ObjectToLocalDir(t *testing.T) {
+// sync s3://bucket/source.go dir/
+func TestSyncSingleS3ObjectToLocalDirectory(t *testing.T) {
 	t.Parallel()
 
 	s3client, s5cmd := setup(t)
@@ -221,8 +221,8 @@ func TestSyncLocalFileToS3Twice(t *testing.T) {
 	assertLines(t, result.Stdout(), map[int]compareFunc{})
 }
 
-// sync file s3://bucket/dir/
-func TestSyncLocalFileToS3Dir(t *testing.T) {
+// sync file s3://bucket/prefix/
+func TestSyncLocalFileToS3Prefix(t *testing.T) {
 	t.Parallel()
 
 	s3client, s5cmd := setup(t)
@@ -258,7 +258,7 @@ func TestSyncLocalFileToS3Dir(t *testing.T) {
 }
 
 // sync dir/file s3://bucket
-func TestSyncLocalDirFileToS3(t *testing.T) {
+func TestSyncLocalFileInDirectoryToS3(t *testing.T) {
 	t.Parallel()
 
 	s3client, s5cmd := setup(t)
@@ -294,8 +294,8 @@ func TestSyncLocalDirFileToS3(t *testing.T) {
 	assertLines(t, result.Stdout(), map[int]compareFunc{})
 }
 
-// sync dir/file s3://bucket/dir/
-func TestSyncLocalDirFileToS3Dir(t *testing.T) {
+// sync dir/file s3://bucket/prefix/
+func TestSyncLocalFileInDirectoryToS3Prefix(t *testing.T) {
 	t.Parallel()
 
 	s3client, s5cmd := setup(t)

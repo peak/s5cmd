@@ -138,9 +138,9 @@ func TestSyncSingleS3ObjectFromDirToLocalDir(t *testing.T) {
 	putFile(t, s3client, bucket, fmt.Sprintf("%s/%s", dirname, filename), "content")
 
 	srcpath := fmt.Sprintf("s3://%s/%s/%s", bucket, dirname, filename)
-	dstpath := "folder/"
+	dstpath := "folder"
 
-	cmd := s5cmd("sync", srcpath, dstpath)
+	cmd := s5cmd("sync", srcpath, fmt.Sprintf("%v/", dstpath))
 	result := icmd.RunCmd(cmd)
 	result.Assert(t, icmd.Success)
 
@@ -169,9 +169,9 @@ func TestSyncSingleS3ObjectToLocalDir(t *testing.T) {
 	putFile(t, s3client, bucket, filename, "content")
 
 	srcpath := fmt.Sprintf("s3://%s/%s", bucket, filename)
-	dstpath := "folder/"
+	dstpath := "folder"
 
-	cmd := s5cmd("sync", srcpath, dstpath)
+	cmd := s5cmd("sync", srcpath, fmt.Sprintf("%v/", dstpath))
 	result := icmd.RunCmd(cmd)
 	result.Assert(t, icmd.Success)
 
@@ -241,7 +241,7 @@ func TestSyncLocalFileToS3Dir(t *testing.T) {
 
 	dstpath := fmt.Sprintf("s3://%v/%v", bucket, dirname)
 
-	cmd := s5cmd("sync", filename, dstpath)
+	cmd := s5cmd("sync", filename, fmt.Sprintf("%v/", dstpath))
 	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
 
 	result.Assert(t, icmd.Success)
@@ -315,7 +315,7 @@ func TestSyncLocalDirFileToS3Dir(t *testing.T) {
 	srcpath := fmt.Sprintf("%v/%v", dirname, filename)
 	dstpath := fmt.Sprintf("s3://%v/%v", bucket, dirname)
 
-	cmd := s5cmd("sync", srcpath, dstpath)
+	cmd := s5cmd("sync", srcpath, fmt.Sprintf("%v/", dstpath))
 	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
 
 	result.Assert(t, icmd.Success)

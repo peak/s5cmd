@@ -125,35 +125,33 @@ func (c Cat) Run(ctx context.Context) error {
 		printError(c.fullCommand, c.op, err)
 		return err
 	}
-	return c.processSingleObject(ctx, client, &storage.Object{URL: c.src})
+	return c.processSingleObject(ctx, client, c.src)
 }
 
 func (c Cat) processObjects(ctx context.Context, client *storage.S3, objectChan <-chan *storage.Object) error {
 	for obj := range objectChan {
-		if err := c.processSingleObject(ctx, client, obj); err != nil {
+		if obj.Err != nil {
+			printError(c.fullCommand, c.op, obj.Err)
+			return obj.Err
+		}
+
+		if obj.Type.IsDir() {
+			continue
+		}
+
+		err := c.processSingleObject(ctx, client, obj.URL)
+		if err != nil {
+			printError(c.fullCommand, c.op, err)
 			return err
 		}
 	}
 	return nil
 }
 
-func (c Cat) processSingleObject(ctx context.Context, client *storage.S3, obj *storage.Object) error {
-	if obj.Err != nil {
-		printError(c.fullCommand, c.op, obj.Err)
-		return obj.Err
-	}
-	if obj.Type.IsDir() {
-		return nil
-	}
+func (c Cat) processSingleObject(ctx context.Context, client *storage.S3, url *url.URL) error {
 	buf := orderedwriter.New(os.Stdout)
-
-	_, err := client.Get(ctx, obj.URL, buf, c.concurrency, c.partSize)
-	if err != nil {
-		printError(c.fullCommand, c.op, err)
-		return err
-	}
-
-	return nil
+	_, err := client.Get(ctx, url, buf, c.concurrency, c.partSize)
+	return err
 }
 
 func validateCatCommand(c *cli.Context) error {

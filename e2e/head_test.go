@@ -473,3 +473,32 @@ func TestHeadObjectWithVersionID(t *testing.T) {
 		}, trimMatch(dateRe), alignment(true))
 	}
 }
+
+// head s3://bucket/file.txt (file.txt has metadata)
+func TestHeadObjectWithMetadata(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd := setup(t)
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	metadata := make(map[string]*string)
+	value := "value1"
+	value2 := "value2"
+	metadata["key1"] = &value
+	metadata["key2"] = &value2
+
+	putFile(t, s3client, bucket, "file.txt", "content", putArbitraryMetadata(metadata))
+
+	cmd := s5cmd("head", fmt.Sprintf("s3://%v/file.txt", bucket))
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	expectedOutput := `(?:STANDARD|)\s+\d+\s+file.txt+\s+Metadata: key1=value1,key2=value2`
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: match(expectedOutput),
+	}, trimMatch(dateRe), alignment(true))
+}

@@ -399,10 +399,6 @@ func (u *URL) IsWildcard() bool {
 	return !u.raw && hasGlobCharacter(u.Path)
 }
 
-func (u *URL) IsRaw() bool {
-	return u.raw
-}
-
 // parseBatch parses keys for wildcard operations.
 // It cuts the key starting from first directory before the
 // wildcard part (filter)

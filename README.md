@@ -28,6 +28,7 @@ reasons for its fast speed, refer to [benchmarks](./README.md#Benchmarks) sectio
 storage services and local filesystems.
 
 - List buckets and objects
+- Check if objects and buckets exist
 - Upload, download or delete objects
 - Move, copy or rename objects
 - Set Server Side Encryption using AWS Key Management Service (KMS)

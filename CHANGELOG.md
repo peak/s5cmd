@@ -6,6 +6,7 @@
 
 #### Features
 - Added prefix and wildcard support to `cat` command. ([#716](https://github.com/peak/s5cmd/issues/716))
+- Added `head` command. ([#730](https://github.com/peak/s5cmd/pull/730))
 
 ## v2.2.2 - 13 Sep 2023 
 

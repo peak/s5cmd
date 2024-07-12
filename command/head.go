@@ -3,6 +3,7 @@ package command
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/peak/s5cmd/v2/log"
 	"github.com/peak/s5cmd/v2/log/stat"
@@ -250,6 +251,21 @@ func (m HeadObjectMessage) String() string {
 		m.Object.URL.VersionID,
 	)
 
+	if len(m.Metadata) != 0 {
+
+		var metadataSlice []string
+		for k, v := range m.Metadata {
+			metadataSlice = append(metadataSlice, fmt.Sprintf("%s=%s", k, v))
+		}
+
+		metadataString := strings.Join(metadataSlice, ",")
+
+		s += fmt.Sprintf("%15s%s", "Metadata: ", metadataString)
+
+		return s
+
+	}
+
 	return s
 }
 
@@ -289,13 +305,21 @@ func (m HeadBucketMessage) JSON() string {
 
 func validateHeadCommand(c *cli.Context) error {
 	if c.Args().Len() > 1 {
-		return fmt.Errorf("expected only 1 argument")
+		return fmt.Errorf("file or bucket name is required")
 	}
 
 	srcurl, err := url.New(c.Args().Get(0), url.WithVersion(c.String("version-id")),
 		url.WithRaw(c.Bool("raw")))
 	if err != nil {
 		return err
+	}
+
+	if srcurl.IsPrefix() {
+		return fmt.Errorf("target have to be a file or a bucket")
+	}
+
+	if !srcurl.IsRemote() {
+		return fmt.Errorf("target is not a remote object: target should be remote object or bucket")
 	}
 
 	if srcurl.IsWildcard() && !c.Bool("raw") {

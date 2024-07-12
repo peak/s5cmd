@@ -4627,6 +4627,9 @@ func TestCopySingleLocalFileToS3WithContentType(t *testing.T) {
 
 // cp --content-type "video/avi" dir s3://bucket/
 func TestCopyMultipleFilesToS3BucketWithContentType(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Files in Windows cannot contain glob(*) characters")
+	}
 	t.Parallel()
 
 	s3client, s5cmd := setup(t)

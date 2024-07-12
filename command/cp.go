@@ -530,6 +530,10 @@ func (c Copy) Run(ctx context.Context) error {
 			if c.metadataDirective == "" {
 				// default to COPY
 				c.metadataDirective = "COPY"
+				if c.src.IsRemote() && c.dst.IsRemote() && c.contentType != "" {
+					// default to REPLACE for content type change
+					c.metadataDirective = "REPLACE"
+				}
 			}
 			task = c.prepareCopyTask(ctx, srcurl, c.dst, isBatch, c.metadata)
 		case srcurl.IsRemote(): // remote->local

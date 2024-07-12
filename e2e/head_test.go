@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"gotest.tools/v3/assert"
 	"gotest.tools/v3/icmd"
 )
 
@@ -18,6 +19,9 @@ func TestHead(t *testing.T) {
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Expected{ExitCode: 1})
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: match(`ERROR "head": target should be remote object or bucket`),
+	})
 }
 
 // head bucket
@@ -49,6 +53,10 @@ func TestHeadBucketNonExistent(t *testing.T) {
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Expected{ExitCode: 1})
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: contains(`ERROR "head s3://non-existent-bucket": NotFound: Not Found status code: 404`),
+	})
 }
 
 // --json head bucket
@@ -80,6 +88,7 @@ func TestHeadBucketJSONNonExistent(t *testing.T) {
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Expected{ExitCode: 1})
+	assert.Equal(t, strings.Contains(result.Stderr(), `"error":"NotFound: Not Found status code: 404`), true)
 }
 
 // head bucket --humanize
@@ -174,6 +183,9 @@ func TestHeadObjectNonExistent(t *testing.T) {
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Expected{ExitCode: 1})
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: contains(`non-existent-file.txt not found`),
+	})
 }
 
 // --json head object
@@ -361,9 +373,14 @@ func TestHeadObjectRaw(t *testing.T) {
 func TestHeadObjectWildcardWithoutRawFlag(t *testing.T) {
 	t.Parallel()
 
-	_, s5cmd := setup(t)
+	s3client, s5cmd := setup(t)
 
-	cmd := s5cmd("head", "s3://bucket/file*.txt")
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	putFile(t, s3client, bucket, "file.txt", "content")
+
+	cmd := s5cmd("head", fmt.Sprintf("s3://%v/file*.txt", bucket))
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Expected{ExitCode: 1})

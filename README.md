@@ -28,7 +28,6 @@ reasons for its fast speed, refer to [benchmarks](./README.md#Benchmarks) sectio
 storage services and local filesystems.
 
 - List buckets and objects
-- Check if objects and buckets exist
 - Upload, download or delete objects
 - Move, copy or rename objects
 - Set Server Side Encryption using AWS Key Management Service (KMS)
@@ -188,6 +187,14 @@ While executing the commands, `s5cmd` detects the region according to the follow
 5. `us-east-1` as default region.
 
 ### Examples
+
+#### Check if a bucket exists
+
+    s5cmd head s3://bucket/
+
+#### Print a remote object's metadata
+
+    s5cmd head s3://bucket/object.gz
 
 #### Download a single S3 object
 

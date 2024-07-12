@@ -91,6 +91,100 @@ func TestSyncSingleS3ObjectToLocalTwice(t *testing.T) {
 	assertLines(t, result.Stdout(), map[int]compareFunc{})
 }
 
+// sync s3://bucket/dir/source.go .
+func TestSyncSinglePrefixedS3ObjectToCurrentDirectory(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd := setup(t)
+
+	const (
+		dirname  = "dir"
+		filename = "source.go"
+	)
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+	putFile(t, s3client, bucket, fmt.Sprintf("%s/%s", dirname, filename), "content")
+
+	srcpath := fmt.Sprintf("s3://%s/%s/%s", bucket, dirname, filename)
+
+	cmd := s5cmd("sync", srcpath, ".")
+	result := icmd.RunCmd(cmd)
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`cp %v %v`, srcpath, filename),
+	})
+
+	// rerunning same command should not download object, empty result expected
+	result = icmd.RunCmd(cmd)
+	result.Assert(t, icmd.Success)
+	assertLines(t, result.Stdout(), map[int]compareFunc{})
+}
+
+// sync s3://bucket/prefix/source.go dir/
+func TestSyncPrefixedSingleS3ObjectToLocalDirectory(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd := setup(t)
+
+	const (
+		dirname  = "dir"
+		filename = "source.go"
+	)
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+	putFile(t, s3client, bucket, fmt.Sprintf("%s/%s", dirname, filename), "content")
+
+	srcpath := fmt.Sprintf("s3://%s/%s/%s", bucket, dirname, filename)
+	dstpath := "folder"
+
+	cmd := s5cmd("sync", srcpath, fmt.Sprintf("%v/", dstpath))
+	result := icmd.RunCmd(cmd)
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`cp %v %v/%v`, srcpath, dstpath, filename),
+	})
+
+	// rerunning same command should not download object, empty result expected
+	result = icmd.RunCmd(cmd)
+	result.Assert(t, icmd.Success)
+	assertLines(t, result.Stdout(), map[int]compareFunc{})
+}
+
+// sync s3://bucket/source.go dir/
+func TestSyncSingleS3ObjectToLocalDirectory(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd := setup(t)
+
+	const (
+		filename = "source.go"
+	)
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+	putFile(t, s3client, bucket, filename, "content")
+
+	srcpath := fmt.Sprintf("s3://%s/%s", bucket, filename)
+	dstpath := "folder"
+
+	cmd := s5cmd("sync", srcpath, fmt.Sprintf("%v/", dstpath))
+	result := icmd.RunCmd(cmd)
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`cp %v %v/%v`, srcpath, dstpath, filename),
+	})
+
+	// rerunning same command should not download object, empty result expected
+	result = icmd.RunCmd(cmd)
+	result.Assert(t, icmd.Success)
+	assertLines(t, result.Stdout(), map[int]compareFunc{})
+}
+
 // sync file s3://bucket
 func TestSyncLocalFileToS3Twice(t *testing.T) {
 	t.Parallel()
@@ -118,6 +212,116 @@ func TestSyncLocalFileToS3Twice(t *testing.T) {
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(`cp %v %v/%v`, filename, dstpath, filename),
+	})
+
+	// rerunning same command should not upload files, empty result expected
+	result = icmd.RunCmd(cmd, withWorkingDir(workdir))
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{})
+}
+
+// sync file s3://bucket/prefix/
+func TestSyncLocalFileToS3Prefix(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd := setup(t)
+
+	const (
+		filename = "testfile1.txt"
+		content  = "this is the content"
+		dirname  = "dir"
+	)
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	workdir := fs.NewDir(t, t.Name(), fs.WithFile(filename, content))
+	defer workdir.Remove()
+
+	dstpath := fmt.Sprintf("s3://%v/%v", bucket, dirname)
+
+	cmd := s5cmd("sync", filename, fmt.Sprintf("%v/", dstpath))
+	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`cp %v %v/%v`, filename, dstpath, filename),
+	})
+
+	// rerunning same command should not upload files, empty result expected
+	result = icmd.RunCmd(cmd, withWorkingDir(workdir))
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{})
+}
+
+// sync dir/file s3://bucket
+func TestSyncLocalFileInDirectoryToS3(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd := setup(t)
+
+	const (
+		dirname  = "dir"
+		filename = "testfile1.txt"
+		content  = "this is the content"
+	)
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	workdir := fs.NewDir(t, t.Name(), fs.WithDir(dirname, fs.WithFile(filename, content)))
+	defer workdir.Remove()
+
+	srcpath := fmt.Sprintf("%v/%v", dirname, filename)
+	dstpath := fmt.Sprintf("s3://%v", bucket)
+
+	cmd := s5cmd("sync", srcpath, dstpath)
+	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`cp %v/%v %v/%v`, dirname, filename, dstpath, filename),
+	})
+
+	// rerunning same command should not upload files, empty result expected
+	result = icmd.RunCmd(cmd, withWorkingDir(workdir))
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{})
+}
+
+// sync dir/file s3://bucket/prefix/
+func TestSyncLocalFileInDirectoryToS3Prefix(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd := setup(t)
+
+	const (
+		dirname  = "dir"
+		filename = "testfile1.txt"
+		content  = "this is the content"
+	)
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	workdir := fs.NewDir(t, t.Name(), fs.WithDir(dirname, fs.WithFile(filename, content)))
+	defer workdir.Remove()
+
+	srcpath := fmt.Sprintf("%v/%v", dirname, filename)
+	dstpath := fmt.Sprintf("s3://%v/%v", bucket, dirname)
+
+	cmd := s5cmd("sync", srcpath, fmt.Sprintf("%v/", dstpath))
+	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`cp %v/%v %v/%v`, dirname, filename, dstpath, filename),
 	})
 
 	// rerunning same command should not upload files, empty result expected

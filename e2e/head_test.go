@@ -513,7 +513,7 @@ func TestHeadObjectWithMetadata(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	expectedOutput := `(?:STANDARD|)\s+\d+\s+file.txt+\s+Metadata: key1=value1,key2=value2`
+	expectedOutput := `(?:STANDARD|)\s+\d+\s+file.txt\s+Metadata: (?:key1=value1,key2=value2|key2=value2,key1=value1)`
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: match(expectedOutput),

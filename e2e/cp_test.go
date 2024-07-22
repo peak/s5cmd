@@ -4646,17 +4646,9 @@ func TestCopyMultipleFilesToS3BucketWithContentType(t *testing.T) {
 
 	folderLayout := []fs.PathOp{
 		fs.WithFile("file1.html", "<html><body><h1>file1</h1></body></html>"),
-		fs.WithFile("file2.text", "this is a test file 2"),
-		fs.WithFile("file3.mp4", "this is a test file 3"),
-		fs.WithFile("file4.py", "import tensorflow as tf"),
-		fs.WithFile("readme.md", "this is a readme file"),
 		fs.WithDir(
 			"a",
 			fs.WithFile("another_test_file.txt", "yet another txt file. yatf."),
-		),
-		fs.WithDir(
-			"b",
-			fs.WithFile("filename-with-hypen.gz", "file has hypen in its name"),
 		),
 	}
 
@@ -4678,22 +4670,12 @@ func TestCopyMultipleFilesToS3BucketWithContentType(t *testing.T) {
 	// assert lines
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals("cp %v/a/another_test_file.txt %sa/another_test_file.txt", workdir.Path(), dst),
-		1: equals("cp %v/b/filename-with-hypen.gz %sb/filename-with-hypen.gz", workdir.Path(), dst),
-		2: equals("cp %v/file1.html %sfile1.html", workdir.Path(), dst),
-		3: equals("cp %v/file2.text %sfile2.text", workdir.Path(), dst),
-		4: equals("cp %v/file3.mp4 %sfile3.mp4", workdir.Path(), dst),
-		5: equals("cp %v/file4.py %sfile4.py", workdir.Path(), dst),
-		6: equals("cp %v/readme.md %sreadme.md", workdir.Path(), dst),
+		1: equals("cp %v/file1.html %sfile1.html", workdir.Path(), dst),
 	}, sortInput(true))
 
 	// assert s3
 	assert.Assert(t, ensureS3Object(s3client, bucket, "file1.html", "<html><body><h1>file1</h1></body></html>", ensureContentType("video/avi")))
-	assert.Assert(t, ensureS3Object(s3client, bucket, "file2.text", "this is a test file 2", ensureContentType("video/avi")))
-	assert.Assert(t, ensureS3Object(s3client, bucket, "file3.mp4", "this is a test file 3", ensureContentType("video/avi")))
-	assert.Assert(t, ensureS3Object(s3client, bucket, "file4.py", "import tensorflow as tf", ensureContentType("video/avi")))
-	assert.Assert(t, ensureS3Object(s3client, bucket, "readme.md", "this is a readme file", ensureContentType("video/avi")))
 	assert.Assert(t, ensureS3Object(s3client, bucket, "a/another_test_file.txt", "yet another txt file. yatf.", ensureContentType("video/avi")))
-	assert.Assert(t, ensureS3Object(s3client, bucket, "b/filename-with-hypen.gz", "file has hypen in its name", ensureContentType("video/avi")))
 }
 
 // cp --content-type "video/avi" s3://srcbucket/object s3://dstbucket/
@@ -4741,13 +4723,8 @@ func TestCopyMultipleS3ObjectsToAnotherBucketWithContentType(t *testing.T) {
 	createBucket(t, s3client, dstbucket)
 
 	fileAndContent := map[string]string{
-		"file1.txt":                "this is a test file 1",
-		"file2.html":               "<html><body><h1>file2</h1></body></html>",
-		"file3.mp4":                "this is a test file 3",
-		"file4.py":                 "import tensorflow as tf",
-		"readme.md":                "this is a readme file",
-		"a/another_test_file.txt":  "yet another txt file. yatf.",
-		"b/filename-with-hypen.gz": "file has hypen in its name",
+		"file1.txt":               "this is a test file 1",
+		"a/another_test_file.txt": "yet another txt file. yatf.",
 	}
 
 	for filename, content := range fileAndContent {

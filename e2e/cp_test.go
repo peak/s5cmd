@@ -866,7 +866,7 @@ func TestCopyS3ToS3WithArbitraryMetadataWithDefaultDirective(t *testing.T) {
 		"Key2": aws.String("value2"),
 	}
 
-	destmetadata := map[string]*string{
+	dstmetadata := map[string]*string{
 		"Key1": aws.String("foo"),
 		"Key2": aws.String("bar"),
 	}
@@ -881,7 +881,7 @@ func TestCopyS3ToS3WithArbitraryMetadataWithDefaultDirective(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	// assert S3
-	assert.Assert(t, ensureS3Object(s3client, bucket, fmt.Sprintf("%s_cp", filename), content, ensureArbitraryMetadata(destmetadata)))
+	assert.Assert(t, ensureS3Object(s3client, bucket, fmt.Sprintf("%s_cp", filename), content, ensureArbitraryMetadata(dstmetadata)))
 }
 
 // cp s3://bucket2/obj2 s3://bucket1/obj1 --metadata-directive REPLACE --metadata key1=val1 --metadata key2=val2 ...

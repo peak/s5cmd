@@ -32,6 +32,11 @@ const (
 	kilobytes              = 1024
 )
 
+const (
+	metadataDirectiveCopy    = "COPY"
+	metadataDirectiveReplace = "REPLACE"
+)
+
 var copyHelpTemplate = `Name:
 	{{.HelpName}} - {{.Usage}}
 
@@ -145,7 +150,7 @@ func NewSharedFlags() []cli.Flag {
 			Name:  "metadata-directive",
 			Usage: "set metadata directive for the object: COPY or REPLACE",
 			Value: &EnumValue{
-				Enum:    []string{"COPY", "REPLACE", ""},
+				Enum:    []string{metadataDirectiveCopy, metadataDirectiveReplace, ""},
 				Default: "",
 				ConditionFunction: func(str, target string) bool {
 					return strings.EqualFold(target, str)
@@ -529,10 +534,10 @@ func (c Copy) Run(ctx context.Context) error {
 		case srcurl.Type == c.dst.Type: // local->local or remote->remote
 			if c.metadataDirective == "" {
 				// default to COPY
-				c.metadataDirective = "COPY"
-				if c.src.IsRemote() && c.dst.IsRemote() && c.contentType != "" {
-					// default to REPLACE for content type change
-					c.metadataDirective = "REPLACE"
+				c.metadataDirective = metadataDirectiveCopy
+				if c.src.IsRemote() && c.dst.IsRemote() {
+					// default to REPLACE when copying between remote storages
+					c.metadataDirective = metadataDirectiveReplace
 				}
 			}
 			task = c.prepareCopyTask(ctx, srcurl, c.dst, isBatch, c.metadata)

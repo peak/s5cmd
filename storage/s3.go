@@ -554,9 +554,6 @@ func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata Metadata) err
 
 	if metadata.ContentType != "" {
 		input.ContentType = aws.String(metadata.ContentType)
-		if metadata.Directive == "" {
-			input.MetadataDirective = aws.String("REPLACE")
-		}
 	}
 
 	if len(metadata.UserDefined) != 0 {

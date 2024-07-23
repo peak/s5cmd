@@ -866,6 +866,11 @@ func TestCopyS3ToS3WithArbitraryMetadataWithDefaultDirective(t *testing.T) {
 		"Key2": aws.String("value2"),
 	}
 
+	destmetadata := map[string]*string{
+		"Key1": aws.String("foo"),
+		"Key2": aws.String("bar"),
+	}
+
 	srcpath := fmt.Sprintf("s3://%v/%v", bucket, filename)
 	dstpath := fmt.Sprintf("s3://%v/%v_cp", bucket, filename)
 
@@ -876,7 +881,7 @@ func TestCopyS3ToS3WithArbitraryMetadataWithDefaultDirective(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	// assert S3
-	assert.Assert(t, ensureS3Object(s3client, bucket, fmt.Sprintf("%s_cp", filename), content, ensureArbitraryMetadata(srcmetadata)))
+	assert.Assert(t, ensureS3Object(s3client, bucket, fmt.Sprintf("%s_cp", filename), content, ensureArbitraryMetadata(destmetadata)))
 }
 
 // cp s3://bucket2/obj2 s3://bucket1/obj1 --metadata-directive REPLACE --metadata key1=val1 --metadata key2=val2 ...
@@ -4622,11 +4627,9 @@ func TestCopySingleLocalFileToS3WithContentType(t *testing.T) {
 	result := icmd.RunCmd(cmd)
 	result.Assert(t, icmd.Success)
 
-	// assert local filesystem
 	expected := fs.Expected(t, fs.WithFile(filename, content))
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 
-	// assert s3
 	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content, ensureContentType("video/mp4")))
 }
 
@@ -4641,8 +4644,6 @@ func TestCopyMultipleFilesToS3BucketWithContentType(t *testing.T) {
 
 	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
-
-	// create files with different content types
 
 	folderLayout := []fs.PathOp{
 		fs.WithFile("file1.html", "<html><body><h1>file1</h1></body></html>"),
@@ -4663,17 +4664,14 @@ func TestCopyMultipleFilesToS3BucketWithContentType(t *testing.T) {
 	result := icmd.RunCmd(cmd)
 	result.Assert(t, icmd.Success)
 
-	// assert local filesystem
 	expected := fs.Expected(t, folderLayout...)
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 
-	// assert lines
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals("cp %v/a/another_test_file.txt %sa/another_test_file.txt", workdir.Path(), dst),
 		1: equals("cp %v/file1.html %sfile1.html", workdir.Path(), dst),
 	}, sortInput(true))
 
-	// assert s3
 	assert.Assert(t, ensureS3Object(s3client, bucket, "file1.html", "<html><body><h1>file1</h1></body></html>", ensureContentType("video/avi")))
 	assert.Assert(t, ensureS3Object(s3client, bucket, "a/another_test_file.txt", "yet another txt file. yatf.", ensureContentType("video/avi")))
 }
@@ -4705,8 +4703,6 @@ func TestCopySingleS3ObjectToAnotherBucketWithContentType(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	// assert s3
-	assert.Assert(t, ensureS3Object(s3client, srcbucket, filename, content))
 	assert.Assert(t, ensureS3Object(s3client, dstbucket, filename, content, ensureContentType("video/avi")))
 }
 
@@ -4738,16 +4734,6 @@ func TestCopyMultipleS3ObjectsToAnotherBucketWithContentType(t *testing.T) {
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Success)
-
-	// assert s3
-	// these seperation is intentional to make it easier to debug.
-	for filename, content := range fileAndContent {
-		assert.Assert(t, ensureS3Object(s3client, srcbucket, filename, content))
-	}
-
-	for filename, content := range fileAndContent {
-		assert.Assert(t, ensureS3Object(s3client, dstbucket, filename, content))
-	}
 
 	for filename, content := range fileAndContent {
 		assert.Assert(t, ensureS3Object(s3client, dstbucket, filename, content, ensureContentType("video/avi")))

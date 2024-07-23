@@ -157,16 +157,19 @@ func TestHeadObjectJSON(t *testing.T) {
 func TestHeadObjectJSONNonExistent(t *testing.T) {
 	t.Parallel()
 
-	_, s5cmd := setup(t)
+	s3client, s5cmd := setup(t)
 
-	cmd := s5cmd("--json", "head", "s3://non-existent-bucket/non-existent-file.txt")
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	cmd := s5cmd("--json", "head", fmt.Sprintf("s3://%v/non-existent-file.txt", bucket))
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Expected{ExitCode: 1})
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: contains(`non-existent-file.txt not found`),
-	})
+	}, jsonCheck(true), strictLineCheck(false))
 }
 
 // head --raw objectWithGlobChar

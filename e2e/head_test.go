@@ -39,8 +39,8 @@ func TestHeadBucket(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: suffix(fmt.Sprintf("s3://%v", bucket)),
-	})
+		0: suffix(`{"Key":"s3://%v"}`, bucket),
+	}, jsonCheck(true), strictLineCheck(false))
 }
 
 // head bucket (non-existent)
@@ -74,7 +74,7 @@ func TestHeadBucketJSON(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: suffix(`{"name":"s3://%v"}`, bucket),
+		0: suffix(`{"Key":"s3://%v"}`, bucket),
 	}, jsonCheck(true), strictLineCheck(false))
 }
 
@@ -89,63 +89,6 @@ func TestHeadBucketJSONNonExistent(t *testing.T) {
 
 	result.Assert(t, icmd.Expected{ExitCode: 1})
 	assert.Equal(t, strings.Contains(result.Stderr(), `"error":"NotFound: Not Found status code: 404`), true)
-}
-
-// head bucket --humanize
-func TestHeadBucketHumanize(t *testing.T) {
-	t.Parallel()
-
-	s3client, s5cmd := setup(t)
-
-	bucket := s3BucketFromTestName(t)
-	createBucket(t, s3client, bucket)
-
-	cmd := s5cmd("head", "--humanize", fmt.Sprintf("s3://%v", bucket))
-	result := icmd.RunCmd(cmd)
-
-	result.Assert(t, icmd.Success)
-
-	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: suffix(fmt.Sprintf("s3://%v", bucket)),
-	})
-}
-
-// head bucket --etag
-func TestHeadBucketEtag(t *testing.T) {
-	t.Parallel()
-
-	s3client, s5cmd := setup(t)
-
-	bucket := s3BucketFromTestName(t)
-	createBucket(t, s3client, bucket)
-
-	cmd := s5cmd("head", "--etag", fmt.Sprintf("s3://%v", bucket))
-	result := icmd.RunCmd(cmd)
-
-	result.Assert(t, icmd.Success)
-
-	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: suffix(fmt.Sprintf("s3://%v", bucket)),
-	})
-}
-
-// head bucket --storage-class
-func TestHeadBucketStorageClass(t *testing.T) {
-	t.Parallel()
-
-	s3client, s5cmd := setup(t)
-
-	bucket := s3BucketFromTestName(t)
-	createBucket(t, s3client, bucket)
-
-	cmd := s5cmd("head", "--storage-class", fmt.Sprintf("s3://%v", bucket))
-	result := icmd.RunCmd(cmd)
-
-	result.Assert(t, icmd.Success)
-
-	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: suffix(fmt.Sprintf("s3://%v", bucket)),
-	})
 }
 
 // head object
@@ -163,11 +106,11 @@ func TestHeadObject(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	expectedOutput := `(?:STANDARD|)\s+\d+\s+myfile.txt`
+	expectedOutput := fmt.Sprintf(`{"Key":"s3://%v/myfile.txt","LastModified":"[0-9-]+T[0-9:.]+Z","ContentLength":\d+,"StorageClass":"STANDARD","ETag":"[a-f0-9]+","Metadata":\{\}}`, bucket)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: match(expectedOutput),
-	}, trimMatch(dateRe), alignment(true))
+	}, jsonCheck(true), strictLineCheck(false))
 }
 
 // head object (non-existent)
@@ -203,21 +146,7 @@ func TestHeadObjectJSON(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	etagPattern := `\"[^\"]+\"`
-	lastModifiedPattern := `\"[^\"]+\"`
-	typePattern := `\"[^\"]+\"`
-	sizePattern := `\d+`
-	storageClassPattern := `\"[^\"]+\"`
-
-	expectedOutput := fmt.Sprintf(
-		`{"key":"s3://%v/file.txt","etag":%s,"last_modified":%s,"type":%s,"size":%s,"storage_class":%s,"metadata":\{\}}`,
-		bucket,
-		etagPattern,
-		lastModifiedPattern,
-		typePattern,
-		sizePattern,
-		storageClassPattern,
-	)
+	expectedOutput := fmt.Sprintf(`{"Key":"s3://%v/file.txt","LastModified":"[0-9-]+T[0-9:.]+Z","ContentLength":\d+,"StorageClass":"STANDARD","ETag":"[a-f0-9]+","Metadata":\{\}}`, bucket)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: match(expectedOutput),
@@ -234,115 +163,10 @@ func TestHeadObjectJSONNonExistent(t *testing.T) {
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Expected{ExitCode: 1})
-}
 
-// head object --humanize
-func TestHeadObjectHumanize(t *testing.T) {
-	t.Parallel()
-
-	s3client, s5cmd := setup(t)
-
-	bucket := s3BucketFromTestName(t)
-	createBucket(t, s3client, bucket)
-
-	largeFileContent := make([]byte, 1024*1024*50) // 50MB
-	for i := 0; i < len(largeFileContent); i++ {
-		largeFileContent[i] = 'a'
-	}
-	putFile(t, s3client, bucket, "file.txt", string(largeFileContent))
-
-	cmd := s5cmd("head", "--humanize", fmt.Sprintf("s3://%v/file.txt", bucket))
-	result := icmd.RunCmd(cmd)
-	result.Assert(t, icmd.Success)
-
-	expectedOutput := `(?:STANDARD|)\s+(?:\d+(\.\d+)?[KMGTP]?B?)\s+file.txt`
-
-	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: match(expectedOutput),
-	}, alignment(true))
-}
-
-// head object --etag
-func TestHeadObjectEtag(t *testing.T) {
-	t.Parallel()
-
-	s3client, s5cmd := setup(t)
-
-	bucket := s3BucketFromTestName(t)
-	createBucket(t, s3client, bucket)
-	putFile(t, s3client, bucket, "file.txt", "content")
-
-	cmd := s5cmd("head", "--etag", fmt.Sprintf("s3://%v/file.txt", bucket))
-	result := icmd.RunCmd(cmd)
-	result.Assert(t, icmd.Success)
-
-	expectedOutput := `(?:STANDARD|)\s+[a-f0-9]+\s+(?:\d+(\.\d+)?[KMGTP]?B?)\s+file.txt`
-
-	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: match(expectedOutput),
-	}, trimMatch(dateRe), alignment(true))
-}
-
-// head object --show-fullpath
-func TestHeadObjectShowFullpath(t *testing.T) {
-	t.Parallel()
-
-	s3client, s5cmd := setup(t)
-
-	bucket := s3BucketFromTestName(t)
-	createBucket(t, s3client, bucket)
-
-	putFile(t, s3client, bucket, "file.txt", "content")
-
-	cmd := s5cmd("head", "--show-fullpath", fmt.Sprintf("s3://%v/file.txt", bucket))
-	result := icmd.RunCmd(cmd)
-
-	result.Assert(t, icmd.Success)
-
-	s3urlPattern := fmt.Sprintf(`s3://%s/file.txt`, bucket)
-	expectedOutput := s3urlPattern
-
-	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: match(expectedOutput),
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: contains(`non-existent-file.txt not found`),
 	})
-}
-
-func TestHeadObjectShowFullpathNonExistent(t *testing.T) {
-	t.Parallel()
-
-	_, s5cmd := setup(t)
-
-	cmd := s5cmd("head", "--show-fullpath", "s3://non-existent-bucket/non-existent-file.txt")
-	result := icmd.RunCmd(cmd)
-
-	result.Assert(t, icmd.Expected{ExitCode: 1})
-}
-
-// head object --humanize --etag
-func TestHeadObjectHumanizeEtag(t *testing.T) {
-	t.Parallel()
-
-	s3client, s5cmd := setup(t)
-
-	bucket := s3BucketFromTestName(t)
-	createBucket(t, s3client, bucket)
-
-	largeFileContent := make([]byte, 1024*1024*50) // 50MB
-	for i := 0; i < len(largeFileContent); i++ {
-		largeFileContent[i] = 'a'
-	}
-	putFile(t, s3client, bucket, "file.txt", string(largeFileContent))
-
-	cmd := s5cmd("head", "--humanize", "--etag", fmt.Sprintf("s3://%v/file.txt", bucket))
-	result := icmd.RunCmd(cmd)
-
-	result.Assert(t, icmd.Success)
-
-	expectedOutput := `(?:STANDARD|)\s+[a-f0-9]+\s+(?:\d+(\.\d+)?[KMGTP]?B?)\s+file.txt`
-
-	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: match(expectedOutput),
-	}, trimMatch(dateRe), alignment(true))
 }
 
 // head --raw objectWithGlobChar
@@ -361,15 +185,14 @@ func TestHeadObjectRaw(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	expectedOutput := `(?:STANDARD|)\s+\d+\s+file\*.txt`
+	expectedOutput := fmt.Sprintf(`{"Key":"s3://%v/file\*.txt","LastModified":"[0-9-]+T[0-9:.]+Z","ContentLength":\d+,"StorageClass":"STANDARD","ETag":"[a-f0-9]+","Metadata":\{\}}`, bucket)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: match(expectedOutput),
-	}, trimMatch(dateRe), alignment(true))
+	}, jsonCheck(true), strictLineCheck(false))
 }
 
 // head object s3://bucket/file*.txt
-
 func TestHeadObjectWildcardWithoutRawFlag(t *testing.T) {
 	t.Parallel()
 
@@ -384,50 +207,10 @@ func TestHeadObjectWildcardWithoutRawFlag(t *testing.T) {
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Expected{ExitCode: 1})
-}
 
-// head --json object s3://bucket/file.txt (metadata)
-func TestHeadObjectJSONMetadata(t *testing.T) {
-	t.Parallel()
-
-	s3client, s5cmd := setup(t)
-
-	bucket := s3BucketFromTestName(t)
-	createBucket(t, s3client, bucket)
-
-	metadata := make(map[string]*string)
-	value := "value1"
-
-	metadata["key1"] = &value
-
-	putFile(t, s3client, bucket, "file.txt", "content", putArbitraryMetadata(metadata))
-
-	cmd := s5cmd("--json", "head", fmt.Sprintf("s3://%v/file.txt", bucket))
-	result := icmd.RunCmd(cmd)
-
-	result.Assert(t, icmd.Success)
-
-	etagPattern := `\"[^\"]+\"`
-	lastModifiedPattern := `\"[^\"]+\"`
-	typePattern := `\"[^\"]+\"`
-	sizePattern := `\d+`
-	storageClassPattern := `\"[^\"]+\"`
-	metadataPattern := `\"key1\":\"value1\"`
-
-	expectedOutput := fmt.Sprintf(
-		`{"key":"s3://%v/file.txt","etag":%s,"last_modified":%s,"type":%s,"size":%s,"storage_class":%s,"metadata":{%s}}`,
-		bucket,
-		etagPattern,
-		lastModifiedPattern,
-		typePattern,
-		sizePattern,
-		storageClassPattern,
-		metadataPattern,
-	)
-
-	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: match(expectedOutput),
-	}, jsonCheck(true), strictLineCheck(false))
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: contains(`can not contain glob characters`),
+	})
 }
 
 // head --version-id object s3://bucket/file.txt
@@ -480,14 +263,11 @@ func TestHeadObjectWithVersionID(t *testing.T) {
 		result = icmd.RunCmd(cmd)
 		result.Assert(t, icmd.Success)
 
-		expectedOutput := fmt.Sprintf(
-			`(?:STANDARD|)\s+%d+\s+testfile.txt`,
-			len(contents[i]),
-		)
+		expectedOutput := fmt.Sprintf(`{"Key":"s3://%v/testfile.txt","LastModified":"[0-9-]+T[0-9:.]+Z","ContentLength":%d,"StorageClass":"STANDARD","ETag":"[a-f0-9]+","Metadata":\{\}}`, bucket, len(contents[i]))
 
 		assertLines(t, result.Stdout(), map[int]compareFunc{
 			0: match(expectedOutput),
-		}, trimMatch(dateRe), alignment(true))
+		}, jsonCheck(true), strictLineCheck(false))
 	}
 }
 
@@ -513,9 +293,37 @@ func TestHeadObjectWithMetadata(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	expectedOutput := `(?:STANDARD|)\s+\d+\s+file.txt\s+Metadata: (?:key1=value1,key2=value2|key2=value2,key1=value1)`
+	expectedOutput := fmt.Sprintf(`{"Key":"s3://%v/file.txt","LastModified":"[0-9-]+T[0-9:.]+Z","ContentLength":\d+,"StorageClass":"STANDARD","ETag":"[a-f0-9]+","Metadata":{(?:"key1":"value1","key2":"value2"|"key2":"value2","key1":"value1")}}`, bucket)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: match(expectedOutput),
-	}, trimMatch(dateRe), alignment(true))
+	}, jsonCheck(true), strictLineCheck(false))
+}
+
+// head --json object s3://bucket/file.txt (metadata)
+func TestHeadObjectJSONMetadata(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd := setup(t)
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	metadata := make(map[string]*string)
+	value := "value1"
+
+	metadata["key1"] = &value
+
+	putFile(t, s3client, bucket, "file.txt", "content", putArbitraryMetadata(metadata))
+
+	cmd := s5cmd("--json", "head", fmt.Sprintf("s3://%v/file.txt", bucket))
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	expectedOutput := fmt.Sprintf(`{"Key":"s3://%v/file.txt","LastModified":"[0-9-]+T[0-9:.]+Z","ContentLength":\d+,"StorageClass":"STANDARD","ETag":"[a-f0-9]+","Metadata":{"key1":"value1"}}`, bucket)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: match(expectedOutput),
+	}, jsonCheck(true), strictLineCheck(false))
 }

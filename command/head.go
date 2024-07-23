@@ -3,7 +3,7 @@ package command
 import (
 	"context"
 	"fmt"
-	"strings"
+	"time"
 
 	"github.com/peak/s5cmd/v2/log"
 	"github.com/peak/s5cmd/v2/log/stat"
@@ -29,21 +29,11 @@ Examples:
 	2. Check if a remote bucket exists
 		 > s5cmd {{.HelpName}} s3://bucket
 
-	3. Print a remote object's metadata with human-readable sizes
-		 > s5cmd {{.HelpName}} --humanize s3://bucket/prefix/object
-
-	4. Print a remote object's metadata with ETag
-		 > s5cmd {{.HelpName}} --etag s3://bucket/prefix/object
-
-	5. Print a remote object's fullpath
-		 > s5cmd {{.HelpName}} --show-fullpath s3://bucket/prefix/object
-
-	6. Print a remote object's metadata with version ID
+	3. Print a remote object's metadata with version ID
 		 > s5cmd {{.HelpName}} --version-id VERSION_ID s3://bucket/prefix/object
 
-	7. Print a remote object's metadata with raw input
-		 > s5cmd {{.HelpName}} --raw 's3://bucket/prefix/object/with/*'
-
+	4. Print a remote object's metadata with raw input
+		 > s5cmd {{.HelpName}} --raw 's3://bucket/prefix/file*.txt'
 `
 
 func NewHeadCommand() *cli.Command {
@@ -55,26 +45,6 @@ func NewHeadCommand() *cli.Command {
 		CustomHelpTemplate: headHelpTemplate,
 
 		Flags: []cli.Flag{
-			&cli.BoolFlag{
-				Name:    "etag",
-				Aliases: []string{"e"},
-				Usage:   "show entity tag (ETag) in the output",
-			},
-			&cli.BoolFlag{
-				Name:    "humanize",
-				Aliases: []string{"H"},
-				Usage:   "human-readable output for object sizes",
-			},
-			&cli.BoolFlag{
-				Name:    "storage-class",
-				Aliases: []string{"s"},
-				Usage:   "display full name of the object class",
-				Value:   true,
-			},
-			&cli.BoolFlag{
-				Name:  "show-fullpath",
-				Usage: "shows only the fullpath names of the object(s)",
-			},
 			&cli.StringFlag{
 				Name:  "version-id",
 				Usage: "use the specified version of an object",
@@ -108,12 +78,6 @@ func NewHeadCommand() *cli.Command {
 				src:         src,
 				op:          op,
 				fullCommand: fullCommand,
-				// flags
-				showEtag:         c.Bool("etag"),
-				humanize:         c.Bool("humanize"),
-				showStorageClass: c.Bool("storage-class"),
-				showFullPath:     c.Bool("show-fullpath"),
-
 				storageOpts: NewStorageOpts(c),
 			}.Run(c.Context)
 		},
@@ -126,12 +90,6 @@ type Head struct {
 	src         *url.URL
 	op          string
 	fullCommand string
-
-	showEtag         bool
-	humanize         bool
-	showStorageClass bool
-	showFullPath     bool
-
 	storageOpts storage.Options
 }
 
@@ -152,7 +110,7 @@ func (h Head) Run(ctx context.Context) error {
 		}
 
 		msg := HeadBucketMessage{
-			Name: h.src.String(),
+			Key: h.src.String(),
 		}
 
 		log.Info(msg)
@@ -167,12 +125,15 @@ func (h Head) Run(ctx context.Context) error {
 	}
 
 	msg := HeadObjectMessage{
-		Object:           object,
-		showEtag:         h.showEtag,
-		showHumanized:    h.humanize,
-		showStorageClass: h.showStorageClass,
-		showFullPath:     h.showFullPath,
-		Metadata:         metadata,
+		Key:                  object.URL.String(),
+		ContentType:          metadata.ContentType,
+		ServerSideEncryption: metadata.EncryptionMethod,
+		LastModified:         object.ModTime,
+		ContentLength:        object.Size,
+		StorageClass:         string(object.StorageClass),
+		VersionID:            object.VersionID,
+		ETag:                 object.Etag,
+		Metadata:             metadata.UserDefined,
 	}
 
 	log.Info(msg)
@@ -181,121 +142,31 @@ func (h Head) Run(ctx context.Context) error {
 }
 
 type HeadObjectMessage struct {
-	Object *storage.Object
-
-	showEtag         bool
-	showHumanized    bool
-	showStorageClass bool
-	showFullPath     bool
-	Metadata         map[string]string
+	Key                  string            `json:"Key,omitempty"`
+	ContentType          string            `json:"ContentType,omitempty"`
+	ServerSideEncryption string            `json:"ServerSideEncryption,omitempty"`
+	LastModified         *time.Time        `json:"LastModified,omitempty"`
+	ContentLength        int64             `json:"ContentLength,omitempty"`
+	StorageClass         string            `json:"StorageClass,omitempty"`
+	VersionID            string            `json:"VersionID,omitempty"`
+	ETag                 string            `json:"ETag,omitempty"`
+	Metadata             map[string]string `json:"Metadata"`
 }
 
 func (m HeadObjectMessage) String() string {
-	if m.showFullPath {
-		return m.Object.URL.String()
-	}
-	var etag string
-	// date and storage fields
-	listFormat := "%19s %2s"
-
-	// align etag
-	if m.showEtag {
-		etag = m.Object.Etag
-		listFormat = listFormat + " %-38s"
-	} else {
-		listFormat = listFormat + " %-1s"
-	}
-
-	// format file size
-	listFormat = listFormat + " %12s "
-	// format key and version ID
-	if m.Object.URL.VersionID != "" {
-		listFormat = listFormat + " %-50s %s"
-	} else {
-		listFormat = listFormat + " %s%s"
-	}
-
-	var s string
-	if m.Object.Type.IsDir() {
-		s = fmt.Sprintf(
-			listFormat,
-			"",
-			"",
-			"",
-			"DIR",
-			m.Object.URL.Relative(),
-			"",
-		)
-		return s
-	}
-
-	stclass := ""
-	if m.showStorageClass {
-		stclass = fmt.Sprintf("%v", m.Object.StorageClass)
-	}
-
-	var path string
-	if m.showFullPath {
-		path = m.Object.URL.String()
-	} else {
-		path = m.Object.URL.Relative()
-	}
-
-	s = fmt.Sprintf(
-		listFormat,
-		m.Object.ModTime.Format(dateFormat),
-		stclass,
-		etag,
-		m.humanize(),
-		path,
-		m.Object.URL.VersionID,
-	)
-
-	if len(m.Metadata) != 0 {
-
-		var metadataSlice []string
-		for k, v := range m.Metadata {
-			metadataSlice = append(metadataSlice, fmt.Sprintf("%s=%s", k, v))
-		}
-
-		metadataString := strings.Join(metadataSlice, ",")
-
-		s += fmt.Sprintf("%15s%s", "Metadata: ", metadataString)
-
-		return s
-	}
-
-	return s
+	return m.JSON()
 }
 
 func (m HeadObjectMessage) JSON() string {
-	j := struct {
-		storage.Object
-		Metadata map[string]string `json:"metadata"`
-	}{
-		Object:   *m.Object,
-		Metadata: m.Metadata,
-	}
-
-	return strutil.JSON(j)
-}
-
-func (m HeadObjectMessage) humanize() string {
-	var size string
-	if m.showHumanized {
-		size = strutil.HumanizeBytes(m.Object.Size)
-	} else {
-		size = fmt.Sprintf("%d", m.Object.Size)
-	}
-	return size
+	return strutil.JSON(m)
 }
 
 type HeadBucketMessage struct {
-	Name string `json:"name"`
+	Key string `json:"Key"`
 }
 
 func (m HeadBucketMessage) String() string {
-	return fmt.Sprintf(m.Name)
+	return m.JSON()
 }
 
 func (m HeadBucketMessage) JSON() string {
@@ -321,7 +192,7 @@ func validateHeadCommand(c *cli.Context) error {
 		return fmt.Errorf("target should be remote object or bucket")
 	}
 
-	if srcurl.IsWildcard() && srcurl.IsRaw() {
+	if srcurl.IsWildcard() && !srcurl.IsRaw() {
 		return fmt.Errorf("remote source %q can not contain glob characters", srcurl)
 	}
 

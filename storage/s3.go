@@ -1164,7 +1164,7 @@ func (s *S3) HeadBucket(ctx context.Context, url *url.URL) error {
 	return err
 }
 
-func (s *S3) HeadObject(ctx context.Context, url *url.URL) (*Object, map[string]string, error) {
+func (s *S3) HeadObject(ctx context.Context, url *url.URL) (*Object, *Metadata, error) {
 	input := &s3.HeadObjectInput{
 		Bucket:       aws.String(url.Bucket),
 		Key:          aws.String(url.Path),
@@ -1198,7 +1198,11 @@ func (s *S3) HeadObject(ctx context.Context, url *url.URL) (*Object, map[string]
 		StorageClass: StorageClass(storageClassStr),
 	}
 
-	metadata := aws.StringValueMap(output.Metadata)
+	metadata := &Metadata{
+		ContentType:      aws.StringValue(output.ContentType),
+		EncryptionMethod: aws.StringValue(output.ServerSideEncryption),
+		UserDefined:      aws.StringValueMap(output.Metadata),
+	}
 
 	return obj, metadata, nil
 }

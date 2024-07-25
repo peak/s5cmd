@@ -108,7 +108,7 @@ func (h Head) Run(ctx context.Context) error {
 		}
 
 		msg := HeadBucketMessage{
-			Key: h.src.String(),
+			Bucket: h.src.String(),
 		}
 
 		log.Info(msg)
@@ -140,15 +140,15 @@ func (h Head) Run(ctx context.Context) error {
 }
 
 type HeadObjectMessage struct {
-	Key                  string            `json:"Key,omitempty"`
-	ContentType          string            `json:"ContentType,omitempty"`
-	ServerSideEncryption string            `json:"ServerSideEncryption,omitempty"`
-	LastModified         *time.Time        `json:"LastModified,omitempty"`
-	ContentLength        int64             `json:"ContentLength,omitempty"`
-	StorageClass         string            `json:"StorageClass,omitempty"`
-	VersionID            string            `json:"VersionID,omitempty"`
-	ETag                 string            `json:"ETag,omitempty"`
-	Metadata             map[string]string `json:"Metadata"`
+	Key                  string            `json:"key,omitempty"`
+	ContentType          string            `json:"content_type,omitempty"`
+	ServerSideEncryption string            `json:"server_side_encryption,omitempty"`
+	LastModified         *time.Time        `json:"last_modified,omitempty"`
+	ContentLength        int64             `json:"size,omitempty"`
+	StorageClass         string            `json:"storage_class,omitempty"`
+	VersionID            string            `json:"version_id,omitempty"`
+	ETag                 string            `json:"etag,omitempty"`
+	Metadata             map[string]string `json:"metadata"`
 }
 
 func (m HeadObjectMessage) String() string {
@@ -160,7 +160,7 @@ func (m HeadObjectMessage) JSON() string {
 }
 
 type HeadBucketMessage struct {
-	Key string `json:"Key"`
+	Bucket string `json:"bucket"`
 }
 
 func (m HeadBucketMessage) String() string {

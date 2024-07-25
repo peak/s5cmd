@@ -39,7 +39,7 @@ func TestHeadBucket(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: suffix(`{"Key":"s3://%v"}`, bucket),
+		0: suffix(`{"bucket":"s3://%v"}`, bucket),
 	}, jsonCheck(true), strictLineCheck(false))
 }
 
@@ -74,7 +74,7 @@ func TestHeadBucketJSON(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: suffix(`{"Key":"s3://%v"}`, bucket),
+		0: suffix(`{"bucket":"s3://%v"}`, bucket),
 	}, jsonCheck(true), strictLineCheck(false))
 }
 
@@ -106,7 +106,7 @@ func TestHeadObject(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	expectedOutput := fmt.Sprintf(`{"Key":"s3://%v/myfile.txt","LastModified":"[0-9-]+T[0-9:.]+Z","ContentLength":\d+,"StorageClass":"STANDARD","ETag":"[a-f0-9]+","Metadata":\{\}}`, bucket)
+	expectedOutput := fmt.Sprintf(`{"key":"s3://%v/myfile.txt","last_modified":"[0-9-]+T[0-9:.]+Z","size":\d+,"storage_class":"STANDARD","etag":"[a-f0-9]+","metadata":\{\}}`, bucket)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: match(expectedOutput),
@@ -146,7 +146,7 @@ func TestHeadObjectJSON(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	expectedOutput := fmt.Sprintf(`{"Key":"s3://%v/file.txt","LastModified":"[0-9-]+T[0-9:.]+Z","ContentLength":\d+,"StorageClass":"STANDARD","ETag":"[a-f0-9]+","Metadata":\{\}}`, bucket)
+	expectedOutput := fmt.Sprintf(`{"key":"s3://%v/file.txt","last_modified":"[0-9-]+T[0-9:.]+Z","size":\d+,"storage_class":"STANDARD","etag":"[a-f0-9]+","metadata":\{\}}`, bucket)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: match(expectedOutput),
@@ -188,7 +188,7 @@ func TestHeadObjectRaw(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	expectedOutput := fmt.Sprintf(`{"Key":"s3://%v/file\*.txt","LastModified":"[0-9-]+T[0-9:.]+Z","ContentLength":\d+,"StorageClass":"STANDARD","ETag":"[a-f0-9]+","Metadata":\{\}}`, bucket)
+	expectedOutput := fmt.Sprintf(`{"key":"s3://%v/file\*.txt","last_modified":"[0-9-]+T[0-9:.]+Z","size":\d+,"storage_class":"STANDARD","etag":"[a-f0-9]+","metadata":\{\}}`, bucket)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: match(expectedOutput),
@@ -266,7 +266,7 @@ func TestHeadObjectWithVersionID(t *testing.T) {
 		result = icmd.RunCmd(cmd)
 		result.Assert(t, icmd.Success)
 
-		expectedOutput := fmt.Sprintf(`{"Key":"s3://%v/testfile.txt","LastModified":"[0-9-]+T[0-9:.]+Z","ContentLength":%d,"StorageClass":"STANDARD","ETag":"[a-f0-9]+","Metadata":\{\}}`, bucket, len(contents[i]))
+		expectedOutput := fmt.Sprintf(`{"key":"s3://%v/testfile.txt","last_modified":"[0-9-]+T[0-9:.]+Z","size":%d,"storage_class":"STANDARD","etag":"[a-f0-9]+","metadata":\{\}}`, bucket, len(contents[i]))
 
 		assertLines(t, result.Stdout(), map[int]compareFunc{
 			0: match(expectedOutput),
@@ -296,7 +296,7 @@ func TestHeadObjectWithMetadata(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	expectedOutput := fmt.Sprintf(`{"Key":"s3://%v/file.txt","LastModified":"[0-9-]+T[0-9:.]+Z","ContentLength":\d+,"StorageClass":"STANDARD","ETag":"[a-f0-9]+","Metadata":{(?:"key1":"value1","key2":"value2"|"key2":"value2","key1":"value1")}}`, bucket)
+	expectedOutput := fmt.Sprintf(`{"key":"s3://%v/file.txt","last_modified":"[0-9-]+T[0-9:.]+Z","size":\d+,"storage_class":"STANDARD","etag":"[a-f0-9]+","metadata":{(?:"key1":"value1","key2":"value2"|"key2":"value2","key1":"value1")}}`, bucket)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: match(expectedOutput),
@@ -324,7 +324,7 @@ func TestHeadObjectJSONMetadata(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	expectedOutput := fmt.Sprintf(`{"Key":"s3://%v/file.txt","LastModified":"[0-9-]+T[0-9:.]+Z","ContentLength":\d+,"StorageClass":"STANDARD","ETag":"[a-f0-9]+","Metadata":{"key1":"value1"}}`, bucket)
+	expectedOutput := fmt.Sprintf(`{"key":"s3://%v/file.txt","last_modified":"[0-9-]+T[0-9:.]+Z","size":\d+,"storage_class":"STANDARD","etag":"[a-f0-9]+","metadata":{"key1":"value1"}}`, bucket)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: match(expectedOutput),

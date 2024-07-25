@@ -94,8 +94,6 @@ type Head struct {
 }
 
 func (h Head) Run(ctx context.Context) error {
-	// to get the relative path
-	h.src.SetRelative(h.src)
 	client, err := storage.NewRemoteClient(ctx, h.src, h.storageOpts)
 	if err != nil {
 		printError(h.fullCommand, h.op, err)

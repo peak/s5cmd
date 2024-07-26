@@ -866,6 +866,11 @@ func TestCopyS3ToS3WithArbitraryMetadataWithDefaultDirective(t *testing.T) {
 		"Key2": aws.String("value2"),
 	}
 
+	dstmetadata := map[string]*string{
+		"Key1": aws.String("foo"),
+		"Key2": aws.String("bar"),
+	}
+
 	srcpath := fmt.Sprintf("s3://%v/%v", bucket, filename)
 	dstpath := fmt.Sprintf("s3://%v/%v_cp", bucket, filename)
 
@@ -876,7 +881,7 @@ func TestCopyS3ToS3WithArbitraryMetadataWithDefaultDirective(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	// assert S3
-	assert.Assert(t, ensureS3Object(s3client, bucket, fmt.Sprintf("%s_cp", filename), content, ensureArbitraryMetadata(srcmetadata)))
+	assert.Assert(t, ensureS3Object(s3client, bucket, fmt.Sprintf("%s_cp", filename), content, ensureArbitraryMetadata(dstmetadata)))
 }
 
 // cp s3://bucket2/obj2 s3://bucket1/obj1 --metadata-directive REPLACE --metadata key1=val1 --metadata key2=val2 ...
@@ -4595,4 +4600,142 @@ func TestCopyS3ObjectsWithIncludeExcludeFilter2(t *testing.T) {
 	// assert local filesystem
 	expected := fs.Expected(t, expectedFileSystem...)
 	assert.Assert(t, fs.Equal(cmd.Dir, expected))
+}
+
+// cp --content-type "video/mp4" file s3://bucket/
+func TestCopySingleLocalFileToS3WithContentType(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd := setup(t)
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	const (
+		filename = "testfile.txt"
+		content  = "this is a test file"
+	)
+
+	workdir := fs.NewDir(t, t.Name(), fs.WithFile(filename, content))
+	defer workdir.Remove()
+
+	srcpath := workdir.Join(filename)
+	dstpath := fmt.Sprintf("s3://%v/", bucket)
+
+	cmd := s5cmd("cp", "--content-type", "video/mp4", srcpath, dstpath)
+
+	result := icmd.RunCmd(cmd)
+	result.Assert(t, icmd.Success)
+
+	expected := fs.Expected(t, fs.WithFile(filename, content))
+	assert.Assert(t, fs.Equal(workdir.Path(), expected))
+
+	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content, ensureContentType("video/mp4")))
+}
+
+// cp --content-type "video/avi" dir s3://bucket/
+func TestCopyMultipleFilesToS3BucketWithContentType(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS == "windows" {
+		t.Skip("Files in Windows cannot contain glob(*) characters")
+	}
+
+	s3client, s5cmd := setup(t)
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	folderLayout := []fs.PathOp{
+		fs.WithFile("file1.html", "<html><body><h1>file1</h1></body></html>"),
+		fs.WithDir(
+			"a",
+			fs.WithFile("another_test_file.txt", "yet another txt file. yatf."),
+		),
+	}
+
+	workdir := fs.NewDir(t, "somedir", folderLayout...)
+	defer workdir.Remove()
+
+	src := fmt.Sprintf("%v/*", workdir.Path())
+	dst := fmt.Sprintf("s3://%v/", bucket)
+
+	cmd := s5cmd("cp", "--content-type", "video/avi", src, dst)
+
+	result := icmd.RunCmd(cmd)
+	result.Assert(t, icmd.Success)
+
+	expected := fs.Expected(t, folderLayout...)
+	assert.Assert(t, fs.Equal(workdir.Path(), expected))
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals("cp %v/a/another_test_file.txt %sa/another_test_file.txt", workdir.Path(), dst),
+		1: equals("cp %v/file1.html %sfile1.html", workdir.Path(), dst),
+	}, sortInput(true))
+
+	assert.Assert(t, ensureS3Object(s3client, bucket, "file1.html", "<html><body><h1>file1</h1></body></html>", ensureContentType("video/avi")))
+	assert.Assert(t, ensureS3Object(s3client, bucket, "a/another_test_file.txt", "yet another txt file. yatf.", ensureContentType("video/avi")))
+}
+
+// cp --content-type "video/avi" s3://srcbucket/object s3://dstbucket/
+func TestCopySingleS3ObjectToAnotherBucketWithContentType(t *testing.T) {
+	t.Parallel()
+
+	srcbucket := s3BucketFromTestNameWithPrefix(t, "src")
+	dstbucket := s3BucketFromTestNameWithPrefix(t, "dst")
+
+	s3client, s5cmd := setup(t)
+
+	createBucket(t, s3client, srcbucket)
+	createBucket(t, s3client, dstbucket)
+
+	const (
+		filename = "testfile.txt"
+		content  = "this is a test file"
+	)
+
+	putFile(t, s3client, srcbucket, filename, content)
+
+	src := fmt.Sprintf("s3://%v/%v", srcbucket, filename)
+	dst := fmt.Sprintf("s3://%v/", dstbucket)
+
+	cmd := s5cmd("cp", "--content-type", "video/avi", src, dst)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assert.Assert(t, ensureS3Object(s3client, dstbucket, filename, content, ensureContentType("video/avi")))
+}
+
+// cp --content-type "video/avi" s3://srcbucket/* s3://dstbucket/
+func TestCopyMultipleS3ObjectsToAnotherBucketWithContentType(t *testing.T) {
+	t.Parallel()
+
+	srcbucket := s3BucketFromTestNameWithPrefix(t, "src")
+	dstbucket := s3BucketFromTestNameWithPrefix(t, "dst")
+
+	s3client, s5cmd := setup(t)
+
+	createBucket(t, s3client, srcbucket)
+	createBucket(t, s3client, dstbucket)
+
+	fileAndContent := map[string]string{
+		"file1.txt":               "this is a test file 1",
+		"a/another_test_file.txt": "yet another txt file. yatf.",
+	}
+
+	for filename, content := range fileAndContent {
+		putFile(t, s3client, srcbucket, filename, content)
+	}
+
+	src := fmt.Sprintf("s3://%v/*", srcbucket)
+	dst := fmt.Sprintf("s3://%v/", dstbucket)
+
+	cmd := s5cmd("cp", "--content-type", "video/avi", src, dst)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	for filename, content := range fileAndContent {
+		assert.Assert(t, ensureS3Object(s3client, dstbucket, filename, content, ensureContentType("video/avi")))
+	}
 }

@@ -153,7 +153,7 @@ func TestSelectCommand(t *testing.T) {
 				expectedValue: "id0\n",
 			},
 			{
-				name: "input:json-lines,output:csv,compression:gzip,select:with-where",
+				name: "input:json-lines,output:csv,select:with-where",
 				cmd: []string{
 					"select", "json",
 					"--output-format", "csv",
@@ -200,11 +200,11 @@ func TestSelectCommand(t *testing.T) {
 				},
 				informat:      "json",
 				structure:     "document",
-				outformat:     "json",
+				outformat:     "csv",
 				expectedValue: "id0\n",
 			},
 			{
-				name: "input:json-document,output:json,compression:gzip,select:with-document-access",
+				name: "input:json-document,output:csv,compression:gzip,select:with-document-access",
 				cmd: []string{
 					"select", "json",
 					"--structure", "document",
@@ -215,13 +215,24 @@ func TestSelectCommand(t *testing.T) {
 				informat:      "json",
 				compression:   true,
 				structure:     "document",
-				outformat:     "json",
+				outformat:     "csv",
 				expectedValue: "id0\n",
 			},
 		},
 		"csv": {
 			{
-				name: "input:csv,output:csv,delimiter:comma",
+				name: "input:csv,output:json,delimiter:comma",
+				cmd: []string{
+					"select", "csv",
+					"--output-format", "json",
+					"--query", query,
+				},
+				informat:  "csv",
+				structure: ",",
+				outformat: "json",
+			},
+			{
+				name: "input:csv,output:csv,delimiter:comma,extra-flag:false",
 				cmd: []string{
 					"select", "csv",
 					"--query", query,
@@ -231,7 +242,7 @@ func TestSelectCommand(t *testing.T) {
 				outformat: "csv",
 			},
 			{
-				name: "input:csv,output:csv,delimiter:comma,compression:gzip",
+				name: "input:csv,output:csv,delimiter:comma,compression:gzip,extra-flag:false",
 				cmd: []string{
 					"select", "csv",
 					"--compression", "gzip",
@@ -241,6 +252,19 @@ func TestSelectCommand(t *testing.T) {
 				compression: true,
 				structure:   ",",
 				outformat:   "csv",
+			},
+			{
+				name: "input:csv,output:json,delimiter:comma,compression:gzip",
+				cmd: []string{
+					"select", "csv",
+					"--compression", "gzip",
+					"--output-format", "json",
+					"--query", query,
+				},
+				informat:    "csv",
+				compression: true,
+				structure:   ",",
+				outformat:   "json",
 			},
 			{
 				name: "input:csv,output:csv,delimiter:comma,compression:gzip",
@@ -267,7 +291,7 @@ func TestSelectCommand(t *testing.T) {
 				outformat: "csv",
 			},
 			{
-				name: "input:csv,output:csv,delimiter:tab",
+				name: "input:csv,output:csv,delimiter:tab,extra-flag:false",
 				cmd: []string{
 					"select", "csv",
 					"--delimiter", "\t",
@@ -276,6 +300,18 @@ func TestSelectCommand(t *testing.T) {
 				informat:  "csv",
 				structure: "\t",
 				outformat: "csv",
+			},
+			{
+				name: "input:csv,output:json,delimiter:tab",
+				cmd: []string{
+					"select", "csv",
+					"--delimiter", "\t",
+					"--output-format", "json",
+					"--query", query,
+				},
+				informat:  "csv",
+				structure: "\t",
+				outformat: "json",
 			},
 			{
 				name: "input:csv,output:csv,delimiter:tab",
@@ -372,7 +408,7 @@ func TestSelectCommand(t *testing.T) {
 				informat:      "csv",
 				compression:   true,
 				structure:     ",",
-				outformat:     "csv",
+				outformat:     "json",
 				expectedValue: "{\"id\":\"id0\"}\n",
 			},
 			{
@@ -386,7 +422,7 @@ func TestSelectCommand(t *testing.T) {
 				},
 				informat:      "csv",
 				structure:     "\t",
-				outformat:     "csv",
+				outformat:     "json",
 				expectedValue: "{\"id\":\"id0\"}\n",
 			},
 			{
@@ -402,7 +438,7 @@ func TestSelectCommand(t *testing.T) {
 				informat:      "csv",
 				compression:   true,
 				structure:     "\t",
-				outformat:     "csv",
+				outformat:     "json",
 				expectedValue: "{\"id\":\"id0\"}\n",
 			},
 		},
@@ -471,6 +507,7 @@ func TestSelectCommand(t *testing.T) {
 
 					s3client, s5cmd := setup(t, withEndpointURL(endpoint), withRegion(region), withAccessKeyID(accessKeyID), withSecretKey(secretKey))
 					createBucket(t, s3client, bucket)
+
 					putFile(t, s3client, bucket, filename, contents)
 
 					tc.cmd = append(tc.cmd, src)
@@ -482,6 +519,68 @@ func TestSelectCommand(t *testing.T) {
 					assert.DeepEqual(t, expected, result.Stdout())
 				})
 			}
+		})
+	}
+}
+
+func TestSelectCommandEmptyBucket(t *testing.T) {
+	t.Parallel()
+
+	const (
+		region      = "us-east-1"
+		accessKeyID = "minioadmin"
+		secretKey   = "minioadmin"
+
+		query = "SELECT * FROM s3object s"
+	)
+
+	endpoint := os.Getenv(s5cmdTestEndpointEnv)
+	if endpoint == "" {
+		t.Skipf("skipping the test because %v environment variable is empty", s5cmdTestEndpointEnv)
+	}
+
+	type testcase struct {
+		name string
+		cmd  []string
+	}
+
+	testcases := []testcase{
+		{
+			name: "input:json-lines,output:json,all-versions:true,empty-bucket:true",
+			cmd: []string{
+				"select", "json",
+				"--all-versions",
+				"--query", query,
+			},
+		},
+		{
+			name: "input:csv,output:csv,delimiter:comma,all-versions:true,empty-bucket:true",
+			cmd: []string{
+				"select", "csv",
+				"--all-versions",
+				"--query", query,
+			},
+		},
+	}
+
+	for _, tc := range testcases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			bucket := s3BucketFromTestName(t)
+
+			s3client, s5cmd := setup(t, withEndpointURL(endpoint), withRegion(region), withAccessKeyID(accessKeyID), withSecretKey(secretKey))
+			createBucket(t, s3client, bucket)
+
+			src := fmt.Sprintf("s3://%s/", bucket)
+			tc.cmd = append(tc.cmd, src)
+			cmd := s5cmd(tc.cmd...)
+
+			result := icmd.RunCmd(cmd, withEnv("AWS_ACCESS_KEY_ID", accessKeyID), withEnv("AWS_SECRET_ACCESS_KEY", secretKey))
+
+			result.Assert(t, icmd.Success)
+			assert.DeepEqual(t, "", result.Stdout())
 		})
 	}
 }

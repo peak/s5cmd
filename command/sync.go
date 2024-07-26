@@ -203,7 +203,7 @@ func (s Sync) Run(c *cli.Context) error {
 		isBatch = obj != nil && obj.Type.IsDir()
 	}
 
-	onlySource, onlyDest, commonObjects := compareObjects(sourceObjects, destObjects)
+	onlySource, onlyDest, commonObjects := compareObjects(sourceObjects, destObjects, isBatch)
 
 	sourceObjects = nil
 	destObjects = nil
@@ -242,7 +242,7 @@ func (s Sync) Run(c *cli.Context) error {
 // sourceObjects and destObjects channels are already sorted in ascending order.
 // Returns objects those in only source, only destination
 // and both.
-func compareObjects(sourceObjects, destObjects chan *storage.Object) (chan *url.URL, chan *url.URL, chan *ObjectPair) {
+func compareObjects(sourceObjects, destObjects chan *storage.Object, isSrcBatch bool) (chan *url.URL, chan *url.URL, chan *ObjectPair) {
 	var (
 		srcOnly   = make(chan *url.URL, extsortChannelBufferSize)
 		dstOnly   = make(chan *url.URL, extsortChannelBufferSize)
@@ -262,6 +262,9 @@ func compareObjects(sourceObjects, destObjects chan *storage.Object) (chan *url.
 		for {
 			if srcOk {
 				srcName = filepath.ToSlash(src.URL.Relative())
+				if !isSrcBatch {
+					srcName = src.URL.Base()
+				}
 			}
 			if dstOk {
 				dstName = filepath.ToSlash(dst.URL.Relative())

@@ -188,6 +188,14 @@ While executing the commands, `s5cmd` detects the region according to the follow
 
 ### Examples
 
+#### Check if a bucket exists
+
+    s5cmd head s3://bucket/
+
+#### Print a remote object's metadata
+
+    s5cmd head s3://bucket/object.gz
+
 #### Download a single S3 object
 
     s5cmd cp s3://bucket/object.gz .

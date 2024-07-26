@@ -282,7 +282,6 @@ func (s *S3) listObjectVersions(ctx context.Context, url *url.URL) <-chan *Objec
 
 				return !lastPage
 			})
-
 		if err != nil {
 			objCh <- &Object{Err: err}
 			return
@@ -372,7 +371,6 @@ func (s *S3) listObjectsV2(ctx context.Context, url *url.URL) <-chan *Object {
 
 			return !lastPage
 		})
-
 		if err != nil {
 			objCh <- &Object{Err: err}
 			return
@@ -464,7 +462,6 @@ func (s *S3) listObjects(ctx context.Context, url *url.URL) <-chan *Object {
 
 			return !lastPage
 		})
-
 		if err != nil {
 			objCh <- &Object{Err: err}
 			return
@@ -579,7 +576,6 @@ func (s *S3) Read(ctx context.Context, src *url.URL) (io.ReadCloser, error) {
 	}
 
 	resp, err := s.api.GetObjectWithContext(ctx, input)
-
 	if err != nil {
 		return nil, err
 	}
@@ -720,7 +716,6 @@ func (s *S3) Select(ctx context.Context, url *url.URL, query *SelectQuery, resul
 		query.InputContentStructure,
 		query.FileHeaderInfo,
 	)
-
 	if err != nil {
 		return err
 	}
@@ -736,7 +731,6 @@ func (s *S3) Select(ctx context.Context, url *url.URL, query *SelectQuery, resul
 		query.InputContentStructure,
 		reader,
 	)
-
 	if err != nil {
 		return err
 	}
@@ -889,8 +883,8 @@ func (s *S3) Put(
 }
 
 func (s *S3) retryOnNoSuchUpload(ctx aws.Context, to *url.URL, input *s3manager.UploadInput,
-	err error, uploaderOpts ...func(*s3manager.Uploader)) error {
-
+	err error, uploaderOpts ...func(*s3manager.Uploader),
+) error {
 	var expectedRetryID string
 	if ID, ok := input.Metadata[metadataKeyRetryID]; ok {
 		expectedRetryID = *ID
@@ -1161,7 +1155,56 @@ func (s *S3) GetBucketVersioning(ctx context.Context, bucket string) (string, er
 	}
 
 	return *output.Status, nil
+}
 
+func (s *S3) HeadBucket(ctx context.Context, url *url.URL) error {
+	_, err := s.api.HeadBucketWithContext(ctx, &s3.HeadBucketInput{
+		Bucket: aws.String(url.Bucket),
+	})
+	return err
+}
+
+func (s *S3) HeadObject(ctx context.Context, url *url.URL) (*Object, *Metadata, error) {
+	input := &s3.HeadObjectInput{
+		Bucket:       aws.String(url.Bucket),
+		Key:          aws.String(url.Path),
+		RequestPayer: s.RequestPayer(),
+	}
+
+	if url.VersionID != "" {
+		input.SetVersionId(url.VersionID)
+	}
+
+	output, err := s.api.HeadObjectWithContext(ctx, input)
+	if err != nil {
+		if errHasCode(err, "NotFound") {
+			return nil, nil, &ErrGivenObjectNotFound{ObjectAbsPath: url.Absolute()}
+		}
+		return nil, nil, err
+	}
+
+	// https://docs.aws.amazon.com/AmazonS3/latest/API/API_HeadObject.html#AmazonS3-HeadObject-response-header-StorageClass
+	// If the object's storage class is STANDARD, this header is not returned in the response.
+	storageClassStr := "STANDARD"
+	if output.StorageClass != nil {
+		storageClassStr = aws.StringValue(output.StorageClass)
+	}
+
+	obj := &Object{
+		URL:          url,
+		ModTime:      output.LastModified,
+		Etag:         strings.Trim(aws.StringValue(output.ETag), `"`),
+		Size:         aws.Int64Value(output.ContentLength),
+		StorageClass: StorageClass(storageClassStr),
+	}
+
+	metadata := &Metadata{
+		ContentType:      aws.StringValue(output.ContentType),
+		EncryptionMethod: aws.StringValue(output.ServerSideEncryption),
+		UserDefined:      aws.StringValueMap(output.Metadata),
+	}
+
+	return obj, metadata, nil
 }
 
 type sdkLogger struct{}
@@ -1400,7 +1443,6 @@ func errHasCode(err error, code string) bool {
 	}
 
 	return false
-
 }
 
 // IsCancelationError reports whether given error is a storage related

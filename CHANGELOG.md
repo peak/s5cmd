@@ -8,6 +8,9 @@
 - Added prefix and wildcard support to `cat` command. ([#716](https://github.com/peak/s5cmd/issues/716))
 - Added `head` command. ([#730](https://github.com/peak/s5cmd/pull/730))
 
+#### Bugfixes
+- Fixed `cp` command to flag to work with --content-type when performing a copy operation S3 to S3. ([#738](https://github.com/peak/s5cmd/issues/738))
+
 ## v2.2.2 - 13 Sep 2023 
 
 #### Bugfixes

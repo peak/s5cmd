@@ -552,6 +552,10 @@ func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata Metadata) err
 		input.MetadataDirective = aws.String(metadata.Directive)
 	}
 
+	if metadata.ContentType != "" {
+		input.ContentType = aws.String(metadata.ContentType)
+	}
+
 	if len(metadata.UserDefined) != 0 {
 		m := make(map[string]*string)
 		for k, v := range metadata.UserDefined {

@@ -1380,10 +1380,6 @@ func TestSyncS3BucketToS3BucketIsStorageClassChangingWithDifferentSizeAndContent
 	cmd := s5cmd("sync", src, dst)
 
 	result := icmd.RunCmd(cmd)
-
-	fmt.Println(result.Stdout())
-	fmt.Println(result.Stderr())
-
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
@@ -1441,10 +1437,6 @@ func TestSyncLocalFolderToS3BucketIsStorageClassChangingWithDifferentSizeAndCont
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Success)
-
-	fmt.Println(result.Stdout())
-	// fmt.Printf(`cp %v/testfile1.txt %vtestfile1.txt\n`, src, dst)
-	// fmt.Printf(`cp %v/testfile2.txt %vtestfile2.txt\n`, src, dst)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals(`cp %vtestfile1.txt %vtestfile1.txt`, src, dst),

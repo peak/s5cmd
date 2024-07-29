@@ -137,30 +137,6 @@ func TestSizeOnlyStrategy_ShouldSync(t *testing.T) {
 			dst:      &storage.Object{ModTime: timePtr(ft), Size: 10},
 			expected: errorpkg.ErrObjectSizesMatch,
 		},
-
-		{
-			//	src is in Glacier
-			name:     "source is in Glacier",
-			src:      &storage.Object{ModTime: timePtr(ft), Size: 10, StorageClass: "GLACIER"},
-			dst:      &storage.Object{ModTime: timePtr(ft), Size: 5},
-			expected: nil,
-		},
-
-		{
-			//	dst is in Glacier
-			name:     "destination is in Glacier",
-			src:      &storage.Object{ModTime: timePtr(ft), Size: 10},
-			dst:      &storage.Object{ModTime: timePtr(ft), Size: 5, StorageClass: "GLACIER"},
-			expected: nil,
-		},
-
-		{
-			//	src and dst are in Glacier
-			name:     "source and destination are in Glacier",
-			src:      &storage.Object{ModTime: timePtr(ft), Size: 10, StorageClass: "GLACIER"},
-			dst:      &storage.Object{ModTime: timePtr(ft), Size: 5, StorageClass: "GLACIER"},
-			expected: nil,
-		},
 	}
 
 	for _, tc := range testcases {

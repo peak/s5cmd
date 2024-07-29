@@ -741,6 +741,12 @@ func putArbitraryMetadata(metadata map[string]*string) putOption {
 	}
 }
 
+func putStorageClass(storageClass string) putOption {
+	return func(opts *s3.PutObjectInput) {
+		opts.StorageClass = aws.String(storageClass)
+	}
+}
+
 func putFile(t *testing.T, client *s3.S3, bucket string, filename string, content string, opts ...putOption) {
 	t.Helper()
 	input := &s3.PutObjectInput{

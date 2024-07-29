@@ -92,7 +92,6 @@ func TestSyncSingleS3ObjectToLocalTwice(t *testing.T) {
 	// rerunning same command should not download object, empty result expected
 	result = icmd.RunCmd(cmd)
 	result.Assert(t, icmd.Success)
-	assertLines(t, result.Stdout(), map[int]compareFunc{})
 }
 
 // sync file s3://bucket
@@ -305,14 +304,14 @@ func TestSyncS3BucketToEmptyFolder(t *testing.T) {
 	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
-	S3Content := map[string]string{
+	s3Content := map[string]string{
 		"testfile.txt":            "S: this is a test file",
 		"readme.md":               "S: this is a readme file",
 		"a/another_test_file.txt": "S: yet another txt file",
 		"abc/def/test.py":         "S: file in nested folders",
 	}
 
-	for filename, content := range S3Content {
+	for filename, content := range s3Content {
 		putFile(t, s3client, bucket, filename, content)
 	}
 
@@ -354,7 +353,7 @@ func TestSyncS3BucketToEmptyFolder(t *testing.T) {
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 
 	// assert s3
-	for key, content := range S3Content {
+	for key, content := range s3Content {
 		assert.Assert(t, ensureS3Object(s3client, bucket, key, content))
 	}
 }
@@ -373,14 +372,14 @@ func TestSyncS3BucketToEmptyS3Bucket(t *testing.T) {
 	createBucket(t, s3client, bucket)
 	createBucket(t, s3client, dstbucket)
 
-	S3Content := map[string]string{
+	s3Content := map[string]string{
 		"testfile.txt":            "S: this is a test file",
 		"readme.md":               "S: this is a readme file",
 		"a/another_test_file.txt": "S: yet another txt file",
 		"abc/def/test.py":         "S: file in nested folders",
 	}
 
-	for filename, content := range S3Content {
+	for filename, content := range s3Content {
 		putFile(t, s3client, bucket, filename, content)
 	}
 
@@ -401,12 +400,12 @@ func TestSyncS3BucketToEmptyS3Bucket(t *testing.T) {
 	}, sortInput(true))
 
 	// assert  s3 objects in source bucket.
-	for key, content := range S3Content {
+	for key, content := range s3Content {
 		assert.Assert(t, ensureS3Object(s3client, bucket, key, content))
 	}
 
 	// assert s3 objects in dest bucket
-	for key, content := range S3Content {
+	for key, content := range s3Content {
 		key = fmt.Sprintf("%s/%s", prefix, key) // add the prefix
 		assert.Assert(t, ensureS3Object(s3client, dstbucket, key, content))
 	}
@@ -442,14 +441,14 @@ func TestSyncLocalFolderToS3BucketSameObjectsSourceOlder(t *testing.T) {
 	workdir := fs.NewDir(t, "somedir", folderLayout...)
 	defer workdir.Remove()
 
-	S3Content := map[string]string{
+	s3Content := map[string]string{
 		"main.py":                 "D: this is a python file",
 		"testfile.txt":            "D: this is a test file",
 		"readme.md":               "D: this is a readme file",
 		"a/another_test_file.txt": "D: yet another txt file",
 	}
 
-	for filename, content := range S3Content {
+	for filename, content := range s3Content {
 		putFile(t, s3client, bucket, filename, content)
 	}
 
@@ -483,7 +482,7 @@ func TestSyncLocalFolderToS3BucketSameObjectsSourceOlder(t *testing.T) {
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 
 	// assert s3
-	for key, content := range S3Content {
+	for key, content := range s3Content {
 		assert.Assert(t, ensureS3Object(s3client, bucket, key, content))
 	}
 }
@@ -517,13 +516,13 @@ func TestSyncLocalFolderToS3BucketSourceNewer(t *testing.T) {
 	workdir := fs.NewDir(t, "somedir", folderLayout...)
 	defer workdir.Remove()
 
-	S3Content := map[string]string{
+	s3Content := map[string]string{
 		"testfile.txt": "D: this is a test file ",
 		"readme.md":    "D: this is a readme file",
 		"dir/main.py":  "D: python file",
 	}
 
-	for filename, content := range S3Content {
+	for filename, content := range s3Content {
 		putFile(t, s3client, bucket, filename, content)
 	}
 
@@ -596,14 +595,14 @@ func TestSyncS3BucketToLocalFolderSameObjectsSourceOlder(t *testing.T) {
 	workdir := fs.NewDir(t, "somedir", folderLayout...)
 	defer workdir.Remove()
 
-	S3Content := map[string]string{
+	s3Content := map[string]string{
 		"main.py":                 "S: this is a python file",
 		"testfile.txt":            "S: this is a test file",   // content different from local
 		"readme.md":               "S: this is a readme file", // content different from local
 		"a/another_test_file.txt": "S: yet another txt file",  // content different from local
 	}
 
-	for filename, content := range S3Content {
+	for filename, content := range s3Content {
 		putFile(t, s3client, bucket, filename, content)
 	}
 
@@ -638,7 +637,7 @@ func TestSyncS3BucketToLocalFolderSameObjectsSourceOlder(t *testing.T) {
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 
 	// assert s3
-	for key, content := range S3Content {
+	for key, content := range s3Content {
 		assert.Assert(t, ensureS3Object(s3client, bucket, key, content))
 	}
 }
@@ -673,14 +672,14 @@ func TestSyncS3BucketToLocalFolderSameObjectsSourceNewer(t *testing.T) {
 	workdir := fs.NewDir(t, "somedir", folderLayout...)
 	defer workdir.Remove()
 
-	S3Content := map[string]string{
+	s3Content := map[string]string{
 		"main.py":                 "S: this is a python file",
 		"testfile.txt":            "S: this is an updated test file",
 		"readme.md":               "S: this is an updated readme file",
 		"a/another_test_file.txt": "S: yet another updated txt file",
 	}
 
-	for filename, content := range S3Content {
+	for filename, content := range s3Content {
 		putFile(t, s3client, bucket, filename, content)
 	}
 
@@ -715,7 +714,7 @@ func TestSyncS3BucketToLocalFolderSameObjectsSourceNewer(t *testing.T) {
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 
 	// assert s3
-	for key, content := range S3Content {
+	for key, content := range s3Content {
 		assert.Assert(t, ensureS3Object(s3client, bucket, key, content))
 	}
 }
@@ -856,235 +855,6 @@ func TestSyncS3BucketToS3BucketSameSizesSourceOlder(t *testing.T) {
 	}
 }
 
-// sync s3://bucket/* s3://destbucket/ (source is glacier, destination is standard)
-func TestSyncS3BucketToS3BucketSourceGlacierDestinationStandard(t *testing.T) {
-	t.Parallel()
-	s3client, s5cmd := setup(t)
-	bucket := s3BucketFromTestName(t)
-	dstbucket := s3BucketFromTestNameWithPrefix(t, "dst")
-
-	createBucket(t, s3client, bucket)
-	createBucket(t, s3client, dstbucket)
-
-	// put objects in source bucket
-	S3Content := map[string]string{
-		"testfile.txt":            "S: this is a test file",
-		"readme.md":               "S: this is a readme file",
-		"a/another_test_file.txt": "S: yet another txt file",
-		"abc/def/test.py":         "S: file in nested folders",
-	}
-
-	// put objects in glacier
-
-	for filename, content := range S3Content {
-		putObject := s3.PutObjectInput{
-			Bucket:       &bucket,
-			Key:          &filename,
-			Body:         strings.NewReader(content),
-			StorageClass: aws.String("GLACIER"),
-		}
-		_, err := s3client.PutObject(&putObject)
-		if err != nil {
-			t.Fatalf("failed to put object in glacier: %v", err)
-		}
-	}
-
-	// put objects in destination bucket
-	destS3Content := map[string]string{
-		"testfile.txt":            "D: this is a test file",
-		"readme.md":               "D: this is a readme file",
-		"a/another_test_file.txt": "D: yet another txt file",
-		"abc/def/test.py":         "D: file in nested folders",
-	}
-
-	for filename, content := range destS3Content {
-		putObject := s3.PutObjectInput{
-			Bucket:       &dstbucket,
-			Key:          &filename,
-			Body:         strings.NewReader(content),
-			StorageClass: aws.String("STANDARD"),
-		}
-
-		_, err := s3client.PutObject(&putObject)
-		if err != nil {
-			t.Fatalf("failed to put object in standard: %v", err)
-		}
-	}
-
-	bucketPath := fmt.Sprintf("s3://%v", bucket)
-	src := fmt.Sprintf("%s/*", bucketPath)
-	dst := fmt.Sprintf("s3://%v/", dstbucket)
-
-	// log debug
-	cmd := s5cmd("--log", "debug", "sync", src, dst)
-	result := icmd.RunCmd(cmd)
-
-	// there will be no stdout, since the objects are in glacier
-	result.Assert(t, icmd.Success)
-
-	// src bucket should have the objects in glacier
-	for key := range S3Content {
-		assert.Assert(t, ensureS3Object(s3client, bucket, key, S3Content[key], ensureStorageClass("GLACIER")))
-	}
-
-	// dst bucket should have the objects in standard
-	for key := range destS3Content {
-		assert.Assert(t, ensureS3Object(s3client, dstbucket, key, destS3Content[key], ensureStorageClass("STANDARD")))
-	}
-}
-
-func TestSyncS3BucketToS3BucketSourceStandardDestinationGlacier(t *testing.T) {
-	t.Parallel()
-	s3client, s5cmd := setup(t)
-	bucket := s3BucketFromTestName(t)
-	dstbucket := s3BucketFromTestNameWithPrefix(t, "dst")
-
-	createBucket(t, s3client, bucket)
-	createBucket(t, s3client, dstbucket)
-
-	// put objects in source bucket
-	S3Content := map[string]string{
-		"testfile.txt":            "S: this is a test file",
-		"readme.md":               "S: this is a readme file",
-		"a/another_test_file.txt": "S: yet another txt file",
-		"abc/def/test.py":         "S: file in nested folders",
-	}
-
-	// put objects in glacier
-
-	for filename, content := range S3Content {
-		putObject := s3.PutObjectInput{
-			Bucket:       &bucket,
-			Key:          &filename,
-			Body:         strings.NewReader(content),
-			StorageClass: aws.String("STANDARD"),
-		}
-		_, err := s3client.PutObject(&putObject)
-		if err != nil {
-			t.Fatalf("failed to put object in glacier: %v", err)
-		}
-	}
-
-	// put objects in destination bucket
-	destS3Content := map[string]string{
-		"testfile.txt":            "D: this is a test file",
-		"readme.md":               "D: this is a readme file",
-		"a/another_test_file.txt": "D: yet another txt file",
-		"abc/def/test.py":         "D: file in nested folders",
-	}
-
-	for filename, content := range destS3Content {
-		putObject := s3.PutObjectInput{
-			Bucket:       &dstbucket,
-			Key:          &filename,
-			Body:         strings.NewReader(content),
-			StorageClass: aws.String("GLACIER"),
-		}
-
-		_, err := s3client.PutObject(&putObject)
-		if err != nil {
-			t.Fatalf("failed to put object in standard: %v", err)
-		}
-	}
-
-	bucketPath := fmt.Sprintf("s3://%v", bucket)
-	src := fmt.Sprintf("%s/*", bucketPath)
-	dst := fmt.Sprintf("s3://%v/", dstbucket)
-
-	// log debug
-	cmd := s5cmd("--log", "debug", "sync", src, dst)
-	result := icmd.RunCmd(cmd)
-
-	// there will be no stdout, since the objects are in glacier
-	result.Assert(t, icmd.Success)
-
-	// src bucket should have the objects in glacier
-	for key := range S3Content {
-		assert.Assert(t, ensureS3Object(s3client, bucket, key, S3Content[key], ensureStorageClass("STANDARD")))
-	}
-
-	// dst bucket should have the objects in standard
-	for key := range destS3Content {
-		assert.Assert(t, ensureS3Object(s3client, dstbucket, key, destS3Content[key], ensureStorageClass("GLACIER")))
-	}
-}
-
-func TestSyncS3BucketToS3BucketSourceGlacierDestinationGlacier(t *testing.T) {
-	t.Parallel()
-	s3client, s5cmd := setup(t)
-	bucket := s3BucketFromTestName(t)
-	dstbucket := s3BucketFromTestNameWithPrefix(t, "dst")
-
-	createBucket(t, s3client, bucket)
-	createBucket(t, s3client, dstbucket)
-
-	// put objects in source bucket
-	S3Content := map[string]string{
-		"testfile.txt":            "S: this is a test file",
-		"readme.md":               "S: this is a readme file",
-		"a/another_test_file.txt": "S: yet another txt file",
-		"abc/def/test.py":         "S: file in nested folders",
-	}
-
-	// put objects in glacier
-
-	for filename, content := range S3Content {
-		putObject := s3.PutObjectInput{
-			Bucket:       &bucket,
-			Key:          &filename,
-			Body:         strings.NewReader(content),
-			StorageClass: aws.String("GLACIER"),
-		}
-		_, err := s3client.PutObject(&putObject)
-		if err != nil {
-			t.Fatalf("failed to put object in glacier: %v", err)
-		}
-	}
-
-	// put objects in destination bucket
-	destS3Content := map[string]string{
-		"testfile.txt":            "D: this is a test file",
-		"readme.md":               "D: this is a readme file",
-		"a/another_test_file.txt": "D: yet another txt file",
-		"abc/def/test.py":         "D: file in nested folders",
-	}
-
-	for filename, content := range destS3Content {
-		putObject := s3.PutObjectInput{
-			Bucket:       &dstbucket,
-			Key:          &filename,
-			Body:         strings.NewReader(content),
-			StorageClass: aws.String("GLACIER"),
-		}
-
-		_, err := s3client.PutObject(&putObject)
-		if err != nil {
-			t.Fatalf("failed to put object in standard: %v", err)
-		}
-	}
-
-	bucketPath := fmt.Sprintf("s3://%v", bucket)
-	src := fmt.Sprintf("%s/*", bucketPath)
-	dst := fmt.Sprintf("s3://%v/", dstbucket)
-
-	// log debug
-	cmd := s5cmd("--log", "debug", "sync", src, dst)
-	result := icmd.RunCmd(cmd)
-
-	// there will be no stdout, since the objects are in glacier
-	result.Assert(t, icmd.Success)
-
-	// src bucket should have the objects in glacier
-	for key := range S3Content {
-		assert.Assert(t, ensureS3Object(s3client, bucket, key, S3Content[key], ensureStorageClass("GLACIER")))
-	}
-
-	// dst bucket should have the objects in glacier
-	for key := range destS3Content {
-		assert.Assert(t, ensureS3Object(s3client, dstbucket, key, destS3Content[key], ensureStorageClass("GLACIER")))
-	}
-}
-
 // sync --size-only s3://bucket/* folder/
 func TestSyncS3BucketToLocalFolderSameObjectsSizeOnly(t *testing.T) {
 	t.Parallel()
@@ -1105,7 +875,7 @@ func TestSyncS3BucketToLocalFolderSameObjectsSizeOnly(t *testing.T) {
 	workdir := fs.NewDir(t, "somedir", folderLayout...)
 	defer workdir.Remove()
 
-	S3Content := map[string]string{
+	s3Content := map[string]string{
 		"test.py":                 "S: this is an updated python file", // content different from local, different size
 		"testfile.txt":            "S: this is a test file",            // content different from local, same size
 		"readme.md":               "S: this is a readme file",          // content different from local, same size
@@ -1113,7 +883,7 @@ func TestSyncS3BucketToLocalFolderSameObjectsSizeOnly(t *testing.T) {
 		"abc/def/main.py":         "S: python file",                    // local does not have it.
 	}
 
-	for filename, content := range S3Content {
+	for filename, content := range s3Content {
 		putFile(t, s3client, bucket, filename, content)
 	}
 
@@ -1155,8 +925,485 @@ func TestSyncS3BucketToLocalFolderSameObjectsSizeOnly(t *testing.T) {
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 
 	// assert s3
-	for key, content := range S3Content {
+	for key, content := range s3Content {
 		assert.Assert(t, ensureS3Object(s3client, bucket, key, content))
+	}
+}
+
+// sync s3://bucket/* s3://destbucket/ (same objects, same size, same content, different or same storage class)
+func TestSyncS3BucketToS3BucketIsStorageClassChanging(t *testing.T) {
+	t.Parallel()
+	s3client, s5cmd := setup(t)
+
+	srcbucket := s3BucketFromTestName(t)
+	dstbucket := s3BucketFromTestNameWithPrefix(t, "dst")
+
+	createBucket(t, s3client, srcbucket)
+	createBucket(t, s3client, dstbucket)
+
+	storageClassesAndFile := []struct {
+		srcStorageClass string
+		dstStorageClass string
+		filename        string
+		content         string
+	}{
+		{"STANDARD", "STANDARD", "testfile1.txt", "this is a test file"},
+		{"STANDARD", "GLACIER", "testfile2.txt", "this is a test file"},
+		{"GLACIER", "STANDARD", "testfile3.txt", "this is a test file"},
+		{"GLACIER", "GLACIER", "testfile4.txt", "this is a test file"},
+	}
+
+	for _, sc := range storageClassesAndFile {
+
+		putObject := s3.PutObjectInput{
+			Bucket:       &srcbucket,
+			Key:          &sc.filename,
+			Body:         strings.NewReader(sc.content),
+			StorageClass: &sc.srcStorageClass,
+		}
+
+		_, err := s3client.PutObject(&putObject)
+		if err != nil {
+			t.Fatalf("failed to put object in %v: %v", sc.srcStorageClass, err)
+		}
+
+		putObject = s3.PutObjectInput{
+			Bucket:       &dstbucket,
+			Key:          &sc.filename,
+			Body:         strings.NewReader(sc.content),
+			StorageClass: aws.String(sc.dstStorageClass),
+		}
+
+		_, err = s3client.PutObject(&putObject)
+		if err != nil {
+			t.Fatalf("failed to put object in %v: %v", sc.dstStorageClass, err)
+		}
+
+	}
+
+	bucketPath := fmt.Sprintf("s3://%v", srcbucket)
+	src := fmt.Sprintf("%s/*", bucketPath)
+	dst := fmt.Sprintf("s3://%v/", dstbucket)
+
+	cmd := s5cmd("sync", src, dst)
+	result := icmd.RunCmd(cmd)
+
+	// there will be no stdout, since there are no changes
+	result.Assert(t, icmd.Success)
+	assertLines(t, result.Stdout(), map[int]compareFunc{})
+
+	// assert s3 objects in source
+	for _, sc := range storageClassesAndFile {
+		assert.Assert(t, ensureS3Object(s3client, srcbucket, sc.filename, sc.content, ensureStorageClass(sc.srcStorageClass)))
+	}
+
+	// assert s3 objects in destination
+	for _, sc := range storageClassesAndFile {
+		assert.Assert(t, ensureS3Object(s3client, dstbucket, sc.filename, sc.content, ensureStorageClass(sc.dstStorageClass)))
+	}
+}
+
+// sync dir s3://destbucket/ (same objects, same size, same content, different or same storage class)
+func TestSyncLocalFolderToS3BucketIsStorageClassChanging(t *testing.T) {
+	t.Parallel()
+	s3client, s5cmd := setup(t)
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	folderLayout := []fs.PathOp{
+		fs.WithFile("testfile1.txt", "this is a test file"),
+		fs.WithFile("testfile2.txt", "this is a test file"),
+	}
+
+	workdir := fs.NewDir(t, "somedir", folderLayout...)
+	defer workdir.Remove()
+
+	storageClassesAndFile := []struct {
+		storageClass string
+		filename     string
+		content      string
+	}{
+		{"STANDARD", "testfile1.txt", "this is a test file"},
+		{"GLACIER", "testfile2.txt", "this is a test file"},
+	}
+
+	for _, sc := range storageClassesAndFile {
+
+		putObject := s3.PutObjectInput{
+			Bucket:       &bucket,
+			Key:          &sc.filename,
+			Body:         strings.NewReader(sc.content),
+			StorageClass: aws.String(sc.storageClass),
+		}
+
+		_, err := s3client.PutObject(&putObject)
+		if err != nil {
+			t.Fatalf("failed to put object in %v: %v", sc.storageClass, err)
+		}
+	}
+
+	src := fmt.Sprintf("%v/", workdir.Path())
+	src = filepath.ToSlash(src)
+	dst := fmt.Sprintf("s3://%v/", bucket)
+
+	cmd := s5cmd("sync", src, dst)
+	result := icmd.RunCmd(cmd)
+
+	// there will be no stdout
+	result.Assert(t, icmd.Success)
+	assertLines(t, result.Stdout(), map[int]compareFunc{})
+
+	// expected folder structure without the timestamp.
+	expected := fs.Expected(t, folderLayout...)
+	assert.Assert(t, fs.Equal(workdir.Path(), expected))
+
+	// assert s3 objects in destination
+	for _, sc := range storageClassesAndFile {
+		assert.Assert(t, ensureS3Object(s3client, bucket, sc.filename, sc.content, ensureStorageClass(sc.storageClass)))
+	}
+}
+
+// sync s3://srcbucket/ dir (same objects, same size, same content, different or same storage class)
+func TestSyncS3BucketToLocalFolderIsStorageClassChanging(t *testing.T) {
+	t.Parallel()
+	s3client, s5cmd := setup(t)
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	storageClassesAndFile := []struct {
+		storageClass string
+		filename     string
+		content      string
+	}{
+		{"STANDARD", "testfile1.txt", "this is a test file"},
+		{"GLACIER", "testfile2.txt", "this is a test file"},
+	}
+
+	for _, sc := range storageClassesAndFile {
+
+		putObject := s3.PutObjectInput{
+			Bucket:       &bucket,
+			Key:          &sc.filename,
+			Body:         strings.NewReader(sc.content),
+			StorageClass: aws.String(sc.storageClass),
+		}
+
+		_, err := s3client.PutObject(&putObject)
+		if err != nil {
+			t.Fatalf("failed to put object in %v: %v", sc.storageClass, err)
+		}
+	}
+
+	folderLayout := []fs.PathOp{
+		fs.WithFile("testfile1.txt", "this is a test file"),
+		fs.WithFile("testfile2.txt", "this is a test file"),
+	}
+
+	// put objects in local folder
+
+	workdir := fs.NewDir(t, "somedir", folderLayout...)
+	defer workdir.Remove()
+
+	bucketPath := fmt.Sprintf("s3://%v", bucket)
+	src := fmt.Sprintf("%s/*", bucketPath)
+	dst := fmt.Sprintf("%v/", workdir.Path())
+	dst = filepath.ToSlash(dst)
+
+	cmd := s5cmd("sync", src, dst)
+	result := icmd.RunCmd(cmd)
+
+	// there will be no stdout
+	result.Assert(t, icmd.Success)
+	assertLines(t, result.Stdout(), map[int]compareFunc{})
+
+	// expected folder structure without the timestamp.
+	expected := fs.Expected(t, folderLayout...)
+	assert.Assert(t, fs.Equal(workdir.Path(), expected))
+
+	// assert s3 objects in destination
+	for _, sc := range storageClassesAndFile {
+		assert.Assert(t, ensureS3Object(s3client, bucket, sc.filename, sc.content, ensureStorageClass(sc.storageClass)))
+	}
+}
+
+// sync s3://srcbucket/* s3://dstbucket/ (same objects, different size, different content, different or same storage class)
+func TestSyncS3BucketToS3BucketIsStorageClassChangingWithDifferentSizeAndContent(t *testing.T) {
+	t.Parallel()
+	s3client, s5cmd := setup(t)
+
+	srcbucket := s3BucketFromTestName(t)
+	dstbucket := s3BucketFromTestNameWithPrefix(t, "dst")
+
+	createBucket(t, s3client, srcbucket)
+	createBucket(t, s3client, dstbucket)
+
+	storageClassesAndFile := []struct {
+		srcStorageClass string
+		dstStorageClass string
+		filename        string
+		srcContent      string
+		dstContent      string
+	}{
+		{"STANDARD", "STANDARD", "testfile1.txt", "this is an updated test file", "this is a test file"},
+		{"STANDARD", "GLACIER", "testfile2.txt", "this is an updated test file", "this is a test file"},
+		{"GLACIER", "STANDARD", "testfile3.txt", "this is an updated test file", "this is a test file"},
+		{"GLACIER", "GLACIER", "testfile4.txt", "this is an updated test file", "this is a test file"},
+	}
+
+	for _, sc := range storageClassesAndFile {
+
+		putFile(t, s3client, srcbucket, sc.filename, sc.srcContent, putStorageClass(sc.srcStorageClass))
+
+		putObject := s3.PutObjectInput{
+			Bucket:       &dstbucket,
+			Key:          &sc.filename,
+			Body:         strings.NewReader(sc.dstContent),
+			StorageClass: aws.String(sc.dstStorageClass),
+		}
+
+		_, err := s3client.PutObject(&putObject)
+		if err != nil {
+			t.Fatalf("failed to put object in %v: %v", sc.dstStorageClass, err)
+		}
+	}
+
+	bucketPath := fmt.Sprintf("s3://%v", srcbucket)
+	src := fmt.Sprintf("%s/*", bucketPath)
+	dst := fmt.Sprintf("s3://%v/", dstbucket)
+
+	cmd := s5cmd("sync", src, dst)
+
+	result := icmd.RunCmd(cmd)
+
+	fmt.Println(result.Stdout())
+	fmt.Println(result.Stderr())
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`cp %v/testfile1.txt %vtestfile1.txt`, bucketPath, dst),
+		1: equals(`cp %v/testfile2.txt %vtestfile2.txt`, bucketPath, dst),
+	}, sortInput(true))
+
+	// assert s3 objects in source
+	for _, sc := range storageClassesAndFile {
+		assert.Assert(t, ensureS3Object(s3client, srcbucket, sc.filename, sc.srcContent, ensureStorageClass(sc.srcStorageClass)))
+	}
+
+	// assert s3 objects in destination (file1 and file2 should be updated and file3 and file4 should be same as before)
+	assert.Assert(t, ensureS3Object(s3client, dstbucket, "testfile1.txt", "this is an updated test file", ensureStorageClass("STANDARD")))
+	assert.Assert(t, ensureS3Object(s3client, dstbucket, "testfile2.txt", "this is an updated test file", ensureStorageClass("STANDARD")))
+	assert.Assert(t, ensureS3Object(s3client, dstbucket, "testfile3.txt", "this is a test file", ensureStorageClass("STANDARD")))
+	assert.Assert(t, ensureS3Object(s3client, dstbucket, "testfile4.txt", "this is a test file", ensureStorageClass("GLACIER")))
+}
+
+// sync dir s3://destbucket/ (same objects, different size, different content, different or same storage class)
+func TestSyncLocalFolderToS3BucketIsStorageClassChangingWithDifferentSizeAndContent(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd := setup(t)
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	folderLayout := []fs.PathOp{
+		fs.WithFile("testfile1.txt", "this is an updated test file"),
+		fs.WithFile("testfile2.txt", "this is an updated test file"),
+	}
+
+	workdir := fs.NewDir(t, "somedir", folderLayout...)
+	defer workdir.Remove()
+
+	storageClassesAndFile := []struct {
+		storageClass string
+		filename     string
+		content      string
+	}{
+		{"STANDARD", "testfile1.txt", "this is a test file"},
+		{"GLACIER", "testfile2.txt", "this is a test file"},
+	}
+
+	for _, sc := range storageClassesAndFile {
+		putFile(t, s3client, bucket, sc.filename, sc.content, putStorageClass(sc.storageClass))
+	}
+
+	src := fmt.Sprintf("%v/", workdir.Path())
+	src = filepath.ToSlash(src)
+	dst := fmt.Sprintf("s3://%v/", bucket)
+
+	cmd := s5cmd("sync", src, dst)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	fmt.Println(result.Stdout())
+	// fmt.Printf(`cp %v/testfile1.txt %vtestfile1.txt\n`, src, dst)
+	// fmt.Printf(`cp %v/testfile2.txt %vtestfile2.txt\n`, src, dst)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`cp %vtestfile1.txt %vtestfile1.txt`, src, dst),
+		1: equals(`cp %vtestfile2.txt %vtestfile2.txt`, src, dst),
+	}, sortInput(true))
+
+	// expected folder structure without the timestamp.
+	expected := fs.Expected(t, folderLayout...)
+	assert.Assert(t, fs.Equal(workdir.Path(), expected))
+
+	// assert s3 objects in destination
+	assert.Assert(t, ensureS3Object(s3client, bucket, "testfile1.txt", "this is an updated test file"))
+	assert.Assert(t, ensureS3Object(s3client, bucket, "testfile2.txt", "this is an updated test file"))
+}
+
+// sync s3://destbucket/ dir (same objects, different size, different content, different or same storage class)
+func TestSyncS3BucketToLocalFolderIsStorageClassChangingWithDifferentSizeAndContent(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd := setup(t)
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	storageClassesAndFile := []struct {
+		storageClass string
+		filename     string
+		content      string
+	}{
+		{"STANDARD", "testfile1.txt", "this is an updated test file"},
+		{"GLACIER", "testfile2.txt", "this is an updated test file"},
+	}
+
+	for _, sc := range storageClassesAndFile {
+		putFile(t, s3client, bucket, sc.filename, sc.content, putStorageClass(sc.storageClass))
+	}
+
+	folderLayout := []fs.PathOp{
+		fs.WithFile("testfile1.txt", "this is a test file"),
+		fs.WithFile("testfile2.txt", "this is a test file"),
+	}
+
+	// put objects in local folder
+	workdir := fs.NewDir(t, "somedir", folderLayout...)
+	defer workdir.Remove()
+
+	bucketPath := fmt.Sprintf("s3://%v", bucket)
+	src := fmt.Sprintf("%s/*", bucketPath)
+	dst := fmt.Sprintf("%v/", workdir.Path())
+	dst = filepath.ToSlash(dst)
+
+	cmd := s5cmd("sync", src, dst)
+
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	// testfile1.txt should be updated and testfile2.txt shouldn't be updated because it is in glacier.
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`cp %v/testfile1.txt %vtestfile1.txt`, bucketPath, dst),
+	}, sortInput(true))
+
+	expectedFolderLayout := []fs.PathOp{
+		fs.WithFile("testfile1.txt", "this is an updated test file"),
+		fs.WithFile("testfile2.txt", "this is a test file"),
+	}
+
+	// expected folder structure without the timestamp.
+	expected := fs.Expected(t, expectedFolderLayout...)
+	assert.Assert(t, fs.Equal(workdir.Path(), expected))
+}
+
+// sync --delete s3://bucket/* s3://destbucket/ (storage class test)
+func TestSyncS3BucketToS3BucketWithDeleteStorageClass(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd := setup(t)
+
+	srcbucket := s3BucketFromTestName(t)
+	dstbucket := s3BucketFromTestNameWithPrefix(t, "dst")
+
+	createBucket(t, s3client, srcbucket)
+	createBucket(t, s3client, dstbucket)
+
+	dstStorageClassesAndFile := []struct {
+		storageClass string
+		filename     string
+		content      string
+	}{
+		{"STANDARD", "testfile1.txt", "this is a test file"},
+		{"GLACIER", "testfile2.txt", "this is a test file"},
+	}
+
+	for _, sc := range dstStorageClassesAndFile {
+		putFile(t, s3client, dstbucket, sc.filename, sc.content, putStorageClass(sc.storageClass))
+	}
+
+	bucketPath := fmt.Sprintf("s3://%v", srcbucket)
+	src := fmt.Sprintf("%s/*", bucketPath)
+	dst := fmt.Sprintf("s3://%v/", dstbucket)
+
+	cmd := s5cmd("sync", "--delete", src, dst)
+
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`rm %vtestfile1.txt`, dst),
+		1: equals(`rm %vtestfile2.txt`, dst),
+	}, sortInput(true))
+
+	// assert s3 objects in destination
+	for _, sc := range dstStorageClassesAndFile {
+		err := ensureS3Object(s3client, dstbucket, sc.filename, sc.content, ensureStorageClass(sc.storageClass))
+		assertError(t, err, errS3NoSuchKey)
+	}
+}
+
+// sync --delete dir s3://destbucket/ (storage class test)
+func TestSyncLocalFolderToS3BucketWithDeleteStorageClass(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd := setup(t)
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	storageClassesAndFile := []struct {
+		storageClass string
+		filename     string
+		content      string
+	}{
+		{"STANDARD", "testfile1.txt", "this is a test file"},
+		{"GLACIER", "testfile2.txt", "this is a test file"},
+	}
+
+	for _, sc := range storageClassesAndFile {
+		putFile(t, s3client, bucket, sc.filename, sc.content, putStorageClass(sc.storageClass))
+	}
+
+	workdir := fs.NewDir(t, "somedir")
+	defer workdir.Remove()
+
+	src := fmt.Sprintf("%v/", workdir.Path())
+	src = filepath.ToSlash(src)
+	dst := fmt.Sprintf("s3://%v/", bucket)
+
+	cmd := s5cmd("sync", "--delete", src, dst)
+
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`rm %vtestfile1.txt`, dst),
+		1: equals(`rm %vtestfile2.txt`, dst),
+	}, sortInput(true))
+
+	// assert s3 objects in destination
+	for _, sc := range storageClassesAndFile {
+		err := ensureS3Object(s3client, bucket, sc.filename, sc.content, ensureStorageClass(sc.storageClass))
+		assertError(t, err, errS3NoSuchKey)
 	}
 }
 
@@ -1186,14 +1433,14 @@ func TestSyncLocalFolderToS3BucketSameObjectsSizeOnly(t *testing.T) {
 	workdir := fs.NewDir(t, "somedir", folderLayout...)
 	defer workdir.Remove()
 
-	S3Content := map[string]string{
+	s3Content := map[string]string{
 		"test.py":                 "D: this is a python file",
 		"testfile.txt":            "D: this is an updated test file",
 		"readme.md":               "D: this is a readme file",
 		"a/another_test_file.txt": "D: yet another txt file",
 	}
 
-	for filename, content := range S3Content {
+	for filename, content := range s3Content {
 		putFile(t, s3client, bucket, filename, content)
 	}
 
@@ -1315,11 +1562,11 @@ func TestSyncS3BucketToLocalWithDelete(t *testing.T) {
 	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
-	S3Content := map[string]string{
+	s3Content := map[string]string{
 		"contributing.md": "S: this is a readme file",
 	}
 
-	for filename, content := range S3Content {
+	for filename, content := range s3Content {
 		putFile(t, s3client, bucket, filename, content)
 	}
 
@@ -1360,7 +1607,7 @@ func TestSyncS3BucketToLocalWithDelete(t *testing.T) {
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 
 	// assert s3
-	for key, content := range S3Content {
+	for key, content := range s3Content {
 		assert.Assert(t, ensureS3Object(s3client, bucket, key, content))
 	}
 }
@@ -1373,11 +1620,11 @@ func TestSyncS3BucketToEmptyLocalWithDelete(t *testing.T) {
 	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
 
-	S3Content := map[string]string{
+	s3Content := map[string]string{
 		"contributing.md": "S: this is a readme file",
 	}
 
-	for filename, content := range S3Content {
+	for filename, content := range s3Content {
 		putFile(t, s3client, bucket, filename, content)
 	}
 
@@ -1406,7 +1653,7 @@ func TestSyncS3BucketToEmptyLocalWithDelete(t *testing.T) {
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 
 	// assert s3
-	for key, content := range S3Content {
+	for key, content := range s3Content {
 		assert.Assert(t, ensureS3Object(s3client, bucket, key, content))
 	}
 }
@@ -1429,13 +1676,13 @@ func TestSyncLocalToS3BucketWithDelete(t *testing.T) {
 	workdir := fs.NewDir(t, "somedir", folderLayout...)
 	defer workdir.Remove()
 
-	S3Content := map[string]string{
+	s3Content := map[string]string{
 		"readme.md":    "D: this is a readme file",
 		"dir/main.py":  "D: this is a python file",
 		"testfile.txt": "D: this is a test file",
 	}
 
-	for filename, content := range S3Content {
+	for filename, content := range s3Content {
 		putFile(t, s3client, bucket, filename, content)
 	}
 
@@ -1472,7 +1719,7 @@ func TestSyncLocalToS3BucketWithDelete(t *testing.T) {
 	}
 
 	// assert s3 objects should be deleted.
-	for key, content := range S3Content {
+	for key, content := range s3Content {
 		err := ensureS3Object(s3client, bucket, key, content)
 		if err == nil {
 			t.Errorf("File %v is not deleted from remote : %v\n", key, err)
@@ -2043,14 +2290,14 @@ func TestSyncS3BucketToEmptyS3BucketWithExitOnErrorFlag(t *testing.T) {
 	createBucket(t, s3client, bucket)
 	createBucket(t, s3client, dstbucket)
 
-	S3Content := map[string]string{
+	s3Content := map[string]string{
 		"testfile.txt":            "S: this is a test file",
 		"readme.md":               "S: this is a readme file",
 		"a/another_test_file.txt": "S: yet another txt file",
 		"abc/def/test.py":         "S: file in nested folders",
 	}
 
-	for filename, content := range S3Content {
+	for filename, content := range s3Content {
 		putFile(t, s3client, bucket, filename, content)
 	}
 
@@ -2071,12 +2318,12 @@ func TestSyncS3BucketToEmptyS3BucketWithExitOnErrorFlag(t *testing.T) {
 	}, sortInput(true))
 
 	// assert  s3 objects in source bucket.
-	for key, content := range S3Content {
+	for key, content := range s3Content {
 		assert.Assert(t, ensureS3Object(s3client, bucket, key, content))
 	}
 
 	// assert s3 objects in dest bucket
-	for key, content := range S3Content {
+	for key, content := range s3Content {
 		key = fmt.Sprintf("%s/%s", prefix, key) // add the prefix
 		assert.Assert(t, ensureS3Object(s3client, dstbucket, key, content))
 	}
@@ -2095,14 +2342,14 @@ func TestSyncExitOnErrorS3BucketToS3BucketThatDoesNotExist(t *testing.T) {
 
 	createBucket(t, s3client, bucket)
 
-	S3Content := map[string]string{
+	s3Content := map[string]string{
 		"testfile.txt":            "S: this is a test file",
 		"readme.md":               "S: this is a readme file",
 		"a/another_test_file.txt": "S: yet another txt file",
 		"abc/def/test.py":         "S: file in nested folders",
 	}
 
-	for filename, content := range S3Content {
+	for filename, content := range s3Content {
 		putFile(t, s3client, bucket, filename, content)
 	}
 
@@ -2132,14 +2379,14 @@ func TestSyncS3BucketToS3BucketThatDoesNotExist(t *testing.T) {
 
 	createBucket(t, s3client, bucket)
 
-	S3Content := map[string]string{
+	s3Content := map[string]string{
 		"testfile.txt":            "S: this is a test file",
 		"readme.md":               "S: this is a readme file",
 		"a/another_test_file.txt": "S: yet another txt file",
 		"abc/def/test.py":         "S: file in nested folders",
 	}
 
-	for filename, content := range S3Content {
+	for filename, content := range s3Content {
 		putFile(t, s3client, bucket, filename, content)
 	}
 

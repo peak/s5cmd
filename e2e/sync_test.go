@@ -1397,7 +1397,7 @@ func TestSyncS3BucketToS3BucketIsStorageClassChangingWithDifferentSizeAndContent
 	}
 
 	// assert s3 objects in destination (file1 and file2 should be updated and file3 and file4 should be same as before)
-	assert.Assert(t, ensureS3Object(s3client, dstbucket, "testfile1.txt", "this is an updated test file", ensureStorageClass("STANDARD")))
+	assert.Assert(t, ensureS3Object(s3client, dstbucket, "testfile1.txt", "this is an updated test file"), ensureStorageClass("STANDARD"))
 	assert.Assert(t, ensureS3Object(s3client, dstbucket, "testfile2.txt", "this is an updated test file", ensureStorageClass("STANDARD")))
 	assert.Assert(t, ensureS3Object(s3client, dstbucket, "testfile3.txt", "this is a test file", ensureStorageClass("STANDARD")))
 	assert.Assert(t, ensureS3Object(s3client, dstbucket, "testfile4.txt", "this is a test file", ensureStorageClass("GLACIER")))
@@ -1456,8 +1456,8 @@ func TestSyncLocalFolderToS3BucketIsStorageClassChangingWithDifferentSizeAndCont
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 
 	// assert s3 objects in destination
-	assert.Assert(t, ensureS3Object(s3client, bucket, "testfile1.txt", "this is an updated test file"))
-	assert.Assert(t, ensureS3Object(s3client, bucket, "testfile2.txt", "this is an updated test file"))
+	assert.Assert(t, ensureS3Object(s3client, bucket, "testfile1.txt", "this is an updated test file"), ensureStorageClass("STANDARD"))
+	assert.Assert(t, ensureS3Object(s3client, bucket, "testfile2.txt", "this is an updated test file"), ensureStorageClass("STANDARD"))
 }
 
 // sync s3://destbucket/ dir (same objects, different size, different content, different or same storage class)

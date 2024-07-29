@@ -703,7 +703,12 @@ func ensureS3Object(
 	}
 
 	if opts.storageClass != nil {
-		if diff := cmp.Diff(opts.storageClass, output.StorageClass); diff != "" {
+		storageClassofOutput := aws.String("STANDARD")
+		if output.StorageClass != nil {
+			storageClassofOutput = output.StorageClass
+		}
+
+		if diff := cmp.Diff(opts.storageClass, storageClassofOutput); diff != "" {
 			return fmt.Errorf("storage-class of %v/%v: (-want +got):\n%v", bucket, key, diff)
 		}
 	}

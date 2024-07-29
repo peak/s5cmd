@@ -228,7 +228,7 @@ func TestCompletionFlag(t *testing.T) {
 			shell: "/bin/pwsh",
 		},
 		/*
-			Question marks and asterisk are thought to be wildcard (special charactes)
+			Question marks and asterisk are thought to be wildcard (special characters)
 			by the s5cmd so when they're given s5cmd's behaviour changes.
 
 			When asterisk is given s5cmd also matches the keys with literal '*' as well as

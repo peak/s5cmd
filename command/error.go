@@ -29,7 +29,7 @@ func printDebug(op string, err error, urls ...*url.URL) {
 
 // printError is the helper function to log error messages.
 func printError(command, op string, err error) {
-	// dont print cancelation errors
+	// dont print cancellation errors
 	if errorpkg.IsCancelation(err) {
 		return
 	}

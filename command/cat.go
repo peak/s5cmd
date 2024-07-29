@@ -28,6 +28,9 @@ Examples:
 
 	2. Print specific version of a remote object's content to stdout
 		 > s5cmd {{.HelpName}} --version-id VERSION_ID s3://bucket/prefix/object
+
+	3. Concatenate multiple objects matching a prefix or wildcard and print to stdout
+		 > s5cmd {{.HelpName}} "s3://bucket/prefix/*"
 `
 
 func NewCatCommand() *cli.Command {
@@ -111,18 +114,44 @@ func (c Cat) Run(ctx context.Context) error {
 		printError(c.fullCommand, c.op, err)
 		return err
 	}
+
+	if c.src.IsWildcard() || c.src.IsPrefix() || c.src.IsBucket() {
+		objectChan := client.List(ctx, c.src, false)
+		return c.processObjects(ctx, client, objectChan)
+	}
+
 	_, err = client.Stat(ctx, c.src)
 	if err != nil {
 		printError(c.fullCommand, c.op, err)
 		return err
 	}
-	buf := orderedwriter.New(os.Stdout)
-	_, err = client.Get(ctx, c.src, buf, c.concurrency, c.partSize)
-	if err != nil {
-		printError(c.fullCommand, c.op, err)
-		return err
+	return c.processSingleObject(ctx, client, c.src)
+}
+
+func (c Cat) processObjects(ctx context.Context, client *storage.S3, objectChan <-chan *storage.Object) error {
+	for obj := range objectChan {
+		if obj.Err != nil {
+			printError(c.fullCommand, c.op, obj.Err)
+			return obj.Err
+		}
+
+		if obj.Type.IsDir() {
+			continue
+		}
+
+		err := c.processSingleObject(ctx, client, obj.URL)
+		if err != nil {
+			printError(c.fullCommand, c.op, err)
+			return err
+		}
 	}
 	return nil
+}
+
+func (c Cat) processSingleObject(ctx context.Context, client *storage.S3, url *url.URL) error {
+	buf := orderedwriter.New(os.Stdout)
+	_, err := client.Get(ctx, url, buf, c.concurrency, c.partSize)
+	return err
 }
 
 func validateCatCommand(c *cli.Context) error {
@@ -140,16 +169,14 @@ func validateCatCommand(c *cli.Context) error {
 		return fmt.Errorf("source must be a remote object")
 	}
 
-	if src.IsBucket() || src.IsPrefix() {
-		return fmt.Errorf("remote source must be an object")
-	}
-
-	if src.IsWildcard() {
-		return fmt.Errorf("remote source %q can not contain glob characters", src)
-	}
-
 	if err := checkVersioningWithGoogleEndpoint(c); err != nil {
 		return err
+	}
+
+	if src.IsWildcard() || src.IsPrefix() || src.IsBucket() {
+		if c.String("version-id") != "" {
+			return fmt.Errorf("wildcard/prefix operations are disabled with --version-id flag")
+		}
 	}
 
 	return nil

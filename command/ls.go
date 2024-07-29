@@ -254,7 +254,7 @@ func (l ListMessage) String() string {
 		return l.Object.URL.String()
 	}
 	var etag string
-	// date and storage fiels
+	// date and storage fields
 	var listFormat = "%19s %2s"
 
 	// align etag

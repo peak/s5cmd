@@ -18,11 +18,8 @@ import (
 	"github.com/peak/s5cmd/v2/strutil"
 )
 
-var (
-
-	// ErrNoObjectFound indicates there are no objects found from a given directory.
-	ErrNoObjectFound = fmt.Errorf("no object found")
-)
+// ErrNoObjectFound indicates there are no objects found from a given directory.
+var ErrNoObjectFound = fmt.Errorf("no object found")
 
 // ErrGivenObjectNotFound indicates a specified object is not found.
 type ErrGivenObjectNotFound struct {

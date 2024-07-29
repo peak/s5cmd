@@ -1286,7 +1286,7 @@ func (sc *SessionCache) newSession(ctx context.Context, opts Options) (*session.
 			WithLogger(sdkLogger{})
 	}
 
-	awsCfg.Retryer = newCustomRetryer(opts.MaxRetries)
+	awsCfg.Retryer = newCustomRetryer(sc, opts.MaxRetries)
 
 	useSharedConfig := session.SharedConfigEnable
 	{
@@ -1327,7 +1327,7 @@ func (sc *SessionCache) newSession(ctx context.Context, opts Options) (*session.
 	return sess, nil
 }
 
-func (sc *SessionCache) clear() {
+func (sc *SessionCache) Clear() {
 	sc.Lock()
 	defer sc.Unlock()
 	sc.sessions = map[Options]*session.Session{}
@@ -1375,10 +1375,12 @@ func setSessionRegion(ctx context.Context, sess *session.Session, bucket string)
 // error codes. Such as, retry for S3 InternalError code.
 type customRetryer struct {
 	client.DefaultRetryer
+	sc *SessionCache
 }
 
-func newCustomRetryer(maxRetries int) *customRetryer {
+func newCustomRetryer(sc *SessionCache, maxRetries int) *customRetryer {
 	return &customRetryer{
+		sc: sc,
 		DefaultRetryer: client.DefaultRetryer{
 			NumMaxRetries: maxRetries,
 		},
@@ -1388,13 +1390,22 @@ func newCustomRetryer(maxRetries int) *customRetryer {
 // ShouldRetry overrides SDK's built in DefaultRetryer, adding custom retry
 // logics that are not included in the SDK.
 func (c *customRetryer) ShouldRetry(req *request.Request) bool {
-	shouldRetry := errHasCode(req.Error, "InternalError") || errHasCode(req.Error, "RequestTimeTooSkewed") || errHasCode(req.Error, "SlowDown") || strings.Contains(req.Error.Error(), "connection reset") || strings.Contains(req.Error.Error(), "connection timed out")
+	shouldRetry := errHasCode(req.Error, "InternalError") || errHasCode(req.Error, "RequestTimeTooSkewed") || errHasCode(req.Error, "SlowDown") || strings.Contains(req.Error.Error(), "connection reset") || strings.Contains(req.Error.Error(), "connection timed out") || errHasCode(req.Error, "ExpiredToken") || errHasCode(req.Error, "ExpiredTokenException")
+
+	if errHasCode(req.Error, "ExpiredToken") || errHasCode(req.Error, "ExpiredTokenException") {
+		log.Debug(log.DebugMessage{
+			Err: "Clearing the token",
+		})
+
+		c.sc.Clear()
+	}
+
 	if !shouldRetry {
 		shouldRetry = c.DefaultRetryer.ShouldRetry(req)
 	}
 
 	// Errors related to tokens
-	if errHasCode(req.Error, "ExpiredToken") || errHasCode(req.Error, "ExpiredTokenException") || errHasCode(req.Error, "InvalidToken") {
+	if errHasCode(req.Error, "InvalidToken") {
 		return false
 	}
 

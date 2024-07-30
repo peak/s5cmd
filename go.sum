@@ -26,8 +26,6 @@ github.com/iancoleman/strcase v0.0.0-20191112232945-16388991a334 h1:VHgatEHNcBFE
 github.com/iancoleman/strcase v0.0.0-20191112232945-16388991a334/go.mod h1:SK73tn/9oHe+/Y0h39VT4UCxmurVJkR5NA7kMEAOgSE=
 github.com/igungor/gofakes3 v0.0.16 h1:aMipkwE9s2u4T6GfgIPZ8ngJcReYsJvGRm6c4/lLAfY=
 github.com/igungor/gofakes3 v0.0.16/go.mod h1:+rwAKRO9RTGCIeE8SRvRPLSj7PVhaMBLlm1zPXzu7Cs=
-github.com/igungor/gofakes3 v0.0.17 h1:ZIdB79fh9/SxIG6RHMNTm9+YHA3bX5nxT4/l763eRaE=
-github.com/igungor/gofakes3 v0.0.17/go.mod h1:+rwAKRO9RTGCIeE8SRvRPLSj7PVhaMBLlm1zPXzu7Cs=
 github.com/igungor/gofakes3 v0.0.18 h1:LTJV11PrTJ6DGEiCEKXh75wFZtwv773Nof0FB9Ef5qc=
 github.com/igungor/gofakes3 v0.0.18/go.mod h1:+rwAKRO9RTGCIeE8SRvRPLSj7PVhaMBLlm1zPXzu7Cs=
 github.com/jmespath/go-jmespath v0.4.0 h1:BEgLn5cpjn8UN1mAw4NjwDrS35OdebyEtFe+9YPoQUg=

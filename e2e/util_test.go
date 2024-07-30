@@ -200,7 +200,7 @@ func workdir(t *testing.T) (*fs.Dir, string) {
 		prefix = strings.ReplaceAll(prefix, ":", "-")
 	}
 
-	testdir := fs.NewDir(t, prefix, fs.WithDir("workdir", fs.WithMode(0o700)))
+	testdir := fs.NewDir(t, prefix, fs.WithDir("workdir", fs.WithMode(0700)))
 	workdir := testdir.Join("workdir")
 	return testdir, workdir
 }
@@ -415,7 +415,7 @@ func goBuildS5cmd() func() {
 		panic(fmt.Sprintf("failed to build executable: %s", err))
 	}
 
-	if err := os.Chmod(s5cmdPath, 0o755); err != nil {
+	if err := os.Chmod(s5cmdPath, 0755); err != nil {
 		panic(err)
 	}
 
@@ -450,7 +450,7 @@ func createBucket(t *testing.T, client *s3.S3, bucket string) {
 				Bucket: aws.String(bucket),
 			}
 
-			// remove objects first.
+			//remove objects first.
 			// delete each object individually if using GCS.
 			if isGoogleEndpointFromEnv(t) {
 				err = client.ListObjectsPages(&listInput, func(p *s3.ListObjectsOutput, lastPage bool) bool {
@@ -541,6 +541,7 @@ func createBucket(t *testing.T, client *s3.S3, bucket string) {
 			}
 		}
 	})
+
 }
 
 func isGoogleEndpointFromEnv(t *testing.T) bool {
@@ -615,7 +616,6 @@ func ensureContentEncoding(contentEncoding string) ensureOption {
 		opts.contentEncoding = &contentEncoding
 	}
 }
-
 func ensureEncryptionMethod(encryptionMethod string) ensureOption {
 	return func(opts *ensureOpts) {
 		opts.encryptionMethod = &encryptionMethod
@@ -627,7 +627,6 @@ func ensureEncryptionKeyID(encryptionKeyID string) ensureOption {
 		opts.encryptionKeyID = &encryptionKeyID
 	}
 }
-
 func ensureArbitraryMetadata(metadata map[string]*string) ensureOption {
 	return func(opts *ensureOpts) {
 		opts.metadata = metadata
@@ -700,6 +699,7 @@ func ensureS3Object(
 		if diff := cmp.Diff(opts.contentDisposition, output.ContentDisposition); diff != "" {
 			return fmt.Errorf("content-disposition of %v/%v: (-want +got):\n%v", bucket, key, diff)
 		}
+
 	}
 
 	if opts.storageClass != nil {

@@ -138,7 +138,6 @@ func TestSizeOnlyStrategy_ShouldSync(t *testing.T) {
 			expected: errorpkg.ErrObjectSizesMatch,
 		},
 	}
-
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			strategy := &SizeOnlyStrategy{}

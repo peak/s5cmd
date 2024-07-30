@@ -26,7 +26,6 @@ func (s *SizeOnlyStrategy) ShouldSync(srcObj, dstObj *storage.Object) error {
 	if srcObj.Size == dstObj.Size {
 		return errorpkg.ErrObjectSizesMatch
 	}
-
 	return nil
 }
 

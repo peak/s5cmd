@@ -217,7 +217,7 @@ func (db *Backend) GetObject(bucketName, objectName string, rangeRequest *gofake
 	return result, nil
 }
 
-func (db *Backend) PutObject(bucketName, objectName string, meta map[string]string, input io.Reader, size int64) (result gofakes3.PutObjectResult, err error) {
+func (db *Backend) PutObject(bucketName, objectName string, meta map[string]string, input io.Reader, size int64, storageClass gofakes3.StorageClass) (result gofakes3.PutObjectResult, err error) {
 	// No need to lock the backend while we read the data into memory; it holds
 	// the write lock open unnecessarily, and could be blocked for an unreasonably
 	// long time by a connection timing out:

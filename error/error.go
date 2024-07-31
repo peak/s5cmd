@@ -79,13 +79,16 @@ var (
 
 	// ErrObjectIsNewerAndSizesMatch indicates the specified object is newer or same age and sizes of objects match.
 	ErrObjectIsNewerAndSizesMatch = fmt.Errorf("%v and %v", ErrObjectIsNewer, ErrObjectSizesMatch)
+
+	// ErrObjectIsGlacier indicates the object is in Glacier storage class.
+	ErrorObjectIsGlacier = fmt.Errorf("object is in Glacier storage class")
 )
 
 // IsWarning checks if given error is either ErrObjectExists,
 // ErrObjectIsNewer or ErrObjectSizesMatch.
 func IsWarning(err error) bool {
 	switch err {
-	case ErrObjectExists, ErrObjectIsNewer, ErrObjectSizesMatch, ErrObjectIsNewerAndSizesMatch:
+	case ErrObjectExists, ErrObjectIsNewer, ErrObjectSizesMatch, ErrObjectIsNewerAndSizesMatch, ErrorObjectIsGlacier:
 		return true
 	}
 

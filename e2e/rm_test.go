@@ -1339,6 +1339,8 @@ func TestRemoveS3ObjectsWithIncludeFilter(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
+	fmt.Println(result.Stdout())
+
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: equals("rm %v/%s", srcpath, files[0]),
 		1: equals("rm %v/%s", srcpath, files[1]),

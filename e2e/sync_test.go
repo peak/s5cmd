@@ -1283,7 +1283,15 @@ func TestSyncLocalFolderToS3BucketIsStorageClassChanging(t *testing.T) {
 // sync s3://srcbucket/ dir (same objects, same size, same content, different or same storage class)
 func TestSyncS3BucketToLocalFolderIsStorageClassChanging(t *testing.T) {
 	t.Parallel()
-	s3client, s5cmd := setup(t)
+	now := time.Now()
+	timeSource := newFixedTimeSource(now)
+	s3client, s5cmd := setup(t, withTimeSource(timeSource))
+
+	// local files are 1 minute newer than the remotes
+	timestamp := fs.WithTimestamps(
+		now.Add(time.Minute),
+		now.Add(time.Minute),
+	)
 
 	bucket := s3BucketFromTestName(t)
 	createBucket(t, s3client, bucket)
@@ -1313,8 +1321,8 @@ func TestSyncS3BucketToLocalFolderIsStorageClassChanging(t *testing.T) {
 	}
 
 	folderLayout := []fs.PathOp{
-		fs.WithFile("testfile1.txt", "this is a test file"),
-		fs.WithFile("testfile2.txt", "this is a test file"),
+		fs.WithFile("testfile1.txt", "this is a test file", timestamp),
+		fs.WithFile("testfile2.txt", "this is a test file", timestamp),
 	}
 
 	// put objects in local folder
@@ -1334,8 +1342,13 @@ func TestSyncS3BucketToLocalFolderIsStorageClassChanging(t *testing.T) {
 	result.Assert(t, icmd.Success)
 	assertLines(t, result.Stdout(), map[int]compareFunc{})
 
+	expectedFiles := []fs.PathOp{
+		fs.WithFile("testfile1.txt", "this is a test file"),
+		fs.WithFile("testfile2.txt", "this is a test file"),
+	}
+
 	// expected folder structure without the timestamp.
-	expected := fs.Expected(t, folderLayout...)
+	expected := fs.Expected(t, expectedFiles...)
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
 
 	// assert s3 objects in destination

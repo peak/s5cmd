@@ -119,6 +119,23 @@ type Object struct {
 	VersionID string `json:"version_id,omitempty"`
 }
 
+type UploadObject struct {
+	URL       *url.URL   `json:"key,omitempty"`
+	Initiated *time.Time `json:"initiated,omitempty"`
+	UploadId  string     `json:"uploadID,omitempty"`
+
+	StorageClass StorageClass `json:"storage_class,omitempty"`
+	Err          error        `json:"error,omitempty"`
+}
+
+type MPPartObject struct {
+	ModTime    *time.Time `json:"last_modified,omitempty"`
+	PartNumber int64      `json:"part_number,omitempty"`
+	Size       int64      `json:"size,omitempty"`
+	ETag       string     `json:"etag,omitempty"`
+	Err        error      `json:"error,omitempty"`
+}
+
 // String returns the string representation of Object.
 func (o *Object) String() string {
 	return o.URL.String()

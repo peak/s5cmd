@@ -565,7 +565,9 @@ func (c Copy) Run(ctx context.Context) error {
 	waiter.Wait()
 	<-errDoneCh
 
-	return multierror.Append(merrorWaiter, merrorObjects).ErrorOrNil()
+	err = multierror.Append(merrorWaiter, merrorObjects).ErrorOrNil()
+
+	return handleMultipartError(c.fullCommand, c.op, err)
 }
 
 func (c Copy) prepareCopyTask(

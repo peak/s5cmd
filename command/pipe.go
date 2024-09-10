@@ -241,7 +241,7 @@ func (c Pipe) Run(ctx context.Context) error {
 
 	err = client.Put(ctx, &stdin{file: os.Stdin}, c.dst, metadata, c.concurrency, c.partSize)
 	if err != nil {
-		return err
+		return handleMultipartError(c.fullCommand, c.op, err)
 	}
 
 	msg := log.InfoMessage{

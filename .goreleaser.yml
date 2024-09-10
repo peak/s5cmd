@@ -4,7 +4,7 @@ before:
 builds:
   -
     binary: s5cmd
-    ldflags: -s -w -X github.com/peak/s5cmd/v2/version.Version={{.Tag}} -X github.com/peak/s5cmd/v2/version.GitCommit={{ .ShortCommit }}
+    ldflags: -s -w -X github.com/voyvodov/s5cmd/v2/version.Version={{.Tag}} -X github.com/voyvodov/s5cmd/v2/version.GitCommit={{ .ShortCommit }}
     env:
       - CGO_ENABLED=0
     goos:
@@ -48,22 +48,10 @@ changelog:
       - Merge pull request
       - Merge branch
 
-brews:
-  - tap:
-      owner: peak
-      name: homebrew-tap
-    folder: Formula
-    name: s5cmd
-    description: Parallel S3 and local filesystem execution tool
-    homepage: https://github.com/peak/s5cmd
-    license: MIT
-    test: |
-      system "#{bin}/s5cmd version"
-
 nfpms:
   -
     vendor: Peak
-    homepage: https://github.com/peak/s5cmd
+    homepage: https://github.com/voyvodov/s5cmd
     license: MIT
     maintainer: Peak <packaging@peak.com>
     description: |-

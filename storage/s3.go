@@ -1049,7 +1049,7 @@ func (s *S3) doDelete(ctx context.Context, chunk chunk, resultch chan *Object) {
 
 		resultch <- &Object{
 			URL: url,
-			Err: fmt.Errorf(aws.StringValue(e.Message)),
+			Err: fmt.Errorf("%v", aws.StringValue(e.Message)),
 		}
 	}
 }

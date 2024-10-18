@@ -400,7 +400,7 @@ cp s3://bucket/prefix/index.html index.html
 cp s3://bucket/prefix/test.html test.html
 ```
 
-We don't support syncing between 2 storage endpoints out of the box. You may use s5cmd sync for this:
+We don't support syncing between 2 storage endpoints out of the box. The current solution is to sync remote objects to your local disk first, then sync your local files to the target remote storage. For example, if you'd like to sync S3 and Google Cloud Storage:
 
 ```
 s5cmd sync 's3://s3-bucket/path/*' download_folder/

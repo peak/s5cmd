@@ -204,10 +204,13 @@ func Commands() []*cli.Command {
 		NewSelectCommand(),
 		NewSizeCommand(),
 		NewCatCommand(),
+		NewPipeCommand(),
 		NewRunCommand(),
 		NewSyncCommand(),
 		NewVersionCommand(),
 		NewBucketVersionCommand(),
+		NewPresignCommand(),
+		NewHeadCommand(),
 	}
 }
 

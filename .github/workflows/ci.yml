@@ -1,13 +1,18 @@
 name: ci
-on: [push, pull_request]
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
 jobs:
   build:
     strategy:
       matrix:
         go-version:
+          - 1.20.x
           - 1.19.x
-          - 1.18.x
-          - 1.17.x
         os:
           - macos
           - ubuntu
@@ -27,9 +32,8 @@ jobs:
     strategy:
       matrix:
         go-version:
+          - 1.20.x
           - 1.19.x
-          - 1.18.x
-          - 1.17.x
         os:
           - macos
           - ubuntu
@@ -37,6 +41,19 @@ jobs:
 
     name: test (${{ matrix.os }}/go-${{ matrix.go-version }})
     runs-on: ${{ matrix.os }}-latest
+    services:
+      minio:
+        image: ${{ (matrix.os == 'ubuntu') && 'bitnami/minio:2023.7.18' || ''}}
+        ports:
+          - 45677:9000
+        options: >-
+          --health-cmd "curl -I http://localhost:9000/minio/health/live -s"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        env:
+          MINIO_ROOT_USER: minioadmin
+          MINIO_ROOT_PASSWORD: minioadmin
     steps:
     - uses: actions/checkout@v2
     - uses: actions/setup-go@v2
@@ -44,12 +61,13 @@ jobs:
         go-version: ${{ matrix.go-version }}
 
     - run: make test
-
+      env:
+        S5CMD_TEST_ENDPOINT_URL: ${{ (matrix.os == 'ubuntu') && 'http://localhost:45677' || '' }}
   qa:
     strategy:
       matrix:
         go-version:
-          - 1.19.x
+          - 1.20.x
         os:
           - ubuntu
 
@@ -60,11 +78,5 @@ jobs:
       with:
         go-version: ${{ matrix.go-version }}
 
-    - run: make check-fmt
-    - run: go install github.com/golang/mock/mockgen@v1.6.0
-    - run: make check-codegen
-    - run: make vet
-    - run: go install honnef.co/go/tools/cmd/staticcheck@v0.3.0
-    - run: make staticcheck
-    - run: go install mvdan.cc/unparam@latest
-    - run: make unparam
+    - run: make bootstrap
+    - run: make check

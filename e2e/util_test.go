@@ -48,7 +48,7 @@ const (
 	testDisableRaceFlagVal       = "1"
 	s5cmdTestIDEnv               = "S5CMD_ACCESS_KEY_ID"
 	s5cmdTestSecretEnv           = "S5CMD_SECRET_ACCESS_KEY"
-	s5cmdTestEndpointEnv         = "S5CMD_ENDPOINT_URL"
+	s5cmdTestEndpointEnv         = "S5CMD_TEST_ENDPOINT_URL"
 	s5cmdTestIsVirtualHost       = "S5CMD_IS_VIRTUAL_HOST"
 	s5cmdTestRegionEnv           = "S5CMD_REGION"
 	s5cmdTestIKnowWhatImDoingEnv = "S5CMD_I_KNOW_WHAT_IM_DOING"
@@ -70,13 +70,12 @@ var (
 	s5cmdPath        string
 )
 
-func init() {
-	rand.Seed(time.Now().UnixNano())
-}
-
 type setupOpts struct {
 	s3backend   string
 	endpointURL string
+	accessKeyID string
+	secretKey   string
+	region      string
 	timeSource  gofakes3.TimeSource
 	enableProxy bool
 }
@@ -95,6 +94,24 @@ func withEndpointURL(url string) option {
 	}
 }
 
+func withAccessKeyID(key string) option {
+	return func(opts *setupOpts) {
+		opts.accessKeyID = key
+	}
+}
+
+func withSecretKey(key string) option {
+	return func(opts *setupOpts) {
+		opts.secretKey = key
+	}
+}
+
+func withRegion(region string) option {
+	return func(opts *setupOpts) {
+		opts.region = region
+	}
+}
+
 func withTimeSource(timeSource gofakes3.TimeSource) option {
 	return func(opts *setupOpts) {
 		opts.timeSource = timeSource
@@ -107,6 +124,12 @@ func withProxy() option {
 	}
 }
 
+type credentialCfg struct {
+	AccessKeyID string
+	SecretKey   string
+	Region      string
+}
+
 func setup(t *testing.T, options ...option) (*s3.S3, func(...string) icmd.Cmd) {
 	t.Helper()
 
@@ -117,7 +140,7 @@ func setup(t *testing.T, options ...option) (*s3.S3, func(...string) icmd.Cmd) {
 	for _, option := range options {
 		option(opts)
 	}
-	testdir, workdir := workdir(t, opts)
+	testdir, workdir := workdir(t)
 
 	endpoint := ""
 
@@ -133,15 +156,40 @@ func setup(t *testing.T, options ...option) (*s3.S3, func(...string) icmd.Cmd) {
 	if opts.endpointURL != "" {
 		endpoint = opts.endpointURL
 	}
+	secretKey := ""
+	if opts.secretKey != "" {
+		secretKey = opts.secretKey
+	}
+
+	accessKeyID := ""
+	if opts.accessKeyID != "" {
+		accessKeyID = opts.accessKeyID
+	}
+
+	region := ""
+	if opts.region != "" {
+		region = opts.accessKeyID
+	}
+
+	var cfg *credentialCfg
+
+	if region != "" || accessKeyID != "" || secretKey != "" {
+		cfg = &credentialCfg{
+			AccessKeyID: accessKeyID,
+			SecretKey:   secretKey,
+			Region:      region,
+		}
+	}
+
 	client := s3client(t, storage.Options{
 		Endpoint:    endpoint,
 		NoVerifySSL: true,
-	})
+	}, cfg)
 
 	return client, s5cmd(workdir, endpoint)
 }
 
-func workdir(t *testing.T, opts *setupOpts) (*fs.Dir, string) {
+func workdir(t *testing.T) (*fs.Dir, string) {
 	// testdir := fs.NewDir() tries to create a new directory which has a
 	// prefix = [test function name][operation name]
 	// e.g., prefix' = "TestCopySingleS3ObjectToLocal/cp_s3://bucket/object_file"
@@ -171,7 +219,7 @@ func server(t *testing.T, testdir *fs.Dir, opts *setupOpts) string {
 	return endpoint
 }
 
-func s3client(t *testing.T, options storage.Options) *s3.S3 {
+func s3client(t *testing.T, options storage.Options, creds *credentialCfg) *s3.S3 {
 	t.Helper()
 
 	awsLogLevel := aws.LogOff
@@ -180,12 +228,20 @@ func s3client(t *testing.T, options storage.Options) *s3.S3 {
 	}
 	s3Config := aws.NewConfig()
 
-	id := defaultAccessKeyID
-	key := defaultSecretAccessKey
-	endpoint := options.Endpoint
-	region := endpoints.UsEast1RegionID
-	isVirtualHost := false
+	var id, key, region string
 
+	if creds != nil {
+		id = creds.AccessKeyID
+		key = creds.SecretKey
+		region = creds.Region
+	} else {
+		id = defaultAccessKeyID
+		key = defaultSecretAccessKey
+		region = endpoints.UsEast1RegionID
+	}
+
+	endpoint := options.Endpoint
+	isVirtualHost := false
 	// get environment variables and use external endpoint url.
 	// this can be used to test s3 sources such as GCS, amazon, wasabi etc.
 	if isEndpointFromEnv() {
@@ -373,6 +429,7 @@ func createBucket(t *testing.T, client *s3.S3, bucket string) {
 
 	input := &s3.CreateBucketInput{
 		Bucket: aws.String(bucket),
+		ACL:    aws.String(s3.BucketCannedACLPublicRead),
 	}
 
 	_, err := client.CreateBucket(input)
@@ -511,11 +568,36 @@ func setBucketVersioning(t *testing.T, s3client *s3.S3, bucket string, versionin
 var errS3NoSuchKey = fmt.Errorf("s3: no such key")
 
 type ensureOpts struct {
-	contentType  *string
-	storageClass *string
+	cacheControl       *string
+	expires            *string
+	storageClass       *string
+	contentType        *string
+	contentDisposition *string
+	contentEncoding    *string
+	encryptionMethod   *string
+	encryptionKeyID    *string
+	metadata           map[string]*string
 }
 
 type ensureOption func(*ensureOpts)
+
+func ensureCacheControl(cacheControl string) ensureOption {
+	return func(opts *ensureOpts) {
+		opts.cacheControl = &cacheControl
+	}
+}
+
+func ensureExpires(expires string) ensureOption {
+	return func(opts *ensureOpts) {
+		opts.expires = &expires
+	}
+}
+
+func ensureStorageClass(expected string) ensureOption {
+	return func(opts *ensureOpts) {
+		opts.storageClass = &expected
+	}
+}
 
 func ensureContentType(contentType string) ensureOption {
 	return func(opts *ensureOpts) {
@@ -523,9 +605,31 @@ func ensureContentType(contentType string) ensureOption {
 	}
 }
 
-func ensureStorageClass(expected string) ensureOption {
+func ensureContentDisposition(contentDisposition string) ensureOption {
 	return func(opts *ensureOpts) {
-		opts.storageClass = &expected
+		opts.contentDisposition = &contentDisposition
+	}
+}
+
+func ensureContentEncoding(contentEncoding string) ensureOption {
+	return func(opts *ensureOpts) {
+		opts.contentEncoding = &contentEncoding
+	}
+}
+func ensureEncryptionMethod(encryptionMethod string) ensureOption {
+	return func(opts *ensureOpts) {
+		opts.encryptionMethod = &encryptionMethod
+	}
+}
+
+func ensureEncryptionKeyID(encryptionKeyID string) ensureOption {
+	return func(opts *ensureOpts) {
+		opts.encryptionKeyID = &encryptionKeyID
+	}
+}
+func ensureArbitraryMetadata(metadata map[string]*string) ensureOption {
+	return func(opts *ensureOpts) {
+		opts.metadata = metadata
 	}
 }
 
@@ -567,10 +671,35 @@ func ensureS3Object(
 		return fmt.Errorf("s3 %v/%v: (-want +got):\n%v", bucket, key, diff)
 	}
 
+	if opts.cacheControl != nil {
+		if diff := cmp.Diff(opts.cacheControl, output.CacheControl); diff != "" {
+			return fmt.Errorf("cache-control of %v/%v: (-want +got):\n%v", bucket, key, diff)
+		}
+	}
+
+	if opts.expires != nil {
+		if diff := cmp.Diff(opts.expires, output.Expires); diff != "" {
+			return fmt.Errorf("expires of %v/%v: (-want +got):\n%v", bucket, key, diff)
+		}
+	}
+
+	if opts.contentEncoding != nil {
+		if diff := cmp.Diff(opts.contentEncoding, output.ContentEncoding); diff != "" {
+			return fmt.Errorf("content-encoding of %v/%v: (-want +got):\n%v", bucket, key, diff)
+		}
+	}
+
 	if opts.contentType != nil {
 		if diff := cmp.Diff(opts.contentType, output.ContentType); diff != "" {
 			return fmt.Errorf("content-type of %v/%v: (-want +got):\n%v", bucket, key, diff)
 		}
+	}
+
+	if opts.contentDisposition != nil {
+		if diff := cmp.Diff(opts.contentDisposition, output.ContentDisposition); diff != "" {
+			return fmt.Errorf("content-disposition of %v/%v: (-want +got):\n%v", bucket, key, diff)
+		}
+
 	}
 
 	if opts.storageClass != nil {
@@ -579,17 +708,52 @@ func ensureS3Object(
 		}
 	}
 
+	if opts.encryptionMethod != nil {
+		if diff := cmp.Diff(opts.encryptionMethod, output.ServerSideEncryption); diff != "" {
+			return fmt.Errorf("encryption-method of %v/%v: (-want +got):\n%v", bucket, key, diff)
+		}
+	}
+
+	if opts.encryptionKeyID != nil {
+		if diff := cmp.Diff(opts.encryptionKeyID, output.SSEKMSKeyId); diff != "" {
+			return fmt.Errorf("encryption-key-id of %v/%v: (-want +got):\n%v", bucket, key, diff)
+		}
+	}
+
+	if opts.metadata != nil {
+		for mkey := range opts.metadata {
+			if opts.metadata[mkey] == nil || output.Metadata[mkey] == nil {
+				return fmt.Errorf("check the assertion keys of %v/%v key:%v\n", bucket, key, mkey)
+			}
+			if diff := cmp.Diff(*opts.metadata[mkey], *output.Metadata[mkey]); diff != "" {
+				return fmt.Errorf("arbitrary metadata of %v/%v: (-want +got):\n%v", bucket, key, diff)
+			}
+		}
+	}
 	return nil
 }
 
-func putFile(t *testing.T, client *s3.S3, bucket string, filename string, content string) {
-	t.Helper()
+type putOption func(*s3.PutObjectInput)
 
-	_, err := client.PutObject(&s3.PutObjectInput{
+func putArbitraryMetadata(metadata map[string]*string) putOption {
+	return func(opts *s3.PutObjectInput) {
+		opts.Metadata = metadata
+	}
+}
+
+func putFile(t *testing.T, client *s3.S3, bucket string, filename string, content string, opts ...putOption) {
+	t.Helper()
+	input := &s3.PutObjectInput{
 		Body:   strings.NewReader(content),
 		Bucket: aws.String(bucket),
 		Key:    aws.String(filename),
-	})
+	}
+
+	for _, opt := range opts {
+		opt(input)
+	}
+
+	_, err := client.PutObject(input)
 	if err != nil {
 		t.Fatal(err)
 	}

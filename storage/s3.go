@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/tls"
+	"encoding/csv"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -158,7 +159,7 @@ func (s *S3) List(ctx context.Context, url *url.URL, _ bool) <-chan *Object {
 	if url.VersionID != "" || url.AllVersions {
 		return s.listObjectVersions(ctx, url)
 	}
-	if IsGoogleEndpoint(s.endpointURL) || s.useListObjectsV1 {
+	if s.useListObjectsV1 {
 		return s.listObjects(ctx, url)
 	}
 
@@ -281,13 +282,12 @@ func (s *S3) listObjectVersions(ctx context.Context, url *url.URL) <-chan *Objec
 
 				return !lastPage
 			})
-
 		if err != nil {
 			objCh <- &Object{Err: err}
 			return
 		}
 
-		if !objectFound {
+		if !objectFound && !url.IsBucket() {
 			objCh <- &Object{Err: ErrNoObjectFound}
 		}
 	}()
@@ -371,13 +371,12 @@ func (s *S3) listObjectsV2(ctx context.Context, url *url.URL) <-chan *Object {
 
 			return !lastPage
 		})
-
 		if err != nil {
 			objCh <- &Object{Err: err}
 			return
 		}
 
-		if !objectFound {
+		if !objectFound && !url.IsBucket() {
 			objCh <- &Object{Err: ErrNoObjectFound}
 		}
 	}()
@@ -463,13 +462,12 @@ func (s *S3) listObjects(ctx context.Context, url *url.URL) <-chan *Object {
 
 			return !lastPage
 		})
-
 		if err != nil {
 			objCh <- &Object{Err: err}
 			return
 		}
 
-		if !objectFound {
+		if !objectFound && !url.IsBucket() {
 			objCh <- &Object{Err: ErrNoObjectFound}
 		}
 	}()
@@ -502,37 +500,68 @@ func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata Metadata) err
 		input.CopySource = aws.String(copySource + "?versionId=" + from.VersionID)
 	}
 
-	storageClass := metadata.StorageClass()
+	storageClass := metadata.StorageClass
 	if storageClass != "" {
 		input.StorageClass = aws.String(storageClass)
 	}
 
-	sseEncryption := metadata.SSE()
-	if sseEncryption != "" {
-		input.ServerSideEncryption = aws.String(sseEncryption)
-		sseKmsKeyID := metadata.SSEKeyID()
-		if sseKmsKeyID != "" {
-			input.SSEKMSKeyId = aws.String(sseKmsKeyID)
-		}
-	}
-
-	acl := metadata.ACL()
+	acl := metadata.ACL
 	if acl != "" {
 		input.ACL = aws.String(acl)
 	}
 
-	cacheControl := metadata.CacheControl()
+	cacheControl := metadata.CacheControl
 	if cacheControl != "" {
 		input.CacheControl = aws.String(cacheControl)
 	}
 
-	expires := metadata.Expires()
+	expires := metadata.Expires
 	if expires != "" {
 		t, err := time.Parse(time.RFC3339, expires)
 		if err != nil {
 			return err
 		}
 		input.Expires = aws.Time(t)
+	}
+
+	sseEncryption := metadata.EncryptionMethod
+	if sseEncryption != "" {
+		input.ServerSideEncryption = aws.String(sseEncryption)
+		sseKmsKeyID := metadata.EncryptionKeyID
+		if sseKmsKeyID != "" {
+			input.SSEKMSKeyId = aws.String(sseKmsKeyID)
+		}
+	}
+
+	contentEncoding := metadata.ContentEncoding
+	if contentEncoding != "" {
+		input.ContentEncoding = aws.String(contentEncoding)
+	}
+
+	contentDisposition := metadata.ContentDisposition
+	if contentDisposition != "" {
+		input.ContentDisposition = aws.String(contentDisposition)
+	}
+
+	// add retry ID to the object metadata
+	if s.noSuchUploadRetryCount > 0 {
+		input.Metadata[metadataKeyRetryID] = generateRetryID()
+	}
+
+	if metadata.Directive != "" {
+		input.MetadataDirective = aws.String(metadata.Directive)
+	}
+
+	if metadata.ContentType != "" {
+		input.ContentType = aws.String(metadata.ContentType)
+	}
+
+	if len(metadata.UserDefined) != 0 {
+		m := make(map[string]*string)
+		for k, v := range metadata.UserDefined {
+			m[k] = aws.String(v)
+		}
+		input.Metadata = m
 	}
 
 	_, err := s.api.CopyObject(input)
@@ -551,11 +580,22 @@ func (s *S3) Read(ctx context.Context, src *url.URL) (io.ReadCloser, error) {
 	}
 
 	resp, err := s.api.GetObjectWithContext(ctx, input)
-
 	if err != nil {
 		return nil, err
 	}
 	return resp.Body, nil
+}
+
+func (s *S3) Presign(ctx context.Context, from *url.URL, expire time.Duration) (string, error) {
+	input := &s3.GetObjectInput{
+		Bucket:       aws.String(from.Bucket),
+		Key:          aws.String(from.Path),
+		RequestPayer: s.RequestPayer(),
+	}
+
+	req, _ := s.api.GetObjectRequest(input)
+
+	return req.Presign(expire)
 }
 
 // Get is a multipart download operation which downloads S3 objects into any
@@ -588,9 +628,78 @@ func (s *S3) Get(
 }
 
 type SelectQuery struct {
-	ExpressionType  string
-	Expression      string
-	CompressionType string
+	InputFormat           string
+	InputContentStructure string
+	FileHeaderInfo        string
+	OutputFormat          string
+	ExpressionType        string
+	Expression            string
+	CompressionType       string
+}
+
+type eventType string
+
+const (
+	jsonType    eventType = "json"
+	csvType     eventType = "csv"
+	parquetType eventType = "parquet"
+)
+
+func parseInputSerialization(e eventType, c string, delimiter string, headerInfo string) (*s3.InputSerialization, error) {
+	var s *s3.InputSerialization
+
+	switch e {
+	case jsonType:
+		s = &s3.InputSerialization{
+			JSON: &s3.JSONInput{
+				Type: aws.String(delimiter),
+			},
+		}
+		if c != "" {
+			s.CompressionType = aws.String(c)
+		}
+	case csvType:
+		s = &s3.InputSerialization{
+			CSV: &s3.CSVInput{
+				FieldDelimiter: aws.String(delimiter),
+				FileHeaderInfo: aws.String(headerInfo),
+			},
+		}
+		if c != "" {
+			s.CompressionType = aws.String(c)
+		}
+	case parquetType:
+		s = &s3.InputSerialization{
+			Parquet: &s3.ParquetInput{},
+		}
+	default:
+		return nil, fmt.Errorf("input format is not valid")
+	}
+
+	return s, nil
+}
+
+func parseOutputSerialization(e eventType, delimiter string, reader io.Reader) (*s3.OutputSerialization, EventStreamDecoder, error) {
+	var s *s3.OutputSerialization
+	var decoder EventStreamDecoder
+
+	switch e {
+	case jsonType:
+		s = &s3.OutputSerialization{
+			JSON: &s3.JSONOutput{},
+		}
+		decoder = NewJSONDecoder(reader)
+	case csvType:
+		s = &s3.OutputSerialization{
+			CSV: &s3.CSVOutput{
+				FieldDelimiter: aws.String(delimiter),
+			},
+		}
+		decoder = NewCsvDecoder(reader)
+	default:
+		return nil, nil, fmt.Errorf("output serialization is not valid")
+	}
+	return s, decoder, nil
 }
 
 func (s *S3) Select(ctx context.Context, url *url.URL, query *SelectQuery, resultCh chan<- json.RawMessage) error {
@@ -598,28 +707,51 @@ func (s *S3) Select(ctx context.Context, url *url.URL, query *SelectQuery, resul
 		return nil
 	}
 
+	var (
+		inputFormat  *s3.InputSerialization
+		outputFormat *s3.OutputSerialization
+		decoder      EventStreamDecoder
+	)
+	reader, writer := io.Pipe()
+
+	inputFormat, err := parseInputSerialization(
+		eventType(query.InputFormat),
+		query.CompressionType,
+		query.InputContentStructure,
+		query.FileHeaderInfo,
+	)
+	if err != nil {
+		return err
+	}
+
+	// set the delimiter to ','. Otherwise, delimiter is set to "lines" or "document"
+	// for json queries.
+	if query.InputFormat == string(jsonType) && query.OutputFormat == string(csvType) {
+		query.InputContentStructure = ","
+	}
+
+	outputFormat, decoder, err = parseOutputSerialization(
+		eventType(query.OutputFormat),
+		query.InputContentStructure,
+		reader,
+	)
+	if err != nil {
+		return err
+	}
+
 	input := &s3.SelectObjectContentInput{
-		Bucket:         aws.String(url.Bucket),
-		Key:            aws.String(url.Path),
-		ExpressionType: aws.String(query.ExpressionType),
-		Expression:     aws.String(query.Expression),
-		InputSerialization: &s3.InputSerialization{
-			CompressionType: aws.String(query.CompressionType),
-			JSON: &s3.JSONInput{
-				Type: aws.String("Lines"),
-			},
-		},
-		OutputSerialization: &s3.OutputSerialization{
-			JSON: &s3.JSONOutput{},
-		},
+		Bucket:              aws.String(url.Bucket),
+		Key:                 aws.String(url.Path),
+		ExpressionType:      aws.String(query.ExpressionType),
+		Expression:          aws.String(query.Expression),
+		InputSerialization:  inputFormat,
+		OutputSerialization: outputFormat,
 	}
 
 	resp, err := s.api.SelectObjectContentWithContext(ctx, input)
 	if err != nil {
 		return err
 	}
-
-	reader, writer := io.Pipe()
 
 	go func() {
 		defer writer.Close()
@@ -643,18 +775,15 @@ func (s *S3) Select(ctx context.Context, url *url.URL, query *SelectQuery, resul
 			}
 		}
 	}()
-
-	decoder := json.NewDecoder(reader)
 	for {
-		var record json.RawMessage
-		err := decoder.Decode(&record)
+		val, err := decoder.Decode()
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
 			return err
 		}
-		resultCh <- record
+		resultCh <- val
 	}
 
 	return resp.EventStream.Reader.Err()
@@ -674,7 +803,7 @@ func (s *S3) Put(
 		return nil
 	}
 
-	contentType := metadata.ContentType()
+	contentType := metadata.ContentType
 	if contentType == "" {
 		contentType = "application/octet-stream"
 	}
@@ -688,21 +817,22 @@ func (s *S3) Put(
 		RequestPayer: s.RequestPayer(),
 	}
 
-	storageClass := metadata.StorageClass()
+	storageClass := metadata.StorageClass
 	if storageClass != "" {
 		input.StorageClass = aws.String(storageClass)
 	}
-	acl := metadata.ACL()
+
+	acl := metadata.ACL
 	if acl != "" {
 		input.ACL = aws.String(acl)
 	}
 
-	cacheControl := metadata.CacheControl()
+	cacheControl := metadata.CacheControl
 	if cacheControl != "" {
 		input.CacheControl = aws.String(cacheControl)
 	}
 
-	expires := metadata.Expires()
+	expires := metadata.Expires
 	if expires != "" {
 		t, err := time.Parse(time.RFC3339, expires)
 		if err != nil {
@@ -711,23 +841,36 @@ func (s *S3) Put(
 		input.Expires = aws.Time(t)
 	}
 
-	sseEncryption := metadata.SSE()
+	sseEncryption := metadata.EncryptionMethod
 	if sseEncryption != "" {
 		input.ServerSideEncryption = aws.String(sseEncryption)
-		sseKmsKeyID := metadata.SSEKeyID()
+		sseKmsKeyID := metadata.EncryptionKeyID
 		if sseKmsKeyID != "" {
 			input.SSEKMSKeyId = aws.String(sseKmsKeyID)
 		}
 	}
 
-	contentEncoding := metadata.ContentEncoding()
+	contentEncoding := metadata.ContentEncoding
 	if contentEncoding != "" {
 		input.ContentEncoding = aws.String(contentEncoding)
+	}
+
+	contentDisposition := metadata.ContentDisposition
+	if contentDisposition != "" {
+		input.ContentDisposition = aws.String(contentDisposition)
 	}
 
 	// add retry ID to the object metadata
 	if s.noSuchUploadRetryCount > 0 {
 		input.Metadata[metadataKeyRetryID] = generateRetryID()
+	}
+
+	if len(metadata.UserDefined) != 0 {
+		m := make(map[string]*string)
+		for k, v := range metadata.UserDefined {
+			m[k] = aws.String(v)
+		}
+		input.Metadata = m
 	}
 
 	uploaderOptsFn := func(u *s3manager.Uploader) {
@@ -744,8 +887,8 @@ func (s *S3) Put(
 }
 
 func (s *S3) retryOnNoSuchUpload(ctx aws.Context, to *url.URL, input *s3manager.UploadInput,
-	err error, uploaderOpts ...func(*s3manager.Uploader)) error {
-
+	err error, uploaderOpts ...func(*s3manager.Uploader),
+) error {
 	var expectedRetryID string
 	if ID, ok := input.Metadata[metadataKeyRetryID]; ok {
 		expectedRetryID = *ID
@@ -920,7 +1063,7 @@ func (s *S3) MultiDelete(ctx context.Context, urlch <-chan *url.URL) <-chan *Obj
 	resultch := make(chan *Object)
 
 	go func() {
-		sem := make(chan bool, 10)
+		sem := make(chan struct{}, 10)
 		defer close(sem)
 		defer close(resultch)
 
@@ -931,7 +1074,7 @@ func (s *S3) MultiDelete(ctx context.Context, urlch <-chan *url.URL) <-chan *Obj
 			chunk := chunk
 
 			wg.Add(1)
-			sem <- true
+			sem <- struct{}{}
 
 			go func() {
 				defer wg.Done()
@@ -1016,7 +1159,56 @@ func (s *S3) GetBucketVersioning(ctx context.Context, bucket string) (string, er
 	}
 
 	return *output.Status, nil
+}
 
+func (s *S3) HeadBucket(ctx context.Context, url *url.URL) error {
+	_, err := s.api.HeadBucketWithContext(ctx, &s3.HeadBucketInput{
+		Bucket: aws.String(url.Bucket),
+	})
+	return err
+}
+
+func (s *S3) HeadObject(ctx context.Context, url *url.URL) (*Object, *Metadata, error) {
+	input := &s3.HeadObjectInput{
+		Bucket:       aws.String(url.Bucket),
+		Key:          aws.String(url.Path),
+		RequestPayer: s.RequestPayer(),
+	}
+
+	if url.VersionID != "" {
+		input.SetVersionId(url.VersionID)
+	}
+
+	output, err := s.api.HeadObjectWithContext(ctx, input)
+	if err != nil {
+		if errHasCode(err, "NotFound") {
+			return nil, nil, &ErrGivenObjectNotFound{ObjectAbsPath: url.Absolute()}
+		}
+		return nil, nil, err
+	}
+
+	// https://docs.aws.amazon.com/AmazonS3/latest/API/API_HeadObject.html#AmazonS3-HeadObject-response-header-StorageClass
+	// If the object's storage class is STANDARD, this header is not returned in the response.
+	storageClassStr := "STANDARD"
+	if output.StorageClass != nil {
+		storageClassStr = aws.StringValue(output.StorageClass)
+	}
+
+	obj := &Object{
+		URL:          url,
+		ModTime:      output.LastModified,
+		Etag:         strings.Trim(aws.StringValue(output.ETag), `"`),
+		Size:         aws.Int64Value(output.ContentLength),
+		StorageClass: StorageClass(storageClassStr),
+	}
+
+	metadata := &Metadata{
+		ContentType:      aws.StringValue(output.ContentType),
+		EncryptionMethod: aws.StringValue(output.ServerSideEncryption),
+		UserDefined:      aws.StringValueMap(output.Metadata),
+	}
+
+	return obj, metadata, nil
 }
 
 type sdkLogger struct{}
@@ -1255,7 +1447,6 @@ func errHasCode(err error, code string) bool {
 	}
 
 	return false
-
 }
 
 // IsCancelationError reports whether given error is a storage related
@@ -1268,4 +1459,61 @@ func IsCancelationError(err error) bool {
 func generateRetryID() *string {
 	num, _ := rand.Int(rand.Reader, big.NewInt(math.MaxInt64))
 	return aws.String(num.String())
+}
+
+// EventStreamDecoder decodes a s3.Event with
+// the given decoder.
+type EventStreamDecoder interface {
+	Decode() ([]byte, error)
+}
+
+type JSONDecoder struct {
+	decoder *json.Decoder
+}
+
+func NewJSONDecoder(reader io.Reader) EventStreamDecoder {
+	return &JSONDecoder{
+		decoder: json.NewDecoder(reader),
+	}
+}
+
+func (jd *JSONDecoder) Decode() ([]byte, error) {
+	var val json.RawMessage
+	err := jd.decoder.Decode(&val)
+	if err != nil {
+		return nil, err
+	}
+	return val, nil
+}
+
+type CsvDecoder struct {
+	decoder   *csv.Reader
+	delimiter string
+}
+
+func NewCsvDecoder(reader io.Reader) EventStreamDecoder {
+	csvDecoder := &CsvDecoder{
+		decoder:   csv.NewReader(reader),
+		delimiter: ",",
+	}
+	// returned values from AWS has double quotes in it
+	// so we enable lazy quotes
+	csvDecoder.decoder.LazyQuotes = true
+	return csvDecoder
+}
+
+func (cd *CsvDecoder) Decode() ([]byte, error) {
+	res, err := cd.decoder.Read()
+	if err != nil {
+		return nil, err
+	}
+
+	result := []byte{}
+	for i, str := range res {
+		if i != len(res)-1 {
+			str = fmt.Sprintf("%s%s", str, cd.delimiter)
+		}
+		result = append(result, []byte(str)...)
+	}
+	return result, nil
 }

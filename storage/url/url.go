@@ -77,8 +77,7 @@ func WithAllVersions(isAllVersions bool) Option {
 
 // New creates a new URL from given path string.
 func New(s string, opts ...Option) (*URL, error) {
-	// TODO Change strCut to strings.Cut when minimum required Go version is 1.18
-	scheme, rest, isFound := strCut(s, "://")
+	scheme, rest, isFound := strings.Cut(s, "://")
 	if !isFound {
 		url := &URL{
 			Type:   localObject,
@@ -135,17 +134,6 @@ func New(s string, opts ...Option) (*URL, error) {
 		return nil, err
 	}
 	return url, nil
-}
-
-// strCut slices s around the first instance of sep,
-// returning the text before and after sep.
-// The found result reports whether sep appears in s.
-// If sep does not appear in s, cut returns s, "", false.
-func strCut(s string, sep string) (before string, after string, isFound bool) {
-	if i := strings.Index(s, sep); i >= 0 {
-		return s[:i], s[i+len(sep):], true
-	}
-	return s, "", false
 }
 
 // IsRemote reports whether the object is stored on a remote storage system.
@@ -377,7 +365,7 @@ func (u *URL) String() string {
 }
 
 // MarshalJSON is the json.Marshaler implementation of URL.
-func (u *URL) MarshalJSON() ([]byte, error) {
+func (u URL) MarshalJSON() ([]byte, error) {
 	return json.Marshal(u.String())
 }
 
@@ -409,6 +397,10 @@ func FromBytes(data []byte) extsort.SortType {
 // IsWildcard reports whether if a string contains any wildcard chars.
 func (u *URL) IsWildcard() bool {
 	return !u.raw && hasGlobCharacter(u.Path)
+}
+
+func (u *URL) IsRaw() bool {
+	return u.raw
 }
 
 // parseBatch parses keys for wildcard operations.
@@ -472,7 +464,8 @@ func (u *URL) EscapedPath() string {
 	for i, element := range sourceKeyElements {
 		sourceKeyElements[i] = url.QueryEscape(element)
 	}
-	return strings.Join(sourceKeyElements, "/")
+
+	return strings.Join(sourceKeyElements, "/") // nosem - silence semgrep's "use path.Join" error
 }
 
 // check if all fields of URL equal

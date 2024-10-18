@@ -18,11 +18,8 @@ import (
 	"github.com/peak/s5cmd/v2/strutil"
 )
 
-var (
-
-	// ErrNoObjectFound indicates there are no objects found from a given directory.
-	ErrNoObjectFound = fmt.Errorf("no object found")
-)
+// ErrNoObjectFound indicates there are no objects found from a given directory.
+var ErrNoObjectFound = fmt.Errorf("no object found")
 
 // ErrGivenObjectNotFound indicates a specified object is not found.
 type ErrGivenObjectNotFound struct {
@@ -168,6 +165,11 @@ func (o ObjectType) IsSymlink() bool {
 	return o.mode&os.ModeSymlink != 0
 }
 
+// IsRegular checks if the object is a regular file.
+func (o ObjectType) IsRegular() bool {
+	return o.mode.IsRegular()
+}
+
 // ShouldProcessURL returns true if follow symlinks is enabled.
 // If follow symlinks is disabled we should not process the url.
 // (this check is needed only for local files)
@@ -214,83 +216,23 @@ func (s StorageClass) IsGlacier() bool {
 	return s == "GLACIER"
 }
 
-type Metadata map[string]string
+type Metadata struct {
+	ACL                string
+	CacheControl       string
+	Expires            string
+	StorageClass       string
+	ContentType        string
+	ContentEncoding    string
+	ContentDisposition string
+	EncryptionMethod   string
+	EncryptionKeyID    string
 
-// NewMetadata will return an empty metadata object.
-func NewMetadata() Metadata {
-	return Metadata{}
-}
+	UserDefined map[string]string
 
-func (m Metadata) ACL() string {
-	return m["ACL"]
-}
-
-func (m Metadata) SetACL(acl string) Metadata {
-	m["ACL"] = acl
-	return m
-}
-
-func (m Metadata) CacheControl() string {
-	return m["CacheControl"]
-}
-
-func (m Metadata) SetCacheControl(cacheControl string) Metadata {
-	m["CacheControl"] = cacheControl
-	return m
-}
-
-func (m Metadata) Expires() string {
-	return m["Expires"]
-}
-
-func (m Metadata) SetExpires(expires string) Metadata {
-	m["Expires"] = expires
-	return m
-}
-
-func (m Metadata) StorageClass() string {
-	return m["StorageClass"]
-}
-
-func (m Metadata) SetStorageClass(class string) Metadata {
-	m["StorageClass"] = class
-	return m
-}
-
-func (m Metadata) ContentType() string {
-	return m["ContentType"]
-}
-
-func (m Metadata) SetContentType(contentType string) Metadata {
-	m["ContentType"] = contentType
-	return m
-}
-
-func (m Metadata) SSE() string {
-	return m["EncryptionMethod"]
-}
-
-func (m Metadata) SetSSE(sse string) Metadata {
-	m["EncryptionMethod"] = sse
-	return m
-}
-
-func (m Metadata) SSEKeyID() string {
-	return m["EncryptionKeyID"]
-}
-
-func (m Metadata) SetSSEKeyID(kid string) Metadata {
-	m["EncryptionKeyID"] = kid
-	return m
-}
-
-func (m Metadata) ContentEncoding() string {
-	return m["ContentEncoding"]
-}
-
-func (m Metadata) SetContentEncoding(contentEncoding string) Metadata {
-	m["ContentEncoding"] = contentEncoding
-	return m
+	// MetadataDirective is used to specify whether the metadata is copied from
+	// the source object or replaced with metadata provided when copying S3
+	// objects. If MetadataDirective is not set, it defaults to "COPY".
+	Directive string
 }
 
 func (o Object) ToBytes() []byte {

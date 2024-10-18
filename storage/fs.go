@@ -2,7 +2,9 @@ package storage
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 
@@ -21,7 +23,7 @@ type Filesystem struct {
 func (f *Filesystem) Stat(ctx context.Context, url *url.URL) (*Object, error) {
 	st, err := os.Stat(url.Absolute())
 	if err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, fs.ErrNotExist) {
 			return nil, &ErrGivenObjectNotFound{ObjectAbsPath: url.Absolute()}
 		}
 		return nil, err
@@ -44,6 +46,7 @@ func (f *Filesystem) List(ctx context.Context, src *url.URL, followSymlinks bool
 	}
 
 	obj, err := f.Stat(ctx, src)
+
 	isDir := err == nil && obj.Type.IsDir()
 
 	if isDir {
@@ -85,10 +88,19 @@ func (f *Filesystem) expandGlob(ctx context.Context, src *url.URL, followSymlink
 		for _, filename := range matchedFiles {
 			filename := filename
 
-			fileurl, _ := url.New(filename)
+			fileurl, err := url.New(filename)
+			if err != nil {
+				sendError(ctx, err, ch)
+				return
+			}
+
 			fileurl.SetRelative(src)
 
-			obj, _ := f.Stat(ctx, fileurl)
+			obj, err := f.Stat(ctx, fileurl)
+			if err != nil {
+				sendError(ctx, err, ch)
+				return
+			}
 
 			if !obj.Type.IsDir() {
 				sendObject(ctx, obj, ch)
@@ -128,14 +140,13 @@ func walkDir(ctx context.Context, fs *Filesystem, src *url.URL, followSymlinks b
 			}
 
 			obj, err := fs.Stat(ctx, fileurl)
-
 			if err != nil {
 				return err
 			}
+
 			fn(obj)
 			return nil
 		},
-		// flags
 		FollowSymbolicLinks: followSymlinks,
 	})
 	if err != nil {

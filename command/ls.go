@@ -51,9 +51,12 @@ Examples:
 
 	9. List all versions of all objects that starts with a prefix in the bucket
 		 > s5cmd {{.HelpName}} --all-versions "s3://bucket/prefix*"
-		
+
 	10. List all versions of all objects in the bucket
 		 > s5cmd {{.HelpName}} --all-versions "s3://bucket/*"
+
+	11. List all files with their fullpaths
+		 > s5cmd {{.HelpName}} --show-fullpath "s3://bucket/*"
 
 `
 
@@ -86,6 +89,10 @@ func NewListCommand() *cli.Command {
 			&cli.BoolFlag{
 				Name:  "all-versions",
 				Usage: "list all versions of object(s)",
+			},
+			&cli.BoolFlag{
+				Name:  "show-fullpath",
+				Usage: "shows only the fullpath names of the object(s)",
 			},
 		},
 		Before: func(c *cli.Context) error {
@@ -122,6 +129,7 @@ func NewListCommand() *cli.Command {
 				humanize:         c.Bool("humanize"),
 				showStorageClass: c.Bool("storage-class"),
 				exclude:          c.StringSlice("exclude"),
+				showFullPath:     c.Bool("show-fullpath"),
 
 				storageOpts: NewStorageOpts(c),
 			}.Run(c.Context)
@@ -142,6 +150,7 @@ type List struct {
 	showEtag         bool
 	humanize         bool
 	showStorageClass bool
+	showFullPath     bool
 	exclude          []string
 
 	storageOpts storage.Options
@@ -179,7 +188,7 @@ func (l List) Run(ctx context.Context) error {
 
 	var merror error
 
-	excludePatterns, err := createExcludesFromWildcard(l.exclude)
+	excludePatterns, err := createRegexFromWildcard(l.exclude)
 	if err != nil {
 		printError(l.fullCommand, l.op, err)
 		return err
@@ -196,7 +205,7 @@ func (l List) Run(ctx context.Context) error {
 			continue
 		}
 
-		if isURLExcluded(excludePatterns, object.URL.Path, l.src.Prefix) {
+		if isURLMatched(excludePatterns, object.URL.Path, l.src.Prefix) {
 			continue
 		}
 
@@ -205,6 +214,7 @@ func (l List) Run(ctx context.Context) error {
 			showEtag:         l.showEtag,
 			showHumanized:    l.humanize,
 			showStorageClass: l.showStorageClass,
+			showFullPath:     l.showFullPath,
 		}
 
 		log.Info(msg)
@@ -220,6 +230,7 @@ type ListMessage struct {
 	showEtag         bool
 	showHumanized    bool
 	showStorageClass bool
+	showFullPath     bool
 }
 
 // humanize is a helper function to humanize bytes.
@@ -239,8 +250,11 @@ const (
 
 // String returns the string representation of ListMessage.
 func (l ListMessage) String() string {
+	if l.showFullPath {
+		return l.Object.URL.String()
+	}
 	var etag string
-	// date and storage fiels
+	// date and storage fields
 	var listFormat = "%19s %2s"
 
 	// align etag
@@ -279,13 +293,20 @@ func (l ListMessage) String() string {
 		stclass = fmt.Sprintf("%v", l.Object.StorageClass)
 	}
 
+	var path string
+	if l.showFullPath {
+		path = l.Object.URL.String()
+	} else {
+		path = l.Object.URL.Relative()
+	}
+
 	s = fmt.Sprintf(
 		listFormat,
 		l.Object.ModTime.Format(dateFormat),
 		stclass,
 		etag,
 		l.humanize(),
-		l.Object.URL.Relative(),
+		path,
 		l.Object.URL.VersionID,
 	)
 

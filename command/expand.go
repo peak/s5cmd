@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"sync/atomic"
 
-	"github.com/peak/s5cmd/v2/atomic"
 	"github.com/peak/s5cmd/v2/storage"
 	"github.com/peak/s5cmd/v2/storage/url"
 )
@@ -19,7 +19,7 @@ func expandSource(
 	followSymlinks bool,
 	srcurl *url.URL,
 ) (<-chan *storage.Object, error) {
-	var isDir bool
+	var objType storage.ObjectType
 	// if the source is local, we send a Stat call to know if  we have
 	// directory or file to walk. For remote storage, we don't want to send
 	// Stat since it doesn't have any folder semantics.
@@ -28,17 +28,17 @@ func expandSource(
 		if err != nil {
 			return nil, err
 		}
-		isDir = obj.Type.IsDir()
+		objType = obj.Type
 	}
 
 	// call storage.List for only walking operations.
-	if srcurl.IsWildcard() || srcurl.AllVersions || isDir {
+	if srcurl.IsWildcard() || srcurl.AllVersions || objType.IsDir() {
 		return client.List(ctx, srcurl, followSymlinks), nil
 	}
 
 	ch := make(chan *storage.Object, 1)
 	if storage.ShouldProcessURL(srcurl, followSymlinks) {
-		ch <- &storage.Object{URL: srcurl}
+		ch <- &storage.Object{URL: srcurl, Type: objType}
 	}
 	close(ch)
 	return ch, nil
@@ -81,13 +81,13 @@ func expandSources(
 						continue
 					}
 					ch <- object
-					objFound.Set(true)
+					objFound.Store(true)
 				}
 			}(origSrc)
 		}
 
 		wg.Wait()
-		if !objFound.Get() {
+		if !objFound.Load() {
 			ch <- &storage.Object{Err: storage.ErrNoObjectFound}
 		}
 	}()

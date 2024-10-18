@@ -13,7 +13,6 @@ jobs:
         go-version:
           - 1.23.x
           - 1.22.x
-          - 1.21.x
         os:
           - macos
           - ubuntu
@@ -35,7 +34,6 @@ jobs:
         go-version:
           - 1.23.x
           - 1.22.x
-          - 1.21.x
         os:
           - macos
           - ubuntu
@@ -71,7 +69,6 @@ jobs:
         go-version:
           - 1.23.x
           - 1.22.x
-          - 1.21.x
         os:
           - ubuntu
 

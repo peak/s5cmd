@@ -8,6 +8,7 @@ import (
 	"flag"
 	"fmt"
 	"go/token"
+	stdversion "go/version"
 	"io"
 	"log"
 	"os"
@@ -120,7 +121,7 @@ func (cmd *Command) AddBareAnalyzers(as ...*analysis.Analyzer) {
 			text = a.Doc[idx+2:]
 		}
 
-		doc := &lint.Documentation{
+		doc := &lint.RawDocumentation{
 			Title:    title,
 			Text:     text,
 			Severity: lint.SeverityWarning,
@@ -193,11 +194,15 @@ func (v *versionFlag) Set(s string) error {
 	if s == "module" {
 		*v = "module"
 	} else {
-		var vf lint.VersionFlag
-		if err := vf.Set(s); err != nil {
-			return err
+		orig := s
+		if !strings.HasPrefix(s, "go") {
+			s = "go" + s
 		}
-		*v = versionFlag(s)
+		if stdversion.IsValid(s) {
+			*v = versionFlag(s)
+		} else {
+			return fmt.Errorf("%q is not a valid Go version", orig)
+		}
 	}
 	return nil
 }
@@ -213,7 +218,7 @@ func (cmd *Command) ParseFlags(args []string) {
 	cmd.flags.fs.Parse(args)
 }
 
-// diagnosticDescriptor represents the uniquiely identifying information of diagnostics.
+// diagnosticDescriptor represents the uniquely identifying information of diagnostics.
 type diagnosticDescriptor struct {
 	Position token.Position
 	End      token.Position
@@ -352,7 +357,7 @@ func (cmd *Command) listChecks() int {
 	for _, c := range cs {
 		var title string
 		if c.Doc != nil {
-			title = c.Doc.Title
+			title = c.Doc.Compile().Title
 		}
 		fmt.Printf("%s %s\n", c.Analyzer.Name, title)
 	}
@@ -375,8 +380,8 @@ func (cmd *Command) explain() int {
 		fmt.Fprintln(os.Stderr, explain, "has no documentation")
 		return 1
 	}
-	fmt.Println(check.Doc)
-	fmt.Println("Online documentation\n    https://staticcheck.io/docs/checks#" + check.Analyzer.Name)
+	fmt.Println(check.Doc.Compile())
+	fmt.Println("Online documentation\n    https://staticcheck.dev/docs/checks#" + check.Analyzer.Name)
 	return 0
 }
 
@@ -410,8 +415,7 @@ func (cmd *Command) merge() int {
 
 	relevantDiagnostics := mergeRuns(runs)
 	cs := cmd.analyzersAsSlice()
-	cmd.printDiagnostics(cs, relevantDiagnostics)
-	return 0
+	return cmd.printDiagnostics(cs, relevantDiagnostics)
 }
 
 func (cmd *Command) lint() int {
@@ -662,7 +666,7 @@ func (cmd *Command) printDiagnostics(cs []*lint.Analyzer, diagnostics []diagnost
 		}
 		if cmd.name == "staticcheck" {
 			f.(*sarifFormatter).driverName = "Staticcheck"
-			f.(*sarifFormatter).driverWebsite = "https://staticcheck.io"
+			f.(*sarifFormatter).driverWebsite = "https://staticcheck.dev"
 		}
 	case "binary":
 		fmt.Fprintln(os.Stderr, "'-f binary' not supported in this context")

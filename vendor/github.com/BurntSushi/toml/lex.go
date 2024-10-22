@@ -17,7 +17,6 @@ const (
 	itemEOF
 	itemText
 	itemString
-	itemStringEsc
 	itemRawString
 	itemMultilineString
 	itemRawMultilineString
@@ -47,14 +46,12 @@ func (p Position) String() string {
 }
 
 type lexer struct {
-	input    string
-	start    int
-	pos      int
-	line     int
-	state    stateFn
-	items    chan item
-	tomlNext bool
-	esc      bool
+	input string
+	start int
+	pos   int
+	line  int
+	state stateFn
+	items chan item
 
 	// Allow for backing up up to 4 runes. This is necessary because TOML
 	// contains 3-rune tokens (""" and ''').
@@ -90,14 +87,13 @@ func (lx *lexer) nextItem() item {
 	}
 }
 
-func lex(input string, tomlNext bool) *lexer {
+func lex(input string) *lexer {
 	lx := &lexer{
-		input:    input,
-		state:    lexTop,
-		items:    make(chan item, 10),
-		stack:    make([]stateFn, 0, 10),
-		line:     1,
-		tomlNext: tomlNext,
+		input: input,
+		state: lexTop,
+		items: make(chan item, 10),
+		stack: make([]stateFn, 0, 10),
+		line:  1,
 	}
 	return lx
 }
@@ -166,7 +162,7 @@ func (lx *lexer) next() (r rune) {
 	}
 
 	r, w := utf8.DecodeRuneInString(lx.input[lx.pos:])
-	if r == utf8.RuneError && w == 1 {
+	if r == utf8.RuneError {
 		lx.error(errLexUTF8{lx.input[lx.pos]})
 		return utf8.RuneError
 	}
@@ -272,7 +268,7 @@ func (lx *lexer) errorPos(start, length int, err error) stateFn {
 }
 
 // errorf is like error, and creates a new error.
-func (lx *lexer) errorf(format string, values ...any) stateFn {
+func (lx *lexer) errorf(format string, values ...interface{}) stateFn {
 	if lx.atEOF {
 		pos := lx.getPos()
 		pos.Line--
@@ -335,7 +331,9 @@ func lexTopEnd(lx *lexer) stateFn {
 		lx.emit(itemEOF)
 		return nil
 	}
-	return lx.errorf("expected a top-level item to end with a newline, comment, or EOF, but got %q instead", r)
+	return lx.errorf(
+		"expected a top-level item to end with a newline, comment, or EOF, but got %q instead",
+		r)
 }
 
 // lexTable lexes the beginning of a table. Namely, it makes sure that
@@ -410,7 +408,7 @@ func lexTableNameEnd(lx *lexer) stateFn {
 // Lexes only one part, e.g. only 'a' inside 'a.b'.
 func lexBareName(lx *lexer) stateFn {
 	r := lx.next()
-	if isBareKeyChar(r, lx.tomlNext) {
+	if isBareKeyChar(r) {
 		return lexBareName
 	}
 	lx.backup()
@@ -492,9 +490,6 @@ func lexKeyEnd(lx *lexer) stateFn {
 		lx.emit(itemKeyEnd)
 		return lexSkip(lx, lexValue)
 	default:
-		if r == '\n' {
-			return lx.errorPrevLine(fmt.Errorf("expected '.' or '=', but got %q instead", r))
-		}
 		return lx.errorf("expected '.' or '=', but got %q instead", r)
 	}
 }
@@ -563,9 +558,6 @@ func lexValue(lx *lexer) stateFn {
 	if r == eof {
 		return lx.errorf("unexpected EOF; expected value")
 	}
-	if r == '\n' {
-		return lx.errorPrevLine(fmt.Errorf("expected value but found %q instead", r))
-	}
 	return lx.errorf("expected value but found %q instead", r)
 }
 
@@ -626,9 +618,6 @@ func lexInlineTableValue(lx *lexer) stateFn {
 	case isWhitespace(r):
 		return lexSkip(lx, lexInlineTableValue)
 	case isNL(r):
-		if lx.tomlNext {
-			return lexSkip(lx, lexInlineTableValue)
-		}
 		return lx.errorPrevLine(errLexInlineTableNL{})
 	case r == '#':
 		lx.push(lexInlineTableValue)
@@ -651,9 +640,6 @@ func lexInlineTableValueEnd(lx *lexer) stateFn {
 	case isWhitespace(r):
 		return lexSkip(lx, lexInlineTableValueEnd)
 	case isNL(r):
-		if lx.tomlNext {
-			return lexSkip(lx, lexInlineTableValueEnd)
-		}
 		return lx.errorPrevLine(errLexInlineTableNL{})
 	case r == '#':
 		lx.push(lexInlineTableValueEnd)
@@ -662,9 +648,6 @@ func lexInlineTableValueEnd(lx *lexer) stateFn {
 		lx.ignore()
 		lx.skip(isWhitespace)
 		if lx.peek() == '}' {
-			if lx.tomlNext {
-				return lexInlineTableValueEnd
-			}
 			return lx.errorf("trailing comma not allowed in inline tables")
 		}
 		return lexInlineTableValue
@@ -704,12 +687,7 @@ func lexString(lx *lexer) stateFn {
 		return lexStringEscape
 	case r == '"':
 		lx.backup()
-		if lx.esc {
-			lx.esc = false
-			lx.emit(itemStringEsc)
-		} else {
-			lx.emit(itemString)
-		}
+		lx.emit(itemString)
 		lx.next()
 		lx.ignore()
 		return lx.pop()
@@ -759,7 +737,6 @@ func lexMultilineString(lx *lexer) stateFn {
 				lx.backup() /// backup: don't include the """ in the item.
 				lx.backup()
 				lx.backup()
-				lx.esc = false
 				lx.emit(itemMultilineString)
 				lx.next() /// Read over ''' again and discard it.
 				lx.next()
@@ -793,8 +770,8 @@ func lexRawString(lx *lexer) stateFn {
 	}
 }
 
-// lexMultilineRawString consumes a raw string. Nothing can be escaped in such a
-// string. It assumes that the beginning triple-' has already been consumed and
+// lexMultilineRawString consumes a raw string. Nothing can be escaped in such
+// a string. It assumes that the beginning ''' has already been consumed and
 // ignored.
 func lexMultilineRawString(lx *lexer) stateFn {
 	r := lx.next()
@@ -849,14 +826,8 @@ func lexMultilineStringEscape(lx *lexer) stateFn {
 }
 
 func lexStringEscape(lx *lexer) stateFn {
-	lx.esc = true
 	r := lx.next()
 	switch r {
-	case 'e':
-		if !lx.tomlNext {
-			return lx.error(errLexEscape{r})
-		}
-		fallthrough
 	case 'b':
 		fallthrough
 	case 't':
@@ -875,11 +846,6 @@ func lexStringEscape(lx *lexer) stateFn {
 		fallthrough
 	case '\\':
 		return lx.pop()
-	case 'x':
-		if !lx.tomlNext {
-			return lx.error(errLexEscape{r})
-		}
-		return lexHexEscape
 	case 'u':
 		return lexShortUnicodeEscape
 	case 'U':
@@ -888,23 +854,14 @@ func lexStringEscape(lx *lexer) stateFn {
 	return lx.error(errLexEscape{r})
 }
 
-func lexHexEscape(lx *lexer) stateFn {
-	var r rune
-	for i := 0; i < 2; i++ {
-		r = lx.next()
-		if !isHex(r) {
-			return lx.errorf(`expected two hexadecimal digits after '\x', but got %q instead`, lx.current())
-		}
-	}
-	return lx.pop()
-}
-
 func lexShortUnicodeEscape(lx *lexer) stateFn {
 	var r rune
 	for i := 0; i < 4; i++ {
 		r = lx.next()
-		if !isHex(r) {
-			return lx.errorf(`expected four hexadecimal digits after '\u', but got %q instead`, lx.current())
+		if !isHexadecimal(r) {
+			return lx.errorf(
+				`expected four hexadecimal digits after '\u', but got %q instead`,
+				lx.current())
 		}
 	}
 	return lx.pop()
@@ -914,8 +871,10 @@ func lexLongUnicodeEscape(lx *lexer) stateFn {
 	var r rune
 	for i := 0; i < 8; i++ {
 		r = lx.next()
-		if !isHex(r) {
-			return lx.errorf(`expected eight hexadecimal digits after '\U', but got %q instead`, lx.current())
+		if !isHexadecimal(r) {
+			return lx.errorf(
+				`expected eight hexadecimal digits after '\U', but got %q instead`,
+				lx.current())
 		}
 	}
 	return lx.pop()
@@ -982,7 +941,7 @@ func lexDatetime(lx *lexer) stateFn {
 // lexHexInteger consumes a hexadecimal integer after seeing the '0x' prefix.
 func lexHexInteger(lx *lexer) stateFn {
 	r := lx.next()
-	if isHex(r) {
+	if isHexadecimal(r) {
 		return lexHexInteger
 	}
 	switch r {
@@ -1116,7 +1075,7 @@ func lexBaseNumberOrDate(lx *lexer) stateFn {
 		return lexOctalInteger
 	case 'x':
 		r = lx.peek()
-		if !isHex(r) {
+		if !isHexadecimal(r) {
 			lx.errorf("not a hexidecimal number: '%s%c'", lx.current(), r)
 		}
 		return lexHexInteger
@@ -1214,7 +1173,7 @@ func (itype itemType) String() string {
 		return "EOF"
 	case itemText:
 		return "Text"
-	case itemString, itemStringEsc, itemRawString, itemMultilineString, itemRawMultilineString:
+	case itemString, itemRawString, itemMultilineString, itemRawMultilineString:
 		return "String"
 	case itemBool:
 		return "Bool"
@@ -1247,7 +1206,7 @@ func (itype itemType) String() string {
 }
 
 func (item item) String() string {
-	return fmt.Sprintf("(%s, %s)", item.typ, item.val)
+	return fmt.Sprintf("(%s, %s)", item.typ.String(), item.val)
 }
 
 func isWhitespace(r rune) bool { return r == '\t' || r == ' ' }
@@ -1263,23 +1222,10 @@ func isControl(r rune) bool { // Control characters except \t, \r, \n
 func isDigit(r rune) bool  { return r >= '0' && r <= '9' }
 func isBinary(r rune) bool { return r == '0' || r == '1' }
 func isOctal(r rune) bool  { return r >= '0' && r <= '7' }
-func isHex(r rune) bool    { return (r >= '0' && r <= '9') || (r|0x20 >= 'a' && r|0x20 <= 'f') }
-func isBareKeyChar(r rune, tomlNext bool) bool {
-	if tomlNext {
-		return (r >= 'A' && r <= 'Z') ||
-			(r >= 'a' && r <= 'z') ||
-			(r >= '0' && r <= '9') ||
-			r == '_' || r == '-' ||
-			r == 0xb2 || r == 0xb3 || r == 0xb9 || (r >= 0xbc && r <= 0xbe) ||
-			(r >= 0xc0 && r <= 0xd6) || (r >= 0xd8 && r <= 0xf6) || (r >= 0xf8 && r <= 0x037d) ||
-			(r >= 0x037f && r <= 0x1fff) ||
-			(r >= 0x200c && r <= 0x200d) || (r >= 0x203f && r <= 0x2040) ||
-			(r >= 0x2070 && r <= 0x218f) || (r >= 0x2460 && r <= 0x24ff) ||
-			(r >= 0x2c00 && r <= 0x2fef) || (r >= 0x3001 && r <= 0xd7ff) ||
-			(r >= 0xf900 && r <= 0xfdcf) || (r >= 0xfdf0 && r <= 0xfffd) ||
-			(r >= 0x10000 && r <= 0xeffff)
-	}
-
+func isHexadecimal(r rune) bool {
+	return (r >= '0' && r <= '9') || (r >= 'a' && r <= 'f') || (r >= 'A' && r <= 'F')
+}
+func isBareKeyChar(r rune) bool {
 	return (r >= 'A' && r <= 'Z') ||
 		(r >= 'a' && r <= 'z') ||
 		(r >= '0' && r <= '9') ||

@@ -22,8 +22,13 @@ func typeIsTable(t tomlType) bool {
 
 type tomlBaseType string
 
-func (btype tomlBaseType) typeString() string { return string(btype) }
-func (btype tomlBaseType) String() string     { return btype.typeString() }
+func (btype tomlBaseType) typeString() string {
+	return string(btype)
+}
+
+func (btype tomlBaseType) String() string {
+	return btype.typeString()
+}
 
 var (
 	tomlInteger   tomlBaseType = "Integer"
@@ -49,7 +54,7 @@ func (p *parser) typeOfPrimitive(lexItem item) tomlType {
 		return tomlFloat
 	case itemDatetime:
 		return tomlDatetime
-	case itemString, itemStringEsc:
+	case itemString:
 		return tomlString
 	case itemMultilineString:
 		return tomlString

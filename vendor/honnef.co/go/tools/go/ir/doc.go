@@ -10,9 +10,9 @@
 // THIS INTERFACE IS EXPERIMENTAL AND IS LIKELY TO CHANGE.
 //
 // For an introduction to SSA form, upon which SSI builds, see
-// https://en.wikipedia.org/wiki/Static_single_assignment_form.
+// http://en.wikipedia.org/wiki/Static_single_assignment_form.
 // This page provides a broader reading list:
-// https://www.dcs.gla.ac.uk/~jsinger/ssa.html.
+// http://www.dcs.gla.ac.uk/~jsinger/ssa.html.
 //
 // For an introduction to SSI form, see The static single information
 // form by C. Scott Ananian.
@@ -79,7 +79,6 @@
 //	*MakeSlice            ✔               ✔
 //	*MapLookup            ✔               ✔
 //	*MapUpdate            ✔               ✔
-//	*MultiConvert         ✔               ✔
 //	*NamedConst                                           ✔ (const)
 //	*Next                 ✔               ✔
 //	*Panic                                ✔

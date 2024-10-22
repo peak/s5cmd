@@ -11,8 +11,9 @@ jobs:
     strategy:
       matrix:
         go-version:
-          - 1.23.x
           - 1.22.x
+          - 1.21.x
+          - 1.20.x
         os:
           - macos
           - ubuntu
@@ -32,8 +33,9 @@ jobs:
     strategy:
       matrix:
         go-version:
-          - 1.23.x
           - 1.22.x
+          - 1.21.x
+          - 1.20.x
         os:
           - macos
           - ubuntu
@@ -67,8 +69,9 @@ jobs:
     strategy:
       matrix:
         go-version:
-          - 1.23.x
           - 1.22.x
+          - 1.21.x
+          - 1.20.x
         os:
           - ubuntu
 

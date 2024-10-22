@@ -8,7 +8,6 @@ package ir
 
 import (
 	"fmt"
-	"go/ast"
 	"go/constant"
 	"go/types"
 	"strconv"
@@ -20,39 +19,37 @@ import (
 
 // NewConst returns a new constant of the specified value and type.
 // val must be valid according to the specification of Const.Value.
-func NewConst(val constant.Value, typ types.Type, source ast.Node) *Const {
-	c := &Const{
+func NewConst(val constant.Value, typ types.Type) *Const {
+	return &Const{
 		register: register{
 			typ: typ,
 		},
 		Value: val,
 	}
-	c.setSource(source)
-	return c
 }
 
 // intConst returns an 'int' constant that evaluates to i.
 // (i is an int64 in case the host is narrower than the target.)
-func intConst(i int64, source ast.Node) *Const {
-	return NewConst(constant.MakeInt64(i), tInt, source)
+func intConst(i int64) *Const {
+	return NewConst(constant.MakeInt64(i), tInt)
 }
 
 // nilConst returns a nil constant of the specified type, which may
 // be any reference type, including interfaces.
-func nilConst(typ types.Type, source ast.Node) *Const {
-	return NewConst(nil, typ, source)
+func nilConst(typ types.Type) *Const {
+	return NewConst(nil, typ)
 }
 
 // stringConst returns a 'string' constant that evaluates to s.
-func stringConst(s string, source ast.Node) *Const {
-	return NewConst(constant.MakeString(s), tString, source)
+func stringConst(s string) *Const {
+	return NewConst(constant.MakeString(s), tString)
 }
 
 // zeroConst returns a new "zero" constant of the specified type.
-func zeroConst(t types.Type, source ast.Node) Constant {
+func zeroConst(t types.Type) Constant {
 	if _, ok := t.Underlying().(*types.Interface); ok && !typeparams.IsTypeParam(t) {
 		// Handle non-generic interface early to simplify following code.
-		return nilConst(t, source)
+		return nilConst(t)
 	}
 
 	tset := typeutil.NewTypeSet(t)
@@ -61,25 +58,21 @@ func zeroConst(t types.Type, source ast.Node) Constant {
 	case *types.Struct:
 		values := make([]Value, typ.NumFields())
 		for i := 0; i < typ.NumFields(); i++ {
-			values[i] = zeroConst(typ.Field(i).Type(), source)
+			values[i] = zeroConst(typ.Field(i).Type())
 		}
-		ac := &AggregateConst{
+		return &AggregateConst{
 			register: register{typ: t},
 			Values:   values,
 		}
-		ac.setSource(source)
-		return ac
 	case *types.Tuple:
 		values := make([]Value, typ.Len())
 		for i := 0; i < typ.Len(); i++ {
-			values[i] = zeroConst(typ.At(i).Type(), source)
+			values[i] = zeroConst(typ.At(i).Type())
 		}
-		ac := &AggregateConst{
+		return &AggregateConst{
 			register: register{typ: t},
 			Values:   values,
 		}
-		ac.setSource(source)
-		return ac
 	}
 
 	isNillable := func(term *types.Term) bool {
@@ -115,22 +108,20 @@ func zeroConst(t types.Type, source ast.Node) Constant {
 
 	switch {
 	case tset.All(isInfo(types.IsNumeric)):
-		return NewConst(constant.MakeInt64(0), t, source)
+		return NewConst(constant.MakeInt64(0), t)
 	case tset.All(isInfo(types.IsString)):
-		return NewConst(constant.MakeString(""), t, source)
+		return NewConst(constant.MakeString(""), t)
 	case tset.All(isInfo(types.IsBoolean)):
-		return NewConst(constant.MakeBool(false), t, source)
+		return NewConst(constant.MakeBool(false), t)
 	case tset.All(isNillable):
-		return nilConst(t, source)
+		return nilConst(t)
 	case tset.All(isArray):
 		var k ArrayConst
 		k.setType(t)
-		k.setSource(source)
 		return &k
 	default:
 		var k GenericConst
 		k.setType(t)
-		k.setSource(source)
 		return &k
 	}
 }
@@ -255,7 +246,7 @@ func (c *Const) equal(o Constant) bool {
 	if !ok {
 		return false
 	}
-	return c.typ == oc.typ && c.Value == oc.Value && c.source == oc.source
+	return c.typ == oc.typ && c.Value == oc.Value
 }
 
 func (c *AggregateConst) equal(o Constant) bool {
@@ -265,9 +256,6 @@ func (c *AggregateConst) equal(o Constant) bool {
 	}
 	// TODO(dh): don't use == for types, this will miss identical pointer types, among others
 	if c.typ != oc.typ {
-		return false
-	}
-	if c.source != oc.source {
 		return false
 	}
 	for i, v := range c.Values {
@@ -284,7 +272,7 @@ func (c *ArrayConst) equal(o Constant) bool {
 		return false
 	}
 	// TODO(dh): don't use == for types, this will miss identical pointer types, among others
-	return c.typ == oc.typ && c.source == oc.source
+	return c.typ == oc.typ
 }
 
 func (c *GenericConst) equal(o Constant) bool {
@@ -293,5 +281,5 @@ func (c *GenericConst) equal(o Constant) bool {
 		return false
 	}
 	// TODO(dh): don't use == for types, this will miss identical pointer types, among others
-	return c.typ == oc.typ && c.source == oc.source
+	return c.typ == oc.typ
 }

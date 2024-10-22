@@ -181,13 +181,13 @@ func (prog *Program) ConstValue(obj *types.Const) *Const {
 
 	// Universal constant? {true,false,nil}
 	if obj.Parent() == types.Universe {
-		return NewConst(obj.Val(), obj.Type(), nil)
+		return NewConst(obj.Val(), obj.Type())
 	}
 	// Package-level named constant?
 	if v := prog.packageLevelValue(obj); v != nil {
 		return v.(*Const)
 	}
-	return NewConst(obj.Val(), obj.Type(), nil)
+	return NewConst(obj.Val(), obj.Type())
 }
 
 // VarValue returns the IR Value that corresponds to a specific

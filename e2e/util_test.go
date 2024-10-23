@@ -356,6 +356,8 @@ func s5cmd(workdir, endpoint string) func(args ...string) icmd.Cmd {
 		)
 		cmd.Env = env
 		cmd.Dir = workdir
+		// increase timeout for slow CI
+		cmd.Timeout = 10 * time.Second
 		return cmd
 	}
 }

@@ -150,7 +150,7 @@ func (c Cat) processObjects(ctx context.Context, client *storage.S3, objectChan 
 
 func (c Cat) processSingleObject(ctx context.Context, client *storage.S3, url *url.URL) error {
 	buf := orderedwriter.New(os.Stdout)
-	_, err := client.Get(ctx, url, buf, c.concurrency, c.partSize)
+	_, err := client.Get(ctx, url, buf, c.concurrency, c.partSize, nil)
 	return err
 }
 

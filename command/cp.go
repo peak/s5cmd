@@ -252,6 +252,10 @@ func NewCopyCommandFlags() []cli.Flag {
 			Name:  "version-id",
 			Usage: "use the specified version of an object",
 		},
+		&cli.StringFlag{
+			Name:  "range",
+			Usage: "defines range header for target object, e.g. --range bytes=0-100",
+		},
 		&cli.BoolFlag{
 			Name:    "show-progress",
 			Aliases: []string{"sp"},
@@ -320,6 +324,7 @@ type Copy struct {
 	contentType           string
 	contentEncoding       string
 	contentDisposition    string
+	contentRange					string
 	metadata              map[string]string
 	metadataDirective     string
 	showProgress          bool
@@ -398,6 +403,7 @@ func NewCopy(c *cli.Context, deleteSource bool) (*Copy, error) {
 		contentType:           c.String("content-type"),
 		contentEncoding:       c.String("content-encoding"),
 		contentDisposition:    c.String("content-disposition"),
+		contentRange:					 c.String("range"),
 		metadata:              metadata,
 		metadataDirective:     c.String("metadata-directive"),
 		showProgress:          c.Bool("show-progress"),
@@ -665,7 +671,7 @@ func (c Copy) doDownload(ctx context.Context, srcurl *url.URL, dsturl *url.URL) 
 	}
 
 	writer := newCountingReaderWriter(file, c.progressbar)
-	size, err := srcClient.Get(ctx, srcurl, writer, c.concurrency, c.partSize)
+	size, err := srcClient.Get(ctx, srcurl, writer, c.concurrency, c.partSize, &c.contentRange)
 	file.Close()
 
 	if err != nil {

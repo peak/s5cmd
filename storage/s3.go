@@ -543,6 +543,11 @@ func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata Metadata) err
 		input.ContentDisposition = aws.String(contentDisposition)
 	}
 
+	// TODO: does this even exist for CopyObject?
+	// if metadata.Range != "" {
+	// 	input.Range = aws.String(metadata.Range)
+	// }
+
 	// add retry ID to the object metadata
 	if s.noSuchUploadRetryCount > 0 {
 		input.Metadata[metadataKeyRetryID] = generateRetryID()
@@ -600,13 +605,14 @@ func (s *S3) Presign(ctx context.Context, from *url.URL, expire time.Duration) (
 
 // Get is a multipart download operation which downloads S3 objects into any
 // destination that implements io.WriterAt interface.
-// Makes a single 'GetObject' call if 'concurrency' is 1 and ignores 'partSize'.
+// Makes a single 'GetObject' call if 'concurrency' is 1 or contentRange is not nil, ignoring 'partSize'.
 func (s *S3) Get(
 	ctx context.Context,
 	from *url.URL,
 	to io.WriterAt,
 	concurrency int,
 	partSize int64,
+	contentRange *string, // optional
 ) (int64, error) {
 	if s.dryRun {
 		return 0, nil
@@ -619,6 +625,9 @@ func (s *S3) Get(
 	}
 	if from.VersionID != "" {
 		input.VersionId = aws.String(from.VersionID)
+	}
+	if contentRange != nil {
+		input.Range = aws.String(*contentRange)
 	}
 
 	return s.downloader.DownloadWithContext(ctx, to, input, func(u *s3manager.Downloader) {

@@ -689,7 +689,7 @@ If you have a few, large files to download, setting `--numworkers` to a very hig
 
 ### range
 
-`range` is a `cp` command option that targets only a specific byterange in the source object to download. This parameter is used by the AWS Go SDK (setting the [Range header](https://www.rfc-editor.org/rfc/rfc9110.html#name-range) in the GET request). Passing `range` option to `cp` will override any `--concurrency` or `--part_size` arguments (1 thread will be used to download this 1 part in the byterange).
+`range` is a `cp` command option that targets only a specific byterange in the source object to download. This parameter is used by the AWS Go SDK (setting the [Range header](https://www.rfc-editor.org/rfc/rfc9110.html#name-range) in the GET request). Passing `range` option to `cp` will override any `--concurrency` or `--part_size` arguments (1 thread will be used to download this 1 part specified by the byterange).
 
 ```
 s5cmd cp --range bytes=500-999 's3://mybucket/foo/bar/file.txt' partialFile.txt

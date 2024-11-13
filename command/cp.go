@@ -327,7 +327,7 @@ type Copy struct {
 	contentType           string
 	contentEncoding       string
 	contentDisposition    string
-	contentRange					string
+	contentRange          string
 	metadata              map[string]string
 	metadataDirective     string
 	showProgress          bool

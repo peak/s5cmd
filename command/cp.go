@@ -406,7 +406,7 @@ func NewCopy(c *cli.Context, deleteSource bool) (*Copy, error) {
 		contentType:           c.String("content-type"),
 		contentEncoding:       c.String("content-encoding"),
 		contentDisposition:    c.String("content-disposition"),
-		contentRange:					 c.String("range"),
+		contentRange:          c.String("range"),
 		metadata:              metadata,
 		metadataDirective:     c.String("metadata-directive"),
 		showProgress:          c.Bool("show-progress"),

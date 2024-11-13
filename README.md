@@ -80,9 +80,9 @@ You can also install `s5cmd` from [MacPorts](https://ports.macports.org/port/s5c
 > conda config --add channels conda-forge
 > conda config --set channel_priority strict
 > ```
-> 
+>
 > Once the `conda-forge` channel has been enabled, `s5cmd` can be installed with `conda`:
-> 
+>
 > ```
 > conda install s5cmd
 > ```
@@ -319,7 +319,7 @@ folder hierarchy.
 an [open ticket](https://github.com/peak/s5cmd/issues/29) to track the issue.
 
 #### Using Exclude and Include Filters
-`s5cmd` supports the `--exclude` and `--include` flags, which can be used to specify patterns for objects to be excluded or included in commands. 
+`s5cmd` supports the `--exclude` and `--include` flags, which can be used to specify patterns for objects to be excluded or included in commands.
 
 - The `--exclude` flag specifies objects that should be excluded from the operation. Any object that matches the pattern will be skipped.
 - The `--include` flag specifies objects that should be included in the operation. Only objects that match the pattern will be handled.
@@ -540,7 +540,7 @@ The environment variable `SHELL` must be accurate for the autocompletion to func
 The autocompletion is tested with following versions of the shells: \
 ***zsh*** 5.8.1 (x86_64-apple-darwin21.0) \
 GNU ***bash***, version 5.1.16(1)-release (x86_64-apple-darwin21.1.0) \
-***PowerShell*** 7.2.6 
+***PowerShell*** 7.2.6
 
 ### Google Cloud Storage support
 
@@ -686,6 +686,14 @@ s5cmd --numworkers 10 cp --concurrency 10 '/Users/foo/bar/*' s3://mybucket/foo/b
 ```
 
 If you have a few, large files to download, setting `--numworkers` to a very high value will not affect download speed. In this scenario setting `--concurrency` to a higher value may have a better impact on the download speed.
+
+### range
+
+`range` is a `cp` command option that targets only a specific byterange in the source object to download. This parameter is used by the AWS Go SDK (setting the [Range header](https://www.rfc-editor.org/rfc/rfc9110.html#name-range) in the GET request). Passing `range` option to `cp` will override any `--concurrency` or `--part_size` arguments (1 thread will be used to download this 1 part in the byterange).
+
+```
+s5cmd cp --range bytes=500-999 's3://mybucket/foo/bar/file.txt' partialFile.txt
+```
 
 ## Benchmarks
 Some benchmarks regarding the performance of `s5cmd` are introduced below. For more

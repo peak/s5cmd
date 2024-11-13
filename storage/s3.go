@@ -543,11 +543,6 @@ func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata Metadata) err
 		input.ContentDisposition = aws.String(contentDisposition)
 	}
 
-	// TODO: does this even exist for CopyObject?
-	// if metadata.Range != "" {
-	// 	input.Range = aws.String(metadata.Range)
-	// }
-
 	// add retry ID to the object metadata
 	if s.noSuchUploadRetryCount > 0 {
 		input.Metadata[metadataKeyRetryID] = generateRetryID()

@@ -118,6 +118,9 @@ Examples:
 
 	24. Pass arbitrary metadata to the object during upload or copy
 		 > s5cmd {{.HelpName}} --metadata "camera=Nixon D750" --metadata "imageSize=6032x4032" flowers.png s3://bucket/prefix/flowers.png
+
+  25. Copy only a specific byte range out of an S3 object.
+     > s5cmd {{.HelpName}} --range bytes=500-999 s3://bucket/prefix/object .
 `
 
 func NewSharedFlags() []cli.Flag {

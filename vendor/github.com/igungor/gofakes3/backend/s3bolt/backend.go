@@ -57,6 +57,10 @@ func New(bolt *bolt.DB, opts ...Option) *Backend {
 	return b
 }
 
+func (db *Backend) Close() error {
+	return db.bolt.Close()
+}
+
 // metaBucket returns a utility that manages access to the metadata bucket.
 // The returned struct is valid only for the lifetime of the bolt.Tx.
 // The metadata bucket may not exist if this is an older database.
@@ -168,6 +172,7 @@ func (db *Backend) ListBucket(name string, prefix *gofakes3.Prefix, page gofakes
 					ETag:         `"` + hex.EncodeToString(b.Hash[:]) + `"`,
 					Size:         b.Size,
 					LastModified: gofakes3.NewContentTime(b.LastModified.UTC()),
+					StorageClass: gofakes3.StorageClass(b.StorageClass),
 				}
 				objects.Add(item)
 			}
@@ -295,6 +300,7 @@ func (db *Backend) PutObject(
 	bucketName, objectName string,
 	meta map[string]string,
 	input io.Reader, size int64,
+	storageClass gofakes3.StorageClass,
 ) (result gofakes3.PutObjectResult, err error) {
 
 	bts, err := gofakes3.ReadAll(input, size)
@@ -318,6 +324,7 @@ func (db *Backend) PutObject(
 			LastModified: mod,
 			Contents:     bts,
 			Hash:         hash[:],
+			StorageClass: storageClass,
 		})
 		if err != nil {
 			return err

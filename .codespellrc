@@ -1,0 +1,6 @@
+[codespell]
+# Ref: https://github.com/codespell-project/codespell#using-a-config-file
+skip = .git,go.sum,.codespellrc,vendor
+check-hidden = true
+ignore-regex = \bfiletest\.txt\b
+ignore-words-list = hypen,bu,te

@@ -13,12 +13,13 @@ const (
 //
 // You MUST always call Contents.Close() otherwise you may leak resources.
 type Object struct {
-	Name     string
-	Metadata map[string]string
-	Size     int64
-	Contents io.ReadCloser
-	Hash     []byte
-	Range    *ObjectRange
+	Name         string
+	Metadata     map[string]string
+	Size         int64
+	Contents     io.ReadCloser
+	Hash         []byte
+	Range        *ObjectRange
+	StorageClass StorageClass
 
 	// VersionID will be empty if bucket versioning has not been enabled.
 	VersionID VersionID
@@ -226,7 +227,7 @@ type Backend interface {
 	//
 	// The size can be used if the backend needs to read the whole reader; use
 	// gofakes3.ReadAll() for this job rather than ioutil.ReadAll().
-	PutObject(bucketName, key string, meta map[string]string, input io.Reader, size int64) (PutObjectResult, error)
+	PutObject(bucketName, key string, meta map[string]string, input io.Reader, size int64, storageClass StorageClass) (PutObjectResult, error)
 
 	DeleteMulti(bucketName string, objects ...string) (MultiDeleteResult, error)
 }

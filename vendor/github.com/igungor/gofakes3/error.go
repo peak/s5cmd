@@ -88,6 +88,8 @@ const (
 	ErrNotImplemented       ErrorCode = "NotImplemented"
 
 	ErrInternal ErrorCode = "InternalError"
+
+	ErrInvalidStorageClass ErrorCode = "InvalidStorageClass"
 )
 
 // INTERNAL errors! These are not part of the S3 interface, they are codes

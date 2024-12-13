@@ -31,7 +31,7 @@ type fileReader struct {
 	readers  []*bufio.Reader
 }
 
-// New creates a new timefile in dir, if dir is empty the OS default is used
+// New creates a new tempfile in dir, if dir is empty the OS default is used
 func New(dir string) (*FileWriter, error) {
 	var w FileWriter
 	var err error
@@ -79,7 +79,7 @@ func (w *FileWriter) WriteString(s string) (int, error) {
 	return w.bufWriter.WriteString(s)
 }
 
-// Next stops writeing the the current section/file and prepaired the tempwriter for the next one
+// Next stops writing the the current section/file and prepares the tempWriter for the next one
 func (w *FileWriter) Next() (int64, error) {
 	// save offsets
 	err := w.bufWriter.Flush()

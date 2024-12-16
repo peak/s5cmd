@@ -260,7 +260,7 @@ func TestCopyS3PrefixToLocalMustReturnError(t *testing.T) {
 	assert.Assert(t, ensureS3Object(s3client, bucket, objectpath, content))
 }
 
-// cp --flatten s3://bucket/* dir/ (flat source hiearchy)
+// cp --flatten s3://bucket/* dir/ (flat source hierarchy)
 func TestCopyMultipleFlatS3ObjectsToLocal(t *testing.T) {
 	t.Parallel()
 
@@ -4348,7 +4348,7 @@ func TestDeleteFileWhenDownloadFailed(t *testing.T) {
 	assert.Assert(t, fs.Equal(cmd.Dir, expected))
 }
 
-// Target local file should be overriden only if download completed successfully
+// Target local file should be overridden only if download completed successfully
 func TestLocalFileOverridenWhenDownloadFailed(t *testing.T) {
 	t.Parallel()
 

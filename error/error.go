@@ -39,7 +39,7 @@ func (e *Error) Unwrap() error {
 	return e.Err
 }
 
-// IsCancelation reports whether if given error is a cancelation error.
+// IsCancelation reports whether if given error is a cancellation error.
 func IsCancelation(err error) bool {
 	if err == nil {
 		return false

@@ -4,14 +4,26 @@
 #### Breaking changes
 - Changed the exit code from 1 to 0 for `ls` when used with an empty bucket. Exits with 1 if the bucket is non-existent. ([#722](https://github.com/peak/s5cmd/issues/722))
 
+#### Improvements
+- Upgraded alpine base image to 3.18. ([#661](https://github.com/peak/s5cmd/pull/661)) [embik](https://github.com/embik)
+- Upgraded aws-sdk-go to v1.44.298. ([#684](https://github.com/peak/s5cmd/pull/684)) [matan129](https://github.com/matan129)
+- Upgraded lanrat/extsort to v1.0.2 ([#717](https://github.com/peak/s5cmd/issues/717))
+- Changed signaling channels by replacing `chan bool` with `chan struct{}` for efficiency. ([#733](https://github.com/peak/s5cmd/pull/733))
+
+
 #### Features
 - Added prefix and wildcard support to `cat` command. ([#716](https://github.com/peak/s5cmd/issues/716))
 - Added `head` command. ([#730](https://github.com/peak/s5cmd/pull/730))
+- Added go 1.22 support. ([#764](https://github.com/peak/s5cmd/pull/764)) [lizzzcai](https://github.com/lizzzcai)
+- Added `meta-directive` flag to `cp` command. ([#668](https://github.com/peak/s5cmd/pull/668))
+
 
 #### Bugfixes
 - Fixed the `cp` command to work with the `--content-type` flag when performing a copy operation from S3 to S3. ([#738](https://github.com/peak/s5cmd/issues/738))
+- Fixed a bug in `sync` command where objects in Glacier storage at the destination were being overwrittenduring synchronization ([#712](https://github.com/peak/s5cmd/issues/712))
+- Fixed a bug in `sync` command where source objects with absolute paths failed to match destination paths, causing unnecessary copying during each sync operation.([#676](https://github.com/peak/s5cmd/issues/676))
 
-## v2.2.2 - 13 Sep 2023 
+## v2.2.2 - 13 Sep 2023
 
 #### Bugfixes
 - Fixed `cp` and `pipe` to not omit some of the metadata flags. ([#657](https://github.com/peak/s5cmd/issues/657))

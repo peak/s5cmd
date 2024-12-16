@@ -1,5 +1,5 @@
 # Changelog
-## v2.3.0
+## v2.3.0 - 16 December 2024
 
 #### Breaking changes
 - Changed the exit code from 1 to 0 for `ls` when used with an empty bucket. Exits with 1 if the bucket is non-existent. ([#722](https://github.com/peak/s5cmd/issues/722)) [@Z9n2JktHlZDmlhSvqc9X2MmL3BwQG7tk](https://github.com/Z9n2JktHlZDmlhSvqc9X2MmL3BwQG7tk)

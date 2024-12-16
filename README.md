@@ -392,12 +392,13 @@ rm s3://bucket/2020/03/19/file2.gz
 # rename an S3 object
 mv s3://bucket/2020/03/18/file1.gz s3://bucket/2020/03/18/original/file.gz
 
+```
+
 Note - it's possible to have files on S3 that contain glob pattern characters like `*` and `?`. If you need to work with files like this in a commands file you will receive an error like
 `can not contain glob characters`. You can work around this by adding the `--raw` option to that line in the commands file. For example:
 
 `cp --raw "s3://bucket/foo/bar*.txt" "/var/tmp/bar*.txt"`
 
-```
 
 #### Sync
 `sync` command synchronizes S3 buckets, prefixes, directories and files between S3 buckets and prefixes as well.

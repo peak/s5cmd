@@ -11,7 +11,7 @@ require (
 	github.com/igungor/gofakes3 v0.0.18
 	github.com/karrick/godirwalk v1.15.3
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
-	github.com/lanrat/extsort v1.0.0
+	github.com/lanrat/extsort v1.0.2
 	github.com/termie/go-shutil v0.0.0-20140729215957-bcacb06fecae
 	github.com/urfave/cli/v2 v2.11.2
 	go.uber.org/mock v0.4.0

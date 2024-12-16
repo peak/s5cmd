@@ -35,6 +35,7 @@ storage services and local filesystems.
 - Print object contents to stdout
 - Select JSON records from objects using SQL expressions
 - Create or remove buckets
+- List or abort multipart uploads
 - Summarize objects sizes, grouping by storage class
 - Wildcard support for all operations
 - Multiple arguments support for delete operation

@@ -488,13 +488,6 @@ func (c Copy) Run(ctx context.Context) error {
 			continue
 		}
 
-		if !object.Type.IsRegular() {
-			err := fmt.Errorf("object '%v' is not a regular file", object)
-			merrorObjects = multierror.Append(merrorObjects, err)
-			printError(c.fullCommand, c.op, err)
-			continue
-		}
-
 		if err := object.Err; err != nil {
 			merrorObjects = multierror.Append(merrorObjects, err)
 			printError(c.fullCommand, c.op, err)
@@ -515,6 +508,13 @@ func (c Copy) Run(ctx context.Context) error {
 			printError(c.fullCommand, c.op, err)
 		}
 		if isExcluded {
+			continue
+		}
+
+		if !object.Type.IsRegular() {
+			err := fmt.Errorf("object '%v' is not a regular file", object)
+			merrorObjects = multierror.Append(merrorObjects, err)
+			printError(c.fullCommand, c.op, err)
 			continue
 		}
 
@@ -747,7 +747,6 @@ func (c Copy) doUpload(ctx context.Context, srcurl *url.URL, dsturl *url.URL, ex
 
 	reader := newCountingReaderWriter(file, c.progressbar)
 	err = dstClient.Put(ctx, reader, dsturl, metadata, c.concurrency, c.partSize)
-
 	if err != nil {
 		return err
 	}

@@ -14,7 +14,7 @@
 - Added prefix and wildcard support to `cat` command. ([#716](https://github.com/peak/s5cmd/issues/716)) [@occasionallydavid](https://github.com/occasionallydavid)
 - Added `head` command. ([#682](https://github.com/peak/s5cmd/issues/682)) [@yitzhaklevi](https://github.com/yitzhaklevi)
 - Added go 1.22 support. ([#764](https://github.com/peak/s5cmd/pull/764)) [@lizzzcai](https://github.com/lizzzcai)
-- Added `meta-directive` flag to `cp` command. ([#666](https://github.com/bounlu) [#711](https://github.com/peak/s5cmd/issues/711)) [@GordonGustafson](https://github.com/GordonGustafson) [@arosu](https://github.com/arosu)
+- Added `meta-directive` flag to `cp` command. ([#666](https://github.com/peak/s5cmd/issues/666) [#711](https://github.com/peak/s5cmd/issues/711)) [@GordonGustafson](https://github.com/GordonGustafson) [@arosu](https://github.com/arosu)
 
 #### Bugfixes
 - Fixed the `cp` command to work with the `--content-type` flag when performing a copy operation from S3 to S3. ([#738](https://github.com/peak/s5cmd/issues/738))

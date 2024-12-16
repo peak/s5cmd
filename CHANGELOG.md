@@ -4,17 +4,17 @@
 #### Breaking changes
 - Changed the exit code from 1 to 0 for `ls` when used with an empty bucket. Exits with 1 if the bucket is non-existent. ([#722](https://github.com/peak/s5cmd/issues/722)) [@Z9n2JktHlZDmlhSvqc9X2MmL3BwQG7tk](https://github.com/Z9n2JktHlZDmlhSvqc9X2MmL3BwQG7tk)
 
-#### Improvements
-- Upgraded alpine base image to 3.18. ([#661](https://github.com/peak/s5cmd/pull/661)) [@embik](https://github.com/embik)
-- Upgraded aws-sdk-go to v1.44.298. ([#684](https://github.com/peak/s5cmd/pull/684)) [@matan129](https://github.com/matan129)
-- Upgraded lanrat/extsort to v1.0.2 ([#717](https://github.com/peak/s5cmd/issues/717)) [@gkowarzyk](https://github.com/gkowarzyk)
-- Changed signaling channels by replacing `chan bool` with `chan struct{}` for efficiency. ([#733](https://github.com/peak/s5cmd/pull/733))
-
 #### Features
 - Added prefix and wildcard support to `cat` command. ([#716](https://github.com/peak/s5cmd/issues/716)) [@occasionallydavid](https://github.com/occasionallydavid)
 - Added `head` command. ([#682](https://github.com/peak/s5cmd/issues/682)) [@yitzhaklevi](https://github.com/yitzhaklevi)
 - Added go 1.22 support. ([#764](https://github.com/peak/s5cmd/pull/764)) [@lizzzcai](https://github.com/lizzzcai)
 - Added `meta-directive` flag to `cp` command. ([#666](https://github.com/peak/s5cmd/issues/666) [#711](https://github.com/peak/s5cmd/issues/711)) [@GordonGustafson](https://github.com/GordonGustafson) [@arosu](https://github.com/arosu)
+
+#### Improvements
+- Upgraded alpine base image to 3.18. ([#661](https://github.com/peak/s5cmd/pull/661)) [@embik](https://github.com/embik)
+- Upgraded aws-sdk-go to v1.44.298. ([#684](https://github.com/peak/s5cmd/pull/684)) [@matan129](https://github.com/matan129)
+- Upgraded lanrat/extsort to v1.0.2 ([#717](https://github.com/peak/s5cmd/issues/717)) [@gkowarzyk](https://github.com/gkowarzyk)
+- Changed signaling channels by replacing `chan bool` with `chan struct{}` for efficiency. ([#733](https://github.com/peak/s5cmd/pull/733))
 
 #### Bugfixes
 - Fixed the `cp` command to work with the `--content-type` flag when performing a copy operation from S3 to S3. ([#738](https://github.com/peak/s5cmd/issues/738))

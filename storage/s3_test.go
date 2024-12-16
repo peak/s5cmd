@@ -391,7 +391,7 @@ func TestS3ListContextCancelled(t *testing.T) {
 }
 
 func TestS3Retry(t *testing.T) {
-	log.Init("debug", false)
+	log.Init("debug", false, false)
 
 	testcases := []struct {
 		name          string
@@ -574,7 +574,7 @@ func TestS3Retry(t *testing.T) {
 }
 
 func TestS3RetryOnNoSuchUpload(t *testing.T) {
-	log.Init("debug", false)
+	log.Init("debug", false, false)
 
 	noSuchUploadError := awserr.New(s3.ErrCodeNoSuchUpload, "The specified upload does not exist. The upload ID may be invalid, or the upload may have been aborted or completed. status code: 404, request id: PJXXXXX, host id: HOSTIDXX", nil)
 	testcases := []struct {
@@ -928,7 +928,7 @@ func TestS3listObjectsV2(t *testing.T) {
 }
 
 func TestSessionCreateAndCachingWithDifferentBuckets(t *testing.T) {
-	log.Init("error", false)
+	log.Init("error", false, false)
 	testcases := []struct {
 		bucket         string
 		alreadyCreated bool // sessions should not be created again if they already have been created before
@@ -1069,7 +1069,7 @@ func TestSessionAutoRegionValidateCredentials(t *testing.T) {
 }
 
 func TestSessionAutoRegion(t *testing.T) {
-	log.Init("error", false)
+	log.Init("error", false, false)
 
 	unitSession := func() *session.Session {
 		return session.Must(session.NewSession(&aws.Config{

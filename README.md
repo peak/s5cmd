@@ -80,9 +80,9 @@ You can also install `s5cmd` from [MacPorts](https://ports.macports.org/port/s5c
 > conda config --add channels conda-forge
 > conda config --set channel_priority strict
 > ```
-> 
+>
 > Once the `conda-forge` channel has been enabled, `s5cmd` can be installed with `conda`:
-> 
+>
 > ```
 > conda install s5cmd
 > ```
@@ -304,7 +304,7 @@ are not supported by `s5cmd` and result in error (since we have 2 different buck
     rm s3://bucket-foo/object
     rm s3://bucket-bar/object
 
-more details and examples on `s5cmd run` are presented in a [later section](./README.md#L293).
+more details and examples on `s5cmd run` are presented in a [later section](./README.#L368).
 
 #### Copy objects from S3 to S3
 
@@ -319,7 +319,7 @@ folder hierarchy.
 an [open ticket](https://github.com/peak/s5cmd/issues/29) to track the issue.
 
 #### Using Exclude and Include Filters
-`s5cmd` supports the `--exclude` and `--include` flags, which can be used to specify patterns for objects to be excluded or included in commands. 
+`s5cmd` supports the `--exclude` and `--include` flags, which can be used to specify patterns for objects to be excluded or included in commands.
 
 - The `--exclude` flag specifies objects that should be excluded from the operation. Any object that matches the pattern will be skipped.
 - The `--include` flag specifies objects that should be included in the operation. Only objects that match the pattern will be handled.
@@ -540,7 +540,7 @@ The environment variable `SHELL` must be accurate for the autocompletion to func
 The autocompletion is tested with following versions of the shells: \
 ***zsh*** 5.8.1 (x86_64-apple-darwin21.0) \
 GNU ***bash***, version 5.1.16(1)-release (x86_64-apple-darwin21.1.0) \
-***PowerShell*** 7.2.6 
+***PowerShell*** 7.2.6
 
 ### Google Cloud Storage support
 

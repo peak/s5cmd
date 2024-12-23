@@ -20,7 +20,7 @@ study and experimentation on `s5cmd;` to quote his medium [post](https://medium.
 >and aws-cli can only reach 85 MB/s and 375 MB/s respectively.
 
 If you would like to know more about performance of `s5cmd` and the
-reasons for its fast speed, refer to [benchmarks](./README.md#Benchmarks) section
+reasons for its fast speed, refer to [benchmarks](#Benchmarks) section
 ## Features
 ![](./doc/usage.png)
 
@@ -744,7 +744,7 @@ For a more practical scenario, let's say we have an [avocado prices](https://www
 
 ## Beast Mode s5cmd
 
-`s5cmd` allows to pass in some file, containing list of operations to be performed, as an argument to the `run` command as illustrated in the [above](./README.md#L293) example. Alternatively, one can pipe in commands into
+`s5cmd` allows to pass in some file, containing list of operations to be performed, as an argument to the `run` command as illustrated in the [above](#run-multiple-commands-in-parallel) example. Alternatively, one can pipe in commands into
 the `run:`
 
     BUCKET=s5cmd-test; s5cmd ls s3://$BUCKET/*test | grep -v DIR | awk ‘{print $NF}’

@@ -357,7 +357,7 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, cancel context
 					log.Error(msg)
 					cancel()
 				}
-				if s.shouldSkipObject(st, true) {
+				if s.shouldSkipSrcObject(st, true) {
 					continue
 				}
 				filteredSrcObjectChannel <- *st
@@ -404,7 +404,7 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, cancel context
 					log.Error(msg)
 					cancel()
 				}
-				if s.shouldSkipObject(dt, false) {
+				if s.shouldSkipDstObject(dt, false) {
 					continue
 				}
 				filteredDstObjectChannel <- *dt
@@ -550,7 +550,7 @@ func generateDestinationURL(srcurl, dsturl *url.URL, isBatch bool) *url.URL {
 }
 
 // shouldSkipObject checks is object should be skipped.
-func (s Sync) shouldSkipObject(object *storage.Object, verbose bool) bool {
+func (s Sync) shouldSkipSrcObject(object *storage.Object, verbose bool) bool {
 	if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) {
 		return true
 	}
@@ -569,6 +569,21 @@ func (s Sync) shouldSkipObject(object *storage.Object, verbose bool) bool {
 		}
 		return true
 	}
+	return false
+}
+
+func (s Sync) shouldSkipDstObject(object *storage.Object, verbose bool) bool {
+	if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) {
+		return true
+	}
+
+	if err := object.Err; err != nil {
+		if verbose {
+			printError(s.fullCommand, s.op, err)
+		}
+		return true
+	}
+
 	return false
 }
 

@@ -15,7 +15,7 @@ type TempWriter interface {
 	Save() (TempReader, error)
 }
 
-// TempReader defins the methods to allow reading the sections from tempfiles
+// TempReader defines the methods to allow reading the sections from tempfiles
 type TempReader interface {
 	io.Closer
 	Size() int

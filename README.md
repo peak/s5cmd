@@ -304,7 +304,7 @@ are not supported by `s5cmd` and result in error (since we have 2 different buck
     rm s3://bucket-foo/object
     rm s3://bucket-bar/object
 
-more details and examples on `s5cmd run` are presented in a [later section](#run-commands-in-parallel).
+more details and examples on `s5cmd run` are presented in a [later section](#run-multiple-commands-in-parallel).
 
 #### Copy objects from S3 to S3
 

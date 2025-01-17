@@ -1303,6 +1303,218 @@ func TestS3HeadObject(t *testing.T) {
 	}
 }
 
+func TestS3ListMultiparts(t *testing.T) {
+	const (
+		numObjectsToReturn = 10
+		pre                = "s3://bucket/key"
+	)
+
+	u, err := url.New(pre)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	mapReturnObjNameToModtime := map[string]time.Time{}
+
+	s3objs := make([]*s3.MultipartUpload, 0, numObjectsToReturn)
+
+	for i := 0; i < numObjectsToReturn; i++ {
+		fname := fmt.Sprintf("%s/%d", pre, i)
+		now := time.Now()
+
+		mapReturnObjNameToModtime[pre+"/"+fname] = now
+		s3objs = append(s3objs, &s3.MultipartUpload{
+			Key:       aws.String("key/" + fname),
+			Initiated: aws.Time(now),
+			UploadId:  aws.String("random-id-" + fname),
+		})
+	}
+
+	// shuffle the objects array to remove possible assumptions about how objects
+	// are stored.
+	rand.Shuffle(len(s3objs), func(i, j int) {
+		s3objs[i], s3objs[j] = s3objs[j], s3objs[i]
+	})
+
+	mockAPI := s3.New(unit.Session)
+
+	mockAPI.Handlers.Unmarshal.Clear()
+	mockAPI.Handlers.UnmarshalMeta.Clear()
+	mockAPI.Handlers.UnmarshalError.Clear()
+	mockAPI.Handlers.Send.Clear()
+
+	mockAPI.Handlers.Send.PushBack(func(r *request.Request) {
+		r.HTTPResponse = &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader("")),
+		}
+
+		r.Data = &s3.ListMultipartUploadsOutput{
+			Uploads: s3objs,
+		}
+	})
+
+	mockS3 := &S3{
+		api: mockAPI,
+	}
+
+	ouputCh := mockS3.ListMultipartUploads(context.Background(), u)
+
+	for obj := range ouputCh {
+		if _, ok := mapReturnObjNameToModtime[obj.String()]; ok {
+			delete(mapReturnObjNameToModtime, obj.String())
+			continue
+		}
+		t.Errorf("%v should not have been returned\n", obj)
+	}
+	assert.Equal(t, len(mapReturnObjNameToModtime), 0)
+}
+
+func TestS3AbortMultipartUpload(t *testing.T) {
+	const (
+		pre = "s3://bucket/key"
+		uID = "87567b2a-287d-401a-b92a-104f726eeb30"
+	)
+
+	u, err := url.New(pre)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	mockAPI := s3.New(unit.Session)
+
+	mockAPI.Handlers.Unmarshal.Clear()
+	mockAPI.Handlers.UnmarshalMeta.Clear()
+	mockAPI.Handlers.UnmarshalError.Clear()
+	mockAPI.Handlers.Send.Clear()
+
+	mockAPI.Handlers.Send.PushBack(func(r *request.Request) {
+		r.HTTPResponse = &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader("")),
+		}
+
+		r.Data = &s3.AbortMultipartUploadOutput{}
+	})
+
+	mockS3 := &S3{
+		api: mockAPI,
+	}
+
+	err = mockS3.AbortMultipartUpload(context.Background(), u, uID)
+	assert.NilError(t, err)
+}
+
+func TestS3AbortMultipartUploadError(t *testing.T) {
+	const (
+		pre = "s3://bucket/key"
+		uID = "87567b2a-287d-401a-b92a-104f726eeb30"
+	)
+
+	u, err := url.New(pre)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	mockErr := fmt.Errorf("No such upload")
+
+	mockAPI := s3.New(unit.Session)
+	mockS3 := &S3{api: mockAPI}
+
+	mockAPI.Handlers.Unmarshal.Clear()
+	mockAPI.Handlers.UnmarshalMeta.Clear()
+	mockAPI.Handlers.UnmarshalError.Clear()
+	mockAPI.Handlers.Send.Clear()
+
+	mockAPI.Handlers.Send.PushBack(func(r *request.Request) {
+		r.Error = mockErr
+	})
+
+	err = mockS3.AbortMultipartUpload(context.Background(), u, uID)
+	if err != mockErr {
+		t.Errorf("error got = %v, want %v", err, mockErr)
+	}
+}
+
+func TestS3ListMultipartsParts(t *testing.T) {
+	testCases := []struct {
+		url              string
+		uploadID         string
+		numPartsToReturn int
+		partsSize        int64
+	}{
+		{
+			url:              "s3://bucket/object1",
+			uploadID:         "random-id-object1",
+			numPartsToReturn: 10,
+			partsSize:        5000000, // 5MiB part size
+		},
+		{
+			url:              "s3://bucket/object2",
+			uploadID:         "random-id-object1",
+			numPartsToReturn: 60,
+			partsSize:        467000000, // 467MiB part size
+		},
+	}
+
+	mockAPI := s3.New(unit.Session)
+	mockS3 := &S3{api: mockAPI}
+
+	mockAPI.Handlers.Unmarshal.Clear()
+	mockAPI.Handlers.UnmarshalMeta.Clear()
+	mockAPI.Handlers.UnmarshalError.Clear()
+
+	for _, tc := range testCases {
+		u, err := url.New(tc.url)
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+
+		s3parts := make([]*s3.Part, 0, tc.numPartsToReturn)
+		mapReturnPartEtagToModtime := map[string]time.Time{}
+
+		for i := 0; i < tc.numPartsToReturn; i++ {
+
+			now := time.Now()
+			etag := "etag-" + now.String()
+
+			mapReturnPartEtagToModtime[fmt.Sprintf("%d/%s", i, etag)] = now
+			s3parts = append(s3parts, &s3.Part{
+				PartNumber:   aws.Int64(int64(i)),
+				ETag:         aws.String(etag),
+				Size:         aws.Int64(tc.partsSize),
+				LastModified: aws.Time(now),
+			})
+		}
+
+		mockAPI.Handlers.Send.Clear()
+		mockAPI.Handlers.Send.PushBack(func(r *request.Request) {
+			r.HTTPResponse = &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader("")),
+			}
+
+			r.Data = &s3.ListPartsOutput{
+				Bucket:   aws.String(u.Bucket),
+				Key:      aws.String(u.Path),
+				UploadId: aws.String(tc.uploadID),
+				Parts:    s3parts,
+			}
+		})
+		ouputCh := mockS3.ListMultipartUploadParts(context.Background(), u, tc.uploadID)
+
+		for obj := range ouputCh {
+			key := fmt.Sprintf("%d/%s", obj.PartNumber, obj.ETag)
+			if mapReturnPartEtagToModtime[key] != aws.TimeValue(obj.ModTime) {
+				t.Errorf("returned part is not correct")
+				continue
+			}
+			delete(mapReturnPartEtagToModtime, key)
+		}
+		assert.Equal(t, len(mapReturnPartEtagToModtime), 0)
+	}
+}
+
 func valueAtPath(i interface{}, s string) interface{} {
 	v, err := awsutil.ValuesAtPath(i, s)
 	if err != nil || len(v) == 0 {

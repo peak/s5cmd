@@ -1255,7 +1255,7 @@ func (sc *SessionCache) newSession(ctx context.Context, opts Options) (*session.
 
 	// use virtual-host-style if the endpoint is known to support it,
 	// otherwise use the path-style approach.
-	isVirtualHostStyle := isVirtualHostStyle(endpointURL)
+	isVirtualHostStyle := isVirtualHostStyle(endpointURL, opts.SupportVirtualHostStyleEndpoints)
 
 	useAccelerate := supportsTransferAcceleration(endpointURL)
 	// AWS SDK handles transfer acceleration automatically. Setting the
@@ -1422,11 +1422,24 @@ func IsGoogleEndpoint(endpoint urlpkg.URL) bool {
 	return endpoint.Hostname() == gcsEndpoint
 }
 
+func IsOtherVirtualHostStyleEndpoint(endpoint urlpkg.URL, supportVirtualHostStyleEndpoints string) bool {
+	supportVirtualHostStyleEndpointsSlice := strings.Split(supportVirtualHostStyleEndpoints, ",")
+	for _, supportVirtualHostStyleEndpoint := range supportVirtualHostStyleEndpointsSlice {
+		if endpoint.Hostname() == supportVirtualHostStyleEndpoint {
+			return true
+		}
+	}
+	return false
+}
+
 // isVirtualHostStyle reports whether the given endpoint supports S3 virtual
 // host style bucket name resolving. If a custom S3 API compatible endpoint is
 // given, resolve the bucketname from the URL path.
-func isVirtualHostStyle(endpoint urlpkg.URL) bool {
-	return endpoint == sentinelURL || supportsTransferAcceleration(endpoint) || IsGoogleEndpoint(endpoint)
+func isVirtualHostStyle(endpoint urlpkg.URL, supportVirtualHostStyleEndpoints string) bool {
+	return endpoint == sentinelURL ||
+		supportsTransferAcceleration(endpoint) ||
+		IsGoogleEndpoint(endpoint) ||
+		IsOtherVirtualHostStyleEndpoint(endpoint, supportVirtualHostStyleEndpoints)
 }
 
 func errHasCode(err error, code string) bool {

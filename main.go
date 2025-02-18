@@ -14,7 +14,6 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 	if err := command.Main(ctx, os.Args); err != nil {
-		log.Printf("error: %v", err)
 		os.Exit(1)
 	}
 }

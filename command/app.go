@@ -90,10 +90,14 @@ var app = &cli.App{
 			Name:  "credentials-file",
 			Usage: "use the specified credentials file instead of the default credentials file",
 		},
-		&cli.StringFlag{
-			Name:    "support-virtual-host-style-endpoints",
-			Usage:   "add extra endpoints that support virtual host style requests, delimited by comma",
-			EnvVars: []string{"S3_SUPPORT_VIRTUAL_HOST_STYLE_ENDPOINTS"},
+		&cli.GenericFlag{
+			Name:  "addressing-style",
+			Usage: "use virtual host style or path style endpoint: (path, virtual)",
+			Value: &EnumValue{
+				Enum:    []string{"path", "virtual"},
+				Default: "path",
+			},
+			EnvVars: []string{"S3_ADDRESSING_STYLE"},
 		},
 	},
 	Before: func(c *cli.Context) error {
@@ -184,18 +188,18 @@ var app = &cli.App{
 // NewStorageOpts creates storage.Options object from the given context.
 func NewStorageOpts(c *cli.Context) storage.Options {
 	return storage.Options{
-		DryRun:                           c.Bool("dry-run"),
-		Endpoint:                         c.String("endpoint-url"),
-		MaxRetries:                       c.Int("retry-count"),
-		NoSignRequest:                    c.Bool("no-sign-request"),
-		NoVerifySSL:                      c.Bool("no-verify-ssl"),
-		RequestPayer:                     c.String("request-payer"),
-		UseListObjectsV1:                 c.Bool("use-list-objects-v1"),
-		Profile:                          c.String("profile"),
-		CredentialFile:                   c.String("credentials-file"),
-		LogLevel:                         log.LevelFromString(c.String("log")),
-		NoSuchUploadRetryCount:           c.Int("no-such-upload-retry-count"),
-		SupportVirtualHostStyleEndpoints: c.String("support-virtual-host-style-endpoints"),
+		DryRun:                 c.Bool("dry-run"),
+		Endpoint:               c.String("endpoint-url"),
+		MaxRetries:             c.Int("retry-count"),
+		NoSignRequest:          c.Bool("no-sign-request"),
+		NoVerifySSL:            c.Bool("no-verify-ssl"),
+		RequestPayer:           c.String("request-payer"),
+		UseListObjectsV1:       c.Bool("use-list-objects-v1"),
+		Profile:                c.String("profile"),
+		CredentialFile:         c.String("credentials-file"),
+		LogLevel:               log.LevelFromString(c.String("log")),
+		NoSuchUploadRetryCount: c.Int("no-such-upload-retry-count"),
+		AddressingStyle:        c.String("addressing-style"),
 	}
 }
 

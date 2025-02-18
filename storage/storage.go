@@ -58,20 +58,20 @@ func NewLocalClient(opts Options) *Filesystem {
 
 func NewRemoteClient(ctx context.Context, url *url.URL, opts Options) (*S3, error) {
 	newOpts := Options{
-		MaxRetries:                       opts.MaxRetries,
-		NoSuchUploadRetryCount:           opts.NoSuchUploadRetryCount,
-		Endpoint:                         opts.Endpoint,
-		NoVerifySSL:                      opts.NoVerifySSL,
-		DryRun:                           opts.DryRun,
-		NoSignRequest:                    opts.NoSignRequest,
-		UseListObjectsV1:                 opts.UseListObjectsV1,
-		RequestPayer:                     opts.RequestPayer,
-		Profile:                          opts.Profile,
-		CredentialFile:                   opts.CredentialFile,
-		LogLevel:                         opts.LogLevel,
-		bucket:                           url.Bucket,
-		region:                           opts.region,
-		SupportVirtualHostStyleEndpoints: opts.SupportVirtualHostStyleEndpoints,
+		MaxRetries:             opts.MaxRetries,
+		NoSuchUploadRetryCount: opts.NoSuchUploadRetryCount,
+		Endpoint:               opts.Endpoint,
+		NoVerifySSL:            opts.NoVerifySSL,
+		DryRun:                 opts.DryRun,
+		NoSignRequest:          opts.NoSignRequest,
+		UseListObjectsV1:       opts.UseListObjectsV1,
+		RequestPayer:           opts.RequestPayer,
+		Profile:                opts.Profile,
+		CredentialFile:         opts.CredentialFile,
+		LogLevel:               opts.LogLevel,
+		bucket:                 url.Bucket,
+		region:                 opts.region,
+		AddressingStyle:        opts.AddressingStyle,
 	}
 	return newS3Storage(ctx, newOpts)
 }
@@ -85,20 +85,20 @@ func NewClient(ctx context.Context, url *url.URL, opts Options) (Storage, error)
 
 // Options stores configuration for storage.
 type Options struct {
-	MaxRetries                       int
-	NoSuchUploadRetryCount           int
-	Endpoint                         string
-	NoVerifySSL                      bool
-	DryRun                           bool
-	NoSignRequest                    bool
-	UseListObjectsV1                 bool
-	LogLevel                         log.LogLevel
-	RequestPayer                     string
-	Profile                          string
-	CredentialFile                   string
-	bucket                           string
-	region                           string
-	SupportVirtualHostStyleEndpoints string
+	MaxRetries             int
+	NoSuchUploadRetryCount int
+	Endpoint               string
+	NoVerifySSL            bool
+	DryRun                 bool
+	NoSignRequest          bool
+	UseListObjectsV1       bool
+	LogLevel               log.LogLevel
+	RequestPayer           string
+	Profile                string
+	CredentialFile         string
+	bucket                 string
+	region                 string
+	AddressingStyle        string
 }
 
 func (o *Options) SetRegion(region string) {

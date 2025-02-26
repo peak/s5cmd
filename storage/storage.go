@@ -242,6 +242,9 @@ func (o Object) ToBytes() []byte {
 	enc.Encode(o.ModTime.Format(time.RFC3339Nano))
 	enc.Encode(o.Type.mode)
 	enc.Encode(o.Size)
+	// Needs to compare source and destination file by ETag.
+	// We can add flag "NeedETag" to save only when needed.
+	enc.Encode(o.Etag)
 
 	return buf.Bytes()
 }
@@ -260,6 +263,11 @@ func FromBytes(data []byte) extsort.SortType {
 	o.ModTime = &tmp
 	dec.Decode(&o.Type.mode)
 	dec.Decode(&o.Size)
+	// Needs to compare source and destination file by ETag.
+	// fs.go Filesystem Stat saves empty ("") Etag value. This means that there is no point to decode this value here.
+	// We can add flag "NeedETag" to save only when needed.
+	dec.Decode(&o.Etag)
+
 	return o
 }
 

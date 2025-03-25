@@ -78,7 +78,7 @@ var (
 	ErrObjectSizesMatch = fmt.Errorf("object size matches")
 
 	// ErrObjectEtagsMatch indicates the Etag of objects match.
-	ErrObjectEtagsMatch = fmt.Errorf("object ETag maches")
+	ErrObjectEtagsMatch = fmt.Errorf("object ETag matches")
 
 	// ErrObjectIsNewerAndSizesMatch indicates the specified object is newer or same age and sizes of objects match.
 	ErrObjectIsNewerAndSizesMatch = fmt.Errorf("%v and %v", ErrObjectIsNewer, ErrObjectSizesMatch)

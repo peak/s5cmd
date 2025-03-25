@@ -146,6 +146,7 @@ type Sync struct {
 	followSymlinks bool
 	storageClass   storage.StorageClass
 	raw            bool
+	numWorkers     int
 
 	srcRegion string
 	dstRegion string
@@ -169,6 +170,7 @@ func NewSync(c *cli.Context) Sync {
 		followSymlinks: !c.Bool("no-follow-symlinks"),
 		storageClass:   storage.StorageClass(c.String("storage-class")),
 		raw:            c.Bool("raw"),
+		numWorkers:     c.Int("numworkers"),
 		// region settings
 		srcRegion:   c.String("source-region"),
 		dstRegion:   c.String("destination-region"),
@@ -241,7 +243,7 @@ func (s Sync) Run(c *cli.Context) error {
 	pipeReader, pipeWriter := io.Pipe()             // create a reader, writer pipe to pass commands to run
 
 	// Create commands in background.
-	go s.planRun(c, onlySource, onlyDest, commonObjects, dsturl, strategy, pipeWriter, isBatch)
+	go s.planRun(c, onlySource, onlyDest, commonObjects, dsturl, strategy, pipeWriter, isBatch, s.numWorkers)
 
 	err = NewRun(c, pipeReader).Run(ctx)
 	return multierror.Append(err, merrorWaiter).ErrorOrNil()
@@ -453,6 +455,7 @@ func (s Sync) planRun(
 	strategy SyncStrategy,
 	w io.WriteCloser,
 	isBatch bool,
+	numWorkers int,
 ) {
 	defer w.Close()
 
@@ -483,7 +486,6 @@ func (s Sync) planRun(
 	}()
 
 	// both in source and destination
-	numWorkers := 6
 	// needs several goroutines because HashSync reads a lot of files from the file system
 	for i := 0; i < numWorkers; i++ {
 		wg.Add(1)

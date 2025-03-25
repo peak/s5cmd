@@ -483,6 +483,17 @@ src > dst  |  src = dst   |  ❌
 src <= dst  |  src != dst  |  ✅
 src <= dst  |  src == dst  |  ❌
 
+###### Hash only
+With `--hash-only` flag, it's possible to use the strategy that would only compare file sizes and hashes. Source treated as **source of truth** and any difference in sizes or hashes would cause `s5cmd` to copy source object to destination. Multipart upload will always sync the file.
+
+The hash can be stored remotely or calculated locally. If `s5cmd` calculate the hash from a local file, it performs many operations. To perform these operations in parallel and quickly, the `sync` uses the `numworkers` flag. As many `numworkers` are specified, as many threads will be created to calculate the hash.
+
+hash        |  size        |  should sync
+------------|--------------|-------------
+src != dst  |  src == dst  |  ✅
+src != dst  |  src != dst  |  ✅
+src == dst  |  src == dst  |  ❌
+
 ### Dry run
 `--dry-run` flag will output what operations will be performed without actually
 carrying out those operations.
@@ -673,6 +684,8 @@ For example, if you are uploading 100 files to an S3 bucket and the `--numworker
 ```
 s5cmd --numworkers 10 cp '/Users/foo/bar/*' s3://mybucket/foo/bar/
 ```
+
+Additionally, this flag is used to calculate hashes when using `sync` operation with `--hash-only` flag.
 
 ### concurrency
 

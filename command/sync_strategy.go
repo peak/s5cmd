@@ -91,7 +91,7 @@ func getHash(obj *storage.Object) string {
 	} else {
 		// cp.go opens the file again. It MAY be possible not to open the file again to calculate the hash.
 		// fs.go Stat loads file metadata. It is possible to calculate md5 hash in that place, but not necessary.
-		file, err := os.OpenFile(obj.URL.String(), os.O_RDONLY, 0644) // os.Open(srcObj.String())
+		file, err := os.OpenFile(obj.URL.String(), os.O_RDONLY, 0644)
 		// Can't open source file? Push it to the storage.
 		// Not sure about this place. Maybe should throw exception and stop execution.
 		// But if can't open file here, then can't open file in cp and upload it.
@@ -101,8 +101,7 @@ func getHash(obj *storage.Object) string {
 		defer file.Close()
 
 		var md5Obj = md5.New()
-		// buffer size depends on size of syncing files. It can be less or more than 256.
-		buf := make([]byte, 256*1024)
+		buf := make([]byte, obj.Size)
 		if _, err := io.CopyBuffer(md5Obj, file, buf); err != nil {
 			return ""
 		}

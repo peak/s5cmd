@@ -1,4 +1,4 @@
-// Package queue provided a generic priority queue implemtation based on the internal heap
+// Package queue provided a generic priority queue implantation based on the internal heap
 package queue
 
 // Priority queue based on

@@ -7,6 +7,13 @@ test:
 	go test -v ./...
 	@echo "< ALL TESTS PASS >"
 
+update-deps: go.mod
+	GOPROXY=direct go get -u ./...
+	go mod tidy
+
+deps: go.mod
+	go mod download
+
 fmt:
 	gofmt -s -w -l .
 

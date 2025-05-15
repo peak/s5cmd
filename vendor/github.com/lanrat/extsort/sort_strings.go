@@ -164,7 +164,11 @@ func (s *StringSorter) sortChunks() error {
 				// sort
 				sort.Sort(b)
 				// save
-				s.saveChunkChan <- b
+				select {
+				case s.saveChunkChan <- b:
+				case <-s.buildSortCtx.Done():
+					return s.buildSortCtx.Err()
+				}
 			} else {
 				return nil
 			}
@@ -264,7 +268,7 @@ func (s *StringSorter) mergeNChunks(ctx context.Context) {
 	}
 }
 
-// mergefile represents each sorted chunk on disk and its next value
+// mergeStringFile represents each sorted chunk on disk and its next value
 type mergeStringFile struct {
 	nextRec string
 	reader  *bufio.Reader

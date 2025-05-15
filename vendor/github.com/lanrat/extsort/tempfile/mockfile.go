@@ -6,7 +6,7 @@ import (
 	"io"
 )
 
-// MockFileWriter allows writeing to a temp file(s) that are backed by memory
+// MockFileWriter allows writing to a temp file(s) that are backed by memory
 type MockFileWriter struct {
 	data     *bytes.Buffer
 	sections []int
@@ -51,7 +51,7 @@ func (w *MockFileWriter) WriteString(s string) (int, error) {
 	return w.data.WriteString(s)
 }
 
-// Next stops writeing the the current section/file and prepaired the tempwriter for the next one
+// Next stops writing the the current section/file and prepares the tempWriter for the next one
 func (w *MockFileWriter) Next() (int64, error) {
 	// save offsets
 	pos := w.data.Len()

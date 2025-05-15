@@ -1,0 +1,18 @@
+{
+    "version": "0.2",
+    "ignorePaths": [],
+    "dictionaryDefinitions": [],
+    "dictionaries": [],
+    "words": [
+        "errgroup",
+        "extsort",
+        "lanrat",
+        "lessfunc",
+        "psilva",
+        "tempfile",
+        "tempfiles",
+        "timsort"
+    ],
+    "ignoreWords": [],
+    "import": []
+}

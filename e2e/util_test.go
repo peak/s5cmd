@@ -705,7 +705,12 @@ func ensureS3Object(
 	}
 
 	if opts.storageClass != nil {
-		if diff := cmp.Diff(opts.storageClass, output.StorageClass); diff != "" {
+		storageClassofOutput := aws.String("STANDARD")
+		if output.StorageClass != nil {
+			storageClassofOutput = output.StorageClass
+		}
+
+		if diff := cmp.Diff(opts.storageClass, storageClassofOutput); diff != "" {
 			return fmt.Errorf("storage-class of %v/%v: (-want +got):\n%v", bucket, key, diff)
 		}
 	}
@@ -740,6 +745,12 @@ type putOption func(*s3.PutObjectInput)
 func putArbitraryMetadata(metadata map[string]*string) putOption {
 	return func(opts *s3.PutObjectInput) {
 		opts.Metadata = metadata
+	}
+}
+
+func putStorageClass(storageClass string) putOption {
+	return func(opts *s3.PutObjectInput) {
+		opts.StorageClass = aws.String(storageClass)
 	}
 }
 

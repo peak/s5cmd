@@ -119,6 +119,23 @@ type Object struct {
 	VersionID string `json:"version_id,omitempty"`
 }
 
+type UploadObject struct {
+	URL       *url.URL   `json:"key,omitempty"`
+	Initiated *time.Time `json:"initiated,omitempty"`
+	UploadID  string     `json:"uploadID,omitempty"`
+
+	StorageClass StorageClass `json:"storage_class,omitempty"`
+	Err          error        `json:"error,omitempty"`
+}
+
+type MPPartObject struct {
+	ModTime    *time.Time `json:"last_modified,omitempty"`
+	PartNumber int64      `json:"part_number,omitempty"`
+	Size       int64      `json:"size,omitempty"`
+	ETag       string     `json:"etag,omitempty"`
+	Err        error      `json:"error,omitempty"`
+}
+
 // String returns the string representation of Object.
 func (o *Object) String() string {
 	return o.URL.String()
@@ -130,6 +147,26 @@ func (o *Object) JSON() string {
 		o.VersionID = o.URL.VersionID
 	}
 	return strutil.JSON(o)
+}
+
+// String returns the string representation of UploadObject.
+func (uo *UploadObject) String() string {
+	return uo.URL.String()
+}
+
+// JSON returns the JSON representation of UploadObject.
+func (uo *UploadObject) JSON() string {
+	return strutil.JSON(uo)
+}
+
+// String returns the string representation of MPPartObject.
+func (po *MPPartObject) String() string {
+	return fmt.Sprintf("%d-%s", po.PartNumber, po.ETag)
+}
+
+// JSON returns the JSON representation of MPPartObject.
+func (po *MPPartObject) JSON() string {
+	return strutil.JSON(po)
 }
 
 // ObjectType is the type of Object.

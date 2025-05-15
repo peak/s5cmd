@@ -1,9 +1,11 @@
 package command
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/hashicorp/go-multierror"
 
 	errorpkg "github.com/peak/s5cmd/v2/error"
@@ -93,4 +95,29 @@ func cleanupError(err error) string {
 	s = strings.Replace(s, "  ", " ", -1)
 	s = strings.TrimSpace(s)
 	return s
+}
+
+func handleMultipartError(command, op string, err error) error {
+	var pkgErr *errorpkg.Error
+	if err == nil {
+		return nil
+	}
+
+	if multiErr, ok := err.(*multierror.Error); ok {
+		for _, merr := range multiErr.Errors {
+			if errors.As(merr, &pkgErr) {
+				if awsErr, ok := pkgErr.Err.(s3manager.MultiUploadFailure); ok {
+					printError(command, op, fmt.Errorf("multipart upload fail. To resume use the following id: %s", awsErr.UploadID()))
+				}
+			}
+		}
+	} else {
+		if errors.As(err, &pkgErr) {
+			if awsErr, ok := pkgErr.Err.(s3manager.MultiUploadFailure); ok {
+				printError(command, op, fmt.Errorf("multipart upload fail. To resume use the following id: %s", awsErr.UploadID()))
+			}
+		}
+	}
+
+	return err
 }

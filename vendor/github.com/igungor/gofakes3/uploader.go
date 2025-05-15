@@ -197,13 +197,12 @@ func (u *uploader) ListParts(bucket, object string, uploadID UploadID, marker in
 		return nil, err
 	}
 
-	var result = ListMultipartUploadPartsResult{
+	result := ListMultipartUploadPartsResult{
 		Bucket:           bucket,
 		Key:              object,
 		UploadID:         uploadID,
 		MaxParts:         limit,
 		PartNumberMarker: marker,
-		StorageClass:     "STANDARD", // FIXME
 	}
 
 	var cnt int64

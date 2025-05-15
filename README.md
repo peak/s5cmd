@@ -81,9 +81,9 @@ You can also install `s5cmd` from [MacPorts](https://ports.macports.org/port/s5c
 > conda config --add channels conda-forge
 > conda config --set channel_priority strict
 > ```
-> 
+>
 > Once the `conda-forge` channel has been enabled, `s5cmd` can be installed with `conda`:
-> 
+>
 > ```
 > conda install s5cmd
 > ```
@@ -285,7 +285,7 @@ Or you can compress the data before uploading:
 
 #### Delete multiple S3 objects
 
-    s5cmd rm s3://bucket/logs/2020/03/19/*
+    s5cmd rm 's3://bucket/logs/2020/03/19/*'
 
 Will remove all matching objects:
 
@@ -320,7 +320,7 @@ folder hierarchy.
 an [open ticket](https://github.com/peak/s5cmd/issues/29) to track the issue.
 
 #### Using Exclude and Include Filters
-`s5cmd` supports the `--exclude` and `--include` flags, which can be used to specify patterns for objects to be excluded or included in commands. 
+`s5cmd` supports the `--exclude` and `--include` flags, which can be used to specify patterns for objects to be excluded or included in commands.
 
 - The `--exclude` flag specifies objects that should be excluded from the operation. Any object that matches the pattern will be skipped.
 - The `--include` flag specifies objects that should be included in the operation. Only objects that match the pattern will be handled.
@@ -383,7 +383,7 @@ or
 `commands.txt` content could look like:
 
 ```
-cp s3://bucket/2020/03/* logs/2020/03/
+cp 's3://bucket/2020/03/*' logs/2020/03/
 
 # line comments are supported
 rm s3://bucket/2020/03/19/file2.gz
@@ -453,6 +453,14 @@ s5cmd sync 's3://bucket/static/*.html' .
 
 cp s3://bucket/prefix/index.html index.html
 cp s3://bucket/prefix/test.html test.html
+```
+
+We don't support syncing between 2 storage endpoints out of the box. The current solution is to sync remote objects to your local disk first, then sync your local files to the target remote storage. For example, if you'd like to sync S3 and Google Cloud Storage:
+
+```
+s5cmd sync 's3://s3-bucket/path/*' download_folder/
+
+s5cmd --endpoint-url <gcs-endpoint> sync 'download_folder/*' s3://gcs-bucket/path/
 ```
 
 ##### Strategy
@@ -533,7 +541,7 @@ The environment variable `SHELL` must be accurate for the autocompletion to func
 The autocompletion is tested with following versions of the shells: \
 ***zsh*** 5.8.1 (x86_64-apple-darwin21.0) \
 GNU ***bash***, version 5.1.16(1)-release (x86_64-apple-darwin21.1.0) \
-***PowerShell*** 7.2.6 
+***PowerShell*** 7.2.6
 
 ### Google Cloud Storage support
 
@@ -740,7 +748,7 @@ For a more practical scenario, let's say we have an [avocado prices](https://www
 `s5cmd` allows to pass in some file, containing list of operations to be performed, as an argument to the `run` command as illustrated in the [above](./README.md#L293) example. Alternatively, one can pipe in commands into
 the `run:`
 
-    BUCKET=s5cmd-test; s5cmd ls s3://$BUCKET/*test | grep -v DIR | awk ‘{print $NF}’
+    BUCKET=s5cmd-test; s5cmd ls "s3://$BUCKET/*test" | grep -v DIR | awk ‘{print $NF}’
     | xargs -I {} echo “cp s3://$BUCKET/{} /local/directory/” | s5cmd run
 
 The above command performs two `s5cmd` invocations; first, searches for files with *test* suffix and then creates a *copy to local directory* command for each matching file and finally, pipes in those into the ` run.`
@@ -767,7 +775,7 @@ Rather than executing
 
 with `run` command, it is better to just use
 
-    rm s3://bucket/prefix/2020/0*/object*.gz
+    rm 's3://bucket/prefix/2020/0*/object*.gz'
 
 the latter sends single delete request per thousand objects, whereas using the former approach
 sends a separate delete request for each subcommand provided to `run.` Thus, there can be a

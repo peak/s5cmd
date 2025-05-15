@@ -71,8 +71,8 @@ func newSorter(i chan SortType, fromBytes FromBytes, lessFunc CompareLessFunc, c
 // fromBytes is needed to unmarshal SortTypes from []byte on disk
 // lessfunc is the comparator used for SortType
 // config ca be nil to use the defaults, or only set the non-default values desired
-// if errors or interupted, may leave temp files behind in config.TempFilesDir
-// the returned chanels contain the data returned from calling Sort()
+// if errors or interrupted, may leave temp files behind in config.TempFilesDir
+// the returned channels contain the data returned from calling Sort()
 func New(i chan SortType, fromBytes FromBytes, lessFunc CompareLessFunc, config *Config) (*SortTypeSorter, chan SortType, chan error) {
 	var err error
 	s := newSorter(i, fromBytes, lessFunc, config)
@@ -176,7 +176,11 @@ func (s *SortTypeSorter) sortChunks() error {
 				// sort
 				sort.Sort(b)
 				// save
-				s.saveChunkChan <- b
+				select {
+				case s.saveChunkChan <- b:
+				case <-s.buildSortCtx.Done():
+					return s.buildSortCtx.Err()
+				}
 			} else {
 				return nil
 			}
@@ -278,7 +282,7 @@ func (s *SortTypeSorter) mergeNChunks(ctx context.Context) {
 	}
 }
 
-// mergefile represents each sorted chunk on disk and its next value
+// mergeFile represents each sorted chunk on disk and its next value
 type mergeFile struct {
 	nextRec   SortType
 	fromBytes FromBytes

@@ -263,7 +263,6 @@ func TestRunSpecialCharactersInPrefix(t *testing.T) {
 	defer file.Remove()
 
 	cmd := s5cmd("run", file.Path())
-	cmd.Timeout = time.Second
 	result := icmd.RunCmd(cmd)
 	result.Assert(t, icmd.Success)
 

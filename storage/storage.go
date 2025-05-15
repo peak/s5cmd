@@ -122,7 +122,7 @@ type Object struct {
 type UploadObject struct {
 	URL       *url.URL   `json:"key,omitempty"`
 	Initiated *time.Time `json:"initiated,omitempty"`
-	UploadId  string     `json:"uploadID,omitempty"`
+	UploadId  string     `json:"uploadId,omitempty"`
 
 	StorageClass StorageClass `json:"storage_class,omitempty"`
 	Err          error        `json:"error,omitempty"`

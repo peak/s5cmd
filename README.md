@@ -780,6 +780,10 @@ the latter sends single delete request per thousand objects, whereas using the f
 sends a separate delete request for each subcommand provided to `run.` Thus, there can be a
 significant runtime difference between those two approaches.
 
+# Disclaimer
+
+`s5cmd` does not aim for or guarantee compatibility with `aws-cli`. Any similarities in commands or flags are coincidental and should not be interpreted as intentional compatibility.
+
 # LICENSE
 
 MIT. See [LICENSE](https://github.com/peak/s5cmd/blob/master/LICENSE).

@@ -1717,7 +1717,7 @@ func TestSyncS3BucketToS3BucketSizeOnly(t *testing.T) {
 	sourceS3Content := map[string]string{
 		"main.py":                 "S: this is an updated python file",
 		"testfile.txt":            "S: this is a test file",
-		"readme.md":               "S: this is a readve file",
+		"readme.md":               "S: this is a readme file",
 		"a/another_test_file.txt": "S: yet another txt file",
 	}
 
@@ -2747,5 +2747,147 @@ func TestSyncS3ObjectsIntoAnotherBucketWithIncludeFilters(t *testing.T) {
 	for _, filename := range excludedFiles {
 		err := ensureS3Object(s3client, dstbucket, filename, content)
 		assertError(t, err, errS3NoSuchKey)
+	}
+}
+
+// sync --hash-only folder/ s3://bucket/
+func TestSyncLocalFolderToS3BucketSameObjectsHashOnly(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd := setup(t)
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	folderLayout := []fs.PathOp{
+		fs.WithFile("test.py", "S: this is a python file"),     // will be uploaded, different content (hash), size same
+		fs.WithFile("testfile.txt", "SD: this is a test file"), // will not be uploaded, same content (hash) and size.
+		fs.WithDir("a",
+			fs.WithFile("another_test_file.txt", "S: yet another txt file"), // will be uploaded, different content (hash), same size.
+		),
+		fs.WithDir("abc",
+			fs.WithDir("def",
+				fs.WithFile("main.py", "S: python file"), // will be uploaded, remote does not have it
+			),
+		),
+	}
+
+	workdir := fs.NewDir(t, "somedir", folderLayout...)
+	defer workdir.Remove()
+
+	s3Content := map[string]string{
+		"test.py":                 "D: this is a python file",
+		"testfile.txt":            "SD: this is a test file",
+		"a/another_test_file.txt": "D: yet another txt file",
+	}
+
+	for filename, content := range s3Content {
+		putFile(t, s3client, bucket, filename, content)
+	}
+
+	src := fmt.Sprintf("%v/", workdir.Path())
+	src = filepath.ToSlash(src)
+	dst := fmt.Sprintf("s3://%s/", bucket)
+
+	// log debug
+	cmd := s5cmd("--log", "debug", "sync", "--hash-only", src, dst)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`DEBUG "sync %vtestfile.txt %vtestfile.txt": object ETag matches`, src, dst),
+		1: equals(`cp %va/another_test_file.txt %va/another_test_file.txt`, src, dst),
+		2: equals(`cp %vabc/def/main.py %vabc/def/main.py`, src, dst),
+		3: equals(`cp %vtest.py %vtest.py`, src, dst),
+	}, sortInput(true))
+
+	// expected folder structure without the timestamp.
+	expected := fs.Expected(t, folderLayout...)
+	assert.Assert(t, fs.Equal(workdir.Path(), expected))
+
+	expectedS3Content := map[string]string{
+		"test.py":                 "S: this is a python file",
+		"testfile.txt":            "SD: this is a test file",
+		"a/another_test_file.txt": "S: yet another txt file",
+		"abc/def/main.py":         "S: python file",
+	}
+
+	// assert s3
+	for key, content := range expectedS3Content {
+		assert.Assert(t, ensureS3Object(s3client, bucket, key, content))
+	}
+}
+
+// sync --hash-only s3://bucket/* s3://destbucket/
+func TestSyncS3BucketToS3BucketHashOnly(t *testing.T) {
+	t.Parallel()
+
+	now := time.Now()
+	timeSource := newFixedTimeSource(now)
+	s3client, s5cmd := setup(t, withTimeSource(timeSource))
+
+	bucket := s3BucketFromTestName(t)
+	dstbucket := s3BucketFromTestNameWithPrefix(t, "dst")
+	createBucket(t, s3client, bucket)
+	createBucket(t, s3client, dstbucket)
+
+	sourceS3Content := map[string]string{
+		"main.py":                 "S: this is an updated python file", // destination does not have it
+		"testfile.txt":            "SD: this is a test file",           // will not be uploaded, destination has the file with the same hash/size
+		"readme.md":               "S: this is a readme file",          // will be uploaded, destination has file with different hash, but same size
+		"a/another_test_file.txt": "S: yet another txt file",           // will be uploaded, destination has file with different hash, but same size
+	}
+
+	destS3Content := map[string]string{
+		"testfile.txt":            "SD: this is a test file",
+		"readme.md":               "D: this is a readme file",
+		"a/another_test_file.txt": "D: yet another txt file",
+	}
+
+	// make source files older in bucket.
+	// timestamps should be ignored with --hash-only flag
+	timeSource.Advance(-time.Minute)
+	for filename, content := range destS3Content {
+		putFile(t, s3client, dstbucket, filename, content)
+	}
+	timeSource.Advance(time.Minute)
+
+	for filename, content := range sourceS3Content {
+		putFile(t, s3client, bucket, filename, content)
+	}
+
+	bucketPath := fmt.Sprintf("s3://%v", bucket)
+	src := fmt.Sprintf("%s/*", bucketPath)
+	dst := fmt.Sprintf("s3://%v/", dstbucket)
+
+	// log debug
+	cmd := s5cmd("--log", "debug", "sync", "--hash-only", src, dst)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`DEBUG "sync %v/testfile.txt %vtestfile.txt": object ETag matches`, bucketPath, dst),
+		1: equals(`cp %v/a/another_test_file.txt %va/another_test_file.txt`, bucketPath, dst),
+		2: equals(`cp %v/main.py %vmain.py`, bucketPath, dst),
+		3: equals(`cp %v/readme.md %vreadme.md`, bucketPath, dst),
+	}, sortInput(true))
+
+	// assert s3 objects in source
+	for key, content := range sourceS3Content {
+		assert.Assert(t, ensureS3Object(s3client, bucket, key, content))
+	}
+
+	expectedDestS3Content := map[string]string{
+		"main.py":                 "S: this is an updated python file",
+		"testfile.txt":            "SD: this is a test file", // same as source
+		"readme.md":               "S: this is a readme file",
+		"a/another_test_file.txt": "S: yet another txt file",
+	}
+
+	// assert s3 objects in destination
+	for key, content := range expectedDestS3Content {
+		assert.Assert(t, ensureS3Object(s3client, dstbucket, key, content))
 	}
 }

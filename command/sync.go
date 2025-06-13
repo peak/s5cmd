@@ -52,22 +52,25 @@ Examples:
 	05. Sync S3 bucket to local folder but use size as only comparison criteria.
 		 > s5cmd {{.HelpName}} --size-only "s3://bucket/*" folder/
 
-	06. Sync a file to S3 bucket
+	06. Sync S3 bucket to local folder but use size and hash as comparasion criteria.
+		 > s5cmd {{.HelpName}} --hash-only "s3://bucket/*" folder/
+
+	07. Sync a file to S3 bucket
 		 > s5cmd {{.HelpName}} myfile.gz s3://bucket/
 
-	07. Sync matching S3 objects to another bucket
+	08. Sync matching S3 objects to another bucket
 		 > s5cmd {{.HelpName}} "s3://bucket/*.gz" s3://target-bucket/prefix/
 
-	08. Perform KMS Server Side Encryption of the object(s) at the destination
+	09. Perform KMS Server Side Encryption of the object(s) at the destination
 		 > s5cmd {{.HelpName}} --sse aws:kms s3://bucket/object s3://target-bucket/prefix/object
 
-	09. Perform KMS-SSE of the object(s) at the destination using customer managed Customer Master Key (CMK) key id
+	10. Perform KMS-SSE of the object(s) at the destination using customer managed Customer Master Key (CMK) key id
 		 > s5cmd {{.HelpName}} --sse aws:kms --sse-kms-key-id <your-kms-key-id> s3://bucket/object s3://target-bucket/prefix/object
 
-	10. Sync all files to S3 bucket but exclude the ones with txt and gz extension
+	11. Sync all files to S3 bucket but exclude the ones with txt and gz extension
 		 > s5cmd {{.HelpName}} --exclude "*.txt" --exclude "*.gz" dir/ s3://bucket
 
-	11. Sync all files to S3 bucket but include the only ones with txt and gz extension
+	12. Sync all files to S3 bucket but include the only ones with txt and gz extension
 		 > s5cmd {{.HelpName}} --include "*.txt" --include "*.gz" dir/ s3://bucket
 `
 
@@ -80,6 +83,10 @@ func NewSyncCommandFlags() []cli.Flag {
 		&cli.BoolFlag{
 			Name:  "size-only",
 			Usage: "make size of object only criteria to decide whether an object should be synced",
+		},
+		&cli.BoolFlag{
+			Name:  "hash-only",
+			Usage: "make hash and size of object only criteria to decide whether an object should be synced",
 		},
 		&cli.BoolFlag{
 			Name:  "exit-on-error",
@@ -130,6 +137,7 @@ type Sync struct {
 	// flags
 	delete      bool
 	sizeOnly    bool
+	hashOnly    bool
 	exitOnError bool
 
 	// s3 options
@@ -138,6 +146,7 @@ type Sync struct {
 	followSymlinks bool
 	storageClass   storage.StorageClass
 	raw            bool
+	numWorkers     int
 
 	srcRegion string
 	dstRegion string
@@ -154,12 +163,14 @@ func NewSync(c *cli.Context) Sync {
 		// flags
 		delete:      c.Bool("delete"),
 		sizeOnly:    c.Bool("size-only"),
+		hashOnly:    c.Bool("hash-only"),
 		exitOnError: c.Bool("exit-on-error"),
 
 		// flags
 		followSymlinks: !c.Bool("no-follow-symlinks"),
 		storageClass:   storage.StorageClass(c.String("storage-class")),
 		raw:            c.Bool("raw"),
+		numWorkers:     c.Int("numworkers"),
 		// region settings
 		srcRegion:   c.String("source-region"),
 		dstRegion:   c.String("destination-region"),
@@ -228,11 +239,11 @@ func (s Sync) Run(c *cli.Context) error {
 		}
 	}()
 
-	strategy := NewStrategy(s.sizeOnly) // create comparison strategy.
-	pipeReader, pipeWriter := io.Pipe() // create a reader, writer pipe to pass commands to run
+	strategy := NewStrategy(s.sizeOnly, s.hashOnly) // create comparison strategy.
+	pipeReader, pipeWriter := io.Pipe()             // create a reader, writer pipe to pass commands to run
 
 	// Create commands in background.
-	go s.planRun(c, onlySource, onlyDest, commonObjects, dsturl, strategy, pipeWriter, isBatch)
+	go s.planRun(c, onlySource, onlyDest, commonObjects, dsturl, strategy, pipeWriter, isBatch, s.numWorkers)
 
 	err = NewRun(c, pipeReader).Run(ctx)
 	return multierror.Append(err, merrorWaiter).ErrorOrNil()
@@ -444,6 +455,7 @@ func (s Sync) planRun(
 	strategy SyncStrategy,
 	w io.WriteCloser,
 	isBatch bool,
+	numWorkers int,
 ) {
 	defer w.Close()
 
@@ -474,26 +486,29 @@ func (s Sync) planRun(
 	}()
 
 	// both in source and destination
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		for commonObject := range common {
-			sourceObject, destObject := commonObject.src, commonObject.dst
-			curSourceURL, curDestURL := sourceObject.URL, destObject.URL
-			err := strategy.ShouldSync(sourceObject, destObject) // check if object should be copied.
-			if err != nil {
-				printDebug(s.op, err, curSourceURL, curDestURL)
-				continue
-			}
+	// needs several goroutines because HashSync reads a lot of files from the file system
+	for i := 0; i < numWorkers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for commonObject := range common {
+				sourceObject, destObject := commonObject.src, commonObject.dst
+				curSourceURL, curDestURL := sourceObject.URL, destObject.URL
+				err := strategy.ShouldSync(sourceObject, destObject) // check if object should be copied.
+				if err != nil {
+					printDebug(s.op, err, curSourceURL, curDestURL)
+					continue
+				}
 
-			command, err := generateCommand(c, "cp", defaultFlags, curSourceURL, curDestURL)
-			if err != nil {
-				printDebug(s.op, err, curSourceURL, curDestURL)
-				continue
+				command, err := generateCommand(c, "cp", defaultFlags, curSourceURL, curDestURL)
+				if err != nil {
+					printDebug(s.op, err, curSourceURL, curDestURL)
+					continue
+				}
+				fmt.Fprintln(w, command)
 			}
-			fmt.Fprintln(w, command)
-		}
-	}()
+		}()
+	}
 
 	// only in destination
 	wg.Add(1)

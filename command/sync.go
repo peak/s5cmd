@@ -77,6 +77,11 @@ func NewSyncCommandFlags() []cli.Flag {
 			Name:  "delete",
 			Usage: "delete objects in destination but not in source",
 		},
+		&cli.IntFlag{
+			Name:  "max-delete",
+			Usage: "don't delete more than NUM files",
+			Value: -1,
+		},
 		&cli.BoolFlag{
 			Name:  "size-only",
 			Usage: "make size of object only criteria to decide whether an object should be synced",
@@ -129,6 +134,7 @@ type Sync struct {
 
 	// flags
 	delete      bool
+	maxDelete   int
 	sizeOnly    bool
 	exitOnError bool
 
@@ -153,6 +159,7 @@ func NewSync(c *cli.Context) Sync {
 
 		// flags
 		delete:      c.Bool("delete"),
+		maxDelete:   c.Int("max-delete"),
 		sizeOnly:    c.Bool("size-only"),
 		exitOnError: c.Bool("exit-on-error"),
 
@@ -509,6 +516,10 @@ func (s Sync) planRun(
 			}
 
 			if len(dstURLs) == 0 {
+				return
+			}
+			if len(dstURLs) >= s.maxDelete && s.maxDelete >= 0 {
+				fmt.Printf("Not deleting due %d being higher than maximum delete limit\n", len(dstURLs))
 				return
 			}
 

@@ -314,63 +314,64 @@ func (s *S3) listObjectsV2(ctx context.Context, url *url.URL) <-chan *Object {
 
 		var now time.Time
 
-		err := s.api.ListObjectsV2PagesWithContext(ctx, &listInput, func(p *s3.ListObjectsV2Output, lastPage bool) bool {
-			for _, c := range p.CommonPrefixes {
-				prefix := aws.StringValue(c.Prefix)
-				if !url.Match(prefix) {
-					continue
-				}
+		err := s.api.ListObjectsV2PagesWithContext(ctx, &listInput,
+			func(p *s3.ListObjectsV2Output, lastPage bool) bool {
+				for _, c := range p.CommonPrefixes {
+					prefix := aws.StringValue(c.Prefix)
+					if !url.Match(prefix) {
+						continue
+					}
 
-				newurl := url.Clone()
-				newurl.Path = prefix
-				objCh <- &Object{
-					URL:  newurl,
-					Type: ObjectType{os.ModeDir},
-				}
+					newurl := url.Clone()
+					newurl.Path = prefix
+					objCh <- &Object{
+						URL:  newurl,
+						Type: ObjectType{os.ModeDir},
+					}
 
-				objectFound = true
-			}
-			// track the instant object iteration began,
-			// so it can be used to bypass objects created after this instant
-			if now.IsZero() {
-				now = time.Now().UTC()
-			}
-
-			for _, c := range p.Contents {
-				key := aws.StringValue(c.Key)
-				if !url.Match(key) {
-					continue
-				}
-
-				mod := aws.TimeValue(c.LastModified).UTC()
-				if mod.After(now) {
 					objectFound = true
-					continue
+				}
+				// track the instant object iteration began,
+				// so it can be used to bypass objects created after this instant
+				if now.IsZero() {
+					now = time.Now().UTC()
 				}
 
-				var objtype os.FileMode
-				if strings.HasSuffix(key, "/") {
-					objtype = os.ModeDir
+				for _, c := range p.Contents {
+					key := aws.StringValue(c.Key)
+					if !url.Match(key) {
+						continue
+					}
+
+					mod := aws.TimeValue(c.LastModified).UTC()
+					if mod.After(now) {
+						objectFound = true
+						continue
+					}
+
+					var objtype os.FileMode
+					if strings.HasSuffix(key, "/") {
+						objtype = os.ModeDir
+					}
+
+					newurl := url.Clone()
+					newurl.Path = aws.StringValue(c.Key)
+					etag := aws.StringValue(c.ETag)
+
+					objCh <- &Object{
+						URL:          newurl,
+						Etag:         strings.Trim(etag, `"`),
+						ModTime:      &mod,
+						Type:         ObjectType{objtype},
+						Size:         aws.Int64Value(c.Size),
+						StorageClass: StorageClass(aws.StringValue(c.StorageClass)),
+					}
+
+					objectFound = true
 				}
 
-				newurl := url.Clone()
-				newurl.Path = aws.StringValue(c.Key)
-				etag := aws.StringValue(c.ETag)
-
-				objCh <- &Object{
-					URL:          newurl,
-					Etag:         strings.Trim(etag, `"`),
-					ModTime:      &mod,
-					Type:         ObjectType{objtype},
-					Size:         aws.Int64Value(c.Size),
-					StorageClass: StorageClass(aws.StringValue(c.StorageClass)),
-				}
-
-				objectFound = true
-			}
-
-			return !lastPage
-		})
+				return !lastPage
+			})
 		if err != nil {
 			objCh <- &Object{Err: err}
 			return
@@ -1209,6 +1210,151 @@ func (s *S3) HeadObject(ctx context.Context, url *url.URL) (*Object, *Metadata, 
 	}
 
 	return obj, metadata, nil
+}
+
+// ListMultipartUploads is listing all currently active multi-part uploads
+// under specific prefix.
+func (s *S3) ListMultipartUploads(ctx context.Context, url *url.URL) <-chan *UploadObject {
+	input := &s3.ListMultipartUploadsInput{
+		Bucket: aws.String(url.Bucket),
+		Prefix: aws.String(url.Prefix),
+	}
+
+	objCh := make(chan *UploadObject)
+
+	go func() {
+		defer close(objCh)
+		objectFound := false
+
+		var now time.Time
+
+		err := s.api.ListMultipartUploadsPagesWithContext(ctx, input,
+			func(lmuo *s3.ListMultipartUploadsOutput, lastPage bool) bool {
+
+				// track the instant object iteration began,
+				// so it can be used to bypass objects created after this instant
+				if now.IsZero() {
+					now = time.Now().UTC()
+				}
+
+				for _, c := range lmuo.Uploads {
+					key := aws.StringValue(c.Key)
+					if !url.Match(key) {
+						continue
+					}
+
+					mod := aws.TimeValue(c.Initiated).UTC()
+					if mod.After(now) {
+						objectFound = true
+						continue
+					}
+
+					newurl := url.Clone()
+					newurl.Path = aws.StringValue(c.Key)
+
+					objCh <- &UploadObject{
+						URL:          newurl,
+						Initiated:    c.Initiated,
+						UploadID:     aws.StringValue(c.UploadId),
+						StorageClass: StorageClass(aws.StringValue(c.StorageClass)),
+					}
+
+					objectFound = true
+				}
+				return !lastPage
+			})
+
+		if err != nil {
+			objCh <- &UploadObject{Err: err}
+			return
+		}
+
+		if !objectFound && !url.IsBucket() {
+			objCh <- &UploadObject{Err: ErrNoObjectFound}
+		}
+	}()
+
+	return objCh
+}
+
+// AbortMultipartUpload will abort active multi-part upload.
+// Needs exact url to object and upload id which should be aborted
+func (s *S3) AbortMultipartUpload(ctx context.Context, url *url.URL, uploadID string) error {
+	input := &s3.AbortMultipartUploadInput{
+		Bucket:   aws.String(url.Bucket),
+		Key:      aws.String(url.Path),
+		UploadId: aws.String(uploadID),
+	}
+
+	_, err := s.api.AbortMultipartUploadWithContext(ctx, input)
+
+	return err
+}
+
+// ListMultipartUploadParts will list currently uploaded parts of multi-part upload.
+func (s *S3) ListMultipartUploadParts(ctx context.Context, url *url.URL, uploadID string) <-chan *MPPartObject {
+	input := &s3.ListPartsInput{
+		Bucket:   aws.String(url.Bucket),
+		Key:      aws.String(url.Path),
+		UploadId: aws.String(uploadID),
+	}
+
+	objCh := make(chan *MPPartObject)
+
+	go func() {
+		defer close(objCh)
+		objectFound := false
+
+		var now time.Time
+
+		err := s.api.ListPartsPagesWithContext(ctx, input,
+			func(lpo *s3.ListPartsOutput, lastPage bool) bool {
+
+				// track the instant object iteration began,
+				// so it can be used to bypass objects created after this instant
+				if now.IsZero() {
+					now = time.Now().UTC()
+				}
+
+				for _, c := range lpo.Parts {
+
+					key := aws.StringValue(lpo.Key)
+					if !url.Match(key) {
+						continue
+					}
+
+					mod := aws.TimeValue(c.LastModified).UTC()
+					if mod.After(now) {
+						objectFound = true
+						continue
+					}
+
+					newurl := url.Clone()
+					newurl.Path = aws.StringValue(lpo.Key)
+
+					objCh <- &MPPartObject{
+						ModTime:    c.LastModified,
+						PartNumber: aws.Int64Value(c.PartNumber),
+						ETag:       aws.StringValue(c.ETag),
+						Size:       aws.Int64Value(c.Size),
+					}
+
+					objectFound = true
+				}
+				return !lastPage
+			})
+
+		if err != nil {
+			objCh <- &MPPartObject{Err: err}
+			return
+		}
+
+		if !objectFound && !url.IsBucket() {
+			objCh <- &MPPartObject{Err: ErrNoObjectFound}
+		}
+	}()
+
+	return objCh
 }
 
 type sdkLogger struct{}

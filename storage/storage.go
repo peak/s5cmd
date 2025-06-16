@@ -71,6 +71,7 @@ func NewRemoteClient(ctx context.Context, url *url.URL, opts Options) (*S3, erro
 		LogLevel:               opts.LogLevel,
 		bucket:                 url.Bucket,
 		region:                 opts.region,
+		AddressingStyle:        opts.AddressingStyle,
 	}
 	return newS3Storage(ctx, newOpts)
 }
@@ -97,6 +98,7 @@ type Options struct {
 	CredentialFile         string
 	bucket                 string
 	region                 string
+	AddressingStyle        string
 }
 
 func (o *Options) SetRegion(region string) {

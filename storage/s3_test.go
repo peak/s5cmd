@@ -96,7 +96,7 @@ func TestNewSessionPathStyle(t *testing.T) {
 }
 
 func TestNewSessionWithRegionSetViaEnv(t *testing.T) {
-	globalSessionCache.clear()
+	globalSessionCache.Clear()
 
 	const expectedRegion = "us-west-2"
 
@@ -115,7 +115,7 @@ func TestNewSessionWithRegionSetViaEnv(t *testing.T) {
 }
 
 func TestNewSessionWithNoSignRequest(t *testing.T) {
-	globalSessionCache.clear()
+	globalSessionCache.Clear()
 
 	sess, err := globalSessionCache.newSession(context.Background(), Options{
 		NoSignRequest: true,
@@ -188,7 +188,7 @@ aws_secret_access_key = p2_profile_access_key`
 	}
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			globalSessionCache.clear()
+			globalSessionCache.Clear()
 			sess, err := globalSessionCache.newSession(context.Background(), Options{
 				Profile:        tc.profileName,
 				CredentialFile: tc.fileName,
@@ -487,12 +487,12 @@ func TestS3Retry(t *testing.T) {
 		{
 			name:          "ExpiredToken",
 			err:           awserr.New("ExpiredToken", "expired token", nil),
-			expectedRetry: 0,
+			expectedRetry: 5,
 		},
 		{
 			name:          "ExpiredTokenException",
 			err:           awserr.New("ExpiredTokenException", "expired token exception", nil),
-			expectedRetry: 0,
+			expectedRetry: 5,
 		},
 
 		// Invalid Token errors
@@ -536,8 +536,12 @@ func TestS3Retry(t *testing.T) {
 	for _, tc := range testcases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
+			sessionCache := &SessionCache{
+				sessions: map[Options]*session.Session{},
+			}
+
 			sess := unit.Session
-			sess.Config.Retryer = newCustomRetryer(expectedRetry)
+			sess.Config.Retryer = newCustomRetryer(sessionCache, expectedRetry)
 
 			mockAPI := s3.New(sess)
 			mockS3 := &S3{
@@ -1033,7 +1037,7 @@ func TestSessionRegionDetection(t *testing.T) {
 				opts.bucket = tc.bucket
 			}
 
-			globalSessionCache.clear()
+			globalSessionCache.Clear()
 
 			sess, err := globalSessionCache.newSession(context.Background(), opts)
 			if err != nil {
@@ -1233,7 +1237,7 @@ func TestAWSLogLevel(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			globalSessionCache.clear()
+			globalSessionCache.Clear()
 			sess, err := globalSessionCache.newSession(context.Background(), Options{
 				LogLevel: log.LevelFromString(tc.level),
 			})

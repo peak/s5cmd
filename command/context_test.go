@@ -31,7 +31,17 @@ func TestGenerateCommand(t *testing.T) {
 				mustNewURL(t, "s3://bucket/key1"),
 				mustNewURL(t, "s3://bucket/key2"),
 			},
-			expectedCommand: `cp "s3://bucket/key1" "s3://bucket/key2"`,
+			expectedCommand: `cp s3://bucket/key1 s3://bucket/key2`,
+		},
+		{
+			name:  "empty-cli-flags-with-special-char",
+			cmd:   "cp",
+			flags: []cli.Flag{},
+			urls: []*url.URL{
+				mustNewURL(t, "s3://bucket/key '\"1"),
+				mustNewURL(t, "s3://bucket/key2"),
+			},
+			expectedCommand: `cp 's3://bucket/key '\''"1' s3://bucket/key2`,
 		},
 		{
 			name:  "empty-cli-flags-with-default-flags",
@@ -45,7 +55,7 @@ func TestGenerateCommand(t *testing.T) {
 				mustNewURL(t, "s3://bucket/key1"),
 				mustNewURL(t, "s3://bucket/key2"),
 			},
-			expectedCommand: `cp --acl='public-read' --raw='true' "s3://bucket/key1" "s3://bucket/key2"`,
+			expectedCommand: `cp --acl='public-read' --raw='true' s3://bucket/key1 s3://bucket/key2`,
 		},
 		{
 			name: "cli-flag-with-whitespaced-flag-value",
@@ -63,7 +73,7 @@ func TestGenerateCommand(t *testing.T) {
 				mustNewURL(t, "s3://bucket/key1"),
 				mustNewURL(t, "s3://bucket/key2"),
 			},
-			expectedCommand: `cp --cache-control='public, max-age=31536000, immutable' --raw='true' "s3://bucket/key1" "s3://bucket/key2"`,
+			expectedCommand: `cp --cache-control='public, max-age=31536000, immutable' --raw='true' s3://bucket/key1 s3://bucket/key2`,
 		},
 		{
 			name: "same-flag-should-be-ignored-if-given-from-both-default-and-cli-flags",
@@ -81,7 +91,7 @@ func TestGenerateCommand(t *testing.T) {
 				mustNewURL(t, "s3://bucket/key1"),
 				mustNewURL(t, "s3://bucket/key2"),
 			},
-			expectedCommand: `cp --raw='true' "s3://bucket/key1" "s3://bucket/key2"`,
+			expectedCommand: `cp --raw='true' s3://bucket/key1 s3://bucket/key2`,
 		},
 		{
 			name: "ignore-non-shared-flag",
@@ -118,7 +128,7 @@ func TestGenerateCommand(t *testing.T) {
 				mustNewURL(t, "s3://bucket/key1"),
 				mustNewURL(t, "s3://bucket/key2"),
 			},
-			expectedCommand: `cp --concurrency='6' --flatten='true' --force-glacier-transfer='true' --raw='true' "s3://bucket/key1" "s3://bucket/key2"`,
+			expectedCommand: `cp --concurrency='6' --flatten='true' --force-glacier-transfer='true' --raw='true' s3://bucket/key1 s3://bucket/key2`,
 		},
 		{
 			name: "string-slice-flag",
@@ -133,7 +143,7 @@ func TestGenerateCommand(t *testing.T) {
 				mustNewURL(t, "/source/dir"),
 				mustNewURL(t, "s3://bucket/prefix/"),
 			},
-			expectedCommand: `cp --exclude='*.log' --exclude='*.txt' "/source/dir" "s3://bucket/prefix/"`,
+			expectedCommand: `cp --exclude='*.log' --exclude='*.txt' /source/dir s3://bucket/prefix/`,
 		},
 		{
 			name:  "command-with-multiple-args",
@@ -142,10 +152,11 @@ func TestGenerateCommand(t *testing.T) {
 			urls: []*url.URL{
 				mustNewURL(t, "s3://bucket/key1"),
 				mustNewURL(t, "s3://bucket/key2"),
+				mustNewURL(t, "s3://bucket/key3 .txt"),
 				mustNewURL(t, "s3://bucket/prefix/key3"),
 				mustNewURL(t, "s3://bucket/prefix/key4"),
 			},
-			expectedCommand: `rm "s3://bucket/key1" "s3://bucket/key2" "s3://bucket/prefix/key3" "s3://bucket/prefix/key4"`,
+			expectedCommand: `rm s3://bucket/key1 s3://bucket/key2 's3://bucket/key3 .txt' s3://bucket/prefix/key3 s3://bucket/prefix/key4`,
 		},
 		{
 			name:  "command-args-with-spaces",
@@ -155,7 +166,7 @@ func TestGenerateCommand(t *testing.T) {
 				mustNewURL(t, "file with space"),
 				mustNewURL(t, "wow wow"),
 			},
-			expectedCommand: `rm "file with space" "wow wow"`,
+			expectedCommand: `rm 'file with space' 'wow wow'`,
 		},
 	}
 	for _, tc := range testcases {

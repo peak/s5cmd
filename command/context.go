@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/kballard/go-shellquote"
 	"github.com/peak/s5cmd/v2/storage/url"
 	"github.com/urfave/cli/v2"
 )
@@ -68,7 +69,7 @@ func generateCommand(c *cli.Context, cmd string, defaultFlags map[string]interfa
 
 	var args []string
 	for _, url := range urls {
-		args = append(args, fmt.Sprintf("%q", url.String()))
+		args = append(args, shellquote.Join(url.String()))
 	}
 
 	flags := []string{}

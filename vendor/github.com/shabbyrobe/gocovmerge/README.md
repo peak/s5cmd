@@ -1,3 +1,9 @@
+**NOTE: This repo has moved to
+[https://git.sr.ht/~shabbyrobe/gocovmerge](https://git.sr.ht/~shabbyrobe/gocovmerge).
+The new import path is go.shabbyrobe.org/gocovmerge.**
+
+---
+
 gocovmerge
 ==========
 

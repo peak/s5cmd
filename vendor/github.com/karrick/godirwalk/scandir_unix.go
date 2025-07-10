@@ -1,3 +1,4 @@
+//go:build !windows
 // +build !windows
 
 package godirwalk
@@ -18,12 +19,14 @@ type Scanner struct {
 	statErr       error    // statErr is any error return while attempting to stat an entry
 	dh            *os.File // used to close directory after done reading
 	de            *Dirent  // most recently decoded directory entry
-	sde           *syscall.Dirent
+	sde           syscall.Dirent
 	fd            int // file descriptor used to read entries from directory
 }
 
-// NewScanner returns a new directory Scanner that lazily enumerates the
-// contents of a single directory.
+// NewScanner returns a new directory Scanner that lazily enumerates
+// the contents of a single directory. To prevent resource leaks,
+// caller must invoke either the Scanner's Close or Err method after
+// it has completed scanning a directory.
 //
 //     scanner, err := godirwalk.NewScanner(dirname)
 //     if err != nil {
@@ -52,10 +55,12 @@ func NewScanner(osDirname string) (*Scanner, error) {
 	return NewScannerWithScratchBuffer(osDirname, nil)
 }
 
-// NewScannerWithScratchBuffer returns a new directory Scanner that lazily
-// enumerates the contents of a single directory. On platforms other than
-// Windows it uses the provided scratch buffer to read from the file system. On
-// Windows the scratch buffer is ignored.
+// NewScannerWithScratchBuffer returns a new directory Scanner that
+// lazily enumerates the contents of a single directory. On platforms
+// other than Windows it uses the provided scratch buffer to read from
+// the file system. On Windows the scratch buffer is ignored. To
+// prevent resource leaks, caller must invoke either the Scanner's
+// Close or Err method after it has completed scanning a directory.
 func NewScannerWithScratchBuffer(osDirname string, scratchBuffer []byte) (*Scanner, error) {
 	dh, err := os.Open(osDirname)
 	if err != nil {
@@ -73,11 +78,18 @@ func NewScannerWithScratchBuffer(osDirname string, scratchBuffer []byte) (*Scann
 	return scanner, nil
 }
 
+// Close releases resources associated with scanning a directory. Call
+// either this or the Err method when the directory no longer needs to
+// be scanned.
+func (s *Scanner) Close() error {
+	return s.Err()
+}
+
 // Dirent returns the current directory entry while scanning a directory.
 func (s *Scanner) Dirent() (*Dirent, error) {
 	if s.de == nil {
 		s.de = &Dirent{name: s.childName, path: s.osDirname}
-		s.de.modeType, s.statErr = modeTypeFromDirent(s.sde, s.osDirname, s.childName)
+		s.de.modeType, s.statErr = modeTypeFromDirent(&s.sde, s.osDirname, s.childName)
 	}
 	return s.de, s.statErr
 }
@@ -90,19 +102,23 @@ func (s *Scanner) done(err error) {
 		return
 	}
 
-	if cerr := s.dh.Close(); err == nil {
-		s.err = cerr
+	s.err = err
+
+	if err = s.dh.Close(); s.err == nil {
+		s.err = err
 	}
 
 	s.osDirname, s.childName = "", ""
 	s.scratchBuffer, s.workBuffer = nil, nil
-	s.dh, s.de, s.sde, s.statErr = nil, nil, nil, nil
+	s.dh, s.de, s.statErr = nil, nil, nil
+	s.sde = syscall.Dirent{}
 	s.fd = 0
 }
 
-// Err returns any error associated with scanning a directory. It is normal to
-// call Err after Scan returns false, even though they both ensure Scanner
-// resources are released. Do not call until done scanning a directory.
+// Err returns any error associated with scanning a directory. It is
+// normal to call Err after Scan returns false, even though they both
+// ensure Scanner resources are released. Call either this or the
+// Close method when the directory no longer needs to be scanned.
 func (s *Scanner) Err() error {
 	s.done(nil)
 	return s.err
@@ -131,7 +147,10 @@ func (s *Scanner) Scan() bool {
 			n, err := syscall.ReadDirent(s.fd, s.scratchBuffer)
 			// n, err := unix.ReadDirent(s.fd, s.scratchBuffer)
 			if err != nil {
-				s.done(err)
+				if err == syscall.EINTR /* || err == unix.EINTR */ {
+					continue
+				}
+				s.done(err) // any other error forces a stop
 				return false
 			}
 			if n <= 0 { // end of directory: normal exit
@@ -141,14 +160,15 @@ func (s *Scanner) Scan() bool {
 			s.workBuffer = s.scratchBuffer[:n] // trim work buffer to number of bytes read
 		}
 
-		s.sde = (*syscall.Dirent)(unsafe.Pointer(&s.workBuffer[0])) // point entry to first syscall.Dirent in buffer
-		s.workBuffer = s.workBuffer[reclen(s.sde):]                 // advance buffer for next iteration through loop
+		// point entry to first syscall.Dirent in buffer
+		copy((*[unsafe.Sizeof(syscall.Dirent{})]byte)(unsafe.Pointer(&s.sde))[:], s.workBuffer)
+		s.workBuffer = s.workBuffer[reclen(&s.sde):] // advance buffer for next iteration through loop
 
-		if inoFromDirent(s.sde) == 0 {
+		if inoFromDirent(&s.sde) == 0 {
 			continue // inode set to 0 indicates an entry that was marked as deleted
 		}
 
-		nameSlice := nameFromDirent(s.sde)
+		nameSlice := nameFromDirent(&s.sde)
 		nameLength := len(nameSlice)
 
 		if nameLength == 0 || (nameSlice[0] == '.' && (nameLength == 1 || (nameLength == 2 && nameSlice[1] == '.'))) {

@@ -90,6 +90,12 @@ var app = &cli.App{
 			Name:  "credentials-file",
 			Usage: "use the specified credentials file instead of the default credentials file",
 		},
+		&cli.StringFlag{
+			Name:    "proxy",
+			Aliases: []string{"x"},
+			Usage:   "proxy URL (e.g., http://proxy:8080, socks5://proxy:1080)",
+			EnvVars: []string{"S5CMD_PROXY"},
+		},
 	},
 	Before: func(c *cli.Context) error {
 		retryCount := c.Int("retry-count")
@@ -188,6 +194,7 @@ func NewStorageOpts(c *cli.Context) storage.Options {
 		UseListObjectsV1:       c.Bool("use-list-objects-v1"),
 		Profile:                c.String("profile"),
 		CredentialFile:         c.String("credentials-file"),
+		Proxy:                  c.String("proxy"),
 		LogLevel:               log.LevelFromString(c.String("log")),
 		NoSuchUploadRetryCount: c.Int("no-such-upload-retry-count"),
 	}

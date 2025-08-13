@@ -11,6 +11,7 @@ import (
 	"io"
 	"math"
 	"math/big"
+	"net"
 	"net/http"
 	urlpkg "net/url"
 	"os"
@@ -33,6 +34,7 @@ import (
 
 	"github.com/peak/s5cmd/v2/log"
 	"github.com/peak/s5cmd/v2/storage/url"
+	"golang.org/x/net/proxy"
 )
 
 var sentinelURL = urlpkg.URL{}
@@ -88,6 +90,59 @@ func parseEndpoint(endpoint string) (urlpkg.URL, error) {
 	}
 
 	return *u, nil
+}
+
+// createProxyTransport creates a custom HTTP transport with SOCKS5 proxy support
+func createProxyTransport(proxyURL string, noVerifySSL bool) (*http.Transport, error) {
+	transport := &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+	}
+
+	// If a specific proxy URL is provided, use it
+	if proxyURL != "" {
+		proxyURLParsed, err := urlpkg.Parse(proxyURL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid proxy URL %q: %v", proxyURL, err)
+		} else if proxyURLParsed.Host == "" {
+			return nil, fmt.Errorf("invalid proxy URL %q: hostname is empry", proxyURL)
+		}
+
+		if proxyURLParsed.Scheme == "socks5" {
+			var auth *proxy.Auth
+			if proxyURLParsed.User != nil {
+				auth = &proxy.Auth{
+					User: proxyURLParsed.User.Username(),
+				}
+				if pw, ok := proxyURLParsed.User.Password(); ok {
+					auth.Password = pw
+				}
+			}
+			dialer, err := proxy.SOCKS5("tcp", proxyURLParsed.Host, auth, proxy.Direct)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create SOCKS5 dialer: %v", err)
+			}
+
+			if dialerContext, ok := dialer.(proxy.ContextDialer); ok {
+				transport.DialContext = dialerContext.DialContext
+			} else {
+				// Fallback for older proxy implementations
+				transport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+					return dialer.Dial(network, addr)
+				}
+			}
+		} else {
+			// For HTTP/HTTPS proxies, we can set the proxy function directly
+			transport.Proxy = func(req *http.Request) (*urlpkg.URL, error) {
+				return proxyURLParsed, nil
+			}
+		}
+	}
+
+	if noVerifySSL {
+		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	}
+
+	return transport, nil
 }
 
 // NewS3Storage creates new S3 session.
@@ -1266,7 +1321,13 @@ func (sc *SessionCache) newSession(ctx context.Context, opts Options) (*session.
 	}
 
 	var httpClient *http.Client
-	if opts.NoVerifySSL {
+	if opts.Proxy != "" || opts.NoVerifySSL {
+		transport, err := createProxyTransport(opts.Proxy, opts.NoVerifySSL)
+		if err != nil {
+			return nil, err
+		}
+		httpClient = &http.Client{Transport: transport}
+	} else if opts.NoVerifySSL {
 		httpClient = insecureHTTPClient
 	}
 	awsCfg = awsCfg.
@@ -1388,6 +1449,17 @@ func newCustomRetryer(maxRetries int) *customRetryer {
 // ShouldRetry overrides SDK's built in DefaultRetryer, adding custom retry
 // logics that are not included in the SDK.
 func (c *customRetryer) ShouldRetry(req *request.Request) bool {
+	// Don't retry proxy connection errors - they won't get better
+	if req.Error != nil {
+		errMsg := req.Error.Error()
+		if strings.Contains(errMsg, "connection refused") ||
+			strings.Contains(errMsg, "failed to connect to SOCKS5 proxy") ||
+			strings.Contains(errMsg, "no route to host") ||
+			strings.Contains(errMsg, "network is unreachable") {
+			return false
+		}
+	}
+
 	shouldRetry := errHasCode(req.Error, "InternalError") || errHasCode(req.Error, "RequestTimeTooSkewed") || errHasCode(req.Error, "SlowDown") || strings.Contains(req.Error.Error(), "connection reset") || strings.Contains(req.Error.Error(), "connection timed out")
 	if !shouldRetry {
 		shouldRetry = c.DefaultRetryer.ShouldRetry(req)

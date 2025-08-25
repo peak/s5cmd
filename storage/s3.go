@@ -48,6 +48,9 @@ const (
 	// Google Cloud Storage endpoint
 	gcsEndpoint = "storage.googleapis.com"
 
+	// Tencent Cloud COS endpoint
+	cosEndpoint = ".myqcloud.com"
+
 	// the key of the object metadata which is used to handle retry decision on NoSuchUpload error
 	metadataKeyRetryID = "s5cmd-upload-retry-id"
 )
@@ -1422,11 +1425,15 @@ func IsGoogleEndpoint(endpoint urlpkg.URL) bool {
 	return endpoint.Hostname() == gcsEndpoint
 }
 
+func IsTencentEndpoint(endpoint urlpkg.URL) bool {
+	return strings.HasSuffix(endpoint.Hostname(), cosEndpoint)
+}
+
 // isVirtualHostStyle reports whether the given endpoint supports S3 virtual
 // host style bucket name resolving. If a custom S3 API compatible endpoint is
 // given, resolve the bucketname from the URL path.
 func isVirtualHostStyle(endpoint urlpkg.URL) bool {
-	return endpoint == sentinelURL || supportsTransferAcceleration(endpoint) || IsGoogleEndpoint(endpoint)
+	return endpoint == sentinelURL || supportsTransferAcceleration(endpoint) || IsGoogleEndpoint(endpoint) || IsTencentEndpoint(endpoint)
 }
 
 func errHasCode(err error, code string) bool {

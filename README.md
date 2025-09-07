@@ -136,7 +136,7 @@ then filtering the results in-memory. For example, for the following command;
 
     s5cmd cp 's3://bucket/logs/2020/03/*' .
 
-first a `ListObjects` request is send, then the copy operation will be executed
+first a `ListObjects` request is sent, then the copy operation will be executed
 against each matching object, in parallel.
 
 
@@ -499,7 +499,7 @@ will output
 
     cp s3://bucket/pre/file1.gz s3://another-bucket/file1.gz
     ...
-    cp s3://bucket/pre/last.txt s3://anohter-bucket/last.txt
+    cp s3://bucket/pre/last.txt s3://another-bucket/last.txt
 
 however, those copy operations will not be performed. It is displaying what
 `s5cmd` will do when ran without `--dry-run`
@@ -571,7 +571,7 @@ path-style.
 `s5cmd` uses an exponential backoff retry mechanism for transient or potential
 server-side throttling errors. Non-retriable errors, such as `invalid
 credentials`, `authorization errors` etc, will not be retried. By default,
-`s5cmd` will retry 10 times for up to a minute. Number of retries are adjustable
+`s5cmd` will retry 10 times for up to a minute. The number of retries is adjustable
 via `--retry-count` flag.
 
 ℹ️ Enable debug level logging for displaying retryable errors.

@@ -864,6 +864,11 @@ func (c Copy) shouldOverride(ctx context.Context, srcurl *url.URL, dsturl *url.U
 		return err
 	}
 
+	// if source not exists, cannot proceed with comparison
+	if srcObj == nil {
+		return fmt.Errorf("stat on source object returned nil")
+	}
+
 	dstClient, err := storage.NewClient(ctx, dsturl, c.storageOpts)
 	if err != nil {
 		return err

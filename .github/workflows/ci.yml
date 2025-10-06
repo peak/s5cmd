@@ -45,7 +45,7 @@ jobs:
     runs-on: ${{ matrix.os }}-latest
     services:
       minio:
-        image: ${{ (matrix.os == 'ubuntu') && 'bitnami/minio:2023.7.18' || ''}}
+        image: ${{ (matrix.os == 'ubuntu') && 'bitnamilegacy/minio:2023.7.18' || ''}}
         ports:
           - 45677:9000
         options: >-

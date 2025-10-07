@@ -11,7 +11,7 @@ require (
 	github.com/igungor/gofakes3 v0.0.18
 	github.com/karrick/godirwalk v1.15.3
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
-	github.com/lanrat/extsort v1.0.2
+	github.com/lanrat/extsort v1.4.2
 	github.com/termie/go-shutil v0.0.0-20140729215957-bcacb06fecae
 	github.com/urfave/cli/v2 v2.11.2
 	go.uber.org/mock v0.4.0
@@ -41,7 +41,7 @@ require (
 	go.etcd.io/bbolt v1.3.6 // indirect
 	golang.org/x/exp/typeparams v0.0.0-20221208152030-732eee02a75a // indirect
 	golang.org/x/mod v0.17.0 // indirect
-	golang.org/x/sync v0.7.0 // indirect
+	golang.org/x/sync v0.16.0 // indirect
 	golang.org/x/sys v0.20.0 // indirect
 	golang.org/x/tools v0.21.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect

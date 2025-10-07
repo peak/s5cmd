@@ -1,1 +1,3 @@
 coverage.out
+bench_results/
+extsort.test

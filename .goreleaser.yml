@@ -17,6 +17,7 @@ builds:
       - arm
       - arm64
       - ppc64le
+      - riscv64
     ignore:
       - goos: darwin
         goarch: 386

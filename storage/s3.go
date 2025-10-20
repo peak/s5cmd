@@ -50,6 +50,9 @@ const (
 
 	// the key of the object metadata which is used to handle retry decision on NoSuchUpload error
 	metadataKeyRetryID = "s5cmd-upload-retry-id"
+
+	DownloaderBufferSize = 64 * 1024
+	UploaderBufferSize   = 512 * 1024
 )
 
 // Re-used AWS sessions dramatically improve performance.
@@ -102,10 +105,15 @@ func newS3Storage(ctx context.Context, opts Options) (*S3, error) {
 		return nil, err
 	}
 
+	downloader := s3manager.NewDownloader(awsSession)
+	downloader.BufferProvider = s3manager.NewPooledBufferedWriterReadFromProvider(DownloaderBufferSize)
+	uploader := s3manager.NewUploader(awsSession)
+	uploader.BufferProvider = s3manager.NewBufferedReadSeekerWriteToPool(UploaderBufferSize)
+
 	return &S3{
 		api:                    s3.New(awsSession),
-		downloader:             s3manager.NewDownloader(awsSession),
-		uploader:               s3manager.NewUploader(awsSession),
+		downloader:             downloader,
+		uploader:               uploader,
 		endpointURL:            endpointURL,
 		dryRun:                 opts.DryRun,
 		useListObjectsV1:       opts.UseListObjectsV1,

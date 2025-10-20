@@ -45,7 +45,7 @@ jobs:
     runs-on: ${{ matrix.os }}-latest
     services:
       minio:
-        image: ${{ (matrix.os == 'ubuntu') && 'bitnami/minio:2023.7.18' || ''}}
+        image: ${{ (matrix.os == 'ubuntu') && 'quay.io/minio/minio:latest' || '' }}
         ports:
           - 45677:9000
         options: >-
@@ -56,6 +56,7 @@ jobs:
         env:
           MINIO_ROOT_USER: minioadmin
           MINIO_ROOT_PASSWORD: minioadmin
+        command: server /data --console-address ":9001"
     steps:
     - uses: actions/checkout@v2
     - uses: actions/setup-go@v2

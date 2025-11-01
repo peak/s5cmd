@@ -1242,7 +1242,7 @@ func (sc *SessionCache) newSession(ctx context.Context, opts Options) (*session.
 	if opts.NoSignRequest {
 		// do not sign requests when making service API calls
 		awsCfg = awsCfg.WithCredentials(credentials.AnonymousCredentials)
-	} else if opts.CredentialFile != "" || opts.Profile != "" {
+	} else if opts.CredentialFile != "" {
 		awsCfg = awsCfg.WithCredentials(
 			credentials.NewSharedCredentials(opts.CredentialFile, opts.Profile),
 		)
@@ -1304,6 +1304,7 @@ func (sc *SessionCache) newSession(ctx context.Context, opts Options) (*session.
 		session.Options{
 			Config:            *awsCfg,
 			SharedConfigState: useSharedConfig,
+			Profile:           opts.Profile,
 		},
 	)
 	if err != nil {

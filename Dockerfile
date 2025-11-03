@@ -1,4 +1,4 @@
-FROM golang:1.22-alpine AS build
+FROM golang:1.25.2-alpine AS build
 COPY . /s5cmd/
 RUN apk add --no-cache git make && \
     cd /s5cmd/ && \

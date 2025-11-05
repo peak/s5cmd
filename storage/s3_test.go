@@ -62,6 +62,16 @@ func TestNewSessionPathStyle(t *testing.T) {
 			expectPathStyle: false,
 		},
 		{
+			name:            "expect_virtual_host_style_for_coreweave_object_storage",
+			endpoint:        urlpkg.URL{Scheme: "https", Host: cwObjectEndpoint},
+			expectPathStyle: false,
+		},
+		{
+			name:            "expect_virtual_host_style_for_coreweave_object_storage_lota",
+			endpoint:        urlpkg.URL{Scheme: "http", Host: cwLotaEndpoint},
+			expectPathStyle: false,
+		},
+		{
 			name:            "expect_path_style_for_localhost",
 			endpoint:        urlpkg.URL{Scheme: "http", Host: "127.0.0.1"},
 			expectPathStyle: true,

@@ -48,6 +48,12 @@ const (
 	// Google Cloud Storage endpoint
 	gcsEndpoint = "storage.googleapis.com"
 
+	// CoreWeave Object Storage endpoint
+	cwObjectEndpoint = "cwobject.com"
+
+	// CoreWeave Object Storage LOTA endpoint
+	cwLotaEndpoint = "cwlota.com"
+
 	// the key of the object metadata which is used to handle retry decision on NoSuchUpload error
 	metadataKeyRetryID = "s5cmd-upload-retry-id"
 )
@@ -1422,11 +1428,15 @@ func IsGoogleEndpoint(endpoint urlpkg.URL) bool {
 	return endpoint.Hostname() == gcsEndpoint
 }
 
+func IsCoreWeaveEndpoint(endpoint urlpkg.URL) bool {
+	return endpoint.Hostname() == cwObjectEndpoint || endpoint.Hostname() == cwLotaEndpoint
+}
+
 // isVirtualHostStyle reports whether the given endpoint supports S3 virtual
 // host style bucket name resolving. If a custom S3 API compatible endpoint is
 // given, resolve the bucketname from the URL path.
 func isVirtualHostStyle(endpoint urlpkg.URL) bool {
-	return endpoint == sentinelURL || supportsTransferAcceleration(endpoint) || IsGoogleEndpoint(endpoint)
+	return endpoint == sentinelURL || supportsTransferAcceleration(endpoint) || IsGoogleEndpoint(endpoint) || IsCoreWeaveEndpoint(endpoint)
 }
 
 func errHasCode(err error, code string) bool {

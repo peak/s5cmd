@@ -48,6 +48,7 @@ type URL struct {
 	Prefix      string
 	VersionID   string
 	AllVersions bool
+	StartAfter  string
 
 	relativePath string
 	filter       string
@@ -72,6 +73,12 @@ func WithVersion(versionID string) Option {
 func WithAllVersions(isAllVersions bool) Option {
 	return func(u *URL) {
 		u.AllVersions = isAllVersions
+	}
+}
+
+func WithStartAfter(startAfter string) Option {
+	return func(u *URL) {
+		u.StartAfter = startAfter
 	}
 }
 

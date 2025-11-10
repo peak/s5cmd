@@ -341,6 +341,15 @@ If you wish, you can use multiple flags, like below. It will download objects th
 Using a combination of `--include` and `--exclude` also possible. The command below will only sync objects that end with `.log` or `.txt` but exclude those that start with `access_`. For example, `request.log`, and `license.txt` will be included, while `access_log.txt`, and `readme.md` are excluded.
 
     s5cmd sync --include "*.log" --exclude "access_*" --include "*.txt" 's3://bucket/logs/*' .
+
+#### Listing objects with pagination
+
+`s5cmd` supports the `--start-after` flag for the `ls` command to list objects starting after a specific key. This is useful for pagination and resuming listings from a specific point:
+
+    s5cmd ls --start-after "logs/2024/03/file100.txt" 's3://bucket/logs/*'
+
+This will list all objects that come alphabetically after `logs/2024/03/file100.txt` in the bucket.
+
 #### Select JSON object content using SQL
 
 `s5cmd` supports the `SelectObjectContent` S3 operation, and will run your

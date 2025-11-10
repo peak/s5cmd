@@ -306,6 +306,10 @@ func (s *S3) listObjectsV2(ctx context.Context, url *url.URL) <-chan *Object {
 		listInput.SetDelimiter(url.Delimiter)
 	}
 
+	if url.StartAfter != "" {
+		listInput.SetStartAfter(url.StartAfter)
+	}
+
 	objCh := make(chan *Object)
 
 	go func() {

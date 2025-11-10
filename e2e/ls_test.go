@@ -802,3 +802,137 @@ func TestEmptyBucket(t *testing.T) {
 
 	assertLines(t, result.Stdout(), nil)
 }
+
+// ls --start-after
+func TestListObjectsWithStartAfter(t *testing.T) {
+	// Skip if using gofakes3 backend (doesn't support StartAfter)
+	if !isEndpointFromEnv() {
+		t.Skip("gofakes3 backend doesn't support StartAfter parameter - run with S5CMD_TEST_ENDPOINT_URL to test against real S3")
+	}
+	t.Parallel()
+
+	s3client, s5cmd := setup(t)
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	// create multiple files
+	putFile(t, s3client, bucket, "a.txt", "content of a")
+	putFile(t, s3client, bucket, "b.txt", "content of b")
+	putFile(t, s3client, bucket, "c.txt", "content of c")
+	putFile(t, s3client, bucket, "d.txt", "content of d")
+	putFile(t, s3client, bucket, "e.txt", "content of e")
+
+	// list objects starting after "b.txt"
+	cmd := s5cmd("ls", "--start-after", "b.txt", "s3://"+bucket+"/")
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	// should only see c.txt, d.txt, and e.txt (b.txt and earlier should not appear)
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: suffix("c.txt"),
+		1: suffix("d.txt"),
+		2: suffix("e.txt"),
+	}, strictLineCheck(true), trimMatch(dateRe))
+}
+
+// ls --start-after with prefix
+func TestListObjectsWithStartAfterAndPrefix(t *testing.T) {
+	// Skip if using gofakes3 backend (doesn't support StartAfter)
+	if !isEndpointFromEnv() {
+		t.Skip("gofakes3 backend doesn't support StartAfter parameter - run with S5CMD_TEST_ENDPOINT_URL to test against real S3")
+	}
+	t.Parallel()
+
+	s3client, s5cmd := setup(t)
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	// create multiple files with prefix
+	putFile(t, s3client, bucket, "logs/2024/file1.txt", "content 1")
+	putFile(t, s3client, bucket, "logs/2024/file2.txt", "content 2")
+	putFile(t, s3client, bucket, "logs/2024/file3.txt", "content 3")
+	putFile(t, s3client, bucket, "logs/2024/file4.txt", "content 4")
+
+	// list objects starting after "logs/2024/file2.txt"
+	cmd := s5cmd("ls", "--start-after", "logs/2024/file2.txt", "s3://"+bucket+"/logs/2024/")
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	// should only see file3.txt and file4.txt
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: suffix("file3.txt"),
+		1: suffix("file4.txt"),
+	}, strictLineCheck(true), trimMatch(dateRe))
+}
+
+// ls --start-after with wildcard filter
+func TestListObjectsWithStartAfterAndWildcard(t *testing.T) {
+	// Skip if using gofakes3 backend (doesn't support StartAfter)
+	if !isEndpointFromEnv() {
+		t.Skip("gofakes3 backend doesn't support StartAfter parameter - run with S5CMD_TEST_ENDPOINT_URL to test against real S3")
+	}
+	t.Parallel()
+
+	s3client, s5cmd := setup(t)
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	// create multiple files with prefix
+	putFile(t, s3client, bucket, "logs/2024/file1.txt", "content 1")
+	putFile(t, s3client, bucket, "logs/2024/file2.txt", "content 2")
+	putFile(t, s3client, bucket, "logs/2024/file3.txt", "content 3")
+	putFile(t, s3client, bucket, "logs/2024/file4.txt", "content 4")
+	putFile(t, s3client, bucket, "logs/2024/file5.log", "content 5")
+
+	// list objects with wildcard starting after "logs/2024/file2.txt"
+	cmd := s5cmd("ls", "--start-after", "logs/2024/file2.txt", "s3://"+bucket+"/logs/2024/*")
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	// should only see file3.txt, file4.txt, and file5.log (after file2.txt)
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: suffix("file3.txt"),
+		1: suffix("file4.txt"),
+		2: suffix("file5.log"),
+	}, strictLineCheck(true), trimMatch(dateRe))
+}
+
+// ls --start-after with wildcard filter matching specific extension
+func TestListObjectsWithStartAfterAndWildcardExtension(t *testing.T) {
+	// Skip if using gofakes3 backend (doesn't support StartAfter)
+	if !isEndpointFromEnv() {
+		t.Skip("gofakes3 backend doesn't support StartAfter parameter - run with S5CMD_TEST_ENDPOINT_URL to test against real S3")
+	}
+	t.Parallel()
+
+	s3client, s5cmd := setup(t)
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	// create multiple files with prefix
+	putFile(t, s3client, bucket, "logs/2024/file1.txt", "content 1")
+	putFile(t, s3client, bucket, "logs/2024/file2.txt", "content 2")
+	putFile(t, s3client, bucket, "logs/2024/file3.txt", "content 3")
+	putFile(t, s3client, bucket, "logs/2024/file4.txt", "content 4")
+	putFile(t, s3client, bucket, "logs/2024/file5.log", "content 5")
+
+	// list only .txt files with wildcard starting after "logs/2024/file2.txt"
+	cmd := s5cmd("ls", "--start-after", "logs/2024/file2.txt", "s3://"+bucket+"/logs/2024/*.txt")
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	// should only see file3.txt and file4.txt (file5.log should be filtered out by wildcard)
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: suffix("file3.txt"),
+		1: suffix("file4.txt"),
+	}, strictLineCheck(true), trimMatch(dateRe))
+}
+

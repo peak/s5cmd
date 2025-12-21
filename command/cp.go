@@ -257,6 +257,11 @@ func NewCopyCommandFlags() []cli.Flag {
 			Aliases: []string{"sp"},
 			Usage:   "show a progress bar",
 		},
+		&cli.BoolFlag{
+			Name:    "log-progress",
+			Aliases: []string{"lp"},
+			Usage:   "show progress in log-friendly format (works in pipes and non-TTY)",
+		},
 	}
 	sharedFlags := NewSharedFlags()
 	return append(copyFlags, sharedFlags...)
@@ -358,7 +363,10 @@ func NewCopy(c *cli.Context, deleteSource bool) (*Copy, error) {
 
 	var commandProgressBar progressbar.ProgressBar
 
-	if c.Bool("show-progress") && !(src.Type == dst.Type) {
+	// Determine which progress bar to use
+	if c.Bool("log-progress") && !(src.Type == dst.Type) {
+		commandProgressBar = progressbar.NewLogProgressBar()
+	} else if c.Bool("show-progress") && !(src.Type == dst.Type) {
 		commandProgressBar = progressbar.New()
 	} else {
 		commandProgressBar = &progressbar.NoOp{}

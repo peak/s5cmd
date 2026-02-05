@@ -50,6 +50,9 @@ const (
 
 	// the key of the object metadata which is used to handle retry decision on NoSuchUpload error
 	metadataKeyRetryID = "s5cmd-upload-retry-id"
+
+	// defaultCopyPartSize is the part size for multipart copy operations (5 GiB).
+	defaultCopyPartSize = 5 * 1024 * 1024 * 1024
 )
 
 // Re-used AWS sessions dramatically improve performance.
@@ -476,12 +479,41 @@ func (s *S3) listObjects(ctx context.Context, url *url.URL) <-chan *Object {
 }
 
 // Copy is a single-object copy operation which copies objects to S3
-// destination from another S3 source.
+// destination from another S3 source. For objects larger than 5 GiB,
+// it automatically falls back to multipart copy.
 func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata Metadata) error {
 	if s.dryRun {
 		return nil
 	}
 
+	err := s.singleCopy(ctx, from, to, metadata)
+	if err == nil {
+		return nil
+	}
+
+	// CopyObject fails for objects >5 GiB. S3 may return EntityTooLarge
+	// or InvalidRequest with a "copy source is larger" message.
+	// Fall back to multipart copy.
+	if !isCopySourceTooLargeError(err) {
+		return err
+	}
+
+	obj, statErr := s.Stat(ctx, from)
+	if statErr != nil {
+		return err // return the original copy error
+	}
+
+	msg := log.DebugMessage{
+		Err: fmt.Sprintf("object too large for single copy (%d bytes), using multipart copy: %v", obj.Size, from),
+	}
+	log.Debug(msg)
+
+	return s.multipartCopy(ctx, from, to, metadata, obj.Size)
+}
+
+// singleCopy copies an object using a single CopyObject API call.
+// This supports objects up to 5 GiB.
+func (s *S3) singleCopy(ctx context.Context, from, to *url.URL, metadata Metadata) error {
 	// SDK expects CopySource like "bucket[/key]"
 	copySource := from.EscapedPath()
 
@@ -564,8 +596,129 @@ func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata Metadata) err
 		input.Metadata = m
 	}
 
-	_, err := s.api.CopyObject(input)
+	_, err := s.api.CopyObjectWithContext(ctx, input)
 	return err
+}
+
+// multipartCopy copies an object using multipart upload with UploadPartCopy.
+// This is required for objects larger than 5 GiB which exceed the CopyObject
+// API limit.
+func (s *S3) multipartCopy(ctx context.Context, from, to *url.URL, metadata Metadata, srcSize int64) error {
+	copySource := from.EscapedPath()
+	if from.VersionID != "" {
+		copySource += "?versionId=" + from.VersionID
+	}
+
+	partSize := int64(defaultCopyPartSize)
+	numParts := (srcSize + partSize - 1) / partSize
+
+	createInput := &s3.CreateMultipartUploadInput{
+		Bucket:       aws.String(to.Bucket),
+		Key:          aws.String(to.Path),
+		RequestPayer: s.RequestPayer(),
+	}
+
+	if metadata.StorageClass != "" {
+		createInput.StorageClass = aws.String(metadata.StorageClass)
+	}
+	if metadata.ACL != "" {
+		createInput.ACL = aws.String(metadata.ACL)
+	}
+	if metadata.CacheControl != "" {
+		createInput.CacheControl = aws.String(metadata.CacheControl)
+	}
+	if metadata.Expires != "" {
+		t, err := time.Parse(time.RFC3339, metadata.Expires)
+		if err != nil {
+			return err
+		}
+		createInput.Expires = aws.Time(t)
+	}
+	if metadata.EncryptionMethod != "" {
+		createInput.ServerSideEncryption = aws.String(metadata.EncryptionMethod)
+		if metadata.EncryptionKeyID != "" {
+			createInput.SSEKMSKeyId = aws.String(metadata.EncryptionKeyID)
+		}
+	}
+	if metadata.ContentEncoding != "" {
+		createInput.ContentEncoding = aws.String(metadata.ContentEncoding)
+	}
+	if metadata.ContentDisposition != "" {
+		createInput.ContentDisposition = aws.String(metadata.ContentDisposition)
+	}
+	if metadata.ContentType != "" {
+		createInput.ContentType = aws.String(metadata.ContentType)
+	}
+	if len(metadata.UserDefined) != 0 {
+		m := make(map[string]*string)
+		for k, v := range metadata.UserDefined {
+			m[k] = aws.String(v)
+		}
+		createInput.Metadata = m
+	}
+
+	createOutput, err := s.api.CreateMultipartUploadWithContext(ctx, createInput)
+	if err != nil {
+		return err
+	}
+
+	uploadID := aws.StringValue(createOutput.UploadId)
+
+	// abort cleans up the multipart upload on failure.
+	abort := func() {
+		// Use background context for cleanup in case the original is cancelled.
+		s.api.AbortMultipartUploadWithContext(context.Background(), &s3.AbortMultipartUploadInput{
+			Bucket:       aws.String(to.Bucket),
+			Key:          aws.String(to.Path),
+			UploadId:     aws.String(uploadID),
+			RequestPayer: s.RequestPayer(),
+		})
+	}
+
+	completedParts := make([]*s3.CompletedPart, 0, numParts)
+
+	for i := int64(0); i < numParts; i++ {
+		start := i * partSize
+		end := start + partSize - 1
+		if end >= srcSize {
+			end = srcSize - 1
+		}
+
+		partOutput, err := s.api.UploadPartCopyWithContext(ctx, &s3.UploadPartCopyInput{
+			Bucket:          aws.String(to.Bucket),
+			Key:             aws.String(to.Path),
+			CopySource:      aws.String(copySource),
+			CopySourceRange: aws.String(fmt.Sprintf("bytes=%d-%d", start, end)),
+			PartNumber:      aws.Int64(i + 1),
+			UploadId:        aws.String(uploadID),
+			RequestPayer:    s.RequestPayer(),
+		})
+		if err != nil {
+			abort()
+			return err
+		}
+
+		completedParts = append(completedParts, &s3.CompletedPart{
+			ETag:       partOutput.CopyPartResult.ETag,
+			PartNumber: aws.Int64(i + 1),
+		})
+	}
+
+	_, err = s.api.CompleteMultipartUploadWithContext(ctx, &s3.CompleteMultipartUploadInput{
+		Bucket:   aws.String(to.Bucket),
+		Key:      aws.String(to.Path),
+		UploadId: aws.String(uploadID),
+		MultipartUpload: &s3.CompletedMultipartUpload{
+			Parts: completedParts,
+		},
+		RequestPayer: s.RequestPayer(),
+	})
+	if err != nil {
+		abort()
+		return err
+	}
+
+	return nil
 }
 
 // Read fetches the remote object and returns its contents as an io.ReadCloser.
@@ -1427,6 +1580,26 @@ func IsGoogleEndpoint(endpoint urlpkg.URL) bool {
 // given, resolve the bucketname from the URL path.
 func isVirtualHostStyle(endpoint urlpkg.URL) bool {
 	return endpoint == sentinelURL || supportsTransferAcceleration(endpoint) || IsGoogleEndpoint(endpoint)
+}
+
+// isCopySourceTooLargeError reports whether the error indicates that a
+// CopyObject call failed because the source exceeds the 5 GiB single-copy
+// limit. S3 may return either "EntityTooLarge" or "InvalidRequest" with a
+// message mentioning the copy source size limit.
+func isCopySourceTooLargeError(err error) bool {
+	if errHasCode(err, "EntityTooLarge") {
+		return true
+	}
+
+	var awsErr awserr.Error
+	if errors.As(err, &awsErr) {
+		if awsErr.Code() == "InvalidRequest" &&
+			strings.Contains(awsErr.Message(), "copy source is larger") {
+			return true
+		}
+	}
+
+	return false
 }
 
 func errHasCode(err error, code string) bool {

@@ -1341,3 +1341,135 @@ func (e tempError) Error() string { return e.err.Error() }
 func (e tempError) Temporary() bool { return e.temp }
 
 func (e *tempError) Unwrap() error { return e.err }
+
+func TestIsCopySourceTooLargeError(t *testing.T) {
+	testcases := []struct {
+		name     string
+		err      error
+		expected bool
+	}{
+		{
+			name:     "EntityTooLarge",
+			err:      awserr.New("EntityTooLarge", "entity too large", nil),
+			expected: true,
+		},
+		{
+			name:     "InvalidRequest with copy source message",
+			err:      awserr.New("InvalidRequest", "The specified copy source is larger than the maximum allowable size for a copy source: 5368709120", nil),
+			expected: true,
+		},
+		{
+			name:     "InvalidRequest with different message",
+			err:      awserr.New("InvalidRequest", "some other problem", nil),
+			expected: false,
+		},
+		{
+			name:     "other error code",
+			err:      awserr.New("AccessDenied", "access denied", nil),
+			expected: false,
+		},
+		{
+			name:     "nil error",
+			err:      nil,
+			expected: false,
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := isCopySourceTooLargeError(tc.err)
+			assert.Equal(t, got, tc.expected)
+		})
+	}
+}
+
+func TestS3MultipartCopyFallback(t *testing.T) {
+	u, err := url.New("s3://bucket/key")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var operations []string
+
+	mockAPI := s3.New(unit.Session)
+	mockAPI.Handlers.Unmarshal.Clear()
+	mockAPI.Handlers.UnmarshalMeta.Clear()
+	mockAPI.Handlers.UnmarshalError.Clear()
+	mockAPI.Handlers.Send.Clear()
+
+	mockAPI.Handlers.Send.PushBack(func(r *request.Request) {
+		operations = append(operations, r.Operation.Name)
+
+		switch r.Operation.Name {
+		case "CopyObject":
+			r.Error = awserr.New("InvalidRequest",
+				"The specified copy source is larger than the maximum allowable size for a copy source: 5368709120", nil)
+			r.HTTPResponse = &http.Response{
+				StatusCode: http.StatusBadRequest,
+				Body:       io.NopCloser(strings.NewReader("")),
+			}
+		case "HeadObject":
+			r.HTTPResponse = &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader("")),
+			}
+			// Modify the existing output struct (the SDK returns the original pointer).
+			r.Data.(*s3.HeadObjectOutput).ContentLength = aws.Int64(6 * 1024 * 1024 * 1024) // 6 GiB
+		case "CreateMultipartUpload":
+			r.HTTPResponse = &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader("")),
+			}
+			r.Data.(*s3.CreateMultipartUploadOutput).UploadId = aws.String("test-upload-id")
+		case "UploadPartCopy":
+			r.HTTPResponse = &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader("")),
+			}
+			r.Data.(*s3.UploadPartCopyOutput).CopyPartResult = &s3.CopyPartResult{
+				ETag: aws.String("\"etag123\""),
+			}
+		case "CompleteMultipartUpload":
+			r.HTTPResponse = &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader("")),
+			}
+		default:
+			r.HTTPResponse = &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader("")),
+			}
+		}
+	})
+
+	mockAPI.Handlers.Unmarshal.PushBack(func(r *request.Request) {
+		if r.Error != nil {
+			if awsErr, ok := r.Error.(awserr.Error); ok {
+				if awsErr.Code() == request.ErrCodeSerialization {
+					r.Error = nil
+				}
+			}
+		}
+	})
+
+	log.Init("debug", false)
+
+	mockS3 := &S3{api: mockAPI}
+	err = mockS3.Copy(context.Background(), u, u, Metadata{})
+	if err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+
+	// Expect: CopyObject (fail) -> HeadObject -> CreateMultipartUpload -> UploadPartCopy x2 -> CompleteMultipartUpload
+	expectedOps := []string{
+		"CopyObject",
+		"HeadObject",
+		"CreateMultipartUpload",
+		"UploadPartCopy",
+		"UploadPartCopy",
+		"CompleteMultipartUpload",
+	}
+	if diff := cmp.Diff(expectedOps, operations); diff != "" {
+		t.Errorf("unexpected API operations (-want +got):\n%s", diff)
+	}
+}

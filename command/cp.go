@@ -111,7 +111,7 @@ Examples:
 		 > s5cmd --request-payer=requester {{.HelpName}} s3://bucket/prefix/object.gz .
 
 	22. Upload a file to S3 with a content-type and content-encoding header
-		 > s5cmd --content-type "text/css" --content-encoding "br" myfile.css.br s3://bucket/
+		 > s5cmd {{.HelpName}} --content-type "text/css" --content-encoding "br" myfile.css.br s3://bucket/
 
 	23. Download the specific version of a remote object to working directory
 		 > s5cmd {{.HelpName}} --version-id VERSION_ID s3://bucket/prefix/object .

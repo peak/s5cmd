@@ -1334,20 +1334,18 @@ func (sc *SessionCache) clear() {
 }
 
 func setSessionRegion(ctx context.Context, sess *session.Session, bucket string) error {
-	region := aws.StringValue(sess.Config.Region)
-
-	if region != "" {
-		return nil
-	}
-
-	// set default region
-	sess.Config.Region = aws.String(endpoints.UsEast1RegionID)
-
+	// If no bucket specified, use default or configured region
 	if bucket == "" {
+		region := aws.StringValue(sess.Config.Region)
+		if region == "" {
+			// set default region for bucket-less operations
+			sess.Config.Region = aws.String(endpoints.UsEast1RegionID)
+		}
 		return nil
 	}
 
-	// auto-detection
+	// Always auto-detect bucket region when bucket is specified
+	// This makes behavior consistent with AWS CLI
 	region, err := s3manager.GetBucketRegion(ctx, sess, bucket, "", func(r *request.Request) {
 		// s3manager.GetBucketRegion uses Path style addressing and
 		// AnonymousCredentials by default, updating Request's Config to match
@@ -1364,6 +1362,12 @@ func setSessionRegion(ctx context.Context, sess *session.Session, bucket string)
 		err = fmt.Errorf("session: fetching region failed: %v", err)
 		msg := log.ErrorMessage{Err: err.Error()}
 		log.Error(msg)
+
+		// Fall back to configured region if auto-detection fails
+		configuredRegion := aws.StringValue(sess.Config.Region)
+		if configuredRegion == "" {
+			sess.Config.Region = aws.String(endpoints.UsEast1RegionID)
+		}
 	} else {
 		sess.Config.Region = aws.String(region)
 	}

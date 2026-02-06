@@ -301,12 +301,22 @@ func compareObjects(sourceObjects, destObjects chan *storage.Object, isSrcBatch 
 // given URLs. The returned channels gives objects sorted in ascending order
 // with respect to their url.Relative path. See also storage.Less.
 func (s Sync) getSourceAndDestinationObjects(ctx context.Context, cancel context.CancelFunc, srcurl, dsturl *url.URL) (chan *storage.Object, chan *storage.Object, error) {
-	sourceClient, err := storage.NewClient(ctx, srcurl, s.storageOpts)
+	// Create source client with source region
+	srcOpts := s.storageOpts
+	if s.srcRegion != "" {
+		srcOpts.SetRegion(s.srcRegion)
+	}
+	sourceClient, err := storage.NewClient(ctx, srcurl, srcOpts)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	destClient, err := storage.NewClient(ctx, dsturl, s.storageOpts)
+	// Create destination client with destination region
+	dstOpts := s.storageOpts
+	if s.dstRegion != "" {
+		dstOpts.SetRegion(s.dstRegion)
+	}
+	destClient, err := storage.NewClient(ctx, dsturl, dstOpts)
 	if err != nil {
 		return nil, nil, err
 	}

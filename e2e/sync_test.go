@@ -2749,3 +2749,196 @@ func TestSyncS3ObjectsIntoAnotherBucketWithIncludeFilters(t *testing.T) {
 		assertError(t, err, errS3NoSuchKey)
 	}
 }
+
+// sync --delete --max-delete 4 folder/ s3://bucket/
+// max-delete is higher than the number of files to delete, so deletion proceeds.
+func TestSyncLocalToS3BucketWithDeleteAndMaxDeleteAllowsDeletion(t *testing.T) {
+	t.Parallel()
+
+	now := time.Now()
+	s3client, s5cmd := setup(t)
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	// ensure source is older.
+	folderLayout := []fs.PathOp{
+		fs.WithFile("contributing.md", "S: this is a readme file", fs.WithTimestamps(now.Add(-time.Minute), now.Add(-time.Minute))),
+	}
+
+	workdir := fs.NewDir(t, "somedir", folderLayout...)
+	defer workdir.Remove()
+
+	s3Content := map[string]string{
+		"readme.md":    "D: this is a readme file",
+		"dir/main.py":  "D: this is a python file",
+		"testfile.txt": "D: this is a test file",
+	}
+
+	for filename, content := range s3Content {
+		putFile(t, s3client, bucket, filename, content)
+	}
+
+	src := fmt.Sprintf("%v/", workdir.Path())
+	src = filepath.ToSlash(src)
+	dst := fmt.Sprintf("s3://%v/", bucket)
+
+	// 3 files to delete, max-delete is 4 → deletion should proceed
+	cmd := s5cmd("sync", "--delete", "--max-delete", "4", src, dst)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`cp %vcontributing.md %vcontributing.md`, src, dst),
+		1: equals(`rm %vdir/main.py`, dst),
+		2: equals(`rm %vreadme.md`, dst),
+		3: equals(`rm %vtestfile.txt`, dst),
+	}, sortInput(true))
+
+	// assert local filesystem
+	expectedFiles := []fs.PathOp{
+		fs.WithFile("contributing.md", "S: this is a readme file"),
+	}
+	expected := fs.Expected(t, expectedFiles...)
+	assert.Assert(t, fs.Equal(workdir.Path(), expected))
+
+	expectedS3Content := map[string]string{
+		"contributing.md": "S: this is a readme file",
+	}
+
+	// assert s3 objects
+	for key, content := range expectedS3Content {
+		assert.Assert(t, ensureS3Object(s3client, bucket, key, content))
+	}
+
+	// assert s3 objects should be deleted.
+	for key, content := range s3Content {
+		err := ensureS3Object(s3client, bucket, key, content)
+		if err == nil {
+			t.Errorf("File %v is not deleted from remote : %v\n", key, err)
+		}
+	}
+}
+
+// sync --delete --max-delete 3 folder/ s3://bucket/
+// max-delete equals the number of files to delete, so deletion is skipped.
+func TestSyncLocalToS3BucketWithDeleteAndMaxDeletePreventsExactDeletion(t *testing.T) {
+	t.Parallel()
+
+	now := time.Now()
+	s3client, s5cmd := setup(t)
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	// ensure source is older.
+	folderLayout := []fs.PathOp{
+		fs.WithFile("contributing.md", "S: this is a readme file", fs.WithTimestamps(now.Add(-time.Minute), now.Add(-time.Minute))),
+	}
+
+	workdir := fs.NewDir(t, "somedir", folderLayout...)
+	defer workdir.Remove()
+
+	s3Content := map[string]string{
+		"readme.md":    "D: this is a readme file",
+		"dir/main.py":  "D: this is a python file",
+		"testfile.txt": "D: this is a test file",
+	}
+
+	for filename, content := range s3Content {
+		putFile(t, s3client, bucket, filename, content)
+	}
+
+	src := fmt.Sprintf("%v/", workdir.Path())
+	src = filepath.ToSlash(src)
+	dst := fmt.Sprintf("s3://%v/", bucket)
+
+	// 3 files to delete, max-delete is 3 → deletion should be skipped (3 >= 3)
+	cmd := s5cmd("sync", "--delete", "--max-delete", "3", src, dst)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	// only copy should happen, no rm operations; max-delete message printed
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`Not deleting due 3 being higher than maximum delete limit`),
+		1: equals(`cp %vcontributing.md %vcontributing.md`, src, dst),
+	}, sortInput(true))
+
+	// assert local filesystem unchanged
+	expectedFiles := []fs.PathOp{
+		fs.WithFile("contributing.md", "S: this is a readme file"),
+	}
+	expected := fs.Expected(t, expectedFiles...)
+	assert.Assert(t, fs.Equal(workdir.Path(), expected))
+
+	// assert s3 objects that were in destination should still exist (not deleted)
+	for key, content := range s3Content {
+		assert.Assert(t, ensureS3Object(s3client, bucket, key, content))
+	}
+
+	// assert copied object
+	assert.Assert(t, ensureS3Object(s3client, bucket, "contributing.md", "S: this is a readme file"))
+}
+
+// sync --delete --max-delete 2 folder/ s3://bucket/
+// max-delete is lower than the number of files to delete, so deletion is skipped.
+func TestSyncLocalToS3BucketWithDeleteAndMaxDeletePreventsOverLimitDeletion(t *testing.T) {
+	t.Parallel()
+
+	now := time.Now()
+	s3client, s5cmd := setup(t)
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	// ensure source is older.
+	folderLayout := []fs.PathOp{
+		fs.WithFile("contributing.md", "S: this is a readme file", fs.WithTimestamps(now.Add(-time.Minute), now.Add(-time.Minute))),
+	}
+
+	workdir := fs.NewDir(t, "somedir", folderLayout...)
+	defer workdir.Remove()
+
+	s3Content := map[string]string{
+		"readme.md":    "D: this is a readme file",
+		"dir/main.py":  "D: this is a python file",
+		"testfile.txt": "D: this is a test file",
+	}
+
+	for filename, content := range s3Content {
+		putFile(t, s3client, bucket, filename, content)
+	}
+
+	src := fmt.Sprintf("%v/", workdir.Path())
+	src = filepath.ToSlash(src)
+	dst := fmt.Sprintf("s3://%v/", bucket)
+
+	// 3 files to delete, max-delete is 2 → deletion should be skipped (3 >= 2)
+	cmd := s5cmd("sync", "--delete", "--max-delete", "2", src, dst)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	// only copy should happen, no rm operations; max-delete message printed
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`Not deleting due 3 being higher than maximum delete limit`),
+		1: equals(`cp %vcontributing.md %vcontributing.md`, src, dst),
+	}, sortInput(true))
+
+	// assert local filesystem unchanged
+	expectedFiles := []fs.PathOp{
+		fs.WithFile("contributing.md", "S: this is a readme file"),
+	}
+	expected := fs.Expected(t, expectedFiles...)
+	assert.Assert(t, fs.Equal(workdir.Path(), expected))
+
+	// assert s3 objects that were in destination should still exist (not deleted)
+	for key, content := range s3Content {
+		assert.Assert(t, ensureS3Object(s3client, bucket, key, content))
+	}
+
+	// assert copied object
+	assert.Assert(t, ensureS3Object(s3client, bucket, "contributing.md", "S: this is a readme file"))
+}

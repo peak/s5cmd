@@ -20,4 +20,10 @@ func Close() {
 }
 
 // Run runs global ParallelManager.
-func Run(task Task, waiter *Waiter) { global.Run(task, waiter) }
+// Init must be called before Run, otherwise this will panic.
+func Run(task Task, waiter *Waiter) {
+	if global == nil {
+		panic("parallel: Run called before Init")
+	}
+	global.Run(task, waiter)
+}

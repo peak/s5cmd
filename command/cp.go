@@ -111,7 +111,7 @@ Examples:
 		 > s5cmd --request-payer=requester {{.HelpName}} s3://bucket/prefix/object.gz .
 
 	22. Upload a file to S3 with a content-type and content-encoding header
-		 > s5cmd --content-type "text/css" --content-encoding "br" myfile.css.br s3://bucket/
+		 > s5cmd {{.HelpName}} --content-type "text/css" --content-encoding "br" myfile.css.br s3://bucket/
 
 	23. Download the specific version of a remote object to working directory
 		 > s5cmd {{.HelpName}} --version-id VERSION_ID s3://bucket/prefix/object .
@@ -257,6 +257,11 @@ func NewCopyCommandFlags() []cli.Flag {
 			Aliases: []string{"sp"},
 			Usage:   "show a progress bar",
 		},
+		&cli.BoolFlag{
+			Name:    "log-progress",
+			Aliases: []string{"lp"},
+			Usage:   "show progress in log-friendly format (works in pipes and non-TTY)",
+		},
 	}
 	sharedFlags := NewSharedFlags()
 	return append(copyFlags, sharedFlags...)
@@ -358,7 +363,9 @@ func NewCopy(c *cli.Context, deleteSource bool) (*Copy, error) {
 
 	var commandProgressBar progressbar.ProgressBar
 
-	if c.Bool("show-progress") && !(src.Type == dst.Type) {
+	if c.Bool("log-progress") && !(src.Type == dst.Type) {
+		commandProgressBar = progressbar.NewLogProgressBar()
+	} else if c.Bool("show-progress") && !(src.Type == dst.Type) {
 		commandProgressBar = progressbar.New()
 	} else {
 		commandProgressBar = &progressbar.NoOp{}
@@ -419,6 +426,9 @@ increase the open file limit or try to decrease the number of workers with
 
 // Run starts copying given source objects to destination.
 func (c Copy) Run(ctx context.Context) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	// override source region if set
 	if c.srcRegion != "" {
 		c.storageOpts.SetRegion(c.srcRegion)
@@ -451,9 +461,10 @@ func (c Copy) Run(ctx context.Context) error {
 		for err := range waiter.Err() {
 			if strings.Contains(err.Error(), "too many open files") {
 				fmt.Println(strings.TrimSpace(fdlimitWarning))
-				fmt.Printf("ERROR %v\n", err)
-
-				os.Exit(1)
+				printError(c.fullCommand, c.op, err)
+				merrorWaiter = multierror.Append(merrorWaiter, err)
+				cancel()
+				continue
 			}
 			printError(c.fullCommand, c.op, err)
 			merrorWaiter = multierror.Append(merrorWaiter, err)
@@ -483,15 +494,10 @@ func (c Copy) Run(ctx context.Context) error {
 		return err
 	}
 
+	_, progressDisabled := c.progressbar.(*progressbar.NoOp)
+
 	for object := range objch {
 		if errorpkg.IsCancelation(object.Err) || object.Type.IsDir() {
-			continue
-		}
-
-		if !object.Type.IsRegular() {
-			err := fmt.Errorf("object '%v' is not a regular file", object)
-			merrorObjects = multierror.Append(merrorObjects, err)
-			printError(c.fullCommand, c.op, err)
 			continue
 		}
 
@@ -518,13 +524,22 @@ func (c Copy) Run(ctx context.Context) error {
 			continue
 		}
 
+		if !object.Type.IsRegular() {
+			err := fmt.Errorf("object '%v' is not a regular file", object)
+			merrorObjects = multierror.Append(merrorObjects, err)
+			printError(c.fullCommand, c.op, err)
+			continue
+		}
+
 		srcurl := object.URL
 		var task parallel.Task
 
-		if object.Size == 0 && !(srcurl.Type == c.dst.Type) {
-			obj, err := client.Stat(ctx, srcurl)
-			if err == nil {
-				object.Size = obj.Size
+		if object.Size == 0 && srcurl.Type != c.dst.Type {
+			if !progressDisabled {
+				obj, err := client.Stat(ctx, srcurl)
+				if err == nil {
+					object.Size = obj.Size
+				}
 			}
 		}
 		c.progressbar.AddTotalBytes(object.Size)
@@ -558,7 +573,10 @@ func (c Copy) Run(ctx context.Context) error {
 			}
 			task = c.prepareUploadTask(ctx, srcurl, c.dst, isBatch, c.metadata)
 		default:
-			panic("unexpected src-dst pair")
+			err := fmt.Errorf("unexpected src-dst pair: %v -> %v", srcurl, c.dst)
+			merrorObjects = multierror.Append(merrorObjects, err)
+			printError(c.fullCommand, c.op, err)
+			continue
 		}
 		parallel.Run(task, waiter)
 	}
@@ -864,6 +882,10 @@ func (c Copy) shouldOverride(ctx context.Context, srcurl *url.URL, dsturl *url.U
 		return err
 	}
 
+	if srcObj == nil {
+		return fmt.Errorf("source object %q not found", srcurl)
+	}
+
 	dstClient, err := storage.NewClient(ctx, dsturl, c.storageOpts)
 	if err != nil {
 		return err
@@ -895,7 +917,10 @@ func (c Copy) shouldOverride(ctx context.Context, srcurl *url.URL, dsturl *url.U
 	if c.ifSourceNewer {
 		srcMod, dstMod := srcObj.ModTime, dstObj.ModTime
 
-		if !srcMod.After(*dstMod) {
+		if srcMod == nil || dstMod == nil {
+			// If either modification time is unavailable, proceed with copy
+			stickyErr = nil
+		} else if !srcMod.After(*dstMod) {
 			stickyErr = errorpkg.ErrObjectIsNewer
 		} else {
 			stickyErr = nil

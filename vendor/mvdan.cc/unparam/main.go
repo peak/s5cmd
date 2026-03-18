@@ -1,6 +1,7 @@
 // Copyright (c) 2017, Daniel Martí <mvdan@mvdan.cc>
 // See LICENSE for licensing information
 
+// unparam reports unused function parameters and results in your code.
 package main
 
 import (
@@ -12,7 +13,7 @@ import (
 )
 
 var (
-	flagSet = flag.NewFlagSet("unparam", flag.ContinueOnError)
+	flagSet = flag.NewFlagSet("unparam", flag.ExitOnError)
 
 	tests    = flagSet.Bool("tests", false, "load tests too")
 	exported = flagSet.Bool("exported", false, "inspect exported functions")
@@ -20,30 +21,20 @@ var (
 )
 
 func main() {
-	os.Exit(main1())
-}
-
-func main1() int {
 	flagSet.Usage = func() {
 		fmt.Fprintln(os.Stderr, "usage: unparam [flags] [package ...]")
 		flagSet.PrintDefaults()
 	}
-	if err := flagSet.Parse(os.Args[1:]); err != nil {
-		if err != flag.ErrHelp {
-			fmt.Fprintln(os.Stderr, err)
-		}
-		return 1
-	}
+	flagSet.Parse(os.Args[1:])
 	warns, err := check.UnusedParams(*tests, *exported, *debug, flagSet.Args()...)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
-		return 1
+		os.Exit(1)
 	}
 	for _, warn := range warns {
 		fmt.Println(warn)
 	}
 	if len(warns) > 0 {
-		return 1
+		os.Exit(1)
 	}
-	return 0
 }

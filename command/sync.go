@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -67,7 +66,7 @@ Examples:
 	10. Sync all files to S3 bucket but exclude the ones with txt and gz extension
 		 > s5cmd {{.HelpName}} --exclude "*.txt" --exclude "*.gz" dir/ s3://bucket
 
-	11. Sync all files to S3 bucket but include the only ones with txt and gz extension
+	11. Sync all files to S3 bucket but include only the ones with txt and gz extension
 		 > s5cmd {{.HelpName}} --include "*.txt" --include "*.gz" dir/ s3://bucket
 `
 
@@ -131,6 +130,8 @@ type Sync struct {
 	delete      bool
 	sizeOnly    bool
 	exitOnError bool
+	exclude     []string
+	include     []string
 
 	// s3 options
 	storageOpts storage.Options
@@ -155,6 +156,8 @@ func NewSync(c *cli.Context) Sync {
 		delete:      c.Bool("delete"),
 		sizeOnly:    c.Bool("size-only"),
 		exitOnError: c.Bool("exit-on-error"),
+		exclude:     c.StringSlice("exclude"),
+		include:     c.StringSlice("include"),
 
 		// flags
 		followSymlinks: !c.Bool("no-follow-symlinks"),
@@ -181,6 +184,7 @@ func (s Sync) Run(c *cli.Context) error {
 	}
 
 	ctx, cancel := context.WithCancel(c.Context)
+	defer cancel()
 
 	sourceObjects, destObjects, err := s.getSourceAndDestinationObjects(ctx, cancel, srcurl, dsturl)
 	if err != nil {
@@ -219,9 +223,10 @@ func (s Sync) Run(c *cli.Context) error {
 		for err := range waiter.Err() {
 			if strings.Contains(err.Error(), "too many open files") {
 				fmt.Println(strings.TrimSpace(fdlimitWarning))
-				fmt.Printf("ERROR %v\n", err)
-
-				os.Exit(1)
+				printError(s.fullCommand, s.op, err)
+				merrorWaiter = multierror.Append(merrorWaiter, err)
+				cancel()
+				continue
 			}
 			printError(s.fullCommand, s.op, err)
 			merrorWaiter = multierror.Append(merrorWaiter, err)
@@ -232,7 +237,7 @@ func (s Sync) Run(c *cli.Context) error {
 	pipeReader, pipeWriter := io.Pipe() // create a reader, writer pipe to pass commands to run
 
 	// Create commands in background.
-	go s.planRun(c, onlySource, onlyDest, commonObjects, dsturl, strategy, pipeWriter, isBatch)
+	go s.planRun(ctx, c, onlySource, onlyDest, commonObjects, dsturl, strategy, pipeWriter, isBatch)
 
 	err = NewRun(c, pipeReader).Run(ctx)
 	return multierror.Append(err, merrorWaiter).ErrorOrNil()
@@ -301,12 +306,22 @@ func compareObjects(sourceObjects, destObjects chan *storage.Object, isSrcBatch 
 // given URLs. The returned channels gives objects sorted in ascending order
 // with respect to their url.Relative path. See also storage.Less.
 func (s Sync) getSourceAndDestinationObjects(ctx context.Context, cancel context.CancelFunc, srcurl, dsturl *url.URL) (chan *storage.Object, chan *storage.Object, error) {
-	sourceClient, err := storage.NewClient(ctx, srcurl, s.storageOpts)
+	// Create source client with source region
+	srcOpts := s.storageOpts
+	if s.srcRegion != "" {
+		srcOpts.SetRegion(s.srcRegion)
+	}
+	sourceClient, err := storage.NewClient(ctx, srcurl, srcOpts)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	destClient, err := storage.NewClient(ctx, dsturl, s.storageOpts)
+	// Create destination client with destination region
+	dstOpts := s.storageOpts
+	if s.dstRegion != "" {
+		dstOpts.SetRegion(s.dstRegion)
+	}
+	destClient, err := storage.NewClient(ctx, dsturl, dstOpts)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -342,7 +357,7 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, cancel context
 	go func() {
 		defer close(sourceObjects)
 		unfilteredSrcObjectChannel := sourceClient.List(ctx, srcurl, s.followSymlinks)
-		filteredSrcObjectChannel := make(chan extsort.SortType, extsortChannelBufferSize)
+		filteredSrcObjectChannel := make(chan storage.Object, extsortChannelBufferSize)
 
 		go func() {
 			defer close(filteredSrcObjectChannel)
@@ -364,32 +379,26 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, cancel context
 			}
 		}()
 
-		var (
-			sorter        *extsort.SortTypeSorter
-			srcOutputChan chan extsort.SortType
+		sorter, srcOutputChan, srcErrCh := extsort.Generic[storage.Object](
+			filteredSrcObjectChannel, storage.FromBytes, storage.Object.ToBytes, storage.Compare, extsortConfig,
 		)
-
-		sorter, srcOutputChan, srcErrCh := extsort.New(filteredSrcObjectChannel, storage.FromBytes, storage.Less, extsortConfig)
 		sorter.Sort(ctx)
 
 		for srcObject := range srcOutputChan {
-			o := srcObject.(storage.Object)
-			sourceObjects <- &o
+			sourceObjects <- &srcObject
 		}
 
 		// read and print the external sort errors
-		go func() {
-			for err := range srcErrCh {
-				printError(s.fullCommand, s.op, err)
-			}
-		}()
+		for err := range srcErrCh {
+			printError(s.fullCommand, s.op, err)
+		}
 	}()
 
 	// get destination objects.
 	go func() {
 		defer close(destObjects)
 		unfilteredDestObjectsChannel := destClient.List(ctx, destObjectsURL, false)
-		filteredDstObjectChannel := make(chan extsort.SortType, extsortChannelBufferSize)
+		filteredDstObjectChannel := make(chan storage.Object, extsortChannelBufferSize)
 
 		go func() {
 			defer close(filteredDstObjectChannel)
@@ -411,25 +420,19 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, cancel context
 			}
 		}()
 
-		var (
-			dstSorter     *extsort.SortTypeSorter
-			dstOutputChan chan extsort.SortType
+		dstSorter, dstOutputChan, dstErrCh := extsort.Generic[storage.Object](
+			filteredDstObjectChannel, storage.FromBytes, storage.Object.ToBytes, storage.Compare, extsortConfig,
 		)
-
-		dstSorter, dstOutputChan, dstErrCh := extsort.New(filteredDstObjectChannel, storage.FromBytes, storage.Less, extsortConfig)
 		dstSorter.Sort(ctx)
 
 		for destObject := range dstOutputChan {
-			o := destObject.(storage.Object)
-			destObjects <- &o
+			destObjects <- &destObject
 		}
 
 		// read and print the external sort errors
-		go func() {
-			for err := range dstErrCh {
-				printError(s.fullCommand, s.op, err)
-			}
-		}()
+		for err := range dstErrCh {
+			printError(s.fullCommand, s.op, err)
+		}
 	}()
 
 	return sourceObjects, destObjects, nil
@@ -437,6 +440,7 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, cancel context
 
 // planRun prepares the commands and writes them to writer 'w'.
 func (s Sync) planRun(
+	ctx context.Context,
 	c *cli.Context,
 	onlySource, onlyDest chan *url.URL,
 	common chan *ObjectPair,
@@ -462,14 +466,22 @@ func (s Sync) planRun(
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		for srcurl := range onlySource {
-			curDestURL := generateDestinationURL(srcurl, dsturl, isBatch)
-			command, err := generateCommand(c, "cp", defaultFlags, srcurl, curDestURL)
-			if err != nil {
-				printDebug(s.op, err, srcurl, curDestURL)
-				continue
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case srcurl, ok := <-onlySource:
+				if !ok {
+					return
+				}
+				curDestURL := generateDestinationURL(srcurl, dsturl, isBatch)
+				command, err := generateCommand(c, "cp", defaultFlags, srcurl, curDestURL)
+				if err != nil {
+					printDebug(s.op, err, srcurl, curDestURL)
+					continue
+				}
+				fmt.Fprintln(w, command)
 			}
-			fmt.Fprintln(w, command)
 		}
 	}()
 
@@ -477,21 +489,29 @@ func (s Sync) planRun(
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		for commonObject := range common {
-			sourceObject, destObject := commonObject.src, commonObject.dst
-			curSourceURL, curDestURL := sourceObject.URL, destObject.URL
-			err := strategy.ShouldSync(sourceObject, destObject) // check if object should be copied.
-			if err != nil {
-				printDebug(s.op, err, curSourceURL, curDestURL)
-				continue
-			}
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case commonObject, ok := <-common:
+				if !ok {
+					return
+				}
+				sourceObject, destObject := commonObject.src, commonObject.dst
+				curSourceURL, curDestURL := sourceObject.URL, destObject.URL
+				err := strategy.ShouldSync(sourceObject, destObject) // check if object should be copied.
+				if err != nil {
+					printDebug(s.op, err, curSourceURL, curDestURL)
+					continue
+				}
 
-			command, err := generateCommand(c, "cp", defaultFlags, curSourceURL, curDestURL)
-			if err != nil {
-				printDebug(s.op, err, curSourceURL, curDestURL)
-				continue
+				command, err := generateCommand(c, "cp", defaultFlags, curSourceURL, curDestURL)
+				if err != nil {
+					printDebug(s.op, err, curSourceURL, curDestURL)
+					continue
+				}
+				fmt.Fprintln(w, command)
 			}
-			fmt.Fprintln(w, command)
 		}
 	}()
 
@@ -500,12 +520,36 @@ func (s Sync) planRun(
 	go func() {
 		defer wg.Done()
 		if s.delete {
+			// Build exclude/include patterns for filtering deletes
+			excludePatterns, _ := createRegexFromWildcard(s.exclude)
+			includePatterns, _ := createRegexFromWildcard(s.include)
+
 			// unfortunately we need to read them all!
 			// or rewrite generateCommand function?
 			dstURLs := make([]*url.URL, 0, extsortChunkSize)
 
-			for d := range onlyDest {
-				dstURLs = append(dstURLs, d)
+			for {
+				done := false
+				select {
+				case <-ctx.Done():
+					return
+				case d, ok := <-onlyDest:
+					if !ok {
+						done = true
+					} else {
+						// Respect --exclude/--include: don't delete excluded objects (#815)
+						if len(excludePatterns) > 0 && isURLMatched(excludePatterns, d.Path, dsturl.Prefix) {
+							continue
+						}
+						if len(includePatterns) > 0 && !isURLMatched(includePatterns, d.Path, dsturl.Prefix) {
+							continue
+						}
+						dstURLs = append(dstURLs, d)
+					}
+				}
+				if done {
+					break
+				}
 			}
 
 			if len(dstURLs) == 0 {
@@ -519,10 +563,17 @@ func (s Sync) planRun(
 			}
 			fmt.Fprintln(w, command)
 		} else {
-			// we only need  to consume them from the channel so that rest of the objects
+			// we only need to consume them from the channel so that rest of the objects
 			// can be sent to channel.
-			for d := range onlyDest {
-				_ = d
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case _, ok := <-onlyDest:
+					if !ok {
+						return
+					}
+				}
 			}
 		}
 	}()
@@ -594,7 +645,7 @@ func (s Sync) shouldStopSync(err error) bool {
 	}
 	if awsErr, ok := err.(awserr.Error); ok {
 		switch awsErr.Code() {
-		case "AccessDenied", "NoSuchBucket":
+		case "AccessDenied", "NoSuchBucket", "RequestError", "SerializationError":
 			return true
 		}
 	}

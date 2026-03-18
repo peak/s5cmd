@@ -8,11 +8,13 @@ jobs:
     name: gcs-test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-go@v2
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version: 1.22.x
-      - run: make test_without_race
+          go-version: 1.24.x
+      - name: Run GCS tests
+        if: env.S5CMD_ACCESS_KEY_ID != ''
+        run: make test_without_race
         env:
           S5CMD_ACCESS_KEY_ID: ${{ secrets.S5CMD_GCS_ACCESS_KEY_ID }}
           S5CMD_SECRET_ACCESS_KEY: ${{ secrets.S5CMD_GCS_SECRET_ACCESS_KEY }}
@@ -20,26 +22,30 @@ jobs:
           S5CMD_IS_VIRTUAL_HOST: 1
           S5CMD_REGION: ${{ secrets.S5CMD_GCS_REGION }}
           S5CMD_I_KNOW_WHAT_IM_DOING: 1
+      - name: Skip GCS tests
+        if: env.S5CMD_ACCESS_KEY_ID == ''
+        run: echo "GCS secrets not configured, skipping"
+        env:
+          S5CMD_ACCESS_KEY_ID: ${{ secrets.S5CMD_GCS_ACCESS_KEY_ID }}
 
   goreleaser:
-    needs: [ gcs_test ]
     runs-on: ubuntu-latest
     steps:
       -
         name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
       -
         name: Set up Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version: 1.24.x
       -
         name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v2
+        uses: goreleaser/goreleaser-action@v6
         with:
-          version: '1.18.2'
-          args: release --rm-dist
+          version: latest
+          args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GORELEASER_TOKEN }}

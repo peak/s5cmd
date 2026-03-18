@@ -58,6 +58,9 @@ Examples:
 	11. List all files with their fullpaths
 		 > s5cmd {{.HelpName}} --show-fullpath "s3://bucket/*"
 
+	12. List objects starting after a specific key
+		 > s5cmd {{.HelpName}} --start-after "prefix/object5.txt" "s3://bucket/prefix/*"
+
 `
 
 func NewListCommand() *cli.Command {
@@ -94,6 +97,10 @@ func NewListCommand() *cli.Command {
 				Name:  "show-fullpath",
 				Usage: "shows only the fullpath names of the object(s)",
 			},
+			&cli.StringFlag{
+				Name:  "start-after",
+				Usage: "start listing after this specified key",
+			},
 		},
 		Before: func(c *cli.Context) error {
 			err := validateLSCommand(c)
@@ -115,7 +122,8 @@ func NewListCommand() *cli.Command {
 			fullCommand := commandFromContext(c)
 
 			srcurl, err := url.New(c.Args().First(),
-				url.WithAllVersions(c.Bool("all-versions")))
+				url.WithAllVersions(c.Bool("all-versions")),
+				url.WithStartAfter(c.String("start-after")))
 			if err != nil {
 				printError(fullCommand, c.Command.Name, err)
 				return err

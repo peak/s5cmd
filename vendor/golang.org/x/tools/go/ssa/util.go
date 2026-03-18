@@ -14,17 +14,18 @@ import (
 	"io"
 	"os"
 	"sync"
+	_ "unsafe" // for go:linkname hack
 
-	"golang.org/x/tools/go/ast/astutil"
 	"golang.org/x/tools/go/types/typeutil"
-	"golang.org/x/tools/internal/aliases"
 	"golang.org/x/tools/internal/typeparams"
 	"golang.org/x/tools/internal/typesinternal"
 )
 
+type unit struct{}
+
 //// Sanity checking utilities
 
-// assert panics with the mesage msg if p is false.
+// assert panics with the message msg if p is false.
 // Avoid combining with expensive string formatting.
 func assert(p bool, msg string) {
 	if !p {
@@ -33,8 +34,6 @@ func assert(p bool, msg string) {
 }
 
 //// AST utilities
-
-func unparen(e ast.Expr) ast.Expr { return astutil.Unparen(e) }
 
 // isBlankIdent returns true iff e is an Ident with name "_".
 // They have no associated types.Object, and thus no type.
@@ -84,21 +83,22 @@ func isRuneSlice(t types.Type) bool {
 	return false
 }
 
-// isBasicConvTypes returns true when a type set can be
-// one side of a Convert operation. This is when:
+// isBasicConvTypes returns true when the type set of a type
+// can be one side of a Convert operation. This is when:
 // - All are basic, []byte, or []rune.
 // - At least 1 is basic.
 // - At most 1 is []byte or []rune.
-func isBasicConvTypes(tset termList) bool {
-	basics := 0
-	all := underIs(tset, func(t types.Type) bool {
+func isBasicConvTypes(typ types.Type) bool {
+	basics, cnt := 0, 0
+	ok := underIs(typ, func(t types.Type) bool {
+		cnt++
 		if isBasic(t) {
 			basics++
 			return true
 		}
 		return isByteSlice(t) || isRuneSlice(t)
 	})
-	return all && basics >= 1 && tset.Len()-basics <= 1
+	return ok && basics >= 1 && cnt-basics <= 1
 }
 
 // isPointer reports whether t's underlying type is a pointer.
@@ -142,11 +142,31 @@ func isUntyped(typ types.Type) bool {
 	return ok && b.Info()&types.IsUntyped != 0
 }
 
+// declaredWithin reports whether an object is declared within a function.
+//
+// obj must not be a method or a field.
+func declaredWithin(obj types.Object, fn *types.Func) bool {
+	if obj.Pos() != token.NoPos {
+		return fn.Scope().Contains(obj.Pos()) // trust the positions if they exist.
+	}
+	if fn.Pkg() != obj.Pkg() {
+		return false // fast path for different packages
+	}
+
+	// Traverse Parent() scopes for fn.Scope().
+	for p := obj.Parent(); p != nil; p = p.Parent() {
+		if p == fn.Scope() {
+			return true
+		}
+	}
+	return false
+}
+
 // logStack prints the formatted "start" message to stderr and
 // returns a closure that prints the corresponding "end" message.
 // Call using 'defer logStack(...)()' to show builder stack on panic.
 // Don't forget trailing parens!
-func logStack(format string, args ...interface{}) func() {
+func logStack(format string, args ...any) func() {
 	msg := fmt.Sprintf(format, args...)
 	io.WriteString(os.Stderr, msg)
 	io.WriteString(os.Stderr, "\n")
@@ -173,7 +193,7 @@ func makeLen(T types.Type) *Builtin {
 	lenParams := types.NewTuple(anonVar(T))
 	return &Builtin{
 		name: "len",
-		sig:  types.NewSignature(nil, lenParams, lenResults, false),
+		sig:  types.NewSignatureType(nil, nil, nil, lenParams, lenResults, false),
 	}
 }
 
@@ -239,7 +259,7 @@ func instanceArgs(info *types.Info, id *ast.Ident) []types.Type {
 	return targs
 }
 
-// Mapping of a type T to a canonical instance C s.t. types.Indentical(T, C).
+// Mapping of a type T to a canonical instance C s.t. types.Identical(T, C).
 // Thread-safe.
 type canonizer struct {
 	mu    sync.Mutex
@@ -266,7 +286,7 @@ func (c *canonizer) List(ts []types.Type) *typeList {
 		// Is there some top level alias?
 		var found bool
 		for _, t := range ts {
-			if _, ok := t.(*aliases.Alias); ok {
+			if _, ok := t.(*types.Alias); ok {
 				found = true
 				break
 			}
@@ -277,7 +297,7 @@ func (c *canonizer) List(ts []types.Type) *typeList {
 
 		cp := make([]types.Type, len(ts)) // copy with top level aliases removed.
 		for i, t := range ts {
-			cp[i] = aliases.Unalias(t)
+			cp[i] = types.Unalias(t)
 		}
 		return cp
 	}
@@ -294,7 +314,7 @@ func (c *canonizer) List(ts []types.Type) *typeList {
 // For performance, reasons the canonical instance is order-dependent,
 // and may contain deeply nested aliases.
 func (c *canonizer) Type(T types.Type) types.Type {
-	T = aliases.Unalias(T) // remove the top level alias.
+	T = types.Unalias(T) // remove the top level alias.
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -365,7 +385,7 @@ func (m *typeListMap) hash(ts []types.Type) uint32 {
 	// Some smallish prime far away from typeutil.Hash.
 	n := len(ts)
 	h := uint32(13619) + 2*uint32(n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		h += 3 * m.hasher.Hash(ts[i])
 	}
 	return h
@@ -374,10 +394,10 @@ func (m *typeListMap) hash(ts []types.Type) uint32 {
 // instantiateMethod instantiates m with targs and returns a canonical representative for this method.
 func (canon *canonizer) instantiateMethod(m *types.Func, targs []types.Type, ctxt *types.Context) *types.Func {
 	recv := recvType(m)
-	if p, ok := aliases.Unalias(recv).(*types.Pointer); ok {
+	if p, ok := types.Unalias(recv).(*types.Pointer); ok {
 		recv = p.Elem()
 	}
-	named := aliases.Unalias(recv).(*types.Named)
+	named := types.Unalias(recv).(*types.Named)
 	inst, err := types.Instantiate(ctxt, named.Origin(), targs, false)
 	if err != nil {
 		panic(err)
@@ -388,14 +408,6 @@ func (canon *canonizer) instantiateMethod(m *types.Func, targs []types.Type, ctx
 }
 
 // Exposed to ssautil using the linkname hack.
+//
+//go:linkname isSyntactic golang.org/x/tools/go/ssa.isSyntactic
 func isSyntactic(pkg *Package) bool { return pkg.syntax }
-
-// mapValues returns a new unordered array of map values.
-func mapValues[K comparable, V any](m map[K]V) []V {
-	vals := make([]V, 0, len(m))
-	for _, fn := range m {
-		vals = append(vals, fn)
-	}
-	return vals
-
-}

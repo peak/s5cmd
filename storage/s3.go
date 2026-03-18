@@ -48,6 +48,19 @@ const (
 	// Google Cloud Storage endpoint
 	gcsEndpoint = "storage.googleapis.com"
 
+	// Tencent Cloud Object Storage endpoint suffix
+	tencentCOSEndpointSuffix = ".myqcloud.com"
+
+	// defaultCopyPartSize is the part size for multipart copy (5 GiB).
+	// Objects larger than this cannot be copied with a single CopyObject call.
+	defaultCopyPartSize int64 = 5 * 1024 * 1024 * 1024
+
+	// downloaderBufferSize is the buffer size for the S3 download manager.
+	downloaderBufferSize = 64 * 1024
+
+	// uploaderBufferSize is the buffer size for the S3 upload manager.
+	uploaderBufferSize = 512 * 1024
+
 	// the key of the object metadata which is used to handle retry decision on NoSuchUpload error
 	metadataKeyRetryID = "s5cmd-upload-retry-id"
 )
@@ -84,7 +97,7 @@ func parseEndpoint(endpoint string) (urlpkg.URL, error) {
 
 	u, err := urlpkg.Parse(endpoint)
 	if err != nil {
-		return sentinelURL, fmt.Errorf("parse endpoint %q: %v", endpoint, err)
+		return sentinelURL, fmt.Errorf("parse endpoint %q: %w", endpoint, err)
 	}
 
 	return *u, nil
@@ -102,10 +115,15 @@ func newS3Storage(ctx context.Context, opts Options) (*S3, error) {
 		return nil, err
 	}
 
+	downloader := s3manager.NewDownloader(awsSession)
+	downloader.BufferProvider = s3manager.NewPooledBufferedWriterReadFromProvider(downloaderBufferSize)
+	uploader := s3manager.NewUploader(awsSession)
+	uploader.BufferProvider = s3manager.NewBufferedReadSeekerWriteToPool(uploaderBufferSize)
+
 	return &S3{
 		api:                    s3.New(awsSession),
-		downloader:             s3manager.NewDownloader(awsSession),
-		uploader:               s3manager.NewUploader(awsSession),
+		downloader:             downloader,
+		uploader:               uploader,
 		endpointURL:            endpointURL,
 		dryRun:                 opts.DryRun,
 		useListObjectsV1:       opts.UseListObjectsV1,
@@ -144,7 +162,7 @@ func (s *S3) Stat(ctx context.Context, url *url.URL) (*Object, error) {
 	}
 
 	if s.noSuchUploadRetryCount > 0 {
-		if retryID, ok := output.Metadata[metadataKeyRetryID]; ok {
+		if retryID, ok := output.Metadata[metadataKeyRetryID]; ok && retryID != nil {
 			obj.retryID = *retryID
 		}
 	}
@@ -300,6 +318,10 @@ func (s *S3) listObjectsV2(ctx context.Context, url *url.URL) <-chan *Object {
 		Bucket:       aws.String(url.Bucket),
 		Prefix:       aws.String(url.Prefix),
 		RequestPayer: s.RequestPayer(),
+	}
+
+	if url.StartAfter != "" {
+		listInput.SetStartAfter(url.StartAfter)
 	}
 
 	if url.Delimiter != "" {
@@ -545,6 +567,9 @@ func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata Metadata) err
 
 	// add retry ID to the object metadata
 	if s.noSuchUploadRetryCount > 0 {
+		if input.Metadata == nil {
+			input.Metadata = make(map[string]*string)
+		}
 		input.Metadata[metadataKeyRetryID] = generateRetryID()
 	}
 
@@ -557,15 +582,178 @@ func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata Metadata) err
 	}
 
 	if len(metadata.UserDefined) != 0 {
-		m := make(map[string]*string)
-		for k, v := range metadata.UserDefined {
-			m[k] = aws.String(v)
+		if input.Metadata == nil {
+			input.Metadata = make(map[string]*string)
 		}
-		input.Metadata = m
+		for k, v := range metadata.UserDefined {
+			input.Metadata[k] = aws.String(v)
+		}
 	}
 
 	_, err := s.api.CopyObject(input)
+	if err != nil && isCopySourceTooLargeError(err) {
+		return s.multipartCopy(ctx, from, input)
+	}
 	return err
+}
+
+// isCopySourceTooLargeError checks whether the error indicates that the source
+// object is too large for a single CopyObject call (>5 GiB).
+func isCopySourceTooLargeError(err error) bool {
+	var awsErr awserr.Error
+	if errors.As(err, &awsErr) {
+		// InvalidRequest with "copy source is too large" message
+		if awsErr.Code() == "InvalidRequest" && strings.Contains(awsErr.Message(), "copy source is too large") {
+			return true
+		}
+		// EntityTooLarge
+		if awsErr.Code() == "EntityTooLarge" {
+			return true
+		}
+	}
+	return false
+}
+
+// multipartCopy copies an object larger than 5 GiB using the multipart upload
+// API with UploadPartCopy. Since MetadataDirective is not supported by
+// UploadPartCopy, we retrieve source metadata via HeadObject and apply it to
+// the new object.
+func (s *S3) multipartCopy(ctx context.Context, from *url.URL, originalInput *s3.CopyObjectInput) error {
+	// Get the source object size and metadata
+	headOutput, err := s.api.HeadObjectWithContext(ctx, &s3.HeadObjectInput{
+		Bucket:       aws.String(from.Bucket),
+		Key:          aws.String(from.Path),
+		RequestPayer: s.RequestPayer(),
+	})
+	if err != nil {
+		return err
+	}
+	objectSize := aws.Int64Value(headOutput.ContentLength)
+
+	createInput := &s3.CreateMultipartUploadInput{
+		Bucket:       originalInput.Bucket,
+		Key:          originalInput.Key,
+		RequestPayer: s.RequestPayer(),
+	}
+	if originalInput.StorageClass != nil {
+		createInput.StorageClass = originalInput.StorageClass
+	}
+	if originalInput.ACL != nil {
+		createInput.ACL = originalInput.ACL
+	}
+	if originalInput.CacheControl != nil {
+		createInput.CacheControl = originalInput.CacheControl
+	} else if headOutput.CacheControl != nil {
+		createInput.CacheControl = headOutput.CacheControl
+	}
+	if originalInput.ServerSideEncryption != nil {
+		createInput.ServerSideEncryption = originalInput.ServerSideEncryption
+	} else if headOutput.ServerSideEncryption != nil {
+		createInput.ServerSideEncryption = headOutput.ServerSideEncryption
+	}
+	if originalInput.SSEKMSKeyId != nil {
+		createInput.SSEKMSKeyId = originalInput.SSEKMSKeyId
+	}
+	if originalInput.ContentEncoding != nil {
+		createInput.ContentEncoding = originalInput.ContentEncoding
+	} else if headOutput.ContentEncoding != nil {
+		createInput.ContentEncoding = headOutput.ContentEncoding
+	}
+	if originalInput.ContentDisposition != nil {
+		createInput.ContentDisposition = originalInput.ContentDisposition
+	} else if headOutput.ContentDisposition != nil {
+		createInput.ContentDisposition = headOutput.ContentDisposition
+	}
+	if originalInput.ContentType != nil {
+		createInput.ContentType = originalInput.ContentType
+	} else if headOutput.ContentType != nil {
+		createInput.ContentType = headOutput.ContentType
+	}
+	if originalInput.Expires != nil {
+		createInput.Expires = originalInput.Expires
+	} else if headOutput.Expires != nil {
+		if t, err := time.Parse(time.RFC1123, aws.StringValue(headOutput.Expires)); err == nil {
+			createInput.Expires = aws.Time(t)
+		}
+	}
+
+	// Preserve source object's user-defined metadata
+	if len(headOutput.Metadata) > 0 {
+		merged := make(map[string]*string, len(headOutput.Metadata))
+		for k, v := range headOutput.Metadata {
+			merged[k] = v
+		}
+		// Let explicitly-set metadata from originalInput take precedence
+		for k, v := range originalInput.Metadata {
+			merged[k] = v
+		}
+		createInput.Metadata = merged
+	} else if len(originalInput.Metadata) > 0 {
+		createInput.Metadata = originalInput.Metadata
+	}
+
+	createOutput, err := s.api.CreateMultipartUploadWithContext(ctx, createInput)
+	if err != nil {
+		return err
+	}
+	uploadID := aws.StringValue(createOutput.UploadId)
+
+	abortUpload := func() {
+		// Use background context for abort since the original context may be cancelled
+		s.api.AbortMultipartUploadWithContext(context.Background(), &s3.AbortMultipartUploadInput{
+			Bucket:   originalInput.Bucket,
+			Key:      originalInput.Key,
+			UploadId: aws.String(uploadID),
+		})
+	}
+
+	var completedParts []*s3.CompletedPart
+	partNumber := int64(1)
+
+	for bytePosition := int64(0); bytePosition < objectSize; bytePosition += defaultCopyPartSize {
+		lastByte := bytePosition + defaultCopyPartSize - 1
+		if lastByte >= objectSize {
+			lastByte = objectSize - 1
+		}
+
+		copyRange := fmt.Sprintf("bytes=%d-%d", bytePosition, lastByte)
+		partInput := &s3.UploadPartCopyInput{
+			Bucket:          originalInput.Bucket,
+			Key:             originalInput.Key,
+			CopySource:      originalInput.CopySource,
+			UploadId:        aws.String(uploadID),
+			PartNumber:      aws.Int64(partNumber),
+			CopySourceRange: aws.String(copyRange),
+			RequestPayer:    s.RequestPayer(),
+		}
+
+		partOutput, err := s.api.UploadPartCopyWithContext(ctx, partInput)
+		if err != nil {
+			abortUpload()
+			return fmt.Errorf("multipart copy part %d failed: %w", partNumber, err)
+		}
+
+		completedParts = append(completedParts, &s3.CompletedPart{
+			ETag:       partOutput.CopyPartResult.ETag,
+			PartNumber: aws.Int64(partNumber),
+		})
+		partNumber++
+	}
+
+	_, err = s.api.CompleteMultipartUploadWithContext(ctx, &s3.CompleteMultipartUploadInput{
+		Bucket:   originalInput.Bucket,
+		Key:      originalInput.Key,
+		UploadId: aws.String(uploadID),
+		MultipartUpload: &s3.CompletedMultipartUpload{
+			Parts: completedParts,
+		},
+	})
+	if err != nil {
+		abortUpload()
+		return fmt.Errorf("multipart copy completion failed: %w", err)
+	}
+
+	return nil
 }
 
 // Read fetches the remote object and returns its contents as an io.ReadCloser.
@@ -750,6 +938,8 @@ func (s *S3) Select(ctx context.Context, url *url.URL, query *SelectQuery, resul
 
 	resp, err := s.api.SelectObjectContentWithContext(ctx, input)
 	if err != nil {
+		writer.Close()
+		reader.Close()
 		return err
 	}
 
@@ -770,7 +960,9 @@ func (s *S3) Select(ctx context.Context, url *url.URL, query *SelectQuery, resul
 
 				switch e := event.(type) {
 				case *s3.RecordsEvent:
-					writer.Write(e.Payload)
+					if _, wErr := writer.Write(e.Payload); wErr != nil {
+						return
+					}
 				}
 			}
 		}
@@ -862,15 +1054,19 @@ func (s *S3) Put(
 
 	// add retry ID to the object metadata
 	if s.noSuchUploadRetryCount > 0 {
+		if input.Metadata == nil {
+			input.Metadata = make(map[string]*string)
+		}
 		input.Metadata[metadataKeyRetryID] = generateRetryID()
 	}
 
 	if len(metadata.UserDefined) != 0 {
-		m := make(map[string]*string)
-		for k, v := range metadata.UserDefined {
-			m[k] = aws.String(v)
+		if input.Metadata == nil {
+			input.Metadata = make(map[string]*string)
 		}
-		input.Metadata = m
+		for k, v := range metadata.UserDefined {
+			input.Metadata[k] = aws.String(v)
+		}
 	}
 
 	uploaderOptsFn := func(u *s3manager.Uploader) {
@@ -890,14 +1086,14 @@ func (s *S3) retryOnNoSuchUpload(ctx aws.Context, to *url.URL, input *s3manager.
 	err error, uploaderOpts ...func(*s3manager.Uploader),
 ) error {
 	var expectedRetryID string
-	if ID, ok := input.Metadata[metadataKeyRetryID]; ok {
+	if ID, ok := input.Metadata[metadataKeyRetryID]; ok && ID != nil {
 		expectedRetryID = *ID
 	}
 
 	attempts := 0
 	for ; errHasCode(err, s3.ErrCodeNoSuchUpload) && attempts < s.noSuchUploadRetryCount; attempts++ {
 		// check if object exists and has the retry ID we provided, if it does
-		// then it means that one of previous uploads was succesfull despite the received error.
+		// then it means that one of previous uploads was successful despite the received error.
 		obj, sErr := s.Stat(ctx, to)
 		if sErr == nil && obj.retryID == expectedRetryID {
 			err = nil
@@ -1242,7 +1438,7 @@ func (sc *SessionCache) newSession(ctx context.Context, opts Options) (*session.
 	if opts.NoSignRequest {
 		// do not sign requests when making service API calls
 		awsCfg = awsCfg.WithCredentials(credentials.AnonymousCredentials)
-	} else if opts.CredentialFile != "" || opts.Profile != "" {
+	} else if opts.CredentialFile != "" {
 		awsCfg = awsCfg.WithCredentials(
 			credentials.NewSharedCredentials(opts.CredentialFile, opts.Profile),
 		)
@@ -1255,7 +1451,7 @@ func (sc *SessionCache) newSession(ctx context.Context, opts Options) (*session.
 
 	// use virtual-host-style if the endpoint is known to support it,
 	// otherwise use the path-style approach.
-	isVirtualHostStyle := isVirtualHostStyle(endpointURL)
+	isVirtualHostStyle := isVirtualHostStyle(endpointURL, opts.AddressingStyle)
 
 	useAccelerate := supportsTransferAcceleration(endpointURL)
 	// AWS SDK handles transfer acceleration automatically. Setting the
@@ -1286,7 +1482,7 @@ func (sc *SessionCache) newSession(ctx context.Context, opts Options) (*session.
 			WithLogger(sdkLogger{})
 	}
 
-	awsCfg.Retryer = newCustomRetryer(opts.MaxRetries)
+	awsCfg.Retryer = newCustomRetryer(opts.MaxRetries, sc)
 
 	useSharedConfig := session.SharedConfigEnable
 	{
@@ -1304,6 +1500,7 @@ func (sc *SessionCache) newSession(ctx context.Context, opts Options) (*session.
 		session.Options{
 			Config:            *awsCfg,
 			SharedConfigState: useSharedConfig,
+			Profile:           opts.Profile,
 		},
 	)
 	if err != nil {
@@ -1361,7 +1558,7 @@ func setSessionRegion(ctx context.Context, sess *session.Session, bucket string)
 		}
 		// don't deny any request to the service if region auto-fetching
 		// receives an error. Delegate error handling to command execution.
-		err = fmt.Errorf("session: fetching region failed: %v", err)
+		err = fmt.Errorf("session: fetching region failed: %w", err)
 		msg := log.ErrorMessage{Err: err.Error()}
 		log.Error(msg)
 	} else {
@@ -1375,13 +1572,15 @@ func setSessionRegion(ctx context.Context, sess *session.Session, bucket string)
 // error codes. Such as, retry for S3 InternalError code.
 type customRetryer struct {
 	client.DefaultRetryer
+	sessionCache *SessionCache
 }
 
-func newCustomRetryer(maxRetries int) *customRetryer {
+func newCustomRetryer(maxRetries int, sc *SessionCache) *customRetryer {
 	return &customRetryer{
 		DefaultRetryer: client.DefaultRetryer{
 			NumMaxRetries: maxRetries,
 		},
+		sessionCache: sc,
 	}
 }
 
@@ -1393,8 +1592,16 @@ func (c *customRetryer) ShouldRetry(req *request.Request) bool {
 		shouldRetry = c.DefaultRetryer.ShouldRetry(req)
 	}
 
-	// Errors related to tokens
-	if errHasCode(req.Error, "ExpiredToken") || errHasCode(req.Error, "ExpiredTokenException") || errHasCode(req.Error, "InvalidToken") {
+	// Expired tokens are retryable after clearing the session cache so a
+	// fresh session (with new credentials) is created on the next attempt.
+	if errHasCode(req.Error, "ExpiredToken") || errHasCode(req.Error, "ExpiredTokenException") {
+		c.sessionCache.clear()
+		log.Debug(log.DebugMessage{Err: "session token expired, clearing cache and retrying"})
+		return true
+	}
+
+	// Invalid tokens are not retryable.
+	if errHasCode(req.Error, "InvalidToken") {
 		return false
 	}
 
@@ -1422,11 +1629,19 @@ func IsGoogleEndpoint(endpoint urlpkg.URL) bool {
 	return endpoint.Hostname() == gcsEndpoint
 }
 
+func IsTencentEndpoint(endpoint urlpkg.URL) bool {
+	return strings.HasSuffix(endpoint.Hostname(), tencentCOSEndpointSuffix)
+}
+
 // isVirtualHostStyle reports whether the given endpoint supports S3 virtual
 // host style bucket name resolving. If a custom S3 API compatible endpoint is
 // given, resolve the bucketname from the URL path.
-func isVirtualHostStyle(endpoint urlpkg.URL) bool {
-	return endpoint == sentinelURL || supportsTransferAcceleration(endpoint) || IsGoogleEndpoint(endpoint)
+func isVirtualHostStyle(endpoint urlpkg.URL, addressingStyle string) bool {
+	return endpoint == sentinelURL ||
+		supportsTransferAcceleration(endpoint) ||
+		IsGoogleEndpoint(endpoint) ||
+		IsTencentEndpoint(endpoint) ||
+		addressingStyle == "virtual"
 }
 
 func errHasCode(err error, code string) bool {

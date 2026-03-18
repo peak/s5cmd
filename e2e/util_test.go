@@ -168,7 +168,7 @@ func setup(t *testing.T, options ...option) (*s3.S3, func(...string) icmd.Cmd) {
 
 	region := ""
 	if opts.region != "" {
-		region = opts.accessKeyID
+		region = opts.region
 	}
 
 	var cfg *credentialCfg
@@ -1100,8 +1100,8 @@ func isJSON(str string) bool {
 	return jsonpkg.Unmarshal([]byte(str), &js) == nil
 }
 
-func equals(format string, args ...interface{}) compareFunc {
-	expected := fmt.Sprintf(format, args...)
+func equals(s string, args ...interface{}) compareFunc {
+	expected := fmt.Sprintf(s, args...)
 	return func(actual string) error {
 		if expected == actual {
 			return nil
@@ -1112,8 +1112,8 @@ func equals(format string, args ...interface{}) compareFunc {
 	}
 }
 
-func json(format string, args ...interface{}) compareFunc {
-	expected := fmt.Sprintf(format, args...)
+func json(s string, args ...interface{}) compareFunc {
+	expected := fmt.Sprintf(s, args...)
 	// escape multiline characters
 	{
 		expected = strings.Replace(expected, "\n", "", -1)
@@ -1157,8 +1157,8 @@ func suffix(format string, args ...interface{}) compareFunc {
 	}
 }
 
-func contains(format string, args ...interface{}) compareFunc {
-	expected := fmt.Sprintf(format, args...)
+func contains(s string, args ...interface{}) compareFunc {
+	expected := fmt.Sprintf(s, args...)
 	return func(actual string) error {
 		if strings.Contains(actual, expected) {
 			return nil

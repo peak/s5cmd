@@ -13,7 +13,6 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/lanrat/extsort"
 	"github.com/peak/s5cmd/v2/strutil"
 )
 
@@ -48,6 +47,7 @@ type URL struct {
 	Prefix      string
 	VersionID   string
 	AllVersions bool
+	StartAfter  string
 
 	relativePath string
 	filter       string
@@ -72,6 +72,12 @@ func WithVersion(versionID string) Option {
 func WithAllVersions(isAllVersions bool) Option {
 	return func(u *URL) {
 		u.AllVersions = isAllVersions
+	}
+}
+
+func WithStartAfter(startAfter string) Option {
+	return func(u *URL) {
+		u.StartAfter = startAfter
 	}
 }
 
@@ -378,7 +384,7 @@ func (u URL) ToBytes() []byte {
 	return buf.Bytes()
 }
 
-func FromBytes(data []byte) extsort.SortType {
+func FromBytes(data []byte) *URL {
 	buf := bytes.NewBuffer(data)
 	dec := gob.NewDecoder(buf)
 	var (

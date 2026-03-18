@@ -1,4 +1,36 @@
 # Changelog
+## v2.4.0 - 18 Mar 2026
+
+#### Features
+- Added automatic multipart copy for S3 objects larger than 5 GiB. ([#856](https://github.com/peak/s5cmd/issues/856))
+- Added Tencent Cloud Object Storage (COS) support. ([#809](https://github.com/peak/s5cmd/issues/809))
+
+#### Improvements
+- Upgraded aws-sdk-go from v1.44.298 to v1.55.5, adding EKS Pod Identity support. ([#769](https://github.com/peak/s5cmd/issues/769))
+- Skip unnecessary HeadObject call when progress bar is disabled. ([#793](https://github.com/peak/s5cmd/issues/793))
+- Updated GitHub Actions to latest versions (checkout v4, setup-go v5).
+- Added codespell CI workflow for typo detection. ([#701](https://github.com/peak/s5cmd/issues/701))
+- Dropped Go 1.20 from CI matrix (EOL).
+
+#### Bugfixes
+- Fixed `--profile` flag to work with SSO and assume-role credential sources. ([#847](https://github.com/peak/s5cmd/issues/847))
+- Fixed nil pointer dereference in `shouldOverride` when stat returns no object. ([#838](https://github.com/peak/s5cmd/issues/838))
+- Fixed non-regular files producing errors when they match exclude patterns. ([#776](https://github.com/peak/s5cmd/issues/776))
+- Fixed shell quoting for object keys with special characters in sync commands. ([#761](https://github.com/peak/s5cmd/issues/761))
+- Fixed sync error handling to stop on network and serialization failures. ([#698](https://github.com/peak/s5cmd/issues/698))
+- Fixed expired session tokens to retry with fresh credentials instead of failing. ([#683](https://github.com/peak/s5cmd/issues/683))
+- Fixed MinIO CI image reference (`bitnami` → `bitnamilegacy`). ([#840](https://github.com/peak/s5cmd/issues/840))
+- Fixed missing subcommand in `cp` help example, typos, and documentation. ([#857](https://github.com/peak/s5cmd/issues/857), [#828](https://github.com/peak/s5cmd/issues/828), [#783](https://github.com/peak/s5cmd/issues/783), [#774](https://github.com/peak/s5cmd/issues/774), [#781](https://github.com/peak/s5cmd/issues/781))
+- Fixed data races in progress bar counter reads and statistics map access.
+- Fixed nil pointer dereference in metadata retry ID access.
+- Fixed resource leak in `Select()` when S3 API call fails.
+- Fixed `os.Exit(1)` in error goroutines replaced with context cancellation.
+- Fixed `panic()` in copy command replaced with error return.
+- Fixed dry-run mode returning zero-value file handles that panic on use.
+- Fixed argument count error message showing min instead of max.
+- Fixed context leak from missing `defer cancel()` in sync command.
+- Fixed test helper assigning access key ID as region value.
+
 ## v2.3.0 - 16 Dec 2024
 
 #### Breaking changes
@@ -129,7 +161,7 @@
 - Added `select` command. It allows to select JSON records from objects using SQL expressions. ([#299](https://github.com/peak/s5cmd/issues/299)) [@skeggse](https://github.com/skeggse)
 - Added `rb` command to remove buckets. ([#303](https://github.com/peak/s5cmd/issues/303))
 - Added `--exclude` flag to `cp`, `rm`, `ls`, `du` and `select` commands. This flag allows users to exclude objects with given pattern. ([#266](https://github.com/peak/s5cmd/issues/266))
-- Added `--raw` flag to `cp` and `rm` commands. It disables the wildcard operations. It is useful when an object contains glob characters which interfers with glob expansion logic. ([#235](https://github.com/peak/s5cmd/issues/235))
+- Added `--raw` flag to `cp` and `rm` commands. It disables the wildcard operations. It is useful when an object contains glob characters which interferes with glob expansion logic. ([#235](https://github.com/peak/s5cmd/issues/235))
 - Added `--cache-control` and `--expires` flags to `cp` and `mv` commands. It adds support for setting cache control and expires header to S3 objects. ([#318](https://github.com/peak/s5cmd/pull/318)) [@tombokombo](https://github.com/tombokombo)
 - Added `--force-glacier-transfer` flag to `cp` command. It forces a transfer request on all Glacier objects. ([#206](https://github.com/peak/s5cmd/issues/206))
 - Added `--source-region` and `destination-region` flags to `cp` command. It allows overriding bucket region. ([#262](https://github.com/peak/s5cmd/issues/262)) [@kemege](https://github.com/kemege)

@@ -2584,7 +2584,7 @@ func TestSyncExitOnErrorS3BucketToS3BucketThatDoesNotExist(t *testing.T) {
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: contains(`status code: 404`),
-	})
+	}, strictLineCheck(false))
 }
 
 // sync s3://bucket/* s3://NotExistingBucket/ (dest bucket doesn't exist)

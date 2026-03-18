@@ -62,6 +62,11 @@ func TestNewSessionPathStyle(t *testing.T) {
 			expectPathStyle: false,
 		},
 		{
+			name:            "expect_virtual_host_style_for_tencent_cos",
+			endpoint:        urlpkg.URL{Scheme: "https", Host: "cos.ap-guangzhou.myqcloud.com"},
+			expectPathStyle: false,
+		},
+		{
 			name:            "expect_path_style_for_localhost",
 			endpoint:        urlpkg.URL{Scheme: "http", Host: "127.0.0.1"},
 			expectPathStyle: true,
@@ -90,6 +95,45 @@ func TestNewSessionPathStyle(t *testing.T) {
 			got := aws.BoolValue(sess.Config.S3ForcePathStyle)
 			if got != tc.expectPathStyle {
 				t.Fatalf("expected: %v, got: %v", tc.expectPathStyle, got)
+			}
+		})
+	}
+}
+
+func TestIsTencentEndpoint(t *testing.T) {
+	testcases := []struct {
+		name     string
+		endpoint urlpkg.URL
+		expected bool
+	}{
+		{
+			name:     "tencent_cos_endpoint",
+			endpoint: urlpkg.URL{Scheme: "https", Host: "cos.ap-guangzhou.myqcloud.com"},
+			expected: true,
+		},
+		{
+			name:     "tencent_cos_endpoint_different_region",
+			endpoint: urlpkg.URL{Scheme: "https", Host: "cos.ap-beijing.myqcloud.com"},
+			expected: true,
+		},
+		{
+			name:     "non_tencent_endpoint",
+			endpoint: urlpkg.URL{Scheme: "https", Host: "example.com"},
+			expected: false,
+		},
+		{
+			name:     "google_endpoint",
+			endpoint: urlpkg.URL{Scheme: "https", Host: gcsEndpoint},
+			expected: false,
+		},
+	}
+
+	for _, tc := range testcases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			got := IsTencentEndpoint(tc.endpoint)
+			if got != tc.expected {
+				t.Fatalf("expected: %v, got: %v", tc.expected, got)
 			}
 		})
 	}
@@ -483,16 +527,16 @@ func TestS3Retry(t *testing.T) {
 			expectedRetry: 5,
 		},
 
-		// Expired credential errors
+		// Expired credential errors (retryable — session cache is cleared on retry)
 		{
 			name:          "ExpiredToken",
 			err:           awserr.New("ExpiredToken", "expired token", nil),
-			expectedRetry: 0,
+			expectedRetry: 5,
 		},
 		{
 			name:          "ExpiredTokenException",
 			err:           awserr.New("ExpiredTokenException", "expired token exception", nil),
-			expectedRetry: 0,
+			expectedRetry: 5,
 		},
 
 		// Invalid Token errors
@@ -537,7 +581,7 @@ func TestS3Retry(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			sess := unit.Session
-			sess.Config.Retryer = newCustomRetryer(expectedRetry)
+			sess.Config.Retryer = newCustomRetryer(expectedRetry, globalSessionCache)
 
 			mockAPI := s3.New(sess)
 			mockS3 := &S3{
@@ -1341,3 +1385,103 @@ func (e tempError) Error() string { return e.err.Error() }
 func (e tempError) Temporary() bool { return e.temp }
 
 func (e *tempError) Unwrap() error { return e.err }
+
+func TestIsVirtualHostStyleWithAddressingStyle(t *testing.T) {
+	testcases := []struct {
+		name            string
+		endpoint        urlpkg.URL
+		addressingStyle string
+		expected        bool
+	}{
+		{
+			name:            "virtual_style_overrides_custom_endpoint",
+			endpoint:        urlpkg.URL{Scheme: "http", Host: "127.0.0.1"},
+			addressingStyle: "virtual",
+			expected:        true,
+		},
+		{
+			name:            "path_style_with_custom_endpoint",
+			endpoint:        urlpkg.URL{Scheme: "https", Host: "example.com"},
+			addressingStyle: "path",
+			expected:        false,
+		},
+		{
+			name:            "path_style_does_not_override_default_endpoint",
+			endpoint:        urlpkg.URL{},
+			addressingStyle: "path",
+			expected:        true,
+		},
+		{
+			name:            "virtual_style_with_custom_endpoint",
+			endpoint:        urlpkg.URL{Scheme: "https", Host: "example.com"},
+			addressingStyle: "virtual",
+			expected:        true,
+		},
+		{
+			name:            "empty_addressing_style_with_custom_endpoint_falls_back",
+			endpoint:        urlpkg.URL{Scheme: "http", Host: "127.0.0.1"},
+			addressingStyle: "",
+			expected:        false,
+		},
+		{
+			name:            "empty_addressing_style_with_default_endpoint_falls_back",
+			endpoint:        urlpkg.URL{},
+			addressingStyle: "",
+			expected:        true,
+		},
+	}
+
+	for _, tc := range testcases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			got := isVirtualHostStyle(tc.endpoint, tc.addressingStyle)
+			if got != tc.expected {
+				t.Fatalf("expected: %v, got: %v", tc.expected, got)
+			}
+		})
+	}
+}
+
+func TestIsCopySourceTooLargeError(t *testing.T) {
+	testcases := []struct {
+		name     string
+		err      error
+		expected bool
+	}{
+		{
+			name:     "InvalidRequest_copy_source_too_large",
+			err:      awserr.New("InvalidRequest", "The specified copy source is too large", nil),
+			expected: true,
+		},
+		{
+			name:     "EntityTooLarge",
+			err:      awserr.New("EntityTooLarge", "Your proposed upload exceeds the maximum allowed size", nil),
+			expected: true,
+		},
+		{
+			name:     "unrelated_error",
+			err:      awserr.New("AccessDenied", "access denied", nil),
+			expected: false,
+		},
+		{
+			name:     "nil_error",
+			err:      nil,
+			expected: false,
+		},
+		{
+			name:     "non_aws_error",
+			err:      fmt.Errorf("some random error"),
+			expected: false,
+		},
+	}
+
+	for _, tc := range testcases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			got := isCopySourceTooLargeError(tc.err)
+			if got != tc.expected {
+				t.Fatalf("expected: %v, got: %v", tc.expected, got)
+			}
+		})
+	}
+}

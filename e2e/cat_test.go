@@ -240,7 +240,7 @@ func TestCatInEmptyBucket(t *testing.T) {
 
 		result.Assert(t, icmd.Expected{ExitCode: 1})
 		assertLines(t, result.Stderr(), map[int]compareFunc{
-			0: contains(fmt.Sprintf(`ERROR "cat s3://%v/*": no object found`, bucket)),
+			0: contains("%s", fmt.Sprintf(`ERROR "cat s3://%v/*": no object found`, bucket)),
 		})
 	})
 }
@@ -255,7 +255,7 @@ func getSequentialFileContent(size int64) (string, map[int]compareFunc) {
 		sb.WriteString(line)
 		sb.WriteString("\n")
 		totalBytesWritten += int64(len(line))
-		expectedLines[i] = equals(line)
+		expectedLines[i] = equals("%s", line)
 	}
 
 	return sb.String(), expectedLines
@@ -427,7 +427,7 @@ func TestCatPrefix(t *testing.T) {
 
 			result.Assert(t, icmd.Success)
 			assertLines(t, result.Stdout(), map[int]compareFunc{
-				0: equals(tc.expected),
+				0: equals("%s", tc.expected),
 			}, alignment(true))
 		})
 	}
@@ -487,7 +487,7 @@ func TestCatWildcard(t *testing.T) {
 
 			result.Assert(t, icmd.Success)
 			assertLines(t, result.Stdout(), map[int]compareFunc{
-				0: equals(tc.expected),
+				0: equals("%s", tc.expected),
 			}, alignment(true))
 		})
 	}

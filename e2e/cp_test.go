@@ -132,7 +132,7 @@ func TestCopySingleS3ObjectToLocal(t *testing.T) {
 			result.Assert(t, icmd.Success)
 			expectedOutput := fmt.Sprintf("cp s3://%v/%v %v", bucket, tc.src, tc.expectedDst)
 			assertLines(t, result.Stdout(), map[int]compareFunc{
-				0: equals(expectedOutput),
+				0: equals("%s", expectedOutput),
 			})
 
 			// assert local filesystem
@@ -260,7 +260,7 @@ func TestCopyS3PrefixToLocalMustReturnError(t *testing.T) {
 	assert.Assert(t, ensureS3Object(s3client, bucket, objectpath, content))
 }
 
-// cp --flatten s3://bucket/* dir/ (flat source hiearchy)
+// cp --flatten s3://bucket/* dir/ (flat source hierarchy)
 func TestCopyMultipleFlatS3ObjectsToLocal(t *testing.T) {
 	t.Parallel()
 
@@ -1943,7 +1943,7 @@ func TestCopySingleS3ObjectToS3JSON(t *testing.T) {
 	`, src, dst, dst)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: json(jsonText),
+		0: json("%s", jsonText),
 	}, jsonCheck(true))
 
 	// assert s3 source object
@@ -3679,7 +3679,7 @@ func TestCopyMultipleS3ObjectsWithPrefixToS3WithRawMode(t *testing.T) {
 	expected := fmt.Sprintf(`ERROR "cp %v %v/file*": NoSuchKey:`, src, dst)
 
 	assertLines(t, result.Stderr()[:len(expected)], map[int]compareFunc{
-		0: equals(expected),
+		0: equals("%s", expected),
 	})
 }
 
@@ -4348,8 +4348,8 @@ func TestDeleteFileWhenDownloadFailed(t *testing.T) {
 	assert.Assert(t, fs.Equal(cmd.Dir, expected))
 }
 
-// Target local file should be overriden only if download completed successfully
-func TestLocalFileOverridenWhenDownloadFailed(t *testing.T) {
+// Target local file should be overridden only if download completed successfully
+func TestLocalFileOverriddenWhenDownloadFailed(t *testing.T) {
 	t.Parallel()
 
 	s3client, s5cmd := setup(t)

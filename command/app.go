@@ -58,6 +58,10 @@ var app = &cli.App{
 			},
 			Usage: "log level: (trace, debug, info, error)",
 		},
+		&cli.StringFlag{
+			Name:  "log-file",
+			Usage: "write logs to the specified file instead of stdout/stderr",
+		},
 		&cli.BoolFlag{
 			Name:  "install-completion",
 			Usage: "get completion installation instructions for your shell (only available for bash, pwsh, and zsh)",
@@ -90,16 +94,26 @@ var app = &cli.App{
 			Name:  "credentials-file",
 			Usage: "use the specified credentials file instead of the default credentials file",
 		},
+		&cli.GenericFlag{
+			Name:  "addressing-style",
+			Usage: "use virtual host style or path style endpoint: (path, virtual)",
+			Value: &EnumValue{
+				Enum:    []string{"path", "virtual"},
+				Default: "path",
+			},
+			EnvVars: []string{"S3_ADDRESSING_STYLE"},
+		},
 	},
 	Before: func(c *cli.Context) error {
 		retryCount := c.Int("retry-count")
 		workerCount := c.Int("numworkers")
 		printJSON := c.Bool("json")
 		logLevel := c.String("log")
+		logFile := c.String("log-file")
 		isStat := c.Bool("stat")
 		endpointURL := c.String("endpoint-url")
 
-		log.Init(logLevel, printJSON)
+		log.Init(logLevel, printJSON, log.WithLogFile(logFile))
 		parallel.Init(workerCount)
 
 		if retryCount < 0 {
@@ -190,6 +204,7 @@ func NewStorageOpts(c *cli.Context) storage.Options {
 		CredentialFile:         c.String("credentials-file"),
 		LogLevel:               log.LevelFromString(c.String("log")),
 		NoSuchUploadRetryCount: c.Int("no-such-upload-retry-count"),
+		AddressingStyle:        c.String("addressing-style"),
 	}
 }
 

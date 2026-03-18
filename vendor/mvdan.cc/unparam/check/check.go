@@ -18,6 +18,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 
@@ -138,7 +139,7 @@ type Issue struct {
 func (i Issue) Pos() token.Pos  { return i.pos }
 func (i Issue) Message() string { return i.fname + " - " + i.msg }
 
-// Program supplies Checker with the needed *loader.Program.
+// Packages supplies Checker with the loaded packages.
 func (c *Checker) Packages(pkgs []*packages.Package) {
 	c.pkgs = pkgs
 }
@@ -153,7 +154,7 @@ func (c *Checker) CheckExportedFuncs(exported bool) {
 	c.exported = exported
 }
 
-func (c *Checker) debug(format string, a ...interface{}) {
+func (c *Checker) debug(format string, a ...any) {
 	if c.debugLog != nil {
 		fmt.Fprintf(c.debugLog, format, a...)
 	}
@@ -387,23 +388,14 @@ func (c *Checker) Check() ([]Issue, error) {
 	return c.issues, nil
 }
 
-func stringsContains(list []string, elem string) bool {
-	for _, e := range list {
-		if e == elem {
-			return true
-		}
-	}
-	return false
-}
-
 func (c *Checker) addImplementing(named *types.Named, iface *types.Interface) {
 	if named == nil || iface == nil {
 		return
 	}
 	list := c.typesImplementing[named]
-	for i := 0; i < iface.NumMethods(); i++ {
-		name := iface.Method(i).Name()
-		if !stringsContains(list, name) {
+	for method := range iface.Methods() {
+		name := method.Name()
+		if !slices.Contains(list, name) {
 			list = append(list, name)
 		}
 	}
@@ -411,7 +403,7 @@ func (c *Checker) addImplementing(named *types.Named, iface *types.Interface) {
 }
 
 func findNamed(typ types.Type) *types.Named {
-	switch typ := typ.(type) {
+	switch typ := types.Unalias(typ).(type) {
 	case *types.Pointer:
 		return findNamed(typ.Elem())
 	case *types.Named:
@@ -456,7 +448,7 @@ func findFunction(freeVars map[*ssa.FreeVar]*ssa.Function, value ssa.Value) *ssa
 }
 
 // addIssue records a newly found unused parameter.
-func (c *Checker) addIssue(fn *ssa.Function, pos token.Pos, format string, args ...interface{}) {
+func (c *Checker) addIssue(fn *ssa.Function, pos token.Pos, format string, args ...any) {
 	c.issues = append(c.issues, Issue{
 		pos:   pos,
 		fname: fn.RelString(fn.Package().Pkg),
@@ -485,7 +477,7 @@ func (c *Checker) checkFunc(fn *ssa.Function, pkg *packages.Package) {
 	}
 	if recv := fn.Signature.Recv(); recv != nil {
 		named := findNamed(recv.Type())
-		if stringsContains(c.typesImplementing[named], fn.Name()) {
+		if slices.Contains(c.typesImplementing[named], fn.Name()) {
 			c.debug("  skip - method required to implement an interface\n")
 			return
 		}
@@ -623,8 +615,8 @@ func containsTypeParam(t types.Type) bool {
 		return true
 	case *types.Struct:
 		nf := t.NumFields()
-		for i := 0; i < nf; i++ {
-			if containsTypeParam(t.Field(nf).Type()) {
+		for i := range nf {
+			if containsTypeParam(t.Field(i).Type()) {
 				return true
 			}
 		}
@@ -632,8 +624,8 @@ func containsTypeParam(t types.Type) bool {
 		return containsTypeParam(t.Elem())
 	case *types.Named:
 		args := t.TypeArgs()
-		for i := 0; i < args.Len(); i++ {
-			if containsTypeParam(args.At(i)) {
+		for t0 := range args.Types() {
+			if containsTypeParam(t0) {
 				return true
 			}
 		}
@@ -908,15 +900,22 @@ func recvPrefix(recv *ast.FieldList) string {
 		}
 		expr = star.X
 	}
+
+	return identName(expr)
+}
+
+func identName(expr ast.Expr) string {
 	switch expr := expr.(type) {
 	case *ast.Ident:
 		return expr.Name + "."
 	case *ast.IndexExpr:
-		return expr.X.(*ast.Ident).Name + "."
+		return identName(expr.X)
+	case *ast.ParenExpr:
+		return identName(expr.X)
 	case *ast.IndexListExpr:
-		return expr.X.(*ast.Ident).Name + "."
+		return identName(expr.X)
 	default:
-		panic(fmt.Sprintf("unexepected receiver AST node: %T", expr))
+		panic(fmt.Sprintf("unexpected receiver AST node: %T", expr))
 	}
 }
 

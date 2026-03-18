@@ -1,0 +1,3 @@
+[codespell]
+skip = vendor,go.sum,.git
+ignore-words-list = keypair,ist,cancelation,hypen,bu,te,filetest,re-used

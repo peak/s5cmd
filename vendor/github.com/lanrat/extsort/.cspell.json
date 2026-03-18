@@ -1,17 +1,40 @@
 {
     "version": "0.2",
-    "ignorePaths": [],
+    "ignorePaths": [
+        "bench_results/*"
+    ],
     "dictionaryDefinitions": [],
     "dictionaries": [],
     "words": [
+        "benchmem",
+        "benchstat",
+        "benchtime",
+        "Chans",
+        "coverhtml",
+        "coverprofile",
+        "cpuprofile",
+        "deser",
+        "elif",
         "errgroup",
         "extsort",
+        "fset",
+        "godoc",
+        "golangci",
+        "GOPROXY",
         "lanrat",
         "lessfunc",
+        "memprofile",
+        "nolint",
+        "pprof",
+        "Println",
         "psilva",
+        "staticcheck",
+        "strconv",
         "tempfile",
         "tempfiles",
-        "timsort"
+        "timsort",
+        "tmpfs",
+        "writability"
     ],
     "ignoreWords": [],
     "import": []

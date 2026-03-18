@@ -218,7 +218,7 @@ func (f *Filesystem) MkdirAll(path string) error {
 // Create creates a new os.File.
 func (f *Filesystem) Create(path string) (*os.File, error) {
 	if f.dryRun {
-		return &os.File{}, nil
+		return os.NewFile(0, os.DevNull), nil
 	}
 
 	return os.Create(path)
@@ -237,7 +237,7 @@ func (f *Filesystem) Open(path string) (*os.File, error) {
 // CreateTemp creates a new temporary file
 func (f *Filesystem) CreateTemp(dir, pattern string) (*os.File, error) {
 	if f.dryRun {
-		return &os.File{}, nil
+		return os.NewFile(0, os.DevNull), nil
 	}
 
 	file, err := os.CreateTemp(dir, pattern)

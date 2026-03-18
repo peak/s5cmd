@@ -31,7 +31,7 @@ func HumanizeBytes(b int64) string {
 		}
 	}
 	if suffix == "" {
-		return strconv.FormatInt(b, 10)
+		return strconv.FormatInt(b, 10) + "B"
 	}
 
 	return fmt.Sprintf("%.1f%s", float64(b)/float64(div), suffix)

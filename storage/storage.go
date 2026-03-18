@@ -12,7 +12,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/lanrat/extsort"
 	"github.com/peak/s5cmd/v2/log"
 	"github.com/peak/s5cmd/v2/storage/url"
 	"github.com/peak/s5cmd/v2/strutil"
@@ -69,6 +68,7 @@ func NewRemoteClient(ctx context.Context, url *url.URL, opts Options) (*S3, erro
 		Profile:                opts.Profile,
 		CredentialFile:         opts.CredentialFile,
 		LogLevel:               opts.LogLevel,
+		AddressingStyle:        opts.AddressingStyle,
 		bucket:                 url.Bucket,
 		region:                 opts.region,
 	}
@@ -95,6 +95,7 @@ type Options struct {
 	RequestPayer           string
 	Profile                string
 	CredentialFile         string
+	AddressingStyle        string
 	bucket                 string
 	region                 string
 }
@@ -235,37 +236,60 @@ type Metadata struct {
 	Directive string
 }
 
-func (o Object) ToBytes() []byte {
+// ToBytes serializes an Object for external sorting.
+func (o Object) ToBytes() ([]byte, error) {
 	buf := bytes.NewBuffer(make([]byte, 0, 200))
 	enc := gob.NewEncoder(buf)
-	enc.Encode(o.URL.ToBytes())
-	enc.Encode(o.ModTime.Format(time.RFC3339Nano))
-	enc.Encode(o.Type.mode)
-	enc.Encode(o.Size)
-
-	return buf.Bytes()
+	if err := enc.Encode(o.URL.ToBytes()); err != nil {
+		return nil, err
+	}
+	if err := enc.Encode(o.ModTime.Format(time.RFC3339Nano)); err != nil {
+		return nil, err
+	}
+	if err := enc.Encode(o.Type.mode); err != nil {
+		return nil, err
+	}
+	if err := enc.Encode(o.Size); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
 
-func FromBytes(data []byte) extsort.SortType {
+// FromBytes deserializes an Object from bytes produced by ToBytes.
+func FromBytes(data []byte) (Object, error) {
 	dec := gob.NewDecoder(bytes.NewBuffer(data))
 	var gobURL []byte
-	dec.Decode(&gobURL)
-	u := url.FromBytes(gobURL).(*url.URL)
+	if err := dec.Decode(&gobURL); err != nil {
+		return Object{}, err
+	}
+	u := url.FromBytes(gobURL)
 	o := Object{
 		URL: u,
 	}
 	str := ""
-	dec.Decode(&str)
+	if err := dec.Decode(&str); err != nil {
+		return Object{}, err
+	}
 	tmp, _ := time.Parse(time.RFC3339Nano, str)
 	o.ModTime = &tmp
-	dec.Decode(&o.Type.mode)
-	dec.Decode(&o.Size)
-	return o
+	if err := dec.Decode(&o.Type.mode); err != nil {
+		return Object{}, err
+	}
+	if err := dec.Decode(&o.Size); err != nil {
+		return Object{}, err
+	}
+	return o, nil
 }
 
-// Less returns if relative path of storage.Object a's URL comes before the one
-// of b's in the lexicographic order.
-// It assumes that both a, and b are the instances of Object
-func Less(a, b extsort.SortType) bool {
-	return a.(Object).URL.Relative() < b.(Object).URL.Relative()
+// Compare returns the ordering of two Objects by their relative URL path.
+// Returns negative if a < b, zero if a == b, positive if a > b.
+func Compare(a, b Object) int {
+	ar, br := a.URL.Relative(), b.URL.Relative()
+	if ar < br {
+		return -1
+	}
+	if ar > br {
+		return 1
+	}
+	return 0
 }

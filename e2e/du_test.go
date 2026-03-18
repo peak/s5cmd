@@ -263,7 +263,7 @@ func TestDiskUsageByVersionIDAndAllVersions(t *testing.T) {
 	result := icmd.RunCmd(cmd)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(fmt.Sprintf("%d bytes in %d objects: s3://%v/%v", sizes[1], 1, bucket, filename)),
+		0: equals("%s", fmt.Sprintf("%d bytes in %d objects: s3://%v/%v", sizes[1], 1, bucket, filename)),
 	})
 
 	// we expect to see disk usage of 2 versions of objects
@@ -271,7 +271,7 @@ func TestDiskUsageByVersionIDAndAllVersions(t *testing.T) {
 	result = icmd.RunCmd(cmd)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(fmt.Sprintf("%d bytes in %d objects: s3://%v/%v", sizes[0]+sizes[1], 2, bucket, filename)),
+		0: equals("%s", fmt.Sprintf("%d bytes in %d objects: s3://%v/%v", sizes[0]+sizes[1], 2, bucket, filename)),
 	})
 
 	// now we will list and parse their version IDs
@@ -296,7 +296,7 @@ func TestDiskUsageByVersionIDAndAllVersions(t *testing.T) {
 			fmt.Sprintf("s3://%v/%v", bucket, filename))
 		result = icmd.RunCmd(cmd)
 		assertLines(t, result.Stdout(), map[int]compareFunc{
-			0: equals(fmt.Sprintf("%d bytes in %d objects: s3://%v/%v", sizes[i], 1, bucket, filename)),
+			0: equals("%s", fmt.Sprintf("%d bytes in %d objects: s3://%v/%v", sizes[i], 1, bucket, filename)),
 		})
 	}
 }

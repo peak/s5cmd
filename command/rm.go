@@ -178,7 +178,13 @@ func (d Delete) Run(ctx context.Context) error {
 		defer close(urlch)
 
 		for object := range objch {
-			if object.Type.IsDir() || errorpkg.IsCancelation(object.Err) {
+			if errorpkg.IsCancelation(object.Err) {
+				continue
+			}
+
+			// Skip directories from local filesystem but allow S3 "directory"
+			// objects (keys ending in /) to be deleted (#707, #834)
+			if object.Type.IsDir() && !object.URL.IsRemote() {
 				continue
 			}
 

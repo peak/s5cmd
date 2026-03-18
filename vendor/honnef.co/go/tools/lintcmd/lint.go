@@ -3,7 +3,6 @@ package lintcmd
 import (
 	"crypto/sha256"
 	"fmt"
-	"go/build"
 	"go/token"
 	"io"
 	"os"
@@ -111,7 +110,6 @@ func (l *linter) run(bconf buildConfig) (lintResult, error) {
 	if err != nil {
 		return lintResult{}, err
 	}
-	r.FallbackGoVersion = defaultGoVersion()
 	r.GoVersion = l.opts.goVersion
 	r.Stats.PrintAnalyzerMeasurement = l.opts.printAnalyzerMeasurement
 
@@ -433,6 +431,11 @@ func failed(res runner.Result) []diagnostic {
 				msg = msg[1:]
 			}
 
+			cat := "compile"
+			if e.Kind == packages.ParseError {
+				cat = "config"
+			}
+
 			var posn token.Position
 			if e.Pos == "" {
 				// Under certain conditions (malformed package
@@ -453,14 +456,14 @@ func failed(res runner.Result) []diagnostic {
 				var err error
 				posn, _, err = parsePos(e.Pos)
 				if err != nil {
-					panic(fmt.Sprintf("internal error: %s", e))
+					panic(fmt.Sprintf("internal error: %s", err))
 				}
 			}
 			diag := diagnostic{
 				Diagnostic: runner.Diagnostic{
 					Position: posn,
 					Message:  msg,
-					Category: "compile",
+					Category: cat,
 				},
 				Severity: severityError,
 			}
@@ -505,12 +508,6 @@ func success(allowedAnalyzers map[string]bool, res runner.ResultData) []diagnost
 	return diagnostics
 }
 
-func defaultGoVersion() string {
-	tags := build.Default.ReleaseTags
-	v := tags[len(tags)-1][2:]
-	return v
-}
-
 func filterAnalyzerNames(analyzers []string, checks []string) map[string]bool {
 	allowedChecks := map[string]bool{}
 
@@ -553,7 +550,10 @@ func filterAnalyzerNames(analyzers []string, checks []string) map[string]bool {
 	return allowedChecks
 }
 
-var posRe = regexp.MustCompile(`^(.+?):(\d+)(?::(\d+)?)?`)
+// Note that the file name is optional and can be empty because of //line
+// directives of the form "//line :1" (but not "//line :1:1"). See
+// https://go.dev/issue/24183 and https://staticcheck.dev/issues/1582.
+var posRe = regexp.MustCompile(`^(?:(.+?):)?(\d+)(?::(\d+)?)?`)
 
 func parsePos(pos string) (token.Position, int, error) {
 	if pos == "-" || pos == "" {
@@ -561,7 +561,7 @@ func parsePos(pos string) (token.Position, int, error) {
 	}
 	parts := posRe.FindStringSubmatch(pos)
 	if parts == nil {
-		return token.Position{}, 0, fmt.Errorf("internal error: malformed position %q", pos)
+		return token.Position{}, 0, fmt.Errorf("malformed position %q", pos)
 	}
 	file := parts[1]
 	line, _ := strconv.Atoi(parts[2])

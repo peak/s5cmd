@@ -379,14 +379,9 @@ func (act *analyzerAction) String() string {
 type Runner struct {
 	Stats     Stats
 	GoVersion string
-	// if GoVersion == "module", and we couldn't determine the
-	// module's Go version, use this as the fallback
-	FallbackGoVersion string
+
 	// If set to true, Runner will populate results with data relevant to testing analyzers
 	TestMode bool
-
-	// GoVersion might be "module"; actualGoVersion contains the resolved version
-	actualGoVersion string
 
 	// Config that gets merged with per-package configs
 	cfg       config.Config
@@ -549,7 +544,8 @@ func (r *subrunner) do(act action) error {
 	fmt.Fprintf(h, "cfg %#v\n", hashCfg)
 	fmt.Fprintf(h, "pkg %x\n", a.Package.Hash)
 	fmt.Fprintf(h, "analyzers %s\n", r.analyzerNames)
-	fmt.Fprintf(h, "go %s\n", r.actualGoVersion)
+	fmt.Fprintf(h, "go %s\n", r.GoVersion)
+	fmt.Fprintf(h, "env godebug %q\n", os.Getenv("GODEBUG"))
 
 	// OPT(dh): do we actually need to hash vetx? can we not assume
 	// that for identical inputs, staticcheck will produce identical
@@ -691,7 +687,7 @@ func (r *subrunner) doUncached(a *packageAction) (packageActionResult, error) {
 	// processed concurrently, we shouldn't load b's export data
 	// twice.
 
-	pkg, _, err := loader.Load(a.Package)
+	pkg, _, err := loader.Load(a.Package, &loader.Options{GoVersion: r.GoVersion})
 	if err != nil {
 		return packageActionResult{}, err
 	}
@@ -1200,43 +1196,6 @@ func (r *Runner) Run(cfg *packages.Config, analyzers []*analysis.Analyzer, patte
 
 	if len(lpkgs) == 0 {
 		return nil, nil
-	}
-
-	var goVersion string
-	if r.GoVersion == "module" {
-		for _, lpkg := range lpkgs {
-			if m := lpkg.Module; m != nil {
-				if goVersion == "" {
-					goVersion = m.GoVersion
-				} else if goVersion != m.GoVersion {
-					// Theoretically, we should only ever see a single Go
-					// module. At least that's currently (as of Go 1.15)
-					// true when using 'go list'.
-					fmt.Fprintln(os.Stderr, "warning: encountered multiple modules and could not deduce targeted Go version")
-					goVersion = ""
-					break
-				}
-			}
-		}
-	} else {
-		goVersion = r.GoVersion
-	}
-
-	if goVersion == "" {
-		if r.FallbackGoVersion == "" {
-			panic("could not determine Go version of module, and fallback version hasn't been set")
-		}
-		goVersion = r.FallbackGoVersion
-	}
-	r.actualGoVersion = goVersion
-	for _, a := range analyzers {
-		flag := a.Flags.Lookup("go")
-		if flag == nil {
-			continue
-		}
-		if err := flag.Value.Set(goVersion); err != nil {
-			return nil, err
-		}
 	}
 
 	r.Stats.setState(StateBuildActionGraph)

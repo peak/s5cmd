@@ -601,6 +601,16 @@ func TestURLSetRelative(t *testing.T) {
 	}
 }
 
+func TestWithStartAfter(t *testing.T) {
+	url, err := New("s3://bucket/key", WithStartAfter("key5"))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if url.StartAfter != "key5" {
+		t.Errorf("StartAfter = %q, want %q", url.StartAfter, "key5")
+	}
+}
+
 func TestToFromBytes(t *testing.T) {
 	testcases := []struct {
 		name     string
@@ -633,7 +643,7 @@ func TestToFromBytes(t *testing.T) {
 
 			url.relativePath = tc.relative
 
-			newURL := FromBytes(url.ToBytes()).(*URL)
+			newURL := FromBytes(url.ToBytes())
 
 			if !reflect.DeepEqual(url, newURL) {
 				t.Errorf("got = %q, want %q", url, newURL)

@@ -301,9 +301,9 @@ func TestRunDryRun(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: equals(filecontent[0]),
-		1: equals(filecontent[1]),
-		2: equals(filecontent[2]),
+		0: equals("%s", filecontent[0]),
+		1: equals("%s", filecontent[1]),
+		2: equals("%s", filecontent[2]),
 	}, sortInput(true))
 
 	// ensure no side effect for copy operation

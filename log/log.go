@@ -24,12 +24,12 @@ func Init(level string, json bool) {
 
 // Trace prints message in trace mode.
 func Trace(msg Message) {
-	global.printf(LevelTrace, msg, os.Stdout)
+	global.printf(LevelTrace, msg, os.Stderr)
 }
 
 // Debug prints message in debug mode.
 func Debug(msg Message) {
-	global.printf(LevelDebug, msg, os.Stdout)
+	global.printf(LevelDebug, msg, os.Stderr)
 }
 
 // Info prints message in info mode.

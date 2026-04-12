@@ -366,7 +366,7 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, cancel context
 
 		var (
 			sorter        *extsort.SortTypeSorter
-			srcOutputChan chan extsort.SortType
+			srcOutputChan <-chan extsort.SortType
 		)
 
 		sorter, srcOutputChan, srcErrCh := extsort.New(filteredSrcObjectChannel, storage.FromBytes, storage.Less, extsortConfig)
@@ -413,7 +413,7 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, cancel context
 
 		var (
 			dstSorter     *extsort.SortTypeSorter
-			dstOutputChan chan extsort.SortType
+			dstOutputChan <-chan extsort.SortType
 		)
 
 		dstSorter, dstOutputChan, dstErrCh := extsort.New(filteredDstObjectChannel, storage.FromBytes, storage.Less, extsortConfig)

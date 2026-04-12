@@ -7,6 +7,51 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
+// TestRemoveCommand_DirobjKeyWithRawFlag verifies that a key ending with "/"
+// (a directory-marker object, "DIROBJ") can be targeted when --raw is set.
+// Without --raw the prefix guard correctly rejects such keys; with --raw the
+// user has explicitly opted out of prefix treatment and the key must pass
+// validation so that the actual S3 DeleteObject call can proceed.
+func TestRemoveCommand_DirobjKeyWithRawFlag(t *testing.T) {
+	t.Parallel()
+
+	// Build a flagset that mirrors what NewDeleteCommand registers.
+	cmd := NewDeleteCommand()
+	set := flagSet(t, cmd.Name, cmd.Flags)
+
+	// Simulate: s5cmd rm --raw s3://bucket/dirobj/
+	if err := set.Set("raw", "true"); err != nil {
+		t.Fatalf("setting --raw flag: %v", err)
+	}
+	if err := set.Parse([]string{"s3://bucket/dirobj/"}); err != nil {
+		t.Fatalf("parsing args: %v", err)
+	}
+
+	ctx := cli.NewContext(nil, set, nil)
+	if err := validateRMCommand(ctx); err != nil {
+		t.Errorf("expected no error with --raw for a key ending in '/'; got: %v", err)
+	}
+}
+
+// TestRemoveCommand_PrefixWithoutRawFlag verifies that the prefix guard still
+// rejects keys ending with "/" when --raw is not set.
+func TestRemoveCommand_PrefixWithoutRawFlag(t *testing.T) {
+	t.Parallel()
+
+	cmd := NewDeleteCommand()
+	set := flagSet(t, cmd.Name, cmd.Flags)
+
+	if err := set.Parse([]string{"s3://bucket/prefix/"}); err != nil {
+		t.Fatalf("parsing args: %v", err)
+	}
+
+	ctx := cli.NewContext(nil, set, nil)
+	err := validateRMCommand(ctx)
+	if err == nil {
+		t.Error("expected error for prefix key without --raw; got nil")
+	}
+}
+
 func TestValidateRMCommand(t *testing.T) {
 	t.Parallel()
 

@@ -864,7 +864,14 @@ func (c Copy) shouldOverride(ctx context.Context, srcurl *url.URL, dsturl *url.U
 		return err
 	}
 
-	dstClient, err := storage.NewClient(ctx, dsturl, c.storageOpts)
+	// Apply destination-region override so the HEAD request is signed for the
+	// correct region. Without this, --no-clobber with --destination-region
+	// sends a mis-signed HEAD that returns HTTP 400 AuthorizationHeaderMalformed.
+	dstOpts := c.storageOpts
+	if c.dstRegion != "" {
+		dstOpts.SetRegion(c.dstRegion)
+	}
+	dstClient, err := storage.NewClient(ctx, dsturl, dstOpts)
 	if err != nil {
 		return err
 	}

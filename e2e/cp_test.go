@@ -2449,11 +2449,11 @@ func TestCopyS3ToLocalWithSameFilenameWithNoClobber(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stdout(), map[int]compareFunc{
+	assertLines(t, result.Stdout(), map[int]compareFunc{})
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: equals(`DEBUG "cp s3://%v/%v %v": object already exists`, bucket, filename, filename),
 	})
-
-	assertLines(t, result.Stderr(), map[int]compareFunc{})
 
 	expected := fs.Expected(t, fs.WithFile(filename, content))
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
@@ -2571,11 +2571,11 @@ func TestCopyS3ToLocalWithSameFilenameDontOverrideIfS3ObjectIsOlder(t *testing.T
 	// size differs.
 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stdout(), map[int]compareFunc{
+	assertLines(t, result.Stdout(), map[int]compareFunc{})
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: equals(`DEBUG "cp s3://%v/%v %v": object is newer or same age`, bucket, filename, filename),
 	})
-
-	assertLines(t, result.Stderr(), map[int]compareFunc{})
 
 	expected := fs.Expected(t, fs.WithFile(filename, content))
 	assert.Assert(t, fs.Equal(workdir.Path(), expected))
@@ -2701,11 +2701,11 @@ func TestCopyLocalFileToS3WithSameFilenameWithNoClobber(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stdout(), map[int]compareFunc{
+	assertLines(t, result.Stdout(), map[int]compareFunc{})
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: equals(`DEBUG "cp %v s3://%v/%v": object already exists`, filename, bucket, filename),
 	})
-
-	assertLines(t, result.Stderr(), map[int]compareFunc{})
 
 	// assert local filesystem
 	expected := fs.Expected(t, fs.WithFile(filename, newContent))
@@ -2871,11 +2871,11 @@ func TestCopyLocalFileToS3WithSameFilenameDontOverrideIfS3ObjectIsOlder(t *testi
 	// modtime differs.
 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stdout(), map[int]compareFunc{
+	assertLines(t, result.Stdout(), map[int]compareFunc{})
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: equals(`DEBUG "cp %v s3://%v/%v": object is newer or same age`, filename, bucket, filename),
 	})
-
-	assertLines(t, result.Stderr(), map[int]compareFunc{})
 
 	assert.NilError(t, ensureS3Object(s3client, bucket, filename, content))
 }

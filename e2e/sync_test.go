@@ -666,7 +666,9 @@ func TestSyncLocalFolderToS3BucketSameObjectsSourceOlder(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stdout(), map[int]compareFunc{
+	assertLines(t, result.Stdout(), map[int]compareFunc{})
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: equals(`DEBUG "sync %va/another_test_file.txt %va/another_test_file.txt": object is newer or same age and object size matches`, src, dst),
 		1: equals(`DEBUG "sync %vmain.py %vmain.py": object is newer or same age and object size matches`, src, dst),
 		2: equals(`DEBUG "sync %vreadme.md %vreadme.md": object is newer or same age and object size matches`, src, dst),
@@ -821,7 +823,9 @@ func TestSyncS3BucketToLocalFolderSameObjectsSourceOlder(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stdout(), map[int]compareFunc{
+	assertLines(t, result.Stdout(), map[int]compareFunc{})
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: equals(`DEBUG "sync %v/a/another_test_file.txt %va/another_test_file.txt": object is newer or same age and object size matches`, bucketPath, dst),
 		1: equals(`DEBUG "sync %v/main.py %vmain.py": object is newer or same age and object size matches`, bucketPath, dst),
 		2: equals(`DEBUG "sync %v/readme.md %vreadme.md": object is newer or same age and object size matches`, bucketPath, dst),
@@ -1041,7 +1045,9 @@ func TestSyncS3BucketToS3BucketSameSizesSourceOlder(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stdout(), map[int]compareFunc{
+	assertLines(t, result.Stdout(), map[int]compareFunc{})
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: equals(`DEBUG "sync %v/a/another_test_file.txt %va/another_test_file.txt": object is newer or same age and object size matches`, bucketPath, dst),
 		1: equals(`DEBUG "sync %v/main.py %vmain.py": object is newer or same age and object size matches`, bucketPath, dst),
 		2: equals(`DEBUG "sync %v/readme.md %vreadme.md": object is newer or same age and object size matches`, bucketPath, dst),
@@ -1103,11 +1109,14 @@ func TestSyncS3BucketToLocalFolderSameObjectsSizeOnly(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`cp %v/abc/def/main.py %vabc/def/main.py`, bucketPath, dst),
+		1: equals(`cp %v/test.py %vtest.py`, bucketPath, dst),
+	}, sortInput(true))
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: equals(`DEBUG "sync %v/a/another_test_file.txt %va/another_test_file.txt": object size matches`, bucketPath, dst),
 		1: equals(`DEBUG "sync %v/readme.md %vreadme.md": object size matches`, bucketPath, dst),
 		2: equals(`DEBUG "sync %v/testfile.txt %vtestfile.txt": object size matches`, bucketPath, dst),
-		3: equals(`cp %v/abc/def/main.py %vabc/def/main.py`, bucketPath, dst),
-		4: equals(`cp %v/test.py %vtest.py`, bucketPath, dst),
 	}, sortInput(true))
 
 	expectedFolderLayout := []fs.PathOp{
@@ -1676,11 +1685,14 @@ func TestSyncLocalFolderToS3BucketSameObjectsSizeOnly(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`cp %vabc/def/main.py %vabc/def/main.py`, src, dst),
+		1: equals(`cp %vtestfile.txt %vtestfile.txt`, src, dst),
+	}, sortInput(true))
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: equals(`DEBUG "sync %va/another_test_file.txt %va/another_test_file.txt": object size matches`, src, dst),
 		1: equals(`DEBUG "sync %vreadme.md %vreadme.md": object size matches`, src, dst),
 		2: equals(`DEBUG "sync %vtest.py %vtest.py": object size matches`, src, dst),
-		3: equals(`cp %vabc/def/main.py %vabc/def/main.py`, src, dst),
-		4: equals(`cp %vtestfile.txt %vtestfile.txt`, src, dst),
 	}, sortInput(true))
 
 	// expected folder structure without the timestamp.
@@ -1751,10 +1763,13 @@ func TestSyncS3BucketToS3BucketSizeOnly(t *testing.T) {
 	result.Assert(t, icmd.Success)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`cp %v/main.py %vmain.py`, bucketPath, dst),
+	}, sortInput(true))
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: equals(`DEBUG "sync %v/a/another_test_file.txt %va/another_test_file.txt": object size matches`, bucketPath, dst),
 		1: equals(`DEBUG "sync %v/readme.md %vreadme.md": object size matches`, bucketPath, dst),
 		2: equals(`DEBUG "sync %v/testfile.txt %vtestfile.txt": object size matches`, bucketPath, dst),
-		3: equals(`cp %v/main.py %vmain.py`, bucketPath, dst),
 	}, sortInput(true))
 
 	// assert s3 objects in source

@@ -221,11 +221,11 @@ func TestUploadStdinToS3WithSameFilenameWithNoClobber(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	assertLines(t, result.Stdout(), map[int]compareFunc{
+	assertLines(t, result.Stdout(), map[int]compareFunc{})
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: equals(`DEBUG "pipe s3://%v/%v": object already exists`, bucket, filename),
 	})
-
-	assertLines(t, result.Stderr(), map[int]compareFunc{})
 
 	// expect s3 object is not overridden
 	assert.Assert(t, ensureS3Object(s3client, bucket, filename, content))

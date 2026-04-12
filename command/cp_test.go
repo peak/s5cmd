@@ -1,12 +1,43 @@
 package command
 
 import (
+	"context"
 	"io"
 	"os"
 	"testing"
 
 	"gotest.tools/v3/assert"
+
+	"github.com/peak/s5cmd/v2/storage"
+	"github.com/peak/s5cmd/v2/storage/url"
 )
+
+// TestShouldOverride_NoFlagsIsNoop verifies that shouldOverride returns nil
+// immediately when none of the override-gating flags are set. This confirms
+// the fast-path remains intact and also serves as a compile-time check that
+// the Copy struct fields referenced by shouldOverride (including dstRegion)
+// are spelled correctly.
+func TestShouldOverride_NoFlagsIsNoop(t *testing.T) {
+	t.Parallel()
+
+	srcURL, _ := url.New("s3://bucket/src.txt")
+	dstURL, _ := url.New("s3://bucket/dst.txt")
+
+	c := Copy{
+		noClobber:     false,
+		ifSizeDiffer:  false,
+		ifSourceNewer: false,
+		// dstRegion is set; the fix ensures it would be forwarded to dstOpts
+		// when the function proceeds past the early return.
+		dstRegion:   "us-west-2",
+		storageOpts: storage.Options{},
+	}
+
+	// shouldOverride must return nil (no-op) when no override flag is set.
+	if err := c.shouldOverride(context.Background(), srcURL, dstURL); err != nil {
+		t.Errorf("expected nil when no override flags set, got %v", err)
+	}
+}
 
 func TestGuessContentType(t *testing.T) {
 	t.Parallel()

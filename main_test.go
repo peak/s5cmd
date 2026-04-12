@@ -25,14 +25,18 @@ func TestSIGINTExitCode(t *testing.T) {
 		t.Fatalf("failed to build s5cmd: %v", err)
 	}
 
-	// Use a high retry count + endpoint that delays so the command stays
-	// alive long enough to receive SIGINT.  --endpoint-url pointing at a
-	// closed port will cause the SDK to retry, keeping the process running.
+	// Use --no-sign-request so credential lookup is skipped entirely, then
+	// point at a black-hole address.  The binary will block on the TCP dial
+	// for as long as we need.  Setting AWS_DEFAULT_REGION avoids the
+	// region-discovery HTTP call so the binary goes straight to dialling
+	// the black-hole endpoint.
 	cmd := exec.Command(bin,
+		"--no-sign-request",
 		"--endpoint-url", "http://10.255.255.1:19999", // routable but unreachable
 		"--retry-count", "10",
 		"ls", "s3://bucket/",
 	)
+	cmd.Env = append(os.Environ(), "AWS_DEFAULT_REGION=us-east-1")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
@@ -40,8 +44,9 @@ func TestSIGINTExitCode(t *testing.T) {
 		t.Fatalf("failed to start s5cmd: %v", err)
 	}
 
-	// Give the process time to start and block on the network call.
-	time.Sleep(500 * time.Millisecond)
+	// Give the process time to start and block on the network dial.
+	// Use 3 s to remain reliable even under heavy test-suite parallelism.
+	time.Sleep(3 * time.Second)
 
 	// Send SIGINT.
 	if err := cmd.Process.Signal(syscall.SIGINT); err != nil {

@@ -73,6 +73,7 @@ nfpms:
       workflow while working with large number of files.
     formats:
       - deb
+      - rpm
 
 release:
   draft: true

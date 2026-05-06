@@ -85,6 +85,11 @@ func NewSyncCommandFlags() []cli.Flag {
 			Name:  "exit-on-error",
 			Usage: "stops the sync process if an error is received",
 		},
+		&cli.StringFlag{
+			Name:    "sort-temp-dir",
+			Usage:   "directory for temporary files used when sorting objects to compute the source/destination diff (defaults to the OS temp dir)",
+			EnvVars: []string{"S5CMD_SORT_TEMP_DIR"},
+		},
 	}
 	sharedFlags := NewSharedFlags()
 	return append(syncFlags, sharedFlags...)
@@ -131,6 +136,7 @@ type Sync struct {
 	delete      bool
 	sizeOnly    bool
 	exitOnError bool
+	sortTempDir string
 
 	// s3 options
 	storageOpts storage.Options
@@ -155,6 +161,7 @@ func NewSync(c *cli.Context) Sync {
 		delete:      c.Bool("delete"),
 		sizeOnly:    c.Bool("size-only"),
 		exitOnError: c.Bool("exit-on-error"),
+		sortTempDir: c.String("sort-temp-dir"),
 
 		// flags
 		followSymlinks: !c.Bool("no-follow-symlinks"),
@@ -335,6 +342,7 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, cancel context
 		NumWorkers:         extsortDefaultConfig.NumWorkers,
 		ChanBuffSize:       extsortChannelBufferSize,
 		SortedChanBuffSize: extsortChannelBufferSize,
+		TempFilesDir:       s.sortTempDir,
 	}
 	extsortDefaultConfig = nil
 

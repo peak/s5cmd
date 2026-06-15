@@ -1,4 +1,9 @@
 # Changelog
+## Unreleased
+
+#### Improvements
+- Upgraded aws-sdk-go to v1.55.7. This includes support for EKS Pod Identity credentials (via `AWS_CONTAINER_CREDENTIALS_FULL_URI`), unblocking deployments that rely on Pod Identity.
+
 ## v2.3.0 - 16 Dec 2024
 
 #### Breaking changes

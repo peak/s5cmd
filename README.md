@@ -566,6 +566,20 @@ all variants will return your GCS buckets.
 acceleration and GCS. If a custom endpoint is provided, it'll fallback to
 path-style.
 
+### Multiple endpoints (load balancing)
+
+For high-throughput workloads, `s5cmd` can distribute requests across multiple S3-compatible endpoints using round-robin load balancing.
+
+    s5cmd --endpoint-urls "http://10.26.16.129:17410,http://10.26.16.130:17410" cp 's3://bucket/*' .
+
+or using the environment variable:
+
+    S3_ENDPOINT_URLS="http://10.26.16.129:17410,http://10.26.16.130:17410" s5cmd cp 's3://bucket/*' .
+
+Each request is dispatched to the next endpoint in round-robin order across all workers.
+
+> **Note:** `--endpoint-url` and `--endpoint-urls` cannot be used together.
+
 ### Retry logic
 
 `s5cmd` uses an exponential backoff retry mechanism for transient or potential

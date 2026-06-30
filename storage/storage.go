@@ -61,6 +61,7 @@ func NewRemoteClient(ctx context.Context, url *url.URL, opts Options) (*S3, erro
 		MaxRetries:             opts.MaxRetries,
 		NoSuchUploadRetryCount: opts.NoSuchUploadRetryCount,
 		Endpoint:               opts.Endpoint,
+		Endpoints:              opts.Endpoints, // CRITICAL: Must copy Endpoints for multi-endpoint support
 		NoVerifySSL:            opts.NoVerifySSL,
 		DryRun:                 opts.DryRun,
 		NoSignRequest:          opts.NoSignRequest,
@@ -86,7 +87,8 @@ func NewClient(ctx context.Context, url *url.URL, opts Options) (Storage, error)
 type Options struct {
 	MaxRetries             int
 	NoSuchUploadRetryCount int
-	Endpoint               string
+	Endpoint               string   // Single endpoint (deprecated, use Endpoints for multiple)
+	Endpoints              []string // Multiple endpoints for load balancing
 	NoVerifySSL            bool
 	DryRun                 bool
 	NoSignRequest          bool

@@ -20,7 +20,10 @@ jobs:
           - windows
 
     name: build (${{ matrix.os }}/go-${{ matrix.go-version }})
-    runs-on: ${{ matrix.os }}-latest
+    # Pin macOS to macos-15: macos-latest moved to macos-26 in June 2026,
+    # whose linker/dyld rejects the older Go toolchains' test binaries
+    # (missing LC_UUID load command). macos-15 is the last image these pass on.
+    runs-on: ${{ matrix.os == 'macos' && 'macos-15' || format('{0}-latest', matrix.os) }}
     steps:
     - uses: actions/checkout@v2
     - uses: actions/setup-go@v2
@@ -42,10 +45,11 @@ jobs:
           - windows
 
     name: test (${{ matrix.os }}/go-${{ matrix.go-version }})
-    runs-on: ${{ matrix.os }}-latest
+    # See build job: pin macOS to macos-15 (macos-latest is macos-26).
+    runs-on: ${{ matrix.os == 'macos' && 'macos-15' || format('{0}-latest', matrix.os) }}
     services:
       minio:
-        image: ${{ (matrix.os == 'ubuntu') && 'bitnami/minio:2023.7.18' || ''}}
+        image: ${{ (matrix.os == 'ubuntu') && 'bitnamilegacy/minio:2023.7.18' || ''}}
         ports:
           - 45677:9000
         options: >-

@@ -46,6 +46,11 @@ var app = &cli.App{
 			Usage:   "override default S3 host for custom services",
 			EnvVars: []string{"S3_ENDPOINT_URL"},
 		},
+		&cli.StringSliceFlag{
+			Name:    "endpoint-urls",
+			Usage:   "multiple S3 endpoints for load balancing (comma-separated or multiple flags)",
+			EnvVars: []string{"S3_ENDPOINT_URLS"},
+		},
 		&cli.BoolFlag{
 			Name:  "no-verify-ssl",
 			Usage: "disable SSL certificate verification",
@@ -98,6 +103,7 @@ var app = &cli.App{
 		logLevel := c.String("log")
 		isStat := c.Bool("stat")
 		endpointURL := c.String("endpoint-url")
+		endpointURLs := c.StringSlice("endpoint-urls")
 
 		log.Init(logLevel, printJSON)
 		parallel.Init(workerCount)
@@ -118,15 +124,34 @@ var app = &cli.App{
 			return err
 		}
 
+		// Validate endpoint-url and endpoint-urls are not used together
+		if endpointURL != "" && len(endpointURLs) > 0 {
+			err := fmt.Errorf(`"endpoint-url" and "endpoint-urls" flags cannot be used together`)
+			printError(commandFromContext(c), c.Command.Name, err)
+			return err
+		}
+
 		if isStat {
 			stat.InitStat()
 		}
 
+		// Validate single endpoint URL
 		if endpointURL != "" {
 			if !strings.HasPrefix(endpointURL, "http") {
 				err := fmt.Errorf(`bad value for --endpoint-url %v: scheme is missing. Must be of the form http://<hostname>/ or https://<hostname>/`, endpointURL)
 				printError(commandFromContext(c), c.Command.Name, err)
 				return err
+			}
+		}
+
+		// Validate multiple endpoint URLs
+		if len(endpointURLs) > 0 {
+			for _, ep := range endpointURLs {
+				if !strings.HasPrefix(ep, "http") {
+					err := fmt.Errorf(`bad value for --endpoint-urls %v: scheme is missing. Must be of the form http://<hostname>/ or https://<hostname>/`, ep)
+					printError(commandFromContext(c), c.Command.Name, err)
+					return err
+				}
 			}
 		}
 
@@ -181,6 +206,7 @@ func NewStorageOpts(c *cli.Context) storage.Options {
 	return storage.Options{
 		DryRun:                 c.Bool("dry-run"),
 		Endpoint:               c.String("endpoint-url"),
+		Endpoints:              c.StringSlice("endpoint-urls"),
 		MaxRetries:             c.Int("retry-count"),
 		NoSignRequest:          c.Bool("no-sign-request"),
 		NoVerifySSL:            c.Bool("no-verify-ssl"),

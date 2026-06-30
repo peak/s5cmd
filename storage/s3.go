@@ -17,6 +17,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -54,8 +55,11 @@ const (
 
 // Re-used AWS sessions dramatically improve performance.
 var globalSessionCache = &SessionCache{
-	sessions: map[Options]*session.Session{},
+	sessions: map[sessionCacheKey]*session.Session{},
 }
+
+// Global counter for round-robin load balancing across all S3 instances
+var globalPoolCounter uint64
 
 // S3 is a storage type which interacts with S3API, DownloaderAPI and
 // UploaderAPI.
@@ -68,6 +72,11 @@ type S3 struct {
 	useListObjectsV1       bool
 	noSuchUploadRetryCount int
 	requestPayer           string
+
+	// Multi-endpoint support: pool of clients for load balancing
+	apiPool        []s3iface.S3API
+	downloaderPool []s3manageriface.DownloaderAPI
+	uploaderPool   []s3manageriface.UploaderAPI
 }
 
 func (s *S3) RequestPayer() *string {
@@ -75,6 +84,21 @@ func (s *S3) RequestPayer() *string {
 		return nil
 	}
 	return &s.requestPayer
+}
+
+// getNextClient returns the next S3 client from the pool using round-robin
+// If no pool exists (single endpoint), returns the default client
+func (s *S3) getNextClient() (s3iface.S3API, s3manageriface.DownloaderAPI, s3manageriface.UploaderAPI) {
+	if len(s.apiPool) == 0 {
+		// Single endpoint mode
+		return s.api, s.downloader, s.uploader
+	}
+
+	// Multi-endpoint mode: round-robin selection using global counter
+	idx := atomic.AddUint64(&globalPoolCounter, 1) - 1
+	poolIdx := idx % uint64(len(s.apiPool))
+
+	return s.apiPool[poolIdx], s.downloaderPool[poolIdx], s.uploaderPool[poolIdx]
 }
 
 func parseEndpoint(endpoint string) (urlpkg.URL, error) {
@@ -97,21 +121,75 @@ func newS3Storage(ctx context.Context, opts Options) (*S3, error) {
 		return nil, err
 	}
 
+	// Create the primary session (for single endpoint or first endpoint in multi-endpoint)
 	awsSession, err := globalSessionCache.newSession(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
 
-	return &S3{
-		api:                    s3.New(awsSession),
-		downloader:             s3manager.NewDownloader(awsSession),
-		uploader:               s3manager.NewUploader(awsSession),
+	s3Storage := &S3{
 		endpointURL:            endpointURL,
 		dryRun:                 opts.DryRun,
 		useListObjectsV1:       opts.UseListObjectsV1,
 		requestPayer:           opts.RequestPayer,
 		noSuchUploadRetryCount: opts.NoSuchUploadRetryCount,
-	}, nil
+	}
+
+	// If multiple endpoints are configured, create a pool of clients
+	if len(opts.Endpoints) > 0 {
+		// Determine region once for all endpoints
+		region := opts.region
+		if region == "" {
+			// Use default region for custom endpoints
+			region = endpoints.UsEast1RegionID
+		}
+
+		// Create a separate session for each endpoint
+		for _, endpoint := range opts.Endpoints {
+			// Create options for this specific endpoint
+			endpointOpts := Options{
+				MaxRetries:             opts.MaxRetries,
+				NoSuchUploadRetryCount: opts.NoSuchUploadRetryCount,
+				Endpoint:               endpoint, // Use single endpoint
+				Endpoints:              nil,      // Clear multi-endpoint to avoid recursion
+				NoVerifySSL:            opts.NoVerifySSL,
+				DryRun:                 opts.DryRun,
+				NoSignRequest:          opts.NoSignRequest,
+				UseListObjectsV1:       opts.UseListObjectsV1,
+				RequestPayer:           opts.RequestPayer,
+				Profile:                opts.Profile,
+				CredentialFile:         opts.CredentialFile,
+				LogLevel:               opts.LogLevel,
+			}
+			endpointOpts.bucket = opts.bucket
+			endpointOpts.region = region // Use determined region
+
+			// Create session for this endpoint
+			sess, err := globalSessionCache.newSession(ctx, endpointOpts)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create session for endpoint %s: %v", endpoint, err)
+			}
+
+			// Create S3 clients directly from session
+			// The session already has the correct endpoint and S3ForcePathStyle settings
+			s3Client := s3.New(sess)
+			s3Storage.apiPool = append(s3Storage.apiPool, s3Client)
+			s3Storage.downloaderPool = append(s3Storage.downloaderPool, s3manager.NewDownloader(sess))
+			s3Storage.uploaderPool = append(s3Storage.uploaderPool, s3manager.NewUploader(sess))
+		}
+
+		// Set primary clients to first in pool
+		s3Storage.api = s3Storage.apiPool[0]
+		s3Storage.downloader = s3Storage.downloaderPool[0]
+		s3Storage.uploader = s3Storage.uploaderPool[0]
+	} else {
+		// Single endpoint: use default session
+		s3Storage.api = s3.New(awsSession)
+		s3Storage.downloader = s3manager.NewDownloader(awsSession)
+		s3Storage.uploader = s3manager.NewUploader(awsSession)
+	}
+
+	return s3Storage, nil
 }
 
 // Stat retrieves metadata from S3 object without returning the object itself.
@@ -125,7 +203,9 @@ func (s *S3) Stat(ctx context.Context, url *url.URL) (*Object, error) {
 		input.SetVersionId(url.VersionID)
 	}
 
-	output, err := s.api.HeadObjectWithContext(ctx, input)
+	// Use round-robin client selection for load balancing
+	api, _, _ := s.getNextClient()
+	output, err := api.HeadObjectWithContext(ctx, input)
 	if err != nil {
 		if errHasCode(err, "NotFound") {
 			return nil, &ErrGivenObjectNotFound{ObjectAbsPath: url.Absolute()}
@@ -184,7 +264,8 @@ func (s *S3) listObjectVersions(ctx context.Context, url *url.URL) <-chan *Objec
 
 		var now time.Time
 
-		err := s.api.ListObjectVersionsPagesWithContext(ctx, &listInput,
+		api, _, _ := s.getNextClient()
+		err := api.ListObjectVersionsPagesWithContext(ctx, &listInput,
 			func(p *s3.ListObjectVersionsOutput, lastPage bool) bool {
 				for _, c := range p.CommonPrefixes {
 					prefix := aws.StringValue(c.Prefix)
@@ -314,7 +395,9 @@ func (s *S3) listObjectsV2(ctx context.Context, url *url.URL) <-chan *Object {
 
 		var now time.Time
 
-		err := s.api.ListObjectsV2PagesWithContext(ctx, &listInput, func(p *s3.ListObjectsV2Output, lastPage bool) bool {
+		// Use round-robin client selection for load balancing
+		api, _, _ := s.getNextClient()
+		err := api.ListObjectsV2PagesWithContext(ctx, &listInput, func(p *s3.ListObjectsV2Output, lastPage bool) bool {
 			for _, c := range p.CommonPrefixes {
 				prefix := aws.StringValue(c.Prefix)
 				if !url.Match(prefix) {
@@ -405,7 +488,8 @@ func (s *S3) listObjects(ctx context.Context, url *url.URL) <-chan *Object {
 
 		var now time.Time
 
-		err := s.api.ListObjectsPagesWithContext(ctx, &listInput, func(p *s3.ListObjectsOutput, lastPage bool) bool {
+		api, _, _ := s.getNextClient()
+		err := api.ListObjectsPagesWithContext(ctx, &listInput, func(p *s3.ListObjectsOutput, lastPage bool) bool {
 			for _, c := range p.CommonPrefixes {
 				prefix := aws.StringValue(c.Prefix)
 				if !url.Match(prefix) {
@@ -564,7 +648,8 @@ func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata Metadata) err
 		input.Metadata = m
 	}
 
-	_, err := s.api.CopyObject(input)
+	api, _, _ := s.getNextClient()
+	_, err := api.CopyObject(input)
 	return err
 }
 
@@ -579,7 +664,8 @@ func (s *S3) Read(ctx context.Context, src *url.URL) (io.ReadCloser, error) {
 		input.SetVersionId(src.VersionID)
 	}
 
-	resp, err := s.api.GetObjectWithContext(ctx, input)
+	api, _, _ := s.getNextClient()
+	resp, err := api.GetObjectWithContext(ctx, input)
 	if err != nil {
 		return nil, err
 	}
@@ -593,7 +679,8 @@ func (s *S3) Presign(ctx context.Context, from *url.URL, expire time.Duration) (
 		RequestPayer: s.RequestPayer(),
 	}
 
-	req, _ := s.api.GetObjectRequest(input)
+	api, _, _ := s.getNextClient()
+	req, _ := api.GetObjectRequest(input)
 
 	return req.Presign(expire)
 }
@@ -621,7 +708,9 @@ func (s *S3) Get(
 		input.VersionId = aws.String(from.VersionID)
 	}
 
-	return s.downloader.DownloadWithContext(ctx, to, input, func(u *s3manager.Downloader) {
+	// Use round-robin client selection for load balancing
+	_, downloader, _ := s.getNextClient()
+	return downloader.DownloadWithContext(ctx, to, input, func(u *s3manager.Downloader) {
 		u.PartSize = partSize
 		u.Concurrency = concurrency
 	})
@@ -748,7 +837,8 @@ func (s *S3) Select(ctx context.Context, url *url.URL, query *SelectQuery, resul
 		OutputSerialization: outputFormat,
 	}
 
-	resp, err := s.api.SelectObjectContentWithContext(ctx, input)
+	api, _, _ := s.getNextClient()
+	resp, err := api.SelectObjectContentWithContext(ctx, input)
 	if err != nil {
 		return err
 	}
@@ -877,7 +967,10 @@ func (s *S3) Put(
 		u.PartSize = partSize
 		u.Concurrency = concurrency
 	}
-	_, err := s.uploader.UploadWithContext(ctx, input, uploaderOptsFn)
+
+	// Use round-robin client selection for load balancing
+	_, _, uploader := s.getNextClient()
+	_, err := uploader.UploadWithContext(ctx, input, uploaderOptsFn)
 
 	if errHasCode(err, s3.ErrCodeNoSuchUpload) && s.noSuchUploadRetryCount > 0 {
 		return s.retryOnNoSuchUpload(ctx, to, input, err, uploaderOptsFn)
@@ -907,7 +1000,8 @@ func (s *S3) retryOnNoSuchUpload(ctx aws.Context, to *url.URL, input *s3manager.
 		msg := log.DebugMessage{Err: fmt.Sprintf("Retrying to upload %v upon error: %q", to, err.Error())}
 		log.Debug(msg)
 
-		_, err = s.uploader.UploadWithContext(ctx, input, uploaderOpts...)
+		_, _, uploader := s.getNextClient()
+		_, err = uploader.UploadWithContext(ctx, input, uploaderOpts...)
 	}
 
 	if errHasCode(err, s3.ErrCodeNoSuchUpload) && s.noSuchUploadRetryCount > 0 {
@@ -1007,8 +1101,9 @@ func (s *S3) doDelete(ctx context.Context, chunk chunk, resultch chan *Object) {
 
 	// GCS does not support multi delete.
 	if IsGoogleEndpoint(s.endpointURL) {
+		api, _, _ := s.getNextClient()
 		for _, k := range chunk.Keys {
-			_, err := s.api.DeleteObjectWithContext(ctx, &s3.DeleteObjectInput{
+			_, err := api.DeleteObjectWithContext(ctx, &s3.DeleteObjectInput{
 				Bucket:       aws.String(chunk.Bucket),
 				Key:          k.Key,
 				RequestPayer: s.RequestPayer(),
@@ -1025,7 +1120,8 @@ func (s *S3) doDelete(ctx context.Context, chunk chunk, resultch chan *Object) {
 	}
 
 	bucket := chunk.Bucket
-	o, err := s.api.DeleteObjectsWithContext(ctx, &s3.DeleteObjectsInput{
+	api, _, _ := s.getNextClient()
+	o, err := api.DeleteObjectsWithContext(ctx, &s3.DeleteObjectsInput{
 		Bucket:       aws.String(bucket),
 		Delete:       &s3.Delete{Objects: chunk.Keys},
 		RequestPayer: s.RequestPayer(),
@@ -1092,7 +1188,8 @@ func (s *S3) MultiDelete(ctx context.Context, urlch <-chan *url.URL) <-chan *Obj
 // ListBuckets is a blocking list-operation which gets bucket list and returns
 // the buckets that match with given prefix.
 func (s *S3) ListBuckets(ctx context.Context, prefix string) ([]Bucket, error) {
-	o, err := s.api.ListBucketsWithContext(ctx, &s3.ListBucketsInput{})
+	api, _, _ := s.getNextClient()
+	o, err := api.ListBucketsWithContext(ctx, &s3.ListBucketsInput{})
 	if err != nil {
 		return nil, err
 	}
@@ -1116,7 +1213,8 @@ func (s *S3) MakeBucket(ctx context.Context, name string) error {
 		return nil
 	}
 
-	_, err := s.api.CreateBucketWithContext(ctx, &s3.CreateBucketInput{
+	api, _, _ := s.getNextClient()
+	_, err := api.CreateBucketWithContext(ctx, &s3.CreateBucketInput{
 		Bucket: aws.String(name),
 	})
 	return err
@@ -1128,7 +1226,8 @@ func (s *S3) RemoveBucket(ctx context.Context, name string) error {
 		return nil
 	}
 
-	_, err := s.api.DeleteBucketWithContext(ctx, &s3.DeleteBucketInput{
+	api, _, _ := s.getNextClient()
+	_, err := api.DeleteBucketWithContext(ctx, &s3.DeleteBucketInput{
 		Bucket: aws.String(name),
 	})
 	return err
@@ -1140,7 +1239,8 @@ func (s *S3) SetBucketVersioning(ctx context.Context, versioningStatus, bucket s
 		return nil
 	}
 
-	_, err := s.api.PutBucketVersioningWithContext(ctx, &s3.PutBucketVersioningInput{
+	api, _, _ := s.getNextClient()
+	_, err := api.PutBucketVersioningWithContext(ctx, &s3.PutBucketVersioningInput{
 		Bucket: aws.String(bucket),
 		VersioningConfiguration: &s3.VersioningConfiguration{
 			Status: aws.String(versioningStatus),
@@ -1151,7 +1251,8 @@ func (s *S3) SetBucketVersioning(ctx context.Context, versioningStatus, bucket s
 
 // GetBucketVersioning returnsversioning property of the bucket
 func (s *S3) GetBucketVersioning(ctx context.Context, bucket string) (string, error) {
-	output, err := s.api.GetBucketVersioningWithContext(ctx, &s3.GetBucketVersioningInput{
+	api, _, _ := s.getNextClient()
+	output, err := api.GetBucketVersioningWithContext(ctx, &s3.GetBucketVersioningInput{
 		Bucket: aws.String(bucket),
 	})
 	if err != nil || output.Status == nil {
@@ -1162,7 +1263,8 @@ func (s *S3) GetBucketVersioning(ctx context.Context, bucket string) (string, er
 }
 
 func (s *S3) HeadBucket(ctx context.Context, url *url.URL) error {
-	_, err := s.api.HeadBucketWithContext(ctx, &s3.HeadBucketInput{
+	api, _, _ := s.getNextClient()
+	_, err := api.HeadBucketWithContext(ctx, &s3.HeadBucketInput{
 		Bucket: aws.String(url.Bucket),
 	})
 	return err
@@ -1179,7 +1281,8 @@ func (s *S3) HeadObject(ctx context.Context, url *url.URL) (*Object, *Metadata, 
 		input.SetVersionId(url.VersionID)
 	}
 
-	output, err := s.api.HeadObjectWithContext(ctx, input)
+	api, _, _ := s.getNextClient()
+	output, err := api.HeadObjectWithContext(ctx, input)
 	if err != nil {
 		if errHasCode(err, "NotFound") {
 			return nil, nil, &ErrGivenObjectNotFound{ObjectAbsPath: url.Absolute()}
@@ -1220,11 +1323,53 @@ func (l sdkLogger) Log(args ...interface{}) {
 	log.Trace(msg)
 }
 
+// sessionCacheKey is a comparable key for caching sessions
+type sessionCacheKey struct {
+	MaxRetries             int
+	NoSuchUploadRetryCount int
+	Endpoint               string
+	EndpointsKey           string // Concatenated endpoints for comparison
+	NoVerifySSL            bool
+	DryRun                 bool
+	NoSignRequest          bool
+	UseListObjectsV1       bool
+	LogLevel               log.LogLevel
+	RequestPayer           string
+	Profile                string
+	CredentialFile         string
+	bucket                 string
+	region                 string
+}
+
+// makeSessionCacheKey creates a comparable cache key from Options
+func makeSessionCacheKey(opts Options) sessionCacheKey {
+	endpointsKey := ""
+	if len(opts.Endpoints) > 0 {
+		endpointsKey = strings.Join(opts.Endpoints, "|")
+	}
+	return sessionCacheKey{
+		MaxRetries:             opts.MaxRetries,
+		NoSuchUploadRetryCount: opts.NoSuchUploadRetryCount,
+		Endpoint:               opts.Endpoint,
+		EndpointsKey:           endpointsKey,
+		NoVerifySSL:            opts.NoVerifySSL,
+		DryRun:                 opts.DryRun,
+		NoSignRequest:          opts.NoSignRequest,
+		UseListObjectsV1:       opts.UseListObjectsV1,
+		LogLevel:               opts.LogLevel,
+		RequestPayer:           opts.RequestPayer,
+		Profile:                opts.Profile,
+		CredentialFile:         opts.CredentialFile,
+		bucket:                 opts.bucket,
+		region:                 opts.region,
+	}
+}
+
 // SessionCache holds session.Session according to s3Opts and it synchronizes
 // access/modification.
 type SessionCache struct {
 	sync.Mutex
-	sessions map[Options]*session.Session
+	sessions map[sessionCacheKey]*session.Session
 }
 
 // newSession initializes a new AWS session with region fallback and custom
@@ -1233,7 +1378,8 @@ func (sc *SessionCache) newSession(ctx context.Context, opts Options) (*session.
 	sc.Lock()
 	defer sc.Unlock()
 
-	if sess, ok := sc.sessions[opts]; ok {
+	cacheKey := makeSessionCacheKey(opts)
+	if sess, ok := sc.sessions[cacheKey]; ok {
 		return sess, nil
 	}
 
@@ -1248,9 +1394,34 @@ func (sc *SessionCache) newSession(ctx context.Context, opts Options) (*session.
 		)
 	}
 
-	endpointURL, err := parseEndpoint(opts.Endpoint)
-	if err != nil {
-		return nil, err
+	// Check if multiple endpoints are provided for load balancing
+	var endpointURL urlpkg.URL
+	var httpClient *http.Client
+
+	if len(opts.Endpoints) > 0 {
+		// Multiple endpoints: Parse first endpoint for session initialization
+		// We'll apply RoundRobinTransport later to avoid issues with region detection
+		firstEndpoint, err := parseEndpoint(opts.Endpoints[0])
+		if err != nil {
+			return nil, err
+		}
+		endpointURL = firstEndpoint
+
+		// Use standard client for session initialization
+		if opts.NoVerifySSL {
+			httpClient = insecureHTTPClient
+		}
+	} else {
+		// Single endpoint: use standard behavior
+		var err error
+		endpointURL, err = parseEndpoint(opts.Endpoint)
+		if err != nil {
+			return nil, err
+		}
+
+		if opts.NoVerifySSL {
+			httpClient = insecureHTTPClient
+		}
 	}
 
 	// use virtual-host-style if the endpoint is known to support it,
@@ -1265,12 +1436,13 @@ func (sc *SessionCache) newSession(ctx context.Context, opts Options) (*session.
 		endpointURL = sentinelURL
 	}
 
-	var httpClient *http.Client
-	if opts.NoVerifySSL {
-		httpClient = insecureHTTPClient
-	}
+	// For multiple endpoints, we still need to set the first endpoint
+	// for region detection and initial setup, but the RoundRobinTransport
+	// will handle actual request routing
+	endpointStr := endpointURL.String()
+
 	awsCfg = awsCfg.
-		WithEndpoint(endpointURL.String()).
+		WithEndpoint(endpointStr).
 		WithS3ForcePathStyle(!isVirtualHostStyle).
 		WithS3UseAccelerate(useAccelerate).
 		WithHTTPClient(httpClient).
@@ -1317,12 +1489,19 @@ func (sc *SessionCache) newSession(ctx context.Context, opts Options) (*session.
 	if opts.region != "" {
 		sess.Config.Region = aws.String(opts.region)
 	} else {
-		if err := setSessionRegion(ctx, sess, opts.bucket); err != nil {
-			return nil, err
+		// For multiple endpoints, skip automatic region detection to avoid
+		// GetBucketRegion calls being distributed across endpoints
+		if len(opts.Endpoints) > 0 {
+			// Use default region for custom endpoints
+			sess.Config.Region = aws.String(endpoints.UsEast1RegionID)
+		} else {
+			if err := setSessionRegion(ctx, sess, opts.bucket); err != nil {
+				return nil, err
+			}
 		}
 	}
 
-	sc.sessions[opts] = sess
+	sc.sessions[cacheKey] = sess
 
 	return sess, nil
 }
@@ -1330,7 +1509,8 @@ func (sc *SessionCache) newSession(ctx context.Context, opts Options) (*session.
 func (sc *SessionCache) clear() {
 	sc.Lock()
 	defer sc.Unlock()
-	sc.sessions = map[Options]*session.Session{}
+	sc.sessions = map[sessionCacheKey]*session.Session{}
+	atomic.StoreUint64(&globalPoolCounter, 0)
 }
 
 func setSessionRegion(ctx context.Context, sess *session.Session, bucket string) error {

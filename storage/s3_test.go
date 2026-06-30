@@ -25,7 +25,9 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/awstesting/unit"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager/s3manageriface"
 	"github.com/google/go-cmp/cmp"
 	"gotest.tools/v3/assert"
 
@@ -1341,3 +1343,100 @@ func (e tempError) Error() string { return e.err.Error() }
 func (e tempError) Temporary() bool { return e.temp }
 
 func (e *tempError) Unwrap() error { return e.err }
+
+func TestGetNextClientRoundRobin(t *testing.T) {
+	// Reset global counter to make test deterministic
+	atomic.StoreUint64(&globalPoolCounter, 0)
+
+	api0 := s3.New(unit.Session)
+	api1 := s3.New(unit.Session)
+	api2 := s3.New(unit.Session)
+
+	s3s := &S3{
+		apiPool:        []s3iface.S3API{api0, api1, api2},
+		downloaderPool: []s3manageriface.DownloaderAPI{nil, nil, nil},
+		uploaderPool:   []s3manageriface.UploaderAPI{nil, nil, nil},
+	}
+
+	// Should cycle through pool indices 0, 1, 2, 0, 1, 2 ...
+	expected := []s3iface.S3API{api0, api1, api2, api0, api1, api2}
+	for i, want := range expected {
+		got, _, _ := s3s.getNextClient()
+		if got != want {
+			t.Fatalf("call %d: expected api at index %d, got different api", i, i%3)
+		}
+	}
+}
+
+func TestGetNextClientSingleEndpointFallback(t *testing.T) {
+	defaultAPI := s3.New(unit.Session)
+	s3s := &S3{
+		api:     defaultAPI,
+		apiPool: nil, // no pool
+	}
+
+	got, _, _ := s3s.getNextClient()
+	if got != defaultAPI {
+		t.Fatal("expected default api when no pool configured")
+	}
+}
+
+func TestMakeSessionCacheKeyEndpoints(t *testing.T) {
+	base := Options{Endpoint: "http://s3.example.com"}
+
+	multi := Options{Endpoints: []string{"http://s3-1:9000", "http://s3-2:9000"}}
+
+	keyBase := makeSessionCacheKey(base)
+	keyMulti := makeSessionCacheKey(multi)
+	if keyBase == keyMulti {
+		t.Fatal("expected different cache keys for single vs multi-endpoint options")
+	}
+
+	// Same endpoints in same order → same key
+	multiSame := Options{Endpoints: []string{"http://s3-1:9000", "http://s3-2:9000"}}
+	if makeSessionCacheKey(multi) != makeSessionCacheKey(multiSame) {
+		t.Fatal("expected same cache key for identical endpoint lists")
+	}
+
+	// Different endpoint order → different key
+	multiReverse := Options{Endpoints: []string{"http://s3-2:9000", "http://s3-1:9000"}}
+	if makeSessionCacheKey(multi) == makeSessionCacheKey(multiReverse) {
+		t.Fatal("expected different cache keys for different endpoint orderings")
+	}
+}
+
+func TestNewS3StorageMultiEndpointPoolSize(t *testing.T) {
+	// Start fake S3-compatible servers (just need to respond to region detection)
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	srv1 := httptest.NewServer(handler)
+	defer srv1.Close()
+	srv2 := httptest.NewServer(handler)
+	defer srv2.Close()
+	srv3 := httptest.NewServer(handler)
+	defer srv3.Close()
+
+	globalSessionCache.clear()
+
+	opts := Options{
+		Endpoints:     []string{srv1.URL, srv2.URL, srv3.URL},
+		NoSignRequest: true,
+	}
+
+	s3s, err := newS3Storage(context.Background(), opts)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if got := len(s3s.apiPool); got != 3 {
+		t.Fatalf("expected pool size 3, got %d", got)
+	}
+	if len(s3s.downloaderPool) != 3 || len(s3s.uploaderPool) != 3 {
+		t.Fatal("downloader/uploader pool size mismatch")
+	}
+	// Primary client should be set to first pool entry
+	if s3s.api != s3s.apiPool[0] {
+		t.Fatal("expected s3s.api to point to apiPool[0]")
+	}
+}

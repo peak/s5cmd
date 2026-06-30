@@ -312,3 +312,60 @@ func TestAppEndpointShouldHaveScheme(t *testing.T) {
 		})
 	}
 }
+
+func TestAppEndpointURLsValidation(t *testing.T) {
+	t.Parallel()
+
+	testcases := []struct {
+		name             string
+		flags            []string
+		expectedError    error
+		expectedExitCode int
+	}{
+		{
+			name:             "valid_endpoint_urls",
+			flags:            []string{"--endpoint-urls", "http://s3-1:9000,http://s3-2:9000"},
+			expectedExitCode: 0,
+		},
+		{
+			name:             "endpoint_urls_env_var_valid",
+			flags:            []string{"--endpoint-urls", "https://minio.example.com"},
+			expectedExitCode: 0,
+		},
+		{
+			name:             "endpoint_urls_missing_scheme",
+			flags:            []string{"--endpoint-urls", "s3-1:9000"},
+			expectedError:    fmt.Errorf(`ERROR bad value for --endpoint-urls s3-1:9000: scheme is missing. Must be of the form http://<hostname>/ or https://<hostname>/`),
+			expectedExitCode: 1,
+		},
+		{
+			name:             "endpoint_url_and_endpoint_urls_conflict",
+			flags:            []string{"--endpoint-url", "http://s3-1:9000", "--endpoint-urls", "http://s3-2:9000"},
+			expectedError:    fmt.Errorf(`ERROR "endpoint-url" and "endpoint-urls" flags cannot be used together`),
+			expectedExitCode: 1,
+		},
+	}
+
+	for _, tc := range testcases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			// Invoke the binary directly instead of the setup() helper,
+			// which injects "--endpoint-url" and would collide with the
+			// "--endpoint-urls" flag under test.
+			cmd := icmd.Command(s5cmdPath, tc.flags...)
+			result := icmd.RunCmd(cmd)
+
+			result.Assert(t, icmd.Expected{ExitCode: tc.expectedExitCode})
+
+			if tc.expectedError == nil && result.Stderr() == "" {
+				return
+			}
+
+			assertLines(t, result.Stderr(), map[int]compareFunc{
+				0: equals("%v", tc.expectedError),
+			})
+		})
+	}
+}

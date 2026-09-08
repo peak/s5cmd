@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 
 	errorpkg "github.com/peak/s5cmd/v2/error"
 	"github.com/peak/s5cmd/v2/log/stat"
@@ -19,10 +19,10 @@ import (
 )
 
 var selectHelpTemplate = `Name:
-	{{.HelpName}} - {{.Usage}}
+	{{.FullName}} - {{.Usage}}
 
 Usage:
-	{{.HelpName}} [options] argument
+	{{.FullName}} [options] argument
 
 Options:
 	{{range .VisibleFlags}}{{.}}
@@ -41,16 +41,16 @@ Examples:
 		 > s5cmd select json --query "SELECT s.id FROM s3object s WHERE s.lineNumber = 1"
 `
 
-func beforeFunc(c *cli.Context) error {
+func beforeFunc(ctx context.Context, c *cli.Command) (context.Context, error) {
 	err := validateSelectCommand(c)
 	if err != nil {
-		printError(commandFromContext(c), c.Command.Name, err)
+		printError(commandFromContext(c), c.Name, err)
 	}
-	return err
+	return ctx, err
 }
 
-func buildSelect(c *cli.Context, inputFormat string, inputStructure *string) (cmd *Select, err error) {
-	defer stat.Collect(c.Command.FullName(), &err)()
+func buildSelect(c *cli.Command, inputFormat string, inputStructure *string) (cmd *Select, err error) {
+	defer stat.Collect(commandName(c), &err)()
 
 	fullCommand := commandFromContext(c)
 
@@ -62,7 +62,7 @@ func buildSelect(c *cli.Context, inputFormat string, inputStructure *string) (cm
 	)
 
 	if err != nil {
-		printError(fullCommand, c.Command.Name, err)
+		printError(fullCommand, c.Name, err)
 		return nil, err
 	}
 
@@ -73,7 +73,7 @@ func buildSelect(c *cli.Context, inputFormat string, inputStructure *string) (cm
 
 	cmd = &Select{
 		src:         src,
-		op:          c.Command.Name,
+		op:          c.Name,
 		fullCommand: fullCommand,
 		// flags
 		inputFormat:           inputFormat,
@@ -132,10 +132,9 @@ func NewSelectCommand() *cli.Command {
 	}
 
 	cmd := &cli.Command{
-		Name:     "select",
-		HelpName: "select",
-		Usage:    "run SQL queries on objects",
-		Subcommands: []*cli.Command{
+		Name:  "select",
+		Usage: "run SQL queries on objects",
+		Commands: []*cli.Command{
 			{
 				Name:  "csv",
 				Usage: "run queries on csv files",
@@ -157,7 +156,7 @@ func NewSelectCommand() *cli.Command {
 				}, sharedFlags...),
 				CustomHelpTemplate: selectHelpTemplate,
 				Before:             beforeFunc,
-				Action: func(c *cli.Context) (err error) {
+				Action: func(ctx context.Context, c *cli.Command) (err error) {
 					delimiter := c.String("delimiter")
 					// We are doing this because the delimiters that are special characters
 					// are automatically escaped by go. We quote/unquote to capture the actual
@@ -165,7 +164,7 @@ func NewSelectCommand() *cli.Command {
 					quotedDelimiter, err := strconv.Unquote(`"` + delimiter + `"`)
 
 					if err != nil {
-						printError("select csv", c.Command.Name, err)
+						printError("select csv", c.Name, err)
 						return err
 					}
 
@@ -183,10 +182,10 @@ func NewSelectCommand() *cli.Command {
 					// that AWS does not support.
 					cmd.fileHeaderInfo = c.String("use-header")
 					if err != nil {
-						printError(cmd.fullCommand, c.Command.Name, err)
+						printError(cmd.fullCommand, c.Name, err)
 						return err
 					}
-					return cmd.Run(c.Context)
+					return cmd.Run(ctx)
 				},
 			},
 			{
@@ -211,14 +210,14 @@ func NewSelectCommand() *cli.Command {
 				}, sharedFlags...),
 				CustomHelpTemplate: selectHelpTemplate,
 				Before:             beforeFunc,
-				Action: func(c *cli.Context) (err error) {
-					structure := c.String("structure")
+				Action: func(ctx context.Context, c *cli.Command) (err error) {
+					structure := genericString(c, "structure")
 					cmd, err := buildSelect(c, "json", &structure)
 					if err != nil {
-						printError(cmd.fullCommand, c.Command.Name, err)
+						printError(cmd.fullCommand, c.Name, err)
 						return err
 					}
-					return cmd.Run(c.Context)
+					return cmd.Run(ctx)
 				},
 			},
 			{
@@ -227,13 +226,13 @@ func NewSelectCommand() *cli.Command {
 				Flags:              sharedFlags,
 				CustomHelpTemplate: selectHelpTemplate,
 				Before:             beforeFunc,
-				Action: func(c *cli.Context) (err error) {
+				Action: func(ctx context.Context, c *cli.Command) (err error) {
 					cmd, err := buildSelect(c, "parquet", nil)
 					if err != nil {
-						printError(cmd.fullCommand, c.Command.Name, err)
+						printError(cmd.fullCommand, c.Name, err)
 						return err
 					}
-					return cmd.Run(c.Context)
+					return cmd.Run(ctx)
 				},
 			},
 		},
@@ -243,27 +242,27 @@ func NewSelectCommand() *cli.Command {
 				Usage: "input compression format (options for AWS: GZIP or BZIP2)",
 			},
 		}, sharedFlags...),
-		Before: func(c *cli.Context) (err error) {
+		Before: func(ctx context.Context, c *cli.Command) (context.Context, error) {
 			if c.Args().Len() == 0 {
-				err = fmt.Errorf("expected source argument")
-				printError(commandFromContext(c), c.Command.Name, err)
-				return err
+				err := fmt.Errorf("expected source argument")
+				printError(commandFromContext(c), c.Name, err)
+				return ctx, err
 			}
-			return nil
+			return ctx, nil
 		},
-		Action: func(c *cli.Context) (err error) {
+		Action: func(ctx context.Context, c *cli.Command) (err error) {
 			// default fallback
 			structure := "lines"
 			cmd, err := buildSelect(c, "json", &structure)
 			if err != nil {
-				printError(cmd.fullCommand, c.Command.Name, err)
+				printError(cmd.fullCommand, c.Name, err)
 				return err
 			}
-			return cmd.Run(c.Context)
+			return cmd.Run(ctx)
 		},
 		CustomHelpTemplate: selectHelpTemplate,
 	}
-	cmd.BashComplete = getBashCompleteFn(cmd, true, false)
+	cmd.ShellComplete = getBashCompleteFn(cmd, true, false)
 	return cmd
 }
 
@@ -402,7 +401,7 @@ func (s Select) prepareTask(ctx context.Context, client *storage.S3, url *url.UR
 	}
 }
 
-func validateSelectCommand(c *cli.Context) error {
+func validateSelectCommand(c *cli.Command) error {
 	if c.Args().Len() != 1 {
 		return fmt.Errorf("expected source argument")
 	}

@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/hashicorp/go-multierror"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 
 	errorpkg "github.com/peak/s5cmd/v2/error"
 	"github.com/peak/s5cmd/v2/log"
@@ -16,54 +16,53 @@ import (
 )
 
 var listHelpTemplate = `Name:
-	{{.HelpName}} - {{.Usage}}
+	{{.FullName}} - {{.Usage}}
 
 Usage:
-	{{.HelpName}} [options] argument
+	{{.FullName}} [options] argument
 
 Options:
 	{{range .VisibleFlags}}{{.}}
 	{{end}}
 Examples:
 	1. List all buckets
-		 > s5cmd {{.HelpName}}
+		 > {{.FullName}}
 
 	2. List objects and prefixes in a bucket
-		 > s5cmd {{.HelpName}} s3://bucket/
+		 > {{.FullName}} s3://bucket/
 
 	3. List all objects in a bucket
-		 > s5cmd {{.HelpName}} "s3://bucket/*"
+		 > {{.FullName}} "s3://bucket/*"
 
 	4. List all objects that matches a wildcard
-		 > s5cmd {{.HelpName}} "s3://bucket/prefix/*/*.gz"
+		 > {{.FullName}} "s3://bucket/prefix/*/*.gz"
 
 	5. List all objects in a public bucket
-		 > s5cmd --no-sign-request {{.HelpName}} "s3://bucket/*"
+		 > s5cmd --no-sign-request {{.Name}} "s3://bucket/*"
 
 	6. List all objects in a bucket but exclude the ones with prefix abc
-		 > s5cmd {{.HelpName}} --exclude "abc*" "s3://bucket/*"
+		 > {{.FullName}} --exclude "abc*" "s3://bucket/*"
 
 	7. List all object in a requester pays bucket
-		 > s5cmd --request-payer=requester {{.HelpName}} "s3://bucket/*"
+		 > s5cmd --request-payer=requester {{.Name}} "s3://bucket/*"
 
 	8. List all versions of an object in the bucket
-		 > s5cmd {{.HelpName}} --all-versions s3://bucket/object
+		 > {{.FullName}} --all-versions s3://bucket/object
 
 	9. List all versions of all objects that starts with a prefix in the bucket
-		 > s5cmd {{.HelpName}} --all-versions "s3://bucket/prefix*"
+		 > {{.FullName}} --all-versions "s3://bucket/prefix*"
 
 	10. List all versions of all objects in the bucket
-		 > s5cmd {{.HelpName}} --all-versions "s3://bucket/*"
+		 > {{.FullName}} --all-versions "s3://bucket/*"
 
 	11. List all files with their fullpaths
-		 > s5cmd {{.HelpName}} --show-fullpath "s3://bucket/*"
+		 > {{.FullName}} --show-fullpath "s3://bucket/*"
 
 `
 
 func NewListCommand() *cli.Command {
 	cmd := &cli.Command{
 		Name:               "ls",
-		HelpName:           "ls",
 		Usage:              "list buckets and objects",
 		CustomHelpTemplate: listHelpTemplate,
 		Flags: []cli.Flag{
@@ -95,19 +94,19 @@ func NewListCommand() *cli.Command {
 				Usage: "shows only the fullpath names of the object(s)",
 			},
 		},
-		Before: func(c *cli.Context) error {
+		Before: func(ctx context.Context, c *cli.Command) (context.Context, error) {
 			err := validateLSCommand(c)
 			if err != nil {
-				printError(commandFromContext(c), c.Command.Name, err)
+				printError(commandFromContext(c), c.Name, err)
 			}
-			return err
+			return ctx, err
 		},
-		Action: func(c *cli.Context) (err error) {
-			defer stat.Collect(c.Command.FullName(), &err)()
+		Action: func(ctx context.Context, c *cli.Command) (err error) {
+			defer stat.Collect(commandName(c), &err)()
 			if !c.Args().Present() {
-				err := ListBuckets(c.Context, NewStorageOpts(c))
+				err := ListBuckets(ctx, NewStorageOpts(c))
 				if err != nil {
-					printError(commandFromContext(c), c.Command.Name, err)
+					printError(commandFromContext(c), c.Name, err)
 				}
 				return err
 			}
@@ -117,12 +116,12 @@ func NewListCommand() *cli.Command {
 			srcurl, err := url.New(c.Args().First(),
 				url.WithAllVersions(c.Bool("all-versions")))
 			if err != nil {
-				printError(fullCommand, c.Command.Name, err)
+				printError(fullCommand, c.Name, err)
 				return err
 			}
 			return List{
 				src:         srcurl,
-				op:          c.Command.Name,
+				op:          c.Name,
 				fullCommand: fullCommand,
 				// flags
 				showEtag:         c.Bool("etag"),
@@ -132,11 +131,11 @@ func NewListCommand() *cli.Command {
 				showFullPath:     c.Bool("show-fullpath"),
 
 				storageOpts: NewStorageOpts(c),
-			}.Run(c.Context)
+			}.Run(ctx)
 		},
 	}
 
-	cmd.BashComplete = getBashCompleteFn(cmd, false, false)
+	cmd.ShellComplete = getBashCompleteFn(cmd, false, false)
 	return cmd
 }
 
@@ -318,7 +317,7 @@ func (l ListMessage) JSON() string {
 	return strutil.JSON(l.Object)
 }
 
-func validateLSCommand(c *cli.Context) error {
+func validateLSCommand(c *cli.Command) error {
 	if c.Args().Len() > 1 {
 		return fmt.Errorf("expected only 1 argument")
 	}

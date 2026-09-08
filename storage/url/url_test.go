@@ -34,7 +34,6 @@ func TestHasWild(t *testing.T) {
 		},
 	}
 	for _, tc := range tests {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			if got := hasGlobCharacter(tc.s); got != tc.want {
 				t.Errorf("HasWild() = %v, want %v", got, tc.want)
@@ -100,7 +99,6 @@ func TestNew(t *testing.T) {
 		},
 	}
 	for _, tc := range tests {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			got, err := New(tc.object)
 			if (err != nil) != tc.wantErr {
@@ -202,7 +200,6 @@ func TestJoin(t *testing.T) {
 		},
 	}
 	for _, tc := range tests {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			got := tc.before.Join(tc.objectName)
 			if !reflect.DeepEqual(got, tc.after) {
@@ -246,7 +243,6 @@ func TestURLSetPrefixAndFilter(t *testing.T) {
 		},
 	}
 	for _, tc := range tests {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			got := tc.before
 			if err := got.setPrefixAndFilter(); err != nil {
@@ -349,7 +345,6 @@ func TestCheckMatch(t *testing.T) {
 		},
 	}
 	for _, tc := range tests {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			u, err := New(tc.url)
 			if err != nil {
@@ -402,7 +397,6 @@ func TestParseBatch(t *testing.T) {
 		},
 	}
 	for _, tc := range tests {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			if got := parseBatch(tc.prefix, tc.key); got != tc.want {
 				t.Errorf("parseBatch() = %v, want %v", got, tc.want)
@@ -456,7 +450,6 @@ func TestParseNonBatch(t *testing.T) {
 		},
 	}
 	for _, tc := range tests {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			if got := parseNonBatch(tc.prefix, tc.key); got != tc.want {
 				t.Errorf("parseNonBatch() = %v, want %v", got, tc.want)
@@ -633,7 +626,7 @@ func TestToFromBytes(t *testing.T) {
 
 			url.relativePath = tc.relative
 
-			newURL := FromBytes(url.ToBytes()).(*URL)
+			newURL := FromBytes(url.ToBytes())
 
 			if !reflect.DeepEqual(url, newURL) {
 				t.Errorf("got = %q, want %q", url, newURL)

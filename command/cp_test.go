@@ -59,7 +59,6 @@ func TestGuessContentType(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
-		tc := tc
 
 		f, err := os.CreateTemp("", tc.filename)
 		if err != nil {

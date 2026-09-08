@@ -208,7 +208,7 @@ func TestRemoveTenThousandS3Objects(t *testing.T) {
 	filenameFunc := func(i int) string { return fmt.Sprintf("file_%06d", i) }
 	contentFunc := func(i int) string { return fmt.Sprintf("file body %06d", i) }
 
-	for i := 0; i < filecount; i++ {
+	for i := range filecount {
 		filename := filenameFunc(i)
 		content := contentFunc(i)
 		putFile(t, s3client, bucket, filename, content)
@@ -222,14 +222,14 @@ func TestRemoveTenThousandS3Objects(t *testing.T) {
 	assertLines(t, result.Stderr(), map[int]compareFunc{})
 
 	expected := make(map[int]compareFunc)
-	for i := 0; i < filecount; i++ {
+	for i := range filecount {
 		expected[i] = contains(`rm s3://%v/file_%06d`, bucket, i)
 	}
 
 	assertLines(t, result.Stdout(), expected, sortInput(true))
 
 	// assert s3 objects
-	for i := 0; i < filecount; i++ {
+	for i := range filecount {
 		filename := filenameFunc(i)
 		content := contentFunc(i)
 
@@ -988,7 +988,6 @@ func TestRemoveLocalDirectoryWithExcludeFilter(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -1283,7 +1282,7 @@ func TestRemoveByVersionID(t *testing.T) {
 
 	// now we will parse their version IDs and remove them one by one
 	versionIDs := make([]string, 0)
-	for _, row := range strings.Split(result.Stdout(), "\n") {
+	for row := range strings.SplitSeq(result.Stdout(), "\n") {
 		if row != "" {
 			arr := strings.Split(row, " ")
 			versionIDs = append(versionIDs, arr[len(arr)-1])

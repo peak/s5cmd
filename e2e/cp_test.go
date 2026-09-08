@@ -34,7 +34,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"gotest.tools/v3/assert"
 	"gotest.tools/v3/fs"
 	"gotest.tools/v3/icmd"
@@ -114,7 +114,6 @@ func TestCopySingleS3ObjectToLocal(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -132,7 +131,7 @@ func TestCopySingleS3ObjectToLocal(t *testing.T) {
 			result.Assert(t, icmd.Success)
 			expectedOutput := fmt.Sprintf("cp s3://%v/%v %v", bucket, tc.src, tc.expectedDst)
 			assertLines(t, result.Stdout(), map[int]compareFunc{
-				0: equals(expectedOutput),
+				0: equals("%v", expectedOutput),
 			})
 
 			// assert local filesystem
@@ -965,7 +964,6 @@ func TestCopySingleFileToS3WithAdjacentSlashes(t *testing.T) {
 		},
 	}
 	for _, tc := range testcases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -1943,7 +1941,7 @@ func TestCopySingleS3ObjectToS3JSON(t *testing.T) {
 	`, src, dst, dst)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
-		0: json(jsonText),
+		0: json("%v", jsonText),
 	}, jsonCheck(true))
 
 	// assert s3 source object
@@ -3391,7 +3389,6 @@ func TestCopyLocalObjectstoS3WithRawFlag(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -3560,7 +3557,6 @@ func TestCopyS3ObjectstoLocalWithRawFlag(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -3679,7 +3675,7 @@ func TestCopyMultipleS3ObjectsWithPrefixToS3WithRawMode(t *testing.T) {
 	expected := fmt.Sprintf(`ERROR "cp %v %v/file*": NoSuchKey:`, src, dst)
 
 	assertLines(t, result.Stderr()[:len(expected)], map[int]compareFunc{
-		0: equals(expected),
+		0: equals("%v", expected),
 	})
 }
 
@@ -3921,7 +3917,6 @@ func TestCopyLocalDirectoryToS3WithExcludeFilter(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -4304,7 +4299,7 @@ func TestVersionedDownload(t *testing.T) {
 	// now we will parse their version IDs in the order we put them into s3 server.
 	// the rest of the tests depends on this assumption
 	versionIDs := make([]string, 0)
-	for _, row := range strings.Split(result.Stdout(), "\n") {
+	for row := range strings.SplitSeq(result.Stdout(), "\n") {
 		if row != "" {
 			arr := strings.Split(row, " ")
 			versionIDs = append(versionIDs, arr[len(arr)-1])

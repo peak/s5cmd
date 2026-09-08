@@ -1,4 +1,4 @@
-//go:generate mockgen -source=$GOFILE -destination=mock_$GOFILE -package=$GOPACKAGE Storage
+//go:generate go tool mockgen -source=$GOFILE -destination=mock_$GOFILE -package=$GOPACKAGE Storage
 
 // Package storage implements operations for s3 and fs.
 package storage
@@ -10,9 +10,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
-	"github.com/lanrat/extsort"
 	"github.com/peak/s5cmd/v2/log"
 	"github.com/peak/s5cmd/v2/storage/url"
 	"github.com/peak/s5cmd/v2/strutil"
@@ -108,7 +108,7 @@ type Object struct {
 	URL          *url.URL     `json:"key,omitempty"`
 	Etag         string       `json:"etag,omitempty"`
 	ModTime      *time.Time   `json:"last_modified,omitempty"`
-	Type         ObjectType   `json:"type,omitempty"`
+	Type         ObjectType   `json:"type"`
 	Size         int64        `json:"size,omitempty"`
 	StorageClass StorageClass `json:"storage_class,omitempty"`
 	Err          error        `json:"error,omitempty"`
@@ -246,11 +246,13 @@ func (o Object) ToBytes() []byte {
 	return buf.Bytes()
 }
 
-func FromBytes(data []byte) extsort.SortType {
+// FromBytes reconstructs an Object from the bytes produced by ToBytes. It
+// satisfies extsort.FromBytesGeneric[Object].
+func FromBytes(data []byte) (Object, error) {
 	dec := gob.NewDecoder(bytes.NewBuffer(data))
 	var gobURL []byte
 	dec.Decode(&gobURL)
-	u := url.FromBytes(gobURL).(*url.URL)
+	u := url.FromBytes(gobURL)
 	o := Object{
 		URL: u,
 	}
@@ -260,12 +262,18 @@ func FromBytes(data []byte) extsort.SortType {
 	o.ModTime = &tmp
 	dec.Decode(&o.Type.mode)
 	dec.Decode(&o.Size)
-	return o
+	return o, nil
 }
 
-// Less returns if relative path of storage.Object a's URL comes before the one
-// of b's in the lexicographic order.
-// It assumes that both a, and b are the instances of Object
-func Less(a, b extsort.SortType) bool {
-	return a.(Object).URL.Relative() < b.(Object).URL.Relative()
+// ToBytes serialises an Object. It satisfies
+// extsort.ToBytesGeneric[Object].
+func ToBytes(o Object) ([]byte, error) {
+	return o.ToBytes(), nil
+}
+
+// Compare orders two Objects by the relative path of their URL, and
+// satisfies extsort.CompareGeneric[Object]. extsort's generic API wants a
+// three-way comparison where the legacy one took a "less than" predicate.
+func Compare(a, b Object) int {
+	return strings.Compare(a.URL.Relative(), b.URL.Relative())
 }

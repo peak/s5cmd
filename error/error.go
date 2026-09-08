@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/hashicorp/go-multierror"
 
@@ -58,13 +59,7 @@ func IsCancelation(err error) bool {
 		return false
 	}
 
-	for _, err := range merr.Errors {
-		if IsCancelation(err) {
-			return true
-		}
-	}
-
-	return false
+	return slices.ContainsFunc(merr.Errors, IsCancelation)
 }
 
 var (

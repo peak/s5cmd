@@ -74,7 +74,6 @@ func TestCatS3Object(t *testing.T) {
 		},
 	}
 	for _, tc := range testcases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -135,7 +134,6 @@ func TestCatS3ObjectFail(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			s3client, s5cmd := setup(t)
@@ -189,7 +187,6 @@ func TestCatLocalFileFail(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			_, s5cmd := setup(t)
@@ -240,7 +237,7 @@ func TestCatInEmptyBucket(t *testing.T) {
 
 		result.Assert(t, icmd.Expected{ExitCode: 1})
 		assertLines(t, result.Stderr(), map[int]compareFunc{
-			0: contains(fmt.Sprintf(`ERROR "cat s3://%v/*": no object found`, bucket)),
+			0: contains(`ERROR "cat s3://%v/*": no object found`, bucket),
 		})
 	})
 }
@@ -255,7 +252,7 @@ func getSequentialFileContent(size int64) (string, map[int]compareFunc) {
 		sb.WriteString(line)
 		sb.WriteString("\n")
 		totalBytesWritten += int64(len(line))
-		expectedLines[i] = equals(line)
+		expectedLines[i] = equals("%v", line)
 	}
 
 	return sb.String(), expectedLines
@@ -306,7 +303,7 @@ func TestCatByVersionID(t *testing.T) {
 	})
 
 	versionIDs := make([]string, 0)
-	for _, row := range strings.Split(result.Stdout(), "\n") {
+	for row := range strings.SplitSeq(result.Stdout(), "\n") {
 		if row != "" {
 			arr := strings.Split(row, " ")
 			versionIDs = append(versionIDs, arr[len(arr)-1])
@@ -409,7 +406,6 @@ func TestCatPrefix(t *testing.T) {
 	}
 
 	for idx, tc := range testCases {
-		tc := tc
 		t.Run(fmt.Sprintf("case-%v", idx), func(t *testing.T) {
 			t.Parallel()
 
@@ -427,7 +423,7 @@ func TestCatPrefix(t *testing.T) {
 
 			result.Assert(t, icmd.Success)
 			assertLines(t, result.Stdout(), map[int]compareFunc{
-				0: equals(tc.expected),
+				0: equals("%v", tc.expected),
 			}, alignment(true))
 		})
 	}
@@ -478,7 +474,6 @@ func TestCatWildcard(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		tc := tc
 		t.Run("", func(t *testing.T) {
 			t.Parallel()
 
@@ -487,7 +482,7 @@ func TestCatWildcard(t *testing.T) {
 
 			result.Assert(t, icmd.Success)
 			assertLines(t, result.Stdout(), map[int]compareFunc{
-				0: equals(tc.expected),
+				0: equals("%v", tc.expected),
 			}, alignment(true))
 		})
 	}
@@ -511,7 +506,6 @@ func TestPrefixWildcardFail(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			t.Run("default", func(t *testing.T) {

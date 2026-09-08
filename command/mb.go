@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 
 	"github.com/peak/s5cmd/v2/log"
 	"github.com/peak/s5cmd/v2/log/stat"
@@ -16,48 +16,47 @@ import (
 )
 
 var makeBucketHelpTemplate = `Name:
-	{{.HelpName}} - {{.Usage}}
+	{{.FullName}} - {{.Usage}}
 
 Usage:
-	{{.HelpName}} s3://bucketname
+	{{.FullName}} s3://bucketname
 
 Options:
 	{{range .VisibleFlags}}{{.}}
 	{{end}}
 Examples:
 	1. Create a new S3 bucket
-		 > s5cmd {{.HelpName}} s3://bucketname
+		 > {{.FullName}} s3://bucketname
 `
 
 func NewMakeBucketCommand() *cli.Command {
 	cmd := &cli.Command{
 		Name:               "mb",
-		HelpName:           "mb",
 		Usage:              "make bucket",
 		CustomHelpTemplate: makeBucketHelpTemplate,
-		Before: func(c *cli.Context) error {
+		Before: func(ctx context.Context, c *cli.Command) (context.Context, error) {
 			err := validateMBCommand(c)
 			if err != nil {
-				printError(commandFromContext(c), c.Command.Name, err)
+				printError(commandFromContext(c), c.Name, err)
 			}
-			return err
+			return ctx, err
 		},
-		Action: func(c *cli.Context) (err error) {
-			defer stat.Collect(c.Command.FullName(), &err)()
+		Action: func(ctx context.Context, c *cli.Command) (err error) {
+			defer stat.Collect(commandName(c), &err)()
 
 			return MakeBucket{
 				src:         c.Args().First(),
-				op:          c.Command.Name,
+				op:          c.Name,
 				fullCommand: commandFromContext(c),
 
 				storageOpts: NewStorageOpts(c),
-			}.Run(c.Context)
+			}.Run(ctx)
 		},
 	}
-	cmd.BashComplete = func(ctx *cli.Context) {
-		arg := parseArgumentToComplete(ctx)
+	cmd.ShellComplete = func(ctx context.Context, c *cli.Command) {
+		arg := parseArgumentToComplete(c)
 		if strings.HasPrefix(arg, "-") {
-			cli.DefaultCompleteWithFlags(cmd)(ctx)
+			cli.DefaultCompleteWithFlags(ctx, cmd)
 		} else {
 			shell := filepath.Base(os.Getenv("SHELL"))
 			constantCompleteWithDefault(shell, arg, "s3://")
@@ -104,7 +103,7 @@ func (b MakeBucket) Run(ctx context.Context) error {
 	return nil
 }
 
-func validateMBCommand(c *cli.Context) error {
+func validateMBCommand(c *cli.Command) error {
 	if c.Args().Len() != 1 {
 		return fmt.Errorf("expected only 1 argument")
 	}

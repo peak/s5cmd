@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 
 	"github.com/peak/s5cmd/v2/log"
 	"github.com/peak/s5cmd/v2/storage"
@@ -14,30 +14,29 @@ import (
 )
 
 var bucketVersionHelpTemplate = `Name:
-	{{.HelpName}} - {{.Usage}}
+	{{.FullName}} - {{.Usage}}
 
 Usage:
-	{{.HelpName}} [options] s3://bucketname
+	{{.FullName}} [options] s3://bucketname
 
 Options:
 	{{range .VisibleFlags}}{{.}}
 	{{end}}
 Examples:
 	1. Get bucket versioning status of a bucket
-		 > s5cmd {{.HelpName}} s3://bucketname
+		 > {{.FullName}} s3://bucketname
 
 	2. Enable bucket versioning for the bucket
-		 > s5cmd {{.HelpName}} --set Enabled s3://bucketname
+		 > {{.FullName}} --set Enabled s3://bucketname
 
 	3. Suspend bucket versioning for the bucket
-		 > s5cmd {{.HelpName}} --set Suspended s3://bucketname
+		 > {{.FullName}} --set Suspended s3://bucketname
 `
 
 func NewBucketVersionCommand() *cli.Command {
 	cmd := &cli.Command{
 		Name:               "bucket-version",
 		CustomHelpTemplate: bucketVersionHelpTemplate,
-		HelpName:           "bucket-version",
 		Usage:              "configure bucket versioning",
 		Flags: []cli.Flag{
 			&cli.GenericFlag{
@@ -50,35 +49,35 @@ func NewBucketVersionCommand() *cli.Command {
 				Usage: "set versioning status of bucket: (Suspended, Enabled)",
 			},
 		},
-		Before: func(ctx *cli.Context) error {
-			if err := checkNumberOfArguments(ctx, 1, 1); err != nil {
-				printError(commandFromContext(ctx), ctx.Command.Name, err)
-				return err
+		Before: func(ctx context.Context, c *cli.Command) (context.Context, error) {
+			if err := checkNumberOfArguments(c, 1, 1); err != nil {
+				printError(commandFromContext(c), c.Name, err)
+				return ctx, err
 			}
-			return nil
+			return ctx, nil
 		},
-		Action: func(c *cli.Context) error {
-			status := c.String("set")
+		Action: func(ctx context.Context, c *cli.Command) error {
+			status := genericString(c, "set")
 
 			fullCommand := commandFromContext(c)
 
 			bucket, err := url.New(c.Args().First())
 			if err != nil {
-				printError(fullCommand, c.Command.Name, err)
+				printError(fullCommand, c.Name, err)
 				return err
 			}
 
 			return BucketVersion{
 				src:         bucket,
-				op:          c.Command.Name,
+				op:          c.Name,
 				fullCommand: fullCommand,
 
 				status:      status,
 				storageOpts: NewStorageOpts(c),
-			}.Run(c.Context)
+			}.Run(ctx)
 		},
 	}
-	cmd.BashComplete = getBashCompleteFn(cmd, true, true)
+	cmd.ShellComplete = getBashCompleteFn(cmd, true, true)
 	return cmd
 }
 

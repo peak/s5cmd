@@ -26,7 +26,7 @@ func TestAppRetryCount(t *testing.T) {
 		{
 			name:             "retry_count_negative",
 			retry:            -1,
-			expectedError:    fmt.Errorf(`ERROR retry count cannot be a negative value`),
+			expectedError:    fmt.Errorf(`retry count cannot be a negative value`),
 			expectedExitCode: 1,
 		},
 		{
@@ -44,7 +44,6 @@ func TestAppRetryCount(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -66,7 +65,7 @@ func TestAppRetryCount(t *testing.T) {
 				t.Fatalf("expected error %q, got none", tc.expectedError)
 			}
 			assertLines(t, result.Stderr(), map[int]compareFunc{
-				0: equals("%v", tc.expectedError),
+				0: contains("%v", tc.expectedError),
 			})
 		})
 	}
@@ -115,7 +114,6 @@ func TestAppDashStat(t *testing.T) {
 		},
 	}
 	for _, tc := range testcases {
-		tc := tc
 		t.Run(tc.command, func(t *testing.T) {
 			t.Parallel()
 			s3client, s5cmd := setup(t)
@@ -151,7 +149,6 @@ func TestAppProxy(t *testing.T) {
 		},
 	}
 	for _, tc := range testcases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			const expectedReqs = 1
 
@@ -284,13 +281,12 @@ func TestAppEndpointShouldHaveScheme(t *testing.T) {
 		{
 			name:             "endpoint_with_no_scheme",
 			endpointURL:      "storage.googleapis.com",
-			expectedError:    fmt.Errorf(`ERROR bad value for --endpoint-url storage.googleapis.com: scheme is missing. Must be of the form http://<hostname>/ or https://<hostname>/`),
+			expectedError:    fmt.Errorf(`bad value for --endpoint-url storage.googleapis.com: scheme is missing. Must be of the form http://<hostname>/ or https://<hostname>/`),
 			expectedExitCode: 1,
 		},
 	}
 
 	for _, tc := range testcases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -306,7 +302,7 @@ func TestAppEndpointShouldHaveScheme(t *testing.T) {
 			}
 
 			assertLines(t, result.Stderr(), map[int]compareFunc{
-				0: equals("%v", tc.expectedError),
+				0: contains("%v", tc.expectedError),
 			})
 
 		})

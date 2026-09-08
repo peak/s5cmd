@@ -129,7 +129,6 @@ func TestExpandSources(t *testing.T) {
 		},
 	}
 	for _, tc := range tests {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			srcurls, err := newURLs(false, "", false, keys(tc.src)...)
 			if err != nil {

@@ -1,11 +1,12 @@
 package e2e
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 
 	"gotest.tools/v3/icmd"
 )
@@ -29,7 +30,7 @@ func TestRemoveBucketSuccess(t *testing.T) {
 		0: equals(`rb %v`, src),
 	})
 
-	_, err := s3client.HeadBucket(&s3.HeadBucketInput{Bucket: aws.String(bucket)})
+	_, err := s3client.HeadBucket(context.Background(), &s3.HeadBucketInput{Bucket: aws.String(bucket)})
 
 	if err == nil {
 		t.Errorf("bucket still exists after remove bucket operation\n")
@@ -63,7 +64,7 @@ func TestRemoveBucketSuccessJson(t *testing.T) {
 		0: json(jsonText, src),
 	}, jsonCheck(true))
 
-	_, err := s3client.HeadBucket(&s3.HeadBucketInput{Bucket: aws.String(bucket)})
+	_, err := s3client.HeadBucket(context.Background(), &s3.HeadBucketInput{Bucket: aws.String(bucket)})
 	if err == nil {
 		t.Errorf("bucket still exists after remove bucket operation\n")
 	}

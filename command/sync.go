@@ -2,6 +2,7 @@ package command
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -9,10 +10,10 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/smithy-go"
 	"github.com/hashicorp/go-multierror"
 	"github.com/lanrat/extsort"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 
 	errorpkg "github.com/peak/s5cmd/v2/error"
 	"github.com/peak/s5cmd/v2/log"
@@ -28,47 +29,47 @@ const (
 )
 
 var syncHelpTemplate = `Name:
-	{{.HelpName}} - {{.Usage}}
+	{{.FullName}} - {{.Usage}}
 
 Usage:
-	{{.HelpName}} [options] source destination
+	{{.FullName}} [options] source destination
 
 Options:
 	{{range .VisibleFlags}}{{.}}
 	{{end}}
 Examples:
 	01. Sync local folder to s3 bucket
-		 > s5cmd {{.HelpName}} folder/ s3://bucket/
+		 > {{.FullName}} folder/ s3://bucket/
 
 	02. Sync S3 bucket to local folder
-		 > s5cmd {{.HelpName}} "s3://bucket/*" folder/
+		 > {{.FullName}} "s3://bucket/*" folder/
 
 	03. Sync S3 bucket objects under prefix to S3 bucket.
-		 > s5cmd {{.HelpName}} "s3://sourcebucket/prefix/*" s3://destbucket/
+		 > {{.FullName}} "s3://sourcebucket/prefix/*" s3://destbucket/
 
 	04. Sync local folder to S3 but delete the files that S3 bucket has but local does not have.
-		 > s5cmd {{.HelpName}} --delete folder/ s3://bucket/
+		 > {{.FullName}} --delete folder/ s3://bucket/
 
 	05. Sync S3 bucket to local folder but use size as only comparison criteria.
-		 > s5cmd {{.HelpName}} --size-only "s3://bucket/*" folder/
+		 > {{.FullName}} --size-only "s3://bucket/*" folder/
 
 	06. Sync a file to S3 bucket
-		 > s5cmd {{.HelpName}} myfile.gz s3://bucket/
+		 > {{.FullName}} myfile.gz s3://bucket/
 
 	07. Sync matching S3 objects to another bucket
-		 > s5cmd {{.HelpName}} "s3://bucket/*.gz" s3://target-bucket/prefix/
+		 > {{.FullName}} "s3://bucket/*.gz" s3://target-bucket/prefix/
 
 	08. Perform KMS Server Side Encryption of the object(s) at the destination
-		 > s5cmd {{.HelpName}} --sse aws:kms s3://bucket/object s3://target-bucket/prefix/object
+		 > {{.FullName}} --sse aws:kms s3://bucket/object s3://target-bucket/prefix/object
 
 	09. Perform KMS-SSE of the object(s) at the destination using customer managed Customer Master Key (CMK) key id
-		 > s5cmd {{.HelpName}} --sse aws:kms --sse-kms-key-id <your-kms-key-id> s3://bucket/object s3://target-bucket/prefix/object
+		 > {{.FullName}} --sse aws:kms --sse-kms-key-id <your-kms-key-id> s3://bucket/object s3://target-bucket/prefix/object
 
 	10. Sync all files to S3 bucket but exclude the ones with txt and gz extension
-		 > s5cmd {{.HelpName}} --exclude "*.txt" --exclude "*.gz" dir/ s3://bucket
+		 > {{.FullName}} --exclude "*.txt" --exclude "*.gz" dir/ s3://bucket
 
 	11. Sync all files to S3 bucket but include the only ones with txt and gz extension
-		 > s5cmd {{.HelpName}} --include "*.txt" --include "*.gz" dir/ s3://bucket
+		 > {{.FullName}} --include "*.txt" --include "*.gz" dir/ s3://bucket
 `
 
 func NewSyncCommandFlags() []cli.Flag {
@@ -93,26 +94,25 @@ func NewSyncCommandFlags() []cli.Flag {
 func NewSyncCommand() *cli.Command {
 	cmd := &cli.Command{
 		Name:               "sync",
-		HelpName:           "sync",
 		Usage:              "sync objects",
 		Flags:              NewSyncCommandFlags(),
 		CustomHelpTemplate: syncHelpTemplate,
-		Before: func(c *cli.Context) error {
+		Before: func(ctx context.Context, c *cli.Command) (context.Context, error) {
 			// sync command share same validation method as copy command
-			err := validateCopyCommand(c)
+			err := validateCopyCommand(ctx, c)
 			if err != nil {
-				printError(commandFromContext(c), c.Command.Name, err)
+				printError(commandFromContext(c), c.Name, err)
 			}
-			return err
+			return ctx, err
 		},
-		Action: func(c *cli.Context) (err error) {
-			defer stat.Collect(c.Command.FullName(), &err)()
+		Action: func(ctx context.Context, c *cli.Command) (err error) {
+			defer stat.Collect(commandName(c), &err)()
 
-			return NewSync(c).Run(c)
+			return NewSync(c).Run(ctx, c)
 		},
 	}
 
-	cmd.BashComplete = getBashCompleteFn(cmd, false, false)
+	cmd.ShellComplete = getBashCompleteFn(cmd, false, false)
 	return cmd
 }
 
@@ -143,12 +143,12 @@ type Sync struct {
 	dstRegion string
 }
 
-// NewSync creates Sync from cli.Context
-func NewSync(c *cli.Context) Sync {
+// NewSync creates Sync from the cli command
+func NewSync(c *cli.Command) Sync {
 	return Sync{
 		src:         c.Args().Get(0),
 		dst:         c.Args().Get(1),
-		op:          c.Command.Name,
+		op:          c.Name,
 		fullCommand: commandFromContext(c),
 
 		// flags
@@ -169,7 +169,7 @@ func NewSync(c *cli.Context) Sync {
 
 // Run compares files, plans necessary s5cmd commands to execute
 // and executes them in order to sync source to destination.
-func (s Sync) Run(c *cli.Context) error {
+func (s Sync) Run(ctx context.Context, c *cli.Command) error {
 	srcurl, err := url.New(s.src, url.WithRaw(s.raw))
 	if err != nil {
 		return err
@@ -180,7 +180,7 @@ func (s Sync) Run(c *cli.Context) error {
 		return err
 	}
 
-	ctx, cancel := context.WithCancel(c.Context)
+	ctx, cancel := context.WithCancel(ctx)
 
 	sourceObjects, destObjects, err := s.getSourceAndDestinationObjects(ctx, cancel, srcurl, dsturl)
 	if err != nil {
@@ -299,7 +299,7 @@ func compareObjects(sourceObjects, destObjects chan *storage.Object, isSrcBatch 
 
 // getSourceAndDestinationObjects returns source and destination objects from
 // given URLs. The returned channels gives objects sorted in ascending order
-// with respect to their url.Relative path. See also storage.Less.
+// with respect to their url.Relative path. See also storage.Compare.
 func (s Sync) getSourceAndDestinationObjects(ctx context.Context, cancel context.CancelFunc, srcurl, dsturl *url.URL) (chan *storage.Object, chan *storage.Object, error) {
 	sourceClient, err := storage.NewClient(ctx, srcurl, s.storageOpts)
 	if err != nil {
@@ -342,7 +342,7 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, cancel context
 	go func() {
 		defer close(sourceObjects)
 		unfilteredSrcObjectChannel := sourceClient.List(ctx, srcurl, s.followSymlinks)
-		filteredSrcObjectChannel := make(chan extsort.SortType, extsortChannelBufferSize)
+		filteredSrcObjectChannel := make(chan storage.Object, extsortChannelBufferSize)
 
 		go func() {
 			defer close(filteredSrcObjectChannel)
@@ -364,16 +364,13 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, cancel context
 			}
 		}()
 
-		var (
-			sorter        *extsort.SortTypeSorter
-			srcOutputChan chan extsort.SortType
-		)
-
-		sorter, srcOutputChan, srcErrCh := extsort.New(filteredSrcObjectChannel, storage.FromBytes, storage.Less, extsortConfig)
+		// extsort's generic API sorts storage.Object directly; the legacy
+		// SortType interface it replaces needed a type assertion per item.
+		sorter, srcOutputChan, srcErrCh := extsort.Generic(filteredSrcObjectChannel, storage.FromBytes, storage.ToBytes, storage.Compare, extsortConfig)
 		sorter.Sort(ctx)
 
 		for srcObject := range srcOutputChan {
-			o := srcObject.(storage.Object)
+			o := srcObject
 			sourceObjects <- &o
 		}
 
@@ -389,7 +386,7 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, cancel context
 	go func() {
 		defer close(destObjects)
 		unfilteredDestObjectsChannel := destClient.List(ctx, destObjectsURL, false)
-		filteredDstObjectChannel := make(chan extsort.SortType, extsortChannelBufferSize)
+		filteredDstObjectChannel := make(chan storage.Object, extsortChannelBufferSize)
 
 		go func() {
 			defer close(filteredDstObjectChannel)
@@ -411,16 +408,11 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, cancel context
 			}
 		}()
 
-		var (
-			dstSorter     *extsort.SortTypeSorter
-			dstOutputChan chan extsort.SortType
-		)
-
-		dstSorter, dstOutputChan, dstErrCh := extsort.New(filteredDstObjectChannel, storage.FromBytes, storage.Less, extsortConfig)
+		dstSorter, dstOutputChan, dstErrCh := extsort.Generic(filteredDstObjectChannel, storage.FromBytes, storage.ToBytes, storage.Compare, extsortConfig)
 		dstSorter.Sort(ctx)
 
 		for destObject := range dstOutputChan {
-			o := destObject.(storage.Object)
+			o := destObject
 			destObjects <- &o
 		}
 
@@ -437,7 +429,7 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, cancel context
 
 // planRun prepares the commands and writes them to writer 'w'.
 func (s Sync) planRun(
-	c *cli.Context,
+	c *cli.Command,
 	onlySource, onlyDest chan *url.URL,
 	common chan *ObjectPair,
 	dsturl *url.URL,
@@ -450,7 +442,7 @@ func (s Sync) planRun(
 	// Always use raw mode since sync command generates commands
 	// from raw S3 objects. Otherwise, generated copy command will
 	// try to expand given source.
-	defaultFlags := map[string]interface{}{
+	defaultFlags := map[string]any{
 		"raw": true,
 	}
 
@@ -459,24 +451,15 @@ func (s Sync) planRun(
 	var wg sync.WaitGroup
 
 	// only in source
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		for srcurl := range onlySource {
 			curDestURL := generateDestinationURL(srcurl, dsturl, isBatch)
-			command, err := generateCommand(c, "cp", defaultFlags, srcurl, curDestURL)
-			if err != nil {
-				printDebug(s.op, err, srcurl, curDestURL)
-				continue
-			}
-			fmt.Fprintln(w, command)
+			fmt.Fprintln(w, generateCommand(c, "cp", defaultFlags, srcurl, curDestURL))
 		}
-	}()
+	})
 
 	// both in source and destination
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		for commonObject := range common {
 			sourceObject, destObject := commonObject.src, commonObject.dst
 			curSourceURL, curDestURL := sourceObject.URL, destObject.URL
@@ -486,19 +469,12 @@ func (s Sync) planRun(
 				continue
 			}
 
-			command, err := generateCommand(c, "cp", defaultFlags, curSourceURL, curDestURL)
-			if err != nil {
-				printDebug(s.op, err, curSourceURL, curDestURL)
-				continue
-			}
-			fmt.Fprintln(w, command)
+			fmt.Fprintln(w, generateCommand(c, "cp", defaultFlags, curSourceURL, curDestURL))
 		}
-	}()
+	})
 
 	// only in destination
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		if s.delete {
 			// unfortunately we need to read them all!
 			// or rewrite generateCommand function?
@@ -512,12 +488,7 @@ func (s Sync) planRun(
 				return
 			}
 
-			command, err := generateCommand(c, "rm", defaultFlags, dstURLs...)
-			if err != nil {
-				printDebug(s.op, err, dstURLs...)
-				return
-			}
-			fmt.Fprintln(w, command)
+			fmt.Fprintln(w, generateCommand(c, "rm", defaultFlags, dstURLs...))
 		} else {
 			// we only need  to consume them from the channel so that rest of the objects
 			// can be sent to channel.
@@ -525,7 +496,7 @@ func (s Sync) planRun(
 				_ = d
 			}
 		}
-	}()
+	})
 
 	wg.Wait()
 }
@@ -592,8 +563,8 @@ func (s Sync) shouldStopSync(err error) bool {
 	if err == storage.ErrNoObjectFound {
 		return false
 	}
-	if awsErr, ok := err.(awserr.Error); ok {
-		switch awsErr.Code() {
+	if apiErr, ok := errors.AsType[smithy.APIError](err); ok {
+		switch apiErr.ErrorCode() {
 		case "AccessDenied", "NoSuchBucket":
 			return true
 		}

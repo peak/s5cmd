@@ -10,37 +10,36 @@ import (
 	"github.com/peak/s5cmd/v2/storage"
 	"github.com/peak/s5cmd/v2/storage/url"
 	"github.com/peak/s5cmd/v2/strutil"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 var headHelpTemplate = `Name:
-	{{.HelpName}} - {{.Usage}}
+	{{.FullName}} - {{.Usage}}
 
 Usage:
-	{{.HelpName}} [options] source
+	{{.FullName}} [options] source
 
 Options:
 	{{range .VisibleFlags}}{{.}}
 	{{end}}
 Examples:
 	1. Print a remote object's metadata
-		 > s5cmd {{.HelpName}} s3://bucket/prefix/object
+		 > {{.FullName}} s3://bucket/prefix/object
 
 	2. Check if a remote bucket exists
-		 > s5cmd {{.HelpName}} s3://bucket
+		 > {{.FullName}} s3://bucket
 
 	3. Print a remote object's metadata with version ID
-		 > s5cmd {{.HelpName}} --version-id VERSION_ID s3://bucket/prefix/object
+		 > {{.FullName}} --version-id VERSION_ID s3://bucket/prefix/object
 
 	4. Print a remote object's metadata with raw input
-		 > s5cmd {{.HelpName}} --raw 's3://bucket/prefix/file*.txt'
+		 > {{.FullName}} --raw 's3://bucket/prefix/file*.txt'
 `
 
 func NewHeadCommand() *cli.Command {
 	cmd := &cli.Command{
-		Name:     "head",
-		HelpName: "head",
-		Usage:    "print remote object metadata",
+		Name:  "head",
+		Usage: "print remote object metadata",
 
 		CustomHelpTemplate: headHelpTemplate,
 
@@ -55,17 +54,17 @@ func NewHeadCommand() *cli.Command {
 			},
 		},
 
-		Before: func(c *cli.Context) error {
+		Before: func(ctx context.Context, c *cli.Command) (context.Context, error) {
 			err := validateHeadCommand(c)
 			if err != nil {
-				printError(commandFromContext(c), c.Command.Name, err)
+				printError(commandFromContext(c), c.Name, err)
 			}
-			return err
+			return ctx, err
 		},
-		Action: func(c *cli.Context) (err error) {
-			defer stat.Collect(c.Command.FullName(), &err)()
+		Action: func(ctx context.Context, c *cli.Command) (err error) {
+			defer stat.Collect(commandName(c), &err)()
 
-			op := c.Command.Name
+			op := c.Name
 			fullCommand := commandFromContext(c)
 			src, err := url.New(c.Args().Get(0), url.WithVersion(c.String("version-id")),
 				url.WithRaw(c.Bool("raw")))
@@ -79,10 +78,10 @@ func NewHeadCommand() *cli.Command {
 				op:          op,
 				fullCommand: fullCommand,
 				storageOpts: NewStorageOpts(c),
-			}.Run(c.Context)
+			}.Run(ctx)
 		},
 	}
-	cmd.BashComplete = getBashCompleteFn(cmd, true, false)
+	cmd.ShellComplete = getBashCompleteFn(cmd, true, false)
 	return cmd
 }
 
@@ -171,7 +170,7 @@ func (m HeadBucketMessage) JSON() string {
 	return strutil.JSON(m)
 }
 
-func validateHeadCommand(c *cli.Context) error {
+func validateHeadCommand(c *cli.Command) error {
 	if c.Args().Len() > 1 {
 		return fmt.Errorf("object or bucket name is required")
 	}

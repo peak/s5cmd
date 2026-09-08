@@ -21,37 +21,34 @@ endif
 
 .PHONY: build
 build:
-	@go build ${GCFLAGS} ${LDFLAGS} -mod=vendor .
+	@go build ${GCFLAGS} ${LDFLAGS} .
 
 .PHONY: test
 test: $(TEST_TYPE)
 
 .PHONY: test_with_race
 test_with_race:
-	@S5CMD_BUILD_BINARY_WITHOUT_RACE_FLAG=0 go test -mod=vendor -count=1 -race ./...
+	@S5CMD_BUILD_BINARY_WITHOUT_RACE_FLAG=0 go test -count=1 -race ./...
 
 .PHONY: test_without_race
 test_without_race:
-	@S5CMD_BUILD_BINARY_WITHOUT_RACE_FLAG=1 go test -mod=vendor -count=1 ./...
+	@S5CMD_BUILD_BINARY_WITHOUT_RACE_FLAG=1 go test -count=1 ./...
 
 ##@ Bootstrap
-# See following issues for why errors are ignored with `-e` flag:
-# 	* https://github.com/golang/go/issues/61857
-# 	* https://github.com/golang/go/issues/59186
 .PHONY: bootstrap
-bootstrap: ## Install tooling
-	@go install $$(go list -e -f '{{join .Imports " "}}' ./internal/tools/tools.go)
+bootstrap: ## Download tooling declared by the go.mod tool directives
+	@go mod download
 
 .PHONY: check
 check: vet staticcheck unparam semgrep check-fmt check-codegen check-gomod
 
 .PHONY: staticcheck
 staticcheck:
-	@staticcheck -checks 'all,-ST1000' ./...
+	@go tool staticcheck -checks 'all,-ST1000' ./...
 
 .PHONY: unparam
 unparam:
-	@unparam ./...
+	@go tool unparam ./...
 
 .PHONY: semgrep
 semgrep: ## Run semgrep
@@ -59,11 +56,11 @@ semgrep: ## Run semgrep
 
 .PHONY: vet
 vet:
-	@go vet -mod=vendor ./...
+	@go vet ./...
 
 .PHONY: check-fmt
 check-fmt:
-	@if [ $$(go fmt -mod=vendor ./...) ]; then\
+	@if [ $$(go fmt ./...) ]; then\
 		echo "Go code is not formatted";\
 		exit 1;\
 	fi
@@ -79,7 +76,7 @@ check-gomod: ## Check go.mod file
 
 .PHONY: gogenerate
 gogenerate:
-	@go generate -mod vendor ./...
+	@go generate ./...
 
 .PHONY: clean
 clean:

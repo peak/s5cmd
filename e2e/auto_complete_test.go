@@ -7,7 +7,7 @@ import (
 )
 
 func TestCompletionFlag(t *testing.T) {
-	flag := "--generate-bash-completion"
+	flag := "--generate-shell-completion"
 	bucket := s3BucketFromTestName(t)
 
 	testcases := []struct {
@@ -242,7 +242,6 @@ func TestCompletionFlag(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 

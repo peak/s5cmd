@@ -34,8 +34,7 @@ func TestShuffleWriteWithStaticChunkSize(t *testing.T) {
 		fileSize  = 1000
 	)
 
-	for b := 0; b < testRuns; b++ {
-		b := b
+	for b := range testRuns {
 		t.Run(fmt.Sprintf("Run%d", b), func(t *testing.T) {
 			t.Parallel()
 			var result bytes.Buffer
@@ -79,8 +78,7 @@ func TestShuffleWriteWithRandomChunkSize(t *testing.T) {
 		minChunkSize, maxChunkSize = 5, 1000
 	)
 
-	for b := 0; b < testRuns; b++ {
-		b := b
+	for b := range testRuns {
 		t.Run(fmt.Sprintf("TR%d", b), func(t *testing.T) {
 			t.Parallel()
 
@@ -130,8 +128,7 @@ func TestShuffleConcurrentWriteWithRandomChunkSize(t *testing.T) {
 		minChunkSize, maxChunkSize = 5, 1000
 	)
 
-	for b := 0; b < testRuns; b++ {
-		b := b
+	for b := range testRuns {
 		t.Run(fmt.Sprintf("Run%d", b), func(t *testing.T) {
 			t.Parallel()
 
@@ -165,7 +162,7 @@ func TestShuffleConcurrentWriteWithRandomChunkSize(t *testing.T) {
 
 			var wg sync.WaitGroup
 			workerCount := 5 + rand.Intn(20) // 5-25 workers
-			for i := 0; i < workerCount; i++ {
+			for range workerCount {
 				wg.Add(1)
 				go func(ch chan chunk) {
 					defer wg.Done()
@@ -233,8 +230,7 @@ func TestBufferWithChangingSlice(t *testing.T) {
 		minChunkSize, maxChunkSize = 5, 100
 	)
 
-	for b := 0; b < testRuns; b++ {
-		b := b
+	for b := range testRuns {
 		t.Run(fmt.Sprintf("Run%d", b), func(t *testing.T) {
 			t.Parallel()
 
@@ -283,7 +279,7 @@ func TestBufferWithChangingSlice(t *testing.T) {
 			chunkch := make(chan dlchunk)
 			workerCount := 5 + rand.Intn(20) // 5-25 workers
 
-			for i := 0; i < workerCount; i++ {
+			for range workerCount {
 				wg.Add(1)
 				go func(ch chan dlchunk) {
 					defer wg.Done()

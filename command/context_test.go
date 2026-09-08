@@ -1,25 +1,26 @@
 package command
 
 import (
-	"flag"
+	"context"
+	"fmt"
+	"strconv"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/kballard/go-shellquote"
+	"github.com/urfave/cli/v3"
+
 	"github.com/peak/s5cmd/v2/storage/url"
-	"github.com/urfave/cli/v2"
 )
 
 func TestGenerateCommand(t *testing.T) {
 	t.Parallel()
 
-	app := cli.NewApp()
-
 	testcases := []struct {
 		name            string
 		cmd             string
 		flags           []cli.Flag
-		defaultFlags    map[string]interface{}
-		ctx             *cli.Context
+		defaultFlags    map[string]any
 		urls            []*url.URL
 		expectedCommand string
 	}{
@@ -31,13 +32,13 @@ func TestGenerateCommand(t *testing.T) {
 				mustNewURL(t, "s3://bucket/key1"),
 				mustNewURL(t, "s3://bucket/key2"),
 			},
-			expectedCommand: `cp "s3://bucket/key1" "s3://bucket/key2"`,
+			expectedCommand: `cp s3://bucket/key1 s3://bucket/key2`,
 		},
 		{
 			name:  "empty-cli-flags-with-default-flags",
 			cmd:   "cp",
 			flags: []cli.Flag{},
-			defaultFlags: map[string]interface{}{
+			defaultFlags: map[string]any{
 				"raw": true,
 				"acl": "public-read",
 			},
@@ -45,7 +46,7 @@ func TestGenerateCommand(t *testing.T) {
 				mustNewURL(t, "s3://bucket/key1"),
 				mustNewURL(t, "s3://bucket/key2"),
 			},
-			expectedCommand: `cp --acl='public-read' --raw='true' "s3://bucket/key1" "s3://bucket/key2"`,
+			expectedCommand: `cp --acl='public-read' --raw='true' s3://bucket/key1 s3://bucket/key2`,
 		},
 		{
 			name: "cli-flag-with-whitespaced-flag-value",
@@ -56,14 +57,14 @@ func TestGenerateCommand(t *testing.T) {
 					Value: "public, max-age=31536000, immutable",
 				},
 			},
-			defaultFlags: map[string]interface{}{
+			defaultFlags: map[string]any{
 				"raw": true,
 			},
 			urls: []*url.URL{
 				mustNewURL(t, "s3://bucket/key1"),
 				mustNewURL(t, "s3://bucket/key2"),
 			},
-			expectedCommand: `cp --cache-control='public, max-age=31536000, immutable' --raw='true' "s3://bucket/key1" "s3://bucket/key2"`,
+			expectedCommand: `cp --cache-control='public, max-age=31536000, immutable' --raw='true' s3://bucket/key1 s3://bucket/key2`,
 		},
 		{
 			name: "same-flag-should-be-ignored-if-given-from-both-default-and-cli-flags",
@@ -74,14 +75,14 @@ func TestGenerateCommand(t *testing.T) {
 					Value: true,
 				},
 			},
-			defaultFlags: map[string]interface{}{
+			defaultFlags: map[string]any{
 				"raw": true,
 			},
 			urls: []*url.URL{
 				mustNewURL(t, "s3://bucket/key1"),
 				mustNewURL(t, "s3://bucket/key2"),
 			},
-			expectedCommand: `cp --raw='true' "s3://bucket/key1" "s3://bucket/key2"`,
+			expectedCommand: `cp --raw='true' s3://bucket/key1 s3://bucket/key2`,
 		},
 		{
 			name: "ignore-non-shared-flag",
@@ -118,7 +119,7 @@ func TestGenerateCommand(t *testing.T) {
 				mustNewURL(t, "s3://bucket/key1"),
 				mustNewURL(t, "s3://bucket/key2"),
 			},
-			expectedCommand: `cp --concurrency='6' --flatten='true' --force-glacier-transfer='true' --raw='true' "s3://bucket/key1" "s3://bucket/key2"`,
+			expectedCommand: `cp --concurrency='6' --flatten='true' --force-glacier-transfer='true' --raw='true' s3://bucket/key1 s3://bucket/key2`,
 		},
 		{
 			name: "string-slice-flag",
@@ -126,14 +127,14 @@ func TestGenerateCommand(t *testing.T) {
 			flags: []cli.Flag{
 				&cli.StringSliceFlag{
 					Name:  "exclude",
-					Value: cli.NewStringSlice("*.txt", "*.log"),
+					Value: []string{"*.txt", "*.log"},
 				},
 			},
 			urls: []*url.URL{
 				mustNewURL(t, "/source/dir"),
 				mustNewURL(t, "s3://bucket/prefix/"),
 			},
-			expectedCommand: `cp --exclude='*.log' --exclude='*.txt' "/source/dir" "s3://bucket/prefix/"`,
+			expectedCommand: `cp --exclude='*.log' --exclude='*.txt' /source/dir s3://bucket/prefix/`,
 		},
 		{
 			name:  "command-with-multiple-args",
@@ -145,7 +146,7 @@ func TestGenerateCommand(t *testing.T) {
 				mustNewURL(t, "s3://bucket/prefix/key3"),
 				mustNewURL(t, "s3://bucket/prefix/key4"),
 			},
-			expectedCommand: `rm "s3://bucket/key1" "s3://bucket/key2" "s3://bucket/prefix/key3" "s3://bucket/prefix/key4"`,
+			expectedCommand: `rm s3://bucket/key1 s3://bucket/key2 s3://bucket/prefix/key3 s3://bucket/prefix/key4`,
 		},
 		{
 			name:  "command-args-with-spaces",
@@ -155,39 +156,90 @@ func TestGenerateCommand(t *testing.T) {
 				mustNewURL(t, "file with space"),
 				mustNewURL(t, "wow wow"),
 			},
-			expectedCommand: `rm "file with space" "wow wow"`,
+			expectedCommand: `rm 'file with space' 'wow wow'`,
 		},
 	}
 	for _, tc := range testcases {
-		tc := tc
 
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
 			command := AppCommand(tc.cmd)
-			set := flagSet(t, command.Name, tc.flags)
-			ctx := cli.NewContext(app, set, nil)
 
-			// urfave.Cli pass flags values to context before calling command.Action()
-			// and methods to update context are package-private, so write simple
-			// flag parser to update context value.
-			set.VisitAll(func(f *flag.Flag) {
-				if v, ok := f.Value.(*cli.StringSlice); ok {
-					for _, s := range v.Value() {
-						ctx.Set(f.Name, s)
-					}
-				} else {
-					ctx.Set(f.Name, f.Value.String())
-				}
-			})
-
-			got, err := generateCommand(ctx, command.Name, tc.defaultFlags, tc.urls...)
-			if err != nil {
-				t.Fatal(err)
+			// v3 has no cli.Context to synthesise, so run a stand-in
+			// command with the same flags and let cli parse them: that
+			// is what marks a flag "set", which generateCommand keys on.
+			var got string
+			runner := &cli.Command{
+				Name:  command.Name,
+				Flags: tc.flags,
+				Action: func(_ context.Context, c *cli.Command) error {
+					got = generateCommand(c, command.Name, tc.defaultFlags, tc.urls...)
+					return nil
+				},
 			}
 
+			args := append([]string{command.Name}, flagArgs(t, tc.flags)...)
+			if err := runner.Run(context.Background(), args); err != nil {
+				t.Fatal(err)
+			}
 			if diff := cmp.Diff(tc.expectedCommand, got); diff != "" {
 				t.Errorf("(-want +got):\n%v", diff)
+			}
+		})
+	}
+}
+
+// TestGenerateCommandKeyRoundTrip asserts that object keys survive the
+// round-trip from a generated command back through the parser run-mode uses
+// to read it. Keys containing a literal tab used to be rendered by %q as the
+// two characters \ and t, which a shell parser does not treat as an escape,
+// so sync produced a copy command for a key that did not exist.
+func TestGenerateCommandKeyRoundTrip(t *testing.T) {
+	t.Parallel()
+
+	keys := []string{
+		"tab\tseparated.txt",
+		"new\nline.txt",
+		"carriage\rreturn.txt",
+		"vertical\ttab\tand space.txt",
+		"back\\slash.txt",
+		`double"quote.txt`,
+		"single'quote.txt",
+		"dollar$and`backtick.txt",
+		"plain space.txt",
+		"ordinary.txt",
+	}
+
+	command := AppCommand("cp")
+
+	for _, key := range keys {
+		t.Run(strconv.Quote(key), func(t *testing.T) {
+			t.Parallel()
+
+			src := mustNewURL(t, "s3://bucket/"+key)
+			dst := mustNewURL(t, "s3://other-bucket/"+key)
+
+			var got string
+			runner := &cli.Command{
+				Name: command.Name,
+				Action: func(_ context.Context, c *cli.Command) error {
+					got = generateCommand(c, command.Name, map[string]any{}, src, dst)
+					return nil
+				},
+			}
+			if runErr := runner.Run(context.Background(), []string{command.Name}); runErr != nil {
+				t.Fatal(runErr)
+			}
+
+			fields, err := shellquote.Split(got)
+			if err != nil {
+				t.Fatalf("generated command does not parse: %v\ncommand: %s", err, got)
+			}
+
+			want := []string{"cp", src.String(), dst.String()}
+			if diff := cmp.Diff(want, fields); diff != "" {
+				t.Errorf("round-trip of %s lost the key (-want +got):\n%v", strconv.Quote(key), diff)
 			}
 		})
 	}
@@ -203,14 +255,30 @@ func mustNewURL(t *testing.T, path string) *url.URL {
 	return u
 }
 
-func flagSet(t *testing.T, name string, flags []cli.Flag) *flag.FlagSet {
+// flagArgs renders flags as the command-line arguments that would set them
+// to their declared values.
+func flagArgs(t *testing.T, flags []cli.Flag) []string {
 	t.Helper()
 
-	set := flag.NewFlagSet(name, flag.ContinueOnError)
+	var args []string
 	for _, f := range flags {
-		if err := f.Apply(set); err != nil {
-			t.Fatal(err)
+		name := f.Names()[0]
+		switch v := f.(type) {
+		case *cli.StringSliceFlag:
+			for _, s := range v.Value {
+				args = append(args, fmt.Sprintf("--%s=%s", name, s))
+			}
+		case *cli.BoolFlag:
+			if v.Value {
+				args = append(args, "--"+name)
+			}
+		case *cli.IntFlag:
+			args = append(args, fmt.Sprintf("--%s=%d", name, v.Value))
+		case *cli.StringFlag:
+			args = append(args, fmt.Sprintf("--%s=%s", name, v.Value))
+		default:
+			t.Fatalf("flagArgs: unhandled flag type %T", f)
 		}
 	}
-	return set
+	return args
 }

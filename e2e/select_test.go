@@ -468,11 +468,8 @@ func TestSelectCommand(t *testing.T) {
 		},
 	}
 	for testgroup, testcases := range testcasesByGroup {
-		testgroup := testgroup
-		testcases := testcases
 		t.Run(testgroup, func(t *testing.T) {
 			for _, tc := range testcases {
-				tc := tc
 				t.Run(tc.name, func(t *testing.T) {
 					t.Parallel()
 
@@ -564,7 +561,6 @@ func TestSelectCommandEmptyBucket(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -635,7 +631,6 @@ func TestSelectWithParquet(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			bucket := s3BucketFromTestName(t)
 			src := fmt.Sprintf("s3://%s/%s", bucket, tc.src)
@@ -671,7 +666,7 @@ func genTestData(t *testing.T, rowcount int, informat, outformat, structure stri
 		expected bytes.Buffer
 	)
 
-	for i := 0; i < rowcount; i++ {
+	for i := range rowcount {
 		data = append(data, row{
 			Line: fmt.Sprintf("%d", i),
 			ID:   fmt.Sprintf("id%d", i),

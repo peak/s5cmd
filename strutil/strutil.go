@@ -38,7 +38,7 @@ func HumanizeBytes(b int64) string {
 }
 
 // JSON is a helper function for creating JSON-encoded strings.
-func JSON(v interface{}) string {
+func JSON(v any) string {
 	bytes, _ := json.Marshal(v)
 	return string(bytes)
 }

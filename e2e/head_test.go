@@ -55,7 +55,7 @@ func TestHeadBucketNonExistent(t *testing.T) {
 	result.Assert(t, icmd.Expected{ExitCode: 1})
 
 	assertLines(t, result.Stderr(), map[int]compareFunc{
-		0: contains(`ERROR "head s3://non-existent-bucket": NotFound: Not Found status code: 404`),
+		0: contains(`ERROR "head s3://non-existent-bucket": NotFound: status code: 404`),
 	})
 }
 
@@ -88,7 +88,7 @@ func TestHeadBucketJSONNonExistent(t *testing.T) {
 	result := icmd.RunCmd(cmd)
 
 	result.Assert(t, icmd.Expected{ExitCode: 1})
-	assert.Equal(t, strings.Contains(result.Stderr(), `"error":"NotFound: Not Found status code: 404`), true)
+	assert.Equal(t, strings.Contains(result.Stderr(), `"error":"NotFound: status code: 404`), true)
 }
 
 // head object
@@ -106,7 +106,7 @@ func TestHeadObject(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	expectedOutput := fmt.Sprintf(`{"key":"s3://%v/myfile.txt","last_modified":"[0-9-]+T[0-9:.]+Z","size":\d+,"storage_class":"STANDARD","etag":"[a-f0-9]+","metadata":\{\}}`, bucket)
+	expectedOutput := fmt.Sprintf(`{"key":"s3://%v/myfile.txt"(?:,"content_type":"[^"]*")?,"last_modified":"[0-9-]+T[0-9:.]+Z","size":\d+,"storage_class":"STANDARD","etag":"[a-f0-9]+","metadata":\{\}}`, bucket)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: match(expectedOutput),
@@ -146,7 +146,7 @@ func TestHeadObjectJSON(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	expectedOutput := fmt.Sprintf(`{"key":"s3://%v/file.txt","last_modified":"[0-9-]+T[0-9:.]+Z","size":\d+,"storage_class":"STANDARD","etag":"[a-f0-9]+","metadata":\{\}}`, bucket)
+	expectedOutput := fmt.Sprintf(`{"key":"s3://%v/file.txt"(?:,"content_type":"[^"]*")?,"last_modified":"[0-9-]+T[0-9:.]+Z","size":\d+,"storage_class":"STANDARD","etag":"[a-f0-9]+","metadata":\{\}}`, bucket)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: match(expectedOutput),
@@ -188,7 +188,7 @@ func TestHeadObjectRaw(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	expectedOutput := fmt.Sprintf(`{"key":"s3://%v/file\*.txt","last_modified":"[0-9-]+T[0-9:.]+Z","size":\d+,"storage_class":"STANDARD","etag":"[a-f0-9]+","metadata":\{\}}`, bucket)
+	expectedOutput := fmt.Sprintf(`{"key":"s3://%v/file\*.txt"(?:,"content_type":"[^"]*")?,"last_modified":"[0-9-]+T[0-9:.]+Z","size":\d+,"storage_class":"STANDARD","etag":"[a-f0-9]+","metadata":\{\}}`, bucket)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: match(expectedOutput),
@@ -252,7 +252,7 @@ func TestHeadObjectWithVersionID(t *testing.T) {
 	})
 
 	versionIDs := make([]string, 0)
-	for _, row := range strings.Split(result.Stdout(), "\n") {
+	for row := range strings.SplitSeq(result.Stdout(), "\n") {
 		if row != "" {
 			arr := strings.Split(row, " ")
 			versionIDs = append(versionIDs, arr[len(arr)-1])
@@ -266,7 +266,7 @@ func TestHeadObjectWithVersionID(t *testing.T) {
 		result = icmd.RunCmd(cmd)
 		result.Assert(t, icmd.Success)
 
-		expectedOutput := fmt.Sprintf(`{"key":"s3://%v/testfile.txt","last_modified":"[0-9-]+T[0-9:.]+Z","size":%d,"storage_class":"STANDARD","etag":"[a-f0-9]+","metadata":\{\}}`, bucket, len(contents[i]))
+		expectedOutput := fmt.Sprintf(`{"key":"s3://%v/testfile.txt"(?:,"content_type":"[^"]*")?,"last_modified":"[0-9-]+T[0-9:.]+Z","size":%d,"storage_class":"STANDARD","etag":"[a-f0-9]+","metadata":\{\}}`, bucket, len(contents[i]))
 
 		assertLines(t, result.Stdout(), map[int]compareFunc{
 			0: match(expectedOutput),
@@ -296,7 +296,7 @@ func TestHeadObjectWithMetadata(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	expectedOutput := fmt.Sprintf(`{"key":"s3://%v/file.txt","last_modified":"[0-9-]+T[0-9:.]+Z","size":\d+,"storage_class":"STANDARD","etag":"[a-f0-9]+","metadata":{(?:"key1":"value1","key2":"value2"|"key2":"value2","key1":"value1")}}`, bucket)
+	expectedOutput := fmt.Sprintf(`{"key":"s3://%v/file.txt"(?:,"content_type":"[^"]*")?,"last_modified":"[0-9-]+T[0-9:.]+Z","size":\d+,"storage_class":"STANDARD","etag":"[a-f0-9]+","metadata":{(?:"key1":"value1","key2":"value2"|"key2":"value2","key1":"value1")}}`, bucket)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: match(expectedOutput),
@@ -324,7 +324,7 @@ func TestHeadObjectJSONMetadata(t *testing.T) {
 
 	result.Assert(t, icmd.Success)
 
-	expectedOutput := fmt.Sprintf(`{"key":"s3://%v/file.txt","last_modified":"[0-9-]+T[0-9:.]+Z","size":\d+,"storage_class":"STANDARD","etag":"[a-f0-9]+","metadata":{"key1":"value1"}}`, bucket)
+	expectedOutput := fmt.Sprintf(`{"key":"s3://%v/file.txt"(?:,"content_type":"[^"]*")?,"last_modified":"[0-9-]+T[0-9:.]+Z","size":\d+,"storage_class":"STANDARD","etag":"[a-f0-9]+","metadata":{"key1":"value1"}}`, bucket)
 
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: match(expectedOutput),

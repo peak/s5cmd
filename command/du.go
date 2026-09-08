@@ -7,7 +7,7 @@ import (
 	urlpkg "net/url"
 
 	"github.com/hashicorp/go-multierror"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 
 	errorpkg "github.com/peak/s5cmd/v2/error"
 	"github.com/peak/s5cmd/v2/log"
@@ -18,41 +18,40 @@ import (
 )
 
 var sizeHelpTemplate = `Name:
-	{{.HelpName}} - {{.Usage}}
+	{{.FullName}} - {{.Usage}}
 
 Usage:
-	{{.HelpName}} [options] argument
+	{{.FullName}} [options] argument
 
 Options:
 	{{range .VisibleFlags}}{{.}}
 	{{end}}
 Examples:
 	1. Show disk usage of all objects in a bucket
-		 > s5cmd {{.HelpName}} "s3://bucket/*"
+		 > {{.FullName}} "s3://bucket/*"
 
 	2. Show disk usage of all objects that match a wildcard, grouped by storage class
-		 > s5cmd {{.HelpName}} --group "s3://bucket/prefix/obj*.gz"
+		 > {{.FullName}} --group "s3://bucket/prefix/obj*.gz"
 
 	3. Show disk usage of all objects in a bucket but exclude the ones with py extension or starts with main
-		 > s5cmd {{.HelpName}} --exclude "*.py" --exclude "main*" "s3://bucket/*"
+		 > {{.FullName}} --exclude "*.py" --exclude "main*" "s3://bucket/*"
 
 	4. Show disk usage of all versions of an object in the bucket
-		 > s5cmd {{.HelpName}} --all-versions s3://bucket/object
+		 > {{.FullName}} --all-versions s3://bucket/object
 
 	5. Show disk usage of all versions of all objects that starts with a prefix in the bucket
-		 > s5cmd {{.HelpName}} --all-versions "s3://bucket/prefix*"
+		 > {{.FullName}} --all-versions "s3://bucket/prefix*"
 
 	6. Show disk usage of all versions of all objects in the bucket
-		 > s5cmd {{.HelpName}} --all-versions "s3://bucket/*"
+		 > {{.FullName}} --all-versions "s3://bucket/*"
 
 	7. Show disk usage of a specific version of an object in the bucket
-		 > s5cmd {{.HelpName}} --version-id VERSION_ID s3://bucket/object
+		 > {{.FullName}} --version-id VERSION_ID s3://bucket/object
 `
 
 func NewSizeCommand() *cli.Command {
 	cmd := &cli.Command{
 		Name:               "du",
-		HelpName:           "du",
 		Usage:              "show object size usage",
 		CustomHelpTemplate: sizeHelpTemplate,
 		Flags: []cli.Flag{
@@ -79,15 +78,15 @@ func NewSizeCommand() *cli.Command {
 				Usage: "use the specified version of an object",
 			},
 		},
-		Before: func(c *cli.Context) error {
+		Before: func(ctx context.Context, c *cli.Command) (context.Context, error) {
 			err := validateDUCommand(c)
 			if err != nil {
-				printError(commandFromContext(c), c.Command.Name, err)
+				printError(commandFromContext(c), c.Name, err)
 			}
-			return err
+			return ctx, err
 		},
-		Action: func(c *cli.Context) (err error) {
-			defer stat.Collect(c.Command.FullName(), &err)()
+		Action: func(ctx context.Context, c *cli.Command) (err error) {
+			defer stat.Collect(commandName(c), &err)()
 
 			fullCommand := commandFromContext(c)
 
@@ -95,13 +94,13 @@ func NewSizeCommand() *cli.Command {
 				url.WithAllVersions(c.Bool("all-versions")),
 				url.WithVersion(c.String("version-id")))
 			if err != nil {
-				printError(fullCommand, c.Command.Name, err)
+				printError(fullCommand, c.Name, err)
 				return err
 			}
 
 			return Size{
 				src:         srcurl,
-				op:          c.Command.Name,
+				op:          c.Name,
 				fullCommand: fullCommand,
 				// flags
 				groupByClass: c.Bool("group"),
@@ -109,11 +108,11 @@ func NewSizeCommand() *cli.Command {
 				exclude:      c.StringSlice("exclude"),
 
 				storageOpts: NewStorageOpts(c),
-			}.Run(c.Context)
+			}.Run(ctx)
 		},
 	}
 
-	cmd.BashComplete = getBashCompleteFn(cmd, false, false)
+	cmd.ShellComplete = getBashCompleteFn(cmd, false, false)
 	return cmd
 }
 
@@ -245,7 +244,7 @@ func (s *sizeAndCount) addObject(obj *storage.Object) {
 	s.count++
 }
 
-func validateDUCommand(c *cli.Context) error {
+func validateDUCommand(c *cli.Command) error {
 	if c.Args().Len() != 1 {
 		return fmt.Errorf("expected only 1 argument")
 	}

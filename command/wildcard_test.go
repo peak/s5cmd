@@ -56,7 +56,6 @@ func TestIsObjectExcluded(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
-		tc := tc
 
 		excludeRegex, err := createRegexFromWildcard(tc.excludePatterns)
 		if err != nil {

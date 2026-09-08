@@ -6,7 +6,7 @@ import (
 
 	"github.com/peak/s5cmd/v2/storage"
 	"github.com/peak/s5cmd/v2/storage/url"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 const (
@@ -27,7 +27,7 @@ func checkVersinoningURLRemote(url *url.URL) error {
 // checkVersioningFlagCompatibility checks if the incompatible versioning flags
 // are used together. Because it is not allowed to refer to both "all versions" and
 // a specific version of an object together.
-func checkVersioningFlagCompatibility(ctx *cli.Context) error {
+func checkVersioningFlagCompatibility(ctx *cli.Command) error {
 	if ctx.Bool(allVersionsFlagName) && ctx.String(versionIDFlagName) != "" {
 		return fmt.Errorf("it is not allowed to combine %q and %q flags", allVersionsFlagName, versionIDFlagName)
 	}
@@ -37,7 +37,7 @@ func checkVersioningFlagCompatibility(ctx *cli.Context) error {
 // checkVersioningWithGoogleEndpoint checks if the versioning flags are used with
 // the Google Endpoint. Because the s3 versioning operations are not compatible with
 // GCS's versioning API.
-func checkVersioningWithGoogleEndpoint(ctx *cli.Context) error {
+func checkVersioningWithGoogleEndpoint(ctx *cli.Command) error {
 	endpoint := ctx.String("endpoint-url")
 	if endpoint == "" {
 		return nil
@@ -57,7 +57,7 @@ func checkVersioningWithGoogleEndpoint(ctx *cli.Context) error {
 
 // checkNumberOfArguments checks if the number of the arguments is valid.
 // if the max is negative then there is no upper limit of arguments.
-func checkNumberOfArguments(ctx *cli.Context, min, max int) error {
+func checkNumberOfArguments(ctx *cli.Command, min, max int) error {
 	l := ctx.Args().Len()
 	if min == 1 && max == 1 && l != 1 {
 		return fmt.Errorf("expected only one argument")

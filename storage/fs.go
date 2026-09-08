@@ -86,7 +86,6 @@ func (f *Filesystem) expandGlob(ctx context.Context, src *url.URL, followSymlink
 		}
 
 		for _, filename := range matchedFiles {
-			filename := filename
 
 			fileurl, err := url.New(filename)
 			if err != nil {

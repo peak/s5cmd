@@ -3,7 +3,7 @@ package command
 import (
 	"context"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 
 	"github.com/peak/s5cmd/v2/log"
 	"github.com/peak/s5cmd/v2/log/stat"
@@ -12,46 +12,45 @@ import (
 )
 
 var removeBucketHelpTemplate = `Name:
-	{{.HelpName}} - {{.Usage}}
+	{{.FullName}} - {{.Usage}}
 
 Usage:
-	{{.HelpName}} s3://bucketname
+	{{.FullName}} s3://bucketname
 
 Options:
 	{{range .VisibleFlags}}{{.}}
 	{{end}}
 Examples:
 	1. Deletes S3 bucket with given name
-		 > s5cmd {{.HelpName}} s3://bucketname
+		 > {{.FullName}} s3://bucketname
 `
 
 func NewRemoveBucketCommand() *cli.Command {
 	cmd := &cli.Command{
 		Name:               "rb",
-		HelpName:           "rb",
 		Usage:              "remove bucket",
 		CustomHelpTemplate: removeBucketHelpTemplate,
-		Before: func(c *cli.Context) error {
+		Before: func(ctx context.Context, c *cli.Command) (context.Context, error) {
 			err := validateMBCommand(c) // uses same validation function with make bucket command.
 			if err != nil {
-				printError(commandFromContext(c), c.Command.Name, err)
+				printError(commandFromContext(c), c.Name, err)
 			}
-			return err
+			return ctx, err
 		},
-		Action: func(c *cli.Context) (err error) {
-			defer stat.Collect(c.Command.FullName(), &err)()
+		Action: func(ctx context.Context, c *cli.Command) (err error) {
+			defer stat.Collect(commandName(c), &err)()
 
 			return RemoveBucket{
 				src:         c.Args().First(),
-				op:          c.Command.Name,
+				op:          c.Name,
 				fullCommand: commandFromContext(c),
 
 				storageOpts: NewStorageOpts(c),
-			}.Run(c.Context)
+			}.Run(ctx)
 		},
 	}
 
-	cmd.BashComplete = getBashCompleteFn(cmd, true, true)
+	cmd.ShellComplete = getBashCompleteFn(cmd, true, true)
 	return cmd
 }
 

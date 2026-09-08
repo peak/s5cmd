@@ -4,6 +4,7 @@ package e2e
 
 import (
 	"bytes"
+	"context"
 	jsonpkg "encoding/json"
 	"errors"
 	"flag"
@@ -26,14 +27,12 @@ import (
 	"github.com/peak/s5cmd/v2/storage"
 	"github.com/peak/s5cmd/v2/strutil"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/aws/client"
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/endpoints"
-	"github.com/aws/aws-sdk-go/aws/request"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/aws/retry"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
+	"github.com/aws/smithy-go"
 	"github.com/google/go-cmp/cmp"
 	"github.com/iancoleman/strcase"
 	"github.com/igungor/gofakes3"
@@ -130,7 +129,7 @@ type credentialCfg struct {
 	Region      string
 }
 
-func setup(t *testing.T, options ...option) (*s3.S3, func(...string) icmd.Cmd) {
+func setup(t *testing.T, options ...option) (*s3.Client, func(...string) icmd.Cmd) {
 	t.Helper()
 
 	opts := &setupOpts{
@@ -219,14 +218,13 @@ func server(t *testing.T, testdir *fs.Dir, opts *setupOpts) string {
 	return endpoint
 }
 
-func s3client(t *testing.T, options storage.Options, creds *credentialCfg) *s3.S3 {
+func s3client(t *testing.T, options storage.Options, creds *credentialCfg) *s3.Client {
 	t.Helper()
 
-	awsLogLevel := aws.LogOff
+	var logMode aws.ClientLogMode
 	if *flagTestLogLevel == "debug" {
-		awsLogLevel = aws.LogDebug
+		logMode = aws.LogRequestWithBody | aws.LogResponseWithBody
 	}
-	s3Config := aws.NewConfig()
 
 	var id, key, region string
 
@@ -237,11 +235,13 @@ func s3client(t *testing.T, options storage.Options, creds *credentialCfg) *s3.S
 	} else {
 		id = defaultAccessKeyID
 		key = defaultSecretAccessKey
-		region = endpoints.UsEast1RegionID
+		region = "us-east-1"
 	}
 
 	endpoint := options.Endpoint
 	isVirtualHost := false
+	var retryer func() aws.Retryer
+
 	// get environment variables and use external endpoint url.
 	// this can be used to test s3 sources such as GCS, amazon, wasabi etc.
 	if isEndpointFromEnv() {
@@ -249,26 +249,31 @@ func s3client(t *testing.T, options storage.Options, creds *credentialCfg) *s3.S
 		key = os.Getenv(s5cmdTestSecretEnv)
 		endpoint = os.Getenv(s5cmdTestEndpointEnv)
 		region = os.Getenv(s5cmdTestRegionEnv)
-		s3Config.Retryer = newSlowDownRetryer(maxRetries)
+		retryer = func() aws.Retryer { return newSlowDownRetryer(maxRetries) }
 		isVirtualHost = isVirtualHostFromEnv(t)
 	}
 
-	// WithDisableRestProtocolURICleaning is added to allow adjacent slashes to be used in s3 object keys.
-	s3Config = s3Config.
-		WithCredentials(credentials.NewStaticCredentials(id, key, "")).
-		WithEndpoint(endpoint).
-		WithDisableSSL(options.NoVerifySSL).
-		// allow adjacent slashes to be used in s3 object keys
-		WithDisableRestProtocolURICleaning(true).
-		WithCredentialsChainVerboseErrors(true).
-		WithLogLevel(awsLogLevel).
-		WithRegion(region).
-		WithS3ForcePathStyle(!isVirtualHost)
+	cfg := aws.Config{
+		Region:        region,
+		Credentials:   credentials.NewStaticCredentialsProvider(id, key, ""),
+		ClientLogMode: logMode,
+	}
+	if retryer != nil {
+		cfg.Retryer = retryer
+	}
 
-	sess, err := session.NewSession(s3Config)
-	assert.NilError(t, err)
+	return s3.NewFromConfig(cfg, func(o *s3.Options) {
+		if endpoint != "" {
+			o.BaseEndpoint = aws.String(endpoint)
+		}
+		o.UsePathStyle = !isVirtualHost
 
-	return s3.New(sess)
+		// v2 sends a CRC32 checksum with every upload by default, which
+		// the fake S3 server used by these tests does not expect. s5cmd
+		// itself is configured the same way.
+		o.RequestChecksumCalculation = aws.RequestChecksumCalculationWhenRequired
+		o.ResponseChecksumValidation = aws.ResponseChecksumValidationWhenRequired
+	})
 }
 
 func isVirtualHostFromEnv(t *testing.T) bool {
@@ -279,29 +284,27 @@ func isVirtualHostFromEnv(t *testing.T) bool {
 	return isVirtual
 }
 
-// slowDownRetryer wraps the SDK's built in DefaultRetryer adding additional
-// retry for SlowDown code.
+// slowDownRetryer wraps the SDK's standard retryer, adding a retry for the
+// SlowDown code that real S3-compatible services return under load.
 type slowDownRetryer struct {
-	client.DefaultRetryer
+	aws.Retryer
 }
 
-func newSlowDownRetryer(maxRetries int) *slowDownRetryer {
+func newSlowDownRetryer(maxRetries int) aws.Retryer {
 	return &slowDownRetryer{
-		DefaultRetryer: client.DefaultRetryer{
-			NumMaxRetries: maxRetries,
-		},
+		Retryer: retry.NewStandard(func(o *retry.StandardOptions) {
+			o.MaxAttempts = maxRetries + 1
+		}),
 	}
 }
 
-func (c *slowDownRetryer) ShouldRetry(req *request.Request) bool {
-	var awsErr awserr.Error
-	if errors.As(req.Error, &awsErr) {
-		if awsErr.Code() == "SlowDown" {
-			return true
-		}
+func (c *slowDownRetryer) IsErrorRetryable(err error) bool {
+	var apiErr smithy.APIError
+	if errors.As(err, &apiErr) && apiErr.ErrorCode() == "SlowDown" {
+		return true
 	}
 
-	return c.DefaultRetryer.ShouldRetry(req)
+	return c.Retryer.IsErrorRetryable(err)
 }
 
 func isEndpointFromEnv() bool {
@@ -402,9 +405,9 @@ func goBuildS5cmd() func() {
 		 Ref 2: "-buildmode=pie not supported when -race is enabled"
 		 https://cs.opensource.google/go/go/+/master:src/cmd/go/internal/work/init.go;l=245;drc=eaf21256545ae04a35fa070763faa6eb2098591d
 		*/
-		args = []string{"build", "-mod=vendor", "-o", s5cmdPath}
+		args = []string{"build", "-o", s5cmdPath}
 	} else {
-		args = []string{"build", "-mod=vendor", "-race", "-o", s5cmdPath}
+		args = []string{"build", "-race", "-o", s5cmdPath}
 	}
 	cmd := exec.Command("go", args...)
 	cmd.Stderr = os.Stderr
@@ -426,15 +429,15 @@ func goBuildS5cmd() func() {
 	}
 }
 
-func createBucket(t *testing.T, client *s3.S3, bucket string) {
+func createBucket(t *testing.T, client *s3.Client, bucket string) {
 	t.Helper()
 
 	input := &s3.CreateBucketInput{
 		Bucket: aws.String(bucket),
-		ACL:    aws.String(s3.BucketCannedACLPublicRead),
+		ACL:    types.BucketCannedACLPublicRead,
 	}
 
-	_, err := client.CreateBucket(input)
+	_, err := client.CreateBucket(context.Background(), input)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -445,7 +448,7 @@ func createBucket(t *testing.T, client *s3.S3, bucket string) {
 
 	t.Cleanup(func() {
 		// cleanup if bucket exists.
-		_, err := client.HeadBucket(&s3.HeadBucketInput{Bucket: aws.String(bucket)})
+		_, err := client.HeadBucket(context.Background(), &s3.HeadBucketInput{Bucket: aws.String(bucket)})
 		if err == nil {
 
 			listInput := s3.ListObjectsInput{
@@ -454,88 +457,90 @@ func createBucket(t *testing.T, client *s3.S3, bucket string) {
 
 			//remove objects first.
 			// delete each object individually if using GCS.
+			// v2 has no ListObjectsPages; the marker is advanced by hand
+			// because it also ships no paginator for the legacy operation.
 			if isGoogleEndpointFromEnv(t) {
-				err = client.ListObjectsPages(&listInput, func(p *s3.ListObjectsOutput, lastPage bool) bool {
-					for _, c := range p.Contents {
-						client.DeleteObject(&s3.DeleteObjectInput{
+				for {
+					page, err := client.ListObjects(context.Background(), &listInput)
+					if err != nil {
+						t.Fatal(err)
+					}
+					for _, c := range page.Contents {
+						//nolint:errcheck // best-effort cleanup
+						client.DeleteObject(context.Background(), &s3.DeleteObjectInput{
 							Bucket: aws.String(bucket),
 							Key:    c.Key,
 						})
 					}
-					return !lastPage
-				})
-				if err != nil {
-					t.Fatal(err)
+					if !aws.ToBool(page.IsTruncated) {
+						break
+					}
+					marker := aws.ToString(page.NextMarker)
+					if marker == "" && len(page.Contents) > 0 {
+						marker = aws.ToString(page.Contents[len(page.Contents)-1].Key)
+					}
+					if marker == "" {
+						break
+					}
+					listInput.Marker = aws.String(marker)
 				}
 			}
 
 			chunkSize := deleteObjectsMax
 
-			var keys []*s3.ObjectIdentifier
+			var keys []types.ObjectIdentifier
 			initKeys := func() {
-				keys = make([]*s3.ObjectIdentifier, 0)
+				keys = make([]types.ObjectIdentifier, 0)
+			}
+
+			deleteChunk := func() {
+				_, err := client.DeleteObjects(context.Background(), &s3.DeleteObjectsInput{
+					Bucket: aws.String(bucket),
+					Delete: &types.Delete{Objects: keys},
+				})
+				if err != nil {
+					t.Fatal(err)
+				}
+				initKeys()
 			}
 
 			listVersionsInput := s3.ListObjectVersionsInput{
 				Bucket: aws.String(bucket),
 			}
 
-			err = client.ListObjectVersionsPages(&listVersionsInput,
-				func(p *s3.ListObjectVersionsOutput, lastPage bool) bool {
-					for _, v := range p.Versions {
-						objid := &s3.ObjectIdentifier{
-							Key:       v.Key,
-							VersionId: v.VersionId,
-						}
-						keys = append(keys, objid)
-
-						if len(keys) == chunkSize {
-							_, err := client.DeleteObjects(&s3.DeleteObjectsInput{
-								Bucket: aws.String(bucket),
-								Delete: &s3.Delete{Objects: keys},
-							})
-							if err != nil {
-								t.Fatal(err)
-							}
-							initKeys()
-						}
-					}
-
-					for _, d := range p.DeleteMarkers {
-						objid := &s3.ObjectIdentifier{
-							Key:       d.Key,
-							VersionId: d.VersionId,
-						}
-						keys = append(keys, objid)
-
-						if len(keys) == chunkSize {
-							_, err := client.DeleteObjects(&s3.DeleteObjectsInput{
-								Bucket: aws.String(bucket),
-								Delete: &s3.Delete{Objects: keys},
-							})
-							if err != nil {
-								t.Fatal(err)
-							}
-							initKeys()
-						}
-					}
-					return !lastPage
-				})
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			if len(keys) > 0 {
-				_, err := client.DeleteObjects(&s3.DeleteObjectsInput{
-					Delete: &s3.Delete{Objects: keys},
-					Bucket: aws.String(bucket),
-				})
+			versionPager := s3.NewListObjectVersionsPaginator(client, &listVersionsInput)
+			for versionPager.HasMorePages() {
+				page, err := versionPager.NextPage(context.Background())
 				if err != nil {
 					t.Fatal(err)
 				}
+
+				for _, v := range page.Versions {
+					keys = append(keys, types.ObjectIdentifier{
+						Key:       v.Key,
+						VersionId: v.VersionId,
+					})
+					if len(keys) == chunkSize {
+						deleteChunk()
+					}
+				}
+
+				for _, d := range page.DeleteMarkers {
+					keys = append(keys, types.ObjectIdentifier{
+						Key:       d.Key,
+						VersionId: d.VersionId,
+					})
+					if len(keys) == chunkSize {
+						deleteChunk()
+					}
+				}
+			}
+
+			if len(keys) > 0 {
+				deleteChunk()
 			}
 			// delete bucket after.
-			_, err = client.DeleteBucket(&s3.DeleteBucketInput{
+			_, err = client.DeleteBucket(context.Background(), &s3.DeleteBucketInput{
 				Bucket: aws.String(bucket),
 			})
 			if err != nil {
@@ -554,12 +559,12 @@ func isGoogleEndpointFromEnv(t *testing.T) bool {
 	return storage.IsGoogleEndpoint(*endpoint)
 }
 
-func setBucketVersioning(t *testing.T, s3client *s3.S3, bucket string, versioning string) {
+func setBucketVersioning(t *testing.T, s3client *s3.Client, bucket string, versioning string) {
 	t.Helper()
-	_, err := s3client.PutBucketVersioning(&s3.PutBucketVersioningInput{
+	_, err := s3client.PutBucketVersioning(context.Background(), &s3.PutBucketVersioningInput{
 		Bucket: aws.String(bucket),
-		VersioningConfiguration: &s3.VersioningConfiguration{
-			Status: aws.String(versioning),
+		VersioningConfiguration: &types.VersioningConfiguration{
+			Status: types.BucketVersioningStatus(versioning),
 		},
 	})
 	if err != nil {
@@ -636,7 +641,7 @@ func ensureArbitraryMetadata(metadata map[string]*string) ensureOption {
 }
 
 func ensureS3Object(
-	client *s3.S3,
+	client *s3.Client,
 	bucket string,
 	key string,
 	content string,
@@ -647,17 +652,14 @@ func ensureS3Object(
 		fn(opts)
 	}
 
-	output, err := client.GetObject(&s3.GetObjectInput{
+	output, err := client.GetObject(context.Background(), &s3.GetObjectInput{
 		Bucket: aws.String(bucket),
 		Key:    aws.String(key),
 	})
 
-	awsErr, ok := err.(awserr.Error)
-	if ok {
-		switch awsErr.Code() {
-		case s3.ErrCodeNoSuchKey:
-			return fmt.Errorf("%v: %w", key, errS3NoSuchKey)
-		}
+	var apiErr smithy.APIError
+	if errors.As(err, &apiErr) && apiErr.ErrorCode() == "NoSuchKey" {
+		return fmt.Errorf("%v: %w", key, errS3NoSuchKey)
 	}
 	if err != nil {
 		return err
@@ -680,7 +682,10 @@ func ensureS3Object(
 	}
 
 	if opts.expires != nil {
-		if diff := cmp.Diff(opts.expires, output.Expires); diff != "" {
+		// v1 surfaced the raw Expires header as a *string; in v2 the
+		// parsed Expires field is deprecated in favour of ExpiresString,
+		// which is the raw header again.
+		if diff := cmp.Diff(*opts.expires, aws.ToString(output.ExpiresString)); diff != "" {
 			return fmt.Errorf("expires of %v/%v: (-want +got):\n%v", bucket, key, diff)
 		}
 	}
@@ -705,9 +710,11 @@ func ensureS3Object(
 	}
 
 	if opts.storageClass != nil {
+		// v2 models storage class as a string enum rather than a *string,
+		// and S3 omits the header entirely for STANDARD.
 		storageClassofOutput := aws.String("STANDARD")
-		if output.StorageClass != nil {
-			storageClassofOutput = output.StorageClass
+		if output.StorageClass != "" {
+			storageClassofOutput = aws.String(string(output.StorageClass))
 		}
 
 		if diff := cmp.Diff(opts.storageClass, storageClassofOutput); diff != "" {
@@ -716,7 +723,8 @@ func ensureS3Object(
 	}
 
 	if opts.encryptionMethod != nil {
-		if diff := cmp.Diff(opts.encryptionMethod, output.ServerSideEncryption); diff != "" {
+		// v2 models server-side encryption as a string enum, not a *string
+		if diff := cmp.Diff(*opts.encryptionMethod, string(output.ServerSideEncryption)); diff != "" {
 			return fmt.Errorf("encryption-method of %v/%v: (-want +got):\n%v", bucket, key, diff)
 		}
 	}
@@ -728,11 +736,21 @@ func ensureS3Object(
 	}
 
 	if opts.metadata != nil {
+		// v2 models user metadata as map[string]string rather than
+		// map[string]*string, and reports the keys lowercased where v1
+		// canonicalised them ("Key1"). S3 metadata keys are
+		// case-insensitive, so compare them that way.
+		lowered := make(map[string]string, len(output.Metadata))
+		for k, v := range output.Metadata {
+			lowered[strings.ToLower(k)] = v
+		}
+
 		for mkey := range opts.metadata {
-			if opts.metadata[mkey] == nil || output.Metadata[mkey] == nil {
+			got, ok := lowered[strings.ToLower(mkey)]
+			if opts.metadata[mkey] == nil || !ok {
 				return fmt.Errorf("check the assertion keys of %v/%v key:%v\n", bucket, key, mkey)
 			}
-			if diff := cmp.Diff(*opts.metadata[mkey], *output.Metadata[mkey]); diff != "" {
+			if diff := cmp.Diff(*opts.metadata[mkey], got); diff != "" {
 				return fmt.Errorf("arbitrary metadata of %v/%v: (-want +got):\n%v", bucket, key, diff)
 			}
 		}
@@ -744,17 +762,21 @@ type putOption func(*s3.PutObjectInput)
 
 func putArbitraryMetadata(metadata map[string]*string) putOption {
 	return func(opts *s3.PutObjectInput) {
-		opts.Metadata = metadata
+		m := make(map[string]string, len(metadata))
+		for k, v := range metadata {
+			m[k] = aws.ToString(v)
+		}
+		opts.Metadata = m
 	}
 }
 
 func putStorageClass(storageClass string) putOption {
 	return func(opts *s3.PutObjectInput) {
-		opts.StorageClass = aws.String(storageClass)
+		opts.StorageClass = types.StorageClass(storageClass)
 	}
 }
 
-func putFile(t *testing.T, client *s3.S3, bucket string, filename string, content string, opts ...putOption) {
+func putFile(t *testing.T, client *s3.Client, bucket string, filename string, content string, opts ...putOption) {
 	t.Helper()
 	input := &s3.PutObjectInput{
 		Body:   strings.NewReader(content),
@@ -766,7 +788,7 @@ func putFile(t *testing.T, client *s3.S3, bucket string, filename string, conten
 		opt(input)
 	}
 
-	_, err := client.PutObject(input)
+	_, err := client.PutObject(context.Background(), input)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -828,7 +850,6 @@ func TestS3BucketFromTestNameWithPrefix(t *testing.T) {
 		},
 	}
 	for _, tc := range testcases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			// adds tc.name as suffix to "TestS3BucketFromTestNameWithPrefix" and then modifies it.
 			result := s3BucketFromTestNameWithPrefix(t, tc.prefix)
@@ -882,7 +903,6 @@ func TestAddRandomSuffixTo(t *testing.T) {
 		},
 	}
 	for _, tc := range testcases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			result := addRandomSuffixTo(tc.bucketName)
 
@@ -964,7 +984,7 @@ func trimMatch(match string) func(*assertOpts) {
 	}
 }
 
-func assertError(t *testing.T, err error, expected interface{}) {
+func assertError(t *testing.T, err error, expected any) {
 	t.Helper()
 	// 'assert' package doesn't support Go1.13+ error unwrapping. Do it
 	// manually.
@@ -1100,7 +1120,7 @@ func isJSON(str string) bool {
 	return jsonpkg.Unmarshal([]byte(str), &js) == nil
 }
 
-func equals(format string, args ...interface{}) compareFunc {
+func equals(format string, args ...any) compareFunc {
 	expected := fmt.Sprintf(format, args...)
 	return func(actual string) error {
 		if expected == actual {
@@ -1112,7 +1132,7 @@ func equals(format string, args ...interface{}) compareFunc {
 	}
 }
 
-func json(format string, args ...interface{}) compareFunc {
+func json(format string, args ...any) compareFunc {
 	expected := fmt.Sprintf(format, args...)
 	// escape multiline characters
 	{
@@ -1133,7 +1153,7 @@ func json(format string, args ...interface{}) compareFunc {
 	}
 }
 
-func prefix(format string, args ...interface{}) compareFunc {
+func prefix(format string, args ...any) compareFunc {
 	expected := fmt.Sprintf(format, args...)
 	return func(actual string) error {
 		if strings.HasPrefix(actual, expected) {
@@ -1145,7 +1165,7 @@ func prefix(format string, args ...interface{}) compareFunc {
 	}
 }
 
-func suffix(format string, args ...interface{}) compareFunc {
+func suffix(format string, args ...any) compareFunc {
 	expected := fmt.Sprintf(format, args...)
 	return func(actual string) error {
 		if strings.HasSuffix(actual, expected) {
@@ -1157,7 +1177,7 @@ func suffix(format string, args ...interface{}) compareFunc {
 	}
 }
 
-func contains(format string, args ...interface{}) compareFunc {
+func contains(format string, args ...any) compareFunc {
 	expected := fmt.Sprintf(format, args...)
 	return func(actual string) error {
 		if strings.Contains(actual, expected) {

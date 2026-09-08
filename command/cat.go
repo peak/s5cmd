@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 
 	"github.com/peak/s5cmd/v2/log/stat"
 	"github.com/peak/s5cmd/v2/orderedwriter"
@@ -14,30 +14,29 @@ import (
 )
 
 var catHelpTemplate = `Name:
-	{{.HelpName}} - {{.Usage}}
+	{{.FullName}} - {{.Usage}}
 
 Usage:
-	{{.HelpName}} [options] source
+	{{.FullName}} [options] source
 
 Options:
 	{{range .VisibleFlags}}{{.}}
 	{{end}}
 Examples:
 	1. Print a remote object's content to stdout
-		 > s5cmd {{.HelpName}} s3://bucket/prefix/object
+		 > {{.FullName}} s3://bucket/prefix/object
 
 	2. Print specific version of a remote object's content to stdout
-		 > s5cmd {{.HelpName}} --version-id VERSION_ID s3://bucket/prefix/object
+		 > {{.FullName}} --version-id VERSION_ID s3://bucket/prefix/object
 
 	3. Concatenate multiple objects matching a prefix or wildcard and print to stdout
-		 > s5cmd {{.HelpName}} "s3://bucket/prefix/*"
+		 > {{.FullName}} "s3://bucket/prefix/*"
 `
 
 func NewCatCommand() *cli.Command {
 	cmd := &cli.Command{
-		Name:     "cat",
-		HelpName: "cat",
-		Usage:    "print remote object content",
+		Name:  "cat",
+		Usage: "print remote object content",
 		Flags: []cli.Flag{
 			&cli.BoolFlag{
 				Name:  "raw",
@@ -61,17 +60,17 @@ func NewCatCommand() *cli.Command {
 			},
 		},
 		CustomHelpTemplate: catHelpTemplate,
-		Before: func(c *cli.Context) error {
+		Before: func(ctx context.Context, c *cli.Command) (context.Context, error) {
 			err := validateCatCommand(c)
 			if err != nil {
-				printError(commandFromContext(c), c.Command.Name, err)
+				printError(commandFromContext(c), c.Name, err)
 			}
-			return err
+			return ctx, err
 		},
-		Action: func(c *cli.Context) (err error) {
-			defer stat.Collect(c.Command.FullName(), &err)()
+		Action: func(ctx context.Context, c *cli.Command) (err error) {
+			defer stat.Collect(commandName(c), &err)()
 
-			op := c.Command.Name
+			op := c.Name
 			fullCommand := commandFromContext(c)
 
 			src, err := url.New(c.Args().Get(0), url.WithVersion(c.String("version-id")),
@@ -89,10 +88,10 @@ func NewCatCommand() *cli.Command {
 				storageOpts: NewStorageOpts(c),
 				concurrency: c.Int("concurrency"),
 				partSize:    c.Int64("part-size") * megabytes,
-			}.Run(c.Context)
+			}.Run(ctx)
 		},
 	}
-	cmd.BashComplete = getBashCompleteFn(cmd, true, false)
+	cmd.ShellComplete = getBashCompleteFn(cmd, true, false)
 	return cmd
 }
 
@@ -154,7 +153,7 @@ func (c Cat) processSingleObject(ctx context.Context, client *storage.S3, url *u
 	return err
 }
 
-func validateCatCommand(c *cli.Context) error {
+func validateCatCommand(c *cli.Command) error {
 	if c.Args().Len() != 1 {
 		return fmt.Errorf("expected only one argument")
 	}

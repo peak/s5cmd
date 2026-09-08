@@ -13,7 +13,6 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/lanrat/extsort"
 	"github.com/peak/s5cmd/v2/strutil"
 )
 
@@ -378,7 +377,8 @@ func (u URL) ToBytes() []byte {
 	return buf.Bytes()
 }
 
-func FromBytes(data []byte) extsort.SortType {
+// FromBytes reconstructs a URL from the bytes produced by ToBytes.
+func FromBytes(data []byte) *URL {
 	buf := bytes.NewBuffer(data)
 	dec := gob.NewDecoder(buf)
 	var (

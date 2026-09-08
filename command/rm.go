@@ -6,7 +6,7 @@ import (
 	"regexp"
 
 	"github.com/hashicorp/go-multierror"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 
 	errorpkg "github.com/peak/s5cmd/v2/error"
 	"github.com/peak/s5cmd/v2/log"
@@ -16,51 +16,50 @@ import (
 )
 
 var deleteHelpTemplate = `Name:
-	{{.HelpName}} - {{.Usage}}
+	{{.FullName}} - {{.Usage}}
 
 Usage:
-	{{.HelpName}} argument [argument]
+	{{.FullName}} argument [argument]
 
 Options:
 	{{range .VisibleFlags}}{{.}}
 	{{end}}
 Examples:
 	1. Delete an S3 object
-		 > s5cmd {{.HelpName}} s3://bucketname/prefix/object.gz
+		 > {{.FullName}} s3://bucketname/prefix/object.gz
 
 	2. Delete all objects with a prefix
-		 > s5cmd {{.HelpName}} "s3://bucketname/prefix/*"
+		 > {{.FullName}} "s3://bucketname/prefix/*"
 
 	3. Delete all objects that matches a wildcard
-		 > s5cmd {{.HelpName}} "s3://bucketname/*/obj*.gz"
+		 > {{.FullName}} "s3://bucketname/*/obj*.gz"
 
 	4. Delete all matching objects and a specific object
-		 > s5cmd {{.HelpName}} "s3://bucketname/prefix/*" s3://bucketname/object1.gz
+		 > {{.FullName}} "s3://bucketname/prefix/*" s3://bucketname/object1.gz
 
 	5. Delete all matching objects but exclude the ones with .txt extension or starts with "main"
-		 > s5cmd {{.HelpName}} --exclude "*.txt" --exclude "main*" "s3://bucketname/prefix/*"
+		 > {{.FullName}} --exclude "*.txt" --exclude "main*" "s3://bucketname/prefix/*"
 
 	6. Delete all matching objects but only the ones with .txt extension or starts with "main"
-		 > s5cmd {{.HelpName}} --include "*.txt" --include "main*" "s3://bucketname/prefix/*"
+		 > {{.FullName}} --include "*.txt" --include "main*" "s3://bucketname/prefix/*"
 
 	7. Delete the specific version of a remote object's content to stdout
-		 > s5cmd {{.HelpName}} --version-id VERSION_ID s3://bucket/prefix/object
+		 > {{.FullName}} --version-id VERSION_ID s3://bucket/prefix/object
 
 	8. Delete all versions of an object in the bucket
-		 > s5cmd {{.HelpName}} --all-versions s3://bucket/object
+		 > {{.FullName}} --all-versions s3://bucket/object
 
 	9. Delete all versions of all objects that starts with a prefix in the bucket
-		 > s5cmd {{.HelpName}} --all-versions "s3://bucket/prefix*"
+		 > {{.FullName}} --all-versions "s3://bucket/prefix*"
 
 	10. Delete all versions of all objects in the bucket
-		 > s5cmd {{.HelpName}} --all-versions "s3://bucket/*"
+		 > {{.FullName}} --all-versions "s3://bucket/*"
 `
 
 func NewDeleteCommand() *cli.Command {
 	cmd := &cli.Command{
-		Name:     "rm",
-		HelpName: "rm",
-		Usage:    "remove objects",
+		Name:  "rm",
+		Usage: "remove objects",
 		Flags: []cli.Flag{
 			&cli.BoolFlag{
 				Name:  "raw",
@@ -84,39 +83,39 @@ func NewDeleteCommand() *cli.Command {
 			},
 		},
 		CustomHelpTemplate: deleteHelpTemplate,
-		Before: func(c *cli.Context) error {
+		Before: func(ctx context.Context, c *cli.Command) (context.Context, error) {
 			err := validateRMCommand(c)
 			if err != nil {
-				printError(commandFromContext(c), c.Command.Name, err)
+				printError(commandFromContext(c), c.Name, err)
 			}
-			return err
+			return ctx, err
 		},
-		Action: func(c *cli.Context) (err error) {
-			defer stat.Collect(c.Command.FullName(), &err)()
+		Action: func(ctx context.Context, c *cli.Command) (err error) {
+			defer stat.Collect(commandName(c), &err)()
 			fullCommand := commandFromContext(c)
 
 			sources := c.Args().Slice()
 			srcUrls, err := newURLs(c.Bool("raw"), c.String("version-id"), c.Bool("all-versions"), sources...)
 			if err != nil {
-				printError(fullCommand, c.Command.Name, err)
+				printError(fullCommand, c.Name, err)
 				return err
 			}
 
 			excludePatterns, err := createRegexFromWildcard(c.StringSlice("exclude"))
 			if err != nil {
-				printError(fullCommand, c.Command.Name, err)
+				printError(fullCommand, c.Name, err)
 				return err
 			}
 
 			includePatterns, err := createRegexFromWildcard(c.StringSlice("include"))
 			if err != nil {
-				printError(fullCommand, c.Command.Name, err)
+				printError(fullCommand, c.Name, err)
 				return err
 			}
 
 			return Delete{
 				src:         srcUrls,
-				op:          c.Command.Name,
+				op:          c.Name,
 				fullCommand: fullCommand,
 
 				// flags
@@ -128,11 +127,11 @@ func NewDeleteCommand() *cli.Command {
 				includePatterns: includePatterns,
 
 				storageOpts: NewStorageOpts(c),
-			}.Run(c.Context)
+			}.Run(ctx)
 		},
 	}
 
-	cmd.BashComplete = getBashCompleteFn(cmd, false, false)
+	cmd.ShellComplete = getBashCompleteFn(cmd, false, false)
 	return cmd
 }
 
@@ -241,7 +240,7 @@ func newURLs(isRaw bool, versionID string, isAllVersions bool, sources ...string
 	return urls, nil
 }
 
-func validateRMCommand(c *cli.Context) error {
+func validateRMCommand(c *cli.Command) error {
 	if !c.Args().Present() {
 		return fmt.Errorf("expected at least 1 object to remove")
 	}

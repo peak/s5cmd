@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 
 	"github.com/peak/s5cmd/v2/log"
 	"github.com/peak/s5cmd/v2/log/stat"
@@ -21,10 +22,21 @@ const (
 	appName = "s5cmd"
 )
 
-var app = &cli.App{
-	Name:                 appName,
-	Usage:                "Blazing fast S3 and local filesystem execution tool",
-	EnableBashCompletion: true,
+// v3 runs the Before hooks of a command's entire lineage, and run-mode
+// executes each line of its input as a child of the root command, so the root
+// Before below is re-entered once per line. The process-wide setup it does
+// must happen exactly once: re-running parallel.Init would swap the worker
+// pool out from under running workers, and re-running log.Init races with
+// every goroutine already logging through it.
+var (
+	initOnce sync.Once
+	statOnce sync.Once
+)
+
+var app = &cli.Command{
+	Name:                  appName,
+	Usage:                 "Blazing fast S3 and local filesystem execution tool",
+	EnableShellCompletion: true,
 	Flags: []cli.Flag{
 		&cli.BoolFlag{
 			Name:  "json",
@@ -44,7 +56,7 @@ var app = &cli.App{
 		&cli.StringFlag{
 			Name:    "endpoint-url",
 			Usage:   "override default S3 host for custom services",
-			EnvVars: []string{"S3_ENDPOINT_URL"},
+			Sources: cli.EnvVars("S3_ENDPOINT_URL"),
 		},
 		&cli.BoolFlag{
 			Name:  "no-verify-ssl",
@@ -91,48 +103,50 @@ var app = &cli.App{
 			Usage: "use the specified credentials file instead of the default credentials file",
 		},
 	},
-	Before: func(c *cli.Context) error {
+	Before: func(ctx context.Context, c *cli.Command) (context.Context, error) {
 		retryCount := c.Int("retry-count")
 		workerCount := c.Int("numworkers")
 		printJSON := c.Bool("json")
-		logLevel := c.String("log")
+		logLevel := genericString(c, "log")
 		isStat := c.Bool("stat")
 		endpointURL := c.String("endpoint-url")
 
-		log.Init(logLevel, printJSON)
-		parallel.Init(workerCount)
+		initOnce.Do(func() {
+			log.Init(logLevel, printJSON)
+			parallel.Init(workerCount)
+		})
 
 		if retryCount < 0 {
 			err := fmt.Errorf("retry count cannot be a negative value")
-			printError(commandFromContext(c), c.Command.Name, err)
-			return err
+			printError(commandFromContext(c), c.Name, err)
+			return ctx, err
 		}
 		if c.Bool("no-sign-request") && c.String("profile") != "" {
 			err := fmt.Errorf(`"no-sign-request" and "profile" flags cannot be used together`)
-			printError(commandFromContext(c), c.Command.Name, err)
-			return err
+			printError(commandFromContext(c), c.Name, err)
+			return ctx, err
 		}
 		if c.Bool("no-sign-request") && c.String("credentials-file") != "" {
 			err := fmt.Errorf(`"no-sign-request" and "credentials-file" flags cannot be used together`)
-			printError(commandFromContext(c), c.Command.Name, err)
-			return err
+			printError(commandFromContext(c), c.Name, err)
+			return ctx, err
 		}
 
 		if isStat {
-			stat.InitStat()
+			statOnce.Do(stat.InitStat)
 		}
 
 		if endpointURL != "" {
 			if !strings.HasPrefix(endpointURL, "http") {
 				err := fmt.Errorf(`bad value for --endpoint-url %v: scheme is missing. Must be of the form http://<hostname>/ or https://<hostname>/`, endpointURL)
-				printError(commandFromContext(c), c.Command.Name, err)
-				return err
+				printError(commandFromContext(c), c.Name, err)
+				return ctx, err
 			}
 		}
 
-		return nil
+		return ctx, nil
 	},
-	CommandNotFound: func(c *cli.Context, command string) {
+	CommandNotFound: func(_ context.Context, _ *cli.Command, command string) {
 		msg := log.ErrorMessage{
 			Command: command,
 			Err:     "command not found",
@@ -143,7 +157,7 @@ var app = &cli.App{
 		parallel.Close()
 		log.Close()
 	},
-	OnUsageError: func(c *cli.Context, err error, isSubcommand bool) error {
+	OnUsageError: func(_ context.Context, _ *cli.Command, err error, _ bool) error {
 		if err != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "%s %s\n", "Incorrect Usage:", err.Error())
 			_, _ = fmt.Fprintf(os.Stderr, "See 's5cmd --help' for usage\n")
@@ -152,20 +166,21 @@ var app = &cli.App{
 
 		return nil
 	},
-	Action: func(c *cli.Context) error {
+	Action: func(ctx context.Context, c *cli.Command) error {
 		if c.Bool("install-completion") {
 			printAutocompletionInstructions(os.Getenv("SHELL"))
 			return nil
 		}
 		args := c.Args()
 		if args.Present() {
-			cli.ShowCommandHelp(c, args.First())
+			//nolint:errcheck // help output failure is not actionable here
+			cli.ShowCommandHelp(ctx, c, args.First())
 			return cli.Exit("", 1)
 		}
 
-		return cli.ShowAppHelp(c)
+		return cli.ShowRootCommandHelp(c)
 	},
-	After: func(c *cli.Context) error {
+	After: func(_ context.Context, c *cli.Command) error {
 		if c.Bool("stat") && len(stat.Statistics()) > 0 {
 			log.Stat(stat.Statistics())
 		}
@@ -176,8 +191,8 @@ var app = &cli.App{
 	},
 }
 
-// NewStorageOpts creates storage.Options object from the given context.
-func NewStorageOpts(c *cli.Context) storage.Options {
+// NewStorageOpts creates storage.Options object from the given command.
+func NewStorageOpts(c *cli.Command) storage.Options {
 	return storage.Options{
 		DryRun:                 c.Bool("dry-run"),
 		Endpoint:               c.String("endpoint-url"),
@@ -188,7 +203,7 @@ func NewStorageOpts(c *cli.Context) storage.Options {
 		UseListObjectsV1:       c.Bool("use-list-objects-v1"),
 		Profile:                c.String("profile"),
 		CredentialFile:         c.String("credentials-file"),
-		LogLevel:               log.LevelFromString(c.String("log")),
+		LogLevel:               log.LevelFromString(genericString(c, "log")),
 		NoSuchUploadRetryCount: c.Int("no-such-upload-retry-count"),
 	}
 }
@@ -224,9 +239,28 @@ func AppCommand(name string) *cli.Command {
 	return nil
 }
 
+// dropBeforeHooks clears the Before hook of each command and of any
+// sub-commands it has.
+func dropBeforeHooks(cmds []*cli.Command) {
+	for _, cmd := range cmds {
+		cmd.Before = nil
+		dropBeforeHooks(cmd.Commands)
+	}
+}
+
 // Main is the entrypoint function to run given commands.
 func Main(ctx context.Context, args []string) error {
 	app.Commands = Commands()
 
-	return app.RunContext(ctx, args)
+	// v3 runs the Before hooks before handing over to the shell-completion
+	// callback, and every s5cmd command validates its argument count there
+	// -- which a half-typed command line cannot satisfy, so completion would
+	// produce nothing at all. Drop them for a completion request. The root
+	// Before is kept: it validates flags rather than arguments, and it is
+	// what initialises the logger the completion path may log through.
+	if len(args) > 0 && args[len(args)-1] == "--generate-shell-completion" {
+		dropBeforeHooks(app.Commands)
+	}
+
+	return app.Run(ctx, args)
 }

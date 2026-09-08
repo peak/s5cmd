@@ -14,7 +14,7 @@ import (
 	"sync"
 
 	"github.com/hashicorp/go-multierror"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 
 	errorpkg "github.com/peak/s5cmd/v2/error"
 	"github.com/peak/s5cmd/v2/log"
@@ -38,86 +38,86 @@ const (
 )
 
 var copyHelpTemplate = `Name:
-	{{.HelpName}} - {{.Usage}}
+	{{.FullName}} - {{.Usage}}
 
 Usage:
-	{{.HelpName}} [options] source destination
+	{{.FullName}} [options] source destination
 
 Options:
 	{{range .VisibleFlags}}{{.}}
 	{{end}}
 Examples:
 	01. Download an S3 object to working directory
-		 > s5cmd {{.HelpName}} s3://bucket/prefix/object.gz .
+		 > {{.FullName}} s3://bucket/prefix/object.gz .
 
 	02. Download an S3 object and rename
-		 > s5cmd {{.HelpName}} s3://bucket/prefix/object.gz myobject.gz
+		 > {{.FullName}} s3://bucket/prefix/object.gz myobject.gz
 
 	03. Download all S3 objects to a directory
-		 > s5cmd {{.HelpName}} "s3://bucket/*" target-directory/
+		 > {{.FullName}} "s3://bucket/*" target-directory/
 
 	04. Download an S3 object from a public bucket
-		 > s5cmd --no-sign-request {{.HelpName}} s3://bucket/prefix/object.gz .
+		 > s5cmd --no-sign-request {{.Name}} s3://bucket/prefix/object.gz .
 
 	05. Upload a file to S3 bucket
-		 > s5cmd {{.HelpName}} myfile.gz s3://bucket/
+		 > {{.FullName}} myfile.gz s3://bucket/
 
 	06. Upload matching files to S3 bucket
-		 > s5cmd {{.HelpName}} "dir/*.gz" s3://bucket/
+		 > {{.FullName}} "dir/*.gz" s3://bucket/
 
 	07. Upload all files in a directory to S3 bucket recursively
-		 > s5cmd {{.HelpName}} dir/ s3://bucket/
+		 > {{.FullName}} dir/ s3://bucket/
 
 	08. Copy S3 object to another bucket
-		 > s5cmd {{.HelpName}} s3://bucket/object s3://target-bucket/prefix/object
+		 > {{.FullName}} s3://bucket/object s3://target-bucket/prefix/object
 
 	09. Copy matching S3 objects to another bucket
-		 > s5cmd {{.HelpName}} "s3://bucket/*.gz" s3://target-bucket/prefix/
+		 > {{.FullName}} "s3://bucket/*.gz" s3://target-bucket/prefix/
 
 	10. Copy files in a directory to S3 prefix if not found on target
-		 > s5cmd {{.HelpName}} -n -s -u dir/ s3://bucket/target-prefix/
+		 > {{.FullName}} -n -s -u dir/ s3://bucket/target-prefix/
 
 	11. Copy files in an S3 prefix to another S3 prefix if not found on target
-		 > s5cmd {{.HelpName}} -n -s -u "s3://bucket/source-prefix/*" s3://bucket/target-prefix/
+		 > {{.FullName}} -n -s -u "s3://bucket/source-prefix/*" s3://bucket/target-prefix/
 
 	12. Perform KMS Server Side Encryption of the object(s) at the destination
-		 > s5cmd {{.HelpName}} --sse aws:kms s3://bucket/object s3://target-bucket/prefix/object
+		 > {{.FullName}} --sse aws:kms s3://bucket/object s3://target-bucket/prefix/object
 
 	13. Perform KMS-SSE of the object(s) at the destination using customer managed Customer Master Key (CMK) key id
-		 > s5cmd {{.HelpName}} --sse aws:kms --sse-kms-key-id <your-kms-key-id> s3://bucket/object s3://target-bucket/prefix/object
+		 > {{.FullName}} --sse aws:kms --sse-kms-key-id <your-kms-key-id> s3://bucket/object s3://target-bucket/prefix/object
 
 	14. Force transfer of GLACIER objects with a prefix whether they are restored or not
-		 > s5cmd {{.HelpName}} --force-glacier-transfer "s3://bucket/prefix/*" target-directory/
+		 > {{.FullName}} --force-glacier-transfer "s3://bucket/prefix/*" target-directory/
 
 	15. Upload a file to S3 bucket with public read s3 acl
-		 > s5cmd {{.HelpName}} --acl "public-read" myfile.gz s3://bucket/
+		 > {{.FullName}} --acl "public-read" myfile.gz s3://bucket/
 
 	16. Upload a file to S3 bucket with expires header
-		 > s5cmd {{.HelpName}} --expires "2024-10-01T20:30:00Z" myfile.gz s3://bucket/
+		 > {{.FullName}} --expires "2024-10-01T20:30:00Z" myfile.gz s3://bucket/
 
 	17. Upload a file to S3 bucket with cache-control header
-		 > s5cmd {{.HelpName}} --cache-control "public, max-age=345600" myfile.gz s3://bucket/
+		 > {{.FullName}} --cache-control "public, max-age=345600" myfile.gz s3://bucket/
 
 	18. Copy all files to S3 bucket but exclude the ones with txt and gz extension
-		 > s5cmd {{.HelpName}} --exclude "*.txt" --exclude "*.gz" dir/ s3://bucket
+		 > {{.FullName}} --exclude "*.txt" --exclude "*.gz" dir/ s3://bucket
 
 	19. Copy all files from S3 bucket to another S3 bucket but exclude the ones starts with log
-		 > s5cmd {{.HelpName}} --exclude "log*" "s3://bucket/*" s3://destbucket
+		 > {{.FullName}} --exclude "log*" "s3://bucket/*" s3://destbucket
 
 	20. Copy all files from S3 bucket to another S3 bucket but only the ones starts with log
-		 > s5cmd {{.HelpName}} --include "log*" "s3://bucket/*" s3://destbucket
+		 > {{.FullName}} --include "log*" "s3://bucket/*" s3://destbucket
 
 	21. Download an S3 object from a requester pays bucket
-		 > s5cmd --request-payer=requester {{.HelpName}} s3://bucket/prefix/object.gz .
+		 > s5cmd --request-payer=requester {{.Name}} s3://bucket/prefix/object.gz .
 
 	22. Upload a file to S3 with a content-type and content-encoding header
 		 > s5cmd --content-type "text/css" --content-encoding "br" myfile.css.br s3://bucket/
 
 	23. Download the specific version of a remote object to working directory
-		 > s5cmd {{.HelpName}} --version-id VERSION_ID s3://bucket/prefix/object .
+		 > {{.FullName}} --version-id VERSION_ID s3://bucket/prefix/object .
 
 	24. Pass arbitrary metadata to the object during upload or copy
-		 > s5cmd {{.HelpName}} --metadata "camera=Nixon D750" --metadata "imageSize=6032x4032" flowers.png s3://bucket/prefix/flowers.png
+		 > {{.FullName}} --metadata "camera=Nixon D750" --metadata "imageSize=6032x4032" flowers.png s3://bucket/prefix/flowers.png
 `
 
 func NewSharedFlags() []cli.Flag {
@@ -265,30 +265,29 @@ func NewCopyCommandFlags() []cli.Flag {
 func NewCopyCommand() *cli.Command {
 	cmd := &cli.Command{
 		Name:               "cp",
-		HelpName:           "cp",
 		Usage:              "copy objects",
 		Flags:              NewCopyCommandFlags(),
 		CustomHelpTemplate: copyHelpTemplate,
-		Before: func(c *cli.Context) error {
-			err := validateCopyCommand(c)
+		Before: func(ctx context.Context, c *cli.Command) (context.Context, error) {
+			err := validateCopyCommand(ctx, c)
 			if err != nil {
-				printError(commandFromContext(c), c.Command.Name, err)
+				printError(commandFromContext(c), c.Name, err)
 			}
-			return err
+			return ctx, err
 		},
-		Action: func(c *cli.Context) (err error) {
-			defer stat.Collect(c.Command.FullName(), &err)()
+		Action: func(ctx context.Context, c *cli.Command) (err error) {
+			defer stat.Collect(commandName(c), &err)()
 
 			// don't delete source
 			copy, err := NewCopy(c, false)
 			if err != nil {
 				return err
 			}
-			return copy.Run(c.Context)
+			return copy.Run(ctx)
 		},
 	}
 
-	cmd.BashComplete = getBashCompleteFn(cmd, false, false)
+	cmd.ShellComplete = getBashCompleteFn(cmd, false, false)
 	return cmd
 }
 
@@ -339,20 +338,20 @@ type Copy struct {
 	storageOpts storage.Options
 }
 
-// NewCopy creates Copy from cli.Context.
-func NewCopy(c *cli.Context, deleteSource bool) (*Copy, error) {
+// NewCopy creates Copy from the cli command.
+func NewCopy(c *cli.Command, deleteSource bool) (*Copy, error) {
 	fullCommand := commandFromContext(c)
 
 	src, err := url.New(c.Args().Get(0), url.WithVersion(c.String("version-id")),
 		url.WithRaw(c.Bool("raw")))
 	if err != nil {
-		printError(fullCommand, c.Command.Name, err)
+		printError(fullCommand, c.Name, err)
 		return nil, err
 	}
 
 	dst, err := url.New(c.Args().Get(1), url.WithRaw(c.Bool("raw")))
 	if err != nil {
-		printError(fullCommand, c.Command.Name, err)
+		printError(fullCommand, c.Name, err)
 		return nil, err
 	}
 
@@ -367,14 +366,14 @@ func NewCopy(c *cli.Context, deleteSource bool) (*Copy, error) {
 	metadata, ok := c.Value("metadata").(MapValue)
 	if !ok {
 		err := errors.New("metadata flag is not a map")
-		printError(fullCommand, c.Command.Name, err)
+		printError(fullCommand, c.Name, err)
 		return nil, err
 	}
 
 	return &Copy{
 		src:          src,
 		dst:          dst,
-		op:           c.Command.Name,
+		op:           c.Name,
 		fullCommand:  fullCommand,
 		deleteSource: deleteSource,
 		// flags
@@ -399,7 +398,7 @@ func NewCopy(c *cli.Context, deleteSource bool) (*Copy, error) {
 		contentEncoding:       c.String("content-encoding"),
 		contentDisposition:    c.String("content-disposition"),
 		metadata:              metadata,
-		metadataDirective:     c.String("metadata-directive"),
+		metadataDirective:     genericString(c, "metadata-directive"),
 		showProgress:          c.Bool("show-progress"),
 		progressbar:           commandProgressBar,
 
@@ -950,8 +949,7 @@ func prepareLocalDestination(
 
 	obj, err := client.Stat(ctx, dsturl)
 	if err != nil {
-		var objNotFound *storage.ErrGivenObjectNotFound
-		if !errors.As(err, &objNotFound) {
+		if _, ok := errors.AsType[*storage.ErrGivenObjectNotFound](err); !ok {
 			return nil, err
 		}
 	}
@@ -963,8 +961,7 @@ func prepareLocalDestination(
 			return nil, err
 		}
 	}
-	var objNotFound *storage.ErrGivenObjectNotFound
-	if errors.As(err, &objNotFound) {
+	if _, ok := errors.AsType[*storage.ErrGivenObjectNotFound](err); ok {
 		err := client.MkdirAll(dsturl.Dir())
 		if err != nil {
 			return nil, err
@@ -985,20 +982,18 @@ func prepareLocalDestination(
 // found, error and returning object would be nil.
 func statObject(ctx context.Context, url *url.URL, client storage.Storage) (*storage.Object, error) {
 	obj, err := client.Stat(ctx, url)
-	var objNotFound *storage.ErrGivenObjectNotFound
-	if errors.As(err, &objNotFound) {
+	if _, ok := errors.AsType[*storage.ErrGivenObjectNotFound](err); ok {
 		return nil, nil
 	}
 
 	return obj, err
 }
 
-func validateCopyCommand(c *cli.Context) error {
+func validateCopyCommand(ctx context.Context, c *cli.Command) error {
 	if c.Args().Len() != 2 {
 		return fmt.Errorf("expected source and destination arguments")
 	}
 
-	ctx := c.Context
 	src := c.Args().Get(0)
 	dst := c.Args().Get(1)
 

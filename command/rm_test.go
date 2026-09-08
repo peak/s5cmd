@@ -1,10 +1,10 @@
 package command
 
 import (
-	"flag"
+	"context"
 	"testing"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 func TestValidateRMCommand(t *testing.T) {
@@ -55,15 +55,21 @@ func TestValidateRMCommand(t *testing.T) {
 		},
 	}
 	for _, tc := range tests {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			flagset := flag.NewFlagSet("rm", flag.ExitOnError)
-			if err := flagset.Parse(tc.sources); err != nil {
-				t.Error(err)
+			// v3 has no cli.Context; run a stand-in command so the
+			// arguments are parsed the way they would be in practice.
+			var err error
+			cmd := &cli.Command{
+				Name: "rm",
+				Action: func(_ context.Context, c *cli.Command) error {
+					err = validateRMCommand(c)
+					return nil
+				},
 			}
-			ctx := cli.NewContext(app, flagset, nil)
+			if runErr := cmd.Run(context.Background(), append([]string{"rm"}, tc.sources...)); runErr != nil {
+				t.Fatal(runErr)
+			}
 
-			err := validateRMCommand(ctx)
 			if (err != nil && err.Error() != tc.expectedErrStr) ||
 				(err == nil && tc.expectedErrStr != "") {
 				t.Errorf("expected_got = %v, error_expected = %v", err, tc.expectedErrStr)

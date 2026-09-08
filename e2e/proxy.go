@@ -36,8 +36,8 @@ func delHopHeaders(header http.Header) {
 }
 
 type httpProxy struct {
-	successReqs int64
-	errorReqs   int64
+	successReqs atomic.Int64
+	errorReqs   atomic.Int64
 }
 
 func (p *httpProxy) ServeHTTP(wr http.ResponseWriter, req *http.Request) {
@@ -65,9 +65,9 @@ func (p *httpProxy) ServeHTTP(wr http.ResponseWriter, req *http.Request) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusOK {
-		atomic.AddInt64(&p.successReqs, 1)
+		p.successReqs.Add(1)
 	} else {
-		atomic.AddInt64(&p.errorReqs, 1)
+		p.errorReqs.Add(1)
 	}
 	delHopHeaders(resp.Header)
 
@@ -77,7 +77,7 @@ func (p *httpProxy) ServeHTTP(wr http.ResponseWriter, req *http.Request) {
 }
 
 func (p *httpProxy) isSuccessful(totalReqs int64) bool {
-	return totalReqs == atomic.LoadInt64(&p.successReqs) && atomic.LoadInt64(&p.errorReqs) == 0
+	return totalReqs == p.successReqs.Load() && p.errorReqs.Load() == 0
 }
 
 func setupProxy(t *testing.T, p *httpProxy) string {

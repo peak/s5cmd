@@ -9,7 +9,7 @@ import (
 
 	"github.com/peak/s5cmd/v2/storage"
 	"github.com/peak/s5cmd/v2/storage/url"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 const zsh = `autoload -Uz compinit
@@ -19,7 +19,7 @@ _s5cmd_cli_zsh_autocomplete() {
 	local -a opts
 	local cur
 	cur=${words[-1]}
-	opts=("${(@f)$(${words[@]:0:#words[@]-1} "${cur}" --generate-bash-completion)}")
+	opts=("${(@f)$(${words[@]:0:#words[@]-1} "${cur}" --generate-shell-completion)}")
 
 	if [[ "${opts[1]}" != "" ]]; then
 	  _describe 'values' opts
@@ -52,11 +52,11 @@ _s5cmd_cli_bash_autocomplete() {
 		[ "${COMP_LINE:COMP_POINT-1:$COMP_POINT}" == " " ] \
 			&& cmd="${cmd} ''" ` +
 
-	// execute the command with '--generate-bash-completion' flag to obtain
+	// execute the command with '--generate-shell-completion' flag to obtain
 	// possible completion values for current word.
 	// ps. SC2090 is not wanted.
 	`
-		opts=$($cmd --generate-bash-completion)` +
+		opts=$($cmd --generate-shell-completion)` +
 
 	// prepare completion array with possible values and filter those do not start with cur.
 	// if no completion is found then fallback to default completion of shell.
@@ -80,20 +80,22 @@ const pwsh = `$fn = $($MyInvocation.MyCommand.Name)
 $name = $fn -replace "(.*)\.ps1$", '$1'
 Register-ArgumentCompleter -Native -CommandName $name -ScriptBlock {
 	param($commandName, $wordToComplete, $cursorPosition)
-	$other = "$wordToComplete --generate-bash-completion"
+	$other = "$wordToComplete --generate-shell-completion"
 	Invoke-Expression $other | ForEach-Object {
 		[System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
 	}
 }
 `
 
-func getBashCompleteFn(cmd *cli.Command, isOnlyRemote, isOnlyBucket bool) func(ctx *cli.Context) {
+// getBashCompleteFn returns a v3 ShellCompleteFunc. v2 carried the Go
+// context on cli.Context; v3 passes it in separately.
+func getBashCompleteFn(cmd *cli.Command, isOnlyRemote, isOnlyBucket bool) cli.ShellCompleteFunc {
 	isOnlyRemote = isOnlyRemote || isOnlyBucket
-	return func(ctx *cli.Context) {
-		arg := parseArgumentToComplete(ctx)
+	return func(ctx context.Context, c *cli.Command) {
+		arg := parseArgumentToComplete(c)
 
 		if strings.HasPrefix(arg, "-") {
-			cli.DefaultCompleteWithFlags(cmd)(ctx)
+			cli.DefaultCompleteWithFlags(ctx, cmd)
 			return
 		}
 
@@ -103,14 +105,13 @@ func getBashCompleteFn(cmd *cli.Command, isOnlyRemote, isOnlyBucket bool) func(c
 				u = &url.URL{Type: 0, Scheme: "s3"}
 			}
 
-			c := ctx.Context
-			client, err := storage.NewRemoteClient(c, u, NewStorageOpts(ctx))
+			client, err := storage.NewRemoteClient(ctx, u, NewStorageOpts(c))
 			if err != nil {
 				return
 			}
 
 			shell := filepath.Base(os.Getenv("SHELL"))
-			printS3Suggestions(c, shell, client, u, arg, isOnlyBucket)
+			printS3Suggestions(ctx, shell, client, u, arg, isOnlyBucket)
 			return
 		}
 	}
@@ -219,7 +220,7 @@ func formatSuggestionForShell(baseShell, suggestion, argToBeCompleted string) st
 	}
 }
 
-func parseArgumentToComplete(ctx *cli.Context) string {
+func parseArgumentToComplete(ctx *cli.Command) string {
 	var arg string
 	args := ctx.Args()
 	l := args.Len()
@@ -232,8 +233,8 @@ func parseArgumentToComplete(ctx *cli.Context) string {
 	// that before checking if it has prefix 's3://'.
 	// Beware that we only want to trim the first char, not all of the leading
 	// quotation marks, because those quotation marks may be actual characters.
-	if strings.HasPrefix(arg, "'") {
-		arg = strings.TrimPrefix(arg, "'")
+	if after, ok := strings.CutPrefix(arg, "'"); ok {
+		arg = after
 	} else {
 		arg = strings.TrimPrefix(arg, "\"")
 	}

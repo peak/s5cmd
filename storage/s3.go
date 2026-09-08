@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"math"
 	"math/big"
 	"net/http"
@@ -19,17 +20,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/aws/client"
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/endpoints"
-	"github.com/aws/aws-sdk-go/aws/request"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/aws/aws-sdk-go/service/s3/s3iface"
-	"github.com/aws/aws-sdk-go/service/s3/s3manager"
-	"github.com/aws/aws-sdk-go/service/s3/s3manager/s3manageriface"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/aws/retry"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
+	"github.com/aws/smithy-go"
+	"github.com/aws/smithy-go/logging"
 
 	"github.com/peak/s5cmd/v2/log"
 	"github.com/peak/s5cmd/v2/storage/url"
@@ -50,19 +48,66 @@ const (
 
 	// the key of the object metadata which is used to handle retry decision on NoSuchUpload error
 	metadataKeyRetryID = "s5cmd-upload-retry-id"
+
+	// defaultRegion is used when no region is given and none can be detected.
+	defaultRegion = "us-east-1"
 )
 
-// Re-used AWS sessions dramatically improve performance.
+// Re-used AWS configs dramatically improve performance.
 var globalSessionCache = &SessionCache{
-	sessions: map[Options]*session.Session{},
+	sessions: map[Options]aws.Config{},
+}
+
+// s3API is the subset of the S3 client used by S3. It exists so that the
+// client can be replaced by a mock in tests; the v2 SDK ships no equivalent
+// of v1's s3iface.
+type s3API interface {
+	CopyObject(context.Context, *s3.CopyObjectInput, ...func(*s3.Options)) (*s3.CopyObjectOutput, error)
+	CreateBucket(context.Context, *s3.CreateBucketInput, ...func(*s3.Options)) (*s3.CreateBucketOutput, error)
+	DeleteBucket(context.Context, *s3.DeleteBucketInput, ...func(*s3.Options)) (*s3.DeleteBucketOutput, error)
+	DeleteObject(context.Context, *s3.DeleteObjectInput, ...func(*s3.Options)) (*s3.DeleteObjectOutput, error)
+	DeleteObjects(context.Context, *s3.DeleteObjectsInput, ...func(*s3.Options)) (*s3.DeleteObjectsOutput, error)
+	GetBucketVersioning(context.Context, *s3.GetBucketVersioningInput, ...func(*s3.Options)) (*s3.GetBucketVersioningOutput, error)
+	GetObject(context.Context, *s3.GetObjectInput, ...func(*s3.Options)) (*s3.GetObjectOutput, error)
+	HeadBucket(context.Context, *s3.HeadBucketInput, ...func(*s3.Options)) (*s3.HeadBucketOutput, error)
+	HeadObject(context.Context, *s3.HeadObjectInput, ...func(*s3.Options)) (*s3.HeadObjectOutput, error)
+	ListBuckets(context.Context, *s3.ListBucketsInput, ...func(*s3.Options)) (*s3.ListBucketsOutput, error)
+	ListObjects(context.Context, *s3.ListObjectsInput, ...func(*s3.Options)) (*s3.ListObjectsOutput, error)
+	ListObjectsV2(context.Context, *s3.ListObjectsV2Input, ...func(*s3.Options)) (*s3.ListObjectsV2Output, error)
+	ListObjectVersions(context.Context, *s3.ListObjectVersionsInput, ...func(*s3.Options)) (*s3.ListObjectVersionsOutput, error)
+	PutBucketVersioning(context.Context, *s3.PutBucketVersioningInput, ...func(*s3.Options)) (*s3.PutBucketVersioningOutput, error)
+	SelectObjectContent(context.Context, *s3.SelectObjectContentInput, ...func(*s3.Options)) (*s3.SelectObjectContentOutput, error)
+}
+
+// The transfer manager is deprecated in favour of
+// github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager, which is still
+// pre-1.0 (v0.4.x). s5cmd stays on the stable v1.x package until its
+// successor reaches v1; these aliases keep that decision, and the
+// deprecation warning it implies, in one place.
+type (
+	//lint:ignore SA1019 successor is pre-1.0; revisit when it reaches v1
+	s3Uploader = manager.Uploader
+	//lint:ignore SA1019 successor is pre-1.0; revisit when it reaches v1
+	s3Downloader = manager.Downloader
+)
+
+// uploaderAPI and downloaderAPI mirror the parts of the transfer manager the
+// storage layer uses, so that they can be faked in tests.
+type uploaderAPI interface {
+	Upload(context.Context, *s3.PutObjectInput, ...func(*s3Uploader)) (*manager.UploadOutput, error)
+}
+
+type downloaderAPI interface {
+	Download(context.Context, io.WriterAt, *s3.GetObjectInput, ...func(*s3Downloader)) (int64, error)
 }
 
 // S3 is a storage type which interacts with S3API, DownloaderAPI and
 // UploaderAPI.
 type S3 struct {
-	api                    s3iface.S3API
-	downloader             s3manageriface.DownloaderAPI
-	uploader               s3manageriface.UploaderAPI
+	api                    s3API
+	presigner              *s3.PresignClient
+	downloader             downloaderAPI
+	uploader               uploaderAPI
 	endpointURL            urlpkg.URL
 	dryRun                 bool
 	useListObjectsV1       bool
@@ -70,11 +115,11 @@ type S3 struct {
 	requestPayer           string
 }
 
-func (s *S3) RequestPayer() *string {
+func (s *S3) RequestPayer() types.RequestPayer {
 	if s.requestPayer == "" {
-		return nil
+		return ""
 	}
-	return &s.requestPayer
+	return types.RequestPayer(s.requestPayer)
 }
 
 func parseEndpoint(endpoint string) (urlpkg.URL, error) {
@@ -90,6 +135,41 @@ func parseEndpoint(endpoint string) (urlpkg.URL, error) {
 	return *u, nil
 }
 
+// s3Options returns the client options implied by opts, shared by the S3
+// client and by the transfer manager.
+func s3Options(opts Options) (func(*s3.Options), error) {
+	endpointURL, err := parseEndpoint(opts.Endpoint)
+	if err != nil {
+		return nil, err
+	}
+
+	// use virtual-host-style if the endpoint is known to support it,
+	// otherwise use the path-style approach.
+	isVirtualHostStyle := isVirtualHostStyle(endpointURL)
+
+	useAccelerate := supportsTransferAcceleration(endpointURL)
+	// AWS SDK handles transfer acceleration automatically. Setting the
+	// Endpoint to a transfer acceleration endpoint would cause bucket
+	// operations fail.
+	if useAccelerate {
+		endpointURL = sentinelURL
+	}
+
+	return func(o *s3.Options) {
+		if endpointURL != sentinelURL {
+			o.BaseEndpoint = aws.String(endpointURL.String())
+		}
+		o.UsePathStyle = !isVirtualHostStyle
+		o.UseAccelerate = useAccelerate
+
+		// v2 computes a CRC32 checksum for every upload by default. Many
+		// S3-compatible services reject or mishandle those, and v1 never
+		// sent them, so only send a checksum where the API requires one.
+		o.RequestChecksumCalculation = aws.RequestChecksumCalculationWhenRequired
+		o.ResponseChecksumValidation = aws.ResponseChecksumValidationWhenRequired
+	}, nil
+}
+
 // NewS3Storage creates new S3 session.
 func newS3Storage(ctx context.Context, opts Options) (*S3, error) {
 	endpointURL, err := parseEndpoint(opts.Endpoint)
@@ -97,15 +177,25 @@ func newS3Storage(ctx context.Context, opts Options) (*S3, error) {
 		return nil, err
 	}
 
-	awsSession, err := globalSessionCache.newSession(ctx, opts)
+	cfg, err := globalSessionCache.newSession(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
 
+	optFn, err := s3Options(opts)
+	if err != nil {
+		return nil, err
+	}
+
+	client := s3.NewFromConfig(cfg, optFn)
+
 	return &S3{
-		api:                    s3.New(awsSession),
-		downloader:             s3manager.NewDownloader(awsSession),
-		uploader:               s3manager.NewUploader(awsSession),
+		api:       client,
+		presigner: s3.NewPresignClient(client),
+		//lint:ignore SA1019 successor is pre-1.0; revisit when it reaches v1
+		downloader: manager.NewDownloader(client),
+		//lint:ignore SA1019 successor is pre-1.0; revisit when it reaches v1
+		uploader:               manager.NewUploader(client),
 		endpointURL:            endpointURL,
 		dryRun:                 opts.DryRun,
 		useListObjectsV1:       opts.UseListObjectsV1,
@@ -122,10 +212,10 @@ func (s *S3) Stat(ctx context.Context, url *url.URL) (*Object, error) {
 		RequestPayer: s.RequestPayer(),
 	}
 	if url.VersionID != "" {
-		input.SetVersionId(url.VersionID)
+		input.VersionId = aws.String(url.VersionID)
 	}
 
-	output, err := s.api.HeadObjectWithContext(ctx, input)
+	output, err := s.api.HeadObject(ctx, input)
 	if err != nil {
 		if errHasCode(err, "NotFound") {
 			return nil, &ErrGivenObjectNotFound{ObjectAbsPath: url.Absolute()}
@@ -133,19 +223,19 @@ func (s *S3) Stat(ctx context.Context, url *url.URL) (*Object, error) {
 		return nil, err
 	}
 
-	etag := aws.StringValue(output.ETag)
-	mod := aws.TimeValue(output.LastModified)
+	etag := aws.ToString(output.ETag)
+	mod := aws.ToTime(output.LastModified)
 
 	obj := &Object{
 		URL:     url,
 		Etag:    strings.Trim(etag, `"`),
 		ModTime: &mod,
-		Size:    aws.Int64Value(output.ContentLength),
+		Size:    aws.ToInt64(output.ContentLength),
 	}
 
 	if s.noSuchUploadRetryCount > 0 {
 		if retryID, ok := output.Metadata[metadataKeyRetryID]; ok {
-			obj.retryID = *retryID
+			obj.retryID = retryID
 		}
 	}
 
@@ -173,7 +263,7 @@ func (s *S3) listObjectVersions(ctx context.Context, url *url.URL) <-chan *Objec
 	}
 
 	if url.Delimiter != "" {
-		listInput.SetDelimiter(url.Delimiter)
+		listInput.Delimiter = aws.String(url.Delimiter)
 	}
 
 	objCh := make(chan *Object)
@@ -184,107 +274,107 @@ func (s *S3) listObjectVersions(ctx context.Context, url *url.URL) <-chan *Objec
 
 		var now time.Time
 
-		err := s.api.ListObjectVersionsPagesWithContext(ctx, &listInput,
-			func(p *s3.ListObjectVersionsOutput, lastPage bool) bool {
-				for _, c := range p.CommonPrefixes {
-					prefix := aws.StringValue(c.Prefix)
-					if !url.Match(prefix) {
-						continue
-					}
+		paginator := s3.NewListObjectVersionsPaginator(s.api, &listInput)
+		for paginator.HasMorePages() {
+			p, err := paginator.NextPage(ctx)
+			if err != nil {
+				objCh <- &Object{Err: err}
+				return
+			}
 
-					newurl := url.Clone()
-					newurl.Path = prefix
-					objCh <- &Object{
-						URL:  newurl,
-						Type: ObjectType{os.ModeDir},
-					}
+			for _, c := range p.CommonPrefixes {
+				prefix := aws.ToString(c.Prefix)
+				if !url.Match(prefix) {
+					continue
+				}
 
+				newurl := url.Clone()
+				newurl.Path = prefix
+				objCh <- &Object{
+					URL:  newurl,
+					Type: ObjectType{os.ModeDir},
+				}
+
+				objectFound = true
+			}
+			// track the instant object iteration began,
+			// so it can be used to bypass objects created after this instant
+			if now.IsZero() {
+				now = time.Now().UTC()
+			}
+
+			// iterate over all versions of the objects (except the delete markers)
+			for _, v := range p.Versions {
+				key := aws.ToString(v.Key)
+				if !url.Match(key) {
+					continue
+				}
+				if url.VersionID != "" && url.VersionID != aws.ToString(v.VersionId) {
+					continue
+				}
+
+				mod := aws.ToTime(v.LastModified).UTC()
+				if mod.After(now) {
 					objectFound = true
-				}
-				// track the instant object iteration began,
-				// so it can be used to bypass objects created after this instant
-				if now.IsZero() {
-					now = time.Now().UTC()
+					continue
 				}
 
-				// iterate over all versions of the objects (except the delete markers)
-				for _, v := range p.Versions {
-					key := aws.StringValue(v.Key)
-					if !url.Match(key) {
-						continue
-					}
-					if url.VersionID != "" && url.VersionID != aws.StringValue(v.VersionId) {
-						continue
-					}
+				var objtype os.FileMode
+				if strings.HasSuffix(key, "/") {
+					objtype = os.ModeDir
+				}
 
-					mod := aws.TimeValue(v.LastModified).UTC()
-					if mod.After(now) {
-						objectFound = true
-						continue
-					}
+				newurl := url.Clone()
+				newurl.Path = aws.ToString(v.Key)
+				newurl.VersionID = aws.ToString(v.VersionId)
+				etag := aws.ToString(v.ETag)
 
-					var objtype os.FileMode
-					if strings.HasSuffix(key, "/") {
-						objtype = os.ModeDir
-					}
+				objCh <- &Object{
+					URL:          newurl,
+					Etag:         strings.Trim(etag, `"`),
+					ModTime:      &mod,
+					Type:         ObjectType{objtype},
+					Size:         aws.ToInt64(v.Size),
+					StorageClass: StorageClass(v.StorageClass),
+				}
 
-					newurl := url.Clone()
-					newurl.Path = aws.StringValue(v.Key)
-					newurl.VersionID = aws.StringValue(v.VersionId)
-					etag := aws.StringValue(v.ETag)
+				objectFound = true
+			}
 
-					objCh <- &Object{
-						URL:          newurl,
-						Etag:         strings.Trim(etag, `"`),
-						ModTime:      &mod,
-						Type:         ObjectType{objtype},
-						Size:         aws.Int64Value(v.Size),
-						StorageClass: StorageClass(aws.StringValue(v.StorageClass)),
-					}
+			// iterate over all delete marker versions of the objects
+			for _, d := range p.DeleteMarkers {
+				key := aws.ToString(d.Key)
+				if !url.Match(key) {
+					continue
+				}
+				if url.VersionID != "" && url.VersionID != aws.ToString(d.VersionId) {
+					continue
+				}
 
+				mod := aws.ToTime(d.LastModified).UTC()
+				if mod.After(now) {
 					objectFound = true
+					continue
 				}
 
-				// iterate over all delete marker versions of the objects
-				for _, d := range p.DeleteMarkers {
-					key := aws.StringValue(d.Key)
-					if !url.Match(key) {
-						continue
-					}
-					if url.VersionID != "" && url.VersionID != aws.StringValue(d.VersionId) {
-						continue
-					}
-
-					mod := aws.TimeValue(d.LastModified).UTC()
-					if mod.After(now) {
-						objectFound = true
-						continue
-					}
-
-					var objtype os.FileMode
-					if strings.HasSuffix(key, "/") {
-						objtype = os.ModeDir
-					}
-
-					newurl := url.Clone()
-					newurl.Path = aws.StringValue(d.Key)
-					newurl.VersionID = aws.StringValue(d.VersionId)
-
-					objCh <- &Object{
-						URL:     newurl,
-						ModTime: &mod,
-						Type:    ObjectType{objtype},
-						Size:    0,
-					}
-
-					objectFound = true
+				var objtype os.FileMode
+				if strings.HasSuffix(key, "/") {
+					objtype = os.ModeDir
 				}
 
-				return !lastPage
-			})
-		if err != nil {
-			objCh <- &Object{Err: err}
-			return
+				newurl := url.Clone()
+				newurl.Path = aws.ToString(d.Key)
+				newurl.VersionID = aws.ToString(d.VersionId)
+
+				objCh <- &Object{
+					URL:     newurl,
+					ModTime: &mod,
+					Type:    ObjectType{objtype},
+					Size:    0,
+				}
+
+				objectFound = true
+			}
 		}
 
 		if !objectFound && !url.IsBucket() {
@@ -303,7 +393,7 @@ func (s *S3) listObjectsV2(ctx context.Context, url *url.URL) <-chan *Object {
 	}
 
 	if url.Delimiter != "" {
-		listInput.SetDelimiter(url.Delimiter)
+		listInput.Delimiter = aws.String(url.Delimiter)
 	}
 
 	objCh := make(chan *Object)
@@ -314,9 +404,16 @@ func (s *S3) listObjectsV2(ctx context.Context, url *url.URL) <-chan *Object {
 
 		var now time.Time
 
-		err := s.api.ListObjectsV2PagesWithContext(ctx, &listInput, func(p *s3.ListObjectsV2Output, lastPage bool) bool {
+		paginator := s3.NewListObjectsV2Paginator(s.api, &listInput)
+		for paginator.HasMorePages() {
+			p, err := paginator.NextPage(ctx)
+			if err != nil {
+				objCh <- &Object{Err: err}
+				return
+			}
+
 			for _, c := range p.CommonPrefixes {
-				prefix := aws.StringValue(c.Prefix)
+				prefix := aws.ToString(c.Prefix)
 				if !url.Match(prefix) {
 					continue
 				}
@@ -337,12 +434,12 @@ func (s *S3) listObjectsV2(ctx context.Context, url *url.URL) <-chan *Object {
 			}
 
 			for _, c := range p.Contents {
-				key := aws.StringValue(c.Key)
+				key := aws.ToString(c.Key)
 				if !url.Match(key) {
 					continue
 				}
 
-				mod := aws.TimeValue(c.LastModified).UTC()
+				mod := aws.ToTime(c.LastModified).UTC()
 				if mod.After(now) {
 					objectFound = true
 					continue
@@ -354,26 +451,20 @@ func (s *S3) listObjectsV2(ctx context.Context, url *url.URL) <-chan *Object {
 				}
 
 				newurl := url.Clone()
-				newurl.Path = aws.StringValue(c.Key)
-				etag := aws.StringValue(c.ETag)
+				newurl.Path = aws.ToString(c.Key)
+				etag := aws.ToString(c.ETag)
 
 				objCh <- &Object{
 					URL:          newurl,
 					Etag:         strings.Trim(etag, `"`),
 					ModTime:      &mod,
 					Type:         ObjectType{objtype},
-					Size:         aws.Int64Value(c.Size),
-					StorageClass: StorageClass(aws.StringValue(c.StorageClass)),
+					Size:         aws.ToInt64(c.Size),
+					StorageClass: StorageClass(c.StorageClass),
 				}
 
 				objectFound = true
 			}
-
-			return !lastPage
-		})
-		if err != nil {
-			objCh <- &Object{Err: err}
-			return
 		}
 
 		if !objectFound && !url.IsBucket() {
@@ -386,6 +477,9 @@ func (s *S3) listObjectsV2(ctx context.Context, url *url.URL) <-chan *Object {
 
 // listObjects is used for cloud services that does not support S3
 // ListObjectsV2 API. I'm looking at you GCS.
+//
+// The v2 SDK ships no paginator for the legacy ListObjects operation, so the
+// marker is advanced by hand.
 func (s *S3) listObjects(ctx context.Context, url *url.URL) <-chan *Object {
 	listInput := s3.ListObjectsInput{
 		Bucket:       aws.String(url.Bucket),
@@ -394,7 +488,7 @@ func (s *S3) listObjects(ctx context.Context, url *url.URL) <-chan *Object {
 	}
 
 	if url.Delimiter != "" {
-		listInput.SetDelimiter(url.Delimiter)
+		listInput.Delimiter = aws.String(url.Delimiter)
 	}
 
 	objCh := make(chan *Object)
@@ -405,9 +499,15 @@ func (s *S3) listObjects(ctx context.Context, url *url.URL) <-chan *Object {
 
 		var now time.Time
 
-		err := s.api.ListObjectsPagesWithContext(ctx, &listInput, func(p *s3.ListObjectsOutput, lastPage bool) bool {
+		for {
+			p, err := s.api.ListObjects(ctx, &listInput)
+			if err != nil {
+				objCh <- &Object{Err: err}
+				return
+			}
+
 			for _, c := range p.CommonPrefixes {
-				prefix := aws.StringValue(c.Prefix)
+				prefix := aws.ToString(c.Prefix)
 				if !url.Match(prefix) {
 					continue
 				}
@@ -428,12 +528,12 @@ func (s *S3) listObjects(ctx context.Context, url *url.URL) <-chan *Object {
 			}
 
 			for _, c := range p.Contents {
-				key := aws.StringValue(c.Key)
+				key := aws.ToString(c.Key)
 				if !url.Match(key) {
 					continue
 				}
 
-				mod := aws.TimeValue(c.LastModified).UTC()
+				mod := aws.ToTime(c.LastModified).UTC()
 				if mod.After(now) {
 					objectFound = true
 					continue
@@ -445,26 +545,35 @@ func (s *S3) listObjects(ctx context.Context, url *url.URL) <-chan *Object {
 				}
 
 				newurl := url.Clone()
-				newurl.Path = aws.StringValue(c.Key)
-				etag := aws.StringValue(c.ETag)
+				newurl.Path = aws.ToString(c.Key)
+				etag := aws.ToString(c.ETag)
 
 				objCh <- &Object{
 					URL:          newurl,
 					Etag:         strings.Trim(etag, `"`),
 					ModTime:      &mod,
 					Type:         ObjectType{objtype},
-					Size:         aws.Int64Value(c.Size),
-					StorageClass: StorageClass(aws.StringValue(c.StorageClass)),
+					Size:         aws.ToInt64(c.Size),
+					StorageClass: StorageClass(c.StorageClass),
 				}
 
 				objectFound = true
 			}
 
-			return !lastPage
-		})
-		if err != nil {
-			objCh <- &Object{Err: err}
-			return
+			if !aws.ToBool(p.IsTruncated) {
+				break
+			}
+
+			// NextMarker is only populated when a delimiter is set;;
+			// otherwise the last key of the page is the next marker.
+			marker := aws.ToString(p.NextMarker)
+			if marker == "" && len(p.Contents) > 0 {
+				marker = aws.ToString(p.Contents[len(p.Contents)-1].Key)
+			}
+			if marker == "" {
+				break
+			}
+			listInput.Marker = aws.String(marker)
 		}
 
 		if !objectFound && !url.IsBucket() {
@@ -490,6 +599,7 @@ func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata Metadata) err
 		Key:          aws.String(to.Path),
 		CopySource:   aws.String(copySource),
 		RequestPayer: s.RequestPayer(),
+		Metadata:     make(map[string]string),
 	}
 	if from.VersionID != "" {
 		// Unlike many other *Input and *Output types version ID is not a field,
@@ -502,12 +612,12 @@ func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata Metadata) err
 
 	storageClass := metadata.StorageClass
 	if storageClass != "" {
-		input.StorageClass = aws.String(storageClass)
+		input.StorageClass = types.StorageClass(storageClass)
 	}
 
 	acl := metadata.ACL
 	if acl != "" {
-		input.ACL = aws.String(acl)
+		input.ACL = types.ObjectCannedACL(acl)
 	}
 
 	cacheControl := metadata.CacheControl
@@ -526,7 +636,7 @@ func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata Metadata) err
 
 	sseEncryption := metadata.EncryptionMethod
 	if sseEncryption != "" {
-		input.ServerSideEncryption = aws.String(sseEncryption)
+		input.ServerSideEncryption = types.ServerSideEncryption(sseEncryption)
 		sseKmsKeyID := metadata.EncryptionKeyID
 		if sseKmsKeyID != "" {
 			input.SSEKMSKeyId = aws.String(sseKmsKeyID)
@@ -543,28 +653,26 @@ func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata Metadata) err
 		input.ContentDisposition = aws.String(contentDisposition)
 	}
 
+	if len(metadata.UserDefined) != 0 {
+		m := make(map[string]string, len(metadata.UserDefined))
+		maps.Copy(m, metadata.UserDefined)
+		input.Metadata = m
+	}
+
 	// add retry ID to the object metadata
 	if s.noSuchUploadRetryCount > 0 {
 		input.Metadata[metadataKeyRetryID] = generateRetryID()
 	}
 
 	if metadata.Directive != "" {
-		input.MetadataDirective = aws.String(metadata.Directive)
+		input.MetadataDirective = types.MetadataDirective(metadata.Directive)
 	}
 
 	if metadata.ContentType != "" {
 		input.ContentType = aws.String(metadata.ContentType)
 	}
 
-	if len(metadata.UserDefined) != 0 {
-		m := make(map[string]*string)
-		for k, v := range metadata.UserDefined {
-			m[k] = aws.String(v)
-		}
-		input.Metadata = m
-	}
-
-	_, err := s.api.CopyObject(input)
+	_, err := s.api.CopyObject(ctx, input)
 	return err
 }
 
@@ -576,10 +684,10 @@ func (s *S3) Read(ctx context.Context, src *url.URL) (io.ReadCloser, error) {
 		RequestPayer: s.RequestPayer(),
 	}
 	if src.VersionID != "" {
-		input.SetVersionId(src.VersionID)
+		input.VersionId = aws.String(src.VersionID)
 	}
 
-	resp, err := s.api.GetObjectWithContext(ctx, input)
+	resp, err := s.api.GetObject(ctx, input)
 	if err != nil {
 		return nil, err
 	}
@@ -592,10 +700,16 @@ func (s *S3) Presign(ctx context.Context, from *url.URL, expire time.Duration) (
 		Key:          aws.String(from.Path),
 		RequestPayer: s.RequestPayer(),
 	}
+	if from.VersionID != "" {
+		input.VersionId = aws.String(from.VersionID)
+	}
 
-	req, _ := s.api.GetObjectRequest(input)
+	req, err := s.presigner.PresignGetObject(ctx, input, s3.WithPresignExpires(expire))
+	if err != nil {
+		return "", err
+	}
 
-	return req.Presign(expire)
+	return req.URL, nil
 }
 
 // Get is a multipart download operation which downloads S3 objects into any
@@ -621,7 +735,7 @@ func (s *S3) Get(
 		input.VersionId = aws.String(from.VersionID)
 	}
 
-	return s.downloader.DownloadWithContext(ctx, to, input, func(u *s3manager.Downloader) {
+	return s.downloader.Download(ctx, to, input, func(u *s3Downloader) {
 		u.PartSize = partSize
 		u.Concurrency = concurrency
 	})
@@ -645,32 +759,32 @@ const (
 	parquetType eventType = "parquet"
 )
 
-func parseInputSerialization(e eventType, c string, delimiter string, headerInfo string) (*s3.InputSerialization, error) {
-	var s *s3.InputSerialization
+func parseInputSerialization(e eventType, c string, delimiter string, headerInfo string) (*types.InputSerialization, error) {
+	var s *types.InputSerialization
 
 	switch e {
 	case jsonType:
-		s = &s3.InputSerialization{
-			JSON: &s3.JSONInput{
-				Type: aws.String(delimiter),
+		s = &types.InputSerialization{
+			JSON: &types.JSONInput{
+				Type: types.JSONType(delimiter),
 			},
 		}
 		if c != "" {
-			s.CompressionType = aws.String(c)
+			s.CompressionType = types.CompressionType(c)
 		}
 	case csvType:
-		s = &s3.InputSerialization{
-			CSV: &s3.CSVInput{
+		s = &types.InputSerialization{
+			CSV: &types.CSVInput{
 				FieldDelimiter: aws.String(delimiter),
-				FileHeaderInfo: aws.String(headerInfo),
+				FileHeaderInfo: types.FileHeaderInfo(headerInfo),
 			},
 		}
 		if c != "" {
-			s.CompressionType = aws.String(c)
+			s.CompressionType = types.CompressionType(c)
 		}
 	case parquetType:
-		s = &s3.InputSerialization{
-			Parquet: &s3.ParquetInput{},
+		s = &types.InputSerialization{
+			Parquet: &types.ParquetInput{},
 		}
 	default:
 		return nil, fmt.Errorf("input format is not valid")
@@ -679,19 +793,19 @@ func parseInputSerialization(e eventType, c string, delimiter string, headerInfo
 	return s, nil
 }
 
-func parseOutputSerialization(e eventType, delimiter string, reader io.Reader) (*s3.OutputSerialization, EventStreamDecoder, error) {
-	var s *s3.OutputSerialization
+func parseOutputSerialization(e eventType, delimiter string, reader io.Reader) (*types.OutputSerialization, EventStreamDecoder, error) {
+	var s *types.OutputSerialization
 	var decoder EventStreamDecoder
 
 	switch e {
 	case jsonType:
-		s = &s3.OutputSerialization{
-			JSON: &s3.JSONOutput{},
+		s = &types.OutputSerialization{
+			JSON: &types.JSONOutput{},
 		}
 		decoder = NewJSONDecoder(reader)
 	case csvType:
-		s = &s3.OutputSerialization{
-			CSV: &s3.CSVOutput{
+		s = &types.OutputSerialization{
+			CSV: &types.CSVOutput{
 				FieldDelimiter: aws.String(delimiter),
 			},
 		}
@@ -708,8 +822,8 @@ func (s *S3) Select(ctx context.Context, url *url.URL, query *SelectQuery, resul
 	}
 
 	var (
-		inputFormat  *s3.InputSerialization
-		outputFormat *s3.OutputSerialization
+		inputFormat  *types.InputSerialization
+		outputFormat *types.OutputSerialization
 		decoder      EventStreamDecoder
 	)
 	reader, writer := io.Pipe()
@@ -742,22 +856,24 @@ func (s *S3) Select(ctx context.Context, url *url.URL, query *SelectQuery, resul
 	input := &s3.SelectObjectContentInput{
 		Bucket:              aws.String(url.Bucket),
 		Key:                 aws.String(url.Path),
-		ExpressionType:      aws.String(query.ExpressionType),
+		ExpressionType:      types.ExpressionType(query.ExpressionType),
 		Expression:          aws.String(query.Expression),
 		InputSerialization:  inputFormat,
 		OutputSerialization: outputFormat,
 	}
 
-	resp, err := s.api.SelectObjectContentWithContext(ctx, input)
+	resp, err := s.api.SelectObjectContent(ctx, input)
 	if err != nil {
 		return err
 	}
 
+	stream := resp.GetStream()
+
 	go func() {
 		defer writer.Close()
 
-		eventch := resp.EventStream.Reader.Events()
-		defer resp.EventStream.Close()
+		eventch := stream.Events()
+		defer stream.Close()
 
 		for {
 			select {
@@ -769,8 +885,8 @@ func (s *S3) Select(ctx context.Context, url *url.URL, query *SelectQuery, resul
 				}
 
 				switch e := event.(type) {
-				case *s3.RecordsEvent:
-					writer.Write(e.Payload)
+				case *types.SelectObjectContentEventStreamMemberRecords:
+					writer.Write(e.Value.Payload)
 				}
 			}
 		}
@@ -786,7 +902,7 @@ func (s *S3) Select(ctx context.Context, url *url.URL, query *SelectQuery, resul
 		resultCh <- val
 	}
 
-	return resp.EventStream.Reader.Err()
+	return stream.Err()
 }
 
 // Put is a multipart upload operation to upload resources, which implements
@@ -808,23 +924,23 @@ func (s *S3) Put(
 		contentType = "application/octet-stream"
 	}
 
-	input := &s3manager.UploadInput{
+	input := &s3.PutObjectInput{
 		Bucket:       aws.String(to.Bucket),
 		Key:          aws.String(to.Path),
 		Body:         reader,
 		ContentType:  aws.String(contentType),
-		Metadata:     make(map[string]*string),
+		Metadata:     make(map[string]string),
 		RequestPayer: s.RequestPayer(),
 	}
 
 	storageClass := metadata.StorageClass
 	if storageClass != "" {
-		input.StorageClass = aws.String(storageClass)
+		input.StorageClass = types.StorageClass(storageClass)
 	}
 
 	acl := metadata.ACL
 	if acl != "" {
-		input.ACL = aws.String(acl)
+		input.ACL = types.ObjectCannedACL(acl)
 	}
 
 	cacheControl := metadata.CacheControl
@@ -843,7 +959,7 @@ func (s *S3) Put(
 
 	sseEncryption := metadata.EncryptionMethod
 	if sseEncryption != "" {
-		input.ServerSideEncryption = aws.String(sseEncryption)
+		input.ServerSideEncryption = types.ServerSideEncryption(sseEncryption)
 		sseKmsKeyID := metadata.EncryptionKeyID
 		if sseKmsKeyID != "" {
 			input.SSEKMSKeyId = aws.String(sseKmsKeyID)
@@ -860,42 +976,40 @@ func (s *S3) Put(
 		input.ContentDisposition = aws.String(contentDisposition)
 	}
 
+	if len(metadata.UserDefined) != 0 {
+		m := make(map[string]string, len(metadata.UserDefined))
+		maps.Copy(m, metadata.UserDefined)
+		input.Metadata = m
+	}
+
 	// add retry ID to the object metadata
 	if s.noSuchUploadRetryCount > 0 {
 		input.Metadata[metadataKeyRetryID] = generateRetryID()
 	}
 
-	if len(metadata.UserDefined) != 0 {
-		m := make(map[string]*string)
-		for k, v := range metadata.UserDefined {
-			m[k] = aws.String(v)
-		}
-		input.Metadata = m
-	}
-
-	uploaderOptsFn := func(u *s3manager.Uploader) {
+	uploaderOptsFn := func(u *s3Uploader) {
 		u.PartSize = partSize
 		u.Concurrency = concurrency
 	}
-	_, err := s.uploader.UploadWithContext(ctx, input, uploaderOptsFn)
+	_, err := s.uploader.Upload(ctx, input, uploaderOptsFn)
 
-	if errHasCode(err, s3.ErrCodeNoSuchUpload) && s.noSuchUploadRetryCount > 0 {
+	if errHasCode(err, errCodeNoSuchUpload) && s.noSuchUploadRetryCount > 0 {
 		return s.retryOnNoSuchUpload(ctx, to, input, err, uploaderOptsFn)
 	}
 
 	return err
 }
 
-func (s *S3) retryOnNoSuchUpload(ctx aws.Context, to *url.URL, input *s3manager.UploadInput,
-	err error, uploaderOpts ...func(*s3manager.Uploader),
+func (s *S3) retryOnNoSuchUpload(ctx context.Context, to *url.URL, input *s3.PutObjectInput,
+	err error, uploaderOpts ...func(*s3Uploader),
 ) error {
 	var expectedRetryID string
 	if ID, ok := input.Metadata[metadataKeyRetryID]; ok {
-		expectedRetryID = *ID
+		expectedRetryID = ID
 	}
 
 	attempts := 0
-	for ; errHasCode(err, s3.ErrCodeNoSuchUpload) && attempts < s.noSuchUploadRetryCount; attempts++ {
+	for ; errHasCode(err, errCodeNoSuchUpload) && attempts < s.noSuchUploadRetryCount; attempts++ {
 		// check if object exists and has the retry ID we provided, if it does
 		// then it means that one of previous uploads was succesfull despite the received error.
 		obj, sErr := s.Stat(ctx, to)
@@ -907,13 +1021,12 @@ func (s *S3) retryOnNoSuchUpload(ctx aws.Context, to *url.URL, input *s3manager.
 		msg := log.DebugMessage{Err: fmt.Sprintf("Retrying to upload %v upon error: %q", to, err.Error())}
 		log.Debug(msg)
 
-		_, err = s.uploader.UploadWithContext(ctx, input, uploaderOpts...)
+		_, err = s.uploader.Upload(ctx, input, uploaderOpts...)
 	}
 
-	if errHasCode(err, s3.ErrCodeNoSuchUpload) && s.noSuchUploadRetryCount > 0 {
-		err = awserr.New(s3.ErrCodeNoSuchUpload, fmt.Sprintf(
-			"RetryOnNoSuchUpload: %v attempts to retry resulted in %v", attempts,
-			s3.ErrCodeNoSuchUpload), err)
+	if errHasCode(err, errCodeNoSuchUpload) && s.noSuchUploadRetryCount > 0 {
+		err = fmt.Errorf("%s: RetryOnNoSuchUpload: %v attempts to retry resulted in %s: %w",
+			errCodeNoSuchUpload, attempts, errCodeNoSuchUpload, err)
 	}
 	return err
 }
@@ -923,7 +1036,7 @@ func (s *S3) retryOnNoSuchUpload(ctx aws.Context, to *url.URL, input *s3manager.
 // splitting keys into multiple chunks is required.
 type chunk struct {
 	Bucket string
-	Keys   []*s3.ObjectIdentifier
+	Keys   []types.ObjectIdentifier
 }
 
 // calculateChunks calculates chunks for given URL channel and returns
@@ -940,18 +1053,18 @@ func (s *S3) calculateChunks(ch <-chan *url.URL) <-chan chunk {
 	go func() {
 		defer close(chunkch)
 
-		var keys []*s3.ObjectIdentifier
+		var keys []types.ObjectIdentifier
 		initKeys := func() {
-			keys = make([]*s3.ObjectIdentifier, 0)
+			keys = make([]types.ObjectIdentifier, 0)
 		}
 
 		var bucket string
 		for url := range ch {
 			bucket = url.Bucket
 
-			objid := &s3.ObjectIdentifier{Key: aws.String(url.Path)}
+			objid := types.ObjectIdentifier{Key: aws.String(url.Path)}
 			if url.VersionID != "" {
-				objid.VersionId = &url.VersionID
+				objid.VersionId = aws.String(url.VersionID)
 			}
 
 			keys = append(keys, objid)
@@ -979,7 +1092,7 @@ func (s *S3) calculateChunks(ch <-chan *url.URL) <-chan chunk {
 func (s *S3) Delete(ctx context.Context, url *url.URL) error {
 	chunk := chunk{
 		Bucket: url.Bucket,
-		Keys: []*s3.ObjectIdentifier{
+		Keys: []types.ObjectIdentifier{
 			{Key: aws.String(url.Path)},
 		},
 	}
@@ -997,9 +1110,9 @@ func (s *S3) Delete(ctx context.Context, url *url.URL) error {
 func (s *S3) doDelete(ctx context.Context, chunk chunk, resultch chan *Object) {
 	if s.dryRun {
 		for _, k := range chunk.Keys {
-			key := fmt.Sprintf("s3://%v/%v", chunk.Bucket, aws.StringValue(k.Key))
+			key := fmt.Sprintf("s3://%v/%v", chunk.Bucket, aws.ToString(k.Key))
 			url, _ := url.New(key)
-			url.VersionID = aws.StringValue(k.VersionId)
+			url.VersionID = aws.ToString(k.VersionId)
 			resultch <- &Object{URL: url}
 		}
 		return
@@ -1008,7 +1121,7 @@ func (s *S3) doDelete(ctx context.Context, chunk chunk, resultch chan *Object) {
 	// GCS does not support multi delete.
 	if IsGoogleEndpoint(s.endpointURL) {
 		for _, k := range chunk.Keys {
-			_, err := s.api.DeleteObjectWithContext(ctx, &s3.DeleteObjectInput{
+			_, err := s.api.DeleteObject(ctx, &s3.DeleteObjectInput{
 				Bucket:       aws.String(chunk.Bucket),
 				Key:          k.Key,
 				RequestPayer: s.RequestPayer(),
@@ -1017,7 +1130,7 @@ func (s *S3) doDelete(ctx context.Context, chunk chunk, resultch chan *Object) {
 				resultch <- &Object{Err: err}
 				return
 			}
-			key := fmt.Sprintf("s3://%v/%v", chunk.Bucket, aws.StringValue(k.Key))
+			key := fmt.Sprintf("s3://%v/%v", chunk.Bucket, aws.ToString(k.Key))
 			url, _ := url.New(key)
 			resultch <- &Object{URL: url}
 		}
@@ -1025,9 +1138,9 @@ func (s *S3) doDelete(ctx context.Context, chunk chunk, resultch chan *Object) {
 	}
 
 	bucket := chunk.Bucket
-	o, err := s.api.DeleteObjectsWithContext(ctx, &s3.DeleteObjectsInput{
+	o, err := s.api.DeleteObjects(ctx, &s3.DeleteObjectsInput{
 		Bucket:       aws.String(bucket),
-		Delete:       &s3.Delete{Objects: chunk.Keys},
+		Delete:       &types.Delete{Objects: chunk.Keys},
 		RequestPayer: s.RequestPayer(),
 	})
 	if err != nil {
@@ -1036,20 +1149,20 @@ func (s *S3) doDelete(ctx context.Context, chunk chunk, resultch chan *Object) {
 	}
 
 	for _, d := range o.Deleted {
-		key := fmt.Sprintf("s3://%v/%v", bucket, aws.StringValue(d.Key))
+		key := fmt.Sprintf("s3://%v/%v", bucket, aws.ToString(d.Key))
 		url, _ := url.New(key)
-		url.VersionID = aws.StringValue(d.VersionId)
+		url.VersionID = aws.ToString(d.VersionId)
 		resultch <- &Object{URL: url}
 	}
 
 	for _, e := range o.Errors {
-		key := fmt.Sprintf("s3://%v/%v", bucket, aws.StringValue(e.Key))
+		key := fmt.Sprintf("s3://%v/%v", bucket, aws.ToString(e.Key))
 		url, _ := url.New(key)
-		url.VersionID = aws.StringValue(e.VersionId)
+		url.VersionID = aws.ToString(e.VersionId)
 
 		resultch <- &Object{
 			URL: url,
-			Err: fmt.Errorf("%v", aws.StringValue(e.Message)),
+			Err: fmt.Errorf("%v", aws.ToString(e.Message)),
 		}
 	}
 }
@@ -1071,7 +1184,6 @@ func (s *S3) MultiDelete(ctx context.Context, urlch <-chan *url.URL) <-chan *Obj
 
 		var wg sync.WaitGroup
 		for chunk := range chunks {
-			chunk := chunk
 
 			wg.Add(1)
 			sem <- struct{}{}
@@ -1092,17 +1204,17 @@ func (s *S3) MultiDelete(ctx context.Context, urlch <-chan *url.URL) <-chan *Obj
 // ListBuckets is a blocking list-operation which gets bucket list and returns
 // the buckets that match with given prefix.
 func (s *S3) ListBuckets(ctx context.Context, prefix string) ([]Bucket, error) {
-	o, err := s.api.ListBucketsWithContext(ctx, &s3.ListBucketsInput{})
+	o, err := s.api.ListBuckets(ctx, &s3.ListBucketsInput{})
 	if err != nil {
 		return nil, err
 	}
 
 	var buckets []Bucket
 	for _, b := range o.Buckets {
-		bucketName := aws.StringValue(b.Name)
+		bucketName := aws.ToString(b.Name)
 		if prefix == "" || strings.HasPrefix(bucketName, prefix) {
 			buckets = append(buckets, Bucket{
-				CreationDate: aws.TimeValue(b.CreationDate),
+				CreationDate: aws.ToTime(b.CreationDate),
 				Name:         bucketName,
 			})
 		}
@@ -1116,7 +1228,7 @@ func (s *S3) MakeBucket(ctx context.Context, name string) error {
 		return nil
 	}
 
-	_, err := s.api.CreateBucketWithContext(ctx, &s3.CreateBucketInput{
+	_, err := s.api.CreateBucket(ctx, &s3.CreateBucketInput{
 		Bucket: aws.String(name),
 	})
 	return err
@@ -1128,7 +1240,7 @@ func (s *S3) RemoveBucket(ctx context.Context, name string) error {
 		return nil
 	}
 
-	_, err := s.api.DeleteBucketWithContext(ctx, &s3.DeleteBucketInput{
+	_, err := s.api.DeleteBucket(ctx, &s3.DeleteBucketInput{
 		Bucket: aws.String(name),
 	})
 	return err
@@ -1140,10 +1252,10 @@ func (s *S3) SetBucketVersioning(ctx context.Context, versioningStatus, bucket s
 		return nil
 	}
 
-	_, err := s.api.PutBucketVersioningWithContext(ctx, &s3.PutBucketVersioningInput{
+	_, err := s.api.PutBucketVersioning(ctx, &s3.PutBucketVersioningInput{
 		Bucket: aws.String(bucket),
-		VersioningConfiguration: &s3.VersioningConfiguration{
-			Status: aws.String(versioningStatus),
+		VersioningConfiguration: &types.VersioningConfiguration{
+			Status: types.BucketVersioningStatus(versioningStatus),
 		},
 	})
 	return err
@@ -1151,18 +1263,18 @@ func (s *S3) SetBucketVersioning(ctx context.Context, versioningStatus, bucket s
 
 // GetBucketVersioning returnsversioning property of the bucket
 func (s *S3) GetBucketVersioning(ctx context.Context, bucket string) (string, error) {
-	output, err := s.api.GetBucketVersioningWithContext(ctx, &s3.GetBucketVersioningInput{
+	output, err := s.api.GetBucketVersioning(ctx, &s3.GetBucketVersioningInput{
 		Bucket: aws.String(bucket),
 	})
-	if err != nil || output.Status == nil {
+	if err != nil {
 		return "", err
 	}
 
-	return *output.Status, nil
+	return string(output.Status), nil
 }
 
 func (s *S3) HeadBucket(ctx context.Context, url *url.URL) error {
-	_, err := s.api.HeadBucketWithContext(ctx, &s3.HeadBucketInput{
+	_, err := s.api.HeadBucket(ctx, &s3.HeadBucketInput{
 		Bucket: aws.String(url.Bucket),
 	})
 	return err
@@ -1176,10 +1288,10 @@ func (s *S3) HeadObject(ctx context.Context, url *url.URL) (*Object, *Metadata, 
 	}
 
 	if url.VersionID != "" {
-		input.SetVersionId(url.VersionID)
+		input.VersionId = aws.String(url.VersionID)
 	}
 
-	output, err := s.api.HeadObjectWithContext(ctx, input)
+	output, err := s.api.HeadObject(ctx, input)
 	if err != nil {
 		if errHasCode(err, "NotFound") {
 			return nil, nil, &ErrGivenObjectNotFound{ObjectAbsPath: url.Absolute()}
@@ -1190,216 +1302,221 @@ func (s *S3) HeadObject(ctx context.Context, url *url.URL) (*Object, *Metadata, 
 	// https://docs.aws.amazon.com/AmazonS3/latest/API/API_HeadObject.html#AmazonS3-HeadObject-response-header-StorageClass
 	// If the object's storage class is STANDARD, this header is not returned in the response.
 	storageClassStr := "STANDARD"
-	if output.StorageClass != nil {
-		storageClassStr = aws.StringValue(output.StorageClass)
+	if output.StorageClass != "" {
+		storageClassStr = string(output.StorageClass)
 	}
 
 	obj := &Object{
 		URL:          url,
 		ModTime:      output.LastModified,
-		Etag:         strings.Trim(aws.StringValue(output.ETag), `"`),
-		Size:         aws.Int64Value(output.ContentLength),
+		Etag:         strings.Trim(aws.ToString(output.ETag), `"`),
+		Size:         aws.ToInt64(output.ContentLength),
 		StorageClass: StorageClass(storageClassStr),
 	}
 
+	// v1 always handed back a non-nil map here; keep that so an object
+	// without user metadata still renders as {} rather than null.
+	userDefined := output.Metadata
+	if userDefined == nil {
+		userDefined = map[string]string{}
+	}
+
 	metadata := &Metadata{
-		ContentType:      aws.StringValue(output.ContentType),
-		EncryptionMethod: aws.StringValue(output.ServerSideEncryption),
-		UserDefined:      aws.StringValueMap(output.Metadata),
+		ContentType:      aws.ToString(output.ContentType),
+		EncryptionMethod: string(output.ServerSideEncryption),
+		UserDefined:      userDefined,
 	}
 
 	return obj, metadata, nil
 }
 
+// sdkLogger adapts the SDK's logger to s5cmd's trace log.
 type sdkLogger struct{}
 
-func (l sdkLogger) Log(args ...interface{}) {
+func (l sdkLogger) Logf(classification logging.Classification, format string, v ...any) {
 	msg := log.TraceMessage{
-		Message: fmt.Sprint(args...),
+		Message: fmt.Sprintf(format, v...),
 	}
 	log.Trace(msg)
 }
 
-// SessionCache holds session.Session according to s3Opts and it synchronizes
+// SessionCache holds aws.Config according to s3Opts and it synchronizes
 // access/modification.
 type SessionCache struct {
 	sync.Mutex
-	sessions map[Options]*session.Session
+	sessions map[Options]aws.Config
 }
 
-// newSession initializes a new AWS session with region fallback and custom
+// newSession initializes a new AWS config with region fallback and custom
 // options.
-func (sc *SessionCache) newSession(ctx context.Context, opts Options) (*session.Session, error) {
+func (sc *SessionCache) newSession(ctx context.Context, opts Options) (aws.Config, error) {
 	sc.Lock()
 	defer sc.Unlock()
 
-	if sess, ok := sc.sessions[opts]; ok {
-		return sess, nil
+	if cfg, ok := sc.sessions[opts]; ok {
+		return cfg, nil
 	}
 
-	awsCfg := aws.NewConfig()
+	loadOpts := []func(*config.LoadOptions) error{
+		config.WithRetryer(func() aws.Retryer {
+			return newCustomRetryer(opts.MaxRetries)
+		}),
+	}
 
 	if opts.NoSignRequest {
 		// do not sign requests when making service API calls
-		awsCfg = awsCfg.WithCredentials(credentials.AnonymousCredentials)
-	} else if opts.CredentialFile != "" || opts.Profile != "" {
-		awsCfg = awsCfg.WithCredentials(
-			credentials.NewSharedCredentials(opts.CredentialFile, opts.Profile),
-		)
+		loadOpts = append(loadOpts, config.WithCredentialsProvider(aws.AnonymousCredentials{}))
+	} else {
+		if opts.CredentialFile != "" {
+			loadOpts = append(loadOpts, config.WithSharedCredentialsFiles([]string{opts.CredentialFile}))
+		}
+		if opts.Profile != "" {
+			loadOpts = append(loadOpts, config.WithSharedConfigProfile(opts.Profile))
+		}
 	}
 
-	endpointURL, err := parseEndpoint(opts.Endpoint)
-	if err != nil {
-		return nil, err
-	}
-
-	// use virtual-host-style if the endpoint is known to support it,
-	// otherwise use the path-style approach.
-	isVirtualHostStyle := isVirtualHostStyle(endpointURL)
-
-	useAccelerate := supportsTransferAcceleration(endpointURL)
-	// AWS SDK handles transfer acceleration automatically. Setting the
-	// Endpoint to a transfer acceleration endpoint would cause bucket
-	// operations fail.
-	if useAccelerate {
-		endpointURL = sentinelURL
-	}
-
-	var httpClient *http.Client
-	if opts.NoVerifySSL {
-		httpClient = insecureHTTPClient
-	}
-	awsCfg = awsCfg.
-		WithEndpoint(endpointURL.String()).
-		WithS3ForcePathStyle(!isVirtualHostStyle).
-		WithS3UseAccelerate(useAccelerate).
-		WithHTTPClient(httpClient).
-		// TODO WithLowerCaseHeaderMaps and WithDisableRestProtocolURICleaning options
-		// are going to be unnecessary and unsupported in AWS-SDK version 2.
-		// They should be removed during migration.
-		WithLowerCaseHeaderMaps(true).
-		// Disable URI cleaning to allow adjacent slashes to be used in S3 object keys.
-		WithDisableRestProtocolURICleaning(true)
-
-	if opts.LogLevel == log.LevelTrace {
-		awsCfg = awsCfg.WithLogLevel(aws.LogDebug).
-			WithLogger(sdkLogger{})
-	}
-
-	awsCfg.Retryer = newCustomRetryer(opts.MaxRetries)
-
-	useSharedConfig := session.SharedConfigEnable
 	{
 		// Reverse of what the SDK does: if AWS_SDK_LOAD_CONFIG is 0 (or a
-		// falsy value) disable shared configs
+		// falsy value) disable shared configs. The v2 SDK always reads the
+		// shared config file, so emulate the old behaviour by pointing it
+		// at no config file at all.
 		loadCfg := os.Getenv("AWS_SDK_LOAD_CONFIG")
 		if loadCfg != "" {
 			if enable, _ := strconv.ParseBool(loadCfg); !enable {
-				useSharedConfig = session.SharedConfigDisable
+				loadOpts = append(loadOpts, config.WithSharedConfigFiles([]string{}))
 			}
 		}
 	}
 
-	sess, err := session.NewSessionWithOptions(
-		session.Options{
-			Config:            *awsCfg,
-			SharedConfigState: useSharedConfig,
-		},
-	)
-	if err != nil {
-		return nil, err
+	if opts.NoVerifySSL {
+		loadOpts = append(loadOpts, config.WithHTTPClient(insecureHTTPClient))
 	}
 
-	// get region of the bucket and create session accordingly. if the region
-	// is not provided, it means we want region-independent session
+	if opts.LogLevel == log.LevelTrace {
+		loadOpts = append(loadOpts,
+			config.WithClientLogMode(aws.LogRequestWithBody|aws.LogResponseWithBody|aws.LogRetries),
+			config.WithLogger(sdkLogger{}),
+		)
+	}
+
+	if opts.region != "" {
+		loadOpts = append(loadOpts, config.WithRegion(opts.region))
+	}
+
+	cfg, err := config.LoadDefaultConfig(ctx, loadOpts...)
+	if err != nil {
+		return aws.Config{}, err
+	}
+
+	// get region of the bucket and create config accordingly. if the region
+	// is not provided, it means we want region-independent config
 	// for operations such as listing buckets, making a new bucket etc.
 	// only get bucket region when it is not specified.
-	if opts.region != "" {
-		sess.Config.Region = aws.String(opts.region)
-	} else {
-		if err := setSessionRegion(ctx, sess, opts.bucket); err != nil {
-			return nil, err
+	if opts.region == "" {
+		if err := setSessionRegion(ctx, &cfg, opts); err != nil {
+			return aws.Config{}, err
 		}
 	}
 
-	sc.sessions[opts] = sess
+	sc.sessions[opts] = cfg
 
-	return sess, nil
+	return cfg, nil
 }
 
 func (sc *SessionCache) clear() {
 	sc.Lock()
 	defer sc.Unlock()
-	sc.sessions = map[Options]*session.Session{}
+	sc.sessions = map[Options]aws.Config{}
 }
 
-func setSessionRegion(ctx context.Context, sess *session.Session, bucket string) error {
-	region := aws.StringValue(sess.Config.Region)
-
-	if region != "" {
+func setSessionRegion(ctx context.Context, cfg *aws.Config, opts Options) error {
+	if cfg.Region != "" {
 		return nil
 	}
 
 	// set default region
-	sess.Config.Region = aws.String(endpoints.UsEast1RegionID)
+	cfg.Region = defaultRegion
 
-	if bucket == "" {
+	if opts.bucket == "" {
 		return nil
 	}
 
+	optFn, err := s3Options(opts)
+	if err != nil {
+		return err
+	}
+
 	// auto-detection
-	region, err := s3manager.GetBucketRegion(ctx, sess, bucket, "", func(r *request.Request) {
-		// s3manager.GetBucketRegion uses Path style addressing and
-		// AnonymousCredentials by default, updating Request's Config to match
-		// the session config.
-		r.Config.S3ForcePathStyle = sess.Config.S3ForcePathStyle
-		r.Config.Credentials = sess.Config.Credentials
+	client := s3.NewFromConfig(*cfg, optFn)
+	region, err := manager.GetBucketRegion(ctx, client, opts.bucket, optFn, func(o *s3.Options) {
+		// GetBucketRegion clears the credentials so that the lookup works
+		// against public buckets. Put the configured ones back, otherwise
+		// the HeadBucket it makes is unsigned and private buckets fail.
+		// Anonymous credentials must stay cleared: the v2 signer rejects
+		// them as a provider, and unsigned is what they ask for anyway.
+		if cfg.Credentials != nil && !aws.IsCredentialsProvider(cfg.Credentials, (*aws.AnonymousCredentials)(nil)) {
+			o.Credentials = cfg.Credentials
+		}
 	})
 	if err != nil {
-		if errHasCode(err, "NotFound") {
-			return err
+		// the manager reports a missing bucket with its own error type;
+		// re-shape it so callers can match on the S3 error code as before.
+		if _, ok := errors.AsType[manager.BucketNotFound](err); ok {
+			return &smithy.GenericAPIError{
+				Code:    "NotFound",
+				Message: fmt.Sprintf("bucket %q not found", opts.bucket),
+			}
 		}
 		// don't deny any request to the service if region auto-fetching
 		// receives an error. Delegate error handling to command execution.
 		err = fmt.Errorf("session: fetching region failed: %v", err)
 		msg := log.ErrorMessage{Err: err.Error()}
 		log.Error(msg)
-	} else {
-		sess.Config.Region = aws.String(region)
+	} else if region != "" {
+		// an empty header means the service did not report a region; keep
+		// the default rather than blanking it.
+		cfg.Region = region
 	}
 
 	return nil
 }
 
-// customRetryer wraps the SDK's built in DefaultRetryer adding additional
-// error codes. Such as, retry for S3 InternalError code.
+// customRetryer wraps the SDK's standard retryer, adding additional error
+// codes. Such as, retry for S3 InternalError code.
 type customRetryer struct {
-	client.DefaultRetryer
+	aws.Retryer
 }
 
-func newCustomRetryer(maxRetries int) *customRetryer {
+func newCustomRetryer(maxRetries int) aws.Retryer {
 	return &customRetryer{
-		DefaultRetryer: client.DefaultRetryer{
-			NumMaxRetries: maxRetries,
-		},
+		Retryer: retry.NewStandard(func(o *retry.StandardOptions) {
+			// v1 counted retries after the initial attempt; v2 counts the
+			// initial attempt too.
+			o.MaxAttempts = maxRetries + 1
+		}),
 	}
 }
 
-// ShouldRetry overrides SDK's built in DefaultRetryer, adding custom retry
+// IsErrorRetryable overrides the SDK's standard retryer, adding custom retry
 // logics that are not included in the SDK.
-func (c *customRetryer) ShouldRetry(req *request.Request) bool {
-	shouldRetry := errHasCode(req.Error, "InternalError") || errHasCode(req.Error, "RequestTimeTooSkewed") || errHasCode(req.Error, "SlowDown") || strings.Contains(req.Error.Error(), "connection reset") || strings.Contains(req.Error.Error(), "connection timed out")
-	if !shouldRetry {
-		shouldRetry = c.DefaultRetryer.ShouldRetry(req)
-	}
-
-	// Errors related to tokens
-	if errHasCode(req.Error, "ExpiredToken") || errHasCode(req.Error, "ExpiredTokenException") || errHasCode(req.Error, "InvalidToken") {
+func (c *customRetryer) IsErrorRetryable(err error) bool {
+	if err == nil {
 		return false
 	}
 
-	if shouldRetry && req.Error != nil {
-		err := fmt.Errorf("retryable error: %v", req.Error)
+	// Errors related to tokens
+	if errHasCode(err, "ExpiredToken") || errHasCode(err, "ExpiredTokenException") || errHasCode(err, "InvalidToken") {
+		return false
+	}
+
+	shouldRetry := errHasCode(err, "InternalError") || errHasCode(err, "RequestTimeTooSkewed") || errHasCode(err, "SlowDown") ||
+		strings.Contains(err.Error(), "connection reset") || strings.Contains(err.Error(), "connection timed out")
+	if !shouldRetry {
+		shouldRetry = c.Retryer.IsErrorRetryable(err)
+	}
+
+	if shouldRetry {
+		err := fmt.Errorf("retryable error: %v", err)
 		msg := log.DebugMessage{Err: err.Error()}
 		log.Debug(msg)
 	}
@@ -1422,28 +1539,27 @@ func IsGoogleEndpoint(endpoint urlpkg.URL) bool {
 	return endpoint.Hostname() == gcsEndpoint
 }
 
-// isVirtualHostStyle reports whether the given endpoint supports S3 virtual
+// isVirtualHostStyle reports whether requests can be made with virtual
 // host style bucket name resolving. If a custom S3 API compatible endpoint is
 // given, resolve the bucketname from the URL path.
 func isVirtualHostStyle(endpoint urlpkg.URL) bool {
 	return endpoint == sentinelURL || supportsTransferAcceleration(endpoint) || IsGoogleEndpoint(endpoint)
 }
 
+// errCodeNoSuchUpload is the error code the S3 API returns when a multipart
+// upload no longer exists. The v2 SDK models it as a type rather than a
+// constant, so the string is spelled out here.
+const errCodeNoSuchUpload = "NoSuchUpload"
+
 func errHasCode(err error, code string) bool {
 	if err == nil || code == "" {
 		return false
 	}
 
-	var awsErr awserr.Error
-	if errors.As(err, &awsErr) {
-		if awsErr.Code() == code {
-			return true
-		}
-	}
-
-	var multiUploadErr s3manager.MultiUploadFailure
-	if errors.As(err, &multiUploadErr) {
-		return errHasCode(multiUploadErr.OrigErr(), code)
+	// errors.As walks the chain, so an API error wrapped by the transfer
+	// manager's multipart failure is found here too.
+	if apiErr, ok := errors.AsType[smithy.APIError](err); ok {
+		return apiErr.ErrorCode() == code
 	}
 
 	return false
@@ -1452,13 +1568,13 @@ func errHasCode(err error, code string) bool {
 // IsCancelationError reports whether given error is a storage related
 // cancelation error.
 func IsCancelationError(err error) bool {
-	return errHasCode(err, request.CanceledErrorCode)
+	return errors.Is(err, context.Canceled)
 }
 
 // generate a retry ID for this upload attempt
-func generateRetryID() *string {
+func generateRetryID() string {
 	num, _ := rand.Int(rand.Reader, big.NewInt(math.MaxInt64))
-	return aws.String(num.String())
+	return num.String()
 }
 
 // EventStreamDecoder decodes a s3.Event with

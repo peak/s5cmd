@@ -8,7 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 
 	errorpkg "github.com/peak/s5cmd/v2/error"
 	"github.com/peak/s5cmd/v2/log"
@@ -18,23 +18,23 @@ import (
 )
 
 var pipeHelpTemplate = `Name:
-	{{.HelpName}} - {{.Usage}}
+	{{.FullName}} - {{.Usage}}
 
 Usage:
-	{{.HelpName}} [options] destination
+	{{.FullName}} [options] destination
 
 Options:
 	{{range .VisibleFlags}}{{.}}
 	{{end}}
 Examples:
 	01. Stream stdin to an object
-		 > echo "content" | gzip | s5cmd {{.HelpName}} s3://bucket/prefix/object.gz
+		 > echo "content" | gzip | {{.FullName}} s3://bucket/prefix/object.gz
 	02. Pass arbitrary metadata to an object
-		 > cat "flowers.png" | gzip | s5cmd {{.HelpName}} --metadata "imageSize=6032x4032" s3://bucket/prefix/flowers.gz
+		 > cat "flowers.png" | gzip | {{.FullName}} --metadata "imageSize=6032x4032" s3://bucket/prefix/flowers.gz
 	03. Download an object and stream it to a bucket
-		> curl https://github.com/peak/s5cmd/ | s5cmd {{.HelpName}} s3://bucket/s5cmd.html
+		> curl https://github.com/peak/s5cmd/ | {{.FullName}} s3://bucket/s5cmd.html
 	04. Compress an object and stream it to a bucket
-		> gzip -c file | s5cmd {{.HelpName}} s3://bucket/file.gz
+		> gzip -c file | {{.FullName}} s3://bucket/file.gz
 `
 
 func NewPipeCommandFlags() []cli.Flag {
@@ -107,29 +107,28 @@ func NewPipeCommandFlags() []cli.Flag {
 func NewPipeCommand() *cli.Command {
 	cmd := &cli.Command{
 		Name:               "pipe",
-		HelpName:           "pipe",
 		Usage:              "stream to remote from stdin",
 		Flags:              NewPipeCommandFlags(),
 		CustomHelpTemplate: pipeHelpTemplate,
-		Before: func(c *cli.Context) error {
+		Before: func(ctx context.Context, c *cli.Command) (context.Context, error) {
 			err := validatePipeCommand(c)
 			if err != nil {
-				printError(commandFromContext(c), c.Command.Name, err)
+				printError(commandFromContext(c), c.Name, err)
 			}
-			return err
+			return ctx, err
 		},
-		Action: func(c *cli.Context) (err error) {
-			defer stat.Collect(c.Command.FullName(), &err)()
+		Action: func(ctx context.Context, c *cli.Command) (err error) {
+			defer stat.Collect(commandName(c), &err)()
 
 			pipe, err := NewPipe(c, false)
 			if err != nil {
 				return err
 			}
-			return pipe.Run(c.Context)
+			return pipe.Run(ctx)
 		},
 	}
 
-	cmd.BashComplete = getBashCompleteFn(cmd, false, false)
+	cmd.ShellComplete = getBashCompleteFn(cmd, false, false)
 	return cmd
 }
 
@@ -160,26 +159,26 @@ type Pipe struct {
 	storageOpts storage.Options
 }
 
-// NewPipe creates Pipe from cli.Context.
-func NewPipe(c *cli.Context, deleteSource bool) (*Pipe, error) {
+// NewPipe creates Pipe from the cli command.
+func NewPipe(c *cli.Command, deleteSource bool) (*Pipe, error) {
 	fullCommand := commandFromContext(c)
 
 	dst, err := url.New(c.Args().Get(0), url.WithRaw(c.Bool("raw")))
 	if err != nil {
-		printError(fullCommand, c.Command.Name, err)
+		printError(fullCommand, c.Name, err)
 		return nil, err
 	}
 
 	metadata, ok := c.Value("metadata").(MapValue)
 	if !ok {
 		err := errors.New("metadata flag is not a map")
-		printError(fullCommand, c.Command.Name, err)
+		printError(fullCommand, c.Name, err)
 		return nil, err
 	}
 
 	return &Pipe{
 		dst:          dst,
-		op:           c.Command.Name,
+		op:           c.Name,
 		fullCommand:  fullCommand,
 		deleteSource: deleteSource,
 		// flags
@@ -288,7 +287,7 @@ func (c Pipe) shouldOverride(ctx context.Context, dsturl *url.URL) error {
 	return nil
 }
 
-func validatePipeCommand(c *cli.Context) error {
+func validatePipeCommand(c *cli.Command) error {
 	if c.Args().Len() != 1 {
 		return fmt.Errorf("expected destination argument")
 	}

@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os"
@@ -10,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 
 	"gotest.tools/v3/assert"
 	"gotest.tools/v3/fs"
@@ -36,9 +37,9 @@ func TestSyncFailForNonsharedFlagsFromCopyCommand(t *testing.T) {
 	result := icmd.RunCmd(cmd)
 	result.Assert(t, icmd.Expected{ExitCode: 1})
 
-	// urfave.Cli prints the help text and error message to stdout
-	// if given flags in not present in command options.
-	assertLines(t, result.Stdout(), map[int]compareFunc{
+	// urfave/cli v3 prints the usage error to stderr and the help text to
+	// stdout; v2 put both on stdout.
+	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: equals("Incorrect Usage: flag provided but not defined: -n"),
 	}, strictLineCheck(false))
 }
@@ -63,6 +64,49 @@ func TestSyncLocalToLocal(t *testing.T) {
 	assertLines(t, result.Stderr(), map[int]compareFunc{
 		0: equals(`ERROR "sync %s %s": local->local copy operations are not permitted`, srcpath, destpath),
 	})
+}
+
+// Object keys may legally contain control characters. sync serialises each
+// copy into a command line that run-mode parses back with a shell parser, so
+// a key containing a literal tab used to be rendered as the two characters
+// \ and t -- which a shell parser does not treat as an escape -- and the
+// resulting copy asked for a key that does not exist. Listing the same key
+// always worked, so a nightly sync would fail on these objects forever.
+func TestSyncS3ToS3KeyWithControlCharacter(t *testing.T) {
+	t.Parallel()
+
+	testcases := []struct {
+		name string
+		key  string
+	}{
+		{name: "tab", key: "prefix/a\tb.txt"},
+		{name: "newline", key: "prefix/a\nb.txt"},
+		{name: "carriage-return", key: "prefix/a\rb.txt"},
+		{name: "backslash-t-literal", key: `prefix/a\tb.txt`},
+		{name: "space", key: "prefix/a b.txt"},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			s3client, s5cmd := setup(t)
+
+			srcbucket := s3BucketFromTestNameWithPrefix(t, "src")
+			dstbucket := s3BucketFromTestNameWithPrefix(t, "dst")
+			createBucket(t, s3client, srcbucket)
+			createBucket(t, s3client, dstbucket)
+			putFile(t, s3client, srcbucket, tc.key, "content")
+
+			cmd := s5cmd("sync", fmt.Sprintf("s3://%v/*", srcbucket), fmt.Sprintf("s3://%v/", dstbucket))
+			result := icmd.RunCmd(cmd)
+
+			result.Assert(t, icmd.Success)
+
+			// the object must actually arrive under the very same key
+			assert.Assert(t, ensureS3Object(s3client, dstbucket, tc.key, "content"))
+		})
+	}
 }
 
 // sync s3://bucket/source.go .
@@ -1163,10 +1207,10 @@ func TestSyncS3BucketToS3BucketIsStorageClassChanging(t *testing.T) {
 			Bucket:       &srcbucket,
 			Key:          &sc.filename,
 			Body:         strings.NewReader(sc.content),
-			StorageClass: &sc.srcStorageClass,
+			StorageClass: types.StorageClass(sc.srcStorageClass),
 		}
 
-		_, err := s3client.PutObject(&putObject)
+		_, err := s3client.PutObject(context.Background(), &putObject)
 		if err != nil {
 			t.Fatalf("failed to put object in %v: %v", sc.srcStorageClass, err)
 		}
@@ -1175,10 +1219,10 @@ func TestSyncS3BucketToS3BucketIsStorageClassChanging(t *testing.T) {
 			Bucket:       &dstbucket,
 			Key:          &sc.filename,
 			Body:         strings.NewReader(sc.content),
-			StorageClass: aws.String(sc.dstStorageClass),
+			StorageClass: types.StorageClass(sc.dstStorageClass),
 		}
 
-		_, err = s3client.PutObject(&putObject)
+		_, err = s3client.PutObject(context.Background(), &putObject)
 		if err != nil {
 			t.Fatalf("failed to put object in %v: %v", sc.dstStorageClass, err)
 		}
@@ -1245,10 +1289,10 @@ func TestSyncLocalFolderToS3BucketIsStorageClassChanging(t *testing.T) {
 			Bucket:       &bucket,
 			Key:          &sc.filename,
 			Body:         strings.NewReader(sc.content),
-			StorageClass: aws.String(sc.storageClass),
+			StorageClass: types.StorageClass(sc.storageClass),
 		}
 
-		_, err := s3client.PutObject(&putObject)
+		_, err := s3client.PutObject(context.Background(), &putObject)
 		if err != nil {
 			t.Fatalf("failed to put object in %v: %v", sc.storageClass, err)
 		}
@@ -1311,10 +1355,10 @@ func TestSyncS3BucketToLocalFolderIsStorageClassChanging(t *testing.T) {
 			Bucket:       &bucket,
 			Key:          &sc.filename,
 			Body:         strings.NewReader(sc.content),
-			StorageClass: aws.String(sc.storageClass),
+			StorageClass: types.StorageClass(sc.storageClass),
 		}
 
-		_, err := s3client.PutObject(&putObject)
+		_, err := s3client.PutObject(context.Background(), &putObject)
 		if err != nil {
 			t.Fatalf("failed to put object in %v: %v", sc.storageClass, err)
 		}
@@ -1389,10 +1433,10 @@ func TestSyncS3BucketToS3BucketIsStorageClassChangingWithDifferentSizeAndContent
 			Bucket:       &dstbucket,
 			Key:          &sc.filename,
 			Body:         strings.NewReader(sc.dstContent),
-			StorageClass: aws.String(sc.dstStorageClass),
+			StorageClass: types.StorageClass(sc.dstStorageClass),
 		}
 
-		_, err := s3client.PutObject(&putObject)
+		_, err := s3client.PutObject(context.Background(), &putObject)
 		if err != nil {
 			t.Fatalf("failed to put object in %v: %v", sc.dstStorageClass, err)
 		}
@@ -2373,7 +2417,6 @@ func TestSyncLocalDirectoryToS3WithExcludeFilter(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -2463,7 +2506,7 @@ func TestIssue435(t *testing.T) {
 	filenameFunc := func(i int) string { return fmt.Sprintf("file_%06d", i) }
 	contentFunc := func(i int) string { return fmt.Sprintf("file body %06d", i) }
 
-	for i := 0; i < filecount; i++ {
+	for i := range filecount {
 		filename := filenameFunc(i)
 		content := contentFunc(i)
 		putFile(t, s3client, bucket, filename, content)
@@ -2481,14 +2524,14 @@ func TestIssue435(t *testing.T) {
 	assertLines(t, result.Stderr(), map[int]compareFunc{})
 
 	expected := make(map[int]compareFunc)
-	for i := 0; i < filecount; i++ {
+	for i := range filecount {
 		expected[i] = contains("rm s3://%v/file_%06d", bucket, i)
 	}
 
 	assertLines(t, result.Stdout(), expected, sortInput(true))
 
 	// assert s3 objects
-	for i := 0; i < filecount; i++ {
+	for i := range filecount {
 		filename := filenameFunc(i)
 		content := contentFunc(i)
 

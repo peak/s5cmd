@@ -53,7 +53,6 @@ func TestBucketVersioning(t *testing.T) {
 		},
 	}
 	for _, tc := range testcases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			// set bucket versioning to and check if the change succeeded
 			cmd = s5cmd("bucket-version", "--set", tc.versioningStatus, "s3://"+bucket)

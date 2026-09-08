@@ -1,12 +1,28 @@
 package command
 
 import (
-	"flag"
 	"fmt"
 	"strings"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
+
+// genericString reads a cli.GenericFlag's value as a string. Neither of v3's
+// obvious accessors works here: cmd.String type-asserts to string, and
+// cmd.Generic type-asserts to cli.Value, which the stored value does not
+// satisfy because it is held by value while EnumValue's Set has a pointer
+// receiver. Both return the zero value silently, which would quietly disable
+// --log, --set, --metadata-directive and --structure.
+func genericString(c *cli.Command, name string) string {
+	switch v := c.Value(name).(type) {
+	case string:
+		return v
+	case fmt.Stringer:
+		return v.String()
+	default:
+		return ""
+	}
+}
 
 type EnumValue struct {
 	Enum    []string
@@ -41,7 +57,7 @@ func (e EnumValue) String() string {
 	return e.selected
 }
 
-func (e EnumValue) Get() interface{} {
+func (e EnumValue) Get() any {
 	return e
 }
 
@@ -86,7 +102,7 @@ func (m MapValue) Set(s string) error {
 	return nil
 }
 
-func (m MapValue) Get() interface{} {
+func (m MapValue) Get() any {
 	if m == nil {
 		m = make(map[string]string)
 	}
@@ -115,18 +131,43 @@ var (
 	_ cli.DocGenerationFlag = (*MapFlag)(nil)
 )
 
-func (f *MapFlag) Apply(set *flag.FlagSet) error {
-	if f.Value == nil {
-		f.Value = make(map[string]string)
-	}
-	for _, name := range f.Names() {
-		set.Var(f.Value, name, f.Usage)
-		if len(f.Value) > 0 {
-			f.HasBeenSet = true
-		}
-	}
+// The v3 Flag interface replaced Apply(*flag.FlagSet) with a Set/PreParse/
+// PostParse lifecycle, so the plumbing below differs from the v2 version even
+// though the flag behaves the same. The duplicate-key and "key=value" format
+// checks live in MapValue.Set and are the reason for keeping a custom flag
+// rather than switching to v3's StringMapFlag, which accepts both silently.
 
+// PreParse initialises the backing map before any values arrive.
+func (f *MapFlag) PreParse() error {
+	if f.Value == nil {
+		f.Value = make(MapValue)
+	}
 	return nil
+}
+
+// PostParse is a no-op: there is no default to apply and no environment
+// variable to read for this flag.
+func (f *MapFlag) PostParse() error {
+	return nil
+}
+
+// Set records one "key=value" occurrence of the flag.
+func (f *MapFlag) Set(_, value string) error {
+	if f.Value == nil {
+		f.Value = make(MapValue)
+	}
+	if err := f.Value.Set(value); err != nil {
+		return err
+	}
+	f.HasBeenSet = true
+	return nil
+}
+
+func (f *MapFlag) Get() any {
+	if f.Value == nil {
+		return make(MapValue)
+	}
+	return f.Value
 }
 
 func (f *MapFlag) GetUsage() string {
@@ -142,7 +183,7 @@ func (f *MapFlag) IsSet() bool {
 }
 
 func (f *MapFlag) IsVisible() bool {
-	return true
+	return !f.Hidden
 }
 
 func (f *MapFlag) String() string {
@@ -163,6 +204,30 @@ func (f *MapFlag) GetDefaultText() string {
 
 func (f *MapFlag) GetEnvVars() []string {
 	return []string{}
+}
+
+// IsDefaultVisible reports whether help should print a default; this flag has
+// no meaningful default to show.
+func (f *MapFlag) IsDefaultVisible() bool {
+	return false
+}
+
+// TypeName is used by help rendering to describe the expected value.
+func (f *MapFlag) TypeName() string {
+	return "key=value"
+}
+
+// IsMultiValueFlag reports that the flag may be repeated.
+func (f *MapFlag) IsMultiValueFlag() bool {
+	return true
+}
+
+func (f *MapFlag) GetCategory() string {
+	return f.Category
+}
+
+func (f *MapFlag) SetCategory(c string) {
+	f.Category = c
 }
 
 func (f *MapFlag) IsRequired() bool {

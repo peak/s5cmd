@@ -2439,6 +2439,200 @@ func TestSyncLocalDirectoryToS3WithExcludeFilter(t *testing.T) {
 	}
 }
 
+// sync --delete --exclude "sub/*" folder/ s3://bucket/prefix/
+func TestSyncLocalToS3BucketWithDeleteAndExcludeFilter(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd := setup(t)
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	folderLayout := []fs.PathOp{
+		fs.WithFile("readme.md", "S: this is a readme file"),
+	}
+
+	workdir := fs.NewDir(t, "somedir", folderLayout...)
+	defer workdir.Remove()
+
+	s3Content := map[string]string{
+		"prefix/sub/keep.txt": "D: this is a text file",
+		"prefix/old.log":      "D: this is a log file",
+	}
+
+	for filename, content := range s3Content {
+		putFile(t, s3client, bucket, filename, content)
+	}
+
+	// pattern is relative to the destination prefix.
+	const excludePattern = "sub/*"
+
+	src := fmt.Sprintf("%v/", workdir.Path())
+	src = filepath.ToSlash(src)
+	dst := fmt.Sprintf("s3://%v/prefix/", bucket)
+
+	cmd := s5cmd("sync", "--delete", "--exclude", excludePattern, src, dst)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`cp %vreadme.md %vreadme.md`, src, dst),
+		1: equals(`rm %vold.log`, dst),
+	}, sortInput(true))
+
+	// assert local filesystem
+	expected := fs.Expected(t, folderLayout...)
+	assert.Assert(t, fs.Equal(workdir.Path(), expected))
+
+	expectedS3Content := map[string]string{
+		"prefix/readme.md": "S: this is a readme file",
+		// excluded object exists only in destination and must not be deleted.
+		"prefix/sub/keep.txt": "D: this is a text file",
+	}
+
+	nonExpectedS3Content := map[string]string{
+		"prefix/old.log": "D: this is a log file",
+	}
+
+	// assert objects should be in S3
+	for key, content := range expectedS3Content {
+		assert.Assert(t, ensureS3Object(s3client, bucket, key, content))
+	}
+
+	// assert objects should not be in S3.
+	for key, content := range nonExpectedS3Content {
+		err := ensureS3Object(s3client, bucket, key, content)
+		assertError(t, err, errS3NoSuchKey)
+	}
+}
+
+// sync --delete --exclude "sub/*" s3://bucket/* folder/
+func TestSyncS3BucketToLocalWithDeleteAndExcludeFilter(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd := setup(t)
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	s3Content := map[string]string{
+		"readme.md": "S: this is a readme file",
+	}
+
+	for filename, content := range s3Content {
+		putFile(t, s3client, bucket, filename, content)
+	}
+
+	folderLayout := []fs.PathOp{
+		fs.WithFile("old.log", "D: this is a log file"),
+		fs.WithDir("sub",
+			fs.WithFile("keep.txt", "D: this is a text file"),
+		),
+	}
+
+	workdir := fs.NewDir(t, "somedir", folderLayout...)
+	defer workdir.Remove()
+
+	// pattern is relative to the destination directory.
+	const excludePattern = "sub/*"
+
+	src := fmt.Sprintf("s3://%v/", bucket)
+	dst := fmt.Sprintf("%v/", workdir.Path())
+	dst = filepath.ToSlash(dst)
+
+	cmd := s5cmd("sync", "--delete", "--exclude", excludePattern, src+"*", dst)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`cp %vreadme.md %vreadme.md`, src, dst),
+		1: equals(`rm %vold.log`, dst),
+	}, sortInput(true))
+
+	expectedFolderLayout := []fs.PathOp{
+		fs.WithFile("readme.md", "S: this is a readme file"),
+		// excluded file exists only in destination and must not be deleted.
+		fs.WithDir("sub",
+			fs.WithFile("keep.txt", "D: this is a text file"),
+		),
+	}
+
+	expected := fs.Expected(t, expectedFolderLayout...)
+	assert.Assert(t, fs.Equal(workdir.Path(), expected))
+
+	for key, content := range s3Content {
+		assert.Assert(t, ensureS3Object(s3client, bucket, key, content))
+	}
+}
+
+// sync --delete --include "*.md" --include "sub/*" folder/ s3://bucket/prefix/
+func TestSyncLocalToS3BucketWithDeleteAndIncludeFilter(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd := setup(t)
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	folderLayout := []fs.PathOp{
+		fs.WithFile("readme.md", "S: this is a readme file"),
+	}
+
+	workdir := fs.NewDir(t, "somedir", folderLayout...)
+	defer workdir.Remove()
+
+	s3Content := map[string]string{
+		"prefix/keep.txt":    "D: this is a text file",
+		"prefix/sub/old.log": "D: this is a log file",
+	}
+
+	for filename, content := range s3Content {
+		putFile(t, s3client, bucket, filename, content)
+	}
+
+	src := fmt.Sprintf("%v/", workdir.Path())
+	src = filepath.ToSlash(src)
+	dst := fmt.Sprintf("s3://%v/prefix/", bucket)
+
+	// patterns are relative to the destination prefix.
+	cmd := s5cmd("sync", "--delete", "--include", "*.md", "--include", "sub/*", src, dst)
+	result := icmd.RunCmd(cmd)
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`cp %vreadme.md %vreadme.md`, src, dst),
+		1: equals(`rm %vsub/old.log`, dst),
+	}, sortInput(true))
+
+	// assert local filesystem
+	expected := fs.Expected(t, folderLayout...)
+	assert.Assert(t, fs.Equal(workdir.Path(), expected))
+
+	expectedS3Content := map[string]string{
+		"prefix/readme.md": "S: this is a readme file",
+		// object not matching --include exists only in destination and must not be deleted.
+		"prefix/keep.txt": "D: this is a text file",
+	}
+
+	nonExpectedS3Content := map[string]string{
+		"prefix/sub/old.log": "D: this is a log file",
+	}
+
+	// assert objects should be in S3
+	for key, content := range expectedS3Content {
+		assert.Assert(t, ensureS3Object(s3client, bucket, key, content))
+	}
+
+	// assert objects should not be in S3.
+	for key, content := range nonExpectedS3Content {
+		err := ensureS3Object(s3client, bucket, key, content)
+		assertError(t, err, errS3NoSuchKey)
+	}
+}
+
 // sync --delete somedir s3://bucket/ (removes 10k objects)
 func TestIssue435(t *testing.T) {
 	t.Parallel()

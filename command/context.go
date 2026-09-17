@@ -62,6 +62,8 @@ func contextValue(c *cli.Context, flagname string) []string {
 }
 
 // generateCommand generates command string from given context, app command, default flags and urls.
+// A default flag with a nil value is omitted from the generated command, even
+// if it is set in the given context.
 func generateCommand(c *cli.Context, cmd string, defaultFlags map[string]interface{}, urls ...*url.URL) (string, error) {
 	command := AppCommand(cmd)
 	flagset := flag.NewFlagSet(command.Name, flag.ContinueOnError)
@@ -73,6 +75,9 @@ func generateCommand(c *cli.Context, cmd string, defaultFlags map[string]interfa
 
 	flags := []string{}
 	for flagname, flagvalue := range defaultFlags {
+		if flagvalue == nil {
+			continue
+		}
 		flags = append(flags, fmt.Sprintf("--%s='%v'", flagname, flagvalue))
 	}
 

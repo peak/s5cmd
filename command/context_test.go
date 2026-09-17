@@ -136,6 +136,30 @@ func TestGenerateCommand(t *testing.T) {
 			expectedCommand: `cp --exclude='*.log' --exclude='*.txt' "/source/dir" "s3://bucket/prefix/"`,
 		},
 		{
+			name: "nil-default-flag-should-be-omitted-even-if-set-in-context",
+			cmd:  "rm",
+			flags: []cli.Flag{
+				&cli.StringSliceFlag{
+					Name:  "exclude",
+					Value: cli.NewStringSlice("*.txt"),
+				},
+				&cli.StringSliceFlag{
+					Name:  "include",
+					Value: cli.NewStringSlice("*.log"),
+				},
+			},
+			defaultFlags: map[string]interface{}{
+				"raw":     true,
+				"exclude": nil,
+				"include": nil,
+			},
+			urls: []*url.URL{
+				mustNewURL(t, "s3://bucket/key1"),
+				mustNewURL(t, "s3://bucket/key2"),
+			},
+			expectedCommand: `rm --raw='true' "s3://bucket/key1" "s3://bucket/key2"`,
+		},
+		{
 			name:  "command-with-multiple-args",
 			cmd:   "rm",
 			flags: []cli.Flag{},

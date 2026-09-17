@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 
@@ -131,6 +132,12 @@ type Sync struct {
 	delete      bool
 	sizeOnly    bool
 	exitOnError bool
+	exclude     []string
+	include     []string
+
+	// patterns
+	excludePatterns []*regexp.Regexp
+	includePatterns []*regexp.Regexp
 
 	// s3 options
 	storageOpts storage.Options
@@ -155,6 +162,8 @@ func NewSync(c *cli.Context) Sync {
 		delete:      c.Bool("delete"),
 		sizeOnly:    c.Bool("size-only"),
 		exitOnError: c.Bool("exit-on-error"),
+		exclude:     c.StringSlice("exclude"),
+		include:     c.StringSlice("include"),
 
 		// flags
 		followSymlinks: !c.Bool("no-follow-symlinks"),
@@ -177,6 +186,18 @@ func (s Sync) Run(c *cli.Context) error {
 
 	dsturl, err := url.New(s.dst, url.WithRaw(s.raw))
 	if err != nil {
+		return err
+	}
+
+	s.excludePatterns, err = createRegexFromWildcard(s.exclude)
+	if err != nil {
+		printError(s.fullCommand, s.op, err)
+		return err
+	}
+
+	s.includePatterns, err = createRegexFromWildcard(s.include)
+	if err != nil {
+		printError(s.fullCommand, s.op, err)
 		return err
 	}
 
@@ -505,6 +526,15 @@ func (s Sync) planRun(
 			dstURLs := make([]*url.URL, 0, extsortChunkSize)
 
 			for d := range onlyDest {
+				// objects filtered out by --exclude/--include are not part
+				// of the sync, so they must not be deleted from the
+				// destination either.
+				if len(s.excludePatterns) > 0 && isURLMatched(s.excludePatterns, d.Path, dsturl.Prefix) {
+					continue
+				}
+				if len(s.includePatterns) > 0 && !isURLMatched(s.includePatterns, d.Path, dsturl.Prefix) {
+					continue
+				}
 				dstURLs = append(dstURLs, d)
 			}
 
@@ -512,7 +542,16 @@ func (s Sync) planRun(
 				return
 			}
 
-			command, err := generateCommand(c, "rm", defaultFlags, dstURLs...)
+			// --exclude and --include are already applied above, relative to
+			// the destination prefix. Omit them from the generated rm command,
+			// which would match them against the full object key instead.
+			rmFlags := map[string]interface{}{
+				"raw":     true,
+				"exclude": nil,
+				"include": nil,
+			}
+
+			command, err := generateCommand(c, "rm", rmFlags, dstURLs...)
 			if err != nil {
 				printDebug(s.op, err, dstURLs...)
 				return

@@ -443,6 +443,9 @@ cp styles.css s3://bucket/static/styles.css
 cp readme.md s3://bucket/static/readme.md
 ```
 
+`--exclude` and `--include` also apply to `--delete`: destination objects that
+match an exclude pattern, or that match none of the include patterns, are kept.
+
 It's also possible to use wildcards to sync only a subset of files.
 
 To sync only `.html` files in S3 bucket above to same local file system;

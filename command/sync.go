@@ -4,20 +4,17 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 
 	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/hashicorp/go-multierror"
 	"github.com/lanrat/extsort"
 	"github.com/urfave/cli/v2"
 
 	errorpkg "github.com/peak/s5cmd/v2/error"
 	"github.com/peak/s5cmd/v2/log"
 	"github.com/peak/s5cmd/v2/log/stat"
-	"github.com/peak/s5cmd/v2/parallel"
 	"github.com/peak/s5cmd/v2/storage"
 	"github.com/peak/s5cmd/v2/storage/url"
 )
@@ -181,6 +178,7 @@ func (s Sync) Run(c *cli.Context) error {
 	}
 
 	ctx, cancel := context.WithCancel(c.Context)
+	defer cancel()
 
 	sourceObjects, destObjects, err := s.getSourceAndDestinationObjects(ctx, cancel, srcurl, dsturl)
 	if err != nil {
@@ -208,34 +206,18 @@ func (s Sync) Run(c *cli.Context) error {
 	sourceObjects = nil
 	destObjects = nil
 
-	waiter := parallel.NewWaiter()
-	var (
-		merrorWaiter error
-		errDoneCh    = make(chan struct{})
-	)
-
-	go func() {
-		defer close(errDoneCh)
-		for err := range waiter.Err() {
-			if strings.Contains(err.Error(), "too many open files") {
-				fmt.Println(strings.TrimSpace(fdlimitWarning))
-				fmt.Printf("ERROR %v\n", err)
-
-				os.Exit(1)
-			}
-			printError(s.fullCommand, s.op, err)
-			merrorWaiter = multierror.Append(merrorWaiter, err)
-		}
-	}()
-
 	strategy := NewStrategy(s.sizeOnly) // create comparison strategy.
 	pipeReader, pipeWriter := io.Pipe() // create a reader, writer pipe to pass commands to run
 
-	// Create commands in background.
-	go s.planRun(c, onlySource, onlyDest, commonObjects, dsturl, strategy, pipeWriter, isBatch)
+	// If Run stops consuming early (e.g. the context is cancelled), closing the
+	// reader unblocks any planRun goroutine stuck writing to the pipe so it can
+	// observe the cancellation and return.
+	defer pipeReader.Close()
 
-	err = NewRun(c, pipeReader).Run(ctx)
-	return multierror.Append(err, merrorWaiter).ErrorOrNil()
+	// Create commands in background.
+	go s.planRun(ctx, c, onlySource, onlyDest, commonObjects, dsturl, strategy, pipeWriter, isBatch)
+
+	return NewRun(c, pipeReader).Run(ctx)
 }
 
 // compareObjects compares source and destination objects. It assumes that
@@ -377,12 +359,14 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, cancel context
 			sourceObjects <- &o
 		}
 
-		// read and print the external sort errors
-		go func() {
-			for err := range srcErrCh {
+		// read and print the external sort errors. extsort closes the error
+		// channel together with the output channel, so this does not block.
+		// It may send a nil error when the context is cancelled mid-merge.
+		for err := range srcErrCh {
+			if err != nil {
 				printError(s.fullCommand, s.op, err)
 			}
-		}()
+		}
 	}()
 
 	// get destination objects.
@@ -424,12 +408,14 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, cancel context
 			destObjects <- &o
 		}
 
-		// read and print the external sort errors
-		go func() {
-			for err := range dstErrCh {
+		// read and print the external sort errors. extsort closes the error
+		// channel together with the output channel, so this does not block.
+		// It may send a nil error when the context is cancelled mid-merge.
+		for err := range dstErrCh {
+			if err != nil {
 				printError(s.fullCommand, s.op, err)
 			}
-		}()
+		}
 	}()
 
 	return sourceObjects, destObjects, nil
@@ -437,6 +423,7 @@ func (s Sync) getSourceAndDestinationObjects(ctx context.Context, cancel context
 
 // planRun prepares the commands and writes them to writer 'w'.
 func (s Sync) planRun(
+	ctx context.Context,
 	c *cli.Context,
 	onlySource, onlyDest chan *url.URL,
 	common chan *ObjectPair,
@@ -462,14 +449,22 @@ func (s Sync) planRun(
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		for srcurl := range onlySource {
-			curDestURL := generateDestinationURL(srcurl, dsturl, isBatch)
-			command, err := generateCommand(c, "cp", defaultFlags, srcurl, curDestURL)
-			if err != nil {
-				printDebug(s.op, err, srcurl, curDestURL)
-				continue
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case srcurl, ok := <-onlySource:
+				if !ok {
+					return
+				}
+				curDestURL := generateDestinationURL(srcurl, dsturl, isBatch)
+				command, err := generateCommand(c, "cp", defaultFlags, srcurl, curDestURL)
+				if err != nil {
+					printDebug(s.op, err, srcurl, curDestURL)
+					continue
+				}
+				fmt.Fprintln(w, command)
 			}
-			fmt.Fprintln(w, command)
 		}
 	}()
 
@@ -477,21 +472,29 @@ func (s Sync) planRun(
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		for commonObject := range common {
-			sourceObject, destObject := commonObject.src, commonObject.dst
-			curSourceURL, curDestURL := sourceObject.URL, destObject.URL
-			err := strategy.ShouldSync(sourceObject, destObject) // check if object should be copied.
-			if err != nil {
-				printDebug(s.op, err, curSourceURL, curDestURL)
-				continue
-			}
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case commonObject, ok := <-common:
+				if !ok {
+					return
+				}
+				sourceObject, destObject := commonObject.src, commonObject.dst
+				curSourceURL, curDestURL := sourceObject.URL, destObject.URL
+				err := strategy.ShouldSync(sourceObject, destObject) // check if object should be copied.
+				if err != nil {
+					printDebug(s.op, err, curSourceURL, curDestURL)
+					continue
+				}
 
-			command, err := generateCommand(c, "cp", defaultFlags, curSourceURL, curDestURL)
-			if err != nil {
-				printDebug(s.op, err, curSourceURL, curDestURL)
-				continue
+				command, err := generateCommand(c, "cp", defaultFlags, curSourceURL, curDestURL)
+				if err != nil {
+					printDebug(s.op, err, curSourceURL, curDestURL)
+					continue
+				}
+				fmt.Fprintln(w, command)
 			}
-			fmt.Fprintln(w, command)
 		}
 	}()
 
@@ -504,8 +507,17 @@ func (s Sync) planRun(
 			// or rewrite generateCommand function?
 			dstURLs := make([]*url.URL, 0, extsortChunkSize)
 
-			for d := range onlyDest {
-				dstURLs = append(dstURLs, d)
+		collect:
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case d, ok := <-onlyDest:
+					if !ok {
+						break collect
+					}
+					dstURLs = append(dstURLs, d)
+				}
 			}
 
 			if len(dstURLs) == 0 {
@@ -519,10 +531,17 @@ func (s Sync) planRun(
 			}
 			fmt.Fprintln(w, command)
 		} else {
-			// we only need  to consume them from the channel so that rest of the objects
+			// we only need to consume them from the channel so that rest of the objects
 			// can be sent to channel.
-			for d := range onlyDest {
-				_ = d
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case _, ok := <-onlyDest:
+					if !ok {
+						return
+					}
+				}
 			}
 		}
 	}()
@@ -594,7 +613,7 @@ func (s Sync) shouldStopSync(err error) bool {
 	}
 	if awsErr, ok := err.(awserr.Error); ok {
 		switch awsErr.Code() {
-		case "AccessDenied", "NoSuchBucket":
+		case "AccessDenied", "NoSuchBucket", "RequestError", "SerializationError":
 			return true
 		}
 	}

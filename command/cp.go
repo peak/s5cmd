@@ -419,6 +419,9 @@ increase the open file limit or try to decrease the number of workers with
 
 // Run starts copying given source objects to destination.
 func (c Copy) Run(ctx context.Context) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	// override source region if set
 	if c.srcRegion != "" {
 		c.storageOpts.SetRegion(c.srcRegion)
@@ -451,9 +454,10 @@ func (c Copy) Run(ctx context.Context) error {
 		for err := range waiter.Err() {
 			if strings.Contains(err.Error(), "too many open files") {
 				fmt.Println(strings.TrimSpace(fdlimitWarning))
-				fmt.Printf("ERROR %v\n", err)
-
-				os.Exit(1)
+				printError(c.fullCommand, c.op, err)
+				merrorWaiter = multierror.Append(merrorWaiter, err)
+				cancel()
+				continue
 			}
 			printError(c.fullCommand, c.op, err)
 			merrorWaiter = multierror.Append(merrorWaiter, err)
@@ -558,7 +562,10 @@ func (c Copy) Run(ctx context.Context) error {
 			}
 			task = c.prepareUploadTask(ctx, srcurl, c.dst, isBatch, c.metadata)
 		default:
-			panic("unexpected src-dst pair")
+			err := fmt.Errorf("unexpected src-dst pair: %v -> %v", srcurl, c.dst)
+			merrorObjects = multierror.Append(merrorObjects, err)
+			printError(c.fullCommand, c.op, err)
+			continue
 		}
 		parallel.Run(task, waiter)
 	}

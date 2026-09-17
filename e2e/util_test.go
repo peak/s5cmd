@@ -168,7 +168,7 @@ func setup(t *testing.T, options ...option) (*s3.S3, func(...string) icmd.Cmd) {
 
 	region := ""
 	if opts.region != "" {
-		region = opts.accessKeyID
+		region = opts.region
 	}
 
 	var cfg *credentialCfg

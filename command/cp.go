@@ -893,16 +893,25 @@ func (c Copy) shouldOverride(ctx context.Context, srcurl *url.URL, dsturl *url.U
 	}
 
 	if c.ifSourceNewer {
-		srcMod, dstMod := srcObj.ModTime, dstObj.ModTime
-
-		if !srcMod.After(*dstMod) {
-			stickyErr = errorpkg.ErrObjectIsNewer
-		} else {
+		if isSourceNewer(srcObj, dstObj) {
 			stickyErr = nil
+		} else {
+			stickyErr = errorpkg.ErrObjectIsNewer
 		}
 	}
 
 	return stickyErr
+}
+
+// isSourceNewer reports whether srcObj was modified after dstObj. If either
+// modification time is unavailable, the source is treated as newer so that
+// the copy proceeds.
+func isSourceNewer(srcObj, dstObj *storage.Object) bool {
+	srcMod, dstMod := srcObj.ModTime, dstObj.ModTime
+	if srcMod == nil || dstMod == nil {
+		return true
+	}
+	return srcMod.After(*dstMod)
 }
 
 // prepareRemoteDestination will return a new destination URL for

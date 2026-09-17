@@ -69,7 +69,7 @@ func checkNumberOfArguments(ctx *cli.Context, min, max int) error {
 		return fmt.Errorf("expected at least %d arguments but was given %d: %q", min, l, ctx.Args().Slice())
 	}
 	if max >= 0 && l > max {
-		return fmt.Errorf("expected at most %d arguments but was given %d: %q", min, l, ctx.Args().Slice())
+		return fmt.Errorf("expected at most %d arguments but was given %d: %q", max, l, ctx.Args().Slice())
 	}
 	return nil
 }

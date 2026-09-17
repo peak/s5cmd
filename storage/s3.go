@@ -144,7 +144,7 @@ func (s *S3) Stat(ctx context.Context, url *url.URL) (*Object, error) {
 	}
 
 	if s.noSuchUploadRetryCount > 0 {
-		if retryID, ok := output.Metadata[metadataKeyRetryID]; ok {
+		if retryID, ok := output.Metadata[metadataKeyRetryID]; ok && retryID != nil {
 			obj.retryID = *retryID
 		}
 	}
@@ -545,6 +545,9 @@ func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata Metadata) err
 
 	// add retry ID to the object metadata
 	if s.noSuchUploadRetryCount > 0 {
+		if input.Metadata == nil {
+			input.Metadata = make(map[string]*string)
+		}
 		input.Metadata[metadataKeyRetryID] = generateRetryID()
 	}
 
@@ -557,11 +560,12 @@ func (s *S3) Copy(ctx context.Context, from, to *url.URL, metadata Metadata) err
 	}
 
 	if len(metadata.UserDefined) != 0 {
-		m := make(map[string]*string)
-		for k, v := range metadata.UserDefined {
-			m[k] = aws.String(v)
+		if input.Metadata == nil {
+			input.Metadata = make(map[string]*string)
 		}
-		input.Metadata = m
+		for k, v := range metadata.UserDefined {
+			input.Metadata[k] = aws.String(v)
+		}
 	}
 
 	_, err := s.api.CopyObject(input)
@@ -866,11 +870,9 @@ func (s *S3) Put(
 	}
 
 	if len(metadata.UserDefined) != 0 {
-		m := make(map[string]*string)
 		for k, v := range metadata.UserDefined {
-			m[k] = aws.String(v)
+			input.Metadata[k] = aws.String(v)
 		}
-		input.Metadata = m
 	}
 
 	uploaderOptsFn := func(u *s3manager.Uploader) {
@@ -890,7 +892,7 @@ func (s *S3) retryOnNoSuchUpload(ctx aws.Context, to *url.URL, input *s3manager.
 	err error, uploaderOpts ...func(*s3manager.Uploader),
 ) error {
 	var expectedRetryID string
-	if ID, ok := input.Metadata[metadataKeyRetryID]; ok {
+	if ID, ok := input.Metadata[metadataKeyRetryID]; ok && ID != nil {
 		expectedRetryID = *ID
 	}
 

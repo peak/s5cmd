@@ -754,6 +754,197 @@ func TestS3CopyEncryptionRequest(t *testing.T) {
 	}
 }
 
+func TestS3CopyRetryIDWithUserMetadata(t *testing.T) {
+	testcases := []struct {
+		name        string
+		retryCount  int
+		userDefined map[string]string
+
+		expectRetryID bool
+	}{
+		{
+			name:       "retry ID without user metadata",
+			retryCount: 1,
+
+			expectRetryID: true,
+		},
+		{
+			name:        "retry ID merged with user metadata",
+			retryCount:  1,
+			userDefined: map[string]string{"foo": "bar"},
+
+			expectRetryID: true,
+		},
+		{
+			name:        "user metadata without retry ID",
+			userDefined: map[string]string{"foo": "bar"},
+		},
+	}
+
+	u, err := url.New("s3://bucket/key")
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	for _, tc := range testcases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			mockAPI := s3.New(unit.Session)
+
+			mockAPI.Handlers.Unmarshal.Clear()
+			mockAPI.Handlers.UnmarshalMeta.Clear()
+			mockAPI.Handlers.UnmarshalError.Clear()
+			mockAPI.Handlers.Send.Clear()
+
+			mockAPI.Handlers.Send.PushBack(func(r *request.Request) {
+				r.HTTPResponse = &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(strings.NewReader("")),
+				}
+
+				got := r.Params.(*s3.CopyObjectInput).Metadata
+				assertRequestMetadata(t, got, tc.userDefined, tc.expectRetryID)
+			})
+			mockAPI.Handlers.Unmarshal.PushBack(func(r *request.Request) {
+				if r.Error != nil {
+					if awsErr, ok := r.Error.(awserr.Error); ok {
+						if awsErr.Code() == request.ErrCodeSerialization {
+							r.Error = nil
+						}
+					}
+				}
+			})
+
+			mockS3 := &S3{
+				api:                    mockAPI,
+				noSuchUploadRetryCount: tc.retryCount,
+			}
+
+			err = mockS3.Copy(context.Background(), u, u, Metadata{UserDefined: tc.userDefined})
+			if err != nil {
+				t.Errorf("Expected %v, but received %q", nil, err)
+			}
+		})
+	}
+}
+
+func TestS3PutRetryIDWithUserMetadata(t *testing.T) {
+	testcases := []struct {
+		name        string
+		retryCount  int
+		userDefined map[string]string
+
+		expectRetryID bool
+	}{
+		{
+			name:       "retry ID without user metadata",
+			retryCount: 1,
+
+			expectRetryID: true,
+		},
+		{
+			name:        "retry ID merged with user metadata",
+			retryCount:  1,
+			userDefined: map[string]string{"foo": "bar"},
+
+			expectRetryID: true,
+		},
+		{
+			name:        "user metadata without retry ID",
+			userDefined: map[string]string{"foo": "bar"},
+		},
+	}
+
+	u, err := url.New("s3://bucket/key")
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	for _, tc := range testcases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			mockAPI := s3.New(unit.Session)
+
+			mockAPI.Handlers.Unmarshal.Clear()
+			mockAPI.Handlers.UnmarshalMeta.Clear()
+			mockAPI.Handlers.UnmarshalError.Clear()
+			mockAPI.Handlers.Send.Clear()
+
+			mockAPI.Handlers.Send.PushBack(func(r *request.Request) {
+				r.HTTPResponse = &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(strings.NewReader("")),
+				}
+
+				got := r.Params.(*s3.PutObjectInput).Metadata
+				assertRequestMetadata(t, got, tc.userDefined, tc.expectRetryID)
+			})
+
+			mockS3 := &S3{
+				uploader:               s3manager.NewUploaderWithClient(mockAPI),
+				noSuchUploadRetryCount: tc.retryCount,
+			}
+
+			err = mockS3.Put(context.Background(), bytes.NewReader([]byte("")), u, Metadata{UserDefined: tc.userDefined}, 1, 5242880)
+			if err != nil {
+				t.Errorf("Expected %v, but received %q", nil, err)
+			}
+		})
+	}
+}
+
+// assertRequestMetadata checks that the request metadata contains every
+// user-defined key and, if expected, a non-empty retry ID.
+func assertRequestMetadata(t *testing.T, got map[string]*string, userDefined map[string]string, expectRetryID bool) {
+	t.Helper()
+
+	for k, v := range userDefined {
+		assert.Equal(t, aws.StringValue(got[k]), v)
+	}
+
+	retryID, ok := got[metadataKeyRetryID]
+	if expectRetryID {
+		assert.Assert(t, ok, "retry ID missing from request metadata")
+		assert.Assert(t, aws.StringValue(retryID) != "", "retry ID is empty")
+	} else {
+		assert.Assert(t, !ok, "unexpected retry ID in request metadata")
+	}
+}
+
+func TestS3StatNilRetryID(t *testing.T) {
+	u, err := url.New("s3://bucket/key")
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	mockAPI := s3.New(unit.Session)
+	mockS3 := &S3{
+		api:                    mockAPI,
+		noSuchUploadRetryCount: 1,
+	}
+
+	mockAPI.Handlers.Send.Clear()
+	mockAPI.Handlers.Unmarshal.Clear()
+	mockAPI.Handlers.UnmarshalMeta.Clear()
+	mockAPI.Handlers.ValidateResponse.Clear()
+
+	mockAPI.Handlers.Send.PushBack(func(r *request.Request) {
+		r.HTTPResponse = &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader("")),
+		}
+	})
+	mockAPI.Handlers.Unmarshal.PushBack(func(r *request.Request) {
+		r.Data.(*s3.HeadObjectOutput).Metadata = map[string]*string{
+			metadataKeyRetryID: nil,
+		}
+	})
+
+	obj, err := mockS3.Stat(context.Background(), u)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	assert.Equal(t, obj.retryID, "")
+}
+
 func TestS3PutEncryptionRequest(t *testing.T) {
 	testcases := []struct {
 		name     string

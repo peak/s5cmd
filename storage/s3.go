@@ -84,7 +84,7 @@ func parseEndpoint(endpoint string) (urlpkg.URL, error) {
 
 	u, err := urlpkg.Parse(endpoint)
 	if err != nil {
-		return sentinelURL, fmt.Errorf("parse endpoint %q: %v", endpoint, err)
+		return sentinelURL, fmt.Errorf("parse endpoint %q: %w", endpoint, err)
 	}
 
 	return *u, nil
@@ -1361,7 +1361,7 @@ func setSessionRegion(ctx context.Context, sess *session.Session, bucket string)
 		}
 		// don't deny any request to the service if region auto-fetching
 		// receives an error. Delegate error handling to command execution.
-		err = fmt.Errorf("session: fetching region failed: %v", err)
+		err = fmt.Errorf("session: fetching region failed: %w", err)
 		msg := log.ErrorMessage{Err: err.Error()}
 		log.Error(msg)
 	} else {

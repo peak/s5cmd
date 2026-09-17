@@ -40,6 +40,45 @@ func TestS3ImplementsStorageInterface(t *testing.T) {
 	}
 }
 
+func TestParseEndpoint(t *testing.T) {
+	t.Run("empty endpoint returns sentinel", func(t *testing.T) {
+		got, err := parseEndpoint("")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got != sentinelURL {
+			t.Errorf("got %v, want sentinel url", got)
+		}
+	})
+
+	t.Run("valid endpoint", func(t *testing.T) {
+		got, err := parseEndpoint("https://example.com:9000")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got.Host != "example.com:9000" || got.Scheme != "https" {
+			t.Errorf("got %v, want https://example.com:9000", got.String())
+		}
+	})
+
+	t.Run("invalid endpoint wraps url.Error", func(t *testing.T) {
+		const endpoint = "http://[::1"
+		_, err := parseEndpoint(endpoint)
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+
+		var urlErr *urlpkg.Error
+		if !errors.As(err, &urlErr) {
+			t.Errorf("expected error to wrap *url.Error, got %T: %v", err, err)
+		}
+
+		if want := fmt.Sprintf("parse endpoint %q: ", endpoint); !strings.HasPrefix(err.Error(), want) {
+			t.Errorf("got %q, want prefix %q", err.Error(), want)
+		}
+	})
+}
+
 func TestNewSessionPathStyle(t *testing.T) {
 	testcases := []struct {
 		name            string

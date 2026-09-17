@@ -60,13 +60,15 @@ func (cp *CommandProgressBar) Finish() {
 }
 
 func (cp *CommandProgressBar) IncrementCompletedObjects() {
-	atomic.AddInt64(&cp.completedObjects, 1)
-	cp.progressbar.Set("objects", fmt.Sprintf("(%d/%d)", cp.completedObjects, cp.totalObjects))
+	completed := atomic.AddInt64(&cp.completedObjects, 1)
+	total := atomic.LoadInt64(&cp.totalObjects)
+	cp.progressbar.Set("objects", fmt.Sprintf("(%d/%d)", completed, total))
 }
 
 func (cp *CommandProgressBar) IncrementTotalObjects() {
-	atomic.AddInt64(&cp.totalObjects, 1)
-	cp.progressbar.Set("objects", fmt.Sprintf("(%d/%d)", cp.completedObjects, cp.totalObjects))
+	total := atomic.AddInt64(&cp.totalObjects, 1)
+	completed := atomic.LoadInt64(&cp.completedObjects)
+	cp.progressbar.Set("objects", fmt.Sprintf("(%d/%d)", completed, total))
 }
 
 func (cp *CommandProgressBar) AddCompletedBytes(bytes int64) {

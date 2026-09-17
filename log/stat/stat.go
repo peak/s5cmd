@@ -98,6 +98,11 @@ func Statistics() Stats {
 		return Stats{}
 	}
 
+	stats[totalCount].Lock()
+	defer stats[totalCount].Unlock()
+	stats[succCount].Lock()
+	defer stats[succCount].Unlock()
+
 	var result Stats
 	for op, total := range stats[totalCount].mapStrInt64 {
 		success := stats[succCount].mapStrInt64[op]

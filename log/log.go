@@ -3,6 +3,7 @@ package log
 import (
 	"fmt"
 	"os"
+	"sync"
 )
 
 // output is an internal container for messages to be logged.
@@ -48,19 +49,22 @@ func Error(msg Message) {
 	global.printf(LevelError, msg, os.Stderr)
 }
 
-// Close closes logger and its channel.
+// Close closes logger and its channel. It is safe to call multiple times.
 func Close() {
 	if global != nil {
-		close(outputCh)
-		<-global.donech
+		global.closeOnce.Do(func() {
+			close(outputCh)
+			<-global.donech
+		})
 	}
 }
 
 // Logger is a structure for logging messages.
 type Logger struct {
-	donech chan struct{}
-	json   bool
-	level  LogLevel
+	donech    chan struct{}
+	closeOnce sync.Once
+	json      bool
+	level     LogLevel
 }
 
 // New creates new logger.

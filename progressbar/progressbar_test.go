@@ -2,6 +2,7 @@ package progressbar
 
 import (
 	"strings"
+	"sync"
 	"testing"
 
 	"gotest.tools/v3/assert"
@@ -50,4 +51,36 @@ func TestCommandProgress_AddTotalBytes(t *testing.T) {
 	cp.AddTotalBytes(bytes)
 	assert.Equal(t, bytes, cp.progressbar.Total())
 	assert.Equal(t, true, strings.Contains(cp.progressbar.String(), "102 B"))
+}
+
+func TestCommandProgress_ConcurrentIncrement(t *testing.T) {
+	t.Parallel()
+	cp := New()
+
+	const (
+		workers    = 8
+		iterations = 500
+	)
+
+	var wg sync.WaitGroup
+	for i := 0; i < workers; i++ {
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			for j := 0; j < iterations; j++ {
+				cp.IncrementTotalObjects()
+			}
+		}()
+		go func() {
+			defer wg.Done()
+			for j := 0; j < iterations; j++ {
+				cp.IncrementCompletedObjects()
+			}
+		}()
+	}
+	wg.Wait()
+
+	assert.Equal(t, int64(workers*iterations), cp.totalObjects)
+	assert.Equal(t, int64(workers*iterations), cp.completedObjects)
+	assert.Equal(t, true, strings.Contains(cp.progressbar.String(), "4000/4000"))
 }

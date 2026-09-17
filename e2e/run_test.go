@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -318,6 +319,46 @@ func TestRunDryRun(t *testing.T) {
 
 	// ensure no side effect for remove operation
 	assert.Assert(t, ensureS3Object(s3client, bucket, files[2], "content"))
+}
+
+// --dry-run run (cp s3://bucket/file dir/ from stdin)
+func TestRunDryRunDownloadFromStdin(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd := setup(t)
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	// Feed more than one read buffer's worth of commands so stdin is still
+	// being read while the first downloads complete. A dry-run download must
+	// hand out a file that is safe to close, i.e. one that does not alias
+	// stdin.
+	const numFiles = 200
+
+	var lines []string
+	expected := make(map[int]compareFunc)
+	for i := 0; i < numFiles; i++ {
+		filename := fmt.Sprintf("file%03d.txt", i)
+		putFile(t, s3client, bucket, filename, "content")
+
+		lines = append(lines, fmt.Sprintf("cp s3://%v/%s dir/", bucket, filename))
+		expected[i] = equals("cp s3://%v/%s dir/%s", bucket, filename, filename)
+	}
+
+	input := strings.NewReader(strings.Join(lines, "\n"))
+	cmd := s5cmd("--dry-run", "run")
+	result := icmd.RunCmd(cmd, icmd.WithStdin(input))
+
+	result.Assert(t, icmd.Success)
+
+	assertLines(t, result.Stdout(), expected, sortInput(true))
+
+	assertLines(t, result.Stderr(), map[int]compareFunc{})
+
+	// not even outermost directory should be created
+	_, err := os.Stat(cmd.Dir + "/dir")
+	assert.Assert(t, os.IsNotExist(err))
 }
 
 func TestRunFixDataRace_Issue301(t *testing.T) {

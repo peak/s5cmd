@@ -431,6 +431,7 @@ func TestListS3ObjectsWithDashH(t *testing.T) {
 
 	putFile(t, s3client, bucket, "testfile1.txt", strings.Repeat("this is a file content", 10000))
 	putFile(t, s3client, bucket, "testfile2.txt", strings.Repeat("this is also a file content", 10000))
+	putFile(t, s3client, bucket, "testfile3.txt", "this is a small file")
 
 	cmd := s5cmd("ls", "-H", "s3://"+bucket)
 	result := icmd.RunCmd(cmd)
@@ -440,6 +441,7 @@ func TestListS3ObjectsWithDashH(t *testing.T) {
 	assertLines(t, result.Stdout(), map[int]compareFunc{
 		0: match(`^ 214.8K testfile1.txt$`),
 		1: match(`^ 263.7K testfile2.txt$`),
+		2: match(`^ 20B testfile3.txt$`),
 	}, trimMatch(dateRe), alignment(true))
 }
 

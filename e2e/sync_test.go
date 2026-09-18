@@ -2439,6 +2439,43 @@ func TestSyncLocalDirectoryToS3WithExcludeFilter(t *testing.T) {
 	}
 }
 
+// sync s3://bucket/* dir/  (object key contains "..")
+func TestSyncS3ObjectsToLocalWithPathTraversalKey(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd := setup(t)
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	putFile(t, s3client, bucket, "data/ok.txt", "ok")
+	putFile(t, s3client, bucket, "data/../../escape.txt", "pwned")
+
+	workdir := fs.NewDir(t, "somedir", fs.WithDir("dest"))
+	defer workdir.Remove()
+
+	cmd := s5cmd("sync", "s3://"+bucket+"/*", "dest/")
+	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
+
+	result.Assert(t, icmd.Expected{ExitCode: 1})
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`cp s3://%v/data/ok.txt dest/data/ok.txt`, bucket),
+	})
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: contains(`escapes destination`),
+	})
+
+	expected := fs.Expected(t,
+		fs.WithDir("dest",
+			fs.WithDir("data",
+				fs.WithFile("ok.txt", "ok"),
+			),
+		),
+	)
+	assert.Assert(t, fs.Equal(workdir.Path(), expected))
+}
+
 // sync --delete somedir s3://bucket/ (removes 10k objects)
 func TestIssue435(t *testing.T) {
 	t.Parallel()

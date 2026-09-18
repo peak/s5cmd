@@ -195,6 +195,32 @@ func (u *URL) Dir() string {
 	return basefn(u.Path)
 }
 
+// JoinInside is Join for destinations that must contain the result. Object
+// keys are arbitrary strings and may hold ".." components; joined onto a
+// local directory they would resolve outside it, so an attacker who can
+// write one object to a bucket could write anywhere the downloading user
+// can. Remote URLs keep keys verbatim and are joined as is.
+func (u *URL) JoinInside(s string) (*URL, error) {
+	clone := u.Join(s)
+	if clone.IsRemote() {
+		return clone, nil
+	}
+
+	base := path.Clean(u.Path)
+	target := clone.Path // already cleaned by path.Join
+
+	var escapes bool
+	if base == "." {
+		escapes = target == ".." || strings.HasPrefix(target, "../")
+	} else {
+		escapes = target != base && !strings.HasPrefix(target, strings.TrimSuffix(base, "/")+"/")
+	}
+	if escapes {
+		return nil, fmt.Errorf("object key %q escapes destination %q", s, u.Path)
+	}
+	return clone, nil
+}
+
 // Join joins string and returns new URL.
 func (u *URL) Join(s string) *URL {
 	if runtime.GOOS == "windows" {

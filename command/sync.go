@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/hashicorp/go-multierror"
@@ -232,9 +233,13 @@ func (s Sync) Run(c *cli.Context) error {
 	pipeReader, pipeWriter := io.Pipe() // create a reader, writer pipe to pass commands to run
 
 	// Create commands in background.
-	go s.planRun(c, onlySource, onlyDest, commonObjects, dsturl, strategy, pipeWriter, isBatch)
+	var rejected int64 // objects planRun refused to generate a command for
+	go s.planRun(c, onlySource, onlyDest, commonObjects, dsturl, strategy, pipeWriter, isBatch, &rejected)
 
 	err = NewRun(c, pipeReader).Run(ctx)
+	if n := atomic.LoadInt64(&rejected); n > 0 {
+		err = multierror.Append(err, fmt.Errorf("%d object(s) were not synced", n))
+	}
 	return multierror.Append(err, merrorWaiter).ErrorOrNil()
 }
 
@@ -444,6 +449,7 @@ func (s Sync) planRun(
 	strategy SyncStrategy,
 	w io.WriteCloser,
 	isBatch bool,
+	rejected *int64,
 ) {
 	defer w.Close()
 
@@ -463,7 +469,12 @@ func (s Sync) planRun(
 	go func() {
 		defer wg.Done()
 		for srcurl := range onlySource {
-			curDestURL := generateDestinationURL(srcurl, dsturl, isBatch)
+			curDestURL, err := generateDestinationURL(srcurl, dsturl, isBatch)
+			if err != nil {
+				printError(s.fullCommand, s.op, err)
+				atomic.AddInt64(rejected, 1)
+				continue
+			}
 			command, err := generateCommand(c, "cp", defaultFlags, srcurl, curDestURL)
 			if err != nil {
 				printDebug(s.op, err, srcurl, curDestURL)
@@ -532,7 +543,7 @@ func (s Sync) planRun(
 
 // generateDestinationURL generates destination url for given
 // source url if it would have been in destination.
-func generateDestinationURL(srcurl, dsturl *url.URL, isBatch bool) *url.URL {
+func generateDestinationURL(srcurl, dsturl *url.URL, isBatch bool) (*url.URL, error) {
 	objname := srcurl.Base()
 	if isBatch {
 		objname = srcurl.Relative()
@@ -540,13 +551,13 @@ func generateDestinationURL(srcurl, dsturl *url.URL, isBatch bool) *url.URL {
 
 	if dsturl.IsRemote() {
 		if dsturl.IsPrefix() || dsturl.IsBucket() {
-			return dsturl.Join(objname)
+			return dsturl.Join(objname), nil
 		}
-		return dsturl.Clone()
+		return dsturl.Clone(), nil
 
 	}
 
-	return dsturl.Join(objname)
+	return dsturl.JoinInside(objname)
 }
 
 // shouldSkipObject checks is object should be skipped.

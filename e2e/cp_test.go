@@ -309,6 +309,52 @@ func TestCopyMultipleFlatS3ObjectsToLocal(t *testing.T) {
 	}
 }
 
+// cp s3://bucket/* dir/  (object key contains "..")
+//
+// Object keys are arbitrary strings. A key such as "data/../../escape.txt"
+// must never resolve outside the destination directory.
+func TestCopyS3ObjectsToLocalWithPathTraversalKey(t *testing.T) {
+	t.Parallel()
+
+	s3client, s5cmd := setup(t)
+
+	bucket := s3BucketFromTestName(t)
+	createBucket(t, s3client, bucket)
+
+	const (
+		safeKey      = "data/ok.txt"
+		traversalKey = "data/../../escape.txt"
+	)
+	putFile(t, s3client, bucket, safeKey, "ok")
+	putFile(t, s3client, bucket, traversalKey, "pwned")
+	assert.Assert(t, ensureS3Object(s3client, bucket, traversalKey, "pwned"))
+
+	workdir := fs.NewDir(t, "somedir", fs.WithDir("dest"))
+	defer workdir.Remove()
+
+	cmd := s5cmd("cp", "s3://"+bucket+"/*", "dest/")
+	result := icmd.RunCmd(cmd, withWorkingDir(workdir))
+
+	result.Assert(t, icmd.Expected{ExitCode: 1})
+
+	assertLines(t, result.Stdout(), map[int]compareFunc{
+		0: equals(`cp s3://%v/data/ok.txt dest/data/ok.txt`, bucket),
+	})
+	assertLines(t, result.Stderr(), map[int]compareFunc{
+		0: contains(`escapes destination`),
+	})
+
+	// nothing written outside dest/, the safe object copied normally.
+	expected := fs.Expected(t,
+		fs.WithDir("dest",
+			fs.WithDir("data",
+				fs.WithFile("ok.txt", "ok"),
+			),
+		),
+	)
+	assert.Assert(t, fs.Equal(workdir.Path(), expected))
+}
+
 // cp --flatten s3://bucket/*.txt dir/
 func TestCopyMultipleFlatS3ObjectsToLocalWithPartialMatching(t *testing.T) {
 	t.Parallel()

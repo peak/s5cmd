@@ -957,7 +957,11 @@ func prepareLocalDestination(
 	}
 
 	if isBatch && !flatten {
-		dsturl = dsturl.Join(objname)
+		joined, jerr := dsturl.JoinInside(objname)
+		if jerr != nil {
+			return nil, jerr
+		}
+		dsturl = joined
 		err := client.MkdirAll(dsturl.Dir())
 		if err != nil {
 			return nil, err
@@ -970,11 +974,19 @@ func prepareLocalDestination(
 			return nil, err
 		}
 		if strings.HasSuffix(dsturl.Absolute(), "/") {
-			dsturl = dsturl.Join(objname)
+			joined, err := dsturl.JoinInside(objname)
+			if err != nil {
+				return nil, err
+			}
+			dsturl = joined
 		}
 	} else {
 		if obj.Type.IsDir() {
-			dsturl = obj.URL.Join(objname)
+			joined, err := obj.URL.JoinInside(objname)
+			if err != nil {
+				return nil, err
+			}
+			dsturl = joined
 		}
 	}
 

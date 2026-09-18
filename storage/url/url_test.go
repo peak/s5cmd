@@ -644,3 +644,51 @@ func TestToFromBytes(t *testing.T) {
 		})
 	}
 }
+
+func TestJoinInside(t *testing.T) {
+	t.Parallel()
+
+	testcases := []struct {
+		base    string
+		join    string
+		want    string
+		escapes bool
+	}{
+		{base: "dest", join: "a/b.txt", want: "dest/a/b.txt"},
+		{base: "dest/", join: "a/b.txt", want: "dest/a/b.txt"},
+		{base: "dest", join: "a/../b.txt", want: "dest/b.txt"},
+		{base: "dest", join: "../b.txt", escapes: true},
+		{base: "dest", join: "a/../../b.txt", escapes: true},
+		{base: "dest", join: "..", escapes: true},
+		{base: "dest", join: "../dest2/b.txt", escapes: true},
+		{base: ".", join: "a/b.txt", want: "a/b.txt"},
+		{base: ".", join: "../b.txt", escapes: true},
+		{base: "/", join: "../b.txt", want: "/b.txt"},
+		{base: "s3://bucket/prefix/", join: "../b.txt", want: "prefix/../b.txt"},
+	}
+
+	for _, tc := range testcases {
+		tc := tc
+		t.Run(tc.base+"+"+tc.join, func(t *testing.T) {
+			t.Parallel()
+
+			u, err := New(tc.base)
+			if err != nil {
+				t.Fatal(err)
+			}
+			got, err := u.JoinInside(tc.join)
+			if tc.escapes {
+				if err == nil {
+					t.Fatalf("expected an error, got %q", got.Path)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got.Path != tc.want {
+				t.Errorf("got %q, want %q", got.Path, tc.want)
+			}
+		})
+	}
+}

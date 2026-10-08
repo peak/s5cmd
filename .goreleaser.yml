@@ -1,3 +1,5 @@
+version: 2
+
 before:
   hooks:
     - make build
@@ -22,22 +24,25 @@ builds:
         goarch: 386
 
 archives:
-  - name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Os }}-{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}'
-    replacements:
-      darwin: macOS
-      linux: Linux
-      windows: Windows
-      386: 32bit
-      amd64: 64bit
+  - name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_
+      {{- if eq .Os "darwin" }}macOS
+      {{- else if eq .Os "linux" }}Linux
+      {{- else if eq .Os "windows" }}Windows
+      {{- else }}{{ .Os }}{{ end }}-
+      {{- if eq .Arch "386" }}32bit
+      {{- else if eq .Arch "amd64" }}64bit
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
     format_overrides:
       - goos: windows
-        format: zip
+        formats: [zip]
 
 checksum:
   name_template: '{{ .ProjectName }}_checksums.txt'
 
 snapshot:
-  name_template: "{{ .Tag }}"
+  version_template: "{{ .Tag }}"
 
 changelog:
   sort: asc
@@ -49,10 +54,10 @@ changelog:
       - Merge branch
 
 brews:
-  - tap:
+  - repository:
       owner: peak
       name: homebrew-tap
-    folder: Formula
+    directory: Formula
     name: s5cmd
     description: Parallel S3 and local filesystem execution tool
     homepage: https://github.com/peak/s5cmd
